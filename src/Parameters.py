@@ -1,4 +1,5 @@
-from typing import Optional
+from __future__ import annotations
+from typing import Optional, Any
 import numpy as np
 
 
@@ -19,10 +20,10 @@ class BaseParameters(dict):
     max_generations = int(1e10)
     rtol = 1e-8
 
-    def __getattr__(self, attr):
+    def __getattr__(self, attr: str) -> Any:
         return self.get(attr)
 
-    def __setattr__(self, attr, value):
+    def __setattr__(self, attr: str, value: Any) -> None:
         self[attr] = value
 
 
@@ -58,19 +59,19 @@ class Parameters(BaseParameters):
         self.used_budget = 0
 
         self.set_default_parameters()
+        self.init_bounds()
         self.set_static_variables()
         self.init_dynamic_vars(sigma)
 
-    def set_default_parameters(self):
+    def set_default_parameters(self) -> None:
         # TODO: make this configurable
         self.update(
             {**self.bool_default_opts,
              **self.string_default_opts,
              **self}
         )
-        self.init_bounds()
 
-    def init_bounds(self):
+    def init_bounds(self) -> None:
         self.lb = -5
         self.ub = 5
         self.diameter = np.sqrt(
@@ -84,7 +85,7 @@ class Parameters(BaseParameters):
         self.wcm = (np.random.randn(self.d, 1) *
                     (self.ub - self.lb)) + self.lb
 
-    def set_static_variables(self):
+    def set_static_variables(self) -> None:
         # TODO: Check which varaibles are static
         self.mu_eff = 1 / np.sum(np.square(self.recombination_weights))
 
@@ -100,7 +101,7 @@ class Parameters(BaseParameters):
                    ) + self.c_sigma
         self.chi_N = self.d**.5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d**2))
 
-    def init_dynamic_vars(self, sigma=None):
+    def init_dynamic_vars(self, sigma: Optional[float] = None) -> None:
         self.sigma = self.sigma_old = sigma or 1.
         self.C = np.eye(self.d)
         self.sqrt_C = np.eye(self.d)
@@ -109,7 +110,7 @@ class Parameters(BaseParameters):
         self.p_sigma = np.zeros((self.d, 1))
         self.p_c = np.zeros((self.d, 1))
 
-    def adapt(self, pop):
+    def adapt(self, pop: "Population") -> None:
         self.p_sigma = (
             (1 - self.c_sigma) * self.p_sigma +
             np.sqrt(
@@ -165,7 +166,7 @@ class Parameters(BaseParameters):
         except np.linalg.LinAlgError as err:
             self.init_dynamic_vars()
 
-    def diagonalize(self):
+    def diagonalize(self) -> None:
         self.C = np.triu(self.C) + np.triu(self.C, 1).T
         # are these values correct ?
         # The smaller you make right hand side -> the earlier you restart,
@@ -187,7 +188,7 @@ class Parameters(BaseParameters):
         self.sqrt_C = np.dot(
             eigenvectors, eigenvalues ** -1 * eigenvectors.T)
 
-    def tpa_update(self):
+    def tpa_update(self) -> None:
         # tpa_result, alpha_s and beta_tpa are still undefined
         alpha = self.tpa_result * self.alpha + (
             self.beta_tpa * (self.tpa_result > 1)
@@ -195,7 +196,7 @@ class Parameters(BaseParameters):
         self.alpha_s += self.c_alpha * (alpha - self.alpha_s)
         self.sigma *= np.exp(self.alpha_s)
 
-    def sigma_update(self):
+    def sigma_update(self) -> None:
         self.sigma *= np.exp((
             (self.c_sigma / self.damps) *
             (np.linalg.norm(self.p_sigma) / self.chi_N - 1)
@@ -203,13 +204,13 @@ class Parameters(BaseParameters):
         if np.isinf(self.sigma):
             self.sigma = self.sigma_old
 
-    def active_update(self, pop):
+    def active_update(self, pop: "Population") -> None:
         if pop.n >= (2 * self.mu):
             offset = pop.mutation_vectors[:, -self.mu:]
             self.C -= self.c_mu * np.dot(offset, self.rw * offset.T)
 
     @property
-    def recombination_weights(self):
+    def recombination_weights(self) -> np.ndarray:
         if self.weights_option == '1/n':
             return np.ones((self.mu, 1)) * (1 / self.mu)
         else:
@@ -219,7 +220,7 @@ class Parameters(BaseParameters):
             return weights / np.sum(weights)
 
     @property
-    def threshold(self):
+    def threshold(self) -> float:
         return (
             self.init_threshold * self.diameter *
             ((self.budget - self.used_budget) / self.budget)

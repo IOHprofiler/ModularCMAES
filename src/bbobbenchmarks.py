@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-
+# type: ignore
 """BBOB noiseless testbed.
 
 The optimisation test functions are represented as classes `F1` to

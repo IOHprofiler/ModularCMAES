@@ -70,7 +70,7 @@ class ConfigurableCMA:
             self.parameters.mu, self.parameters.d, self.parameters.wcm
         )
 
-    def run(self) -> ConfigurableCMA:
+    def run(self) -> 'ConfigurableCMA':
         '''Add docstring'''
         for generation in range(1, self.parameters.max_generations):
             self.new_population = self.population.recombine(self.parameters)
@@ -86,28 +86,28 @@ class ConfigurableCMA:
             self.parameters.adapt(self.new_population)
         return self
 
-    def sequential_break_conditions(self, i: int, ind: Individual
+    def sequential_break_conditions(self, i: int, ind: 'Individual'
                                     ) -> bool:
         '''Add docstring'''
         if self.parameters.sequential:
-            return (ind.fitness < self.pop.best_individual.fitness and
+            return (ind.fitness < self.new_population.best_individual.fitness and
                     i > self.parameters.seq_cutoff)
         return False
 
-    def select(self, new_pop: Population) -> Population:
+    def select(self, new_pop: 'Population') -> 'Population':
         '''Add docstring'''
         if self.parameters.elitist:
             new_pop += self.population
         new_pop.sort()
         return new_pop[:self.parameters.mu]
 
-    def fitness_func(self, individual: Individual) -> float:
+    def fitness_func(self, individual: 'Individual') -> float:
         '''Add docstring'''
         self.parameters.used_budget += 1
         return self._fitness_func(individual.genome.flatten())
 
     @property
-    def normal_break_conditions(self) -> List[bool, bool]:
+    def normal_break_conditions(self) -> List[bool]:
         '''Add docstring'''
         target_reached = np.isclose(
             self.parameters.target,
@@ -119,7 +119,7 @@ class ConfigurableCMA:
         ]
 
     @staticmethod
-    def make(ffid: int, *args, **kwargs) -> ConfigurableCMA:
+    def make(ffid: int, *args, **kwargs) -> 'ConfigurableCMA':
         fitness_func, target = bbobbenchmarks.instantiate(
             ffid, iinstance=1)
         return ConfigurableCMA(fitness_func, target, *args, **kwargs)

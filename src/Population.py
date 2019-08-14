@@ -1,27 +1,28 @@
 import itertools
+from typing import Optional, List, Any
 import numpy as np
 
 
 class Individual:
-    def __init__(self, d, genome=None, last_z=None, mutation_vector=None, fitness=None):
+    def __init__(
+        self,
+        d: int,
+        genome: Optional[np.ndarray] = None,
+        last_z: Optional[np.ndarray] = None,
+        mutation_vector: Optional[np.ndarray] = None,
+        fitness: Optional[float] = None
+    ) -> None:
         self.d = d
         self.fitness = fitness or np.inf
-        if type(genome) == np.ndarray:
-            self.genome = genome.copy()
-        else:
-            self.genome = np.ones((d, 1))
 
-        if type(last_z) == np.ndarray:
-            self.last_z = last_z.copy()
-        else:
-            self.last_z = np.zeros((d, 1))
+        for name in ("genome", "last_z", "mutation_vector"):
+            value = eval(name)
+            if type(value) == np.ndarray:
+                setattr(self, name, value.copy())
+            else:
+                setattr(self, name, np.ones((self.d, 1)))
 
-        if type(mutation_vector) == np.ndarray:
-            self.mutation_vector = mutation_vector.copy()
-        else:
-            self.mutation_vector = np.zeros((d, 1))
-
-    def mutate(self, parameters):
+    def mutate(self, parameters: "Parameters") -> None:
         self.last_z = parameters.sampler.next()
 
         if parameters.threshold_convergence:
@@ -49,18 +50,78 @@ class Individual:
             1. - np.abs(y - np.floor(y))
         )
 
-    def __lt__(self, other):
+    def __lt__(self, other: "Individual") -> bool:
         return self.fitness < other.fitness
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Individual d:{self.d} fitness:{self.fitness} x1:{self.genome[0]}>"
 
 
 class Population:
-    def __init__(self, individuals):
+    def __init__(self, individuals: List['Individual']) -> None:
         self.individuals = individuals
 
-    def __getitem__(self, key):
+    def recombine(self, parameters: "Parameters") -> "Population":
+        '''There is only one function used by all CMA-ES
+        variants, only the recombination weights are different '''
+
+        parameters.wcm_old = parameters.wcm.copy()
+        parameters.wcm = np.dot(
+            self.genomes,
+            parameters.recombination_weights
+        )
+        return Population.new_population(
+            parameters.lambda_, parameters.d,
+            parameters.wcm
+        )
+
+    def copy(self) -> "Population":
+        return Population(
+            [Individual(**i.__dict__) for i in self.individuals]
+        )
+
+    def sort(self) -> None:
+        self.individuals.sort()
+
+    @property
+    def genomes(self) -> np.ndarray:
+        return np.column_stack(
+            [ind.genome for ind in self.individuals])
+
+    @property
+    def fitnesses(self) -> np.ndarray:
+        return np.array([ind.fitness for ind in self.individuals])
+
+    @property
+    def mutation_vectors(self) -> np.ndarray:
+        return np.column_stack(
+            [ind.mutation_vector for ind in self.individuals])
+
+    @property
+    def last_zs(self) -> np.ndarray:
+        return np.column_stack(
+            [ind.last_z for ind in self.individuals])
+
+    @property
+    def best_individual(self) -> "Individual":
+        return self.individuals[np.argmin(self.fitnesses)]
+
+    @staticmethod
+    def new_population(n: int, d: int, genome: Optional[np.ndarray] = None
+                       ) -> 'Population':
+        return Population(
+            [Individual(d, genome) for _ in range(n)]
+        )
+
+    @property
+    def d(self) -> int:
+        return self.best_individual.d
+
+    @property
+    def n(self) -> int:
+        return len(self.individuals)
+
+    def __getitem__(self, key: str) -> Any:
         if isinstance(key, int):
             return self.individuals[key]
         elif isinstance(key, slice):
@@ -71,75 +132,15 @@ class Population:
             raise KeyError("Key must be non-negative integer or slice, not {}"
                            .format(key))
 
-    def recombine(self, parameters) -> "Population":
-        '''There is only one function used by all CMA-ES
-        variants, only the recombination weights are different '''
-
-        parameters.wcm_old = parameters.wcm.copy()
-
-        parameters.wcm = np.dot(
-            self.genomes,
-            parameters.recombination_weights
-        )
-        return Population.new_population(
-            parameters.lambda_, parameters.d,
-            parameters.wcm
-        )
-
-    @property
-    def genomes(self):
-        return np.column_stack(
-            [ind.genome for ind in self.individuals])
-
-    @property
-    def fitnesses(self):
-        return np.array([ind.fitness for ind in self.individuals])
-
-    @property
-    def mutation_vectors(self):
-        return np.column_stack(
-            [ind.mutation_vector for ind in self.individuals])
-
-    @property
-    def last_zs(self):
-        return np.column_stack(
-            [ind.last_z for ind in self.individuals])
-
-    @property
-    def best_individual(self):
-        return self.individuals[np.argmin(self.fitnesses)]
-
-    @staticmethod
-    def new_population(n, d, genome=None) -> 'Population':
-        return Population(
-            [Individual(d, genome) for _ in range(n)]
-        )
-
-    @property
-    def d(self):
-        return self.best_individual.d
-
-    @property
-    def n(self):
-        return len(self.individuals)
-
-    def copy(self):
-        return Population(
-            [Individual(**i.__dict__) for i in self.individuals]
-        )
-
-    def sort(self):
-        self.individuals.sort()
-
-    def __add__(self, other):
+    def __add__(self, other: "Population") -> "Population":
         assert isinstance(other, self.__class__)
         return Population(
             [Individual(**i.__dict__)
              for i in (self.individuals + other.individuals)]
         )
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f"<Population d:{self.d} n:{self.n}>"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.__repr__()
