@@ -1,3 +1,4 @@
+from typing import Optional
 import numpy as np
 
 
@@ -13,8 +14,10 @@ class BaseParameters(dict):
     tpa_factor = 0.5
     beta_tpa = 0
     c_alpha = 0.3
+
+    ## Break conditions ##
     max_generations = int(1e10)
-    atol = 1e-8
+    rtol = 1e-8
 
     def __getattr__(self, attr):
         return self.get(attr)
@@ -32,26 +35,29 @@ class Parameters(BaseParameters):
     string_default_opts = dict.fromkeys(
         ['base-sampler', 'selection', 'weights_option'])
 
-    def __init__(self, d, mu_int, mu=None, lambda_=None, sigma=None, budget=None, target=None, seq_cutoff_factor=1):
+    def __init__(
+        self,
+        d: int,
+        mu: Optional[int] = None,
+        lambda_: Optional[int] = None,
+        sigma: Optional[float] = None,
+        budget: Optional[int] = None,
+        target: Optional[float] = None,
+        seq_cutoff_factor: Optional[int] = 1
+    ) -> None:
         # TODO: check mu/lambda interdependencies
         self.d = d
-        self.set_default_parameters()
-
         self.target = target
 
-        # See if we can combine these weird mu_eff/mu_int etc.
-        self.mu_int = mu_int
-        self.mu = mu or .5
         self.lambda_ = lambda_ or int(4 + np.floor(3 * np.log(self.d)))
-        self.lambda_eff = self.lambda_ - (2 * int(self.tpa))
+        self.mu = mu or int(1 + np.floor((self.lambda_ - 1) * .5))
 
         self.seq_cutoff_factor = seq_cutoff_factor
-        self.seq_cutoff = mu_int * self.seq_cutoff_factor
-
+        self.seq_cutoff = self.mu * self.seq_cutoff_factor
         self.budget = budget or 1e4 * self.d
-
         self.used_budget = 0
 
+        self.set_default_parameters()
         self.set_static_variables()
         self.init_dynamic_vars(sigma)
 
@@ -62,7 +68,6 @@ class Parameters(BaseParameters):
              **self.string_default_opts,
              **self}
         )
-
         self.init_bounds()
 
     def init_bounds(self):
@@ -82,6 +87,7 @@ class Parameters(BaseParameters):
     def set_static_variables(self):
         # TODO: Check which varaibles are static
         self.mu_eff = 1 / np.sum(np.square(self.recombination_weights))
+
         self.c_sigma = (self.mu_eff + 2) / (self.mu_eff + self.d + 5)
         self.c_c = (4 + self.mu_eff / self.d) / \
             (self.d + 4 + 2 * self.mu_eff / self.d)
@@ -113,15 +119,20 @@ class Parameters(BaseParameters):
                 self.sqrt_C, (self.wcm - self.wcm_old) / self.sigma
             )
         )
-        # Why not lambda_eff ?
-        power = (2 * self.used_budget / self.lambda_)
 
         hsig = (
             (self.p_sigma ** 2).sum() /
             (
-                (1 - (1 - self.c_sigma) ** power)
-                if power < 1000 else 1
+                (1 - (1 - self.c_sigma) **
+                    (2 * self.used_budget / self.lambda_)
+                 )
             ) / self.d) < 2 + 4 / (self.d + 1)
+
+        # hsig_wiki = np.linalg.norm(self.p_sigma) / np.sqrt(
+        #     1 - (1 - self.c_sigma) ** (
+        #         2 * self.used_budget / self.lambda_
+        #     )
+        # ) / self.chi_N < (1.4 + 2 / (self.d + 1))
 
         self.p_c = (
             (1 - self.c_c) * self.p_c + hsig *
@@ -130,12 +141,13 @@ class Parameters(BaseParameters):
             ) * (self.wcm - self.wcm_old) / self.sigma
         )
 
-        offset = pop.mutation_vectors[:, :self.mu_int]
+        offset = pop.mutation_vectors[:, :self.mu]
 
         self.C = (
             (1 - self.c_1 - self.c_mu) * self.C + self.c_1 *
-            (np.outer(self.p_c, self.p_c) + (1 - hsig) * self.c_c * (2 - self.c_c) * self.C) +
-            self.c_mu * np.dot(offset, self.rw * offset.T)
+            (np.outer(self.p_c, self.p_c) + (1 - hsig) * self.c_c *
+             (2 - self.c_c) * self.C) + self.c_mu *
+            np.dot(offset, self.recombination_weights * offset.T)
         )
 
         if self.active:
@@ -152,19 +164,23 @@ class Parameters(BaseParameters):
             self.diagonalize()
         except np.linalg.LinAlgError as err:
             self.init_dynamic_vars()
-            # self.restart(err)
 
     def diagonalize(self):
         self.C = np.triu(self.C) + np.triu(self.C, 1).T
+        # are these values correct ?
+        # The smaller you make right hand side -> the earlier you restart,
+        # the quicker you converge
+
         if np.isinf(self.C).any() or (not 1e-16 < self.sigma_old < 1e6):
             raise np.linalg.LinAlgError(
                 'The Covariance matrix has degenerated')
+        # casting to complex to allow negative sqrt
         eigenvalues, eigenvectors = np.linalg.eigh(self.C)
+        eigenvalues = np.sqrt(eigenvalues.astype(complex).reshape(-1, 1))
+
         if np.isinf(eigenvalues).any() or (~np.isreal(eigenvalues)).any():
             raise np.linalg.LinAlgError(
                 'The eigenvalues of the Covariance matrix are infinite or not real')
-
-        eigenvalues = np.sqrt(eigenvalues.astype(complex).reshape(-1, 1))
 
         self.D = np.real(eigenvalues)
         self.B = eigenvectors
@@ -180,33 +196,27 @@ class Parameters(BaseParameters):
         self.sigma *= np.exp(self.alpha_s)
 
     def sigma_update(self):
-        power = (
-                (np.linalg.norm(self.p_sigma) / self.chi_N - 1) *
-            self.c_sigma / self.damps
-        )
-        if power < 1000:
-            self.sigma *= np.exp(power)
-        else:
+        self.sigma *= np.exp((
+            (self.c_sigma / self.damps) *
+            (np.linalg.norm(self.p_sigma) / self.chi_N - 1)
+        ))
+        if np.isinf(self.sigma):
             self.sigma = self.sigma_old
 
     def active_update(self, pop):
-        if pop.n >= (2 * self.mu_int):
-            offset = pop.mutation_vectors[:, -self.mu_int:]
+        if pop.n >= (2 * self.mu):
+            offset = pop.mutation_vectors[:, -self.mu:]
             self.C -= self.c_mu * np.dot(offset, self.rw * offset.T)
 
     @property
     def recombination_weights(self):
         if self.weights_option == '1/n':
-            return np.ones((self.mu_int, 1)) * (1 / self.mu_int)
+            return np.ones((self.mu, 1)) * (1 / self.mu)
         else:
             _mu_prime = (self.lambda_ - 1) / 2.0
             weights = np.log(_mu_prime + 1.0) - \
-                np.log(np.arange(1, self.mu_int + 1)[:, np.newaxis])
+                np.log(np.arange(1, self.mu + 1)[:, np.newaxis])
             return weights / np.sum(weights)
-
-    @property
-    def rw(self):
-        return self.recombination_weights
 
     @property
     def threshold(self):
