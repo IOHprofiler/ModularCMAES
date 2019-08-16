@@ -35,18 +35,41 @@ Configurable parts:
     11. local_restart (None, 'IPOP', 'BIPOP'):
         lets not do this for now
 '''
-from __future__ import annotations
-import itertools
-from time import time
-from argparse import ArgumentParser
 from typing import Callable, Optional, List
 
 import numpy as np
-import bbobbenchmarks
 
+import bbobbenchmarks
 from Parameters import Parameters
 from Population import Population, Individual
 from Sampling import GaussianSampling
+
+DISTANCE_TO_TARGET = [pow(10, p) for p in [
+    -8.,  # 1
+    -8.,  # 2
+    .4,  # 3
+    .8,  # 4
+    -8.,  # 5
+    -8.,  # 6
+    .0,  # 7
+    -8.,  # 8
+    -8.,  # 9
+    -8.,  # 10
+    -8.,  # 11
+    -8.,  # 12
+    -8.,  # 13
+    -8.,  # 14
+    .4,  # 15
+    -2.,  # 16
+    -4.4,  # 17
+    -4.0,  # 18
+    -.6,  # 19
+    .2,  # 20
+    -.6,  # 21
+    .0,  # 22
+    -.8,  # 23
+    1.0,  # 24
+]]
 
 
 class ConfigurableCMA:
@@ -57,12 +80,13 @@ class ConfigurableCMA:
         fitness_func: Callable[[np.ndarray], int],
         target: float,
         d: int,
-        lambda_: Optional[int] = None
+        lambda_: Optional[int] = None,
+        **kwargs
     ) -> None:
         '''Add docstring'''
         self._fitness_func = fitness_func
         self.parameters = Parameters(
-            d=d, lambda_=lambda_, target=target)
+            d=d, lambda_=lambda_, target=target, **kwargs)
 
         self.parameters.sampler = GaussianSampling(self.parameters.d)
 
@@ -72,19 +96,22 @@ class ConfigurableCMA:
 
     def run(self) -> 'ConfigurableCMA':
         '''Add docstring'''
-        for generation in range(1, self.parameters.max_generations):
-            self.new_population = self.population.recombine(self.parameters)
-            for i, individual in enumerate(self.new_population, 1):
-                individual.mutate(self.parameters)
-                individual.fitness = self.fitness_func(individual)
-                if self.sequential_break_conditions(i, individual):
-                    break
-            if any(self.normal_break_conditions):
-                break
-            self.new_population = self.new_population[:i]
-            self.population = self.select(self.new_population)
-            self.parameters.adapt(self.new_population)
+        while self.step():
+            pass
         return self
+
+    def step(self) -> bool:
+        self.new_population = self.population.recombine(self.parameters)
+        for i, individual in enumerate(self.new_population, 1):
+            # TODO:  check performance difference of mutate vectorized
+            individual.mutate(self.parameters)
+            individual.fitness = self.fitness_func(individual)
+            if self.sequential_break_conditions(i, individual):
+                break
+        self.new_population = self.new_population[:i]
+        self.population = self.select(self.new_population)
+        self.parameters.adapt(self.new_population)
+        return not any(self.break_conditions)
 
     def sequential_break_conditions(self, i: int, ind: 'Individual'
                                     ) -> bool:
@@ -107,110 +134,28 @@ class ConfigurableCMA:
         return self._fitness_func(individual.genome.flatten())
 
     @property
-    def normal_break_conditions(self) -> List[bool]:
+    def break_conditions(self) -> List[bool]:
         '''Add docstring'''
-        target_reached = np.isclose(
-            self.parameters.target,
-            self.new_population.best_individual.fitness,
-            rtol=self.parameters.rtol)
+        target = self.parameters.target + self.parameters.rtol
+        # For some reason np.close doesn't work here
+
+        target_reached = target >= self.parameters.fce
+        # new_population.best_individual.fitness
         return [
             target_reached,
             self.parameters.used_budget >= self.parameters.budget
         ]
 
+    @property
+    def fce(self):
+        return min(self.population.best_individual.fitness,
+                   self.new_population.best_individual.fitness)
+
     @staticmethod
     def make(ffid: int, *args, **kwargs) -> 'ConfigurableCMA':
         fitness_func, target = bbobbenchmarks.instantiate(
             ffid, iinstance=1)
-        return ConfigurableCMA(fitness_func, target, *args, **kwargs)
-
-
-def evaluate(functionid, dim, iterations):
-    start = time()
-    ets, fce = [], []
-    for i in range(iterations):
-        cma = ConfigurableCMA.make(functionid, d=dim).run()
-        ets.append(cma.parameters.used_budget)
-        fce.append(cma.population.best_individual.fitness)
-
-    ets = np.array(ets)
-
-    print("FCE:\t", np.round(np.mean(fce), 4), "\t", np.round(np.std(fce), 4))
-    print(
-        "ERT:\t", np.round(
-            ets.sum() / (ets != cma.parameters.budget).sum(), 4),
-        "\t", np.round(np.std(ets), 4)
-    )
-    # breakpoint()
-    print("Time:\t", time() - start)
-
-
-def benchmark(functionid, dim, iterations):
-    import cma
-    f, t = bbobbenchmarks.instantiate(
-        functionid, iinstance=1)
-    params = Parameters(
-        d=dim, mu=3, lambda_=None, target=t)
-
-    start = time()
-    ets, fce = [], []
-    for i in range(iterations):
-        es = cma.CMAEvolutionStrategy(
-            params.wcm.flatten().tolist(), params.sigma,
-            {
-                'verbose': -8,
-                'CMA_active': False,
-                "CMA_mirrormethod": 0,
-                'CMA_mu': 3,
-
-            }
-        )
-        while not es.stop():
-            es.tell(*es.ask_and_eval(f))
-            if np.isclose(es.best.f, t):
-                ets.append(es.countevals)
-                fce.append(es.best.f)
-                break
-
-    ets = np.array(ets)
-    print("FCE:\t", np.round(np.mean(fce), 4), "\t", np.round(np.std(fce), 4))
-    print(
-        "ERT:\t", np.round(
-            ets.sum() / (ets != params.budget).sum(), 4),
-        "\t", np.round(np.std(ets), 4)
-    )
-    print("Time:\t", time() - start)
-
-
-def main():
-    parser = ArgumentParser(
-        description='Run single function MAB exp iid 1')
-    parser.add_argument(
-        '-f', "--functionid", type=int,
-        help="bbob function id", required=False, default=5
-    )
-    parser.add_argument(
-        '-d', "--dim", type=int,
-        help="dimension", required=False, default=5
-    )
-    parser.add_argument(
-        '-i', "--iterations", type=int,
-        help="number of iterations per agent",
-        required=False, default=50
-    )
-    args = vars(parser.parse_args())
-    print("rewrite")
-    evaluate(**args)
-    # print("Benchmark")
-    # benchmark(**args)
-    import subprocess
-    print("old")
-    subprocess.run(
-        "/home/jacob/Documents/thesis/.env/bin/python "
-        f"/home/jacob/Documents/thesis/OnlineCMA-ES/src/main.py "
-        f"-f {args['functionid']} -d {args['dim']} -i {args['iterations']} --clear", shell=True
-    )
-
-
-if __name__ == "__main__":
-    main()
+        rtol = DISTANCE_TO_TARGET[ffid - 1]
+        return ConfigurableCMA(fitness_func, target, *args,
+                               rtol=rtol,
+                               ** kwargs), target

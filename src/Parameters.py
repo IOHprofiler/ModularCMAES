@@ -17,14 +17,13 @@ class BaseParameters(dict):
     c_alpha = 0.3
 
     ## Break conditions ##
-    max_generations = int(1e10)
     rtol = 1e-8
 
-    def __getattr__(self, attr: str) -> Any:
-        return self.get(attr)
+    # def __getattr__(self, attr: str) -> Any:
+    #     return self.get(attr)
 
-    def __setattr__(self, attr: str, value: Any) -> None:
-        self[attr] = value
+    # def __setattr__(self, attr: str, value: Any) -> None:
+    #     self[attr] = value
 
 
 class Parameters(BaseParameters):
@@ -44,34 +43,43 @@ class Parameters(BaseParameters):
         sigma: Optional[float] = None,
         budget: Optional[int] = None,
         target: Optional[float] = None,
-        seq_cutoff_factor: Optional[int] = 1
+        seq_cutoff_factor: Optional[int] = 1,
+        **kwargs
     ) -> None:
-        # TODO: check mu/lambda interdependencies
-        self.d = d
-        self.target = target
-
-        self.lambda_ = lambda_ or int(4 + np.floor(3 * np.log(self.d)))
-        self.mu = mu or int(1 + np.floor((self.lambda_ - 1) * .5))
-
-        self.seq_cutoff_factor = seq_cutoff_factor
-        self.seq_cutoff = self.mu * self.seq_cutoff_factor
-        self.budget = budget or 1e4 * self.d
-        self.used_budget = 0
-
-        self.set_default_parameters()
+        # call these functions once #
+        self.init_default_parameters(**kwargs)
+        self.init_meta_variables(d, target, budget)
         self.init_bounds()
-        self.set_static_variables()
+
+        # maybe call this on set_modules
+        self.init_selection_parameters(lambda_, mu, seq_cutoff_factor)
+
+        # def. call this on set_modules
+        self.init_adaptive_paramaters()
+
+        # call this on degeneration, alg. restart
         self.init_dynamic_vars(sigma)
 
-    def set_default_parameters(self) -> None:
+    def init_default_parameters(self, **kwargs) -> None:
         # TODO: make this configurable
-        self.update(
+        self.__dict__.update(
             {**self.bool_default_opts,
              **self.string_default_opts,
-             **self}
+             **self,
+             **kwargs}
         )
 
+    def init_meta_variables(self, d: int, target: float, budget: int) -> None:
+        self.d = d
+        self.target = target
+        self.budget = budget or 1e4 * self.d
+        self.used_budget = 0
+        self.fitness_over_time = np.array([])
+        self.fce = float("inf")
+
     def init_bounds(self) -> None:
+        # why this range? seems aribitrary
+        # might be an idea to remove the bounds
         self.lb = -5
         self.ub = 5
         self.diameter = np.sqrt(
@@ -85,69 +93,76 @@ class Parameters(BaseParameters):
         self.wcm = (np.random.randn(self.d, 1) *
                     (self.ub - self.lb)) + self.lb
 
-    def set_static_variables(self) -> None:
-        # TODO: Check which varaibles are static
+    def init_selection_parameters(self, lambda_: int, mu: int,
+                                  seq_cutoff_factor: int) -> None:
+        self.lambda_ = lambda_ or int(4 + np.floor(3 * np.log(self.d)))
+        self.mu = mu or int(1 + np.floor((self.lambda_ - 1) * .5))
+
+        self.seq_cutoff_factor = seq_cutoff_factor
+        self.seq_cutoff = self.mu * self.seq_cutoff_factor
+
+    def init_adaptive_paramaters(self) -> None:
+        self.recombination_weights = self.get_recombination_weights()
         self.mu_eff = 1 / np.sum(np.square(self.recombination_weights))
 
-        self.c_sigma = (self.mu_eff + 2) / (self.mu_eff + self.d + 5)
-        self.c_c = (4 + self.mu_eff / self.d) / \
-            (self.d + 4 + 2 * self.mu_eff / self.d)
-        self.c_1 = 2 / ((self.d + 1.3)**2 + self.mu_eff)
-        self.c_mu = min(1 - self.c_1, self.alpha_mu * (
+        # These things are different for when mu = 1
+        self.cc = ((4 + self.mu_eff / self.d) /
+                   (self.d + 4 + 2 * self.mu_eff / self.d))
+
+        self.cs = (self.mu_eff + 2) / (self.mu_eff + self.d + 5)
+        self.c1 = 2 / ((self.d + 1.3)**2 + self.mu_eff)
+
+        self.c_mu = min(1 - self.c1, self.alpha_mu * (
             (self.mu_eff - 2 + 1 / self.mu_eff) / (
                 (self.d + 2)**2 + self.alpha_mu * self.mu_eff / 2)))
+
         self.damps = 1 + 2 * \
-            np.max([0, np.sqrt((self.mu_eff - 1) / (self.d + 1)) - 1]
-                   ) + self.c_sigma
+            np.max([0, np.sqrt((self.mu_eff - 1) / (self.d + 1)) - 1]) + self.cs
         self.chi_N = self.d**.5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d**2))
 
     def init_dynamic_vars(self, sigma: Optional[float] = None) -> None:
         self.sigma = self.sigma_old = sigma or 1.
+        self.pc = np.zeros((self.d, 1))
         self.C = np.eye(self.d)
-        self.sqrt_C = np.eye(self.d)
+        self.ps = np.zeros((self.d, 1))
+
+        # Diagonalization
         self.B = np.eye(self.d)
         self.D = np.ones((self.d, 1))
-        self.p_sigma = np.zeros((self.d, 1))
-        self.p_c = np.zeros((self.d, 1))
+        self.inv_sqrt_C = np.eye(self.d)
 
     def adapt(self, pop: "Population") -> None:
-        self.p_sigma = (
-            (1 - self.c_sigma) * self.p_sigma +
+        self.ps = (
+            (1 - self.cs) * self.ps +
             np.sqrt(
-                self.c_sigma * (2 - self.c_sigma) * self.mu_eff
+                self.cs * (2 - self.cs) * self.mu_eff
             ) *
             np.dot(
-                self.sqrt_C, (self.wcm - self.wcm_old) / self.sigma
+                self.inv_sqrt_C, (self.wcm - self.wcm_old) / self.sigma
             )
         )
-
+        # this migth be different, try to replace with the orig one.
         hsig = (
-            (self.p_sigma ** 2).sum() /
+            (self.ps ** 2).sum() /
             (
-                (1 - (1 - self.c_sigma) **
+                (1 - (1 - self.cs) **
                     (2 * self.used_budget / self.lambda_)
                  )
             ) / self.d) < 2 + 4 / (self.d + 1)
 
-        # hsig_wiki = np.linalg.norm(self.p_sigma) / np.sqrt(
-        #     1 - (1 - self.c_sigma) ** (
-        #         2 * self.used_budget / self.lambda_
-        #     )
-        # ) / self.chi_N < (1.4 + 2 / (self.d + 1))
-
-        self.p_c = (
-            (1 - self.c_c) * self.p_c + hsig *
+        self.pc = (
+            (1 - self.cc) * self.pc + hsig *
             np.sqrt(
-                self.c_c * (2 - self.c_c) * self.mu_eff
+                self.cc * (2 - self.cc) * self.mu_eff
             ) * (self.wcm - self.wcm_old) / self.sigma
         )
-
+        # there is a new setting with negative weights,
+        # look in  to this, might boots performance
         offset = pop.mutation_vectors[:, :self.mu]
-
         self.C = (
-            (1 - self.c_1 - self.c_mu) * self.C + self.c_1 *
-            (np.outer(self.p_c, self.p_c) + (1 - hsig) * self.c_c *
-             (2 - self.c_c) * self.C) + self.c_mu *
+            (1 - self.c1 - self.c_mu) * self.C + self.c1 *
+            (np.outer(self.pc, self.pc) + (1 - hsig) * self.cc *
+             (2 - self.cc) * self.C) + self.c_mu *
             np.dot(offset, self.recombination_weights * offset.T)
         )
 
@@ -166,12 +181,13 @@ class Parameters(BaseParameters):
         except np.linalg.LinAlgError as err:
             self.init_dynamic_vars()
 
+        self.record_statistics(pop)
+
     def diagonalize(self) -> None:
         self.C = np.triu(self.C) + np.triu(self.C, 1).T
         # are these values correct ?
         # The smaller you make right hand side -> the earlier you restart,
         # the quicker you converge
-
         if np.isinf(self.C).any() or (not 1e-16 < self.sigma_old < 1e6):
             raise np.linalg.LinAlgError(
                 'The Covariance matrix has degenerated')
@@ -185,8 +201,7 @@ class Parameters(BaseParameters):
 
         self.D = np.real(eigenvalues)
         self.B = eigenvectors
-        self.sqrt_C = np.dot(
-            eigenvectors, eigenvalues ** -1 * eigenvectors.T)
+        self.inv_sqrt_C = np.dot(self.B, self.D ** -1 * self.B.T)
 
     def tpa_update(self) -> None:
         # tpa_result, alpha_s and beta_tpa are still undefined
@@ -198,8 +213,8 @@ class Parameters(BaseParameters):
 
     def sigma_update(self) -> None:
         self.sigma *= np.exp((
-            (self.c_sigma / self.damps) *
-            (np.linalg.norm(self.p_sigma) / self.chi_N - 1)
+            (np.linalg.norm(self.ps) / self.chi_N - 1) *
+            (self.cs / self.damps)
         ))
         if np.isinf(self.sigma):
             self.sigma = self.sigma_old
@@ -209,8 +224,7 @@ class Parameters(BaseParameters):
             offset = pop.mutation_vectors[:, -self.mu:]
             self.C -= self.c_mu * np.dot(offset, self.rw * offset.T)
 
-    @property
-    def recombination_weights(self) -> np.ndarray:
+    def get_recombination_weights(self) -> np.ndarray:
         if self.weights_option == '1/n':
             return np.ones((self.mu, 1)) * (1 / self.mu)
         else:
@@ -218,6 +232,14 @@ class Parameters(BaseParameters):
             weights = np.log(_mu_prime + 1.0) - \
                 np.log(np.arange(1, self.mu + 1)[:, np.newaxis])
             return weights / np.sum(weights)
+
+    def record_statistics(self, pop: "Population") -> None:
+        # this might be better include the entire population
+        self.fitness_over_time = np.append(
+            self.fitness_over_time,
+            [pop.best_individual.fitness] * pop.n
+        )
+        self.fce = min(pop.best_individual.fitness, self.fce)
 
     @property
     def threshold(self) -> float:

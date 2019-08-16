@@ -37,18 +37,17 @@ class Individual:
             parameters.B, (parameters.D * self.last_z))
 
         self.genome = np.add(self.genome,
-                             self.mutation_vector * parameters.sigma
-                             )
-        # correct out of bound
-        out_of_bounds = np.logical_or(
-            self.genome > parameters.ub, self.genome < parameters.lb)
-        y = (self.genome[out_of_bounds] - parameters.lb) / \
-            (parameters.ub - parameters.lb)
+                             self.mutation_vector * parameters.sigma)
+        # Bound correction is causing sigma to blow up, revisted countraint handling
+        # out_of_bounds = np.logical_or(
+        #     self.genome > parameters.ub, self.genome < parameters.lb)
+        # y = (self.genome[out_of_bounds] - parameters.lb) / \
+        #     (parameters.ub - parameters.lb)
 
-        self.genome[out_of_bounds] = parameters.lb + (
-            parameters.ub - parameters.lb) * (
-            1. - np.abs(y - np.floor(y))
-        )
+        # self.genome[out_of_bounds] = parameters.lb + (
+        #     parameters.ub - parameters.lb) * (
+        #     1. - np.abs(y - np.floor(y))
+        # )
 
     def __lt__(self, other: "Individual") -> bool:
         return self.fitness < other.fitness
@@ -64,15 +63,13 @@ class Population:
     def recombine(self, parameters: "Parameters") -> "Population":
         '''There is only one function used by all CMA-ES
         variants, only the recombination weights are different '''
-
         parameters.wcm_old = parameters.wcm.copy()
         parameters.wcm = np.dot(
-            self.genomes,
-            parameters.recombination_weights
+            self.genomes, parameters.recombination_weights
         )
         return Population.new_population(
             parameters.lambda_, parameters.d,
-            parameters.wcm
+            parameters.wcm,
         )
 
     def copy(self) -> "Population":
@@ -107,10 +104,18 @@ class Population:
         return self.individuals[np.argmin(self.fitnesses)]
 
     @staticmethod
-    def new_population(n: int, d: int, genome: Optional[np.ndarray] = None
-                       ) -> 'Population':
+    def new_population(
+        n: int,
+        d: int,
+        genome: Optional[np.ndarray] = None,
+        last_z: Optional[np.ndarray] = None,
+        mutation_vector: Optional[np.ndarray] = None,
+    ) -> 'Population':
         return Population(
-            [Individual(d, genome) for _ in range(n)]
+            [
+                Individual(d, genome, last_z, mutation_vector)
+                for _ in range(n)
+            ]
         )
 
     @property
