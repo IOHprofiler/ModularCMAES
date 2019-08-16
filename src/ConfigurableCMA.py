@@ -78,7 +78,7 @@ class ConfigurableCMA:
     def __init__(
         self,
         fitness_func: Callable[[np.ndarray], int],
-        target: float,
+        absolute_target: float,
         d: int,
         lambda_: Optional[int] = None,
         **kwargs
@@ -86,13 +86,29 @@ class ConfigurableCMA:
         '''Add docstring'''
         self._fitness_func = fitness_func
         self.parameters = Parameters(
-            d=d, lambda_=lambda_, target=target, **kwargs)
+            d=d, lambda_=lambda_, absolute_target=absolute_target, **kwargs)
 
         self.parameters.sampler = GaussianSampling(self.parameters.d)
 
         self.population = Population.new_population(
             self.parameters.mu, self.parameters.d, self.parameters.wcm
         )
+        self.new_population = self.population.recombine(self.parameters)
+
+    def step_old(self) -> bool:
+        self.new_population = self.population.recombine(self.parameters)
+        for i, individual in enumerate(self.new_population, 1):
+            # TODO:  check performance difference of mutate vectorized
+            individual.mutate(self.parameters)
+            individual.fitness = self.fitness_func(individual)
+            if self.sequential_break_conditions(i, individual):
+                break
+
+        self.parameters.record_statistics(self.new_population)
+        self.new_population = self.new_population[:i]
+        self.population = self.select(self.new_population)
+        self.parameters.adapt(self.new_population)
+        return not any(self.break_conditions)
 
     def run(self) -> 'ConfigurableCMA':
         '''Add docstring'''
@@ -101,16 +117,17 @@ class ConfigurableCMA:
         return self
 
     def step(self) -> bool:
-        self.new_population = self.population.recombine(self.parameters)
         for i, individual in enumerate(self.new_population, 1):
-            # TODO:  check performance difference of mutate vectorized
             individual.mutate(self.parameters)
             individual.fitness = self.fitness_func(individual)
             if self.sequential_break_conditions(i, individual):
                 break
+
+        self.parameters.record_statistics(self.new_population)
         self.new_population = self.new_population[:i]
         self.population = self.select(self.new_population)
-        self.parameters.adapt(self.new_population)
+        self.new_population = self.population.recombine(self.parameters)
+        self.parameters.adapt()
         return not any(self.break_conditions)
 
     def sequential_break_conditions(self, i: int, ind: 'Individual'
@@ -126,6 +143,8 @@ class ConfigurableCMA:
         if self.parameters.elitist:
             new_pop += self.population
         new_pop.sort()
+        # Weird stucture to put this here
+        self.parameters.offset = new_pop.mutation_vectors
         return new_pop[:self.parameters.mu]
 
     def fitness_func(self, individual: 'Individual') -> float:
@@ -136,26 +155,15 @@ class ConfigurableCMA:
     @property
     def break_conditions(self) -> List[bool]:
         '''Add docstring'''
-        target = self.parameters.target + self.parameters.rtol
-        # For some reason np.close doesn't work here
-
-        target_reached = target >= self.parameters.fce
-        # new_population.best_individual.fitness
         return [
-            target_reached,
+            self.parameters.target >= self.parameters.fmin,
             self.parameters.used_budget >= self.parameters.budget
         ]
-
-    @property
-    def fce(self):
-        return min(self.population.best_individual.fitness,
-                   self.new_population.best_individual.fitness)
 
     @staticmethod
     def make(ffid: int, *args, **kwargs) -> 'ConfigurableCMA':
         fitness_func, target = bbobbenchmarks.instantiate(
             ffid, iinstance=1)
-        rtol = DISTANCE_TO_TARGET[ffid - 1]
         return ConfigurableCMA(fitness_func, target, *args,
-                               rtol=rtol,
+                               rtol=DISTANCE_TO_TARGET[ffid - 1],
                                ** kwargs), target

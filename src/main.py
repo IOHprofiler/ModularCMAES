@@ -39,13 +39,13 @@ def evaluate(functionid, dim, iterations):
         cma, target = ConfigurableCMA.make(functionid, d=dim)
         cma.run()
         ets.append(cma.parameters.used_budget)
-        fce.append(cma.parameters.fce)
+        fce.append(cma.parameters.fmin)
         fs.append(cma.parameters.fitness_over_time)
 
     ets = np.array(ets)
-    print(cma.parameters.rtol)
-    print(cma.parameters.target)
-    print(cma.parameters.target + cma.parameters.rtol)
+    # print(cma.parameters.rtol)
+    # print(cma.parameters.target)
+    # print(cma.parameters.target + cma.parameters.rtol)
 
     print("FCE:\t{:10.8f}\t{:10.4f}\nERT:\t{:10.4f}\t{:10.4f}".format(
         np.mean(fce),

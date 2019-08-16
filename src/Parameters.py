@@ -19,11 +19,11 @@ class BaseParameters(dict):
     ## Break conditions ##
     rtol = 1e-8
 
-    # def __getattr__(self, attr: str) -> Any:
-    #     return self.get(attr)
+    def __getattr__(self, attr: str) -> Any:
+        return self.get(attr)
 
-    # def __setattr__(self, attr: str, value: Any) -> None:
-    #     self[attr] = value
+    def __setattr__(self, attr: str, value: Any) -> None:
+        self[attr] = value
 
 
 class Parameters(BaseParameters):
@@ -42,25 +42,25 @@ class Parameters(BaseParameters):
         lambda_: Optional[int] = None,
         sigma: Optional[float] = None,
         budget: Optional[int] = None,
-        target: Optional[float] = None,
+        absolute_target: Optional[float] = None,
         seq_cutoff_factor: Optional[int] = 1,
         **kwargs
     ) -> None:
         # call these functions once #
-        self.init_default_parameters(**kwargs)
-        self.init_meta_variables(d, target, budget)
+        self.init_parameters(**kwargs)
+        self.init_meta_variables(d, absolute_target, budget)
         self.init_bounds()
 
         # maybe call this on set_modules
-        self.init_selection_parameters(lambda_, mu, seq_cutoff_factor)
+        self.init_selection_variables(lambda_, mu, seq_cutoff_factor)
 
         # def. call this on set_modules
-        self.init_adaptive_paramaters()
+        self.init_adaptive_variables()
 
         # call this on degeneration, alg. restart
-        self.init_dynamic_vars(sigma)
+        self.init_dynamic_variables(sigma)
 
-    def init_default_parameters(self, **kwargs) -> None:
+    def init_parameters(self, **kwargs) -> None:
         # TODO: make this configurable
         self.__dict__.update(
             {**self.bool_default_opts,
@@ -69,13 +69,14 @@ class Parameters(BaseParameters):
              **kwargs}
         )
 
-    def init_meta_variables(self, d: int, target: float, budget: int) -> None:
+    def init_meta_variables(self, d: int, absolute_target: float, budget: int) -> None:
         self.d = d
-        self.target = target
+        self.absolute_target = absolute_target
+        self.target = absolute_target + self.rtol
         self.budget = budget or 1e4 * self.d
         self.used_budget = 0
         self.fitness_over_time = np.array([])
-        self.fce = float("inf")
+        self.fmin = float("inf")
 
     def init_bounds(self) -> None:
         # why this range? seems aribitrary
@@ -93,15 +94,15 @@ class Parameters(BaseParameters):
         self.wcm = (np.random.randn(self.d, 1) *
                     (self.ub - self.lb)) + self.lb
 
-    def init_selection_parameters(self, lambda_: int, mu: int,
-                                  seq_cutoff_factor: int) -> None:
+    def init_selection_variables(self, lambda_: int, mu: int,
+                                 seq_cutoff_factor: int) -> None:
         self.lambda_ = lambda_ or int(4 + np.floor(3 * np.log(self.d)))
         self.mu = mu or int(1 + np.floor((self.lambda_ - 1) * .5))
 
         self.seq_cutoff_factor = seq_cutoff_factor
         self.seq_cutoff = self.mu * self.seq_cutoff_factor
 
-    def init_adaptive_paramaters(self) -> None:
+    def init_adaptive_variables(self) -> None:
         self.recombination_weights = self.get_recombination_weights()
         self.mu_eff = 1 / np.sum(np.square(self.recombination_weights))
 
@@ -120,7 +121,7 @@ class Parameters(BaseParameters):
             np.max([0, np.sqrt((self.mu_eff - 1) / (self.d + 1)) - 1]) + self.cs
         self.chi_N = self.d**.5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d**2))
 
-    def init_dynamic_vars(self, sigma: Optional[float] = None) -> None:
+    def init_dynamic_variables(self, sigma: Optional[float] = None) -> None:
         self.sigma = self.sigma_old = sigma or 1.
         self.pc = np.zeros((self.d, 1))
         self.C = np.eye(self.d)
@@ -131,7 +132,7 @@ class Parameters(BaseParameters):
         self.D = np.ones((self.d, 1))
         self.inv_sqrt_C = np.eye(self.d)
 
-    def adapt(self, pop: "Population") -> None:
+    def adapt(self) -> None:
         self.ps = (
             (1 - self.cs) * self.ps +
             np.sqrt(
@@ -158,12 +159,12 @@ class Parameters(BaseParameters):
         )
         # there is a new setting with negative weights,
         # look in  to this, might boots performance
-        offset = pop.mutation_vectors[:, :self.mu]
         self.C = (
             (1 - self.c1 - self.c_mu) * self.C + self.c1 *
             (np.outer(self.pc, self.pc) + (1 - hsig) * self.cc *
              (2 - self.cc) * self.C) + self.c_mu *
-            np.dot(offset, self.recombination_weights * offset.T)
+            np.dot(self.offset[:, :self.mu], self.recombination_weights *
+                   self.offset[:, :self.mu].T)
         )
 
         if self.active:
@@ -179,28 +180,22 @@ class Parameters(BaseParameters):
         try:
             self.diagonalize()
         except np.linalg.LinAlgError as err:
-            self.init_dynamic_vars()
-
-        self.record_statistics(pop)
+            self.init_dynamic_variables()
 
     def diagonalize(self) -> None:
         self.C = np.triu(self.C) + np.triu(self.C, 1).T
-        # are these values correct ?
-        # The smaller you make right hand side -> the earlier you restart,
-        # the quicker you converge
+
+        self.D, self.B = np.linalg.eigh(self.C)
+        self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1))
         if np.isinf(self.C).any() or (not 1e-16 < self.sigma_old < 1e6):
             raise np.linalg.LinAlgError(
                 'The Covariance matrix has degenerated')
-        # casting to complex to allow negative sqrt
-        eigenvalues, eigenvectors = np.linalg.eigh(self.C)
-        eigenvalues = np.sqrt(eigenvalues.astype(complex).reshape(-1, 1))
 
-        if np.isinf(eigenvalues).any() or (~np.isreal(eigenvalues)).any():
+        if np.isinf(self.D).any() or (~np.isreal(self.D)).any():
             raise np.linalg.LinAlgError(
                 'The eigenvalues of the Covariance matrix are infinite or not real')
 
-        self.D = np.real(eigenvalues)
-        self.B = eigenvectors
+        self.D = np.real(self.D)
         self.inv_sqrt_C = np.dot(self.B, self.D ** -1 * self.B.T)
 
     def tpa_update(self) -> None:
@@ -221,8 +216,10 @@ class Parameters(BaseParameters):
 
     def active_update(self, pop: "Population") -> None:
         if pop.n >= (2 * self.mu):
-            offset = pop.mutation_vectors[:, -self.mu:]
-            self.C -= self.c_mu * np.dot(offset, self.rw * offset.T)
+            offset = pop.mutation_vectors
+            self.C -= self.c_mu * \
+                np.dot(self.offset[:, -self.mu:],
+                       self.rw * self.offset[:, -self.mu:].T)
 
     def get_recombination_weights(self) -> np.ndarray:
         if self.weights_option == '1/n':
@@ -237,9 +234,9 @@ class Parameters(BaseParameters):
         # this might be better include the entire population
         self.fitness_over_time = np.append(
             self.fitness_over_time,
-            [pop.best_individual.fitness] * pop.n
+            pop.fitnesses
         )
-        self.fce = min(pop.best_individual.fitness, self.fce)
+        self.fmin = min(pop.best_individual.fitness, self.fmin)
 
     @property
     def threshold(self) -> float:

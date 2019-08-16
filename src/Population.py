@@ -64,6 +64,7 @@ class Population:
         '''There is only one function used by all CMA-ES
         variants, only the recombination weights are different '''
         parameters.wcm_old = parameters.wcm.copy()
+        # breakpoint()
         parameters.wcm = np.dot(
             self.genomes, parameters.recombination_weights
         )
