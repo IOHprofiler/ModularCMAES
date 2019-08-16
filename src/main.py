@@ -2,9 +2,10 @@ from time import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-import bbobbenchmarks
+from bbob import bbobbenchmarks
 from ConfigurableCMA import ConfigurableCMA
 from argparse import ArgumentParser
+from Parameters import Parameters
 
 POWERS = [round(2 - ((p - 1) * .2), 2) for p in range(1, 51)]
 
@@ -43,10 +44,6 @@ def evaluate(functionid, dim, iterations):
         fs.append(cma.parameters.fitness_over_time)
 
     ets = np.array(ets)
-    # print(cma.parameters.rtol)
-    # print(cma.parameters.target)
-    # print(cma.parameters.target + cma.parameters.rtol)
-
     print("FCE:\t{:10.8f}\t{:10.4f}\nERT:\t{:10.4f}\t{:10.4f}".format(
         np.mean(fce),
         np.std(fce),
@@ -76,12 +73,10 @@ def main():
         required=False, default=50
     )
     args = vars(parser.parse_args())
-    np.random.seed(123)
+    np.random.seed(42)
     print("rewrite")
     evaluate(**args)
 
-    # print("Benchmark")
-    # benchmark(**args)
     import subprocess
     print("old")
     subprocess.run(

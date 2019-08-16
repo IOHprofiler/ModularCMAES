@@ -36,10 +36,12 @@ Configurable parts:
         lets not do this for now
 '''
 from typing import Callable, Optional, List
+from datetime import datetime
 
 import numpy as np
 
-import bbobbenchmarks
+from bbob import bbobbenchmarks, fgeneric
+
 from Parameters import Parameters
 from Population import Population, Individual
 from Sampling import GaussianSampling
@@ -161,9 +163,16 @@ class ConfigurableCMA:
         ]
 
     @staticmethod
-    def make(ffid: int, *args, **kwargs) -> 'ConfigurableCMA':
-        fitness_func, target = bbobbenchmarks.instantiate(
-            ffid, iinstance=1)
-        return ConfigurableCMA(fitness_func, target, *args,
+    def make(ffid: int, d, *args, **kwargs) -> 'ConfigurableCMA':
+        label = 'f{}_d{}_{}'.format(
+            ffid, d, datetime.now().strftime("%m%d"))
+
+        fitness_func = fgeneric.LoggingFunction(
+            f"/home/jacob/Code/thesis/data/{label}", 'new')
+
+        target = fitness_func.setfun(
+            *bbobbenchmarks.instantiate(ffid, iinstance=1)
+        ).ftarget
+        return ConfigurableCMA(fitness_func, target, d, *args,
                                rtol=DISTANCE_TO_TARGET[ffid - 1],
                                ** kwargs), target
