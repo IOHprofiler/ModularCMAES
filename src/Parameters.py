@@ -76,7 +76,7 @@ class Parameters(BaseParameters):
         self.budget = budget or 1e4 * self.d
         self.used_budget = 0
         self.fitness_over_time = np.array([])
-        self.fmin = float("inf")
+        self.fopt = float("inf")
 
     def init_bounds(self) -> None:
         # why this range? seems aribitrary
@@ -236,7 +236,7 @@ class Parameters(BaseParameters):
             self.fitness_over_time,
             pop.fitnesses
         )
-        self.fmin = min(pop.best_individual.fitness, self.fmin)
+        self.fopt = min(pop.best_individual.fitness, self.fopt)
 
     @property
     def threshold(self) -> float:

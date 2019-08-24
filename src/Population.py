@@ -32,12 +32,12 @@ class Individual:
                 self.last_z *= ((
                     parameters.threshold + (parameters.threshold - length)
                 ) / length)
-
         self.mutation_vector = np.dot(
             parameters.B, (parameters.D * self.last_z))
 
         self.genome = np.add(self.genome,
                              self.mutation_vector * parameters.sigma)
+
         # Bound correction is causing sigma to blow up, revisted countraint handling
         # out_of_bounds = np.logical_or(
         #     self.genome > parameters.ub, self.genome < parameters.lb)

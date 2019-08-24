@@ -40,41 +40,14 @@ from datetime import datetime
 
 import numpy as np
 
-from bbob import bbobbenchmarks, fgeneric
-
+from Utils import bbobfunction
 from Parameters import Parameters
 from Population import Population, Individual
 from Sampling import GaussianSampling
-
-DISTANCE_TO_TARGET = [pow(10, p) for p in [
-    -8.,  # 1
-    -8.,  # 2
-    .4,  # 3
-    .8,  # 4
-    -8.,  # 5
-    -8.,  # 6
-    .0,  # 7
-    -8.,  # 8
-    -8.,  # 9
-    -8.,  # 10
-    -8.,  # 11
-    -8.,  # 12
-    -8.,  # 13
-    -8.,  # 14
-    .4,  # 15
-    -2.,  # 16
-    -4.4,  # 17
-    -4.0,  # 18
-    -.6,  # 19
-    .2,  # 20
-    -.6,  # 21
-    .0,  # 22
-    -.8,  # 23
-    1.0,  # 24
-]]
+from Optimizer import Optimizer
 
 
-class ConfigurableCMA:
+class ConfigurableCMA(Optimizer):
     '''Add docstring'''
 
     def __init__(
@@ -83,6 +56,7 @@ class ConfigurableCMA:
         absolute_target: float,
         d: int,
         lambda_: Optional[int] = None,
+        old_order: Optional[bool] = False,
         **kwargs
     ) -> None:
         '''Add docstring'''
@@ -95,9 +69,24 @@ class ConfigurableCMA:
         self.population = Population.new_population(
             self.parameters.mu, self.parameters.d, self.parameters.wcm
         )
-        self.new_population = self.population.recombine(self.parameters)
+        if old_order:
+            self.new_population = self.population.recombine(self.parameters)
+            self.step = self.step_old
 
     def step_old(self) -> bool:
+        for i, individual in enumerate(self.new_population, 1):
+            individual.mutate(self.parameters)
+            individual.fitness = self.fitness_func(individual)
+            if self.sequential_break_conditions(i, individual):
+                break
+        self.parameters.record_statistics(self.new_population)
+        self.new_population = self.new_population[:i]
+        self.population = self.select(self.new_population)
+        self.new_population = self.population.recombine(self.parameters)
+        self.parameters.adapt()
+        return not any(self.break_conditions)
+
+    def step(self) -> bool:
         self.new_population = self.population.recombine(self.parameters)
         for i, individual in enumerate(self.new_population, 1):
             # TODO:  check performance difference of mutate vectorized
@@ -105,30 +94,9 @@ class ConfigurableCMA:
             individual.fitness = self.fitness_func(individual)
             if self.sequential_break_conditions(i, individual):
                 break
-
         self.parameters.record_statistics(self.new_population)
         self.new_population = self.new_population[:i]
         self.population = self.select(self.new_population)
-        self.parameters.adapt(self.new_population)
-        return not any(self.break_conditions)
-
-    def run(self) -> 'ConfigurableCMA':
-        '''Add docstring'''
-        while self.step():
-            pass
-        return self
-
-    def step(self) -> bool:
-        for i, individual in enumerate(self.new_population, 1):
-            individual.mutate(self.parameters)
-            individual.fitness = self.fitness_func(individual)
-            if self.sequential_break_conditions(i, individual):
-                break
-
-        self.parameters.record_statistics(self.new_population)
-        self.new_population = self.new_population[:i]
-        self.population = self.select(self.new_population)
-        self.new_population = self.population.recombine(self.parameters)
         self.parameters.adapt()
         return not any(self.break_conditions)
 
@@ -149,30 +117,29 @@ class ConfigurableCMA:
         self.parameters.offset = new_pop.mutation_vectors
         return new_pop[:self.parameters.mu]
 
-    def fitness_func(self, individual: 'Individual') -> float:
-        '''Add docstring'''
-        self.parameters.used_budget += 1
-        return self._fitness_func(individual.genome.flatten())
+    @property
+    def used_budget(self):
+        return self.parameters.used_budget
+
+    @used_budget.setter
+    def used_budget(self, value):
+        self.parameters.used_budget = value
 
     @property
-    def break_conditions(self) -> List[bool]:
-        '''Add docstring'''
-        return [
-            self.parameters.target >= self.parameters.fmin,
-            self.parameters.used_budget >= self.parameters.budget
-        ]
+    def fopt(self):
+        return self.parameters.fopt
 
-    @staticmethod
-    def make(ffid: int, d, *args, **kwargs) -> 'ConfigurableCMA':
-        label = 'f{}_d{}_{}'.format(
-            ffid, d, datetime.now().strftime("%m%d"))
+    @property
+    def budget(self):
+        return self.parameters.budget
 
-        fitness_func = fgeneric.LoggingFunction(
-            f"/home/jacob/Code/thesis/data/{label}", 'new')
+    @property
+    def target(self):
+        return self.parameters.target
 
-        target = fitness_func.setfun(
-            *bbobbenchmarks.instantiate(ffid, iinstance=1)
-        ).ftarget
-        return ConfigurableCMA(fitness_func, target, d, *args,
-                               rtol=DISTANCE_TO_TARGET[ffid - 1],
-                               ** kwargs), target
+
+if __name__ == "__main__":
+    np.random.seed(12)
+    from Utils import evaluate
+    for i in range(1, 25):
+        evals, fopts = evaluate(i, 5, ConfigurableCMA)
