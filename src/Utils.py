@@ -41,8 +41,8 @@ def bbobfunction(ffid, logging=False, label='', iinstance=1, d=5):
 def evaluate(ffid, d, optimizer_class, *args, iterations=50, label='', logging=False, **kwargs):
     evals, fopts = np.array([]), np.array([])
     _, target = bbobfunction(ffid)
-    print("Optimizing function {} for target {} + {}".format(ffid, target,
-                                                             DISTANCE_TO_TARGET[ffid - 1]))
+    print("Optimizing function {} in {}D for target {} + {}".format(ffid, d, target,
+                                                                    DISTANCE_TO_TARGET[ffid - 1]))
     for i in range(iterations):
         fitness_func, target = bbobfunction(
             ffid, label=label, logging=logging, d=d)

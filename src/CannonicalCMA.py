@@ -5,13 +5,21 @@ from Utils import evaluate
 
 
 class CannonicalCMA(Optimizer):
-    def __init__(self, fitness_func, asolute_target, d, rtol):
+    def __init__(
+            self,
+            fitness_func,
+            asolute_target,
+            d,
+            rtol,
+            active=False,
+            eigendecomp=True):
+
         self._fitness_func = fitness_func
         self.target = asolute_target + rtol
         self.d = d
         self.initialize()
-        self.active = False
-        self.step = self.step_no_eigendecomp
+        self.active = active
+        self.eigendecomp = eigendecomp
 
     def initialize(self):
         self.used_budget = 0
@@ -74,7 +82,7 @@ class CannonicalCMA(Optimizer):
         )
         self.invC = self.B * np.linalg.inv(self.D) * self.B.T
 
-    def step_no_eigendecomp(self):
+    def step(self):
         # generate and evaluate offspring
         y = np.random.multivariate_normal(
             mean=np.zeros(self.d),
@@ -140,70 +148,15 @@ class CannonicalCMA(Optimizer):
             self.ps = np.zeros((self.d, 1))
             self.C = np.eye(self.d)
 
-        self.invC = fractional_matrix_power(self.C, -.5)
+        if self.eigendecomp:
+            self.C = np.triu(self.C) + np.triu(self.C, 1).T
+            self.D, self.B = np.linalg.eigh(self.C)
+            self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
+            self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
+        else:
+            self.invC = fractional_matrix_power(self.C, -.5)
 
         self.fopt = min(self.fopt, f[fidx[0]])
-        return not any(self.break_conditions)
-
-    def step(self):
-        arz = np.random.multivariate_normal(
-            mean=np.zeros(self.d),
-            cov=np.eye(self.d),
-            size=self.lambda_
-        ).T
-        ary = self.B @ self.D @ arz
-        arx = self.xmean + (self.sigma * ary)
-        arf = np.array([self.fitness_func(i) for i in arx.T])
-
-        arindex = np.argsort(arf)
-        arz = arz[:, arindex]
-        arx = arx[:, arindex]
-        self.xmean = arx[:, :self.mu].dot(self.pweights)  .reshape(-1, 1)
-        self.zmean = arz[:, :self.mu].dot(self.pweights)  .reshape(-1, 1)
-        # Update evolution paths
-
-        root = np.sqrt(self.cs * (2 - self.cs) * self.mueff)  # correct
-        self.ps = (1 - self.cs) * self.ps + root * \
-            (self.B.dot(self.zmean).reshape(-1, 1))
-        hsig = (
-            np.linalg.norm(self.ps) /
-            np.sqrt(1 - (1 - self.cs)**(2 * self.used_budget / self.lambda_)) /
-            self.chiN < 1.4 + 2 / (self.d + 1)
-        )
-        bdzm = (self.B * self.D).dot(self.zmean).reshape(-1, 1)
-        root = np.sqrt(self.cc * (2 - self.cc) * self.mueff)
-        self.pc = (1 - self.cc) * self.pc + (hsig * root * bdzm)
-
-        # Adapt C
-        bdz = (self.B * self.D).dot(arz[:, :self.mu])
-        self.C = (1 - self.c1 - self.cmu) * self.C + (  # old matrix
-            self.c1 * (self.pc.dot(self.pc.T)) + (
-                (1 - hsig) * self.cc * (2 - self.cc) * self.C)  # rank one update
-            + self.cmu * (
-                bdz.dot(np.diag(self.pweights).dot(bdz.T))
-            )
-        )
-
-        self.sigma = self.sigma * np.exp(
-            (self.cs / self.damps) * (np.linalg.norm(self.ps) / self.chiN - 1)
-        )
-
-        if (self.used_budget - self.eigeneval) > (self.lambda_ / (self.c1 + self.cmu) / self.d / 10):
-            try:
-                self.eigeneval = self.used_budget
-                self.C = np.triu(self.C) + np.triu(self.C, 1).T
-                self.D, self.B = np.linalg.eigh(self.C)
-                self.D = np.real(np.sqrt(np.diag(self.D).astype(complex)))
-            except np.linalg.LinAlgError:
-                print('restart')
-                self.sigma = .5
-                self.pc = np.zeros((self.d, 1))
-                self.ps = np.zeros((self.d, 1))
-                self.B = np.eye(self.d)
-                self.D = np.eye(self.d)
-                self.C = self.B * self.D * (self.B * self.D)
-
-        self.fopt = min(self.fopt, arf[arindex[0]])
         return not any(self.break_conditions)
 
     def fitness_func(self, x) -> float:
@@ -214,5 +167,12 @@ class CannonicalCMA(Optimizer):
 
 if __name__ == "__main__":
     np.random.seed(12)
+    print("W eigendecomp")
     for i in range(1, 25):
-        evals, fopts = evaluate(i, 5, CannonicalCMA, iterations=5)
+        evals, fopts = evaluate(
+            i, 5, CannonicalCMA, eigendecomp=True)
+
+    # np.random.seed(12)
+    # print("W/o eigendecomp")
+    # evals, fopts = evaluate(
+    #     2, 3, CannonicalCMA, eigendecomp=False)
