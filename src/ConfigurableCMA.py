@@ -56,7 +56,6 @@ class ConfigurableCMA(Optimizer):
         absolute_target: float,
         d: int,
         lambda_: Optional[int] = None,
-        old_order: Optional[bool] = False,
         **kwargs
     ) -> None:
         '''Add docstring'''
@@ -69,22 +68,6 @@ class ConfigurableCMA(Optimizer):
         self.population = Population.new_population(
             self.parameters.mu, self.parameters.d, self.parameters.wcm
         )
-        if old_order:
-            self.new_population = self.population.recombine(self.parameters)
-            self.step = self.step_old
-
-    def step_old(self) -> bool:
-        for i, individual in enumerate(self.new_population, 1):
-            individual.mutate(self.parameters)
-            individual.fitness = self.fitness_func(individual.genome)
-            if self.sequential_break_conditions(i, individual):
-                break
-        self.parameters.record_statistics(self.new_population)
-        self.new_population = self.new_population[:i]
-        self.population = self.select(self.new_population)
-        self.new_population = self.population.recombine(self.parameters)
-        self.parameters.adapt()
-        return not any(self.break_conditions)
 
     def step(self) -> bool:
         self.new_population = self.population.recombine(self.parameters)
@@ -116,26 +99,6 @@ class ConfigurableCMA(Optimizer):
         # Weird stucture to put this here
         self.parameters.offset = new_pop.mutation_vectors
         return new_pop[:self.parameters.mu]
-
-    @property
-    def used_budget(self):
-        return self.parameters.used_budget
-
-    @used_budget.setter
-    def used_budget(self, value):
-        self.parameters.used_budget = value
-
-    @property
-    def fopt(self):
-        return self.parameters.fopt
-
-    @property
-    def budget(self):
-        return self.parameters.budget
-
-    @property
-    def target(self):
-        return self.parameters.target
 
 
 if __name__ == "__main__":

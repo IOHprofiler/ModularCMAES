@@ -50,11 +50,11 @@ def evaluate(ffid, d, optimizer_class, *args, iterations=50, label='', logging=F
                                     rtol=DISTANCE_TO_TARGET[ffid - 1],
                                     ** kwargs)
         optimizer.run()
-        evals = np.append(evals, optimizer.used_budget)
-        fopts = np.append(fopts, optimizer.fopt)
+        evals = np.append(evals, optimizer.parameters.used_budget)
+        fopts = np.append(fopts, optimizer.parameters.fopt)
 
     print("FCE:\t{:10.8f}\t{:10.4f}\nERT:\t{:10.4f}\t{:10.4f}".format(
-        np.mean(fopts), np.std(fopts), *ert(evals, optimizer.budget)
+        np.mean(fopts), np.std(fopts), *ert(evals, optimizer.parameters.budget)
     ))
     return evals, fopts
 

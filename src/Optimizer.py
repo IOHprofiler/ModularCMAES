@@ -1,5 +1,5 @@
 import abc
-from typing import Callable, Optional, List
+from typing import List
 import numpy as np
 
 
@@ -14,11 +14,11 @@ class Optimizer(abc.ABC):
     def break_conditions(self) -> List[bool]:
         '''Add docstring'''
         return [
-            self.target >= self.fopt,
-            self.used_budget >= self.budget
+            self.parameters.target >= self.parameters.fopt,
+            self.parameters.used_budget >= self.parameters.budget
         ]
 
     def fitness_func(self, x: np.ndarray) -> float:
         '''Add docstring'''
-        self.used_budget += 1
+        self.parameters.used_budget += 1
         return self._fitness_func(x.flatten())

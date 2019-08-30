@@ -1,10 +1,9 @@
 import numpy as np
 from scipy.linalg import fractional_matrix_power
-from Optimizer import Optimizer
 from Utils import evaluate
 
 
-class CannonicalCMA(Optimizer):
+class CannonicalCMA:
     def __init__(
             self,
             fitness_func,
@@ -80,7 +79,7 @@ class CannonicalCMA(Optimizer):
         self.chiN = (
             self.d ** .5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
         )
-        self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
+        self.invC = np.eye(self.d)
 
     def step(self):
         # generate and evaluate offspring
@@ -163,13 +162,27 @@ class CannonicalCMA(Optimizer):
         self.used_budget += 1
         return self._fitness_func(x.flatten())
 
+    def run(self):
+        '''Add docstring'''
+        while self.step():
+            pass
+        return self
+
+    @property
+    def break_conditions(self):
+        '''Add docstring'''
+        return [
+            self.target >= self.fopt,
+            self.used_budget >= self.budget
+        ]
+
 
 if __name__ == "__main__":
     np.random.seed(12)
     print("W eigendecomp")
-    for i in range(1, 25):
+    for i in range(1, 3):
         evals, fopts = evaluate(
-            i, 5, CannonicalCMA, eigendecomp=True)
+            i, 5, CannonicalCMA, eigendecomp=True, iterations=100)
 
     # np.random.seed(12)
     # print("W/o eigendecomp")

@@ -4,6 +4,13 @@ from Optimizer import Optimizer
 from Utils import evaluate
 
 
+class Parameters:
+    target = None
+    fopt = None
+    budget = None
+    used_budget = None
+
+
 class CannonicalCMA(Optimizer):
     def __init__(
             self,
@@ -13,16 +20,17 @@ class CannonicalCMA(Optimizer):
             rtol):
 
         self._fitness_func = fitness_func
-        self.target = asolute_target + rtol
+        self.parameters = Parameters()
+        self.parameters.target = asolute_target + rtol
         self.d = d
         self.initialize()
 
     def initialize(self):
-        self.used_budget = 0
-        self.fopt = float("inf")
+        self.parameters.used_budget = 0
+        self.parameters.fopt = float("inf")
         self.xmean = np.random.rand(self.d, 1)
         self.sigma = .5
-        self.budget = 1e4 * self.d
+        self.parameters.budget = 1e4 * self.d
 
         # selection parameters
         self.lambda_ = (4 + np.floor(3 * np.log(self.d))).astype(int)
@@ -63,17 +71,18 @@ class CannonicalCMA(Optimizer):
         self.ps = np.zeros((self.d, 1))
         self.B = np.eye(self.d)
         self.C = np.eye(self.d)
-        self.D = np.eye(self.d)
+        self.D = np.ones((self.d, 1))
         self.invC = np.eye(self.d)
         self.eigeneval = 0
 
     def step(self):
         # generate and evaluate offspring
-        y = np.random.multivariate_normal(
+        z = np.random.multivariate_normal(
             mean=np.zeros(self.d),
-            cov=self.C,
+            cov=np.eye(self.d),
             size=self.lambda_
         ).T
+        y = np.dot(self.B, self.D * z)
         x = self.xmean + (self.sigma * y)
         f = np.array([self.fitness_func(i) for i in x.T])
 
@@ -96,7 +105,7 @@ class CannonicalCMA(Optimizer):
         hs = (
             np.linalg.norm(self.ps) /
             np.sqrt(1 - np.power(1 - self.cs, 2 *
-                                 (self.used_budget / self.lambda_)))
+                                 (self.parameters.used_budget / self.lambda_)))
         ) < (1.4 + (2 / (self.d + 1))) * self.chiN
 
         dhs = (1 - hs) * self.cc * (2 - self.cc)
@@ -129,15 +138,15 @@ class CannonicalCMA(Optimizer):
             self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
             self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
 
-        self.fopt = min(self.fopt, f[fidx[0]])
+        self.parameters.fopt = min(self.parameters.fopt, f[fidx[0]])
         return not any(self.break_conditions)
 
 
 if __name__ == "__main__":
-    np.random.seed(12)
-    for i in range(1, 25):
+    np.random.seed(1242)
+    for i in range(1, 3):
         evals, fopts = evaluate(
-            i, 5, CannonicalCMA, iterations=5)
+            i, 5, CannonicalCMA, iterations=200)
 
     # np.random.seed(12)
     # print("W/o eigendecomp")
