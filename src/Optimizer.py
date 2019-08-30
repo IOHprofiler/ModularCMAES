@@ -1,5 +1,6 @@
 import abc
 from typing import Callable, Optional, List
+import numpy as np
 
 
 class Optimizer(abc.ABC):
@@ -17,7 +18,7 @@ class Optimizer(abc.ABC):
             self.used_budget >= self.budget
         ]
 
-    def fitness_func(self, individual: 'Individual') -> float:
+    def fitness_func(self, x: np.ndarray) -> float:
         '''Add docstring'''
         self.used_budget += 1
-        return self._fitness_func(individual.genome.flatten())
+        return self._fitness_func(x.flatten())

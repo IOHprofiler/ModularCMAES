@@ -10,12 +10,16 @@ class CannonicalCMA(Optimizer):
             fitness_func,
             asolute_target,
             d,
-            rtol):
+            rtol,
+            active=False,
+            eigendecomp=True):
 
         self._fitness_func = fitness_func
         self.target = asolute_target + rtol
         self.d = d
         self.initialize()
+        self.active = active
+        self.eigendecomp = eigendecomp
 
     def initialize(self):
         self.used_budget = 0
@@ -31,20 +35,31 @@ class CannonicalCMA(Optimizer):
         self.weights = (np.log((self.lambda_ + 1) / 2) -
                         np.log(np.arange(1, self.lambda_ + 1)))
 
-        self.weights = self.weights[:self.mu]
+        self.pweights = self.weights[:self.mu]
+        self.nweights = self.weights[self.mu:]
 
         self.mueff = (
-            self.weights.sum()**2 /
-            (self.weights ** 2).sum()
+            self.pweights.sum()**2 /
+            (self.pweights ** 2).sum()
         )
-        # Weights normalization
-        self.weights = self.weights / self.weights.sum()
-
+        self.mueff_neg = (
+            self.nweights.sum()**2 /
+            (self.nweights ** 2).sum()
+        )
         self.c1 = 2 / ((self.d + 1.3)**2 + self.mueff)
         self.cmu = (
             2 * (self.mueff - 2 + 1 / self.mueff) /
             ((self.d + 2)**2 + 2 * self.mueff / 2)
         )
+        # Weights normalization
+        self.pweights = self.pweights / self.pweights.sum()
+        amu_neg = 1 + (self.c1 / self.mu)
+        amueff_neg = 1 + ((2 * self.mueff_neg) / (self.mueff + 2))
+        aposdef_neg = (1 - self.c1 - self.cmu) / (self.d * self.cmu)
+        self.nweights = (min(amu_neg, amueff_neg, aposdef_neg) /
+                         np.abs(self.nweights).sum()) * self.nweights
+        self.weights = np.append(self.pweights, self.nweights)
+
         # adaptation parameters
         self.cc = (
             (4 + (self.mueff / self.d)) /
@@ -54,18 +69,18 @@ class CannonicalCMA(Optimizer):
         self.damps = (
             1. + (2. * max(0., np.sqrt((self.mueff - 1) / (self.d + 1)) - 1) + self.cs)
         )
-        self.chiN = (
-            self.d ** .5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
-        )
 
         # dynamic parameters
         self.pc = np.zeros((self.d, 1))
         self.ps = np.zeros((self.d, 1))
         self.B = np.eye(self.d)
-        self.C = np.eye(self.d)
         self.D = np.eye(self.d)
-        self.invC = np.eye(self.d)
+        self.C = self.B * self.D * (self.B * self.D).T
         self.eigeneval = 0
+        self.chiN = (
+            self.d ** .5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
+        )
+        self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
 
     def step(self):
         # generate and evaluate offspring
@@ -81,7 +96,7 @@ class CannonicalCMA(Optimizer):
         fidx = np.argsort(f)
         y = y[:, fidx]
         x = x[:, fidx]
-        yw = (y[:, :self.mu] @ self.weights).reshape(-1, 1)
+        yw = (y[:, :self.mu] @ self.pweights).reshape(-1, 1)
         self.xmean = self.xmean + (1 * self.sigma * yw)
 
         # step size control
@@ -106,13 +121,24 @@ class CannonicalCMA(Optimizer):
             self.cc * (2 - self.cc) * self.mueff
         )) * yw
 
+        # punish bad direction by their weighted distance traveled
+        weights = self.weights[::].copy()
+        weights[weights < 0] = weights[weights < 0] * (
+            self.d /
+            np.power(np.linalg.norm(
+                self.invC @  y[:, self.weights < 0], axis=0), 2)
+        )
+
         old_C = (1 - (self.c1 * dhs) - self.c1 -
-                 (self.cmu * self.weights.sum())) * self.C
+                 (self.cmu * self.pweights.sum())) * self.C
 
         rank_one = (self.c1 * self.pc * self.pc.T)
 
-        rank_mu = (self.cmu *
-                   (self.weights * y[:, :self.mu] @ y[:, :self.mu].T))
+        if self.active:
+            rank_mu = self.cmu * (weights * y @ y.T)
+        else:
+            rank_mu = (self.cmu *
+                       (self.pweights * y[:, :self.mu] @ y[:, :self.mu].T))
         self.C = old_C + rank_one + rank_mu
 
         if np.isinf(self.C).any() or np.isnan(self.C).any() or (not 1e-16 < self.sigma < 1e6):
@@ -120,24 +146,30 @@ class CannonicalCMA(Optimizer):
             self.pc = np.zeros((self.d, 1))
             self.ps = np.zeros((self.d, 1))
             self.C = np.eye(self.d)
-            self.B = np.eye(self.d)
-            self.D = np.ones((self.d, 1))
-            self.invC = np.eye(self.d)
-        else:
+
+        if self.eigendecomp:
             self.C = np.triu(self.C) + np.triu(self.C, 1).T
             self.D, self.B = np.linalg.eigh(self.C)
             self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
             self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
+        else:
+            self.invC = fractional_matrix_power(self.C, -.5)
 
         self.fopt = min(self.fopt, f[fidx[0]])
         return not any(self.break_conditions)
 
+    def fitness_func(self, x) -> float:
+        '''Add docstring'''
+        self.used_budget += 1
+        return self._fitness_func(x.flatten())
+
 
 if __name__ == "__main__":
     np.random.seed(12)
+    print("W eigendecomp")
     for i in range(1, 25):
         evals, fopts = evaluate(
-            i, 5, CannonicalCMA, iterations=5)
+            i, 5, CannonicalCMA, eigendecomp=True)
 
     # np.random.seed(12)
     # print("W/o eigendecomp")
