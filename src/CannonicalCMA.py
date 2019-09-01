@@ -147,8 +147,3 @@ if __name__ == "__main__":
     for i in range(1, 3):
         evals, fopts = evaluate(
             i, 5, CannonicalCMA, iterations=200)
-
-    # np.random.seed(12)
-    # print("W/o eigendecomp")
-    # evals, fopts = evaluate(
-    #     2, 3, CannonicalCMA, eigendecomp=False)
