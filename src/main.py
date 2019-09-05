@@ -48,11 +48,11 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     np.random.seed(42)
-    print("Modular: rewrite (old order)")
-    evaluate(args.functionid, args.dim, ConfigurableCMA,
-             iterations=args.iterations, old_order=True,
-             label="new_old_order", logging=True
-             )
+    # print("Modular: rewrite (old order)")
+    # evaluate(args.functionid, args.dim, ConfigurableCMA,
+    #          iterations=args.iterations, old_order=True,
+    #          label="new_old_order", logging=True
+    #          )
 
     print("Modular: rewrite (correct order)")
     evaluate(args.functionid, args.dim, ConfigurableCMA,
@@ -60,15 +60,15 @@ if __name__ == "__main__":
              label="new_corect_order", logging=True
              )
 
-    import subprocess
-    print("\nModular: old")
-    subprocess.run(
-        "/home/jacob/Documents/thesis/.env/bin/python "
-        f"/home/jacob/Documents/thesis/OnlineCMA-ES/src/main.py "
-        f"-f {args.functionid} -d {args.dim} -i {args.iterations} --clear", shell=True
-    )
-    print("\nCannonical CMA")
-    evaluate(args.functionid, args.dim, CannonicalCMA,
-             iterations=args.iterations,
-             label="cma_no_eigendecomp", logging=True
-             )
+    # import subprocess
+    # print("\nModular: old")
+    # subprocess.run(
+    #     "/home/jacob/Documents/thesis/.env/bin/python "
+    #     f"/home/jacob/Documents/thesis/OnlineCMA-ES/src/main.py "
+    #     f"-f {args.functionid} -d {args.dim} -i {args.iterations} --clear", shell=True
+    # )
+    # print("\nCannonical CMA")
+    # evaluate(args.functionid, args.dim, CannonicalCMA,
+    #          iterations=args.iterations,
+    #          label="cma_no_eigendecomp", logging=True
+    #          )

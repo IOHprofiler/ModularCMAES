@@ -62,11 +62,12 @@ class AnyOf:
 
 class Parameters:
     active = Boolean('active')
-    elitist = Boolean('elitist')  # this is bugged
+    elitist = Boolean('elitist')
     mirrored = Boolean('mirrored')
     orthogonal = Boolean('orthogonal')
     sequential = Boolean('sequential')
-    threshold_convergence = Boolean('threshold_convergence') # this is also bugged
+    threshold_convergence = Boolean(
+        'threshold_convergence')  # this is bugged
     tpa = Boolean('tpa')
     selection = AnyOf('selection', (None, 'pairwise',))
     weights_option = AnyOf("weights_option", (None, '1/n',))
@@ -105,7 +106,8 @@ class Parameters:
         self.eigeneval = 0
 
     def init_selection_parameters(self, seq_cutoff_factor=1):
-        self.xmean = np.random.rand(self.d, 1)
+        self.m = np.random.rand(self.d, 1)
+        self.m_old = self.m.copy()
         self.lambda_ = (4 + np.floor(3 * np.log(self.d))).astype(int)
         self.mu = self.lambda_ // 2
 
@@ -169,13 +171,13 @@ class Parameters:
             np.zeros(self.d, self.lambda_),
             np.zeros(self.d)
         )
-        self.yw = np.zeros(self.d)
+        self.dm = np.zeros(self.d)
 
     def adapt(self):
+        self.dm = (self.m - self.m_old) / self.sigma
         self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
             self.cs * (2 - self.cs) * self.mueff
-        ) * self.invC @ self.yw))
-
+        ) * self.invC @ self.dm))
         self.sigma = self.sigma * np.exp(
             (self.cs / self.damps) * ((np.linalg.norm(self.ps) / self.chiN) - 1)
         )
@@ -190,7 +192,7 @@ class Parameters:
 
         self.pc = (1 - self.cc) * self.pc + (hs * np.sqrt(
             self.cc * (2 - self.cc) * self.mueff
-        )) * self.yw
+        )) * self.dm
 
         rank_one = (self.c1 * self.pc * self.pc.T)
         old_C = (1 - (self.c1 * dhs) - self.c1 -
@@ -223,11 +225,11 @@ class Parameters:
 
     @property
     def threshold(self):
-        #TODO: We need to check these values
+        # TODO: We need to check these values
         init_threshold = 0.2
         decay_factor = 0.995
-        diameter = np.sqrt(np.sum(np.square( 
-            (np.ones(self.d)*5) - (np.ones(self.d)*-5) )))
+        ub, lb = 5, -5
+        diameter = np.linalg.norm(ub - (lb))
 
         return init_threshold * diameter * (
             (self.budget - self.used_budget) / self.budget
@@ -306,7 +308,7 @@ class ModularCMA(Optimizer):
                     z *= (new_length / length)
             y.append(np.dot(
                 self.parameters.B, self.parameters.D * z))
-            x.append(self.parameters.xmean +
+            x.append(self.parameters.m +
                      (self.parameters.sigma * y[-1]))
             f.append(self.fitness_func(x[-1]))
             if self.sequential_break_conditions(i, f[-1]):
@@ -318,24 +320,26 @@ class ModularCMA(Optimizer):
 
     def select(self):
         if self.parameters.elitist and self.parameters.old_population:
-            self.parameters.population += self.parameters.old_population
+            self.parameters.population += self.parameters.old_population[
+                :self.parameters.mu]
 
         self.parameters.population.sort()
+
         self.parameters.population = self.parameters.population[
             :self.parameters.lambda_]
 
         self.parameters.old_population = self.parameters.population.copy()
+
         self.parameters.fopt = min(
             self.parameters.fopt, self.parameters.population.f[0])
 
     def recombine(self):
-        self.parameters.yw = (
-            self.parameters.population.y[:, :self.parameters.mu]
-            @ self.parameters.pweights
-        ).reshape(-1, 1)
-
-        self.parameters.xmean = self.parameters.xmean + \
-            (1 * self.parameters.sigma * self.parameters.yw)
+        self.parameters.m_old = self.parameters.m.copy()
+        self.parameters.m = self.parameters.m_old + (1 * (
+            (self.parameters.population.x[:, :self.parameters.mu] -
+                self.parameters.m_old) @
+            self.parameters.pweights).reshape(-1, 1)
+        )
 
     def step(self):
         self.mutate()
@@ -370,6 +374,11 @@ def test_modules():
         evals, fopts = evaluate(
             i, 5, ModularCMA, iterations=iterations, active=True)
 
+        print("elist")
+        np.random.seed(12)
+        evals, fopts = evaluate(
+            i, 5, ModularCMA, iterations=iterations, elitist=True)
+
         print("mirrored")
         np.random.seed(12)
         evals, fopts = evaluate(
@@ -389,11 +398,21 @@ def test_modules():
         print()
 
 
-def run_once():
+def run_once(fid=1, **kwargs):
     evals, fopts = evaluate(
-        1, 2, ModularCMA, iterations=1, threshold_convergence=True)
+        fid, 5, ModularCMA, iterations=10, **kwargs)
 
 
 if __name__ == "__main__":
     # test_modules()
-    run_once()
+    run_once(fid=1, threshold_convergence=False)
+    run_once(fid=1, threshold_convergence=True)
+
+    # functions = [20, 22, 23, 24]
+    # [3, 4, 16, 17, 18, 19, 21]
+
+    # [1, 2, 5, 6] + list(range(8, 15))  # + [20, 22, 23, 24]
+    # d = 20
+    # for fid in range(1, 25):
+    # evals, fopts = evaluate(
+    # fid, d, ModularCMA, logging=True, label="canon")

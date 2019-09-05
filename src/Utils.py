@@ -30,7 +30,7 @@ def bbobfunction(ffid, logging=False, label='', iinstance=1, d=5):
     label = 'D{}_{}_{}'.format(
         d, label, datetime.now().strftime("%m%d"))
     fitness_func = fgeneric.LoggingFunction(
-        f"/home/jacob/Code/thesis/data/{label}", label)
+        "/home/jacob/Code/thesis/data/{}".format(label), label)
     target = fitness_func.setfun(
         *(func, target)
     ).ftarget

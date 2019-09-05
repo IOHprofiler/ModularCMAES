@@ -74,7 +74,7 @@ class ConfigurableCMA(Optimizer):
         for i, individual in enumerate(self.new_population, 1):
             # TODO:  check performance difference of mutate vectorized
             individual.mutate(self.parameters)
-            individual.fitness = self.fitness_func(individual)
+            individual.fitness = self.fitness_func(individual.genome)
             if self.sequential_break_conditions(i, individual):
                 break
         self.parameters.record_statistics(self.new_population)
