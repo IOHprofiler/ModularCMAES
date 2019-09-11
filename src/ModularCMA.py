@@ -76,7 +76,8 @@ class ModularCMA(Optimizer):
     def mutate(self):
         y, x, f = [], [], []
         for i in range(self.parameters.lambda_):
-            zi = self.parameters.sampler.next()
+            zi = next(self.parameters.sampler)
+
             if self.parameters.threshold_convergence:
                 zi = _scale_with_threshold(zi, self.parameters.threshold)
             yi = np.dot(self.parameters.B, self.parameters.D * zi)
@@ -186,15 +187,37 @@ def test_modules():
 
 
 def run_once(fid=1, **kwargs):
-    np.random.seed(12)
+    np.random.seed(42)
     evals, fopts = evaluate(
-        fid, 5, ModularCMA, iterations=10, **kwargs)
+        fid, 5, ModularCMA, iterations=50, **kwargs)
 
 
 if __name__ == "__main__":
-    test_modules()
-    fid = 7
-    # run_once(fid=fid, bound_correction=False)
+    # test_modules()
+    fid = 1
+    for fid in (1, 2, 5, 8, 9, 10):
+
+        print("std")
+        run_once(fid=fid)
+
+        # print("mirrored old")
+        # run_once(fid=fid, mirrored=True, old_samplers=True)
+        # print("mirrored new")
+        # run_once(fid=fid, mirrored=True, old_samplers=False)
+
+        print()
+        print("orth old")
+        run_once(fid=fid, orthogonal=True, old_samplers=True)
+        print("orth new")
+        run_once(fid=fid, orthogonal=True, old_samplers=False)
+        print()
+        print("mirrored orth old")
+        run_once(fid=fid, orthogonal=True, mirrored=True, old_samplers=True)
+        print("mirrored orth new")
+        run_once(fid=fid, orthogonal=True, mirrored=True, old_samplers=False)
+        print("*" * 60)
+        print()
+        print()
     # run_once(fid=fid, bound_correction=True)
 
     # functions = [20, 22, 23, 24]

@@ -2,9 +2,14 @@ import numpy as np
 
 from Utils import Boolean, AnyOf, InstanceOf
 from Sampling import (
+    gaussian_sampling,
+    orthogonal_sampling,
+    mirrored_sampling,
+    sobol_sampling,
+    halton_sampling,
     GaussianSampling,
     OrthogonalSampling,
-    MirroredSampling
+    MirroredSampling,
 )
 from Population import Population
 
@@ -18,15 +23,19 @@ class Parameters:
     elitist = Boolean('elitist')
     mirrored = Boolean('mirrored')
     orthogonal = Boolean('orthogonal')
+    old_samplers = Boolean('old_samplers')
+
     sequential = Boolean('sequential')
     threshold_convergence = Boolean('threshold_convergence')
     bound_correction = Boolean('bound_correction')
-    tpa = Boolean('tpa')
 
-    selection = AnyOf('selection', (None, 'pairwise',))
-    weights_option = AnyOf("weights_option", (None, '1/n',))
     base_sampler = AnyOf(
         "base_sampler", (None, 'quasi-sobol', 'quasi-halton',))
+
+    # TODO
+    tpa = Boolean('tpa')
+    weights_option = AnyOf("weights_option", (None, '1/n',))
+    selection = AnyOf('selection', (None, 'pairwise',))
     local_restart = AnyOf("local_restart", (None, 'IPOP', 'BIPOP',))
 
     # Other parameters
@@ -47,13 +56,27 @@ class Parameters:
         self.sampler = self.get_sampler()
 
     def get_sampler(self):
-        sampler = GaussianSampling(self.d)
+        if self.old_samplers:
+            sampler = GaussianSampling(self.d)
+            if self.orthogonal:
+                n_samples = max(1, self.lambda_ // (2 - (not self.mirrored)))
+                sampler = OrthogonalSampling(self.d, n_samples, sampler)
+
+            if self.mirrored:
+                sampler = MirroredSampling(sampler)
+            return sampler
+
+        sampler = {
+            "quasi-sobol": sobol_sampling,
+            "quasi-halton": halton_sampling,
+        }.get(self.base_sampler, gaussian_sampling)(self.d)
 
         if self.orthogonal:
-            sampler = OrthogonalSampling(self.d, self.lambda_, sampler)
+            n_samples = max(1, self.lambda_ // (2 - (not self.mirrored)))
+            sampler = orthogonal_sampling(sampler, n_samples)
 
         if self.mirrored:
-            sampler = MirroredSampling(sampler)
+            sampler = mirrored_sampling(sampler)
         return sampler
 
     def init_meta_parameters(self):
