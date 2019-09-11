@@ -66,9 +66,9 @@ class Parameters:
     mirrored = Boolean('mirrored')
     orthogonal = Boolean('orthogonal')
     sequential = Boolean('sequential')
-    threshold_convergence = Boolean(
-        'threshold_convergence')  # this is bugged
+    threshold_convergence = Boolean('threshold_convergence')
     tpa = Boolean('tpa')
+
     selection = AnyOf('selection', (None, 'pairwise',))
     weights_option = AnyOf("weights_option", (None, '1/n',))
     base_sampler = AnyOf(
@@ -284,6 +284,13 @@ class Population:
         return str(self.x.shape)
 
 
+def _scale_with_threshold(z, threshold):
+    length = np.linalg.norm(z)
+    if length < threshold:
+        new_length = threshold + (threshold - length)
+    return z * (new_length / length)
+
+
 class ModularCMA(Optimizer):
     def __init__(
             self,
@@ -301,11 +308,7 @@ class ModularCMA(Optimizer):
         for i in range(self.parameters.lambda_):
             z = self.parameters.sampler.next()
             if self.parameters.threshold_convergence:
-                length = np.linalg.norm(z)
-                if length < self.parameters.threshold:
-                    new_length = self.parameters.threshold + (
-                        self.parameters.threshold - length)
-                    z *= (new_length / length)
+                _scale_with_threshold(z, self.parameters.threshold)
             y.append(np.dot(
                 self.parameters.B, self.parameters.D * z))
             x.append(self.parameters.m +
@@ -405,8 +408,9 @@ def run_once(fid=1, **kwargs):
 
 if __name__ == "__main__":
     # test_modules()
-    run_once(fid=1, threshold_convergence=False)
-    run_once(fid=1, threshold_convergence=True)
+    fid = 7
+    run_once(fid=fid, threshold_convergence=False)
+    run_once(fid=fid, threshold_convergence=True)
 
     # functions = [20, 22, 23, 24]
     # [3, 4, 16, 17, 18, 19, 21]
