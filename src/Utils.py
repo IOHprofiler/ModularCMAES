@@ -77,3 +77,64 @@ def to_matrix(array):
     max_ = len(max(array, key=len))
     return np.array([
         row + [row[-1]] * (max_ - len(row)) for row in array])
+
+
+class Descriptor:
+    def __init__(self, name=''):
+        self.name = name
+
+    def __get__(self, instance, instance_type):
+        return instance.__dict__[self.name]
+
+    def __set__(self, instance, value):
+        instance.__dict__[self.name] = value
+
+    def __delete__(self, instance):
+        del instance.__dict__[self.name]
+
+
+class NoneTypeDescriptor(Descriptor):
+    def __get__(self, instance, instance_type):
+        return instance.__dict__.get(self.name)
+
+
+class Boolean(NoneTypeDescriptor):
+    def __get__(self, instance, instance_type):
+        return super().__get__(instance, instance_type) or False
+
+    def __set__(self, instance, value):
+        if type(value) != bool:
+            raise TypeError("{} should be bool".format(self.name))
+        super().__set__(instance, value)
+
+
+class NpArray(Descriptor):
+    def __set__(self, instance, value):
+        if type(value) != np.ndarray:
+            raise TypeError("{} should be numpy.ndarray".format(self.name))
+        instance.__dict__[self.name] = value.copy()
+
+
+class AnyOf(NoneTypeDescriptor):
+    def __init__(self, name='', options=None):
+        self.name = name
+        self.options = options
+
+    def __set__(self, instance, value):
+        if value not in self.options:
+            raise TypeError("{} should any of {}".format(
+                self.name, self.options
+            ))
+        super().__set__(instance, value)
+
+
+class InstanceOf(NoneTypeDescriptor):
+    def __init__(self, name='', iclass=None):
+        self.name = name
+        self.iclass = iclass
+
+    def __set__(self, instance, value):
+        if not isinstance(value, self.iclass):
+            raise TypeError("Value should be of type {}".format(
+                self.iclass))
+        super().__set__(instance, value)

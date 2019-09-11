@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.linalg import fractional_matrix_power
 from Optimizer import Optimizer
 from Utils import evaluate
 

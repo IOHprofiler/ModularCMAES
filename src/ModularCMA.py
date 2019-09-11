@@ -1,294 +1,64 @@
 '''
 TODO: Implementing modules
+    Configurable parts:
+        1. active update: (true, false)
+            works on adapt covariance matrix
+        2. elitist: (true, false)
+            works on selection
+        3. mirrored: (true, false)
+            used in get_sampler
+        4. orthogonal: (true, false)
+            used in get_sampler
+        5. sequential: (true, false)
+            used in eval population
+        6. threshold_convergence (opts threshold) (true, false):
+            works on mutation
 
+        7. tpa (true, false)
+            works in run one generation:
+                reduces new population size,
+                runs one generation,
+                applies tpa update
+            works in adapt covariance matrix
+            is also of inlfuence in calculate depedencies
+        8.  selection (None (best), 'pairwise'):
+            defines select function,
+            called in run one generation
+            In case of pairwise selection, sequential evaluation may only stop after 2mu instead of mu individuals
+                seq_cutoff = 2
+            is also of inlfuence in calculate depedencies
+        9. weights_option (None (else in get_weights), 1/n, '1/2^n' (not used in papers)):
+            CMA ES always uses weighted recombination,
+            these weights are used (get_weights)
+            Also in update_covariance matrix
+        10. base-sampler (None,  'quasi-sobol', 'quasi-halton'):
+            used in get_sampler, defines base sampler class
+        11. local_restart (None, 'IPOP', 'BIPOP'):
+            lets not do this for now
 '''
+
 
 import numpy as np
 from Optimizer import Optimizer
 from Utils import evaluate
-from Sampling import GaussianSampling, MirroredSampling, OrthogonalSampling
-
-
-class Boolean:
-    def __init__(self, name=''):
-        self.name = name
-
-    def __get__(self, instance, instance_type):
-        return instance.__dict__.get(self.name) or False
-
-    def __set__(self, instance, value):
-        if type(value) != bool:
-            raise TypeError("{} should be bool".format(self.name))
-        instance.__dict__[self.name] = value
-
-    def __delete__(self, instance):
-        del instance.__dict__[self.name]
-
-
-class NpArray:
-    def __init__(self, name=''):
-        self.name = name
-
-    def __get__(self, instance, instance_type):
-        return instance.__dict__[self.name]
-
-    def __set__(self, instance, value):
-        if type(value) != np.ndarray:
-            raise TypeError("{} should be numpy.ndarray".format(self.name))
-        instance.__dict__[self.name] = value.copy()
-
-    def __delete__(self, instance):
-        del instance.__dict__[self.name]
-
-
-class AnyOf:
-    def __init__(self, name='', options=None):
-        self.name = name
-        self.options = options
-
-    def __get__(self, instance, instance_type):
-        return instance.__dict__.get(self.name)
-
-    def __set__(self, instance, value):
-        if value not in self.options:
-            raise TypeError("{} should any of {}".format(
-                self.name, self.options
-            ))
-        instance.__dict__[self.name] = value
-
-    def __delete__(self, instance):
-        del instance.__dict__[self.name]
-
-
-class Parameters:
-    active = Boolean('active')
-    elitist = Boolean('elitist')
-    mirrored = Boolean('mirrored')
-    orthogonal = Boolean('orthogonal')
-    sequential = Boolean('sequential')
-    threshold_convergence = Boolean('threshold_convergence')
-    tpa = Boolean('tpa')
-
-    selection = AnyOf('selection', (None, 'pairwise',))
-    weights_option = AnyOf("weights_option", (None, '1/n',))
-    base_sampler = AnyOf(
-        "base_sampler", (None, 'quasi-sobol', 'quasi-halton',))
-    local_restart = AnyOf("local_restart", (None, 'IPOP', 'BIPOP',))
-
-    def __init__(self, d, absolute_target, rtol, **kwargs):
-        self.target = absolute_target + rtol
-        self.d = d
-        self.init_meta_parameters()
-        self.init_selection_parameters()
-        self.init_modules(**kwargs)
-        self.init_adaptation_parameters()
-        self.init_dynamic_parameters()
-        self.init_population()
-
-    def init_modules(self, **kwargs):
-        self.__dict__.update(**kwargs)
-        self.sampler = self.get_sampler()
-
-    def get_sampler(self):
-        sampler = GaussianSampling(self.d)
-
-        if self.orthogonal:
-            sampler = OrthogonalSampling(self.d, self.lambda_, sampler)
-
-        if self.mirrored:
-            sampler = MirroredSampling(sampler)
-        return sampler
-
-    def init_meta_parameters(self):
-        self.used_budget = 0
-        self.fopt = float("inf")
-        self.budget = 1e4 * self.d
-        self.eigeneval = 0
-
-    def init_selection_parameters(self, seq_cutoff_factor=1):
-        self.m = np.random.rand(self.d, 1)
-        self.m_old = self.m.copy()
-        self.lambda_ = (4 + np.floor(3 * np.log(self.d))).astype(int)
-        self.mu = self.lambda_ // 2
-
-        self.seq_cutoff_factor = seq_cutoff_factor
-        self.seq_cutoff = self.mu * self.seq_cutoff_factor
-
-    def init_adaptation_parameters(self):
-        self.weights = (np.log((self.lambda_ + 1) / 2) -
-                        np.log(np.arange(1, self.lambda_ + 1)))
-
-        self.pweights = self.weights[:self.mu]
-        self.nweights = self.weights[self.mu:]
-
-        self.mueff = (
-            self.pweights.sum()**2 /
-            (self.pweights ** 2).sum()
-        )
-        self.mueff_neg = (
-            self.nweights.sum()**2 /
-            (self.nweights ** 2).sum()
-        )
-        self.c1 = 2 / ((self.d + 1.3)**2 + self.mueff)
-        self.cmu = (
-            2 * (self.mueff - 2 + 1 / self.mueff) /
-            ((self.d + 2)**2 + 2 * self.mueff / 2)
-        )
-        self.pweights = self.pweights / self.pweights.sum()
-        amu_neg = 1 + (self.c1 / self.mu)
-        amueff_neg = 1 + ((2 * self.mueff_neg) / (self.mueff + 2))
-        aposdef_neg = (1 - self.c1 - self.cmu) / (self.d * self.cmu)
-        self.nweights = (min(amu_neg, amueff_neg, aposdef_neg) /
-                         np.abs(self.nweights).sum()) * self.nweights
-        self.weights = np.append(self.pweights, self.nweights)
-
-        self.cc = (
-            (4 + (self.mueff / self.d)) /
-            (self.d + 4 + (2 * self.mueff / self.d))
-        )
-        self.cs = (self.mueff + 2) / (self.d + self.mueff + 5)
-        self.damps = (
-            1. + (2. * max(0., np.sqrt((self.mueff - 1) / (self.d + 1)) - 1) + self.cs)
-        )
-        self.chiN = (
-            self.d ** .5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
-        )
-
-    def init_dynamic_parameters(self):
-        self.sigma = .5
-        self.pc = np.zeros((self.d, 1))
-        self.ps = np.zeros((self.d, 1))
-        self.B = np.eye(self.d)
-        self.C = np.eye(self.d)
-        self.D = np.ones((self.d, 1))
-        self.invC = np.eye(self.d)
-
-    def init_population(self):
-        # only placeholders
-        self.old_population = None
-        self.population = Population(
-            np.zeros(self.d, self.lambda_),
-            np.zeros(self.d, self.lambda_),
-            np.zeros(self.d)
-        )
-        self.dm = np.zeros(self.d)
-
-    def adapt(self):
-        self.dm = (self.m - self.m_old) / self.sigma
-        self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
-            self.cs * (2 - self.cs) * self.mueff
-        ) * self.invC @ self.dm))
-        self.sigma = self.sigma * np.exp(
-            (self.cs / self.damps) * ((np.linalg.norm(self.ps) / self.chiN) - 1)
-        )
-        # cov matrix adapation
-        hs = (
-            np.linalg.norm(self.ps) /
-            np.sqrt(1 - np.power(1 - self.cs, 2 *
-                                 (self.used_budget / self.lambda_)))
-        ) < (1.4 + (2 / (self.d + 1))) * self.chiN
-
-        dhs = (1 - hs) * self.cc * (2 - self.cc)
-
-        self.pc = (1 - self.cc) * self.pc + (hs * np.sqrt(
-            self.cc * (2 - self.cc) * self.mueff
-        )) * self.dm
-
-        rank_one = (self.c1 * self.pc * self.pc.T)
-        old_C = (1 - (self.c1 * dhs) - self.c1 -
-                 (self.cmu * self.pweights.sum())) * self.C
-
-        if self.active:
-            # punish bad direction by their weighted distance traveled
-            weights = self.weights[::].copy()
-            weights = weights[:self.population.y.shape[1]]
-            weights[weights < 0] = weights[weights < 0] * (
-                self.d /
-                np.power(np.linalg.norm(
-                    self.invC @  self.population.y[:, weights < 0], axis=0), 2)
-            )
-            rank_mu = self.cmu * \
-                (weights * self.population.y @ self.population.y.T)
-        else:
-            rank_mu = (self.cmu *
-                       (self.pweights * self.population.y[:, :self.mu] @
-                        self.population.y[:, :self.mu].T))
-        self.C = old_C + rank_one + rank_mu
-
-        if np.isinf(self.C).any() or np.isnan(self.C).any() or (not 1e-16 < self.sigma < 1e6):
-            self.init_dynamic_parameters()
-        else:
-            self.C = np.triu(self.C) + np.triu(self.C, 1).T
-            self.D, self.B = np.linalg.eigh(self.C)
-            self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
-            self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
-
-    @property
-    def threshold(self):
-        # TODO: We need to check these values
-        init_threshold = 0.2
-        decay_factor = 0.995
-        ub, lb = 5, -5
-        diameter = np.linalg.norm(ub - (lb))
-
-        return init_threshold * diameter * (
-            (self.budget - self.used_budget) / self.budget
-        ) ** decay_factor
-
-
-class Population:
-    x = NpArray('x')
-    y = NpArray('y')
-    f = NpArray('f')
-
-    def __init__(self, x, y, f):
-        self.x = x
-        self.y = y
-        self.f = f
-
-    def sort(self):
-        fidx = np.argsort(self.f)
-        self.x = self.x[:, fidx]
-        self.y = self.y[:, fidx]
-        self.f = self.f[fidx]
-
-    def copy(self):
-        return Population(**self.__dict__)
-
-    def __add__(self, other):
-        assert isinstance(other, self.__class__)
-        return Population(
-            np.hstack([self.x, other.x]),
-            np.hstack([self.y, other.y]),
-            np.append(self.f, other.f)
-        )
-
-    def __getitem__(self, key):
-        if isinstance(key, int):
-            return Population(
-                self.x[:, key].reshape(-1, 1),
-                self.y[:, key].reshape(-1, 1),
-                np.array([self.f[key]])
-            )
-        elif isinstance(key, slice):
-            return Population(
-                self.x[:, key.start: key.stop: key.step],
-                self.y[:, key.start: key.stop: key.step],
-                self.f[key.start: key.stop: key.step]
-            )
-        else:
-            raise KeyError("Key must be non-negative integer or slice, not {}"
-                           .format(type(key)))
-
-    def __repr__(self):
-        return str(self.x.shape)
+from Parameters import Parameters
+from Population import Population
 
 
 def _scale_with_threshold(z, threshold):
     length = np.linalg.norm(z)
     if length < threshold:
         new_length = threshold + (threshold - length)
-    return z * (new_length / length)
+        z *= (new_length / length)
+    return z
+
+
+def _correct_bounds(x, ub, lb):
+    out_of_bounds = np.logical_or(x > ub, x < lb)
+    y = (x[out_of_bounds] - lb) / (ub - lb)
+    x[out_of_bounds] = lb + (
+        ub - lb) * (1. - np.abs(y - np.floor(y)))
+    return x
 
 
 class ModularCMA(Optimizer):
@@ -306,16 +76,20 @@ class ModularCMA(Optimizer):
     def mutate(self):
         y, x, f = [], [], []
         for i in range(self.parameters.lambda_):
-            z = self.parameters.sampler.next()
+            zi = self.parameters.sampler.next()
             if self.parameters.threshold_convergence:
-                _scale_with_threshold(z, self.parameters.threshold)
-            y.append(np.dot(
-                self.parameters.B, self.parameters.D * z))
-            x.append(self.parameters.m +
-                     (self.parameters.sigma * y[-1]))
-            f.append(self.fitness_func(x[-1]))
-            if self.sequential_break_conditions(i, f[-1]):
+                zi = _scale_with_threshold(zi, self.parameters.threshold)
+            yi = np.dot(self.parameters.B, self.parameters.D * zi)
+            xi = self.parameters.m + (self.parameters.sigma * yi)
+            if self.parameters.bound_correction:
+                xi = _correct_bounds(
+                    xi, self.parameters.ub, self.parameters.lb)
+            fi = self.fitness_func(xi)
+            [a.append(v) for a, v in ((y, yi), (x, xi), (f, fi),)]
+
+            if self.sequential_break_conditions(i, fi):
                 break
+
         self.parameters.population = Population(
             np.hstack(x),
             np.hstack(y),
@@ -363,24 +137,24 @@ def test_modules():
     from CannonicalCMA import CannonicalCMA
     iterations = 10
     for i in [1, 2]:  # , 5, 6, 8, 9, 10, 11, 12]:
-        print("cannon")
-        np.random.seed(12)
-        evals, fopts = evaluate(
-            i, 5, CannonicalCMA, iterations=iterations)
-        print("new")
-        np.random.seed(12)
-        evals, fopts = evaluate(
-            i, 5, ModularCMA, iterations=iterations)
+        # print("cannon")
+        # np.random.seed(12)
+        # evals, fopts = evaluate(
+        #     i, 5, CannonicalCMA, iterations=iterations)
+        # print("new")
+        # np.random.seed(12)
+        # evals, fopts = evaluate(
+        #     i, 5, ModularCMA, iterations=iterations)
 
-        print("active")
-        np.random.seed(12)
-        evals, fopts = evaluate(
-            i, 5, ModularCMA, iterations=iterations, active=True)
+        # print("active")
+        # np.random.seed(12)
+        # evals, fopts = evaluate(
+        #     i, 5, ModularCMA, iterations=iterations, active=True)
 
-        print("elist")
-        np.random.seed(12)
-        evals, fopts = evaluate(
-            i, 5, ModularCMA, iterations=iterations, elitist=True)
+        # print("elist")
+        # np.random.seed(12)
+        # evals, fopts = evaluate(
+        #     i, 5, ModularCMA, iterations=iterations, elitist=True)
 
         print("mirrored")
         np.random.seed(12)
@@ -397,20 +171,31 @@ def test_modules():
         evals, fopts = evaluate(
             i, 5, ModularCMA, iterations=iterations, sequential=True)
 
-        print()
-        print()
+        # print("Threshold Convergence")
+        # np.random.seed(12)
+        # evals, fopts = evaluate(
+        #     i, 5, ModularCMA, iterations=iterations, threshold_convergence=True)
+
+        # print("Bound correction")
+        # np.random.seed(12)
+        # evals, fopts = evaluate(
+        #     i, 5, ModularCMA, iterations=iterations, bound_correction=True)
+
+        print('*' * 50)
+        # print()
 
 
 def run_once(fid=1, **kwargs):
+    np.random.seed(12)
     evals, fopts = evaluate(
         fid, 5, ModularCMA, iterations=10, **kwargs)
 
 
 if __name__ == "__main__":
-    # test_modules()
+    test_modules()
     fid = 7
-    run_once(fid=fid, threshold_convergence=False)
-    run_once(fid=fid, threshold_convergence=True)
+    # run_once(fid=fid, bound_correction=False)
+    # run_once(fid=fid, bound_correction=True)
 
     # functions = [20, 22, 23, 24]
     # [3, 4, 16, 17, 18, 19, 21]
@@ -420,3 +205,37 @@ if __name__ == "__main__":
     # for fid in range(1, 25):
     # evals, fopts = evaluate(
     # fid, d, ModularCMA, logging=True, label="canon")
+
+
+# mirrored
+# Optimizing function 1 in 5D for target 79.48 + 1e-08
+# FCE:    79.48000001         0.0000
+# ERT:      583.2000         30.0293
+# Time elapsed 0.5260462760925293
+# Orthogonal
+# Optimizing function 1 in 5D for target 79.48 + 1e-08
+# FCE:    79.48000001         0.0000
+# ERT:      682.4000         42.7907
+# Time elapsed 0.7957170009613037
+# Sequential
+# Optimizing function 1 in 5D for target 79.48 + 1e-08
+# FCE:    79.48000001         0.0000
+# ERT:      670.7000         20.5234
+# Time elapsed 0.6130139827728271
+# **************************************************
+# mirrored
+# Optimizing function 2 in 5D for target -209.88 + 1e-08
+# FCE:    -209.87999999       0.0000
+# ERT:     2093.6000        153.5521
+# Time elapsed 2.687499761581421
+# Orthogonal
+# Optimizing function 2 in 5D for target -209.88 + 1e-08
+# FCE:    -209.87999999       0.0000
+# ERT:     2051.2000        131.3657
+# Time elapsed 3.267056941986084
+# Sequential
+# Optimizing function 2 in 5D for target -209.88 + 1e-08
+# FCE:    -209.87999999       0.0000
+# ERT:     2140.2000        129.0913
+# Time elapsed 2.912632465362549
+# **************************************************
