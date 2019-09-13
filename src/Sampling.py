@@ -37,12 +37,10 @@ def orthogonal_sampling(b, n_samples):
             L = np.linalg.norm(samples, axis=1).reshape(n_samples, -1)
             Q, _ = np.linalg.qr(samples.reshape(
                 max(samples.shape), min(samples.shape)))
-
             if n_samples < max(samples.shape):
                 samples = (Q.T * L).tolist()
             else:
                 samples = (Q * L).tolist()
-
             while any(samples):
                 yield np.array(samples.pop()).reshape(-1, 1)
         else:
@@ -224,3 +222,22 @@ class OrthogonalSampling:
                 vectors[i] = vec / lengths[i]
 
         return vectors
+
+
+def gram_schmidt(vectors):
+    basis = []
+    for v in vectors:
+        w = v - np.sum([np.dot(v, b) * b for b in basis])
+        # if (w > 1e-10).any():
+        basis.append(w / np.linalg.norm(w))
+    return np.array(basis)
+
+
+def gs(X, norm=True):
+    Y = X[0:1, :].copy()
+    for i in range(1, X.shape[0]):
+        proj = np.diag(
+            (X[i, :].dot(Y.T) / np.linalg.norm(Y, axis=1)**2).flat).dot(Y)
+        Y = np.vstack((Y, X[i, :] - proj.sum(0)))
+
+    return np.diag(1 / np.linalg.norm(Y, axis=1)).dot(Y)

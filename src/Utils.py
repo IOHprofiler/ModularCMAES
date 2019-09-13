@@ -18,7 +18,10 @@ def timeit(func):
 
 
 def ert(evals, budget):
-    _ert = evals.sum() / (evals < budget).sum()
+    try:
+        _ert = evals.sum() / (evals < budget).sum()
+    except:
+        _ert = float('inf')
     return _ert, np.std(evals)
 
 
@@ -38,14 +41,24 @@ def bbobfunction(ffid, logging=False, label='', iinstance=1, d=5):
 
 
 @timeit
-def evaluate(ffid, d, optimizer_class, *args, iterations=50, label='', logging=False, **kwargs):
+def evaluate(ffid, d, optimizer_class, *args, iterations=50, label='', logging=False, all_funcs=False, **kwargs):
     evals, fopts = np.array([]), np.array([])
     _, target = bbobfunction(ffid)
     print("Optimizing function {} in {}D for target {} + {}".format(ffid, d, target,
                                                                     DISTANCE_TO_TARGET[ffid - 1]))
+    if logging:
+        label = 'D{}_{}_{}'.format(
+            d, label, datetime.now().strftime("%m"))
+        fitness_func = fgeneric.LoggingFunction(
+            "/home/jacob/Code/thesis/data/{}".format(label), label)
     for i in range(iterations):
-        fitness_func, target = bbobfunction(
-            ffid, label=label, logging=logging, d=d)
+        func, target = bbobbenchmarks.instantiate(ffid, iinstance=1)
+        if not logging:
+            fitness_func = func
+        else:
+            target = fitness_func.setfun(
+                *(func, target)
+            ).ftarget
         optimizer = optimizer_class(fitness_func, target, d, *args,
                                     rtol=DISTANCE_TO_TARGET[ffid - 1],
                                     ** kwargs)

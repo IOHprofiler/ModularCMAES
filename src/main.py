@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 import numpy as np
 
-from ConfigurableCMA import ConfigurableCMA
+from ModularCMA import ModularCMA
 from CannonicalCMA import CannonicalCMA
 from Utils import evaluate
 
@@ -55,9 +55,9 @@ if __name__ == "__main__":
     #          )
 
     print("Modular: rewrite (correct order)")
-    evaluate(args.functionid, args.dim, ConfigurableCMA,
+    evaluate(args.functionid, args.dim, ModularCMA,
              iterations=args.iterations,
-             label="new_corect_order", logging=True
+             label="new_code", logging=True
              )
 
     # import subprocess

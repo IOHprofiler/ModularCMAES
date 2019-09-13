@@ -39,13 +39,20 @@ class Population:
             )
         elif isinstance(key, slice):
             return Population(
-                self.x[:, key.start: key.stop: key.step],
-                self.y[:, key.start: key.stop: key.step],
-                self.f[key.start: key.stop: key.step]
+                self.x[:, key.start: key.stop: key.step].copy(),
+                self.y[:, key.start: key.stop: key.step].copy(),
+                self.f[key.start: key.stop: key.step].copy()
+            )
+        elif isinstance(key, list) and all(
+                map(lambda x: isinstance(x, int) and x >= 0, key)):
+            return Population(
+                self.x[:, key].copy(),
+                self.y[:, key].copy(),
+                self.f[key].copy()
             )
         else:
-            raise KeyError("Key must be non-negative integer or slice, not {}"
+            raise KeyError("Key must be (list of) non-negative integer(s) or slice, not {}"
                            .format(type(key)))
 
     def __repr__(self):
-        return str(self.x.shape)
+        return "d: {}, n: {}".format(*str(self.x.shape))

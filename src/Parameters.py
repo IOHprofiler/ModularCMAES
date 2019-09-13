@@ -22,7 +22,6 @@ class Parameters:
     active = Boolean('active')
     elitist = Boolean('elitist')
     mirrored = Boolean('mirrored')
-    orthogonal = Boolean('orthogonal')
     old_samplers = Boolean('old_samplers')
 
     sequential = Boolean('sequential')
@@ -32,10 +31,13 @@ class Parameters:
     base_sampler = AnyOf(
         "base_sampler", (None, 'quasi-sobol', 'quasi-halton',))
 
+    orthogonal = Boolean('orthogonal')  # Discuss with Hao
+    weights_option = AnyOf(
+        "weights_option", (None, '1/mu', '1/2^mu'))  # Discuss with Hao
+    selection = AnyOf('selection', (None, 'pairwise',))  # Discuss with Hao
+
     # TODO
     tpa = Boolean('tpa')
-    weights_option = AnyOf("weights_option", (None, '1/n',))
-    selection = AnyOf('selection', (None, 'pairwise',))
     local_restart = AnyOf("local_restart", (None, 'IPOP', 'BIPOP',))
 
     # Other parameters
@@ -52,7 +54,8 @@ class Parameters:
         self.init_dynamic_parameters()
 
     def init_modules(self, **kwargs):
-        self.__dict__.update(**kwargs)
+        for key, value in kwargs.items():
+            setattr(self, key, value)
         self.sampler = self.get_sampler()
 
     def get_sampler(self):
@@ -100,8 +103,18 @@ class Parameters:
         self.diameter = np.linalg.norm(self.ub - (self.lb))
 
     def init_adaptation_parameters(self):
-        self.weights = (np.log((self.lambda_ + 1) / 2) -
-                        np.log(np.arange(1, self.lambda_ + 1)))
+        #  nweights should be negative
+        if self.weights_option == '1/mu':
+            self.weights = np.ones(self.lambda_) / self.lambda_
+            self.weights[self.mu:] *= -1
+        elif self.weights_option == '1/2^mu':
+            # 1/2^i + (1/2^n)/mu
+            ws = 1 / 2**np.arange(1, self.mu + 1) + (
+                (1 / (2**self.mu)) / self.mu)
+            self.weights = np.append(ws, ws[::-1] * -1)
+        else:
+            self.weights = (np.log((self.lambda_ + 1) / 2) -
+                            np.log(np.arange(1, self.lambda_ + 1)))
 
         self.pweights = self.weights[:self.mu]
         self.nweights = self.weights[self.mu:]

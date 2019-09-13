@@ -97,6 +97,17 @@ class ModularCMA(Optimizer):
             np.array(f))
 
     def select(self):
+        if self.parameters.selection == 'pairwise':
+            assert self.parameters.lambda_ % 2 == 0, (
+                'Cannot perform pairwise selection with '
+                'an odd number of indivuduals')
+            indices = [int(np.argmin(x) + (i * 2))
+                       for i, x in enumerate(
+                           np.split(self.parameters.population.f,
+                                    self.parameters.lambda_ // 2))
+                       ]
+            self.parameters.population = self.parameters.population[indices]
+
         if self.parameters.elitist and self.parameters.old_population:
             self.parameters.population += self.parameters.old_population[
                 :self.parameters.mu]
@@ -186,79 +197,37 @@ def test_modules():
         # print()
 
 
-def run_once(fid=1, **kwargs):
+def run_function(fid=1, iterations=20, **kwargs):
     np.random.seed(42)
     evals, fopts = evaluate(
-        fid, 5, ModularCMA, iterations=50, **kwargs)
+        fid, 5, ModularCMA, iterations=iterations, **kwargs)
 
 
 if __name__ == "__main__":
     # test_modules()
-    fid = 1
-    for fid in (1, 2, 5, 8, 9, 10):
+    fid = 7
+    run_function(fid=fid)
+    run_function(fid=fid, mirrored=True)
+    run_function(fid=fid, mirrored=True, selection='pairwise')
 
-        print("std")
-        run_once(fid=fid)
-
-        # print("mirrored old")
-        # run_once(fid=fid, mirrored=True, old_samplers=True)
-        # print("mirrored new")
-        # run_once(fid=fid, mirrored=True, old_samplers=False)
-
-        print()
-        print("orth old")
-        run_once(fid=fid, orthogonal=True, old_samplers=True)
-        print("orth new")
-        run_once(fid=fid, orthogonal=True, old_samplers=False)
-        print()
-        print("mirrored orth old")
-        run_once(fid=fid, orthogonal=True, mirrored=True, old_samplers=True)
-        print("mirrored orth new")
-        run_once(fid=fid, orthogonal=True, mirrored=True, old_samplers=False)
-        print("*" * 60)
-        print()
-        print()
-    # run_once(fid=fid, bound_correction=True)
-
-    # functions = [20, 22, 23, 24]
-    # [3, 4, 16, 17, 18, 19, 21]
-
-    # [1, 2, 5, 6] + list(range(8, 15))  # + [20, 22, 23, 24]
-    # d = 20
-    # for fid in range(1, 25):
-    # evals, fopts = evaluate(
-    # fid, d, ModularCMA, logging=True, label="canon")
-
-
-# mirrored
-# Optimizing function 1 in 5D for target 79.48 + 1e-08
-# FCE:    79.48000001         0.0000
-# ERT:      583.2000         30.0293
-# Time elapsed 0.5260462760925293
-# Orthogonal
-# Optimizing function 1 in 5D for target 79.48 + 1e-08
-# FCE:    79.48000001         0.0000
-# ERT:      682.4000         42.7907
-# Time elapsed 0.7957170009613037
-# Sequential
-# Optimizing function 1 in 5D for target 79.48 + 1e-08
-# FCE:    79.48000001         0.0000
-# ERT:      670.7000         20.5234
-# Time elapsed 0.6130139827728271
-# **************************************************
-# mirrored
-# Optimizing function 2 in 5D for target -209.88 + 1e-08
-# FCE:    -209.87999999       0.0000
-# ERT:     2093.6000        153.5521
-# Time elapsed 2.687499761581421
-# Orthogonal
-# Optimizing function 2 in 5D for target -209.88 + 1e-08
-# FCE:    -209.87999999       0.0000
-# ERT:     2051.2000        131.3657
-# Time elapsed 3.267056941986084
-# Sequential
-# Optimizing function 2 in 5D for target -209.88 + 1e-08
-# FCE:    -209.87999999       0.0000
-# ERT:     2140.2000        129.0913
-# Time elapsed 2.912632465362549
-# **************************************************
+    # for fid in (1, 2, 8, 9, 10):
+    #     # print("std")
+    #     # # print("mirrored old")
+    #     # # run_function(fid=fid, mirrored=True, old_samplers=True)
+    #     # # print("mirrored new")
+    #     # # run_function(fid=fid, mirrored=True, old_samplers=False)
+    #     # print()
+    #     # print("orth old")
+    #     # run_function(fid=fid, orthogonal=True, old_samplers=True)
+    #     print("orth new")
+    #     run_function(fid=fid, orthogonal=True, old_samplers=False)
+    #     print()
+    #     # print("mirrored orth old")
+    #     # run_function(fid=fid, orthogonal=True, mirrored=True, old_samplers=True)
+    #     print("mirrored orth new")
+    #     run_function(fid=fid, orthogonal=True,
+    #                  mirrored=True, old_samplers=False)
+    #     print("*" * 60)
+    #     print()
+    #     print()
+    # run_function(fid=fid, bound_correction=True)
