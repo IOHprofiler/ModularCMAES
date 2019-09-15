@@ -22,7 +22,6 @@ class Parameters:
     active = Boolean('active')
     elitist = Boolean('elitist')
     mirrored = Boolean('mirrored')
-    old_samplers = Boolean('old_samplers')
 
     sequential = Boolean('sequential')
     threshold_convergence = Boolean('threshold_convergence')
@@ -44,6 +43,12 @@ class Parameters:
     population = InstanceOf("population", Population)
     old_population = InstanceOf("old_population", Population)
 
+    '''
+    see if we can define dependencies between modules
+        we cannot select pairwise selection if mirrored selection is turned off
+        This should only effect recombination. 
+    '''
+
     def __init__(self, d, absolute_target, rtol, **kwargs):
         self.target = absolute_target + rtol
         self.d = d
@@ -59,16 +64,6 @@ class Parameters:
         self.sampler = self.get_sampler()
 
     def get_sampler(self):
-        if self.old_samplers:
-            sampler = GaussianSampling(self.d)
-            if self.orthogonal:
-                n_samples = max(1, self.lambda_ // (2 - (not self.mirrored)))
-                sampler = OrthogonalSampling(self.d, n_samples, sampler)
-
-            if self.mirrored:
-                sampler = MirroredSampling(sampler)
-            return sampler
-
         sampler = {
             "quasi-sobol": sobol_sampling,
             "quasi-halton": halton_sampling,
@@ -106,6 +101,7 @@ class Parameters:
         #  nweights should be negative
         if self.weights_option == '1/mu':
             self.weights = np.ones(self.lambda_) / self.lambda_
+            # these are for negeative weights
             self.weights[self.mu:] *= -1
         elif self.weights_option == '1/2^mu':
             # 1/2^i + (1/2^n)/mu
@@ -115,7 +111,6 @@ class Parameters:
         else:
             self.weights = (np.log((self.lambda_ + 1) / 2) -
                             np.log(np.arange(1, self.lambda_ + 1)))
-
         self.pweights = self.weights[:self.mu]
         self.nweights = self.weights[self.mu:]
 

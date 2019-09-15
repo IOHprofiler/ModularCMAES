@@ -206,7 +206,7 @@ def run_function(fid=1, iterations=20, **kwargs):
 if __name__ == "__main__":
     # test_modules()
     fid = 7
-    run_function(fid=fid)
+    run_function(fid=fid, orthogonal=True)
     run_function(fid=fid, mirrored=True)
     run_function(fid=fid, mirrored=True, selection='pairwise')
 
