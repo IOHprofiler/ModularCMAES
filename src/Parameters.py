@@ -56,7 +56,7 @@ class Parameters(AnnotatedStruct):
     # TODO:
     local_restart: str = (None, 'IPOP', 'BIPOP',)
 
-    # Other Parameters
+    # Other parameters with type checking
     population: Population = None
     old_population: Population = None
 
@@ -75,7 +75,10 @@ class Parameters(AnnotatedStruct):
         }.get(self.base_sampler, gaussian_sampling)(self.d)
 
         if self.orthogonal:
-            n_samples = max(1, self.lambda_ // (2 - (not self.mirrored)))
+            n_samples = max(1, (
+                self.lambda_ // (2 - (not self.mirrored))) - (
+                    2 * self.step_size_adaptation == 'tpa')
+            )
             sampler = orthogonal_sampling(sampler, n_samples)
 
         if self.mirrored:
