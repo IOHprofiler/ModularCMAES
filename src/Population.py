@@ -15,7 +15,7 @@ class Population(AnnotatedStruct):
         self.f = self.f[rank]
 
     def copy(self):
-        return Population(**self.__dict__)
+        return Population(self.x, self.y, self.f)
 
     def __add__(self, other):
         assert isinstance(other, self.__class__)

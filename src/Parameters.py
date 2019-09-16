@@ -89,7 +89,6 @@ class Parameters(AnnotatedStruct):
         self.used_budget = 0
         self.fopt = float("inf")
         self.budget = 1e4 * self.d
-        self.eigeneval = 0
         self.target = self.absolute_target + self.rtol
 
     def init_selection_parameters(self):

@@ -28,7 +28,7 @@ class InstanceOf(Descriptor):
         self.dtype = dtype
 
     def __set__(self, instance, value):
-        if value != None:
+        if type(value) != type(None):
             if type(value) != self.dtype and (
                 isinstance(value, np.generic) and type(
                     np.asscalar(value)) != self.dtype):
