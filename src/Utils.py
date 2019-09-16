@@ -1,3 +1,6 @@
+from collections import OrderedDict
+from collections.abc import Sequence
+from inspect import Signature, Parameter
 from datetime import datetime
 from functools import wraps
 from time import time
@@ -5,6 +8,107 @@ import numpy as np
 
 from bbob import bbobbenchmarks, fgeneric
 from Constants import DEFAULT_TARGET_DISTANCES, DISTANCE_TO_TARGET
+
+
+class Descriptor:
+    '''Data descriptor'''
+
+    def __set_name__(self, owner, name):
+        self.name = name
+
+    def __set__(self, instance, value):
+        instance.__dict__[self.name] = value
+
+    def __delete__(self, instance):
+        del instance.__dict__[self.name]
+
+
+class InstanceOf(Descriptor):
+    def __init__(self, dtype):
+        self.dtype = dtype
+
+    def __set__(self, instance, value):
+        if value != None:
+            if type(value) != self.dtype and (
+                isinstance(value, np.generic) and type(
+                    np.asscalar(value)) != self.dtype):
+                raise TypeError("{} should be {}".format(
+                    self.name, self.dtype))
+            if hasattr(value, '__copy__'):
+                value = value.copy()
+        super().__set__(instance, value)
+
+    @property
+    def __doc__(self):
+        return super().__doc__ + " checks for type {}".format(self.dtype)
+
+
+class AnyOf(Descriptor):
+    def __init__(self, options=None):
+        self.options = options
+
+    def __set__(self, instance, value):
+        if value not in self.options:
+            raise TypeError("{} should any of {}".format(
+                self.name, self.options
+            ))
+        super().__set__(instance, value)
+
+    @property
+    def __doc__(self):
+        return (
+            super().__doc__ + " checks if value is any of: [{}]".format(
+                ', '.join(map(str, self.options))
+            )
+        )
+
+
+class AnnotatedStructMeta(type):
+    '''Metaclass for class for AnnotatedStruct.
+    Wraps all parameters defined in the class body with 
+    __annotations__ into a signature. It additionally wraps each 
+    parameter into a descriptor using __annotations__, allowing for type checking. 
+    '''
+    @classmethod
+    def __prepare__(cls, name, bases):
+        return OrderedDict()
+
+    def __new__(cls, name, bases, attrs):
+        parameters = []
+        for key, value in attrs.get('__annotations__', {}).items():
+            default_value = attrs.get(key, Parameter.empty)
+            if isinstance(default_value, Sequence):
+                attrs[key] = AnyOf(default_value)
+                parameters.append(Parameter(name=key, default=default_value[0],
+                                            kind=Parameter.POSITIONAL_OR_KEYWORD))
+            else:
+                attrs[key] = InstanceOf(value)
+                parameters.append(Parameter(name=key, default=default_value,
+                                            kind=Parameter.POSITIONAL_OR_KEYWORD))
+
+        clsobj = super().__new__(cls, name, bases, attrs)
+        setattr(clsobj, '__signature__', Signature(parameters=parameters))
+        return clsobj
+
+
+class AnnotatedStruct(metaclass=AnnotatedStructMeta):
+    '''Custom class for defining structs. Automatically 
+    sets parameters defined in the signature. 
+    '''
+
+    def __init__(self, *args, **kwargs) -> None:
+        self.__bound__ = self.__signature__.bind(*args, **kwargs)
+        self.__bound__.apply_defaults()
+        for name, value in self.__bound__.arguments.items():
+            setattr(self, name, value)
+
+    def __repr__(self) -> None:
+        return "<{}: ({})>".format(
+            self.__class__.__qualname__, ', '.join(
+                "{}={}".format(name, value)
+                for name, value in self.__bound__.arguments.items()
+            )
+        )
 
 
 def _scale_with_threshold(z, threshold):
@@ -41,27 +145,9 @@ def ert(evals, budget):
     return _ert, np.std(evals)
 
 
-def bbobfunction(ffid, logging=False, label='', iinstance=1, d=5):
-    func, target = bbobbenchmarks.instantiate(
-        ffid, iinstance=iinstance)
-    if not logging:
-        return func, target
-    label = 'D{}_{}_{}'.format(
-        d, label, datetime.now().strftime("%m%d"))
-    fitness_func = fgeneric.LoggingFunction(
-        "/home/jacob/Code/thesis/data/{}".format(label), label)
-    target = fitness_func.setfun(
-        *(func, target)
-    ).ftarget
-    return fitness_func, target
-
-
 @timeit
 def evaluate(ffid, d, optimizer_class, *args, iterations=50, label='', logging=False, all_funcs=False, **kwargs):
     evals, fopts = np.array([]), np.array([])
-    _, target = bbobfunction(ffid)
-    print("Optimizing function {} in {}D for target {} + {}".format(ffid, d, target,
-                                                                    DISTANCE_TO_TARGET[ffid - 1]))
     if logging:
         label = 'D{}_{}_{}'.format(
             d, label, datetime.now().strftime("%m"))
@@ -69,6 +155,9 @@ def evaluate(ffid, d, optimizer_class, *args, iterations=50, label='', logging=F
             "/home/jacob/Code/thesis/data/{}".format(label), label)
     for i in range(iterations):
         func, target = bbobbenchmarks.instantiate(ffid, iinstance=1)
+        if i == 0:
+            print("Optimizing function {} in {}D for target {} + {}".format(ffid, d, target,
+                                                                            DISTANCE_TO_TARGET[ffid - 1]))
         if not logging:
             fitness_func = func
         else:
@@ -86,82 +175,3 @@ def evaluate(ffid, d, optimizer_class, *args, iterations=50, label='', logging=F
         np.mean(fopts), np.std(fopts), *ert(evals, optimizer.parameters.budget)
     ))
     return evals, fopts
-
-
-def plot_cumulative_target(fitness_over_time, abs_target, label=None, log=False):
-    # Don't include the points that have hit a target and than decrease.
-    fitness_over_time = to_matrix(fitness_over_time)
-    bins = np.digitize(fitness_over_time - abs_target,
-                       DEFAULT_TARGET_DISTANCES, right=True)
-
-    bins = np.maximum.accumulate(bins, axis=1)
-    line = [i.sum() / (len(DEFAULT_TARGET_DISTANCES) * len(i)) for i in bins.T]
-    plt.semilogx(line, label=label)
-    plt.ylabel("Proportion of function+target pairs")
-    plt.xlabel("Function Evaluations")
-    plt.legend()
-
-
-def to_matrix(array):
-    max_ = len(max(array, key=len))
-    return np.array([
-        row + [row[-1]] * (max_ - len(row)) for row in array])
-
-
-class Descriptor:
-    def __set_name__(self, owner, name):
-        self.name = name
-
-    def __get__(self, instance, instance_type):
-        return instance.__dict__[self.name]
-
-    def __set__(self, instance, value):
-        instance.__dict__[self.name] = value
-
-    def __delete__(self, instance):
-        del instance.__dict__[self.name]
-
-
-class NoneTypeDescriptor(Descriptor):
-    def __get__(self, instance, instance_type):
-        return instance.__dict__.get(self.name)
-
-
-class Boolean(NoneTypeDescriptor):
-    def __get__(self, instance, instance_type):
-        return super().__get__(instance, instance_type) or False
-
-    def __set__(self, instance, value):
-        if type(value) != bool:
-            raise TypeError("{} should be bool".format(self.name))
-        super().__set__(instance, value)
-
-
-class NpArray(Descriptor):
-    def __set__(self, instance, value):
-        if type(value) != np.ndarray:
-            raise TypeError("{} should be numpy.ndarray".format(self.name))
-        instance.__dict__[self.name] = value.copy()
-
-
-class AnyOf(NoneTypeDescriptor):
-    def __init__(self, options=None):
-        self.options = options
-
-    def __set__(self, instance, value):
-        if value not in self.options:
-            raise TypeError("{} should any of {}".format(
-                self.name, self.options
-            ))
-        super().__set__(instance, value)
-
-
-class InstanceOf(NoneTypeDescriptor):
-    def __init__(self, iclass=None):
-        self.iclass = iclass
-
-    def __set__(self, instance, value):
-        if not isinstance(value, self.iclass):
-            raise TypeError("Value should be of type {}".format(
-                self.iclass))
-        super().__set__(instance, value)

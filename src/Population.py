@@ -1,24 +1,18 @@
 import itertools
-from dataclasses import *
 import numpy as np
-from Utils import NpArray
+from Utils import AnnotatedStruct
 
 
-class Population:
-    x = NpArray()
-    y = NpArray()
-    f = NpArray()
-
-    def __init__(self, x, y, f):
-        self.x = x
-        self.y = y
-        self.f = f
+class Population(AnnotatedStruct):
+    x: np.ndarray
+    y: np.ndarray
+    f: np.ndarray
 
     def sort(self):
-        self.rank = np.argsort(self.f)
-        self.x = self.x[:, self.rank]
-        self.y = self.y[:, self.rank]
-        self.f = self.f[self.rank]
+        rank = np.argsort(self.f)
+        self.x = self.x[:, rank]
+        self.y = self.y[:, rank]
+        self.f = self.f[rank]
 
     def copy(self):
         return Population(**self.__dict__)

@@ -1,7 +1,13 @@
-from dataclasses import *
+'''
+see if we can define dependencies between modules
+    we cannot select pairwise selection if mirrored selection is turned off
+    This should only effect recombination.
+'''
 import numpy as np
 
-from Utils import Boolean, AnyOf, InstanceOf
+from Utils import AnnotatedStruct
+from Population import Population
+
 from Sampling import (
     gaussian_sampling,
     orthogonal_sampling,
@@ -9,71 +15,61 @@ from Sampling import (
     sobol_sampling,
     halton_sampling,
 )
-from Population import Population
 
 
-class StaticParameters:
-    # Two point step size
-    c_sigma = .3
-    a_tpa = .5
-    b_tpa = 0
+class Parameters(AnnotatedStruct):
+    d: int
+    absolute_target: float
+    rtol: float
+
+    # selection
+    lambda_: int = None
+    mu: int = None
+
+    # TPA
+    a_tpa: float = .5
+    b_tpa: float = 0.
+    c_sigma: float = .3
 
     # Sequential selection
-    seq_cutoff_factor = 1
+    seq_cutoff_factor: int = 1
 
     # Threshold convergence TODO: we need to check these values
-    ub = 5
-    lb = -5
-    init_threshold = 0.2
-    decay_factor = 0.995
-    diameter = np.linalg.norm(ub - (lb))
+    ub: int = 5
+    lb: int = -5
+    init_threshold: float = 0.2
+    decay_factor: float = 0.995
+    diameter: float = float(np.linalg.norm(ub - (lb)))
 
+    # Parameters options
+    active: bool = False
+    elitist: bool = False
+    mirrored: bool = False
+    sequential: bool = False
+    threshold_convergence: bool = False
+    bound_correction: bool = False
+    orthogonal: bool = False
+    base_sampler: str = ('gaussian', 'quasi-sobol', 'quasi-halton',)
+    weights_option: str = ('default', '1/mu', '1/2^mu', )
+    selection: str = ('best', 'pairwise',)
+    step_size_adaptation: str = ('csa', 'tpa', 'msr', )
+    # TODO:
+    local_restart: str = (None, 'IPOP', 'BIPOP',)
 
-class Parameters(StaticParameters):
-    active = Boolean()
-    elitist = Boolean()
-    mirrored = Boolean()
+    # Other Parameters
+    population: Population = None
+    old_population: Population = None
 
-    sequential = Boolean()
-    threshold_convergence = Boolean()
-    bound_correction = Boolean()
-    orthogonal = Boolean()  # Discuss with Hao
-
-    base_sampler = AnyOf((None, 'quasi-sobol', 'quasi-halton',))
-
-    weights_option = AnyOf((None, '1/mu', '1/2^mu'))  # Discuss with Hao
-    selection = AnyOf((None, 'pairwise',))  # Discuss with Hao
-
-    # TODO
-    step_size_adaptation = AnyOf((None, 'tpa', 'msr'),)
-    local_restart = AnyOf((None, 'IPOP', 'BIPOP',))
-
-    # Other parameters
-    population = InstanceOf(Population)
-    old_population = InstanceOf(Population)
-
-    '''
-    see if we can define dependencies between modules
-        we cannot select pairwise selection if mirrored selection is turned off
-        This should only effect recombination. 
-    '''
-
-    def __init__(self, d, absolute_target, rtol, **kwargs):
-        self.target = absolute_target + rtol
-        self.d = d
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.init_meta_parameters()
         self.init_selection_parameters()
-        self.init_modules(**kwargs)
         self.init_adaptation_parameters()
         self.init_dynamic_parameters()
 
-    def init_modules(self, **kwargs):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-        self.sampler = self.get_sampler()
-
     def get_sampler(self):
         sampler = {
+            "gaussian": gaussian_sampling,
             "quasi-sobol": sobol_sampling,
             "quasi-halton": halton_sampling,
         }.get(self.base_sampler, gaussian_sampling)(self.d)
@@ -91,14 +87,22 @@ class Parameters(StaticParameters):
         self.fopt = float("inf")
         self.budget = 1e4 * self.d
         self.eigeneval = 0
+        self.target = self.absolute_target + self.rtol
 
     def init_selection_parameters(self):
         self.m = np.random.rand(self.d, 1)
         self.m_old = None
-        self.lambda_ = (4 + np.floor(3 * np.log(self.d))).astype(int)
-        self.mu = self.lambda_ // 2
+        self.lambda_ = self.lambda_ or (
+            4 + np.floor(3 * np.log(self.d))).astype(int)
+        self.mu = self.mu or self.lambda_ // 2
+        if self.mu > self.lambda_:
+            raise AttributeError(
+                "\u03BC ({}) cannot be larger than \u03bb ({})".format(
+                    self.mu, self.lambda_
+                ))
 
         self.seq_cutoff = self.mu * self.seq_cutoff_factor
+        self.sampler = self.get_sampler()
 
     def init_adaptation_parameters(self):
         if self.weights_option == '1/mu':
@@ -233,11 +237,7 @@ class Parameters(StaticParameters):
             self.C = np.triu(self.C) + np.triu(self.C, 1).T
             self.D, self.B = np.linalg.eigh(self.C)
             self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
-            try:
-                self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
-            except RuntimeWarning:
-                # breakpoint()
-                pass
+            self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
 
         self.old_population = self.population.copy()
 
@@ -246,3 +246,8 @@ class Parameters(StaticParameters):
         return self.init_threshold * self.diameter * (
             (self.budget - self.used_budget) / self.budget
         ) ** self.decay_factor
+
+
+if __name__ == "__main__":
+    p = Parameters(2, 1., 1.)
+    # b.selection = 'a'?
