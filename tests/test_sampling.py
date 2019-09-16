@@ -1,7 +1,7 @@
 import types
 import unittest
 import numpy as np
-from lib import Sampling
+from src import Sampling
 
 
 class TestSampling(unittest.TestCase):
