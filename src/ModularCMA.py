@@ -36,10 +36,9 @@ TODO: Implementing modules
             lets not do this for now
 '''
 
-
 import numpy as np
 from Optimizer import Optimizer
-from Utils import evaluate, _correct_bounds, _scale_with_threshold
+from Utils import evaluate, _correct_bounds, _scale_with_threshold, _keepInBounds
 from Parameters import Parameters
 from Population import Population
 
@@ -53,22 +52,15 @@ class ModularCMA(Optimizer):
             rtol,
             **kwargs
     ):
+
         self.parameters = Parameters(d, absolute_target, rtol, **kwargs)
         self._fitness_func = fitness_func
 
     def mutate(self):
         y, x, f = [], [], []
         n_offspring = self.parameters.lambda_
-
         if self.parameters.step_size_adaptation == 'tpa' and self.parameters.old_population:
             n_offspring -= 2
-            # as defined in paper:
-            # rnorm = np.linalg.norm(np.random.multivariate_normal(
-            # np.zeros(self.parameters.d), np.eye(self.parameters.d)))
-            # m_diff = (self.parameters.m - self.parameters.m_old)
-            # yi = rnorm * (m_diff / np.linalg.norm(m_diff))
-
-            # This works better
             yi = ((self.parameters.m - self.parameters.m_old) /
                   self.parameters.sigma)
             y.extend([yi, -yi])
@@ -85,14 +77,13 @@ class ModularCMA(Optimizer):
 
         for i in range(n_offspring):
             zi = next(self.parameters.sampler)
-
             if self.parameters.threshold_convergence:
                 zi = _scale_with_threshold(zi, self.parameters.threshold)
 
             yi = np.dot(self.parameters.B, self.parameters.D * zi)
             xi = self.parameters.m + (self.parameters.sigma * yi)
             if self.parameters.bound_correction:
-                xi = _correct_bounds(
+                xi = _keepInBounds(
                     xi, self.parameters.ub, self.parameters.lb)
             fi = self.fitness_func(xi)
             [a.append(v) for a, v in ((y, yi), (x, xi), (f, fi),)]
@@ -205,31 +196,40 @@ def test_modules():
 
 
 def run_function(fid=1, iterations=20, **kwargs):
-    np.random.seed(42)
+    np.random.seed(1)
     evals, fopts = evaluate(
         fid, 5, ModularCMA, iterations=iterations, **kwargs)
+    evals = list(map(int, evals))
+    print(evals)
 
 
 if __name__ == "__main__":
     # test_modules()
     fid = 7
-    # run_function(fid=fid, orthogonal=True)
+    # run_function(fid=fid, init_sigma=1)
+    run_function(fid=fid,
+                 local_restart='IPOP',
+                 iterations=20,
+                 init_sigma=1,
+                 bound_correction=True
+                 )
+
     # run_function(fid=fid, mirrored=True)
     # run_function(fid=fid, mirrored=True, selection='pairwise')
 
-    for fid in [1] + list(range(5, 11)):
-        print("csa")
-        run_function(fid=fid)
-        print("tpa")
-        run_function(fid=fid, step_size_adaptation='tpa')
-        print("msr")
-        run_function(fid=fid, step_size_adaptation='msr')
-        print()
-        print()
-        # print("mirrored")
-        # run_function(fid=fid, mirrored=True)
-        # print("orth mirrored")
-        # run_function(fid=fid, orthogonal=True, mirrored=True)
+    # for fid in [1] + list(range(5, 11)):
+    #     print("csa")
+    #     run_function(fid=fid)
+    #     print("tpa")
+    #     run_function(fid=fid, step_size_adaptation='tpa')
+    #     print("msr")
+    #     run_function(fid=fid, step_size_adaptation='msr')
+    #     print()
+    #     print()
+    #     # print("mirrored")
+    # run_function(fid=fid, mirrored=True)
+    # print("orth mirrored")
+    # run_function(fid=fid, orthogonal=True, mirrored=True)
 
     #     # # print("mirrored old")
     #     # # run_function(fid=fid, mirrored=True, old_samplers=True)

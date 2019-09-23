@@ -119,6 +119,32 @@ def _scale_with_threshold(z, threshold):
     return z
 
 
+def _keepInBounds(x, l_bound, u_bound):
+    """
+        This function transforms x to t w.r.t. the low and high
+        boundaries lb and ub. It implements the function T^{r}_{[a,b]} as
+        described in Rui Li's PhD thesis "Mixed-Integer Evolution Strategies
+        for Parameter Optimization and Their Applications to Medical Image
+        Analysis" as alorithm 6.
+
+        :param x:       Column vector to be kept in bounds
+        :param l_bound: Lower bound column vector
+        :param u_bound: Upper bound column vector
+        :returns:       An in-bounds kept version of the column vector ``x``
+    """
+
+    y = (x - l_bound) / (u_bound - l_bound)
+    # Local storage to prevent double calls
+    floor_y = np.floor(y)
+    I = np.mod(floor_y, 2) == 0
+    yprime = np.zeros(np.shape(y))
+    yprime[I] = np.abs(y[I] - floor_y[I])
+    yprime[~I] = 1.0 - np.abs(y[~I] - floor_y[~I])
+
+    x = l_bound + (u_bound - l_bound) * yprime
+    return x
+
+
 def _correct_bounds(x, ub, lb):
     out_of_bounds = np.logical_or(x > ub, x < lb)
     y = (x[out_of_bounds] - lb) / (ub - lb)
@@ -139,6 +165,7 @@ def timeit(func):
 
 def ert(evals, budget):
     try:
+        evals = np.array(evals)
         _ert = evals.sum() / (evals < budget).sum()
     except:
         _ert = float('inf')

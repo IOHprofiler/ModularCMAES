@@ -46,13 +46,13 @@ if __name__ == "__main__":
         help="number of iterations per agent",
         required=False, default=50
     )
+    parser.add_argument(
+        '-l', '--logging', type=bool, required=False,
+        action='store_true', default=False
+    )
+
     args = parser.parse_args()
     np.random.seed(42)
-    # print("Modular: rewrite (old order)")
-    # evaluate(args.functionid, args.dim, ConfigurableCMA,
-    #          iterations=args.iterations, old_order=True,
-    #          label="new_old_order", logging=True
-    #          )
 
     print("Modular: rewrite (correct order)")
     evaluate(args.functionid, args.dim, ModularCMA,
