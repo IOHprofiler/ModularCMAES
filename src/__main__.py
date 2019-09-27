@@ -47,4 +47,5 @@ for arg in (args.pop("arguments") or []):
 evaluate(
     CannonicalCMAES
     if args.pop("cannonical")
-    else ConfigurableCMAES, **args)
+    else ConfigurableCMAES, **args
+)

@@ -31,15 +31,12 @@ class ConfigurableCMAES(Optimizer):
                 self.parameters.a_tpa + self.parameters.b_tpa)
 
     def mutate(self):
-        '''Method performing mutation and evaluation of a set
-        of individuals.'''
+        '''Method performing mutation and evaluation of a set of individuals.'''
         y, x, f = [], [], []
         n_offspring = self.parameters.lambda_
         if self.parameters.step_size_adaptation == 'tpa' and self.parameters.old_population:
             n_offspring -= 2
-            print(len(x))
             self.tpa_mutation(x, y, f)
-            print(len(x))
 
         for i in range(n_offspring):
             zi = next(self.parameters.sampler)
