@@ -1,9 +1,11 @@
-from typing import List
+from typing import List, Callable
 import numpy as np
 
 
 class Optimizer:
     '''Abstract class for optimizer objects '''
+    parameters: "Parameters"
+    _fitness_func: Callable
 
     def run(self):
         '''Runs the step method until step method retuns a falsy value

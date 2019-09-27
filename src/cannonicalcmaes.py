@@ -1,7 +1,7 @@
+from typing import Callable
 import numpy as np
 from .optimizer import Optimizer
 from .parameters import SimpleParameters
-from .utils import evaluate
 
 
 class CannonicalCMAES(Optimizer):
@@ -12,10 +12,11 @@ class CannonicalCMAES(Optimizer):
 
     def __init__(
             self,
-            fitness_func,
-            d,
-            asolute_target,
-            rtol) -> "CannonicalCMAES":
+            fitness_func: Callable,
+            d: int,
+            asolute_target: float,
+            rtol: float
+    ) -> None:
 
         self._fitness_func = fitness_func
         self.d = d
@@ -132,9 +133,3 @@ class CannonicalCMAES(Optimizer):
 
         self.parameters.fopt = min(self.parameters.fopt, f[fidx[0]])
         return not any(self.break_conditions)
-
-
-if __name__ == "__main__":
-    np.random.seed(1242)
-    evals, fopts = evaluate(
-        1, 5, CannonicalCMAES, iterations=25)

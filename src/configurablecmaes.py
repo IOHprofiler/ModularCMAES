@@ -16,10 +16,20 @@ class ConfigurableCMAES(Optimizer):
         self._fitness_func = fitness_func
 
     def mutate(self):
+        '''Method performing mutation and evaluation of a set
+        of individuals.'''
         y, x, f = [], [], []
         n_offspring = self.parameters.lambda_
         if self.parameters.step_size_adaptation == 'tpa' and self.parameters.old_population:
             n_offspring -= 2
+
+            # as defined in paper:
+            # rnorm = np.linalg.norm(np.random.multivariate_normal(
+            # np.zeros(self.parameters.d), np.eye(self.parameters.d)))
+            # m_diff = (self.parameters.m - self.parameters.m_old)
+            # yi = rnorm * (m_diff / np.linalg.norm(m_diff))
+
+            # This works much better
             yi = ((self.parameters.m - self.parameters.m_old) /
                   self.parameters.sigma)
             y.extend([yi, -yi])

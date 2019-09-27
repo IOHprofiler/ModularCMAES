@@ -1,4 +1,5 @@
 from collections import OrderedDict, abc
+from typing import Callable
 from inspect import Signature, Parameter
 from datetime import datetime
 from functools import wraps
@@ -131,6 +132,7 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
     The *args will follow the order as defined in the class body:
         i.e. (variable_wo_default, variable_w_default,)
     '''
+    __signature__: Signature
 
     def __init__(self, *args, **kwargs) -> None:
         self.__bound__ = self.__signature__.bind(*args, **kwargs)
@@ -148,6 +150,7 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
 
 
 def _scale_with_threshold(z, threshold):
+    ''''''
     length = np.linalg.norm(z)
     if length < threshold:
         new_length = threshold + (threshold - length)

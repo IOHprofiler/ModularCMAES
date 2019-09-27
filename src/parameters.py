@@ -5,6 +5,7 @@ see if we can define dependencies between modules
 '''
 import warnings
 from collections import deque
+from typing import Generator
 import numpy as np
 
 from . import utils, population, sampling
@@ -83,7 +84,7 @@ class Parameters(AnnotatedStruct):
     # This is nonsense
     ps_factor: float = 1.0
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self.init_meta_parameters()
         self.init_selection_parameters()
@@ -91,7 +92,15 @@ class Parameters(AnnotatedStruct):
         self.init_dynamic_parameters()
         self.init_local_restart_parameters()
 
-    def get_sampler(self):
+    def get_sampler(self) -> Generator:
+        '''Function to return a sampler generator based on the values 
+        of other parameters.
+
+        Returns
+        -------
+        generator
+            a sampler
+        '''
         sampler = {
             "gaussian": gaussian_sampling,
             "quasi-sobol": sobol_sampling,
@@ -109,7 +118,9 @@ class Parameters(AnnotatedStruct):
             sampler = mirrored_sampling(sampler)
         return sampler
 
-    def init_meta_parameters(self):
+    def init_meta_parameters(self) -> None:
+        '''Initialization function for parameters that hold 
+        meta data about other parameters.'''
         self.used_budget = 0
         self.fopt = float("inf")
         self.budget = 1e4 * self.d
@@ -120,9 +131,12 @@ class Parameters(AnnotatedStruct):
         self.median_fitnesses = []
         self.best_fitnesses = []
         self.flat_fitnesses = deque(maxlen=self.d)
+        # TODO: change to a list of restarts
         self.n_restarts = 0
 
-    def init_selection_parameters(self):
+    def init_selection_parameters(self) -> None:
+        '''Initialization function for parameters that are of influence 
+        in selection/population control. '''
         self.lambda_ = self.lambda_ or (
             4 + np.floor(3 * np.log(self.d))).astype(int)
         self.mu = self.mu or self.lambda_ // 2
@@ -136,14 +150,20 @@ class Parameters(AnnotatedStruct):
         self.sampler = self.get_sampler()
         self.diameter = np.linalg.norm(self.ub - (self.lb))
 
-    def init_local_restart_parameters(self):
+    def init_local_restart_parameters(self) -> None:
+        '''Initialization function for parameters that are used by 
+        local restart strategies, i.e. IPOP. '''
         self.last_restart = self.t
         self.max_iter = 100 + 50 * (self.d + 3)**2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
         self.flat_fitness_index = int(np.ceil(.1 + self.lambda_ / 4))
 
-    def init_adaptation_parameters(self):
+    def init_adaptation_parameters(self) -> None:
+        '''Initialization function for parameters that are of influence 
+        in the self-adaptive processes of the parameters. Examples are 
+        recombination weights and learning rates for the covariance 
+        matrix adapation.'''
         if self.weights_option == '1/mu':
             self.weights = np.ones(self.mu) / self.mu
             self.weights[self.mu:] *= -1
@@ -191,10 +211,13 @@ class Parameters(AnnotatedStruct):
         self.chiN = (
             self.d ** .5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
         )
-        # For MSR
         self.ds = 2 - (2 / self.d)
 
-    def init_dynamic_parameters(self):
+    def init_dynamic_parameters(self) -> None:
+        '''Initialization function of parameters that represent the interal
+        state of the CMAES algorithm, and are dynamic. Examples of such parameters
+        are the Covariance matrix C and its eigenvectors and the learning rate sigma. 
+        '''
         self.sigma = self.init_sigma
         self.m = np.random.rand(self.d, 1)
 
@@ -209,7 +232,15 @@ class Parameters(AnnotatedStruct):
         self.s = 0
         self.rank_tpa = None
 
-    def adapt_sigma(self):
+    def adapt_sigma(self) -> None:
+        '''Method to adapt the step size sigma. There are three variants in 
+        the methodology, namely:
+            ~ Two-Point Stepsize Adaptation (tpa)
+            ~ Median Success Rule (msr)
+            ~ Cummulative Stepsize Adapatation (csa)
+        One of these methods can be selected by setting the step_size_adaptation 
+        parameter. 
+        '''
         if self.step_size_adaptation == 'tpa' and self.old_population:
             self.s = ((1 - self.c_sigma) * self.s) + (
                 self.c_sigma * self.rank_tpa
@@ -230,7 +261,10 @@ class Parameters(AnnotatedStruct):
                 ((np.linalg.norm(self.ps) / self.chiN) - 1)
             )
 
-    def adapt_covariance_matrix(self):
+    def adapt_covariance_matrix(self) -> None:
+        '''Method for adapting the covariance matrix. If the option `active` 
+        is specified, active update of the covariance matrix is performed, using
+        negative weights. '''
         hs = (
             np.linalg.norm(self.ps) /
             np.sqrt(1 - np.power(1 - self.cs, 2 *
@@ -263,6 +297,11 @@ class Parameters(AnnotatedStruct):
                         self.population.y[:, :self.mu].T))
         self.C = old_C + rank_one + rank_mu
 
+    def perform_eigendecomposition(self) -> None:
+        '''Method to perform eigendecomposition
+        If sigma or the coveriance matrix has degenerated, the dynamic parameters
+        are reset.
+        '''
         if np.isinf(self.C).any() or np.isnan(self.C).any() or (not 1e-16 < self.sigma < 1e6):
             self.init_dynamic_parameters()
         else:
@@ -271,7 +310,12 @@ class Parameters(AnnotatedStruct):
             self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
             self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
 
-    def adapt(self):
+    def adapt(self) -> None:
+        '''Method for adapting the internal state paramters. 
+        The conjugate evolution path ps is calculated, in addition to 
+        the difference in mean x values dm. Thereafter, sigma is adapated,
+        followed by the adapatation of the covariance matrix.  
+        '''
         self.dm = (self.m - self.m_old) / self.sigma
         self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
             self.cs * (2 - self.cs) * self.mueff
@@ -279,14 +323,22 @@ class Parameters(AnnotatedStruct):
 
         self.adapt_sigma()
         self.adapt_covariance_matrix()
+        # TODO: eigendecomp is neccesary to be beformed every iteration, says CMAES tut.
+        self.perform_eigendecomposition()
         self.record_statistics()
         self.old_population = self.population.copy()
         if any(self.termination_criteria.values()):
             self.perform_local_restart()
 
-    def perform_local_restart(self):
+    def perform_local_restart(self) -> None:
+        '''Method performing local restart, given that a restart
+        strategy is specified in the parameters. 
+            ~ IPOP: after every resart, lambda_ is multiplied with a factor. 
+                mu is set to none. 
+        '''
         if self.local_restart:
             if self.local_restart == 'IPOP':
+                # TODO, set mu to same proportion as it was originally.
                 self.mu = None
                 self.lambda_ *= self.ipop_factor
             elif self.local_restart == 'BIPOP':
@@ -302,12 +354,17 @@ class Parameters(AnnotatedStruct):
             )), RuntimeWarning)
 
     @property
-    def threshold(self):
+    def threshold(self) -> None:
+        '''Calculate threshold for mutation, used in threshold convergence.'''
         return self.init_threshold * self.diameter * (
             (self.budget - self.used_budget) / self.budget
         ) ** self.decay_factor
 
-    def record_statistics(self):
+    def record_statistics(self) -> None:
+        '''Method for recording metadata.
+        If a local restart strategy is specified, stopping criteria
+        are calculated. 
+        '''
         self.flat_fitnesses.append(
             self.population.f[0] == self.population.f[
                 self.flat_fitness_index
