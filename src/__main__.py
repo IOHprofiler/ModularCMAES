@@ -1,11 +1,12 @@
 from argparse import ArgumentParser
 
 from .configurablecmaes import ConfigurableCMAES
+from .cannonicalcmaes import CannonicalCMAES
 from .utils import evaluate
 
 
 parser = ArgumentParser(
-    description='Run single function MAB exp iid 1')
+    description='Run single function CMAES')
 parser.add_argument(
     '-f', "--fid", type=int,
     help="bbob function id", required=False, default=5
@@ -24,6 +25,10 @@ parser.add_argument(
     action='store_true', default=False
 )
 parser.add_argument(
+    '-c', '--cannonical', required=False,
+    action='store_true', default=False
+)
+parser.add_argument(
     '-L', '--label', type=str, required=False,
     default=""
 )
@@ -31,5 +36,15 @@ parser.add_argument(
     "-s", "--seed", type=int, required=False,
     default=42
 )
+parser.add_argument(
+    "-a", "--arguments", nargs='+', required=False
+)
 
-evaluate(ConfigurableCMAES, **vars(parser.parse_args()))
+args = vars(parser.parse_args())
+for arg in (args.pop("arguments") or []):
+    exec(arg, None, args)
+
+evaluate(
+    CannonicalCMAES
+    if args.pop("cannonical")
+    else ConfigurableCMAES, **args)

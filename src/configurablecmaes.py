@@ -15,6 +15,21 @@ class ConfigurableCMAES(Optimizer):
         self.parameters = Parameters(*args, **kwargs)
         self._fitness_func = fitness_func
 
+    def tpa_mutation(self, x, y, f):
+        yi = ((self.parameters.m - self.parameters.m_old) /
+              self.parameters.sigma)
+        y.extend([yi, -yi])
+        x.extend([
+            self.parameters.m + (self.parameters.sigma * yi),
+            self.parameters.m + (self.parameters.sigma * -yi)
+        ])
+        f.extend(list(map(self.fitness_func, x)))
+        if f[1] < f[0]:
+            self.parameters.rank_tpa = -self.parameters.a_tpa
+        else:
+            self.parameters.rank_tpa = (
+                self.parameters.a_tpa + self.parameters.b_tpa)
+
     def mutate(self):
         '''Method performing mutation and evaluation of a set
         of individuals.'''
@@ -22,27 +37,9 @@ class ConfigurableCMAES(Optimizer):
         n_offspring = self.parameters.lambda_
         if self.parameters.step_size_adaptation == 'tpa' and self.parameters.old_population:
             n_offspring -= 2
-
-            # as defined in paper:
-            # rnorm = np.linalg.norm(np.random.multivariate_normal(
-            # np.zeros(self.parameters.d), np.eye(self.parameters.d)))
-            # m_diff = (self.parameters.m - self.parameters.m_old)
-            # yi = rnorm * (m_diff / np.linalg.norm(m_diff))
-
-            # This works much better
-            yi = ((self.parameters.m - self.parameters.m_old) /
-                  self.parameters.sigma)
-            y.extend([yi, -yi])
-            x.extend([
-                self.parameters.m + (self.parameters.sigma * yi),
-                self.parameters.m + (self.parameters.sigma * -yi)
-            ])
-            f.extend(list(map(self.fitness_func, x)))
-            if f[1] < f[0]:
-                self.parameters.rank_tpa = -self.parameters.a_tpa
-            else:
-                self.parameters.rank_tpa = (
-                    self.parameters.a_tpa + self.parameters.b_tpa)
+            print(len(x))
+            self.tpa_mutation(x, y, f)
+            print(len(x))
 
         for i in range(n_offspring):
             zi = next(self.parameters.sampler)

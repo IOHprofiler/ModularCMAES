@@ -1,3 +1,4 @@
+import warnings
 from collections import OrderedDict, abc
 from typing import Callable
 from inspect import Signature, Parameter
@@ -37,7 +38,7 @@ DISTANCE_TO_TARGET = [pow(10, p) for p in [
 
 
 class Descriptor:
-    '''Basic data descriptor'''
+    '''Data descriptor'''
 
     def __set_name__(self, owner, name):
         '''Set name ne
@@ -90,12 +91,23 @@ class AnyOf(Descriptor):
 
 class AnnotatedStructMeta(type):
     '''Metaclass for class for AnnotatedStruct.
+
     Wraps all parameters defined in the class body with 
     __annotations__ into a signature. It additionally wraps each 
-    parameter into a descriptor using __annotations__, allowing for type checking. 
+    parameter into a descriptor using __annotations__, 
+    allowing for type checking. 
+    Currently, only two types of descriptors are implementated,
+    InstanceOf and AnyOf, the first implements simple type validation,
+    the latter implements validation though the use of sequence of
+    allowed values. 
     '''
+
     @classmethod
     def __prepare__(cls, name, bases):
+        '''Normally, __prepare__ returns an empty dictionairy,
+        now an OrderedDict is returned. This allowes for ordering 
+        the parameters (*args). 
+        '''
         return OrderedDict()
 
     def __new__(cls, name, bases, attrs):
@@ -117,8 +129,9 @@ class AnnotatedStructMeta(type):
 
 
 class AnnotatedStruct(metaclass=AnnotatedStructMeta):
-    '''Custom class for defining structs. Automatically 
-    sets parameters defined in the signature. 
+    '''Custom class for defining structs. 
+
+    Automatically sets parameters defined in the signature.
     AnnotatedStruct objects, and children thereof, require 
     the following structure:
         class Foo(AnnotatedStruct):
@@ -131,8 +144,8 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
     in the *args **kwargs, will override the defaults.
     The *args will follow the order as defined in the class body:
         i.e. (variable_wo_default, variable_w_default,)
+
     '''
-    __signature__: Signature
 
     def __init__(self, *args, **kwargs) -> None:
         self.__bound__ = self.__signature__.bind(*args, **kwargs)
@@ -150,7 +163,23 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
 
 
 def _scale_with_threshold(z, threshold):
-    ''''''
+    '''Function for scaling a vector z to have length > threshold
+
+    Used for threshold convergence.
+
+    Parameters
+    ----------
+    z : np.ndarray
+        the vector to be scaled
+    threshold : float
+        the length threshold the vector should at least be
+
+    Returns
+    -------
+    np.ndarray
+        a scaled version of z
+    '''
+
     length = np.linalg.norm(z)
     if length < threshold:
         new_length = threshold + (threshold - length)
@@ -159,6 +188,25 @@ def _scale_with_threshold(z, threshold):
 
 
 def _correct_bounds(x, ub, lb):
+    '''Bound correction function
+    Rescales x to fall within the lower lb and upper
+    bounds ub specified.
+
+    Parameters 
+    ----------
+    x: np.ndarray
+        vector of which the bounds should be corrected
+    ub: float
+        upper bound
+    ub: float
+        lower bound
+
+    Returns
+    -------
+    np.ndarray
+        bound corrected version of x
+    '''
+
     out_of_bounds = np.logical_or(x > ub, x < lb)
     y = (x[out_of_bounds] - lb) / (ub - lb)
     x[out_of_bounds] = lb + (
@@ -167,6 +215,19 @@ def _correct_bounds(x, ub, lb):
 
 
 def timeit(func):
+    '''Decorator function for timing the excecution of
+    a function.
+
+    Parameters
+    ----------
+    func: callable
+        The function to be timed
+
+    Returns
+    -------
+    callable
+        a wrapped function
+    '''
     @wraps(func)
     def inner(*args, **kwargs):
         start = time()
@@ -177,18 +238,78 @@ def timeit(func):
 
 
 def ert(evals, budget):
-    try:
-        evals = np.array(evals)
-        _ert = evals.sum() / (evals < budget).sum()
-    except:
-        _ert = float('inf')
-    return _ert, np.std(evals)
+    '''Computed the expected running time of 
+    a list of evaluations.
+
+    Parameters
+    ----------
+    evals: list
+        a list of running times (number of evaluations)
+    budget: int
+        the maximum number of evaluations 
+    Returns
+    -------
+    float
+        The expected running time
+
+    float
+        The standard deviation of the expected running time
+    '''
+    if any(evals):
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                evals = np.array(evals)
+                _ert = evals.sum() / (evals < budget).sum()
+            return _ert, np.std(evals)
+        except:
+            pass
+    return float('inf'), 0.
 
 
 @timeit
-def evaluate(optimizer_class, fid, dim, iterations=50, label='', logging=False, all_funcs=False, seed=42, **kwargs):
+def evaluate(
+        optimizer_class,
+        fid,
+        dim,
+        iterations=50,
+        label='',
+        logging=False,
+        seed=42,
+        **kwargs):
+    '''Helper function to evaluate an optimizer on the BBOB test suite. 
+
+    Parameters
+    ----------
+    optimizer_class: Optimizer
+        An instance of Optimizer or a child thereof, i.e. CannonicalCMAES
+    fid: int
+        The id of the function 1 - 24
+    dim: int
+        The dimensionality of the problem
+    iterations: int = 50
+        The number of iterations to be performed.
+    label: str = ''
+        The label to be given to the run, used for logging with BBOB
+    logging: bool = False
+        Specifies whether to use logging
+    seed: int = 42 
+        The random seed to be used
+    **kwargs
+        These are directly passed into the instance of optimizer_class,
+        in this manner parameters can be specified for the optimizer. 
+
+    Returns
+    -------
+    list
+        The number of evaluations for each run of the optimizer
+    fopts
+        The best fitness values for each run of the optimizer
+    '''
+
     evals, fopts = np.array([]), np.array([])
-    np.random.seed(seed)
+    if seed:
+        np.random.seed(seed)
     if logging:
         label = 'D{}_{}_{}'.format(
             dim, label, datetime.now().strftime("%m"))
@@ -199,7 +320,10 @@ def evaluate(optimizer_class, fid, dim, iterations=50, label='', logging=False, 
         rtol = DISTANCE_TO_TARGET[fid - 1]
         if i == 0:
             print(
-                "Optimizing function {} in {}D for target {} + {}".format(fid, dim, target, rtol))
+                (
+                    "{}\nOptimizing function {} in {}D for target {} + {}"
+                    " with {} iterations."
+                ).format(label, fid, dim, target, rtol, iterations))
         if not logging:
             fitness_func = func
         else:
@@ -218,5 +342,16 @@ def evaluate(optimizer_class, fid, dim, iterations=50, label='', logging=False, 
 
 
 def sphere_function(x, fopt=79.48):
-    '''Sphere function'''
+    '''Sphere function
+
+    Parameters
+    ----------
+    x: np.ndarray
+    fopt: float
+
+    Returns
+    -------
+    float
+    '''
+
     return (np.linalg.norm(x.flatten()) ** 2) + fopt

@@ -17,7 +17,6 @@ class CannonicalCMAES(Optimizer):
             asolute_target: float,
             rtol: float
     ) -> None:
-
         self._fitness_func = fitness_func
         self.d = d
         self.parameters = SimpleParameters(

@@ -79,10 +79,9 @@ class Parameters(AnnotatedStruct):
     tolup_sigma: float = float(pow(10, 20))
     condition_cov: float = float(pow(10, 14))
 
-    # Determinese the frequence of exploration expliotation
+    # Determines the frequence of exploration/expliotation
     # 1 is neutral, lower is more expliotative, higher is more explorative
-    # This is nonsense
-    ps_factor: float = 1.0
+    ps_factor: float = 1.
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -131,12 +130,13 @@ class Parameters(AnnotatedStruct):
         self.median_fitnesses = []
         self.best_fitnesses = []
         self.flat_fitnesses = deque(maxlen=self.d)
-        # TODO: change to a list of restarts
-        self.n_restarts = 0
+        self.restarts = [0]
 
     def init_selection_parameters(self) -> None:
         '''Initialization function for parameters that are of influence 
-        in selection/population control. '''
+        in selection/population control. 
+        '''
+
         self.lambda_ = self.lambda_ or (
             4 + np.floor(3 * np.log(self.d))).astype(int)
         self.mu = self.mu or self.lambda_ // 2
@@ -153,7 +153,6 @@ class Parameters(AnnotatedStruct):
     def init_local_restart_parameters(self) -> None:
         '''Initialization function for parameters that are used by 
         local restart strategies, i.e. IPOP. '''
-        self.last_restart = self.t
         self.max_iter = 100 + 50 * (self.d + 3)**2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
@@ -343,7 +342,7 @@ class Parameters(AnnotatedStruct):
                 self.lambda_ *= self.ipop_factor
             elif self.local_restart == 'BIPOP':
                 raise NotImplementedError()
-            self.n_restarts += 1
+            self.restarts.append(self.t)
             self.init_selection_parameters()
             self.init_adaptation_parameters()
             self.init_dynamic_parameters()
@@ -359,6 +358,10 @@ class Parameters(AnnotatedStruct):
         return self.init_threshold * self.diameter * (
             (self.budget - self.used_budget) / self.budget
         ) ** self.decay_factor
+
+    @property
+    def last_restart(self):
+        return self.restarts[-1]
 
     def record_statistics(self) -> None:
         '''Method for recording metadata.
@@ -387,6 +390,7 @@ class Parameters(AnnotatedStruct):
 
             # only use values starting from last restart
             # to compute termination criteria
+
             best_fopts = self.best_fitnesses[self.last_restart:]
             median_fitnesses = self.median_fitnesses[self.last_restart:]
 
