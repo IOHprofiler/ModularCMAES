@@ -3,23 +3,34 @@ see if we can define dependencies between modules
     we cannot select pairwise selection if mirrored selection is turned off
     This should only effect recombination.
 '''
+import warnings
+from collections import deque
 import numpy as np
-from pprint import pprint
 
-from Utils import AnnotatedStruct
-from Population import Population
-
-from Sampling import (
+from . import utils, population, sampling
+from .utils import AnnotatedStruct
+from .population import Population
+from .sampling import (
     gaussian_sampling,
     orthogonal_sampling,
     mirrored_sampling,
     sobol_sampling,
     halton_sampling,
 )
-from collections import deque
+
+
+class SimpleParameters(AnnotatedStruct):
+    '''Simple implementation of the parameter.Parameters object.
+    This object is required in order to allow correct subclassing of the
+    optimizer.Optimizer object'''
+    target: float
+    budget: int
+    fopt: float = float("inf")
+    used_budget: int = 0
 
 
 class Parameters(AnnotatedStruct):
+    '''AnnotatedStruct object for holding the parameters for the Modular CMAES'''
     d: int
     absolute_target: float
     rtol: float
@@ -54,18 +65,23 @@ class Parameters(AnnotatedStruct):
     weights_option: str = ('default', '1/mu', '1/2^mu', )
     selection: str = ('best', 'pairwise',)
     step_size_adaptation: str = ('csa', 'tpa', 'msr', )
-    # TODO:
-    local_restart: str = (None, 'IPOP', 'BIPOP',)
+    local_restart: str = (None, 'IPOP', )  # # TODO: 'BIPOP',)
 
     # Other parameters with type checking
     population: Population = None
     old_population: Population = None
+    termination_criteria: dict = {}
 
     # local_restart
     ipop_factor: int = 2
     tolx: float = pow(10, -12)
-    tolup_sigma: float = pow(10, 20)
-    condition_cov: float = pow(10, 14)
+    tolup_sigma: float = float(pow(10, 20))
+    condition_cov: float = float(pow(10, 14))
+
+    # Determinese the frequence of exploration expliotation
+    # 1 is neutral, lower is more expliotative, higher is more explorative
+    # This is nonsense
+    ps_factor: float = 1.0
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -124,6 +140,8 @@ class Parameters(AnnotatedStruct):
         self.last_restart = self.t
         self.max_iter = 100 + 50 * (self.d + 3)**2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
+        self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
+        self.flat_fitness_index = int(np.ceil(.1 + self.lambda_ / 4))
 
     def init_adaptation_parameters(self):
         if self.weights_option == '1/mu':
@@ -176,9 +194,9 @@ class Parameters(AnnotatedStruct):
         # For MSR
         self.ds = 2 - (2 / self.d)
 
-    def init_dynamic_parameters(self, sigma=None, m=None):
-        self.sigma = sigma or self.init_sigma
-        self.m = m if type(m) != type(None) else np.random.rand(self.d, 1)
+    def init_dynamic_parameters(self):
+        self.sigma = self.init_sigma
+        self.m = np.random.rand(self.d, 1)
 
         self.dm = np.zeros(self.d)
         self.pc = np.zeros((self.d, 1))
@@ -207,7 +225,7 @@ class Parameters(AnnotatedStruct):
                 self.c_sigma * z)
             self.sigma *= np.exp(self.s / self.ds)
         else:
-            self.sigma = self.sigma * np.exp(
+            self.sigma *= np.exp(
                 (self.cs / self.damps) *
                 ((np.linalg.norm(self.ps) / self.chiN) - 1)
             )
@@ -257,7 +275,7 @@ class Parameters(AnnotatedStruct):
         self.dm = (self.m - self.m_old) / self.sigma
         self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
             self.cs * (2 - self.cs) * self.mueff
-        ) * self.invC @ self.dm))
+        ) * self.invC @ self.dm) * self.ps_factor)
 
         self.adapt_sigma()
         self.adapt_covariance_matrix()
@@ -272,16 +290,16 @@ class Parameters(AnnotatedStruct):
                 self.mu = None
                 self.lambda_ *= self.ipop_factor
             elif self.local_restart == 'BIPOP':
-                pass
+                raise NotImplementedError()
             self.n_restarts += 1
             self.init_selection_parameters()
             self.init_adaptation_parameters()
             self.init_dynamic_parameters()
             self.init_local_restart_parameters()
         else:
-            print("Warning!: Termination criterion met:", ",".join(
-                name for name, value in self.termination_criteria if name
-            ))
+            warnings.warn("Termination criteria met: {}".format(", ".join(
+                name for name, value in self.termination_criteria.items() if value
+            )), RuntimeWarning)
 
     @property
     def threshold(self):
@@ -290,9 +308,10 @@ class Parameters(AnnotatedStruct):
         ) ** self.decay_factor
 
     def record_statistics(self):
-        k = int(np.ceil(.1 + self.lambda_ / 4))
         self.flat_fitnesses.append(
-            self.fopt == self.population.f[k]
+            self.population.f[0] == self.population.f[
+                self.flat_fitness_index
+            ]
         )
         self.t += 1
         self.sigma_over_time.append(self.sigma)
@@ -300,53 +319,53 @@ class Parameters(AnnotatedStruct):
         self.best_fitnesses.append(np.max(self.population.f))
         self.median_fitnesses.append(np.median(self.population.f))
 
-        d_sigma = self.sigma / self.init_sigma
-        _t = (self.t % self.d)
-        diag_C = np.diag(self.C.T)
-        n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
+        # The below computations add a lot of~
+        # operations to the entire algorithm
+        # which is why they are turned if there
+        # is no local restart strategy
+        if self.local_restart:
+            _t = (self.t % self.d)
+            diag_C = np.diag(self.C.T)
+            d_sigma = self.sigma / self.init_sigma
 
-        # only use values starting from last restart
-        # to compute termination criteria
-        best_fopts = self.best_fitnesses[self.last_restart:]
-        median_fitnesses = self.median_fitnesses[self.last_restart:]
-        self.termination_criteria = {
-            "max_iter": (
-                self.t - self.last_restart > self.max_iter
-            ),
-            "equalfunvalues": (
-                len(best_fopts) > self.nbin and
-                np.ptp(best_fopts[-self.nbin:]) == 0
-            ),
-            "flat_fitness": (
-                self.t - self.last_restart > self.flat_fitnesses.maxlen and
-                len(self.flat_fitnesses) == self.flat_fitnesses.maxlen and
-                np.sum(self.flat_fitnesses) > (self.d / 3)
-            ),
-            "tolx": np.all((
-                np.append(self.pc.T, diag_C)
-                * d_sigma) < (self.tolx * self.init_sigma)
-            ),
-            "tolupsigma": (
-                d_sigma > self.tolup_sigma * np.sqrt(self.D.max())
-            ),
-            "conditioncov": np.linalg.cond(self.C) > self.condition_cov,
-            "noeffectaxis": np.all((1 * self.sigma * np.sqrt(
-                self.D[_t, 0]) * self.B[:, _t] + self.m) == self.m
-            ),
-            "noeffectcoor": np.any(
-                (.2 * self.sigma * np.sqrt(diag_C) + self.m) == self.m
-            ),
-            "stagnation": (
-                self.t - self.last_restart > n_stagnation and (
-                    np.median(best_fopts[-int(.3 * self.t):]) >=
-                    np.median(best_fopts[:int(.3 * self.t)]) and
-                    np.median(median_fitnesses[-int(.3 * self.t):]) >=
-                    np.median(median_fitnesses[:int(.3 * self.t)])
+            # only use values starting from last restart
+            # to compute termination criteria
+            best_fopts = self.best_fitnesses[self.last_restart:]
+            median_fitnesses = self.median_fitnesses[self.last_restart:]
+
+            self.termination_criteria = {
+                "max_iter": (
+                    self.t - self.last_restart > self.max_iter
+                ),
+                "equalfunvalues": (
+                    len(best_fopts) > self.nbin and
+                    np.ptp(best_fopts[-self.nbin:]) == 0
+                ),
+                "flat_fitness": (
+                    self.t - self.last_restart > self.flat_fitnesses.maxlen and
+                    len(self.flat_fitnesses) == self.flat_fitnesses.maxlen and
+                    np.sum(self.flat_fitnesses) > (self.d / 3)
+                ),
+                "tolx": np.all((
+                    np.append(self.pc.T, diag_C)
+                    * d_sigma) < (self.tolx * self.init_sigma)
+                ),
+                "tolupsigma": (
+                    d_sigma > self.tolup_sigma * np.sqrt(self.D.max())
+                ),
+                "conditioncov": np.linalg.cond(self.C) > self.condition_cov,
+                "noeffectaxis": np.all((1 * self.sigma * np.sqrt(
+                    self.D[_t, 0]) * self.B[:, _t] + self.m) == self.m
+                ),
+                "noeffectcoor": np.any(
+                    (.2 * self.sigma * np.sqrt(diag_C) + self.m) == self.m
+                ),
+                "stagnation": (
+                    self.t - self.last_restart > self.n_stagnation and (
+                        np.median(best_fopts[-int(.3 * self.t):]) >=
+                        np.median(best_fopts[:int(.3 * self.t)]) and
+                        np.median(median_fitnesses[-int(.3 * self.t):]) >=
+                        np.median(median_fitnesses[:int(.3 * self.t)])
+                    )
                 )
-            )
-        }
-
-
-if __name__ == "__main__":
-    p = Parameters(2, 1., 1.)
-    # b.selection = 'a'?
+            }

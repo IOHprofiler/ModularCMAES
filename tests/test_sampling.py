@@ -1,7 +1,7 @@
 import types
 import unittest
 import numpy as np
-from src import Sampling
+from src import sampling
 
 
 class TestSampling(unittest.TestCase):
@@ -18,33 +18,33 @@ class TestSampling(unittest.TestCase):
             self.assertEqual(sample.shape, (self._dim, 1, ))
 
     def test_gaussian(self):
-        sampler = Sampling.gaussian_sampling(self._dim)
+        sampler = sampling.gaussian_sampling(self._dim)
         self.is_sampler(sampler)
 
     def test_sobol(self):
-        sampler = Sampling.sobol_sampling(self._dim)
+        sampler = sampling.sobol_sampling(self._dim)
         self.is_sampler(sampler)
 
     def test_halton(self):
-        sampler = Sampling.halton_sampling(self._dim)
+        sampler = sampling.halton_sampling(self._dim)
         self.is_sampler(sampler)
 
     def test_orthogonal(self):
         for base_sampler in (
-                Sampling.gaussian_sampling(self._dim),
-                Sampling.sobol_sampling(self._dim),
-                Sampling.halton_sampling(self._dim)):
+                sampling.gaussian_sampling(self._dim),
+                sampling.sobol_sampling(self._dim),
+                sampling.halton_sampling(self._dim)):
             for n_samples in (3, 6):
-                sampler = Sampling.orthogonal_sampling(
+                sampler = sampling.orthogonal_sampling(
                     base_sampler, n_samples)
                 self.is_sampler(sampler)
 
     def test_mirrored(self):
         for base_sampler in (
-                Sampling.gaussian_sampling(self._dim),
-                Sampling.sobol_sampling(self._dim),
-                Sampling.halton_sampling(self._dim)):
-            sampler = Sampling.mirrored_sampling(
+                sampling.gaussian_sampling(self._dim),
+                sampling.sobol_sampling(self._dim),
+                sampling.halton_sampling(self._dim)):
+            sampler = sampling.mirrored_sampling(
                 base_sampler
             )
             self.is_sampler(sampler)

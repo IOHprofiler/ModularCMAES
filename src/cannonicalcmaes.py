@@ -1,36 +1,30 @@
 import numpy as np
-from Optimizer import Optimizer
-from Utils import evaluate
+from .optimizer import Optimizer
+from .parameters import SimpleParameters
+from .utils import evaluate
 
 
-class Parameters:
-    target = None
-    fopt = None
-    budget = None
-    used_budget = None
+class CannonicalCMAES(Optimizer):
+    '''Cannonical version of the Covariance Matrix Adaptation
+    Evolution Strategy, as defined in The CMA Evolution Strategy: A Tutorial, 
+    by Nikolaus Hansen (2016).
+    '''
 
-
-class CannonicalCMA(Optimizer):
     def __init__(
             self,
             fitness_func,
-            asolute_target,
             d,
-            rtol):
+            asolute_target,
+            rtol) -> "CannonicalCMAES":
 
         self._fitness_func = fitness_func
-        self.parameters = Parameters()
-        self.parameters.target = asolute_target + rtol
         self.d = d
-        self.initialize()
-
-    def initialize(self):
-        self.parameters.used_budget = 0
-        self.parameters.fopt = float("inf")
+        self.parameters = SimpleParameters(
+            asolute_target + rtol,
+            int(1e4 * self.d)
+        )
         self.xmean = np.random.rand(self.d, 1)
         self.sigma = .5
-        self.parameters.budget = 1e4 * self.d
-
         # selection parameters
         self.lambda_ = (4 + np.floor(3 * np.log(self.d))).astype(int)
         self.mu = self.lambda_ // 2
@@ -74,7 +68,7 @@ class CannonicalCMA(Optimizer):
         self.invC = np.eye(self.d)
         self.eigeneval = 0
 
-    def step(self):
+    def step(self) -> bool:
         # generate and evaluate offspring
         z = np.random.multivariate_normal(
             mean=np.zeros(self.d),
@@ -109,7 +103,6 @@ class CannonicalCMA(Optimizer):
 
         dhs = (1 - hs) * self.cc * (2 - self.cc)
 
-        # print(self.pc)
         self.pc = (1 - self.cc) * self.pc + (hs * np.sqrt(
             self.cc * (2 - self.cc) * self.mueff
         )) * yw
@@ -143,6 +136,5 @@ class CannonicalCMA(Optimizer):
 
 if __name__ == "__main__":
     np.random.seed(1242)
-    for i in range(1, 3):
-        evals, fopts = evaluate(
-            i, 5, CannonicalCMA, iterations=200)
+    evals, fopts = evaluate(
+        1, 5, CannonicalCMAES, iterations=25)

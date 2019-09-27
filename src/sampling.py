@@ -15,7 +15,7 @@ def gaussian_sampling(d: int) -> Generator[np.ndarray, None, None]:
 
     Yields
     ------
-    sample: numpy.ndarray
+    numpy.ndarray
     '''
     while True:
         yield np.random.randn(d, 1)
@@ -31,7 +31,7 @@ def sobol_sampling(d: int) -> Generator[np.ndarray, None, None]:
 
     Yields
     ------
-    sample: numpy.ndarray
+    numpy.ndarray
     '''
     seed = np.random.randint(2, max(3, d**2))
     while True:
@@ -49,7 +49,7 @@ def halton_sampling(d: int) -> Generator[np.ndarray, None, None]:
 
     Yields
     ------
-    sample: numpy.ndarray
+    numpy.ndarray
     '''
     halton = Halton(d)
     while True:
@@ -68,7 +68,7 @@ def mirrored_sampling(sampler: Generator) -> Generator[np.ndarray, None, None]:
 
     Yields
     ------
-    sample: numpy.ndarray
+    numpy.ndarray
     '''
     for sample in sampler:
         yield sample
@@ -89,7 +89,7 @@ def orthogonal_sampling(sampler: Generator, n_samples: int) -> Generator[np.ndar
 
     Yields
     ------
-    sample: numpy.ndarray
+    numpy.ndarray
     '''
     samples = []
     for sample in sampler:
