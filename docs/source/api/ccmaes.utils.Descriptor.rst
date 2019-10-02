@@ -1,7 +1,7 @@
 Descriptor
 ==========
 
-.. currentmodule:: src.utils
+.. currentmodule:: ccmaes.utils
 
 .. autoclass:: Descriptor
    :show-inheritance:

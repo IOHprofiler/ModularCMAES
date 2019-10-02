@@ -1,6 +1,6 @@
 ert
 ===
 
-.. currentmodule:: src.utils
+.. currentmodule:: ccmaes.utils
 
 .. autofunction:: ert

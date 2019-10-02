@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from src import utils
+from ccmaes import utils
 
 
 class TestUtils(unittest.TestCase):

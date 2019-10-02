@@ -1,7 +1,7 @@
 CannonicalCMAES
 ===============
 
-.. currentmodule:: src.cannonicalcmaes
+.. currentmodule:: ccmaes.cannonicalcmaes
 
 .. autoclass:: CannonicalCMAES
    :show-inheritance:

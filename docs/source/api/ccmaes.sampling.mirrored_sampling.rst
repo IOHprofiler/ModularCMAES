@@ -1,6 +1,6 @@
 mirrored_sampling
 =================
 
-.. currentmodule:: src.sampling
+.. currentmodule:: ccmaes.sampling
 
 .. autofunction:: mirrored_sampling

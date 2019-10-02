@@ -1,6 +1,6 @@
 timeit
 ======
 
-.. currentmodule:: src.utils
+.. currentmodule:: ccmaes.utils
 
 .. autofunction:: timeit

@@ -1,6 +1,6 @@
 sobol_sampling
 ==============
 
-.. currentmodule:: src.sampling
+.. currentmodule:: ccmaes.sampling
 
 .. autofunction:: sobol_sampling

@@ -1,6 +1,6 @@
 halton_sampling
 ===============
 
-.. currentmodule:: src.sampling
+.. currentmodule:: ccmaes.sampling
 
 .. autofunction:: halton_sampling

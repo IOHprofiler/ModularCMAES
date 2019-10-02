@@ -1,7 +1,7 @@
 AnyOf
 =====
 
-.. currentmodule:: src.utils
+.. currentmodule:: ccmaes.utils
 
 .. autoclass:: AnyOf
    :show-inheritance:

@@ -1,5 +1,5 @@
 import unittest
-from src.parameters import SimpleParameters
+from ccmaes.parameters import SimpleParameters
 
 
 class TestSimpleParameters(unittest.TestCase):

@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from src import optimizer, parameters, utils
+from ccmaes import optimizer, parameters, utils
 
 
 class TestOptimizer(unittest.TestCase):

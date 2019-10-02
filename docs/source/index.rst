@@ -1,25 +1,25 @@
 Welcome to CCMAES's Documentation!
 ==================================
 
-.. automodapi:: src.cannonicalcmaes
+.. automodapi:: ccmaes.cannonicalcmaes
     :members:
 
-.. automodapi:: src.configurablecmaes
+.. automodapi:: ccmaes.configurablecmaes
     :members:
 
-.. automodapi:: src.parameters
+.. automodapi:: ccmaes.parameters
     :members:
 
-.. automodapi:: src.population
+.. automodapi:: ccmaes.population
     :members:
 
-.. automodapi:: src.sampling
+.. automodapi:: ccmaes.sampling
     :members:
 
-.. automodapi:: src.utils
+.. automodapi:: ccmaes.utils
     :members:
 
-.. automodapi:: src.optimizer
+.. automodapi:: ccmaes.optimizer
     :members:
 
 

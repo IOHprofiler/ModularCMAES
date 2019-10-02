@@ -1,7 +1,7 @@
 Optimizer
 =========
 
-.. currentmodule:: src.optimizer
+.. currentmodule:: ccmaes.optimizer
 
 .. autoclass:: Optimizer
    :show-inheritance:

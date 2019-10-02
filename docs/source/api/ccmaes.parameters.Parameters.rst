@@ -1,7 +1,7 @@
 Parameters
 ==========
 
-.. currentmodule:: src.parameters
+.. currentmodule:: ccmaes.parameters
 
 .. autoclass:: Parameters
    :show-inheritance:

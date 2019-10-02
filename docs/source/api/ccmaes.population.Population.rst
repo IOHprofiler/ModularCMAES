@@ -1,7 +1,7 @@
 Population
 ==========
 
-.. currentmodule:: src.population
+.. currentmodule:: ccmaes.population
 
 .. autoclass:: Population
    :show-inheritance:

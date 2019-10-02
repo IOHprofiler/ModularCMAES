@@ -1,7 +1,7 @@
 import types
 import unittest
 import numpy as np
-from src import sampling
+from ccmaes import sampling
 
 
 class TestSampling(unittest.TestCase):

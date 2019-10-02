@@ -1,7 +1,7 @@
 AnnotatedStructMeta
 ===================
 
-.. currentmodule:: src.utils
+.. currentmodule:: ccmaes.utils
 
 .. autoclass:: AnnotatedStructMeta
    :show-inheritance:

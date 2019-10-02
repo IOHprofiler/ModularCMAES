@@ -1,7 +1,7 @@
 ConfigurableCMAES
 =================
 
-.. currentmodule:: src.configurablecmaes
+.. currentmodule:: ccmaes.configurablecmaes
 
 .. autoclass:: ConfigurableCMAES
    :show-inheritance:
@@ -15,7 +15,6 @@ ConfigurableCMAES
       ~ConfigurableCMAES.select
       ~ConfigurableCMAES.sequential_break_conditions
       ~ConfigurableCMAES.step
-      ~ConfigurableCMAES.tpa_mutation
 
    .. rubric:: Methods Documentation
 
@@ -24,4 +23,3 @@ ConfigurableCMAES
    .. automethod:: select
    .. automethod:: sequential_break_conditions
    .. automethod:: step
-   .. automethod:: tpa_mutation

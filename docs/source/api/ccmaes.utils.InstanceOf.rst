@@ -1,7 +1,7 @@
 InstanceOf
 ==========
 
-.. currentmodule:: src.utils
+.. currentmodule:: ccmaes.utils
 
 .. autoclass:: InstanceOf
    :show-inheritance:

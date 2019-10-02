@@ -1,7 +1,7 @@
 SimpleParameters
 ================
 
-.. currentmodule:: src.parameters
+.. currentmodule:: ccmaes.parameters
 
 .. autoclass:: SimpleParameters
    :show-inheritance:

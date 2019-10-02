@@ -1,6 +1,6 @@
 orthogonal_sampling
 ===================
 
-.. currentmodule:: src.sampling
+.. currentmodule:: ccmaes.sampling
 
 .. autofunction:: orthogonal_sampling
