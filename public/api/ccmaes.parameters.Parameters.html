@@ -1,0 +1,1717 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Parameters &#8212; CCMAES  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="SimpleParameters" href="ccmaes.parameters.SimpleParameters.html" />
+    <link rel="prev" title="ConfigurableCMAES" href="ccmaes.configurablecmaes.ConfigurableCMAES.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="parameters">
+<h1>Parameters<a class="headerlink" href="#parameters" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="ccmaes.parameters.Parameters">
+<em class="property">class </em><code class="sig-prename descclassname">ccmaes.parameters.</code><code class="sig-name descname">Parameters</code><span class="sig-paren">(</span><em class="sig-param">*args</em>, <em class="sig-param">**kwargs</em><span class="sig-paren">)</span><a class="headerlink" href="#ccmaes.parameters.Parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <a class="reference internal" href="ccmaes.utils.AnnotatedStruct.html#ccmaes.utils.AnnotatedStruct" title="ccmaes.utils.AnnotatedStruct"><code class="xref py py-class docutils literal notranslate"><span class="pre">ccmaes.utils.AnnotatedStruct</span></code></a></p>
+<p>AnnotatedStruct object for holding the parameters for the Configurable CMAES</p>
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.d">
+<code class="sig-name descname">d</code><a class="headerlink" href="#ccmaes.parameters.Parameters.d" title="Permalink to this definition">¶</a></dt>
+<dd><p>The dimensionality of the problem</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.absolute_target">
+<code class="sig-name descname">absolute_target</code><a class="headerlink" href="#ccmaes.parameters.Parameters.absolute_target" title="Permalink to this definition">¶</a></dt>
+<dd><p>The absolute target of the optimization problem</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.rtol">
+<code class="sig-name descname">rtol</code><a class="headerlink" href="#ccmaes.parameters.Parameters.rtol" title="Permalink to this definition">¶</a></dt>
+<dd><p>The distance to the absolute target which is an acceptable result</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.lambda_">
+<code class="sig-name descname">lambda_</code><a class="headerlink" href="#ccmaes.parameters.Parameters.lambda_" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of offspring in the population</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int = None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.mu">
+<code class="sig-name descname">mu</code><a class="headerlink" href="#ccmaes.parameters.Parameters.mu" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of parents in the population</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int = None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.init_sigma">
+<code class="sig-name descname">init_sigma</code><a class="headerlink" href="#ccmaes.parameters.Parameters.init_sigma" title="Permalink to this definition">¶</a></dt>
+<dd><p>The initial value of sigma (step size)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = .5</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.a_tpa">
+<code class="sig-name descname">a_tpa</code><a class="headerlink" href="#ccmaes.parameters.Parameters.a_tpa" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameter used in TPA</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = .5</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.b_tpa">
+<code class="sig-name descname">b_tpa</code><a class="headerlink" href="#ccmaes.parameters.Parameters.b_tpa" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameter used in TPA</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = 0.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.c_sigma">
+<code class="sig-name descname">c_sigma</code><a class="headerlink" href="#ccmaes.parameters.Parameters.c_sigma" title="Permalink to this definition">¶</a></dt>
+<dd><p>Parameter used in TPA, for updating sigma</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = .3</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.seq_cutoff_factor">
+<code class="sig-name descname">seq_cutoff_factor</code><a class="headerlink" href="#ccmaes.parameters.Parameters.seq_cutoff_factor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used in sequential selection, the number of times mu individuals must be seen
+before a sequential break can be performed</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int = 1</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.ub">
+<code class="sig-name descname">ub</code><a class="headerlink" href="#ccmaes.parameters.Parameters.ub" title="Permalink to this definition">¶</a></dt>
+<dd><p>The upper bound, used for bound correction and threshold convergence</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int = 5</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.lb">
+<code class="sig-name descname">lb</code><a class="headerlink" href="#ccmaes.parameters.Parameters.lb" title="Permalink to this definition">¶</a></dt>
+<dd><p>The lower bound, used for bound correction and threshold convergence</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int = -5</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.init_threshold">
+<code class="sig-name descname">init_threshold</code><a class="headerlink" href="#ccmaes.parameters.Parameters.init_threshold" title="Permalink to this definition">¶</a></dt>
+<dd><p>The initial length theshold used in treshold convergence</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = 0.2</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.decay_factor">
+<code class="sig-name descname">decay_factor</code><a class="headerlink" href="#ccmaes.parameters.Parameters.decay_factor" title="Permalink to this definition">¶</a></dt>
+<dd><p>The decay for the threshold used in threshold covergence</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = 0.995</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.active">
+<code class="sig-name descname">active</code><a class="headerlink" href="#ccmaes.parameters.Parameters.active" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Specifying whether to use active update.</dt><dd><p>G. Jastrebski, D. V. Arnold, et al. Improving evolution strategies through
+active covariance matrix adaptation. In Evolutionary Computation (CEC),
+2006 IEEE Congress on, pages 2814–2821. IEEE, 2006</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool = False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.elitist">
+<code class="sig-name descname">elitist</code><a class="headerlink" href="#ccmaes.parameters.Parameters.elitist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifying whether to use an elitist approachCMAES</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool = False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.mirrored">
+<code class="sig-name descname">mirrored</code><a class="headerlink" href="#ccmaes.parameters.Parameters.mirrored" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Specifying whether to use mirrored sampling</dt><dd><p>D. Brockhoff, A. Auger, N. Hansen, D. V. CMAEST. Hohm.
+Mirrored Sampling and Sequential SelectioCMAESion Strategies.
+In R. Schaefer, C. Cotta, J. Kołodziej, aCMAESh, editors, Parallel
+Problem Solving from Nature, PPSN XI: 11tCMAESnal Conference,
+Kraków, Poland, September 11-15, 2010, PrCMAESart I, pages
+11–21, Berlin, Heidelberg, 2010. SpringerCMAESelberg.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool = False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.sequential">
+<code class="sig-name descname">sequential</code><a class="headerlink" href="#ccmaes.parameters.Parameters.sequential" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Specifying whether to use sequential selection</dt><dd><p>D. Brockhoff, A. Auger, N. Hansen, D. V. Arnold, and T. Hohm.
+Mirrored Sampling and Sequential Selection for Evolution Strategies.
+In R. Schaefer, C. Cotta, J. Kołodziej, and G. Rudolph, editors, Parallel
+Problem Solving from Nature, PPSN XI: 11th International Conference,
+Kraków, Poland, September 11-15, 2010, Proceedings, Part I, pages
+11–21, Berlin, Heidelberg, 2010. Springer Berlin Heidelberg.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool = False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.threshold_convergence">
+<code class="sig-name descname">threshold_convergence</code><a class="headerlink" href="#ccmaes.parameters.Parameters.threshold_convergence" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Specifying whether to use threshold convergence</dt><dd><p>A. Piad-Morffis, S. Estevez-Velarde, A. Bolufe-Rohler, J. Montgomery,
+and S. Chen. Evolution strategies with thresheld convergence. In
+Evolutionary Computation (CEC), 2015 IEEE Congress on, pages 2097–
+2104, May 2015.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool = False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.bound_correction">
+<code class="sig-name descname">bound_correction</code><a class="headerlink" href="#ccmaes.parameters.Parameters.bound_correction" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifying whether to use bound correction to enforce ub and lbs</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool = False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.orthogonal">
+<code class="sig-name descname">orthogonal</code><a class="headerlink" href="#ccmaes.parameters.Parameters.orthogonal" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Specifying whether to use orthogonal sampling</dt><dd><p>H. Wang, M. Emmerich, and T. Bäck. Mirrored Orthogonal Sampling
+with Pairwise Selection in Evolution Strategies. In Proceedings of the
+29th Annual ACM Symposium on Applied Computing, pages 154–156.
+ACM, 2014.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>bool = False</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.base_sampler">
+<code class="sig-name descname">base_sampler</code><a class="headerlink" href="#ccmaes.parameters.Parameters.base_sampler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Denoting which base sampler to use, ‘quasi-sobol’, ‘quasi-halton’ can
+be selected to sample from a quasi random sequence.</p>
+<blockquote>
+<div><p>A. Auger, M. Jebalia, and O. Teytaud. Algorithms (x, sigma, eta):
+quasi-random mutations for evolution strategies. In Artificial Evolution:
+7th International Conference, Revised Selected Papers, pages 296–307.
+Springer, 2006.</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str = (‘gaussian’, ‘quasi-sobol’, ‘quasi-halton’,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.weights_option">
+<code class="sig-name descname">weights_option</code><a class="headerlink" href="#ccmaes.parameters.Parameters.weights_option" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Denoting the recombination weigths to be used.</dt><dd><p>Sander van Rijn, Hao Wang, Matthijs van Leeuwen, and Thomas Bäck. 2016.
+Evolving the Structure of Evolution Strategies. Computer 49, 5 (May 2016), 54–63.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str = (‘default’, ‘1/mu’, ‘1/2^mu’, )</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.selection">
+<code class="sig-name descname">selection</code><a class="headerlink" href="#ccmaes.parameters.Parameters.selection" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifying which option should be used for the selection of individuals
+Pairwise selection is introduced as an option to counter the bias
+produced by mirrored selection.</p>
+<blockquote>
+<div><p>A. Auger, D. Brockhoff, and N. Hansen. Mirrored sampling in
+evolution strategies with weighted recombination. In Proceedings of
+the 13th Annual Conference Companion on Genetic and Evolutionary
+Computation, GECCO ’11, pages 861–868. ACM, 2011</p>
+</div></blockquote>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str = (‘best’, ‘pairwise’,)</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.step_size_adaptation">
+<code class="sig-name descname">step_size_adaptation</code><a class="headerlink" href="#ccmaes.parameters.Parameters.step_size_adaptation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Specifying which step size adaptation mechanism should be used.
+csa:</p>
+<blockquote>
+<div><p>Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR, abs/1604.00772, 2016</p>
+</div></blockquote>
+<dl class="simple">
+<dt>tpa:</dt><dd><p>Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, abs/0805.0231,2008.</p>
+</dd>
+<dt>msr:</dt><dd><p>Ouassim Ait Elhara, Anne Auger, and Nikolaus Hansen.
+A Median Success Rule for Non-Elitist Evolution Strategies: Study of Feasibility.
+In Blum et al. Christian, editor,Genetic and Evolutionary Computation Conference,
+pages 415–422, Amsterdam, Nether-lands, July 2013. ACM, ACM Press.</p>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str = (‘csa’, ‘tpa’, ‘msr’, )</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.local_restart">
+<code class="sig-name descname">local_restart</code><a class="headerlink" href="#ccmaes.parameters.Parameters.local_restart" title="Permalink to this definition">¶</a></dt>
+<dd><dl class="simple">
+<dt>Specifying which local restart strategy should be used</dt><dd><dl class="simple">
+<dt>IPOP:</dt><dd><p>Anne Auger and Nikolaus Hansen. A restart cma evolution strategy
+with increasing population size. volume 2, pages 1769–1776, 01 2005</p>
+</dd>
+</dl>
+</dd>
+</dl>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>str = (None, ‘IPOP’, )</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.population">
+<code class="sig-name descname">population</code><a class="headerlink" href="#ccmaes.parameters.Parameters.population" title="Permalink to this definition">¶</a></dt>
+<dd><p>The current population of individuals</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Population = None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.old_population">
+<code class="sig-name descname">old_population</code><a class="headerlink" href="#ccmaes.parameters.Parameters.old_population" title="Permalink to this definition">¶</a></dt>
+<dd><p>The old population of individuals</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Population = None</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.termination_criteria">
+<code class="sig-name descname">termination_criteria</code><a class="headerlink" href="#ccmaes.parameters.Parameters.termination_criteria" title="Permalink to this definition">¶</a></dt>
+<dd><p>A dictionary of termination criteria</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>dict = {}</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.ipop_factor">
+<code class="sig-name descname">ipop_factor</code><a class="headerlink" href="#ccmaes.parameters.Parameters.ipop_factor" title="Permalink to this definition">¶</a></dt>
+<dd><p>The factor to increase the population after each resart (IPOP)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int = 2</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.tolx">
+<code class="sig-name descname">tolx</code><a class="headerlink" href="#ccmaes.parameters.Parameters.tolx" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use to compute restart condition</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = 10e-12</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.tolup_sigma">
+<code class="sig-name descname">tolup_sigma</code><a class="headerlink" href="#ccmaes.parameters.Parameters.tolup_sigma" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use to compute restart condition</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = 10e20</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.condition_cov">
+<code class="sig-name descname">condition_cov</code><a class="headerlink" href="#ccmaes.parameters.Parameters.condition_cov" title="Permalink to this definition">¶</a></dt>
+<dd><p>Use to compute restart condition</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = 10e14</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.ps_factor">
+<code class="sig-name descname">ps_factor</code><a class="headerlink" href="#ccmaes.parameters.Parameters.ps_factor" title="Permalink to this definition">¶</a></dt>
+<dd><p>Determines the frequence of exploration/expliotation
+1 is neutral, lower is more expliotative, higher is more explorative</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float = 1.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.sampler">
+<code class="sig-name descname">sampler</code><a class="headerlink" href="#ccmaes.parameters.Parameters.sampler" title="Permalink to this definition">¶</a></dt>
+<dd><p>A generator object producing new samples</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>generator</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.used_budget">
+<code class="sig-name descname">used_budget</code><a class="headerlink" href="#ccmaes.parameters.Parameters.used_budget" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of function evaluations used</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.fopt">
+<code class="sig-name descname">fopt</code><a class="headerlink" href="#ccmaes.parameters.Parameters.fopt" title="Permalink to this definition">¶</a></dt>
+<dd><p>The fitness of the current best individual</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.budget">
+<code class="sig-name descname">budget</code><a class="headerlink" href="#ccmaes.parameters.Parameters.budget" title="Permalink to this definition">¶</a></dt>
+<dd><p>The maximum number of objective function evaluations</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.target">
+<code class="sig-name descname">target</code><a class="headerlink" href="#ccmaes.parameters.Parameters.target" title="Permalink to this definition">¶</a></dt>
+<dd><p>The target value up until which to optimize</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.t">
+<code class="sig-name descname">t</code><a class="headerlink" href="#ccmaes.parameters.Parameters.t" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of generations</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.sigma_over_time">
+<code class="sig-name descname">sigma_over_time</code><a class="headerlink" href="#ccmaes.parameters.Parameters.sigma_over_time" title="Permalink to this definition">¶</a></dt>
+<dd><p>The value sigma has in each generation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.best_fopts">
+<code class="sig-name descname">best_fopts</code><a class="headerlink" href="#ccmaes.parameters.Parameters.best_fopts" title="Permalink to this definition">¶</a></dt>
+<dd><p>The value of fopt in each generation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.median_fitnesses">
+<code class="sig-name descname">median_fitnesses</code><a class="headerlink" href="#ccmaes.parameters.Parameters.median_fitnesses" title="Permalink to this definition">¶</a></dt>
+<dd><p>The median fitness value in each generation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.best_fitnesses">
+<code class="sig-name descname">best_fitnesses</code><a class="headerlink" href="#ccmaes.parameters.Parameters.best_fitnesses" title="Permalink to this definition">¶</a></dt>
+<dd><p>The best fitness value observed in each generation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">flat_fitnesses = deque</code></dt>
+<dd><p>A deque containing boolean values denoting if a flat fitness value is observed
+in recent generations</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.restarts">
+<code class="sig-name descname">restarts</code><a class="headerlink" href="#ccmaes.parameters.Parameters.restarts" title="Permalink to this definition">¶</a></dt>
+<dd><p>A list containing the t values (generations) where a restart has
+taken place</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.seq_cutoff">
+<code class="sig-name descname">seq_cutoff</code><a class="headerlink" href="#ccmaes.parameters.Parameters.seq_cutoff" title="Permalink to this definition">¶</a></dt>
+<dd><p>The number of individuals that must be seen before a sequential break can be performed</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.diameter">
+<code class="sig-name descname">diameter</code><a class="headerlink" href="#ccmaes.parameters.Parameters.diameter" title="Permalink to this definition">¶</a></dt>
+<dd><p>The diameter of the search space</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.max_iter">
+<code class="sig-name descname">max_iter</code><a class="headerlink" href="#ccmaes.parameters.Parameters.max_iter" title="Permalink to this definition">¶</a></dt>
+<dd><p>The maximum number of iterations that can occur between two restarts.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.nbin">
+<code class="sig-name descname">nbin</code><a class="headerlink" href="#ccmaes.parameters.Parameters.nbin" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used to determine a window for equal function values</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.n_stagnation">
+<code class="sig-name descname">n_stagnation</code><a class="headerlink" href="#ccmaes.parameters.Parameters.n_stagnation" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used to determine a window for stagnation</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.flat_fitness_index">
+<code class="sig-name descname">flat_fitness_index</code><a class="headerlink" href="#ccmaes.parameters.Parameters.flat_fitness_index" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used to determine which ranked individual should be
+the same as the first indivual in order to determine
+flat fitness values.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.sigma">
+<code class="sig-name descname">sigma</code><a class="headerlink" href="#ccmaes.parameters.Parameters.sigma" title="Permalink to this definition">¶</a></dt>
+<dd><p>The step size</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.m">
+<code class="sig-name descname">m</code><a class="headerlink" href="#ccmaes.parameters.Parameters.m" title="Permalink to this definition">¶</a></dt>
+<dd><p>The mean value of the individuals</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.dm">
+<code class="sig-name descname">dm</code><a class="headerlink" href="#ccmaes.parameters.Parameters.dm" title="Permalink to this definition">¶</a></dt>
+<dd><p>The difference in the new mean value of the individuals versus the old mean value.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.pc">
+<code class="sig-name descname">pc</code><a class="headerlink" href="#ccmaes.parameters.Parameters.pc" title="Permalink to this definition">¶</a></dt>
+<dd><p>The evolution path</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.ps">
+<code class="sig-name descname">ps</code><a class="headerlink" href="#ccmaes.parameters.Parameters.ps" title="Permalink to this definition">¶</a></dt>
+<dd><p>The conjugate evolution path</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.C">
+<code class="sig-name descname">C</code><a class="headerlink" href="#ccmaes.parameters.Parameters.C" title="Permalink to this definition">¶</a></dt>
+<dd><p>The covariance matrix</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.B">
+<code class="sig-name descname">B</code><a class="headerlink" href="#ccmaes.parameters.Parameters.B" title="Permalink to this definition">¶</a></dt>
+<dd><p>The eigenvectors of the covariance matrix C</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.D">
+<code class="sig-name descname">D</code><a class="headerlink" href="#ccmaes.parameters.Parameters.D" title="Permalink to this definition">¶</a></dt>
+<dd><p>The eigenvalues of the covariance matrix C</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.invC">
+<code class="sig-name descname">invC</code><a class="headerlink" href="#ccmaes.parameters.Parameters.invC" title="Permalink to this definition">¶</a></dt>
+<dd><p>The result of C**-(1/2)</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.s">
+<code class="sig-name descname">s</code><a class="headerlink" href="#ccmaes.parameters.Parameters.s" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used for TPA</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.rank_tpa">
+<code class="sig-name descname">rank_tpa</code><a class="headerlink" href="#ccmaes.parameters.Parameters.rank_tpa" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used for TPA</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.weights">
+<code class="sig-name descname">weights</code><a class="headerlink" href="#ccmaes.parameters.Parameters.weights" title="Permalink to this definition">¶</a></dt>
+<dd><p>The recombination weights.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.pweights">
+<code class="sig-name descname">pweights</code><a class="headerlink" href="#ccmaes.parameters.Parameters.pweights" title="Permalink to this definition">¶</a></dt>
+<dd><p>The positive recombination weights.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.nweights">
+<code class="sig-name descname">nweights</code><a class="headerlink" href="#ccmaes.parameters.Parameters.nweights" title="Permalink to this definition">¶</a></dt>
+<dd><p>The negative recombination weights, used in active update</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.mueff">
+<code class="sig-name descname">mueff</code><a class="headerlink" href="#ccmaes.parameters.Parameters.mueff" title="Permalink to this definition">¶</a></dt>
+<dd><p>The variance effective selection mass</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.c1">
+<code class="sig-name descname">c1</code><a class="headerlink" href="#ccmaes.parameters.Parameters.c1" title="Permalink to this definition">¶</a></dt>
+<dd><p>Learning rate for the rank-one update</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.cc">
+<code class="sig-name descname">cc</code><a class="headerlink" href="#ccmaes.parameters.Parameters.cc" title="Permalink to this definition">¶</a></dt>
+<dd><p>Learning rate for the rank-one update</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.cmu">
+<code class="sig-name descname">cmu</code><a class="headerlink" href="#ccmaes.parameters.Parameters.cmu" title="Permalink to this definition">¶</a></dt>
+<dd><p>Learning rate for the rank-mu update</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.cs">
+<code class="sig-name descname">cs</code><a class="headerlink" href="#ccmaes.parameters.Parameters.cs" title="Permalink to this definition">¶</a></dt>
+<dd><p>Learning rate for the cumulation of the step size control</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.damps">
+<code class="sig-name descname">damps</code><a class="headerlink" href="#ccmaes.parameters.Parameters.damps" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used for adapting sigma with csa</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.chiN">
+<code class="sig-name descname">chiN</code><a class="headerlink" href="#ccmaes.parameters.Parameters.chiN" title="Permalink to this definition">¶</a></dt>
+<dd><p>Value approaching E||N(0,I)||</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>np.ndarray</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.ds">
+<code class="sig-name descname">ds</code><a class="headerlink" href="#ccmaes.parameters.Parameters.ds" title="Permalink to this definition">¶</a></dt>
+<dd><p>Used for msr</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.threshold">
+<code class="sig-name descname">threshold</code><a class="headerlink" href="#ccmaes.parameters.Parameters.threshold" title="Permalink to this definition">¶</a></dt>
+<dd><p>The length threshold used in threshold convergence</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt id="ccmaes.parameters.Parameters.last_restart">
+<code class="sig-name descname">last_restart</code><a class="headerlink" href="#ccmaes.parameters.Parameters.last_restart" title="Permalink to this definition">¶</a></dt>
+<dd><p>The generation in where the last restart has occored</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Attributes Summary</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.a_tpa" title="ccmaes.parameters.Parameters.a_tpa"><code class="xref py py-obj docutils literal notranslate"><span class="pre">a_tpa</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.absolute_target" title="ccmaes.parameters.Parameters.absolute_target"><code class="xref py py-obj docutils literal notranslate"><span class="pre">absolute_target</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.active" title="ccmaes.parameters.Parameters.active"><code class="xref py py-obj docutils literal notranslate"><span class="pre">active</span></code></a></p></td>
+<td><p>&lt;class ‘bool’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.b_tpa" title="ccmaes.parameters.Parameters.b_tpa"><code class="xref py py-obj docutils literal notranslate"><span class="pre">b_tpa</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.base_sampler" title="ccmaes.parameters.Parameters.base_sampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">base_sampler</span></code></a></p></td>
+<td><p>[gaussian, quasi-sobol, quasi-halton]</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.bound_correction" title="ccmaes.parameters.Parameters.bound_correction"><code class="xref py py-obj docutils literal notranslate"><span class="pre">bound_correction</span></code></a></p></td>
+<td><p>&lt;class ‘bool’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.c_sigma" title="ccmaes.parameters.Parameters.c_sigma"><code class="xref py py-obj docutils literal notranslate"><span class="pre">c_sigma</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.condition_cov" title="ccmaes.parameters.Parameters.condition_cov"><code class="xref py py-obj docutils literal notranslate"><span class="pre">condition_cov</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.d" title="ccmaes.parameters.Parameters.d"><code class="xref py py-obj docutils literal notranslate"><span class="pre">d</span></code></a></p></td>
+<td><p>&lt;class ‘int’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.decay_factor" title="ccmaes.parameters.Parameters.decay_factor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">decay_factor</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.elitist" title="ccmaes.parameters.Parameters.elitist"><code class="xref py py-obj docutils literal notranslate"><span class="pre">elitist</span></code></a></p></td>
+<td><p>&lt;class ‘bool’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.init_sigma" title="ccmaes.parameters.Parameters.init_sigma"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_sigma</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.init_threshold" title="ccmaes.parameters.Parameters.init_threshold"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_threshold</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.ipop_factor" title="ccmaes.parameters.Parameters.ipop_factor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ipop_factor</span></code></a></p></td>
+<td><p>&lt;class ‘int’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.lambda_" title="ccmaes.parameters.Parameters.lambda_"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lambda_</span></code></a></p></td>
+<td><p>&lt;class ‘int’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.last_restart" title="ccmaes.parameters.Parameters.last_restart"><code class="xref py py-obj docutils literal notranslate"><span class="pre">last_restart</span></code></a></p></td>
+<td><p>Returns the last index of self.restarts</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.lb" title="ccmaes.parameters.Parameters.lb"><code class="xref py py-obj docutils literal notranslate"><span class="pre">lb</span></code></a></p></td>
+<td><p>&lt;class ‘int’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.local_restart" title="ccmaes.parameters.Parameters.local_restart"><code class="xref py py-obj docutils literal notranslate"><span class="pre">local_restart</span></code></a></p></td>
+<td><p>[None, IPOP]</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.mirrored" title="ccmaes.parameters.Parameters.mirrored"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mirrored</span></code></a></p></td>
+<td><p>&lt;class ‘bool’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.mu" title="ccmaes.parameters.Parameters.mu"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mu</span></code></a></p></td>
+<td><p>&lt;class ‘int’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.old_population" title="ccmaes.parameters.Parameters.old_population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">old_population</span></code></a></p></td>
+<td><p>&lt;class ‘ccmaes.population.Population’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.orthogonal" title="ccmaes.parameters.Parameters.orthogonal"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal</span></code></a></p></td>
+<td><p>&lt;class ‘bool’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.population" title="ccmaes.parameters.Parameters.population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">population</span></code></a></p></td>
+<td><p>&lt;class ‘ccmaes.population.Population’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.ps_factor" title="ccmaes.parameters.Parameters.ps_factor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ps_factor</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.rtol" title="ccmaes.parameters.Parameters.rtol"><code class="xref py py-obj docutils literal notranslate"><span class="pre">rtol</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.selection" title="ccmaes.parameters.Parameters.selection"><code class="xref py py-obj docutils literal notranslate"><span class="pre">selection</span></code></a></p></td>
+<td><p>[best, pairwise]</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.seq_cutoff_factor" title="ccmaes.parameters.Parameters.seq_cutoff_factor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">seq_cutoff_factor</span></code></a></p></td>
+<td><p>&lt;class ‘int’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.sequential" title="ccmaes.parameters.Parameters.sequential"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sequential</span></code></a></p></td>
+<td><p>&lt;class ‘bool’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.step_size_adaptation" title="ccmaes.parameters.Parameters.step_size_adaptation"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step_size_adaptation</span></code></a></p></td>
+<td><p>[csa, tpa, msr]</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.termination_criteria" title="ccmaes.parameters.Parameters.termination_criteria"><code class="xref py py-obj docutils literal notranslate"><span class="pre">termination_criteria</span></code></a></p></td>
+<td><p>&lt;class ‘dict’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.threshold" title="ccmaes.parameters.Parameters.threshold"><code class="xref py py-obj docutils literal notranslate"><span class="pre">threshold</span></code></a></p></td>
+<td><p>Calculate threshold for mutation, used in threshold convergence.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.threshold_convergence" title="ccmaes.parameters.Parameters.threshold_convergence"><code class="xref py py-obj docutils literal notranslate"><span class="pre">threshold_convergence</span></code></a></p></td>
+<td><p>&lt;class ‘bool’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.tolup_sigma" title="ccmaes.parameters.Parameters.tolup_sigma"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tolup_sigma</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.tolx" title="ccmaes.parameters.Parameters.tolx"><code class="xref py py-obj docutils literal notranslate"><span class="pre">tolx</span></code></a></p></td>
+<td><p>&lt;class ‘float’&gt;</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.ub" title="ccmaes.parameters.Parameters.ub"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ub</span></code></a></p></td>
+<td><p>&lt;class ‘int’&gt;</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.weights_option" title="ccmaes.parameters.Parameters.weights_option"><code class="xref py py-obj docutils literal notranslate"><span class="pre">weights_option</span></code></a></p></td>
+<td><p>[default, 1/mu, 1/2^mu]</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.adapt" title="ccmaes.parameters.Parameters.adapt"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adapt</span></code></a>()</p></td>
+<td><p>Method for adapting the internal state paramters.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.adapt_covariance_matrix" title="ccmaes.parameters.Parameters.adapt_covariance_matrix"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adapt_covariance_matrix</span></code></a>()</p></td>
+<td><p>Method for adapting the covariance matrix.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.adapt_sigma" title="ccmaes.parameters.Parameters.adapt_sigma"><code class="xref py py-obj docutils literal notranslate"><span class="pre">adapt_sigma</span></code></a>()</p></td>
+<td><p>Method to adapt the step size sigma.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.get_sampler" title="ccmaes.parameters.Parameters.get_sampler"><code class="xref py py-obj docutils literal notranslate"><span class="pre">get_sampler</span></code></a>()</p></td>
+<td><p>Function to return a sampler generator based on the values of other parameters.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.init_adaptation_parameters" title="ccmaes.parameters.Parameters.init_adaptation_parameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_adaptation_parameters</span></code></a>()</p></td>
+<td><p>Initialization function for parameters that are of influence in the self-adaptive processes of the parameters.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.init_dynamic_parameters" title="ccmaes.parameters.Parameters.init_dynamic_parameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_dynamic_parameters</span></code></a>()</p></td>
+<td><p>Initialization function of parameters that represent the interal state of the CMAES algorithm, and are dynamic.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.init_local_restart_parameters" title="ccmaes.parameters.Parameters.init_local_restart_parameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_local_restart_parameters</span></code></a>()</p></td>
+<td><p>Initialization function for parameters that are used by local restart strategies, i.e.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.init_meta_parameters" title="ccmaes.parameters.Parameters.init_meta_parameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_meta_parameters</span></code></a>()</p></td>
+<td><p>Initialization function for parameters that hold meta data about other parameters.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.init_selection_parameters" title="ccmaes.parameters.Parameters.init_selection_parameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">init_selection_parameters</span></code></a>()</p></td>
+<td><p>Initialization function for parameters that are of influence in selection/population control.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.perform_eigendecomposition" title="ccmaes.parameters.Parameters.perform_eigendecomposition"><code class="xref py py-obj docutils literal notranslate"><span class="pre">perform_eigendecomposition</span></code></a>()</p></td>
+<td><p>Method to perform eigendecomposition If sigma or the coveriance matrix has degenerated, the dynamic parameters are reset.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.perform_local_restart" title="ccmaes.parameters.Parameters.perform_local_restart"><code class="xref py py-obj docutils literal notranslate"><span class="pre">perform_local_restart</span></code></a>()</p></td>
+<td><p>Method performing local restart, given that a restart strategy is specified in the parameters.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.parameters.Parameters.record_statistics" title="ccmaes.parameters.Parameters.record_statistics"><code class="xref py py-obj docutils literal notranslate"><span class="pre">record_statistics</span></code></a>()</p></td>
+<td><p>Method for recording metadata.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">a_tpa</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">absolute_target</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">active</code></dt>
+<dd><p>&lt;class ‘bool’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">b_tpa</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">base_sampler</code></dt>
+<dd><p>[gaussian, quasi-sobol, quasi-halton]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="ccmaes.utils.Descriptor.html#ccmaes.utils.Descriptor" title="ccmaes.utils.Descriptor">Descriptor</a>, checks of value is any of a specified sequence of options. Options</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">bound_correction</code></dt>
+<dd><p>&lt;class ‘bool’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">c_sigma</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">condition_cov</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">d</code></dt>
+<dd><p>&lt;class ‘int’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">decay_factor</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">elitist</code></dt>
+<dd><p>&lt;class ‘bool’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">init_sigma</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">init_threshold</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">ipop_factor</code></dt>
+<dd><p>&lt;class ‘int’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">lambda_</code></dt>
+<dd><p>&lt;class ‘int’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">last_restart</code></dt>
+<dd><p>Returns the last index of self.restarts</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">lb</code></dt>
+<dd><p>&lt;class ‘int’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">local_restart</code></dt>
+<dd><p>[None, IPOP]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="ccmaes.utils.Descriptor.html#ccmaes.utils.Descriptor" title="ccmaes.utils.Descriptor">Descriptor</a>, checks of value is any of a specified sequence of options. Options</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">mirrored</code></dt>
+<dd><p>&lt;class ‘bool’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">mu</code></dt>
+<dd><p>&lt;class ‘int’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">old_population</code></dt>
+<dd><p>&lt;class ‘ccmaes.population.Population’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">orthogonal</code></dt>
+<dd><p>&lt;class ‘bool’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">population</code></dt>
+<dd><p>&lt;class ‘ccmaes.population.Population’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">ps_factor</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">rtol</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">selection</code></dt>
+<dd><p>[best, pairwise]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="ccmaes.utils.Descriptor.html#ccmaes.utils.Descriptor" title="ccmaes.utils.Descriptor">Descriptor</a>, checks of value is any of a specified sequence of options. Options</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">seq_cutoff_factor</code></dt>
+<dd><p>&lt;class ‘int’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">sequential</code></dt>
+<dd><p>&lt;class ‘bool’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">step_size_adaptation</code></dt>
+<dd><p>[csa, tpa, msr]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="ccmaes.utils.Descriptor.html#ccmaes.utils.Descriptor" title="ccmaes.utils.Descriptor">Descriptor</a>, checks of value is any of a specified sequence of options. Options</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">termination_criteria</code></dt>
+<dd><p>&lt;class ‘dict’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">threshold</code></dt>
+<dd><p>Calculate threshold for mutation, used in threshold convergence.</p>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">threshold_convergence</code></dt>
+<dd><p>&lt;class ‘bool’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">tolup_sigma</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">tolx</code></dt>
+<dd><p>&lt;class ‘float’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">ub</code></dt>
+<dd><p>&lt;class ‘int’&gt;</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p>Data descriptor checks for correct types. Type</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="attribute">
+<dt>
+<code class="sig-name descname">weights_option</code></dt>
+<dd><p>[default, 1/mu, 1/2^mu]</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type</dt>
+<dd class="field-odd"><p><a class="reference internal" href="ccmaes.utils.Descriptor.html#ccmaes.utils.Descriptor" title="ccmaes.utils.Descriptor">Descriptor</a>, checks of value is any of a specified sequence of options. Options</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.adapt">
+<code class="sig-name descname">adapt</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.adapt" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method for adapting the internal state paramters.
+The conjugate evolution path ps is calculated, in addition to
+the difference in mean x values dm. Thereafter, sigma is adapated,
+followed by the adapatation of the covariance matrix.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.adapt_covariance_matrix">
+<code class="sig-name descname">adapt_covariance_matrix</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.adapt_covariance_matrix" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method for adapting the covariance matrix. If the option <cite>active</cite>
+is specified, active update of the covariance matrix is performed, using
+negative weights.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.adapt_sigma">
+<code class="sig-name descname">adapt_sigma</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.adapt_sigma" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to adapt the step size sigma. There are three variants in
+the methodology, namely:</p>
+<blockquote>
+<div><p>~ Two-Point Stepsize Adaptation (tpa)
+~ Median Success Rule (msr)
+~ Cummulative Stepsize Adapatation (csa)</p>
+</div></blockquote>
+<p>One of these methods can be selected by setting the step_size_adaptation
+parameter.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.get_sampler">
+<code class="sig-name descname">get_sampler</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; Generator<a class="headerlink" href="#ccmaes.parameters.Parameters.get_sampler" title="Permalink to this definition">¶</a></dt>
+<dd><p>Function to return a sampler generator based on the values
+of other parameters.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p>a sampler</p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>generator</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.init_adaptation_parameters">
+<code class="sig-name descname">init_adaptation_parameters</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.init_adaptation_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialization function for parameters that are of influence
+in the self-adaptive processes of the parameters. Examples are
+recombination weights and learning rates for the covariance
+matrix adapation.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.init_dynamic_parameters">
+<code class="sig-name descname">init_dynamic_parameters</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.init_dynamic_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialization function of parameters that represent the interal
+state of the CMAES algorithm, and are dynamic. Examples of such parameters
+are the Covariance matrix C and its eigenvectors and the learning rate sigma.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.init_local_restart_parameters">
+<code class="sig-name descname">init_local_restart_parameters</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.init_local_restart_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialization function for parameters that are used by
+local restart strategies, i.e. IPOP.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.init_meta_parameters">
+<code class="sig-name descname">init_meta_parameters</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.init_meta_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialization function for parameters that hold
+meta data about other parameters.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.init_selection_parameters">
+<code class="sig-name descname">init_selection_parameters</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.init_selection_parameters" title="Permalink to this definition">¶</a></dt>
+<dd><p>Initialization function for parameters that are of influence
+in selection/population control.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.perform_eigendecomposition">
+<code class="sig-name descname">perform_eigendecomposition</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.perform_eigendecomposition" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method to perform eigendecomposition
+If sigma or the coveriance matrix has degenerated, the dynamic parameters
+are reset.</p>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.perform_local_restart">
+<code class="sig-name descname">perform_local_restart</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.perform_local_restart" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method performing local restart, given that a restart
+strategy is specified in the parameters.</p>
+<blockquote>
+<div><p>~ IPOP: after every restart, <cite>lambda_</cite> is multiplied with a factor.</p>
+</div></blockquote>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.parameters.Parameters.record_statistics">
+<code class="sig-name descname">record_statistics</code><span class="sig-paren">(</span><span class="sig-paren">)</span> &#x2192; None<a class="headerlink" href="#ccmaes.parameters.Parameters.record_statistics" title="Permalink to this definition">¶</a></dt>
+<dd><p>Method for recording metadata.
+If a local restart strategy is specified, stopping criteria
+are calculated.</p>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">CCMAES</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.cannonicalcmaes.CannonicalCMAES.html">CannonicalCMAES</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.configurablecmaes.ConfigurableCMAES.html">ConfigurableCMAES</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.parameters.SimpleParameters.html">SimpleParameters</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.population.Population.html">Population</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.gaussian_sampling.html">gaussian_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.halton_sampling.html">halton_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.mirrored_sampling.html">mirrored_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.orthogonal_sampling.html">orthogonal_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.sobol_sampling.html">sobol_sampling</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.ert.html">ert</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.evaluate.html">evaluate</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.sphere_function.html">sphere_function</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.timeit.html">timeit</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.AnnotatedStruct.html">AnnotatedStruct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.AnnotatedStructMeta.html">AnnotatedStructMeta</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.AnyOf.html">AnyOf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.Descriptor.html">Descriptor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.InstanceOf.html">InstanceOf</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.optimizer.Optimizer.html">Optimizer</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ccmaes.configurablecmaes.ConfigurableCMAES.html" title="previous chapter">ConfigurableCMAES</a></li>
+      <li>Next: <a href="ccmaes.parameters.SimpleParameters.html" title="next chapter">SimpleParameters</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Jacob de Nobel.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/api/ccmaes.parameters.Parameters.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

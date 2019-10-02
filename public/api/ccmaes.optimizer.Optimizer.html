@@ -1,0 +1,238 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Optimizer &#8212; CCMAES  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="prev" title="InstanceOf" href="ccmaes.utils.InstanceOf.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="optimizer">
+<h1>Optimizer<a class="headerlink" href="#optimizer" title="Permalink to this headline">¶</a></h1>
+<dl class="class">
+<dt id="ccmaes.optimizer.Optimizer">
+<em class="property">class </em><code class="sig-prename descclassname">ccmaes.optimizer.</code><code class="sig-name descname">Optimizer</code><a class="headerlink" href="#ccmaes.optimizer.Optimizer" title="Permalink to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Abstract class for optimizer objects</p>
+<p class="rubric">Attributes Summary</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.optimizer.Optimizer.break_conditions" title="ccmaes.optimizer.Optimizer.break_conditions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">break_conditions</span></code></a></p></td>
+<td><p>Returns a list with break conditions based on the interal state (parameters) of the optimization algorithm.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Methods Summary</p>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.optimizer.Optimizer.fitness_func" title="ccmaes.optimizer.Optimizer.fitness_func"><code class="xref py py-obj docutils literal notranslate"><span class="pre">fitness_func</span></code></a>(x)</p></td>
+<td><p>Wrapper function for calling self._fitness_func adds 1 to self.parameters.used_budget for each fitnes function call.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="#ccmaes.optimizer.Optimizer.run" title="ccmaes.optimizer.Optimizer.run"><code class="xref py py-obj docutils literal notranslate"><span class="pre">run</span></code></a>()</p></td>
+<td><p>Runs the step method until step method retuns a falsy value</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="#ccmaes.optimizer.Optimizer.step" title="ccmaes.optimizer.Optimizer.step"><code class="xref py py-obj docutils literal notranslate"><span class="pre">step</span></code></a>()</p></td>
+<td><p>Abstract method for calling one iteration of the optimization procedure.</p></td>
+</tr>
+</tbody>
+</table>
+<p class="rubric">Attributes Documentation</p>
+<dl class="attribute">
+<dt id="ccmaes.optimizer.Optimizer.break_conditions">
+<code class="sig-name descname">break_conditions</code><a class="headerlink" href="#ccmaes.optimizer.Optimizer.break_conditions" title="Permalink to this definition">¶</a></dt>
+<dd><p>Returns a list with break conditions based on the
+interal state (parameters) of the optimization algorithm.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p></p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p>[bool, bool]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<p class="rubric">Methods Documentation</p>
+<dl class="method">
+<dt id="ccmaes.optimizer.Optimizer.fitness_func">
+<code class="sig-name descname">fitness_func</code><span class="sig-paren">(</span><em class="sig-param">x: numpy.ndarray</em><span class="sig-paren">)</span> &#x2192; float<a class="headerlink" href="#ccmaes.optimizer.Optimizer.fitness_func" title="Permalink to this definition">¶</a></dt>
+<dd><p>Wrapper function for calling self._fitness_func
+adds 1 to self.parameters.used_budget for each fitnes function
+call.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>x</strong> (<em>np.ndarray</em>) – array on which to call the objective/fitness function</p>
+</dd>
+<dt class="field-even">Returns</dt>
+<dd class="field-even"><p></p>
+</dd>
+<dt class="field-odd">Return type</dt>
+<dd class="field-odd"><p>float</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.optimizer.Optimizer.run">
+<code class="sig-name descname">run</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ccmaes.optimizer.Optimizer.run" title="Permalink to this definition">¶</a></dt>
+<dd><p>Runs the step method until step method retuns a falsy value</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns</dt>
+<dd class="field-odd"><p></p>
+</dd>
+<dt class="field-even">Return type</dt>
+<dd class="field-even"><p><a class="reference internal" href="#ccmaes.optimizer.Optimizer" title="ccmaes.optimizer.Optimizer">Optimizer</a></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="method">
+<dt id="ccmaes.optimizer.Optimizer.step">
+<code class="sig-name descname">step</code><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#ccmaes.optimizer.Optimizer.step" title="Permalink to this definition">¶</a></dt>
+<dd><p>Abstract method for calling one iteration
+of the optimization procedure.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Raises</dt>
+<dd class="field-odd"><p><strong>NotImplementedError</strong> – </p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">CCMAES</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.cannonicalcmaes.CannonicalCMAES.html">CannonicalCMAES</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.configurablecmaes.ConfigurableCMAES.html">ConfigurableCMAES</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.parameters.Parameters.html">Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.parameters.SimpleParameters.html">SimpleParameters</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.population.Population.html">Population</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.gaussian_sampling.html">gaussian_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.halton_sampling.html">halton_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.mirrored_sampling.html">mirrored_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.orthogonal_sampling.html">orthogonal_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.sobol_sampling.html">sobol_sampling</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.ert.html">ert</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.evaluate.html">evaluate</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.sphere_function.html">sphere_function</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.timeit.html">timeit</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.AnnotatedStruct.html">AnnotatedStruct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.AnnotatedStructMeta.html">AnnotatedStructMeta</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.AnyOf.html">AnyOf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.Descriptor.html">Descriptor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.InstanceOf.html">InstanceOf</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Optimizer</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ccmaes.utils.InstanceOf.html" title="previous chapter">InstanceOf</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Jacob de Nobel.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/api/ccmaes.optimizer.Optimizer.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>

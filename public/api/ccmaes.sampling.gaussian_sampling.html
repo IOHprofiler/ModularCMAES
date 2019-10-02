@@ -1,0 +1,155 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>gaussian_sampling &#8212; CCMAES  documentation</title>
+    <link rel="stylesheet" href="../_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="../_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="../" src="../_static/documentation_options.js"></script>
+    <script type="text/javascript" src="../_static/jquery.js"></script>
+    <script type="text/javascript" src="../_static/underscore.js"></script>
+    <script type="text/javascript" src="../_static/doctools.js"></script>
+    <script type="text/javascript" src="../_static/language_data.js"></script>
+    <link rel="index" title="Index" href="../genindex.html" />
+    <link rel="search" title="Search" href="../search.html" />
+    <link rel="next" title="halton_sampling" href="ccmaes.sampling.halton_sampling.html" />
+    <link rel="prev" title="Population" href="ccmaes.population.Population.html" />
+   
+  <link rel="stylesheet" href="../_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="gaussian-sampling">
+<h1>gaussian_sampling<a class="headerlink" href="#gaussian-sampling" title="Permalink to this headline">¶</a></h1>
+<dl class="function">
+<dt id="ccmaes.sampling.gaussian_sampling">
+<code class="sig-prename descclassname">ccmaes.sampling.</code><code class="sig-name descname">gaussian_sampling</code><span class="sig-paren">(</span><em class="sig-param">d: int</em><span class="sig-paren">)</span> &#x2192; Generator[numpy.ndarray, None, None]<a class="headerlink" href="#ccmaes.sampling.gaussian_sampling" title="Permalink to this definition">¶</a></dt>
+<dd><p>Generator yielding random normal (gaussian) samples.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters</dt>
+<dd class="field-odd"><p><strong>d</strong> (<em>int</em>) – An integer denoting the dimenionality of the samples</p>
+</dd>
+<dt class="field-even">Yields</dt>
+<dd class="field-even"><p><em>numpy.ndarray</em></p>
+</dd>
+</dl>
+</dd></dl>
+
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="../index.html">CCMAES</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.cannonicalcmaes.CannonicalCMAES.html">CannonicalCMAES</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.configurablecmaes.ConfigurableCMAES.html">ConfigurableCMAES</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.parameters.Parameters.html">Parameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.parameters.SimpleParameters.html">SimpleParameters</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.population.Population.html">Population</a></li>
+</ul>
+<ul class="current">
+<li class="toctree-l1 current"><a class="current reference internal" href="#">gaussian_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.halton_sampling.html">halton_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.mirrored_sampling.html">mirrored_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.orthogonal_sampling.html">orthogonal_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.sampling.sobol_sampling.html">sobol_sampling</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.ert.html">ert</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.evaluate.html">evaluate</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.sphere_function.html">sphere_function</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.timeit.html">timeit</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.AnnotatedStruct.html">AnnotatedStruct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.AnnotatedStructMeta.html">AnnotatedStructMeta</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.AnyOf.html">AnyOf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.Descriptor.html">Descriptor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.utils.InstanceOf.html">InstanceOf</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="ccmaes.optimizer.Optimizer.html">Optimizer</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="../index.html">Documentation overview</a><ul>
+      <li>Previous: <a href="ccmaes.population.Population.html" title="previous chapter">Population</a></li>
+      <li>Next: <a href="ccmaes.sampling.halton_sampling.html" title="next chapter">halton_sampling</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Jacob de Nobel.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="../_sources/api/ccmaes.sampling.gaussian_sampling.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
