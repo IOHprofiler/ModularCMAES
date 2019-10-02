@@ -1,7 +1,0 @@
-<map id="inheritance37ba843cec" name="inheritance37ba843cec">
-<area shape="rect" id="node1" href="api/src.utils.AnnotatedStruct.html#src.utils.AnnotatedStruct" target="_top" title="Custom class for defining structs. " alt="" coords="21,128,148,153"/>
-<area shape="rect" id="node2" href="api/src.utils.AnnotatedStructMeta.html#src.utils.AnnotatedStructMeta" target="_top" title="Metaclass for class for AnnotatedStruct." alt="" coords="5,79,164,104"/>
-<area shape="rect" id="node3" href="api/src.utils.AnyOf.html#src.utils.AnyOf" target="_top" title="Descriptor, checks of value is any of a specified sequence of options." alt="" coords="222,5,294,31"/>
-<area shape="rect" id="node4" href="api/src.utils.Descriptor.html#src.utils.Descriptor" target="_top" title="Data descriptor" alt="" coords="40,29,129,55"/>
-<area shape="rect" id="node5" href="api/src.utils.InstanceOf.html#src.utils.InstanceOf" target="_top" title="Data descriptor checks for correct types." alt="" coords="212,55,304,80"/>
-</map>
