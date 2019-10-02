@@ -9,10 +9,8 @@ Running optimizer
 
 
 Generating documentation
-`cd docs`
-`make html`
+`cd docs & make html`
 
 Running simple webserver in order to view documentation (they should be generated first)
-`cd docs/build/html`
-`python3 -m http.server`
+`cd docs/build/html & python3 -m http.server`
 The docs should now be accesible at port 8000 on your local machine.
