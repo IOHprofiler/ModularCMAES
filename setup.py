@@ -10,8 +10,14 @@ setuptools.setup(
     description="Package Containing Configurable version CMA ES optimizer",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://gitlab.com/jacobdenobel/ccmaes/",
     packages=setuptools.find_packages(),
+    install_requires=[
+        'numpy', 
+        'scipy', 
+        'sphinx', 
+        'ghalton', 
+        'sobol_seq'
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
          "License :: OSI Approved :: MIT License",
