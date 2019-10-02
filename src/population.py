@@ -39,6 +39,7 @@ class Population(AnnotatedStruct):
         ------
         Population
         '''
+
         assert isinstance(other, self.__class__)
         return Population(
             np.hstack([self.x, other.x]),
@@ -59,6 +60,7 @@ class Population(AnnotatedStruct):
         ------
         Population
         '''
+
         if isinstance(key, int):
             return Population(
                 self.x[:, key].reshape(-1, 1),

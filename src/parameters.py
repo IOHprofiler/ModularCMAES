@@ -36,7 +36,7 @@ class Parameters(AnnotatedStruct):
     Attributes
     ----------
     d: int
-        The dimensionality of the proble
+        The dimensionality of the problem
     absolute_target: float
         The absolute target of the optimization problem
     rtol: float
@@ -159,9 +159,9 @@ class Parameters(AnnotatedStruct):
         The number of function evaluations used
     fopt: float
         The fitness of the current best individual
-    budget int:
+    budget: int 
         The maximum number of objective function evaluations
-    target:
+    target: float
         The target value up until which to optimize        
     t: int
         The number of generations
@@ -184,8 +184,7 @@ class Parameters(AnnotatedStruct):
     diameter: float
         The diameter of the search space
     max_iter: float
-        The maximum number of iterations that can occur between
-        two restarts.        
+        The maximum number of iterations that can occur between two restarts.        
     nbin: int
         Used to determine a window for equal function values
     n_stagnation: int
@@ -199,8 +198,7 @@ class Parameters(AnnotatedStruct):
     m: np.ndarray
         The mean value of the individuals
     dm: np.ndarray
-        The difference in the new mean value of the individuals
-        versus the old mean value. 
+        The difference in the new mean value of the individuals versus the old mean value. 
     pc: np.ndarray
         The evolution path
     ps: np.ndarray
@@ -208,9 +206,9 @@ class Parameters(AnnotatedStruct):
     C: np.ndarray
         The covariance matrix
     B: np.ndarray
-        The eigenvectors of the covaraince matrix C
+        The eigenvectors of the covariance matrix C
     D: np.ndarray
-        The eigenvalues of the covaraince matrix C
+        The eigenvalues of the covariance matrix C
     invC: np.ndarray
         The result of C**-(1/2)
     s: float
@@ -244,6 +242,7 @@ class Parameters(AnnotatedStruct):
     last_restart: int
         The generation in where the last restart has occored
     '''
+
     d: int
     absolute_target: float
     rtol: float
@@ -443,6 +442,7 @@ class Parameters(AnnotatedStruct):
         One of these methods can be selected by setting the step_size_adaptation 
         parameter. 
         '''
+
         if self.step_size_adaptation == 'tpa' and self.old_population:
             self.s = ((1 - self.c_sigma) * self.s) + (
                 self.c_sigma * self.rank_tpa
@@ -518,7 +518,7 @@ class Parameters(AnnotatedStruct):
         the difference in mean x values dm. Thereafter, sigma is adapated,
         followed by the adapatation of the covariance matrix.  
         '''
-        
+
         self.dm = (self.m - self.m_old) / self.sigma
         self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
             self.cs * (2 - self.cs) * self.mueff
@@ -536,9 +536,9 @@ class Parameters(AnnotatedStruct):
     def perform_local_restart(self) -> None:
         '''Method performing local restart, given that a restart
         strategy is specified in the parameters. 
-            ~ IPOP: after every resart, lambda_ is multiplied with a factor. 
-                mu is set to none. 
+            ~ IPOP: after every restart, `lambda_` is multiplied with a factor. 
         '''
+
         if self.local_restart:
             if self.local_restart == 'IPOP':
                 # TODO, check if mu also needs an increase

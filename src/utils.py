@@ -1,6 +1,6 @@
 import warnings
 from collections import OrderedDict, abc
-from typing import Callable
+from typing import Callable, Any
 from inspect import Signature, Parameter
 from datetime import datetime
 from functools import wraps
@@ -41,17 +41,20 @@ class Descriptor:
     '''Data descriptor'''
 
     def __set_name__(self, owner, name):
-        '''Set name ne
-        '''
+        '''Set name attribute '''
         self.name = name
 
     def __delete__(self, instance):
+        '''Delete attribute from the instance __dict__'''
         del instance.__dict__[self.name]
 
 
 class InstanceOf(Descriptor):
+    '''Data descriptor checks for correct types. '''
+
     def __init__(self, dtype):
         self.dtype = dtype
+        self.__doc__ += "Type: {}".format(self.dtype)
 
     def __set__(self, instance, value):
         if type(value) != type(None):
@@ -64,14 +67,15 @@ class InstanceOf(Descriptor):
                 value = value.copy()
         instance.__dict__[self.name] = value
 
-    @property
-    def __doc__(self):
-        return super().__doc__ + " checks for type {}".format(self.dtype)
-
 
 class AnyOf(Descriptor):
+    '''Descriptor, checks of value is any of a specified sequence of options. '''
+
     def __init__(self, options=None):
         self.options = options
+        self.__doc__ += "Options: [{}]".format(
+            ', '.join(map(str, self.options))
+        )
 
     def __set__(self, instance, value):
         if value not in self.options:
@@ -79,14 +83,6 @@ class AnyOf(Descriptor):
                 self.name, self.options
             ))
         instance.__dict__[self.name] = value
-
-    @property
-    def __doc__(self):
-        return (
-            super().__doc__ + " checks if value is any of: [{}]".format(
-                ', '.join(map(str, self.options))
-            )
-        )
 
 
 class AnnotatedStructMeta(type):
@@ -103,14 +99,48 @@ class AnnotatedStructMeta(type):
     '''
 
     @classmethod
-    def __prepare__(cls, name, bases):
+    def __prepare__(cls: Any, name: str, bases: tuple) -> OrderedDict:
         '''Normally, __prepare__ returns an empty dictionairy,
         now an OrderedDict is returned. This allowes for ordering 
         the parameters (*args). 
+
+        Parameters
+        ----------
+        cls: Any
+            The empty body of the class to be instantiated
+        name: str
+            The name of the cls
+        bases: tuple
+            The base classes of the cls 
+
+        Returns
+        -------
+        OrderedDict        
         '''
         return OrderedDict()
 
-    def __new__(cls, name, bases, attrs):
+    def __new__(cls: Any, name: str, bases: tuple, attrs: dict) -> Any:
+        '''Controls instance creation of classes that have AnnotatedStructMeta as metaclass
+        All cls attributes that are defined in __annotations__ are wrapped 
+        into either an AnyOf or an InstanceOf descriptor, depending on 
+        the type of the annotation. If the annotation is a sequence, the first
+        element is used as a default value.
+
+        Parameters
+        ----------
+        cls: Any
+            The empty body of the class to be instantiated
+        name: str
+            The name of the cls
+        bases: dict
+            The base classes of the cls 
+        attrs: dict
+            The attributes of the cls
+
+        Returns
+        -------
+        A new cls object
+        '''
         parameters = []
         for key, value in attrs.get('__annotations__', {}).items():
             default_value = attrs.get(key, Parameter.empty)
@@ -145,6 +175,12 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
     The *args will follow the order as defined in the class body:
         i.e. (variable_wo_default, variable_w_default,)
 
+    Attributes
+    ----------
+    __signature__: Signature
+        The calling signature, instantiated by the metaclass
+    __bound__ : Signature
+        The bound signature, bound to the *args and **kwargs
     '''
 
     def __init__(self, *args, **kwargs) -> None:
@@ -160,6 +196,43 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
                 for name, value in self.__bound__.arguments.items()
             )
         )
+
+
+def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
+    '''Helper function for applying the tpa mutation step.
+    The code was mostly taken from the ModEA framework, 
+    and there a slight differences with the procedure as defined in:
+        Nikolaus Hansen. CMA-ES with two-point 
+        step-size adaptation.CoRR, abs/0805.0231,2008.
+    The function should not be used outside of the ConfigurableCMAES optimizer
+
+    Parameters
+    ----------
+    fitness_func: callable
+        A fitness function to be optimized
+    parameters: Parameters
+        A CCMAES Parameters object
+    x: list
+        A list of new individuals
+    y: list
+        A list of new mutation vectors
+    f: list
+        A list of fitnesses
+    '''
+
+    yi = ((parameters.m - parameters.m_old) /
+          parameters.sigma)
+    y.extend([yi, -yi])
+    x.extend([
+        parameters.m + (parameters.sigma * yi),
+        parameters.m + (parameters.sigma * -yi)
+    ])
+    f.extend(list(map(fitness_func, x)))
+    if f[1] < f[0]:
+        parameters.rank_tpa = -parameters.a_tpa
+    else:
+        parameters.rank_tpa = (
+            parameters.a_tpa + parameters.b_tpa)
 
 
 def _scale_with_threshold(z, threshold):
