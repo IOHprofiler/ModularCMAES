@@ -1,3 +1,4 @@
+import os
 import warnings
 from collections import OrderedDict, abc
 from typing import Callable, Any
@@ -348,6 +349,7 @@ def evaluate(
         iterations=50,
         label='',
         logging=False,
+        data_folder=None,
         seed=42,
         **kwargs):
     '''Helper function to evaluate an optimizer on the BBOB test suite. 
@@ -385,9 +387,11 @@ def evaluate(
         np.random.seed(seed)
     if logging:
         label = 'D{}_{}_{}'.format(
-            dim, label, datetime.now().strftime("%m"))
-        fitness_func = fgeneric.LoggingFunction(
-            "/home/jacob/Code/thesis/data/{}".format(label), label)
+            dim, label, datetime.now().strftime("%B"))
+        data_location = os.path.join(data_folder if os.path.isdir(
+            data_folder or ''
+        ) else os.getcwd(), label)
+        fitness_func = fgeneric.LoggingFunction(data_location, label)
     for i in range(iterations):
         func, target = bbobbenchmarks.instantiate(fid, iinstance=1)
         rtol = DISTANCE_TO_TARGET[fid - 1]

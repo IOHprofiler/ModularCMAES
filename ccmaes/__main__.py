@@ -37,6 +37,9 @@ parser.add_argument(
     default=42
 )
 parser.add_argument(
+    "-p", "--data_folder", type=str, required=False
+)
+parser.add_argument(
     "-a", "--arguments", nargs='+', required=False
 )
 
