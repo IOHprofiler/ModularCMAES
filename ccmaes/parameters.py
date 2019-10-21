@@ -314,7 +314,7 @@ class Parameters(AnnotatedStruct):
             sampler = mirrored_sampling(sampler)
         return sampler
 
-    def init_constant_parameters() -> None:
+    def init_constant_parameters(self) -> None:
         '''Initialization function for parameters that should remain
           constant though the optimization process.
         '''
