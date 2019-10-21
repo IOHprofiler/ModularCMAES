@@ -281,12 +281,12 @@ class Parameters(AnnotatedStruct):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.init_constant_parameters()
         self.init_meta_parameters()
         self.init_selection_parameters()
         self.init_adaptation_parameters()
         self.init_dynamic_parameters()
         self.init_local_restart_parameters()
+        self.init_constant_parameters()
 
     def get_sampler(self) -> Generator:
         '''Function to return a sampler generator based on the values
