@@ -103,7 +103,7 @@ class Parameters(AnnotatedStruct):
             ACM, 2014.
     base_sampler: str = ('gaussian', 'quasi-sobol', 'quasi-halton',)
         Denoting which base sampler to use, 'quasi-sobol', 'quasi-halton' can
-        be selected to sample from a quasi random sequence. 
+        be selected to sample from a quasi random sequence.
             A. Auger, M. Jebalia, and O. Teytaud. Algorithms (x, sigma, eta):
             quasi-random mutations for evolution strategies. In Artificial Evolution:
             7th International Conference, Revised Selected Papers, pages 296–307.
@@ -121,20 +121,20 @@ class Parameters(AnnotatedStruct):
             the 13th Annual Conference Companion on Genetic and Evolutionary
             Computation, GECCO ’11, pages 861–868. ACM, 2011
     step_size_adaptation: str = ('csa', 'tpa', 'msr', )
-        Specifying which step size adaptation mechanism should be used. 
+        Specifying which step size adaptation mechanism should be used.
         csa:
             Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR, abs/1604.00772, 2016
         tpa:
             Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, abs/0805.0231,2008.
-        msr: 
-            Ouassim Ait Elhara, Anne Auger, and Nikolaus Hansen.  
-            A Median Success Rule for Non-Elitist Evolution Strategies: Study of Feasibility. 
-            In Blum et al. Christian, editor,Genetic and Evolutionary Computation Conference, 
+        msr:
+            Ouassim Ait Elhara, Anne Auger, and Nikolaus Hansen.
+            A Median Success Rule for Non-Elitist Evolution Strategies: Study of Feasibility.
+            In Blum et al. Christian, editor,Genetic and Evolutionary Computation Conference,
             pages 415–422, Amsterdam, Nether-lands, July 2013. ACM, ACM Press.
     local_restart: str = (None, 'IPOP', )
         Specifying which local restart strategy should be used
             IPOP:
-                Anne Auger and Nikolaus Hansen. A restart cma evolution strategy  
+                Anne Auger and Nikolaus Hansen. A restart cma evolution strategy
                 with increasing population size. volume 2, pages 1769–1776, 01 2005
     population: Population = None
         The current population of individuals
@@ -153,16 +153,16 @@ class Parameters(AnnotatedStruct):
     ps_factor: float = 1.
         Determines the frequence of exploration/expliotation
         1 is neutral, lower is more expliotative, higher is more explorative
-    sampler: generator 
+    sampler: generator
         A generator object producing new samples
     used_budget: int
         The number of function evaluations used
     fopt: float
         The fitness of the current best individual
-    budget: int 
+    budget: int
         The maximum number of objective function evaluations
     target: float
-        The target value up until which to optimize        
+        The target value up until which to optimize
     t: int
         The number of generations
     sigma_over_time: list
@@ -177,28 +177,28 @@ class Parameters(AnnotatedStruct):
         A deque containing boolean values denoting if a flat fitness value is observed
         in recent generations
     restarts: list
-        A list containing the t values (generations) where a restart has 
+        A list containing the t values (generations) where a restart has
         taken place
     seq_cutoff: int
         The number of individuals that must be seen before a sequential break can be performed
     diameter: float
         The diameter of the search space
     max_iter: float
-        The maximum number of iterations that can occur between two restarts.        
+        The maximum number of iterations that can occur between two restarts.
     nbin: int
         Used to determine a window for equal function values
     n_stagnation: int
         Used to determine a window for stagnation
     flat_fitness_index: int
         Used to determine which ranked individual should be
-        the same as the first indivual in order to determine 
+        the same as the first indivual in order to determine
         flat fitness values.
     sigma: float
         The step size
     m: np.ndarray
         The mean value of the individuals
     dm: np.ndarray
-        The difference in the new mean value of the individuals versus the old mean value. 
+        The difference in the new mean value of the individuals versus the old mean value.
     pc: np.ndarray
         The evolution path
     ps: np.ndarray
@@ -281,6 +281,7 @@ class Parameters(AnnotatedStruct):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
+        self.init_constant_parameters()
         self.init_meta_parameters()
         self.init_selection_parameters()
         self.init_adaptation_parameters()
@@ -288,7 +289,7 @@ class Parameters(AnnotatedStruct):
         self.init_local_restart_parameters()
 
     def get_sampler(self) -> Generator:
-        '''Function to return a sampler generator based on the values 
+        '''Function to return a sampler generator based on the values
         of other parameters.
 
         Returns
@@ -313,15 +314,20 @@ class Parameters(AnnotatedStruct):
             sampler = mirrored_sampling(sampler)
         return sampler
 
-    def init_meta_parameters(self) -> None:
-        '''Initialization function for parameters that hold 
-        meta data about other parameters.
+    def init_constant_parameters() -> None:
+        '''Initialization function for parameters that should remain
+          constant though the optimization process.
         '''
-
-        self.used_budget = 0
-        self.fopt = float("inf")
         self.budget = 1e4 * self.d
         self.target = self.absolute_target + self.rtol
+        self.max_lambda_ = (self.d * self.lambda_) ** 2
+
+    def init_meta_parameters(self) -> None:
+        '''Initialization function for parameters that hold
+        meta data about other parameters.
+        '''
+        self.used_budget = 0
+        self.fopt = float("inf")
         self.t = 0
         self.sigma_over_time = []
         self.best_fopts = []
@@ -331,8 +337,8 @@ class Parameters(AnnotatedStruct):
         self.restarts = []
 
     def init_selection_parameters(self) -> None:
-        '''Initialization function for parameters that are of influence 
-        in selection/population control. 
+        '''Initialization function for parameters that are of influence
+        in selection/population control.
         '''
 
         self.lambda_ = self.lambda_ or (
@@ -349,8 +355,8 @@ class Parameters(AnnotatedStruct):
         self.diameter = np.linalg.norm(self.ub - (self.lb))
 
     def init_local_restart_parameters(self) -> None:
-        '''Initialization function for parameters that are used by 
-        local restart strategies, i.e. IPOP. 
+        '''Initialization function for parameters that are used by
+        local restart strategies, i.e. IPOP.
         '''
 
         self.restarts.append(self.t)
@@ -360,15 +366,15 @@ class Parameters(AnnotatedStruct):
         self.flat_fitness_index = int(np.ceil(.1 + self.lambda_ / 4))
 
     def init_adaptation_parameters(self) -> None:
-        '''Initialization function for parameters that are of influence 
-        in the self-adaptive processes of the parameters. Examples are 
-        recombination weights and learning rates for the covariance 
+        '''Initialization function for parameters that are of influence
+        in the self-adaptive processes of the parameters. Examples are
+        recombination weights and learning rates for the covariance
         matrix adapation.
         '''
 
         if self.weights_option == '1/mu':
-            self.weights = np.ones(self.mu) / self.mu
-            self.weights[self.mu:] *= -1
+            ws = np.ones(self.mu) / self.mu
+            self.weights = np.append(ws, ws[::-1] * -1)
         elif self.weights_option == '1/2^mu':
             ws = 1 / 2**np.arange(1, self.mu + 1) + (
                 (1 / (2**self.mu)) / self.mu)
@@ -541,7 +547,6 @@ class Parameters(AnnotatedStruct):
 
         if self.local_restart:
             if self.local_restart == 'IPOP':
-                # TODO, check if mu also needs an increase
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
             elif self.local_restart == 'BIPOP':
@@ -599,7 +604,7 @@ class Parameters(AnnotatedStruct):
             best_fopts = self.best_fitnesses[self.last_restart:]
             median_fitnesses = self.median_fitnesses[self.last_restart:]
 
-            self.termination_criteria = {
+            self.termination_criteria = dict() if self.lambda_ > self.max_lamda_ {
                 "max_iter": (
                     self.t - self.last_restart > self.max_iter
                 ),
