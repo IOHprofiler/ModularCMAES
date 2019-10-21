@@ -604,7 +604,7 @@ class Parameters(AnnotatedStruct):
             best_fopts = self.best_fitnesses[self.last_restart:]
             median_fitnesses = self.median_fitnesses[self.last_restart:]
 
-            self.termination_criteria = dict() if self.lambda_ > self.max_lamda_ else {
+            self.termination_criteria = dict() if self.lambda_ > self.max_lambda_ else {
                 "max_iter": (
                     self.t - self.last_restart > self.max_iter
                 ),
