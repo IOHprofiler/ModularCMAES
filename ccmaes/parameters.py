@@ -422,7 +422,7 @@ class Parameters(AnnotatedStruct):
         self.ds = 2 - (2 / self.d)
 
     def init_dynamic_parameters(self) -> None:
-        '''Initialization function of parameters that represent the interal
+        '''Initialization function of parameters that represent the internal
         state of the CMAES algorithm, and are dynamic. Examples of such parameters
         are the Covariance matrix C and its eigenvectors and the learning rate sigma. 
         '''
@@ -532,7 +532,7 @@ class Parameters(AnnotatedStruct):
 
         self.adapt_sigma()
         self.adapt_covariance_matrix()
-        # TODO: eigendecomp is neccesary to be beformed every iteration, says CMAES tut.
+        # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
         self.perform_eigendecomposition()
         self.record_statistics()
         self.old_population = self.population.copy()

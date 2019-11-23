@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='ccmaes',
-    version='1.0.4',
+    version='1.0.6',
     author="Jacob de Nobel",
     author_email="jacobdenobel@gmail.com",
     description="Package Containing Configurable version CMA ES optimizer",
@@ -12,15 +12,14 @@ setuptools.setup(
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(),
     install_requires=[
-        'numpy', 
-        'scipy', 
-        'sphinx', 
-        'ghalton', 
+        'numpy',
+        'scipy',
+        'ghalton',
         'sobol_seq'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
-         "License :: OSI Approved :: MIT License",
-         "Operating System :: OS Independent",
+        "License :: OSI Approved :: MIT License",
+        "Operating System :: OS Independent",
     ],
 )

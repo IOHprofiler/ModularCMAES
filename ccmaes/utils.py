@@ -150,6 +150,12 @@ class AnnotatedStructMeta(type):
                 parameters.append(Parameter(name=key, default=default_value[0],
                                             kind=Parameter.POSITIONAL_OR_KEYWORD))
             else:
+                if not type(value) == type:
+                    raise TypeError(
+                        f"Detected wrong format for annotations of AnnotatedStruct.\n\t"
+                        f"Format should be <name>: <type> = <default_value>\n\t"
+                        f"Got: type = {value}"
+                    )
                 attrs[key] = InstanceOf(value)
                 parameters.append(Parameter(name=key, default=default_value,
                                             kind=Parameter.POSITIONAL_OR_KEYWORD))
