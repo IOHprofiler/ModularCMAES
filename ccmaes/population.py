@@ -10,6 +10,12 @@ class Population(AnnotatedStruct):
     y: np.ndarray
     f: np.ndarray
 
+    def __init__(self, *args, **kwargs):
+        'Reshapes x and y'
+        super().__init__(*args, **kwargs)
+        self.x = self.x.reshape(-1, 1)
+        self.y = self.y.reshape(-1, 1)
+
     def sort(self) -> None:
         '''Sorts the population according to their fitness values'''
         rank = np.argsort(self.f)
@@ -24,7 +30,6 @@ class Population(AnnotatedStruct):
         ------
         Population
         '''
-
         return Population(self.x, self.y, self.f)
 
     def __add__(self, other: "Population") -> "Population":
@@ -84,5 +89,15 @@ class Population(AnnotatedStruct):
             raise KeyError("Key must be (list of non-negative) integer(s) or slice, not {}"
                            .format(type(key)))
 
+    @property
+    def n(self):
+        return len(self.f)
+
+    @property
+    def d(self):
+        shape_ = list(self.x.shape)
+        shape_.remove(self.n)
+        return shape_[0]
+
     def __repr__(self) -> str:
-        return "<Population d: {}, n: {}>".format(*self.x.shape)
+        return f"<Population d: {self.d}, n: {self.n}>"
