@@ -5,12 +5,11 @@ see if we can define dependencies between modules
 '''
 import warnings
 from collections import deque
-from typing import Generator
+from typing import Generator, TypeVar
 import numpy as np
 
-from . import utils, population, sampling
+from . import utils, population
 from .utils import AnnotatedStruct
-from .population import Population
 from .sampling import (
     gaussian_sampling,
     orthogonal_sampling,
@@ -136,9 +135,9 @@ class Parameters(AnnotatedStruct):
             IPOP:
                 Anne Auger and Nikolaus Hansen. A restart cma evolution strategy
                 with increasing population size. volume 2, pages 1769–1776, 01 2005
-    population: Population = None
+    population: TypeVar('Population') = None
         The current population of individuals
-    old_population: Population = None
+    old_population: TypeVar('Population') = None
         The old population of individuals
     termination_criteria: dict = {}
         A dictionary of termination criteria
@@ -270,8 +269,8 @@ class Parameters(AnnotatedStruct):
     selection: str = ('best', 'pairwise',)
     step_size_adaptation: str = ('csa', 'tpa', 'msr', )
     local_restart: str = (None, 'IPOP', )  # # TODO: 'BIPOP',)
-    population: Population = None
-    old_population: Population = None
+    population: TypeVar('Population') = None
+    old_population: TypeVar('Population') = None
     termination_criteria: dict = {}
     ipop_factor: int = 2
     tolx: float = pow(10, -12)

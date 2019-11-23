@@ -1,8 +1,9 @@
 import os
 import warnings
+import typing
 from collections import OrderedDict, abc
-from typing import Callable, Any
-from inspect import Signature, Parameter
+
+from inspect import Signature, Parameter, getmodule
 from datetime import datetime
 from functools import wraps
 from time import time
@@ -70,7 +71,7 @@ class InstanceOf(Descriptor):
 
 
 class AnyOf(Descriptor):
-    '''Descriptor, checks of value is any of a specified sequence of options. '''
+    '''Descriptor, checks of value is Any of a specified sequence of options. '''
 
     def __init__(self, options=None):
         self.options = options
@@ -80,7 +81,7 @@ class AnyOf(Descriptor):
 
     def __set__(self, instance, value):
         if value not in self.options:
-            raise TypeError("{} should any of {}".format(
+            raise TypeError("{} should .Any of {}".format(
                 self.name, self.options
             ))
         instance.__dict__[self.name] = value
@@ -94,20 +95,20 @@ class AnnotatedStructMeta(type):
     parameter into a descriptor using __annotations__, 
     allowing for type checking. 
     Currently, only two types of descriptors are implementated,
-    InstanceOf and AnyOf, the first implements simple type validation,
+    InstanceOf and typing.AnyOf, the first implements simple type validation,
     the latter implements validation though the use of sequence of
     allowed values. 
     '''
 
     @classmethod
-    def __prepare__(cls: Any, name: str, bases: tuple) -> OrderedDict:
+    def __prepare__(cls: typing.Any, name: str, bases: tuple) -> OrderedDict:
         '''Normally, __prepare__ returns an empty dictionairy,
         now an OrderedDict is returned. This allowes for ordering 
         the parameters (*args). 
 
         Parameters
         ----------
-        cls: Any
+        cls: typing.Any
             The empty body of the class to be instantiated
         name: str
             The name of the cls
@@ -120,16 +121,16 @@ class AnnotatedStructMeta(type):
         '''
         return OrderedDict()
 
-    def __new__(cls: Any, name: str, bases: tuple, attrs: dict) -> Any:
+    def __new__(cls: typing.Any, name: str, bases: tuple, attrs: dict) -> typing.Any:
         '''Controls instance creation of classes that have AnnotatedStructMeta as metaclass
         All cls attributes that are defined in __annotations__ are wrapped 
-        into either an AnyOf or an InstanceOf descriptor, depending on 
+        into either an typing.AnyOf or an InstanceOf descriptor, depending on 
         the type of the annotation. If the annotation is a sequence, the first
         element is used as a default value.
 
         Parameters
         ----------
-        cls: Any
+        cls: typing.Any
             The empty body of the class to be instantiated
         name: str
             The name of the cls
@@ -150,7 +151,7 @@ class AnnotatedStructMeta(type):
                 parameters.append(Parameter(name=key, default=default_value[0],
                                             kind=Parameter.POSITIONAL_OR_KEYWORD))
             else:
-                if not type(value) == type:
+                if not type(value) == type and getmodule(type(value)) != typing:
                     raise TypeError(
                         f"Detected wrong format for annotations of AnnotatedStruct.\n\t"
                         f"Format should be <name>: <type> = <default_value>\n\t"
@@ -205,7 +206,7 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
         )
 
 
-def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
+def _tpa_mutation(fitness_func: typing.Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
     '''Helper function for applying the tpa mutation step.
     The code was mostly taken from the ModEA framework, 
     and there a slight differences with the procedure as defined in:
@@ -215,7 +216,7 @@ def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: 
 
     Parameters
     ----------
-    fitness_func: callable
+    fitness_func: typing.Callable
         A fitness function to be optimized
     parameters: Parameters
         A CCMAES Parameters object
@@ -300,12 +301,12 @@ def timeit(func):
 
     Parameters
     ----------
-    func: callable
+    func: typing.Callable
         The function to be timed
 
     Returns
     -------
-    callable
+    typing.Callable
         a wrapped function
     '''
     @wraps(func)

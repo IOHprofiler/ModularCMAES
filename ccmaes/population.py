@@ -1,6 +1,7 @@
 import itertools
 from typing import Any
 import numpy as np
+
 from .utils import AnnotatedStruct
 
 
@@ -13,8 +14,9 @@ class Population(AnnotatedStruct):
     def __init__(self, *args, **kwargs):
         'Reshapes x and y'
         super().__init__(*args, **kwargs)
-        self.x = self.x.reshape(-1, 1)
-        self.y = self.y.reshape(-1, 1)
+        if len(self.x.shape) == 1:
+            self.x = self.x.reshape(-1, 1)
+            self.y = self.y.reshape(-1, 1)
 
     def sort(self) -> None:
         '''Sorts the population according to their fitness values'''
