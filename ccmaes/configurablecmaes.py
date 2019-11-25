@@ -32,7 +32,7 @@ class ConfigurableCMAES(Optimizer):
             parameters, Parameters
         ) else Parameters(*args, **kwargs)
 
-    def mutate(self) -> None:
+    def mutate(self, compute_fitness=True) -> None:
         '''Method performing mutation and evaluation of a set of individuals.
         First, a directional vector zi is sampled from a sampler object
         as defined in the self.parameters object. Then, this zi vector is
@@ -63,7 +63,10 @@ class ConfigurableCMAES(Optimizer):
             if self.parameters.bound_correction:
                 xi = _correct_bounds(
                     xi, self.parameters.ub, self.parameters.lb)
-            fi = self.fitness_func(xi)
+
+            # This is for ask and tell interface
+            fi = self.fitness_func(xi) if compute_fitness else None
+
             [a.append(v) for a, v in ((y, yi), (x, xi), (f, fi),)]
 
             if self.sequential_break_conditions(i, fi):
