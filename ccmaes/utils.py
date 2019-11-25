@@ -61,8 +61,10 @@ class InstanceOf(Descriptor):
     def __set__(self, instance, value):
         if type(value) != type(None):
             if type(value) != self.dtype and not (
-                isinstance(value, np.generic) and type(
-                    np.asscalar(value)) == self.dtype):
+                    isinstance(value, np.generic) and type(
+                        np.asscalar(value)) == self.dtype)\
+                    and str(self.dtype)[1:] != value.__class__.__name__:
+                    # we should find another way for the last statement
                 raise TypeError("{} should be {}".format(
                     self.name, self.dtype))
             if hasattr(value, '__copy__'):
