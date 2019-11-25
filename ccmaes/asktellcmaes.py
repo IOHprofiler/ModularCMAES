@@ -1,3 +1,4 @@
+from collection import deque
 from .configurablecmaes import ConfigurableCMAES
 
 
@@ -5,6 +6,7 @@ class AskTellCMAES(ConfigurableCMAES):
 
     def __init(self, *args, **kwargs):
         super().__init__(lambda x: None, *args, **kwargs)
+        self.queue = deque()
 
     def run(self):
         raise NotImplemented()
@@ -12,14 +14,19 @@ class AskTellCMAES(ConfigurableCMAES):
     def step(self):
         raise NotImplemented()
 
+    def pre_ask(self):
+        if not self.asked:
+            self.mutate()
+            self.queue = deque(self.population.x.tolist())
+
     def ask(self):
-        self.mutate()
-        for x in self.parameters.population.x.copy():
-            yield x
+        if not any(self.queue):
+            self.pre_ask()
+        return self.queue.pop()
 
     def tell(self, x, f):
-        # checking if asked
-        self.parameters.population.f = f
-        self.recombine()
-        self.select()
-        self.adapt()
+        if not any(self.queue) and x == self.population.x:
+            self.parameters.population.f = f
+            self.recombine()
+            self.select()
+            self.adapt()`
