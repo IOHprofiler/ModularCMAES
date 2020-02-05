@@ -266,7 +266,7 @@ class Parameters(AnnotatedStruct):
     orthogonal: bool = False
     base_sampler: str = ('gaussian', 'quasi-sobol', 'quasi-halton',)
     weights_option: str = ('default', '1/mu', '1/2^mu', )
-    selection: str = ('best', 'pairwise',)
+    selection: str = ('best', 'pairwise',) # make this option (mirrored, mirrored pairwise)
     step_size_adaptation: str = ('csa', 'tpa', 'msr', )
     local_restart: str = (None, 'IPOP', )  # # TODO: 'BIPOP',)
     population: TypeVar('Population') = None
