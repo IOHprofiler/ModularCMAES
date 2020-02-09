@@ -366,7 +366,7 @@ def evaluate(
     Parameters
     ----------
     optimizer_class: Optimizer
-        An instance of Optimizer or a child thereof, i.e. CannonicalCMAES
+        An instance of Optimizer or a child thereof, i.e. ConfigurableCMAES
     fid: int
         The id of the function 1 - 24
     dim: int

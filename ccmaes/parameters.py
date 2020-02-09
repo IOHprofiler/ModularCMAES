@@ -268,15 +268,15 @@ class Parameters(AnnotatedStruct):
     __modules__ = (
         "active", 
         "elitist",
-        "sequential",
-        "threshold_convergence",
         "bound_correction",
         "orthogonal",
-        "local_restart",
-        "base_sampler",
-        "mirrored",
-        "weights_option",
+        "sequential",
+        "threshold_convergence",
         "step_size_adaptation",
+        "mirrored",
+        "base_sampler",
+        "weights_option",
+        "local_restart",
      )
 
     def __init__(self, *args, **kwargs) -> None:
@@ -376,7 +376,7 @@ class Parameters(AnnotatedStruct):
             self.weights = np.append(ws, ws[::-1] * -1)
         elif self.weights_option == '1/2^mu':
             ws = 1 / 2**np.arange(1, self.mu + 1) + (
-                (1 / (2**self.mu)) / self.mu)
+                    (1 / (2**self.mu)) / self.mu)
             self.weights = np.append(ws, ws[::-1] * -1)
         else:
             self.weights = (np.log((self.lambda_ + 1) / 2) -

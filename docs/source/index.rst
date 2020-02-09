@@ -1,9 +1,6 @@
 Welcome to CCMAES's Documentation!
 ==================================
 
-.. automodapi:: ccmaes.cannonicalcmaes
-    :members:
-
 .. automodapi:: ccmaes.configurablecmaes
     :members:
 
