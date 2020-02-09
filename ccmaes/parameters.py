@@ -1,8 +1,3 @@
-'''
-see if we can define dependencies between modules
-    we cannot select pairwise selection if mirrored selection is turned off
-    This should only effect recombination.
-'''
 import warnings
 from collections import deque
 from typing import Generator, TypeVar
@@ -36,10 +31,8 @@ class Parameters(AnnotatedStruct):
     ----------
     d: int
         The dimensionality of the problem
-    absolute_target: float
+    target: float = -float("inf")
         The absolute target of the optimization problem
-    rtol: float
-        The distance to the absolute target which is an acceptable result
     lambda_: int = None
         The number of offspring in the population
     mu: int = None
@@ -70,7 +63,7 @@ class Parameters(AnnotatedStruct):
             2006 IEEE Congress on, pages 2814–2821. IEEE, 2006
     elitist: bool = False
         Specifying whether to use an elitist approachCMAES
-    mirrored: bool = False
+    mirrored: str = (None, 'mirrored', mirrored pairwise', )
         Specifying whether to use mirrored sampling
             D. Brockhoff, A. Auger, N. Hansen, D. V. CMAEST. Hohm.
             Mirrored Sampling and Sequential SelectioCMAESion Strategies.
@@ -111,14 +104,6 @@ class Parameters(AnnotatedStruct):
         Denoting the recombination weigths to be used.
             Sander van Rijn, Hao Wang, Matthijs van Leeuwen, and Thomas Bäck. 2016.
             Evolving the Structure of Evolution Strategies. Computer 49, 5 (May 2016), 54–63.
-    selection: str = ('best', 'pairwise',)
-        Specifying which option should be used for the selection of individuals
-        Pairwise selection is introduced as an option to counter the bias
-        produced by mirrored selection.
-            A. Auger, D. Brockhoff, and N. Hansen. Mirrored sampling in
-            evolution strategies with weighted recombination. In Proceedings of
-            the 13th Annual Conference Companion on Genetic and Evolutionary
-            Computation, GECCO ’11, pages 861–868. ACM, 2011
     step_size_adaptation: str = ('csa', 'tpa', 'msr', )
         Specifying which step size adaptation mechanism should be used.
         csa:
@@ -243,8 +228,7 @@ class Parameters(AnnotatedStruct):
     '''
 
     d: int
-    absolute_target: float
-    rtol: float
+    target: float = -float("inf")
     lambda_: int = None
     mu: int = None
     init_sigma: float = .5
@@ -257,18 +241,19 @@ class Parameters(AnnotatedStruct):
     # Threshold convergence TODO: we need to check these values
     init_threshold: float = 0.2
     decay_factor: float = 0.995
+    
     active: bool = False
     elitist: bool = False
-    mirrored: bool = False
     sequential: bool = False
     threshold_convergence: bool = False
     bound_correction: bool = False
     orthogonal: bool = False
-    base_sampler: str = ('gaussian', 'quasi-sobol', 'quasi-halton',)
-    weights_option: str = ('default', '1/mu', '1/2^mu', )
-    selection: str = ('best', 'pairwise',) # make this option (mirrored, mirrored pairwise)
-    step_size_adaptation: str = ('csa', 'tpa', 'msr', )
     local_restart: str = (None, 'IPOP', )  # # TODO: 'BIPOP',)
+    base_sampler: str = ('gaussian', 'quasi-sobol', 'quasi-halton',)
+    mirrored: str = (None, 'mirrored', 'mirrored pairwise',)
+    weights_option: str = ('default', '1/mu', '1/2^mu', )
+    step_size_adaptation: str = ('csa', 'tpa', 'msr', )
+    
     population: TypeVar('Population') = None
     old_population: TypeVar('Population') = None
     termination_criteria: dict = {}
@@ -277,6 +262,20 @@ class Parameters(AnnotatedStruct):
     tolup_sigma: float = float(pow(10, 20))
     condition_cov: float = float(pow(10, 14))
     ps_factor: float = 1.
+
+    __modules__ = (
+        "active", 
+        "elitist",
+        "sequential",
+        "threshold_convergence",
+        "bound_correction",
+        "orthogonal",
+        "local_restart",
+        "base_sampler",
+        "mirrored",
+        "weights_option",
+        "step_size_adaptation",
+     )
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -318,7 +317,6 @@ class Parameters(AnnotatedStruct):
           constant though the optimization process.
         '''
         self.budget = 1e4 * self.d
-        self.target = self.absolute_target + self.rtol
         self.max_lambda_ = (self.d * self.lambda_) ** 2
 
     def init_meta_parameters(self) -> None:
@@ -570,6 +568,41 @@ class Parameters(AnnotatedStruct):
     def last_restart(self):
         '''Returns the last index of self.restarts'''
         return self.restarts[-1]
+
+    @staticmethod
+    def from_config_array(d:int, config_array: list) -> 'Parameters':
+        '''Instantiates a Parameters object from a configuration array 
+
+        Parameters
+        ----------
+        d: int
+            The dimensionality of the problem
+    
+        config_array: list
+            A list of length len(Parameters.__modules__), 
+                containing ints from 0 to 2
+
+        Returns
+        -------
+        A new Parameters instance
+        '''
+        if not len(config_array) == len(Parameters.__modules__):
+            raise AttributeError(
+                    "config_array must be of length " +
+                    str(len(Parameters.__modules__))
+                )
+        parameters = dict()
+        for name, cidx in zip(Parameters.__modules__, config_array):
+            options = getattr(getattr(Parameters, name), 
+                    "options", [False, True])
+            if not len(options) > cidx:
+                raise AttributeError(
+                        f"id: {cidx} is invalid for {name} "
+                        f"with options {', '.join(map(str, options))}"
+                    )
+            parameters[name] = options[cidx]
+        return Parameters(d, **parameters)
+
 
     def record_statistics(self) -> None:
         '''Method for recording metadata.

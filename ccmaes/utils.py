@@ -202,7 +202,7 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
     def __repr__(self) -> None:
         return "<{}: ({})>".format(
             self.__class__.__qualname__, ', '.join(
-                "{}={}".format(name, value)
+                "{}={}".format(name, getattr(self, name))
                 for name, value in self.__bound__.arguments.items()
             )
         )
@@ -417,7 +417,7 @@ def evaluate(
                 *(func, target)
             ).ftarget
         optimizer = optimizer_class(
-            fitness_func, dim, target, rtol, **kwargs).run()
+            fitness_func, dim, target + rtol, **kwargs).run()
         evals = np.append(evals, optimizer.parameters.used_budget)
         fopts = np.append(fopts, optimizer.parameters.fopt)
 
@@ -439,5 +439,4 @@ def sphere_function(x, fopt=79.48):
     -------
     float
     '''
-
     return (np.linalg.norm(x.flatten()) ** 2) + fopt

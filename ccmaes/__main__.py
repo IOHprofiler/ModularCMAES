@@ -1,7 +1,6 @@
 from argparse import ArgumentParser
 
 from .configurablecmaes import ConfigurableCMAES
-from .cannonicalcmaes import CannonicalCMAES
 from .utils import evaluate
 
 
@@ -25,10 +24,6 @@ parser.add_argument(
     action='store_true', default=False
 )
 parser.add_argument(
-    '-c', '--cannonical', required=False,
-    action='store_true', default=False
-)
-parser.add_argument(
     '-L', '--label', type=str, required=False,
     default=""
 )
@@ -48,7 +43,5 @@ for arg in (args.pop("arguments") or []):
     exec(arg, None, args)
 
 evaluate(
-    CannonicalCMAES
-    if args.pop("cannonical")
-    else ConfigurableCMAES, **args
+    ConfigurableCMAES, **args
 )
