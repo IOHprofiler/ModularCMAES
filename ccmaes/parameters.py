@@ -1,3 +1,5 @@
+import os
+import pickle
 import warnings
 from collections import deque
 from typing import Generator, TypeVar
@@ -602,6 +604,45 @@ class Parameters(AnnotatedStruct):
                     )
             parameters[name] = options[cidx]
         return Parameters(d, **parameters)
+
+    @staticmethod
+    def load(filename: str) -> 'Parameters':
+        '''Loads stored  parameter objects from pickle
+        
+        Parameters
+        ----------
+        filename: str
+            A file path
+
+        Returns
+        -------
+        A Parameters object
+        
+        '''
+        if not os.path.isfile(filename):
+            raise OSError(f"{filename} does not exist")
+        
+        with open(filename, "rb") as f:
+            parameters = pickle.load(f)
+            if not isinstance(parameters, Parameters):
+                raise AttributeError(
+                        f"{filename} does not contain "
+                        "a Parameters object"
+                    )
+        parameters.sampler = parameters.get_sampler()
+        return parameters
+
+    def save(self, filename:str='parameters.pkl') -> None:
+        '''Saves a parameters object to pickle
+        
+        Parameters
+        ----------
+        filename: str
+            The name of the file to save to.
+        '''
+        with open(filename, 'wb') as f:
+            self.sampler = None
+            pickle.dump(self, f)
 
 
     def record_statistics(self) -> None:
