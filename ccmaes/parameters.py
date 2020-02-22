@@ -39,20 +39,22 @@ class Parameters(AnnotatedStruct):
         The number of offspring in the population
     mu: int = None
         The number of parents in the population
+    budget: int = None
+        The maximum number of iterations
     init_sigma: float = .5
         The initial value of sigma (step size)
     a_tpa: float = .5
         Parameter used in TPA
     b_tpa: float = 0.
         Parameter used in TPA
-    c_sigma: float = .3
-        Parameter used in TPA, for updating sigma
+    cs: float = None
+        Learning rate parameter for sigma
     seq_cutoff_factor: int = 1
         Used in sequential selection, the number of times mu individuals must be seen
         before a sequential break can be performed
-    ub: int = 5
+    ub: np.array = None 
         The upper bound, used for bound correction and threshold convergence
-    lb: int = -5
+    lb: np.array = None
         The lower bound, used for bound correction and threshold convergence
     init_threshold: float = 0.2
         The initial length theshold used in treshold convergence
@@ -233,15 +235,19 @@ class Parameters(AnnotatedStruct):
     target: float = -float("inf")
     lambda_: int = None
     mu: int = None
+    budget: int = None
     init_sigma: float = .5
     a_tpa: float = .5
     b_tpa: float = 0.
-    c_sigma: float = .3
+    cs: float = None
+    cc: float = None
+    cmu: float = None
+    c1: float = None
     seq_cutoff_factor: int = 1
-    ub: int = 5
-    lb: int = -5
+    ub: np.ndarray = None
+    lb: np.ndarray = None
     # Threshold convergence TODO: we need to check these values
-    init_threshold: float = 0.2
+    init_threshold: float = 0.1
     decay_factor: float = 0.995
     
     active: bool = False
@@ -318,7 +324,7 @@ class Parameters(AnnotatedStruct):
         '''Initialization function for parameters that should remain
           constant though the optimization process.
         '''
-        self.budget = 1e4 * self.d
+        self.budget = self.budget or int(1e4) * self.d
         self.max_lambda_ = (self.d * self.lambda_) ** 2
 
     def init_meta_parameters(self) -> None:
@@ -351,7 +357,10 @@ class Parameters(AnnotatedStruct):
 
         self.seq_cutoff = self.mu * self.seq_cutoff_factor
         self.sampler = self.get_sampler()
+        self.ub = self.ub or np.ones(self.d) * 5
+        self.lb = self.lb or np.ones(self.d) * -5
         self.diameter = np.linalg.norm(self.ub - (self.lb))
+        
 
     def init_local_restart_parameters(self) -> None:
         '''Initialization function for parameters that are used by
@@ -392,8 +401,8 @@ class Parameters(AnnotatedStruct):
             self.nweights.sum()**2 /
             (self.nweights ** 2).sum()
         )
-        self.c1 = 2 / ((self.d + 1.3)**2 + self.mueff)
-        self.cmu = min(1 - self.c1, (
+        self.c1 = self.c1 or 2 / ((self.d + 1.3)**2 + self.mueff)
+        self.cmu = self.cmu or  min(1 - self.c1, (
             2 * ((self.mueff - 2 + (1 / self.mueff)) /
                  ((self.d + 2)**2 + (2 * self.mueff / 2)))
         ))
@@ -406,11 +415,16 @@ class Parameters(AnnotatedStruct):
                          np.abs(self.nweights).sum()) * self.nweights
         self.weights = np.append(self.pweights, self.nweights)
 
-        self.cc = (
+        self.cc = self.cc or (
             (4 + (self.mueff / self.d)) /
             (self.d + 4 + (2 * self.mueff / self.d))
         )
-        self.cs = (self.mueff + 2) / (self.d + self.mueff + 5)
+        
+        self.cs = self.cs or (
+            .3 if self.step_size_adaptation in ("msr", "tpa",) else
+            (self.mueff + 2) / (self.d + self.mueff + 5)
+        )
+        
         self.damps = (
             1. + (2. * max(0., np.sqrt((self.mueff - 1) /
                                        (self.d + 1)) - 1) + self.cs)
@@ -449,9 +463,7 @@ class Parameters(AnnotatedStruct):
         '''
 
         if self.step_size_adaptation == 'tpa' and self.old_population:
-            self.s = ((1 - self.c_sigma) * self.s) + (
-                self.c_sigma * self.rank_tpa
-            )
+            self.s = ((1 - self.cs) * self.s) + (self.cs * self.rank_tpa)
             self.sigma *= np.exp(self.s)
 
         elif self.step_size_adaptation == 'msr' and self.old_population:
@@ -459,8 +471,7 @@ class Parameters(AnnotatedStruct):
                 self.old_population.f)).sum()
             z = (2 / self.lambda_) * (k_succ - ((self.lambda_ + 1) / 2))
 
-            self.s = ((1 - self.c_sigma) * self.s) + (
-                self.c_sigma * z)
+            self.s = ((1 - self.cs) * self.s) + (self.cs * z)
             self.sigma *= np.exp(self.s / self.ds)
         else:
             self.sigma *= np.exp(

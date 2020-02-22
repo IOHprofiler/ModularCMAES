@@ -337,17 +337,20 @@ def ert(evals, budget):
 
     float
         The standard deviation of the expected running time
+    int
+        The number of successful runs
     '''
     if any(evals):
         try:
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 evals = np.array(evals)
-                _ert = evals.sum() / (evals < budget).sum()
-            return _ert, np.std(evals)
+                n_succ = (evals < budget).sum()
+                _ert = evals.sum() / n_succ
+            return _ert, np.std(evals), n_succ
         except:
             pass
-    return float('inf'), 0.
+    return float('inf'), 0., 0
 
 
 @timeit
@@ -420,9 +423,16 @@ def evaluate(
             fitness_func, dim, target + rtol, **kwargs).run()
         evals = np.append(evals, optimizer.parameters.used_budget)
         fopts = np.append(fopts, optimizer.parameters.fopt)
-
-    print("FCE:\t{:10.8f}\t{:10.4f}\nERT:\t{:10.4f}\t{:10.4f}".format(
-        np.mean(fopts), np.std(fopts), *ert(evals, optimizer.parameters.budget)
+    
+    result_string = (
+            "FCE:\t{:10.8f}\t{:10.4f}\n"
+            "ERT:\t{:10.4f}\t{:10.4f}\n"
+            "{}/{} runs reached target"
+    )
+    print(result_string.format(
+        np.mean(fopts), np.std(fopts), 
+        *ert(evals, optimizer.parameters.budget),
+        iterations    
     ))
     return evals, fopts
 

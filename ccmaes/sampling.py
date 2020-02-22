@@ -101,3 +101,4 @@ def orthogonal_sampling(sampler: Generator, n_samples: int) -> Generator[np.ndar
             samples = [s.reshape(-1, 1) for s in (Q.T * L).T]
             for _ in range(n_samples):
                 yield samples.pop()
+                
