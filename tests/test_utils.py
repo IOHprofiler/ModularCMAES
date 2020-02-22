@@ -37,19 +37,22 @@ class TestUtils(unittest.TestCase):
     def test_ert(self):
         evals = [5000, 45000, 1000, 100, 10]
         budget = 10000
-        ert, ert_sd = utils.ert(evals, budget)
+        ert, ert_sd, n_succ = utils.ert(evals, budget)
+        self.assertEqual(n_succ, 4)
         self.assertAlmostEqual(
             ert, 12777.5
         )
         self.assertAlmostEqual(
             ert_sd, 17484.642861665
         )
-        ert, ert_sd = utils.ert([500000], budget)
+        ert, ert_sd, n_succ = utils.ert([500000], budget)
         self.assertEqual(ert, float("inf"))
         self.assertEqual(ert_sd, 0)
-        ert, ert_sd = utils.ert([], budget)
+        self.assertEqual(n_succ, 0)
+        ert, ert_sd, n_succ = utils.ert([], budget)
         self.assertEqual(ert, float("inf"))
         self.assertEqual(ert_sd, 0)
+        self.assertEqual(n_succ, 0)
 
 
 if __name__ == "__main__":
