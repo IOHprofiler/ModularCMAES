@@ -1,7 +1,7 @@
 import os
 import warnings
 import typing
-from collections import OrderedDict, abc
+from collections import OrderedDict
 
 from inspect import Signature, Parameter, getmodule
 from datetime import datetime
@@ -46,6 +46,10 @@ class Descriptor:
         '''Set name attribute '''
         self.name = name
 
+    def __set__(self, instance, value):
+        'Set value on instance'
+        instance.__dict__[self.name] = value
+
     def __delete__(self, instance):
         '''Delete attribute from the instance __dict__'''
         del instance.__dict__[self.name]
@@ -62,14 +66,16 @@ class InstanceOf(Descriptor):
         if type(value) != type(None):
             if type(value) != self.dtype and not (
                     isinstance(value, np.generic) and type(
-                        np.asscalar(value)) == self.dtype)\
+                        value.item()) == self.dtype)\
                     and str(self.dtype)[1:] != value.__class__.__name__:
                     # we should find another way for the last statement
-                raise TypeError("{} should be {}".format(
-                    self.name, self.dtype))
+                raise TypeError("{} should be {} got type {}: {}".format(
+                                self.name, self.dtype,
+                                type(value), str(value)[:50]
+                    ))
             if hasattr(value, '__copy__'):
                 value = value.copy()
-        instance.__dict__[self.name] = value
+        super().__set__(instance, value)
 
 
 class AnyOf(Descriptor):
@@ -83,11 +89,10 @@ class AnyOf(Descriptor):
 
     def __set__(self, instance, value):
         if value not in self.options:
-            raise TypeError("{} should .Any of {}".format(
+            raise ValueError("{} should be any of {}".format(
                 self.name, self.options
             ))
-        instance.__dict__[self.name] = value
-
+        super().__set__(instance, value)
 
 class AnnotatedStructMeta(type):
     '''Metaclass for class for AnnotatedStruct.
@@ -146,22 +151,21 @@ class AnnotatedStructMeta(type):
         A new cls object
         '''
         parameters = []
-        for key, value in attrs.get('__annotations__', {}).items():
+        for key, annotation in attrs.get('__annotations__', {}).items():
             default_value = attrs.get(key, Parameter.empty)
-            if isinstance(default_value, abc.Sequence):
-                attrs[key] = AnyOf(default_value)
-                parameters.append(Parameter(name=key, default=default_value[0],
-                                            kind=Parameter.POSITIONAL_OR_KEYWORD))
+ 
+            if isinstance(annotation, list) or isinstance(annotation, tuple):
+                attrs[key] = AnyOf(annotation)
             else:
-                if not type(value) == type and getmodule(type(value)) != typing:
+                if not type(annotation) == type and getmodule(type(annotation)) != typing:
                     raise TypeError(
                         f"Detected wrong format for annotations of AnnotatedStruct.\n\t"
                         f"Format should be <name>: <type> = <default_value>\n\t"
-                        f"Got: type = {value}"
-                    )
-                attrs[key] = InstanceOf(value)
-                parameters.append(Parameter(name=key, default=default_value,
-                                            kind=Parameter.POSITIONAL_OR_KEYWORD))
+                        f"Got: {name}: {annotation} = {default_value}"
+                        )
+                attrs[key] = InstanceOf(annotation)
+            parameters.append(Parameter(name=key, default=default_value,
+                                        kind=Parameter.POSITIONAL_OR_KEYWORD))
 
         clsobj = super().__new__(cls, name, bases, attrs)
         setattr(clsobj, '__signature__', Signature(parameters=parameters))
@@ -206,6 +210,12 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
                 for name, value in self.__bound__.arguments.items()
             )
         )
+
+    def set_default(self, name:str, default_value: typing.Any) -> None:
+        'Helper method to set default parameters'
+        current = getattr(self, name)
+        if type(current) == type(None):
+            setattr(self, name, default_value)
 
 
 def _tpa_mutation(fitness_func: typing.Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
@@ -291,6 +301,7 @@ def _correct_bounds(x, ub, lb):
     '''
 
     out_of_bounds = np.logical_or(x > ub, x < lb)
+    ub, lb = ub[out_of_bounds].copy(), lb[out_of_bounds].copy()
     y = (x[out_of_bounds] - lb) / (ub - lb)
     x[out_of_bounds] = lb + (
         ub - lb) * (1. - np.abs(y - np.floor(y)))
@@ -346,11 +357,11 @@ def ert(evals, budget):
                 warnings.simplefilter("ignore")
                 evals = np.array(evals)
                 n_succ = (evals < budget).sum()
-                _ert = evals.sum() / n_succ
+                _ert = float(evals.sum()) / int(n_succ)
             return _ert, np.std(evals), n_succ
         except:
             pass
-    return float('inf'), 0., 0
+    return float('inf'), np.nan, 0
 
 
 @timeit

@@ -233,9 +233,9 @@ class Parameters(AnnotatedStruct):
 
     d: int
     target: float = -float("inf")
+    budget: int = None
     lambda_: int = None
     mu: int = None
-    budget: int = None
     init_sigma: float = .5
     a_tpa: float = .5
     b_tpa: float = 0.
@@ -256,11 +256,11 @@ class Parameters(AnnotatedStruct):
     threshold_convergence: bool = False
     bound_correction: bool = False
     orthogonal: bool = False
-    local_restart: str = (None, 'IPOP', )  # # TODO: 'BIPOP',)
-    base_sampler: str = ('gaussian', 'quasi-sobol', 'quasi-halton',)
-    mirrored: str = (None, 'mirrored', 'mirrored pairwise',)
-    weights_option: str = ('default', '1/mu', '1/2^mu', )
-    step_size_adaptation: str = ('csa', 'tpa', 'msr', )
+    local_restart: (None, 'IPOP', ) = None # # TODO: 'BIPOP',)
+    base_sampler: ('gaussian', 'quasi-sobol', 'quasi-halton',) = 'gaussian'
+    mirrored: (None, 'mirrored', 'mirrored pairwise',) = None
+    weights_option: ('default', '1/mu', '1/2^mu', ) = 'default'
+    step_size_adaptation: ('csa', 'tpa', 'msr', ) = 'csa'
     
     population: TypeVar('Population') = None
     old_population: TypeVar('Population') = None
@@ -270,7 +270,7 @@ class Parameters(AnnotatedStruct):
     tolup_sigma: float = float(pow(10, 20))
     condition_cov: float = float(pow(10, 14))
     ps_factor: float = 1.
-
+    compute_termination_criteria: bool = False
     __modules__ = (
         "active", 
         "elitist",
@@ -356,11 +356,12 @@ class Parameters(AnnotatedStruct):
                 ))
 
         self.seq_cutoff = self.mu * self.seq_cutoff_factor
-        self.sampler = self.get_sampler()
-        self.ub = self.ub or np.ones(self.d) * 5
-        self.lb = self.lb or np.ones(self.d) * -5
+        self.sampler = self.get_sampler() 
+        self.set_default('ub', np.ones((self.d, 1)) * 5)
+        self.set_default('lb', np.ones((self.d, 1)) * -5)
         self.diameter = np.linalg.norm(self.ub - (self.lb))
         
+
 
     def init_local_restart_parameters(self) -> None:
         '''Initialization function for parameters that are used by
@@ -401,6 +402,7 @@ class Parameters(AnnotatedStruct):
             self.nweights.sum()**2 /
             (self.nweights ** 2).sum()
         )
+        self.set_default
         self.c1 = self.c1 or 2 / ((self.d + 1.3)**2 + self.mueff)
         self.cmu = self.cmu or  min(1 - self.c1, (
             2 * ((self.mueff - 2 + (1 / self.mueff)) /
@@ -545,6 +547,7 @@ class Parameters(AnnotatedStruct):
         # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
         self.perform_eigendecomposition()
         self.record_statistics()
+        self.calculate_termination_criteria()
         self.old_population = self.population.copy()
         if any(self.termination_criteria.values()):
             self.perform_local_restart()
@@ -559,8 +562,6 @@ class Parameters(AnnotatedStruct):
             if self.local_restart == 'IPOP':
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
-            elif self.local_restart == 'BIPOP':
-                raise NotImplementedError()
             self.init_selection_parameters()
             self.init_adaptation_parameters()
             self.init_dynamic_parameters()
@@ -657,11 +658,7 @@ class Parameters(AnnotatedStruct):
 
 
     def record_statistics(self) -> None:
-        '''Method for recording metadata.
-        If a local restart strategy is specified, stopping criteria
-        are calculated. 
-        '''
-
+        'Method for recording metadata. '
         self.flat_fitnesses.append(
             self.population.f[0] == self.population.f[
                 self.flat_fitness_index
@@ -673,18 +670,16 @@ class Parameters(AnnotatedStruct):
         self.best_fitnesses.append(np.max(self.population.f))
         self.median_fitnesses.append(np.median(self.population.f))
 
-        # The below computations add a lot of~
-        # operations to the entire algorithm
-        # which is why they are turned off if there
-        # is no local restart strategy
-        if self.local_restart:
+    def calculate_termination_criteria(self) -> None:
+        '''Methods for computing restart criteria
+        Only computes when a local restart
+        strategy is specified, or when explicitly told to 
+        to so, i.e.: self.compute_termination_criteria = True
+        '''
+        if self.local_restart or self.compute_termination_criteria:
             _t = (self.t % self.d)
             diag_C = np.diag(self.C.T)
             d_sigma = self.sigma / self.init_sigma
-
-            # only use values starting from last restart
-            # to compute termination criteria
-
             best_fopts = self.best_fitnesses[self.last_restart:]
             median_fitnesses = self.median_fitnesses[self.last_restart:]
 
