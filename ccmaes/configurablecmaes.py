@@ -53,7 +53,7 @@ class ConfigurableCMAES(Optimizer):
             n_offspring -= 2
             _tpa_mutation(self.fitness_func, self.parameters, x, y, f)
 
-        for i in range(n_offspring):
+        for i in range(1, n_offspring + 1):
             zi = next(self.parameters.sampler)
             if self.parameters.threshold_convergence:
                 zi = _scale_with_threshold(zi, self.parameters.threshold)
@@ -69,7 +69,7 @@ class ConfigurableCMAES(Optimizer):
 
             if self.sequential_break_conditions(i, fi):
                 break
-
+    
         self.parameters.population = Population(
             np.hstack(x),
             np.hstack(y),
@@ -106,9 +106,11 @@ class ConfigurableCMAES(Optimizer):
         is an odd number of individuals in the population. 
         '''
         if self.parameters.mirrored == 'mirrored pairwise':
-            assert len(self.parameters.population.f) % 2 == 0, (
-                'Cannot perform pairwise selection with '
-                'an odd number of indivuduals')
+            if not len(self.parameters.population.f) % 2 == 0:
+                raise ValueError(
+                        'Cannot perform pairwise selection with '
+                        'an odd number of indivuduals'
+                )
             indices = [int(np.argmin(x) + (i * 2))
                        for i, x in enumerate(np.split(
                            self.parameters.population.f,
@@ -179,5 +181,9 @@ class ConfigurableCMAES(Optimizer):
         '''
         if self.parameters.sequential:
             return (f < self.parameters.fopt and
-                    i > self.parameters.seq_cutoff)
+                    i >= self.parameters.seq_cutoff and (
+                        self.parameters.mirrored != 'mirrored pairwise' 
+                        or i % 2 == 0
+                        )
+                    )
         return False

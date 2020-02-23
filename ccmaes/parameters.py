@@ -97,11 +97,11 @@ class Parameters(AnnotatedStruct):
             with Pairwise Selection in Evolution Strategies. In Proceedings of the
             29th Annual ACM Symposium on Applied Computing, pages 154–156.
             ACM, 2014.
-    base_sampler: str = ('gaussian', 'quasi-sobol', 'quasi-halton',)
-        Denoting which base sampler to use, 'quasi-sobol', 'quasi-halton' can
+    base_sampler: str = ('gaussian', 'sobol', 'halton',)
+        Denoting which base sampler to use, 'sobol', 'halton' can
         be selected to sample from a quasi random sequence.
             A. Auger, M. Jebalia, and O. Teytaud. Algorithms (x, sigma, eta):
-            quasi-random mutations for evolution strategies. In Artificial Evolution:
+            random mutations for evolution strategies. In Artificial Evolution:
             7th International Conference, Revised Selected Papers, pages 296–307.
             Springer, 2006.
     weights_option: str = ('default', '1/mu', '1/2^mu', )
@@ -257,7 +257,7 @@ class Parameters(AnnotatedStruct):
     bound_correction: bool = False
     orthogonal: bool = False
     local_restart: (None, 'IPOP', ) = None # # TODO: 'BIPOP',)
-    base_sampler: ('gaussian', 'quasi-sobol', 'quasi-halton',) = 'gaussian'
+    base_sampler: ('gaussian', 'sobol', 'halton',) = 'gaussian'
     mirrored: (None, 'mirrored', 'mirrored pairwise',) = None
     weights_option: ('default', '1/mu', '1/2^mu', ) = 'default'
     step_size_adaptation: ('csa', 'tpa', 'msr', ) = 'csa'
@@ -305,8 +305,8 @@ class Parameters(AnnotatedStruct):
         '''
         sampler = {
             "gaussian": gaussian_sampling,
-            "quasi-sobol": sobol_sampling,
-            "quasi-halton": halton_sampling,
+            "sobol": sobol_sampling,
+            "halton": halton_sampling,
         }.get(self.base_sampler, gaussian_sampling)(self.d)
 
         if self.orthogonal:
@@ -355,6 +355,9 @@ class Parameters(AnnotatedStruct):
                     self.mu, self.lambda_
                 ))
 
+        if self.mirrored == 'mirrored pairwise':
+            self.seq_cutoff_factor = max(2, self.seq_cutoff_factor)
+        
         self.seq_cutoff = self.mu * self.seq_cutoff_factor
         self.sampler = self.get_sampler() 
         self.set_default('ub', np.ones((self.d, 1)) * 5)
