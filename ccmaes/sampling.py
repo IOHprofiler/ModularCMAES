@@ -97,7 +97,8 @@ def orthogonal_sampling(sampler: Generator, n_samples: int) -> Generator[np.ndar
         if len(samples) == max(max(sample.shape), n_samples):
             samples = np.hstack(samples)
             L = np.linalg.norm(samples, axis=0)
-            Q = np.linalg.qr(samples.T)[0]
+            Q, *_ = np.linalg.qr(samples.T)
             samples = [s.reshape(-1, 1) for s in (Q.T * L).T]
             for _ in range(n_samples):
                 yield samples.pop()
+                

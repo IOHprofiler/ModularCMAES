@@ -47,7 +47,11 @@ class Population(AnnotatedStruct):
         Population
         '''
 
-        assert isinstance(other, self.__class__)
+        if not isinstance(other, self.__class__):
+            raise TypeError(
+                    f"Other should be {self.__class__}"
+                    f"got {other.__class__}"
+            )
         return Population(
             np.hstack([self.x, other.x]),
             np.hstack([self.y, other.y]),
@@ -103,3 +107,4 @@ class Population(AnnotatedStruct):
 
     def __repr__(self) -> str:
         return f"<Population d: {self.d}, n: {self.n}>"
+    

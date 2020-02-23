@@ -1,8 +1,5 @@
-'''
-see if we can define dependencies between modules
-    we cannot select pairwise selection if mirrored selection is turned off
-    This should only effect recombination.
-'''
+import os
+import pickle
 import warnings
 from collections import deque
 from typing import Generator, TypeVar
@@ -36,28 +33,28 @@ class Parameters(AnnotatedStruct):
     ----------
     d: int
         The dimensionality of the problem
-    absolute_target: float
+    target: float = -float("inf")
         The absolute target of the optimization problem
-    rtol: float
-        The distance to the absolute target which is an acceptable result
     lambda_: int = None
         The number of offspring in the population
     mu: int = None
         The number of parents in the population
+    budget: int = None
+        The maximum number of iterations
     init_sigma: float = .5
         The initial value of sigma (step size)
     a_tpa: float = .5
         Parameter used in TPA
     b_tpa: float = 0.
         Parameter used in TPA
-    c_sigma: float = .3
-        Parameter used in TPA, for updating sigma
+    cs: float = None
+        Learning rate parameter for sigma
     seq_cutoff_factor: int = 1
         Used in sequential selection, the number of times mu individuals must be seen
         before a sequential break can be performed
-    ub: int = 5
+    ub: np.array = None 
         The upper bound, used for bound correction and threshold convergence
-    lb: int = -5
+    lb: np.array = None
         The lower bound, used for bound correction and threshold convergence
     init_threshold: float = 0.2
         The initial length theshold used in treshold convergence
@@ -70,7 +67,7 @@ class Parameters(AnnotatedStruct):
             2006 IEEE Congress on, pages 2814–2821. IEEE, 2006
     elitist: bool = False
         Specifying whether to use an elitist approachCMAES
-    mirrored: bool = False
+    mirrored: str = (None, 'mirrored', mirrored pairwise', )
         Specifying whether to use mirrored sampling
             D. Brockhoff, A. Auger, N. Hansen, D. V. CMAEST. Hohm.
             Mirrored Sampling and Sequential SelectioCMAESion Strategies.
@@ -111,14 +108,6 @@ class Parameters(AnnotatedStruct):
         Denoting the recombination weigths to be used.
             Sander van Rijn, Hao Wang, Matthijs van Leeuwen, and Thomas Bäck. 2016.
             Evolving the Structure of Evolution Strategies. Computer 49, 5 (May 2016), 54–63.
-    selection: str = ('best', 'pairwise',)
-        Specifying which option should be used for the selection of individuals
-        Pairwise selection is introduced as an option to counter the bias
-        produced by mirrored selection.
-            A. Auger, D. Brockhoff, and N. Hansen. Mirrored sampling in
-            evolution strategies with weighted recombination. In Proceedings of
-            the 13th Annual Conference Companion on Genetic and Evolutionary
-            Computation, GECCO ’11, pages 861–868. ACM, 2011
     step_size_adaptation: str = ('csa', 'tpa', 'msr', )
         Specifying which step size adaptation mechanism should be used.
         csa:
@@ -243,32 +232,36 @@ class Parameters(AnnotatedStruct):
     '''
 
     d: int
-    absolute_target: float
-    rtol: float
+    target: float = -float("inf")
+    budget: int = None
     lambda_: int = None
     mu: int = None
     init_sigma: float = .5
     a_tpa: float = .5
     b_tpa: float = 0.
-    c_sigma: float = .3
+    cs: float = None
+    cc: float = None
+    cmu: float = None
+    c1: float = None
     seq_cutoff_factor: int = 1
-    ub: int = 5
-    lb: int = -5
+    ub: np.ndarray = None
+    lb: np.ndarray = None
     # Threshold convergence TODO: we need to check these values
-    init_threshold: float = 0.2
+    init_threshold: float = 0.1
     decay_factor: float = 0.995
+    
     active: bool = False
     elitist: bool = False
-    mirrored: bool = False
     sequential: bool = False
     threshold_convergence: bool = False
     bound_correction: bool = False
     orthogonal: bool = False
-    base_sampler: str = ('gaussian', 'quasi-sobol', 'quasi-halton',)
-    weights_option: str = ('default', '1/mu', '1/2^mu', )
-    selection: str = ('best', 'pairwise',)
-    step_size_adaptation: str = ('csa', 'tpa', 'msr', )
-    local_restart: str = (None, 'IPOP', )  # # TODO: 'BIPOP',)
+    local_restart: (None, 'IPOP', ) = None # # TODO: 'BIPOP',)
+    base_sampler: ('gaussian', 'quasi-sobol', 'quasi-halton',) = 'gaussian'
+    mirrored: (None, 'mirrored', 'mirrored pairwise',) = None
+    weights_option: ('default', '1/mu', '1/2^mu', ) = 'default'
+    step_size_adaptation: ('csa', 'tpa', 'msr', ) = 'csa'
+    
     population: TypeVar('Population') = None
     old_population: TypeVar('Population') = None
     termination_criteria: dict = {}
@@ -277,6 +270,20 @@ class Parameters(AnnotatedStruct):
     tolup_sigma: float = float(pow(10, 20))
     condition_cov: float = float(pow(10, 14))
     ps_factor: float = 1.
+    compute_termination_criteria: bool = False
+    __modules__ = (
+        "active", 
+        "elitist",
+        "bound_correction",
+        "orthogonal",
+        "sequential",
+        "threshold_convergence",
+        "step_size_adaptation",
+        "mirrored",
+        "base_sampler",
+        "weights_option",
+        "local_restart",
+     )
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -317,8 +324,7 @@ class Parameters(AnnotatedStruct):
         '''Initialization function for parameters that should remain
           constant though the optimization process.
         '''
-        self.budget = 1e4 * self.d
-        self.target = self.absolute_target + self.rtol
+        self.budget = self.budget or int(1e4) * self.d
         self.max_lambda_ = (self.d * self.lambda_) ** 2
 
     def init_meta_parameters(self) -> None:
@@ -350,8 +356,12 @@ class Parameters(AnnotatedStruct):
                 ))
 
         self.seq_cutoff = self.mu * self.seq_cutoff_factor
-        self.sampler = self.get_sampler()
+        self.sampler = self.get_sampler() 
+        self.set_default('ub', np.ones((self.d, 1)) * 5)
+        self.set_default('lb', np.ones((self.d, 1)) * -5)
         self.diameter = np.linalg.norm(self.ub - (self.lb))
+        
+
 
     def init_local_restart_parameters(self) -> None:
         '''Initialization function for parameters that are used by
@@ -376,7 +386,7 @@ class Parameters(AnnotatedStruct):
             self.weights = np.append(ws, ws[::-1] * -1)
         elif self.weights_option == '1/2^mu':
             ws = 1 / 2**np.arange(1, self.mu + 1) + (
-                (1 / (2**self.mu)) / self.mu)
+                    (1 / (2**self.mu)) / self.mu)
             self.weights = np.append(ws, ws[::-1] * -1)
         else:
             self.weights = (np.log((self.lambda_ + 1) / 2) -
@@ -392,8 +402,9 @@ class Parameters(AnnotatedStruct):
             self.nweights.sum()**2 /
             (self.nweights ** 2).sum()
         )
-        self.c1 = 2 / ((self.d + 1.3)**2 + self.mueff)
-        self.cmu = min(1 - self.c1, (
+        self.set_default
+        self.c1 = self.c1 or 2 / ((self.d + 1.3)**2 + self.mueff)
+        self.cmu = self.cmu or  min(1 - self.c1, (
             2 * ((self.mueff - 2 + (1 / self.mueff)) /
                  ((self.d + 2)**2 + (2 * self.mueff / 2)))
         ))
@@ -406,11 +417,16 @@ class Parameters(AnnotatedStruct):
                          np.abs(self.nweights).sum()) * self.nweights
         self.weights = np.append(self.pweights, self.nweights)
 
-        self.cc = (
+        self.cc = self.cc or (
             (4 + (self.mueff / self.d)) /
             (self.d + 4 + (2 * self.mueff / self.d))
         )
-        self.cs = (self.mueff + 2) / (self.d + self.mueff + 5)
+        
+        self.cs = self.cs or (
+            .3 if self.step_size_adaptation in ("msr", "tpa",) else
+            (self.mueff + 2) / (self.d + self.mueff + 5)
+        )
+        
         self.damps = (
             1. + (2. * max(0., np.sqrt((self.mueff - 1) /
                                        (self.d + 1)) - 1) + self.cs)
@@ -449,9 +465,7 @@ class Parameters(AnnotatedStruct):
         '''
 
         if self.step_size_adaptation == 'tpa' and self.old_population:
-            self.s = ((1 - self.c_sigma) * self.s) + (
-                self.c_sigma * self.rank_tpa
-            )
+            self.s = ((1 - self.cs) * self.s) + (self.cs * self.rank_tpa)
             self.sigma *= np.exp(self.s)
 
         elif self.step_size_adaptation == 'msr' and self.old_population:
@@ -459,8 +473,7 @@ class Parameters(AnnotatedStruct):
                 self.old_population.f)).sum()
             z = (2 / self.lambda_) * (k_succ - ((self.lambda_ + 1) / 2))
 
-            self.s = ((1 - self.c_sigma) * self.s) + (
-                self.c_sigma * z)
+            self.s = ((1 - self.cs) * self.s) + (self.cs * z)
             self.sigma *= np.exp(self.s / self.ds)
         else:
             self.sigma *= np.exp(
@@ -534,6 +547,7 @@ class Parameters(AnnotatedStruct):
         # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
         self.perform_eigendecomposition()
         self.record_statistics()
+        self.calculate_termination_criteria()
         self.old_population = self.population.copy()
         if any(self.termination_criteria.values()):
             self.perform_local_restart()
@@ -548,8 +562,6 @@ class Parameters(AnnotatedStruct):
             if self.local_restart == 'IPOP':
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
-            elif self.local_restart == 'BIPOP':
-                raise NotImplementedError()
             self.init_selection_parameters()
             self.init_adaptation_parameters()
             self.init_dynamic_parameters()
@@ -571,12 +583,82 @@ class Parameters(AnnotatedStruct):
         '''Returns the last index of self.restarts'''
         return self.restarts[-1]
 
-    def record_statistics(self) -> None:
-        '''Method for recording metadata.
-        If a local restart strategy is specified, stopping criteria
-        are calculated. 
-        '''
+    @staticmethod
+    def from_config_array(d:int, config_array: list) -> 'Parameters':
+        '''Instantiates a Parameters object from a configuration array 
 
+        Parameters
+        ----------
+        d: int
+            The dimensionality of the problem
+    
+        config_array: list
+            A list of length len(Parameters.__modules__), 
+                containing ints from 0 to 2
+
+        Returns
+        -------
+        A new Parameters instance
+        '''
+        if not len(config_array) == len(Parameters.__modules__):
+            raise AttributeError(
+                    "config_array must be of length " +
+                    str(len(Parameters.__modules__))
+                )
+        parameters = dict()
+        for name, cidx in zip(Parameters.__modules__, config_array):
+            options = getattr(getattr(Parameters, name), 
+                    "options", [False, True])
+            if not len(options) > cidx:
+                raise AttributeError(
+                        f"id: {cidx} is invalid for {name} "
+                        f"with options {', '.join(map(str, options))}"
+                    )
+            parameters[name] = options[cidx]
+        return Parameters(d, **parameters)
+
+    @staticmethod
+    def load(filename: str) -> 'Parameters':
+        '''Loads stored  parameter objects from pickle
+        
+        Parameters
+        ----------
+        filename: str
+            A file path
+
+        Returns
+        -------
+        A Parameters object
+        
+        '''
+        if not os.path.isfile(filename):
+            raise OSError(f"{filename} does not exist")
+        
+        with open(filename, "rb") as f:
+            parameters = pickle.load(f)
+            if not isinstance(parameters, Parameters):
+                raise AttributeError(
+                        f"{filename} does not contain "
+                        "a Parameters object"
+                    )
+        parameters.sampler = parameters.get_sampler()
+        return parameters
+
+    def save(self, filename:str='parameters.pkl') -> None:
+        '''Saves a parameters object to pickle
+        
+        Parameters
+        ----------
+        filename: str
+            The name of the file to save to.
+        '''
+        with open(filename, 'wb') as f:
+            self.sampler = None
+            pickle.dump(self, f)
+
+
+    def record_statistics(self) -> None:
+        'Method for recording metadata. '
         self.flat_fitnesses.append(
             self.population.f[0] == self.population.f[
                 self.flat_fitness_index
@@ -588,18 +670,16 @@ class Parameters(AnnotatedStruct):
         self.best_fitnesses.append(np.max(self.population.f))
         self.median_fitnesses.append(np.median(self.population.f))
 
-        # The below computations add a lot of~
-        # operations to the entire algorithm
-        # which is why they are turned off if there
-        # is no local restart strategy
-        if self.local_restart:
+    def calculate_termination_criteria(self) -> None:
+        '''Methods for computing restart criteria
+        Only computes when a local restart
+        strategy is specified, or when explicitly told to 
+        to so, i.e.: self.compute_termination_criteria = True
+        '''
+        if self.local_restart or self.compute_termination_criteria:
             _t = (self.t % self.d)
             diag_C = np.diag(self.C.T)
             d_sigma = self.sigma / self.init_sigma
-
-            # only use values starting from last restart
-            # to compute termination criteria
-
             best_fopts = self.best_fitnesses[self.last_restart:]
             median_fitnesses = self.median_fitnesses[self.last_restart:]
 
