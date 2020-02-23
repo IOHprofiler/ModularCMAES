@@ -16,6 +16,70 @@ from .sampling import (
 )
 
 
+class BIPOPParameters(AnnotatedStruct):
+    'Seperate object which holds BIPOP specific parameters'
+
+    lambda_init: int
+    budget: int
+    mu_factor: float 
+    lambda_large: int = None
+    budget_small: int = None
+    budget_large: int = None
+    used_budget: int = 0
+
+
+    @property
+    def large(self) -> bool:
+        'Deternotes where to use a large regime or small regime'
+        if (self.budget_large >= self.budget_small) and self.budget_large > 0:
+            return True 
+        return False
+
+    @property
+    def remaining_budget(self) -> int:
+        'Compute the remaining budget'
+        return self.budget - self.used_budget
+
+    @property
+    def lambda_(self) -> int:
+        'Returns value for lambda, based which regime is active'
+        return self.lambda_large if self.large else self.lambda_small
+
+    @property
+    def sigma(self) -> float:
+        'Return value for sigma, based on which regime is active'
+        return 2 if self.large else 2e-2 * np.random.random()
+    
+    @property
+    def mu(self) -> int:
+        'Return value for mu, based on which '
+        return np.floor(self.lambda_ * self.mu_factor).astype(int)
+
+
+    def adapt(self, used_budget: int) -> None:
+        'Adapts the parameters for BIPOP on restart'
+    
+        used_previous_iteration = used_budget - self.used_budget
+        self.used_budget += used_previous_iteration
+
+        if self.lambda_large == None:
+            self.lambda_large = self.lambda_init * 2 
+            self.budget_small = self.remaining_budget // 2
+            self.budget_large = self.remaining_budget - self.budget_small
+        elif self.large:
+            self.budget_large -= used_previous_iteration
+            self.lambda_large *= 2
+        else:
+            self.budget_small -= used_previous_iteration
+        
+        self.lambda_small = np.floor(self.lambda_init * (
+                .5 * self.lambda_large / self.lambda_init
+                ) ** (np.random.random() ** 2)
+            ).astype(int)
+
+    
+    
+
 class SimpleParameters(AnnotatedStruct):
     '''Simple implementation of the parameter.Parameters object.
     This object is required in order to allow correct subclassing of the
@@ -246,7 +310,6 @@ class Parameters(AnnotatedStruct):
     seq_cutoff_factor: int = 1
     ub: np.ndarray = None
     lb: np.ndarray = None
-    # Threshold convergence TODO: we need to check these values
     init_threshold: float = 0.1
     decay_factor: float = 0.995
     
@@ -256,7 +319,7 @@ class Parameters(AnnotatedStruct):
     threshold_convergence: bool = False
     bound_correction: bool = False
     orthogonal: bool = False
-    local_restart: (None, 'IPOP', ) = None # # TODO: 'BIPOP',)
+    local_restart: (None, 'IPOP', 'BIPOP',) = None
     base_sampler: ('gaussian', 'sobol', 'halton',) = 'gaussian'
     mirrored: (None, 'mirrored', 'mirrored pairwise',) = None
     weights_option: ('default', '1/mu', '1/2^mu', ) = 'default'
@@ -287,12 +350,11 @@ class Parameters(AnnotatedStruct):
 
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
-        self.init_meta_parameters()
         self.init_selection_parameters()
+        self.init_fixed_parameters()
         self.init_adaptation_parameters()
         self.init_dynamic_parameters()
         self.init_local_restart_parameters()
-        self.init_constant_parameters()
 
     def get_sampler(self) -> Generator:
         '''Function to return a sampler generator based on the values
@@ -320,18 +382,14 @@ class Parameters(AnnotatedStruct):
             sampler = mirrored_sampling(sampler)
         return sampler
 
-    def init_constant_parameters(self) -> None:
-        '''Initialization function for parameters that should remain
-          constant though the optimization process.
-        '''
-        self.budget = self.budget or int(1e4) * self.d
-        self.max_lambda_ = (self.d * self.lambda_) ** 2
-
-    def init_meta_parameters(self) -> None:
-        '''Initialization function for parameters that hold
-        meta data about other parameters.
+    
+    def init_fixed_parameters(self) -> None:
+        '''Initialization function for parameters that 
+        are not to be restarted during a optimization run.
         '''
         self.used_budget = 0
+        self.budget = self.budget or int(1e4) * self.d
+        self.max_lambda_ = (self.d * self.lambda_) ** 2
         self.fopt = float("inf")
         self.t = 0
         self.sigma_over_time = []
@@ -340,7 +398,13 @@ class Parameters(AnnotatedStruct):
         self.best_fitnesses = []
         self.flat_fitnesses = deque(maxlen=self.d)
         self.restarts = []
+        self.bipop_parameters = BIPOPParameters(
+                self.lambda_, 
+                self.budget,
+                self.mu / self.lambda_
+        )
 
+        
     def init_selection_parameters(self) -> None:
         '''Initialization function for parameters that are of influence
         in selection/population control.
@@ -364,13 +428,10 @@ class Parameters(AnnotatedStruct):
         self.set_default('lb', np.ones((self.d, 1)) * -5)
         self.diameter = np.linalg.norm(self.ub - (self.lb))
         
-
-
     def init_local_restart_parameters(self) -> None:
         '''Initialization function for parameters that are used by
         local restart strategies, i.e. IPOP.
         '''
-
         self.restarts.append(self.t)
         self.max_iter = 100 + 50 * (self.d + 3)**2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
@@ -565,6 +626,13 @@ class Parameters(AnnotatedStruct):
             if self.local_restart == 'IPOP':
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
+
+            elif self.local_restart == 'BIPOP':
+                self.bipop_parameters.adapt(self.used_budget)
+                self.sigma = self.bipop_parameters.sigma
+                self.lambda_ = self.bipop_parameters.lambda_
+                self.mu = self.bipop_parameters.mu
+
             self.init_selection_parameters()
             self.init_adaptation_parameters()
             self.init_dynamic_parameters()
@@ -666,7 +734,8 @@ class Parameters(AnnotatedStruct):
             self.population.f[0] == self.population.f[
                 self.flat_fitness_index
             ]
-        )
+         )
+
         self.t += 1
         self.sigma_over_time.append(self.sigma)
         self.best_fopts.append(self.fopt)

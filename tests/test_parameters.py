@@ -11,7 +11,7 @@ from ccmaes.utils import AnyOf, sphere_function
 from ccmaes.population import Population
 
 
-class TestSimpleParameters(unittest.TestCase):
+class TestParameters(unittest.TestCase):
     def setUp(self):
         np.random.seed(42)
         self.p = Parameters(5)
@@ -22,6 +22,24 @@ class TestSimpleParameters(unittest.TestCase):
                 with self.assertRaises(TypeError, msg=f"{name} {type_} {x}"):
                     setattr(p, name, x)
 
+    def test_bipop_parameters(self):
+        self.p.local_restart = 'BIPOP'
+        self.p.used_budget  += 11
+        self.p.bipop_parameters.adapt(self.p.used_budget)
+        self.assertEqual(self.p.bipop_parameters.large, True)
+        bp = self.p.bipop_parameters 
+        self.assertEqual(bp.lambda_, self.p.lambda_*2)
+        self.assertEqual(bp.mu, self.p.mu*2)
+        self.assertEqual(bp.sigma, 2)
+        self.p.used_budget += 11
+        bp.adapt(self.p.used_budget) 
+        self.assertEqual(self.p.bipop_parameters.large, False)
+        self.assertLessEqual(bp.lambda_, self.p.lambda_)
+        self.assertLessEqual(bp.mu, self.p.mu)
+        self.assertLessEqual(bp.sigma, self.p.init_sigma)
+        self.p.used_budget += 11
+        bp.adapt(self.p.used_budget) 
+        self.assertEqual(bp.used_budget, 33)
 
     def test_types(self):
         parameters = SimpleParameters(.1, 100, .1, 0)
@@ -89,14 +107,6 @@ class TestSimpleParameters(unittest.TestCase):
         self.p.C[0][0] = np.inf
         self.step()
 
-    def test_local_restart(self):
-        self.p.max_iter = 5 
-        self.p.flat_fitness_index = 1
-        self.set_parameter_and_step('local_restart', 'IPOP', 6) 
-        
-        with self.assertRaises(ValueError):
-            self.set_parameter_and_step('local_restart', 'BIPOP') 
-    
     def test_warning(self):
         self.p.compute_termination_criteria = True
         self.set_parameter_and_step('max_iter', True, 5, 'ignore')
