@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='ccmaes',
-    version='1.0.6',
+    version="1.0.7",
     author="Jacob de Nobel",
     author_email="jacobdenobel@gmail.com",
     description="Package Containing Configurable version CMA ES optimizer",

@@ -2,11 +2,12 @@ import os
 import warnings
 import typing
 from collections import OrderedDict
-
 from inspect import Signature, Parameter, getmodule
 from datetime import datetime
 from functools import wraps
 from time import time
+
+from tqdm import tqdm
 import numpy as np
 
 from .bbob import bbobbenchmarks, fgeneric
@@ -415,15 +416,15 @@ def evaluate(
             data_folder or ''
         ) else os.getcwd(), label)
         fitness_func = fgeneric.LoggingFunction(data_location, label)
-    for i in range(iterations):
+    
+    rtol = DISTANCE_TO_TARGET[fid - 1]
+    func, target = bbobbenchmarks.instantiate(fid, iinstance=1)
+    print((
+            "{}\nOptimizing function {} in {}D for target {} + {}"
+            " with {} iterations."
+    ).format(label, fid, dim, target, rtol, iterations))
+    for i in tqdm(range(iterations)): 
         func, target = bbobbenchmarks.instantiate(fid, iinstance=1)
-        rtol = DISTANCE_TO_TARGET[fid - 1]
-        if i == 0:
-            print(
-                (
-                    "{}\nOptimizing function {} in {}D for target {} + {}"
-                    " with {} iterations."
-                ).format(label, fid, dim, target, rtol, iterations))
         if not logging:
             fitness_func = func
         else:
