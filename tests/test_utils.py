@@ -130,20 +130,34 @@ class TestUtils(unittest.TestCase):
 
     def test_correct_bounds(self):
         x = np.ones(5) * np.array([2, 4, 6, -7, 3])
-        ub, lb = np.ones(5) * 5, np.ones(5) -5
-        new_x = utils._correct_bounds(x.copy(), ub, lb)
-        self.assertNotEqual(
+        ub, lb = np.ones(5) * 5, np.ones(5) * -5
+        corr_types = ['ignore', 'saturate', 'unif_resample', 'toroidal', 'mirror', 'COTN']
+        
+        new_x, corrected = utils._correct_bounds(x.copy(), ub, lb, corr_types[0])
+        self.assertEqual(
             (x == new_x).all(), True
         )
-        self.assertGreaterEqual(
-            np.min(new_x), -5
-        )
-        self.assertLessEqual(
-            np.max(new_x), 5
-        )
         self.assertEqual(
-            (x[[0, 1, 4]] == new_x[[0, 1, 4]]).all(), True
+            corrected, True
         )
+        
+        for corr_type in corr_types[1:]:
+            new_x, corrected = utils._correct_bounds(x.copy(), ub, lb, corr_type)     
+            self.assertEqual(
+                corrected, True
+            )
+            self.assertNotEqual(
+                (x == new_x).all(), True
+            )
+            self.assertGreaterEqual(
+                np.min(new_x), -5
+            )
+            self.assertLessEqual(
+                np.max(new_x), 5
+            )
+            self.assertEqual(
+                (x[[0, 1, 4]] == new_x[[0, 1, 4]]).all(), True
+            )
 
     def test_ert(self):
         evals = [5000, 45000, 1000, 100, 10]

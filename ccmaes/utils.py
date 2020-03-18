@@ -322,13 +322,13 @@ def _correct_bounds(x, ub, lb, corr_type):
             ub - lb) * np.abs(y - np.floor(y) - np.mod(np.floor(y), 2))
     elif corr_type == "COTN":
         x[out_of_bounds] = lb + (
-            ub - lb) * np.abs( np.sign(y) - np.abs(np.random.normal(0, 1/3, size=y.shape)))
+            ub - lb) * np.abs( (y > 0) - np.abs(np.random.normal(0, 1/3, size=y.shape)))
     elif corr_type == "unif_resample":
         x[out_of_bounds] = lb + (
             ub - lb) * np.abs(np.random.uniform(0, 1, size=y.shape))
     elif corr_type == "saturate":
         x[out_of_bounds] = lb + (
-            ub - lb) * np.sign(y)
+            ub - lb) * (y > 0)
     elif corr_type == "toroidal":
         x[out_of_bounds] = lb + (
             ub - lb) * np.abs(y - np.floor(y))
