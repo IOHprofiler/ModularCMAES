@@ -351,6 +351,7 @@ class Parameters(AnnotatedStruct):
         "base_sampler",
         "weights_option",
         "local_restart",
+        "bound_correction"
      )
 
     def __init__(self, *args, **kwargs) -> None:
