@@ -281,10 +281,16 @@ def _scale_with_threshold(z, threshold):
     return z
 
 
-def _correct_bounds(x, ub, lb):
+def _correct_bounds(x, ub, lb, corr_type):
     '''Bound correction function
     Rescales x to fall within the lower lb and upper
-    bounds ub specified.
+    bounds ub specified. Available strategies are:
+    - ignore: Don't perform any boundary correction
+    - unif_resample: Resample each coordinate out of bounds uniformly within bounds
+    - mirror: Mirror each coordinate around the boundary
+    - COTN: Resample each coordinate out of bounds using the one-sided normal distribution with variance 1/3 (bounds scaled to [0,1])
+    - saturate: Set each out-of-bounds coordinate to the boundary
+    - toroidal: Reflect the out-of-bounds coordinates to the oposite bound inwards
 
     Parameters 
     ----------
@@ -294,19 +300,41 @@ def _correct_bounds(x, ub, lb):
         upper bound
     ub: float
         lower bound
-
+    corr_type: string
+        type of correction to perform
     Returns
     -------
     np.ndarray
         bound corrected version of x
     '''
-
     out_of_bounds = np.logical_or(x > ub, x < lb)
+    if not any(out_of_bounds):
+        return x, False
+    if corr_type == "ignore":
+        return x, True
+
+    
     ub, lb = ub[out_of_bounds].copy(), lb[out_of_bounds].copy()
     y = (x[out_of_bounds] - lb) / (ub - lb)
-    x[out_of_bounds] = lb + (
-        ub - lb) * (1. - np.abs(y - np.floor(y)))
-    return x
+
+    if corr_type == "mirror":
+        x[out_of_bounds] = lb + (
+            ub - lb) * np.abs(y - np.floor(y) - np.mod(np.floor(y), 2))
+    elif corr_type == "COTN":
+        x[out_of_bounds] = lb + (
+            ub - lb) * np.abs( np.sign(y) - np.abs(np.random.normal(0, 1/3, size=y.shape)))
+    elif corr_type == "unif_resample":
+        x[out_of_bounds] = lb + (
+            ub - lb) * np.abs(np.random.uniform(0, 1, size=y.shape))
+    elif corr_type == "saturate":
+        x[out_of_bounds] = lb + (
+            ub - lb) * np.sign(y)
+    elif corr_type == "toroidal":
+        x[out_of_bounds] = lb + (
+            ub - lb) * np.abs(y - np.floor(y))
+    else:
+        raise ValueError("Unknown argument for corr_type")
+    return x, True
 
 
 def timeit(func):
