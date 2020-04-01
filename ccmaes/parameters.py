@@ -153,7 +153,7 @@ class Parameters(AnnotatedStruct):
             and S. Chen. Evolution strategies with thresheld convergence. In
             Evolutionary Computation (CEC), 2015 IEEE Congress on, pages 2097–
             2104, May 2015.
-    bound_correction: bool = False
+    bound_correction: str = ('ignore', 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',)
         Specifying whether to use bound correction to enforce ub and lbs
     orthogonal: bool = False
         Specifying whether to use orthogonal sampling
@@ -293,11 +293,16 @@ class Parameters(AnnotatedStruct):
         The length threshold used in threshold convergence
     last_restart: int
         The generation in where the last restart has occored
+    max_resamples: int
+        The maximum amount of resamples which can be done when 'dismiss'-boundary correction is used
+    corrections: int
+        The number of corrections which have been done because of boundary conditions
     '''
 
     d: int
     target: float = -float("inf")
     budget: int = None
+    corrections: int = None
     lambda_: int = None
     mu: int = None
     init_sigma: float = .5
@@ -312,12 +317,13 @@ class Parameters(AnnotatedStruct):
     lb: np.ndarray = None
     init_threshold: float = 0.1
     decay_factor: float = 0.995
+    max_resamples: int = 1000
     
     active: bool = False
     elitist: bool = False
     sequential: bool = False
     threshold_convergence: bool = False
-    bound_correction: bool = False
+    bound_correction:  ('ignore', 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',) = 'saturate'
     orthogonal: bool = False
     local_restart: (None, 'IPOP', 'BIPOP',) = None
     base_sampler: ('gaussian', 'sobol', 'halton',) = 'gaussian'
@@ -337,7 +343,6 @@ class Parameters(AnnotatedStruct):
     __modules__ = (
         "active", 
         "elitist",
-        "bound_correction",
         "orthogonal",
         "sequential",
         "threshold_convergence",
@@ -346,6 +351,7 @@ class Parameters(AnnotatedStruct):
         "base_sampler",
         "weights_option",
         "local_restart",
+        "bound_correction"
      )
 
     def __init__(self, *args, **kwargs) -> None:
@@ -388,6 +394,7 @@ class Parameters(AnnotatedStruct):
         are not to be restarted during a optimization run.
         '''
         self.used_budget = 0
+        self.corrections = 0
         self.budget = self.budget or int(1e4) * self.d
         self.max_lambda_ = (self.d * self.lambda_) ** 2
         self.fopt = float("inf")

@@ -54,16 +54,18 @@ class ConfigurableCMAES(Optimizer):
             _tpa_mutation(self.fitness_func, self.parameters, x, y, f)
 
         for i in range(1, n_offspring + 1):
+            
             zi = next(self.parameters.sampler)
             if self.parameters.threshold_convergence:
                 zi = _scale_with_threshold(zi, self.parameters.threshold)
 
             yi = np.dot(self.parameters.B, self.parameters.D * zi)
             xi = self.parameters.m + (self.parameters.sigma * yi)
-            if self.parameters.bound_correction:
-                xi = _correct_bounds(
-                    xi, self.parameters.ub, self.parameters.lb)
-
+    #             if self.parameters.bound_correction:
+            xi, corrected = _correct_bounds(xi, self.parameters.ub, self.parameters.lb, self.parameters.bound_correction)
+            self.parameters.corrections += corrected
+                
+            
             fi = yield yi, xi
             [a.append(v) for a, v in ((y, yi), (x, xi), (f, fi),)]
 
