@@ -92,14 +92,14 @@ class AskTellCMAES(ConfigurableCMAES):
         indices, *_ = np.where((self.parameters.population.x == xi).all(axis=0)) 
         if len(indices) == 0:
             raise ValueError("Unkown xi provided")
-        else:
-            for index in indices:
-                if self.parameters.population.f[index] == None:
-                    self.parameters.population.f[index] = fi
-                    break
-            else:
-                warnings.warn("Repeated call to tell with same xi", UserWarning)
+        
+        for index in indices:
+            if self.parameters.population.f[index] == None:
                 self.parameters.population.f[index] = fi
+                break
+        else:
+            warnings.warn("Repeated call to tell with same xi", UserWarning)
+            self.parameters.population.f[index] = fi
         
         self.parameters.used_budget += 1
         if len(self.ask_queue) == 0 and (self.parameters.population.f != None).all():
