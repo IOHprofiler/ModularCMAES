@@ -1,0 +1,5 @@
+<map id="inheritancec463f15d66" name="inheritancec463f15d66">
+<area shape="rect" id="node1" href="api/ccmaes.utils.AnnotatedStruct.html#ccmaes.utils.AnnotatedStruct" target="_top" title="Custom class for defining structs. " alt="" coords="5,31,132,56"/>
+<area shape="rect" id="node2" href="api/ccmaes.parameters.BIPOPParameters.html#ccmaes.parameters.BIPOPParameters" target="_top" title="Seperate object which holds BIPOP specific parameters" alt="" coords="180,5,315,31"/>
+<area shape="rect" id="node3" href="api/ccmaes.parameters.Parameters.html#ccmaes.parameters.Parameters" target="_top" title="AnnotatedStruct object for holding the parameters for the Configurable CMAES" alt="" coords="199,55,295,80"/>
+</map>

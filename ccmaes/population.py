@@ -96,11 +96,11 @@ class Population(AnnotatedStruct):
                            .format(type(key)))
 
     @property
-    def n(self):
+    def n(self) -> int:
         return len(self.f)
 
     @property
-    def d(self):
+    def d(self) -> int:
         shape_ = list(self.x.shape)
         shape_.remove(self.n)
         return shape_[0]

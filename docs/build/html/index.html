@@ -1,0 +1,423 @@
+
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta charset="utf-8" />
+    <title>Welcome to CCMAES’s Documentation! &#8212; CCMAES  documentation</title>
+    <link rel="stylesheet" href="_static/alabaster.css" type="text/css" />
+    <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" type="text/css" href="_static/graphviz.css" />
+    <script type="text/javascript" id="documentation_options" data-url_root="./" src="_static/documentation_options.js"></script>
+    <script type="text/javascript" src="_static/jquery.js"></script>
+    <script type="text/javascript" src="_static/underscore.js"></script>
+    <script type="text/javascript" src="_static/doctools.js"></script>
+    <script type="text/javascript" src="_static/language_data.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="evaluate" href="api/ccmaes.configurablecmaes.evaluate.html" />
+   
+  <link rel="stylesheet" href="_static/custom.css" type="text/css" />
+  
+  
+  <meta name="viewport" content="width=device-width, initial-scale=0.9, maximum-scale=0.9" />
+
+  </head><body>
+  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          
+
+          <div class="body" role="main">
+            
+  <div class="section" id="welcome-to-ccmaes-s-documentation">
+<h1>Welcome to CCMAES’s Documentation!<a class="headerlink" href="#welcome-to-ccmaes-s-documentation" title="Permalink to this headline">¶</a></h1>
+<div class="section" id="module-ccmaes.configurablecmaes">
+<span id="ccmaes-configurablecmaes-module"></span><h2>ccmaes.configurablecmaes Module<a class="headerlink" href="#module-ccmaes.configurablecmaes" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="functions">
+<h3>Functions<a class="headerlink" href="#functions" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ert</span></code>(evals, budget)</p></td>
+<td><p>Computed the expected running time of a list of evaluations.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/ccmaes.configurablecmaes.evaluate.html#ccmaes.configurablecmaes.evaluate" title="ccmaes.configurablecmaes.evaluate"><code class="xref py py-obj docutils literal notranslate"><span class="pre">evaluate</span></code></a>(fid, dim[, iterations, label, …])</p></td>
+<td><p>Helper function to evaluate a ConfigurableCMAES on the BBOB test suite.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">timeit</span></code>(func)</p></td>
+<td><p>Decorator function for timing the excecution of a function.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="classes">
+<h3>Classes<a class="headerlink" href="#classes" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.configurablecmaes.ConfigurableCMAES.html#ccmaes.configurablecmaes.ConfigurableCMAES" title="ccmaes.configurablecmaes.ConfigurableCMAES"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ConfigurableCMAES</span></code></a>(fitness_func, *args[, …])</p></td>
+<td><p>The main class of the configurable CMA ES continous optimizer.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Parameters</span></code>(*args, **kwargs)</p></td>
+<td><p>AnnotatedStruct object for holding the parameters for the Configurable CMAES</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Population</span></code>(*args, **kwargs)</p></td>
+<td><p>AnnotatedStruct object for holding a Population of individuals.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">datetime</span></code>(year, month, day[, hour[, minute[, …)</p></td>
+<td><p>The year, month and day arguments are required.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="class-inheritance-diagram">
+<h3>Class Inheritance Diagram<a class="headerlink" href="#class-inheritance-diagram" title="Permalink to this headline">¶</a></h3>
+<div class="graphviz"><img src="_images/inheritance-358a7de0fcb3d562cfe287c9c3a28ecc9a160537.png" alt="Inheritance diagram of ccmaes.configurablecmaes.ConfigurableCMAES" usemap="#inheritance6b7cdb2dd7" class="inheritance graphviz" /></div>
+<map id="inheritance6b7cdb2dd7" name="inheritance6b7cdb2dd7">
+<area shape="rect" id="node1" href="api/ccmaes.configurablecmaes.ConfigurableCMAES.html#ccmaes.configurablecmaes.ConfigurableCMAES" target="_top" title="The main class of the configurable CMA ES continous optimizer. " alt="" coords="5,5,156,31"/>
+</map></div>
+</div>
+<div class="section" id="module-ccmaes.parameters">
+<span id="ccmaes-parameters-module"></span><h2>ccmaes.parameters Module<a class="headerlink" href="#module-ccmaes.parameters" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id1">
+<h3>Classes<a class="headerlink" href="#id1" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnnotatedStruct</span></code>(*args, **kwargs)</p></td>
+<td><p>Custom class for defining structs.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/ccmaes.parameters.BIPOPParameters.html#ccmaes.parameters.BIPOPParameters" title="ccmaes.parameters.BIPOPParameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">BIPOPParameters</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Seperate object which holds BIPOP specific parameters</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.parameters.Parameters.html#ccmaes.parameters.Parameters" title="ccmaes.parameters.Parameters"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Parameters</span></code></a>(*args, **kwargs)</p></td>
+<td><p>AnnotatedStruct object for holding the parameters for the Configurable CMAES</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">TypeVar</span></code>(name, *constraints[, bound, …])</p></td>
+<td><p>Type variable.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">deque</span></code></p></td>
+<td><p>deque([iterable[, maxlen]]) –&gt; deque object</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="id2">
+<h3>Class Inheritance Diagram<a class="headerlink" href="#id2" title="Permalink to this headline">¶</a></h3>
+<div class="graphviz"><img src="_images/inheritance-7bf4d91dca8a974a858051b6fc943ac2dd408870.png" alt="Inheritance diagram of ccmaes.parameters.BIPOPParameters, ccmaes.parameters.Parameters" usemap="#inheritancec463f15d66" class="inheritance graphviz" /></div>
+<map id="inheritancec463f15d66" name="inheritancec463f15d66">
+<area shape="rect" id="node1" href="api/ccmaes.utils.AnnotatedStruct.html#ccmaes.utils.AnnotatedStruct" target="_top" title="Custom class for defining structs. " alt="" coords="5,31,132,56"/>
+<area shape="rect" id="node2" href="api/ccmaes.parameters.BIPOPParameters.html#ccmaes.parameters.BIPOPParameters" target="_top" title="Seperate object which holds BIPOP specific parameters" alt="" coords="180,5,315,31"/>
+<area shape="rect" id="node3" href="api/ccmaes.parameters.Parameters.html#ccmaes.parameters.Parameters" target="_top" title="AnnotatedStruct object for holding the parameters for the Configurable CMAES" alt="" coords="199,55,295,80"/>
+</map></div>
+</div>
+<div class="section" id="module-ccmaes.population">
+<span id="ccmaes-population-module"></span><h2>ccmaes.population Module<a class="headerlink" href="#module-ccmaes.population" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id3">
+<h3>Classes<a class="headerlink" href="#id3" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnnotatedStruct</span></code>(*args, **kwargs)</p></td>
+<td><p>Custom class for defining structs.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/ccmaes.population.Population.html#ccmaes.population.Population" title="ccmaes.population.Population"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Population</span></code></a>(*args, **kwargs)</p></td>
+<td><p>AnnotatedStruct object for holding a Population of individuals.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="id4">
+<h3>Class Inheritance Diagram<a class="headerlink" href="#id4" title="Permalink to this headline">¶</a></h3>
+<div class="graphviz"><img src="_images/inheritance-d0464468c2a98d723be240abe4d26d795fcddeb3.png" alt="Inheritance diagram of ccmaes.population.Population" usemap="#inheritance69cbf569aa" class="inheritance graphviz" /></div>
+<map id="inheritance69cbf569aa" name="inheritance69cbf569aa">
+<area shape="rect" id="node1" href="api/ccmaes.utils.AnnotatedStruct.html#ccmaes.utils.AnnotatedStruct" target="_top" title="Custom class for defining structs. " alt="" coords="5,5,132,31"/>
+<area shape="rect" id="node2" href="api/ccmaes.population.Population.html#ccmaes.population.Population" target="_top" title="AnnotatedStruct object for holding a Population of individuals." alt="" coords="180,5,271,31"/>
+</map></div>
+</div>
+<div class="section" id="module-ccmaes.sampling">
+<span id="ccmaes-sampling-module"></span><h2>ccmaes.sampling Module<a class="headerlink" href="#module-ccmaes.sampling" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id5">
+<h3>Functions<a class="headerlink" href="#id5" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.sampling.gaussian_sampling.html#ccmaes.sampling.gaussian_sampling" title="ccmaes.sampling.gaussian_sampling"><code class="xref py py-obj docutils literal notranslate"><span class="pre">gaussian_sampling</span></code></a>(d)</p></td>
+<td><p>Generator yielding random normal (gaussian) samples.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/ccmaes.sampling.halton_sampling.html#ccmaes.sampling.halton_sampling" title="ccmaes.sampling.halton_sampling"><code class="xref py py-obj docutils literal notranslate"><span class="pre">halton_sampling</span></code></a>(d)</p></td>
+<td><p>Generator yielding samples from a Halton sequence</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">i4_sobol</span></code>(dim_num, seed)</p></td>
+<td><p>i4_sobol generates a new quasirandom Sobol vector with each call.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/ccmaes.sampling.mirrored_sampling.html#ccmaes.sampling.mirrored_sampling" title="ccmaes.sampling.mirrored_sampling"><code class="xref py py-obj docutils literal notranslate"><span class="pre">mirrored_sampling</span></code></a>(sampler)</p></td>
+<td><p>Generator yielding mirrored samples.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.sampling.orthogonal_sampling.html#ccmaes.sampling.orthogonal_sampling" title="ccmaes.sampling.orthogonal_sampling"><code class="xref py py-obj docutils literal notranslate"><span class="pre">orthogonal_sampling</span></code></a>(sampler, n_samples)</p></td>
+<td><p>Generator yielding orthogonal samples.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/ccmaes.sampling.sobol_sampling.html#ccmaes.sampling.sobol_sampling" title="ccmaes.sampling.sobol_sampling"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sobol_sampling</span></code></a>(d)</p></td>
+<td><p>Generator yielding samples from a Sobol sequence</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<div class="section" id="module-ccmaes.utils">
+<span id="ccmaes-utils-module"></span><h2>ccmaes.utils Module<a class="headerlink" href="#module-ccmaes.utils" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id6">
+<h3>Functions<a class="headerlink" href="#id6" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.utils.ert.html#ccmaes.utils.ert" title="ccmaes.utils.ert"><code class="xref py py-obj docutils literal notranslate"><span class="pre">ert</span></code></a>(evals, budget)</p></td>
+<td><p>Computed the expected running time of a list of evaluations.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">getmodule</span></code>(object[, _filename])</p></td>
+<td><p>Return the module an object was defined in, or None if not found.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.utils.sphere_function.html#ccmaes.utils.sphere_function" title="ccmaes.utils.sphere_function"><code class="xref py py-obj docutils literal notranslate"><span class="pre">sphere_function</span></code></a>(x[, fopt])</p></td>
+<td><p>Sphere function</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">time</span></code>()</p></td>
+<td><p>Return the current time in seconds since the Epoch.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.utils.timeit.html#ccmaes.utils.timeit" title="ccmaes.utils.timeit"><code class="xref py py-obj docutils literal notranslate"><span class="pre">timeit</span></code></a>(func)</p></td>
+<td><p>Decorator function for timing the excecution of a function.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">wraps</span></code>(wrapped[, assigned, updated])</p></td>
+<td><p>Decorator factory to apply update_wrapper() to a wrapper function</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="id7">
+<h3>Classes<a class="headerlink" href="#id7" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.utils.AnnotatedStruct.html#ccmaes.utils.AnnotatedStruct" title="ccmaes.utils.AnnotatedStruct"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnnotatedStruct</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Custom class for defining structs.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/ccmaes.utils.AnnotatedStructMeta.html#ccmaes.utils.AnnotatedStructMeta" title="ccmaes.utils.AnnotatedStructMeta"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnnotatedStructMeta</span></code></a></p></td>
+<td><p>Metaclass for class for AnnotatedStruct.</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.utils.AnyOf.html#ccmaes.utils.AnyOf" title="ccmaes.utils.AnyOf"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AnyOf</span></code></a>([options])</p></td>
+<td><p>Descriptor, checks of value is Any of a specified sequence of options.</p></td>
+</tr>
+<tr class="row-even"><td><p><a class="reference internal" href="api/ccmaes.utils.Descriptor.html#ccmaes.utils.Descriptor" title="ccmaes.utils.Descriptor"><code class="xref py py-obj docutils literal notranslate"><span class="pre">Descriptor</span></code></a></p></td>
+<td><p>Data descriptor</p></td>
+</tr>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.utils.InstanceOf.html#ccmaes.utils.InstanceOf" title="ccmaes.utils.InstanceOf"><code class="xref py py-obj docutils literal notranslate"><span class="pre">InstanceOf</span></code></a>(dtype)</p></td>
+<td><p>Data descriptor checks for correct types.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">OrderedDict</span></code></p></td>
+<td><p>Dictionary that remembers insertion order</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Parameter</span></code>(name, kind, *, default, annotation)</p></td>
+<td><p>Represents a parameter in a function signature.</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">Signature</span></code>([parameters, __validate_parameters__])</p></td>
+<td><p>A Signature object represents the overall signature of a function.</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="id8">
+<h3>Class Inheritance Diagram<a class="headerlink" href="#id8" title="Permalink to this headline">¶</a></h3>
+<div class="graphviz"><img src="_images/inheritance-b59843e80efad33eab7698b4491fdbcc4a438526.png" alt="Inheritance diagram of ccmaes.utils.AnnotatedStruct, ccmaes.utils.AnnotatedStructMeta, ccmaes.utils.AnyOf, ccmaes.utils.Descriptor, ccmaes.utils.InstanceOf" usemap="#inheritanceac450ecacb" class="inheritance graphviz" /></div>
+<map id="inheritanceac450ecacb" name="inheritanceac450ecacb">
+<area shape="rect" id="node1" href="api/ccmaes.utils.AnnotatedStruct.html#ccmaes.utils.AnnotatedStruct" target="_top" title="Custom class for defining structs. " alt="" coords="22,128,149,153"/>
+<area shape="rect" id="node2" href="api/ccmaes.utils.AnnotatedStructMeta.html#ccmaes.utils.AnnotatedStructMeta" target="_top" title="Metaclass for class for AnnotatedStruct." alt="" coords="5,79,165,104"/>
+<area shape="rect" id="node3" href="api/ccmaes.utils.AnyOf.html#ccmaes.utils.AnyOf" target="_top" title="Descriptor, checks of value is Any of a specified sequence of options." alt="" coords="223,5,295,31"/>
+<area shape="rect" id="node4" href="api/ccmaes.utils.Descriptor.html#ccmaes.utils.Descriptor" target="_top" title="Data descriptor" alt="" coords="41,29,130,55"/>
+<area shape="rect" id="node5" href="api/ccmaes.utils.InstanceOf.html#ccmaes.utils.InstanceOf" target="_top" title="Data descriptor checks for correct types." alt="" coords="213,55,305,80"/>
+</map></div>
+</div>
+<div class="section" id="module-ccmaes.asktellcmaes">
+<span id="ccmaes-asktellcmaes-module"></span><h2>ccmaes.asktellcmaes Module<a class="headerlink" href="#module-ccmaes.asktellcmaes" title="Permalink to this headline">¶</a></h2>
+<div class="section" id="id9">
+<h3>Functions<a class="headerlink" href="#id9" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.asktellcmaes.check_break_conditions.html#ccmaes.asktellcmaes.check_break_conditions" title="ccmaes.asktellcmaes.check_break_conditions"><code class="xref py py-obj docutils literal notranslate"><span class="pre">check_break_conditions</span></code></a>(f)</p></td>
+<td><p></p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">wraps</span></code>(wrapped[, assigned, updated])</p></td>
+<td><p>Decorator factory to apply update_wrapper() to a wrapper function</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="id10">
+<h3>Classes<a class="headerlink" href="#id10" title="Permalink to this headline">¶</a></h3>
+<table class="longtable docutils align-default">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 90%" />
+</colgroup>
+<tbody>
+<tr class="row-odd"><td><p><a class="reference internal" href="api/ccmaes.asktellcmaes.AskTellCMAES.html#ccmaes.asktellcmaes.AskTellCMAES" title="ccmaes.asktellcmaes.AskTellCMAES"><code class="xref py py-obj docutils literal notranslate"><span class="pre">AskTellCMAES</span></code></a>(*args, **kwargs)</p></td>
+<td><p>Ask tell interface for the ConfigurableCMAES</p></td>
+</tr>
+<tr class="row-even"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">ConfigurableCMAES</span></code>(fitness_func, *args[, …])</p></td>
+<td><p>The main class of the configurable CMA ES continous optimizer.</p></td>
+</tr>
+<tr class="row-odd"><td><p><code class="xref py py-obj docutils literal notranslate"><span class="pre">deque</span></code></p></td>
+<td><p>deque([iterable[, maxlen]]) –&gt; deque object</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="section" id="id11">
+<h3>Class Inheritance Diagram<a class="headerlink" href="#id11" title="Permalink to this headline">¶</a></h3>
+<div class="graphviz"><img src="_images/inheritance-063937d7b5060eb8118471aa2592eed54984a40f.png" alt="Inheritance diagram of ccmaes.asktellcmaes.AskTellCMAES" usemap="#inheritancef4dc846674" class="inheritance graphviz" /></div>
+<map id="inheritancef4dc846674" name="inheritancef4dc846674">
+<area shape="rect" id="node1" href="api/ccmaes.asktellcmaes.AskTellCMAES.html#ccmaes.asktellcmaes.AskTellCMAES" target="_top" title="Ask tell interface for the ConfigurableCMAES" alt="" coords="204,5,319,31"/>
+<area shape="rect" id="node2" href="api/ccmaes.configurablecmaes.ConfigurableCMAES.html#ccmaes.configurablecmaes.ConfigurableCMAES" target="_top" title="The main class of the configurable CMA ES continous optimizer. " alt="" coords="5,5,156,31"/>
+</map><div class="toctree-wrapper compound">
+</div>
+</div>
+</div>
+</div>
+<div class="section" id="indices-and-tables">
+<h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
+<ul class="simple">
+<li><p><a class="reference internal" href="genindex.html"><span class="std std-ref">Index</span></a></p></li>
+<li><p><a class="reference internal" href="py-modindex.html"><span class="std std-ref">Module Index</span></a></p></li>
+<li><p><a class="reference internal" href="search.html"><span class="std std-ref">Search Page</span></a></p></li>
+</ul>
+</div>
+
+
+          </div>
+          
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<h1 class="logo"><a href="#">CCMAES</a></h1>
+
+
+
+
+
+
+
+
+<h3>Navigation</h3>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.configurablecmaes.evaluate.html">evaluate</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.configurablecmaes.ConfigurableCMAES.html">ConfigurableCMAES</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.parameters.BIPOPParameters.html">BIPOPParameters</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.parameters.Parameters.html">Parameters</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.population.Population.html">Population</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.sampling.gaussian_sampling.html">gaussian_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.sampling.halton_sampling.html">halton_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.sampling.mirrored_sampling.html">mirrored_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.sampling.orthogonal_sampling.html">orthogonal_sampling</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.sampling.sobol_sampling.html">sobol_sampling</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.utils.ert.html">ert</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.utils.sphere_function.html">sphere_function</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.utils.timeit.html">timeit</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.utils.AnnotatedStruct.html">AnnotatedStruct</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.utils.AnnotatedStructMeta.html">AnnotatedStructMeta</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.utils.AnyOf.html">AnyOf</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.utils.Descriptor.html">Descriptor</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.utils.InstanceOf.html">InstanceOf</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.asktellcmaes.check_break_conditions.html">check_break_conditions</a></li>
+</ul>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="api/ccmaes.asktellcmaes.AskTellCMAES.html">AskTellCMAES</a></li>
+</ul>
+
+<div class="relations">
+<h3>Related Topics</h3>
+<ul>
+  <li><a href="#">Documentation overview</a><ul>
+      <li>Next: <a href="api/ccmaes.configurablecmaes.evaluate.html" title="next chapter">evaluate</a></li>
+  </ul></li>
+</ul>
+</div>
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" />
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+
+
+
+
+
+
+
+
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="footer">
+      &copy;2019, Jacob de Nobel.
+      
+      |
+      Powered by <a href="http://sphinx-doc.org/">Sphinx 2.2.0</a>
+      &amp; <a href="https://github.com/bitprophet/alabaster">Alabaster 0.7.12</a>
+      
+      |
+      <a href="_sources/index.rst.txt"
+          rel="nofollow">Page source</a>
+    </div>
+
+    
+
+    
+  </body>
+</html>
