@@ -3,10 +3,8 @@ import shutil
 import io
 import unittest
 import unittest.mock
-from functools import partial
 
 import numpy as np
-
 from ccmaes import parameters, utils, configurablecmaes
 
 
@@ -45,16 +43,13 @@ class TestConfigurableCMAES(
                     utils.sphere_function, parameters=self.p).run()
 
     def test_select_raises(self):
-        c = configurablecmaes.ConfigurableCMAES(
-                    utils.sphere_function, 5, 
-                    mirrored='mirrored pairwise'
-                )
-        
+        c = configurablecmaes.ConfigurableCMAES(utils.sphere_function, 5, 
+            mirrored='mirrored pairwise'
+        )
         c.mutate()
         c.parameters.population = c.parameters.population[:3]
         with self.assertRaises(ValueError):
             c.select()
-
 
     def test_local_restart(self):
         for lr in filter(None, parameters.Parameters.local_restart.options):
@@ -65,9 +60,14 @@ class TestConfigurableCMAES(
             
             c.parameters.max_iter = 5
             c.step()
+    
+    
+class TestConfigurableCMAESSingle(unittest.TestCase):
+    def test_str_repr(self):
+        c = configurablecmaes.ConfigurableCMAES(utils.sphere_function, 5)
+        self.assertIsInstance(str(c), str)
+        self.assertIsInstance(repr(c), str)
 
-
-class TestConfigurableCMAESFunctions(unittest.TestCase):
     def test_tpa_mutation(self):
         class TpaParameters:
             sigma = .4
@@ -135,6 +135,7 @@ class TestConfigurableCMAESFunctions(unittest.TestCase):
         configurablecmaes.evaluate(1, 1, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder) 
         configurablecmaes.evaluate(1, 1, 1)
+
 
 if __name__ == '__main__':
     unittest.main()

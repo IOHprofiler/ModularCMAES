@@ -110,14 +110,14 @@ class ConfigurableCMAES:
         if self.parameters.elitist and self.parameters.old_population:
             self.parameters.population += self.parameters.old_population[
                 : self.parameters.mu]
-
         self.parameters.population.sort()
 
         self.parameters.population = self.parameters.population[
             : self.parameters.lambda_]
 
-        self.parameters.fopt = min(
-            self.parameters.fopt, self.parameters.population.f[0])
+        if self.parameters.population.f[0] < self.parameters.fopt:
+            self.parameters.fopt = self.parameters.population.f[0]
+            self.parameters.xopt = self.parameters.population.x[0]
 
     def recombine(self) -> None:
         '''Recombination of new individuals
@@ -125,8 +125,8 @@ class ConfigurableCMAES:
         a genetic algorithm. In the CMAES, recombination happens though the
         moving of the mean m, by multiplying the old mean with a weighted 
         combination of the current mu best individuals. 
+        TODO: check if this should be moved to parameters
         '''
-
         self.parameters.m_old = self.parameters.m.copy()
         self.parameters.m = self.parameters.m_old + (1 * (
             (self.parameters.population.x[:, :self.parameters.mu] -
@@ -285,8 +285,8 @@ def _scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
         z *= (new_length / length)
     return z
 
-def _correct_bounds(x:np.ndarray, ub:float, 
-        lb:float, correction_method:str) -> np.ndarray:
+def _correct_bounds(x:np.ndarray, ub:np.ndarray, 
+                    lb:np.ndarray, correction_method:str) -> np.ndarray:
     '''Bound correction function
     Rescales x to fall within the lower lb and upper
     bounds ub specified. Available strategies are:
@@ -304,7 +304,7 @@ def _correct_bounds(x:np.ndarray, ub:float,
         vector of which the bounds should be corrected
     ub: float
         upper bound
-    ub: float
+    lb: float
         lower bound
     correction_method: string
         type of correction to perform
@@ -314,6 +314,10 @@ def _correct_bounds(x:np.ndarray, ub:float,
         bound corrected version of x
     bool
         whether the population was out of bounds
+    Raises
+    ------
+    ValueError
+        When an unkown value for correction_method is provided
     '''
     out_of_bounds = np.logical_or(x > ub, x < lb)
     if not any(out_of_bounds):
@@ -332,7 +336,7 @@ def _correct_bounds(x:np.ndarray, ub:float,
         x[out_of_bounds] = lb + (ub - lb) * np.abs(
             (y > 0) - np.abs(np.random.normal(0, 1/3, size=y.shape)))
     elif correction_method == "unif_resample":
-        x[out_of_bounds] = np.random.uniform(lb, ub, size=y.shape)
+        x[out_of_bounds] = np.random.uniform(lb, ub)
     elif correction_method == "saturate":
         x[out_of_bounds] = lb + (ub - lb) * (y > 0)
     elif correction_method == "toroidal":

@@ -386,6 +386,7 @@ class Parameters(AnnotatedStruct):
         self.budget = self.budget or int(1e4) * self.d
         self.max_lambda_ = (self.d * self.lambda_) ** 2
         self.fopt = float("inf")
+        self.xopt = None
         self.t = 0
         self.sigma_over_time = []
         self.best_fopts = []
@@ -404,7 +405,6 @@ class Parameters(AnnotatedStruct):
         '''Initialization function for parameters that are of influence
         in selection/population control.
         '''
-
         self.lambda_ = self.lambda_ or (
             4 + np.floor(3 * np.log(self.d))).astype(int)
         self.mu = self.mu or self.lambda_ // 2
@@ -461,7 +461,6 @@ class Parameters(AnnotatedStruct):
             self.nweights.sum()**2 /
             (self.nweights ** 2).sum()
         )
-        self.set_default
         self.c1 = self.c1 or 2 / ((self.d + 1.3)**2 + self.mueff)
         self.cmu = self.cmu or  min(1 - self.c1, (
             2 * ((self.mueff - 2 + (1 / self.mueff)) /
@@ -600,7 +599,6 @@ class Parameters(AnnotatedStruct):
         self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
             self.cs * (2 - self.cs) * self.mueff
         ) * self.invC @ self.dm) * self.ps_factor)
-
         self.adapt_sigma()
         self.adapt_covariance_matrix()
         # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.

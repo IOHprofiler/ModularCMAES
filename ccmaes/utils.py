@@ -198,7 +198,7 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
         for name, value in self.__bound__.arguments.items():
             setattr(self, name, value)
 
-    def __repr__(self) -> None:
+    def __repr__(self) -> str:
         return "<{}: ({})>".format(
             self.__class__.__qualname__, ', '.join(
                 "{}={}".format(name, getattr(self, name))
