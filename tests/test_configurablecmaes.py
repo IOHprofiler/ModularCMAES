@@ -57,18 +57,12 @@ class TestConfigurableCMAES(
     def test_local_restart(self):
         for lr in filter(None, parameters.Parameters.local_restart.options):
             c = configurablecmaes.ConfigurableCMAES(
-                    utils.sphere_function, 5, 
-                    local_restart=lr
-                )
-            for i in range(10):
+                    utils.sphere_function, 5, local_restart=lr)
+            for _ in range(10):
                 c.step()
             
             c.parameters.max_iter = 5
             c.step()
-
-
-
-
 
 
 if __name__ == '__main__':

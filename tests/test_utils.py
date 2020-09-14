@@ -7,6 +7,7 @@ import unittest.mock
 import numpy as np
 
 from ccmaes import utils
+from ccmaes.parameters import Parameters
 from ccmaes.configurablecmaes import ConfigurableCMAES
 
 
@@ -96,10 +97,8 @@ class TestUtils(unittest.TestCase):
         self.assertEqual(p.rank_tpa, p.a_tpa + p.b_tpa) 
 
         p = TpaParameters(-2)
-        
         x, y, f = [], [], []
         utils._tpa_mutation(utils.sphere_function, p, x, y, f)
-    
         self.assertEqual(p.rank_tpa, -p.a_tpa)
 
 
@@ -120,56 +119,35 @@ class TestUtils(unittest.TestCase):
         z = np.ones(20)
         new_z = utils._scale_with_threshold(z.copy(), threshold)
         new_z_norm = np.linalg.norm(new_z)
-        self.assertNotEqual(
-            (z == new_z).all(), True
-        )
-        self.assertNotEqual(
-            np.linalg.norm(z), new_z_norm
-        )
+        self.assertNotEqual((z == new_z).all(), True)
+        self.assertNotEqual(np.linalg.norm(z), new_z_norm)
         self.assertGreater(new_z_norm, threshold)
 
     def test_correct_bounds(self):
         x = np.ones(5) * np.array([2, 4, 6, -7, 3])
         ub, lb = np.ones(5) * 5, np.ones(5) * -5
-        corr_types = ['ignore', 'saturate', 'unif_resample', 'toroidal', 'mirror', 'COTN']
+        correction_methods = Parameters.__annotations__.get("bound_correction")
+        new_x, corrected = utils._correct_bounds(x.copy(), ub, lb, correction_methods[0])
+
+        self.assertEqual((x == new_x).all(), True)
+        self.assertEqual(corrected, True)
         
-        new_x, corrected = utils._correct_bounds(x.copy(), ub, lb, corr_types[0])
-        self.assertEqual(
-            (x == new_x).all(), True
-        )
-        self.assertEqual(
-            corrected, True
-        )
-        
-        for corr_type in corr_types[1:]:
-            new_x, corrected = utils._correct_bounds(x.copy(), ub, lb, corr_type)     
-            self.assertEqual(
-                corrected, True
-            )
-            self.assertNotEqual(
-                (x == new_x).all(), True
-            )
-            self.assertGreaterEqual(
-                np.min(new_x), -5
-            )
-            self.assertLessEqual(
-                np.max(new_x), 5
-            )
-            self.assertEqual(
-                (x[[0, 1, 4]] == new_x[[0, 1, 4]]).all(), True
-            )
+        for correction_method in correction_methods[1:]:
+            new_x, corrected = utils._correct_bounds(x.copy(), ub, lb, correction_method)     
+            self.assertEqual(corrected, True)
+            self.assertNotEqual((x == new_x).all(), True)
+            self.assertGreaterEqual( np.min(new_x), -5)
+            self.assertLessEqual(np.max(new_x), 5)
+            self.assertEqual((x[[0, 1, 4]] == new_x[[0, 1, 4]]).all(), True)
 
     def test_ert(self):
         evals = [5000, 45000, 1000, 100, 10]
         budget = 10000
         ert, ert_sd, n_succ = utils.ert(evals, budget)
         self.assertEqual(n_succ, 4)
-        self.assertAlmostEqual(
-            ert, 12777.5
-        )
-        self.assertAlmostEqual(
-            ert_sd, 17484.642861665
-        )
+        self.assertAlmostEqual( ert, 12777.5)
+        self.assertAlmostEqual(ert_sd, 17484.642861665)
+
         for evals in ([50000], [], [int(1e10)]):    
             ert, ert_sd, n_succ = utils.ert(evals, budget)
             self.assertEqual(ert, float("inf"))

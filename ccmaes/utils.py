@@ -7,7 +7,6 @@ from datetime import datetime
 from functools import wraps
 from time import time
 
-from tqdm import tqdm
 import numpy as np
 
 from .bbob import bbobbenchmarks, fgeneric
@@ -281,14 +280,15 @@ def _scale_with_threshold(z, threshold):
     return z
 
 
-def _correct_bounds(x, ub, lb, corr_type):
+def _correct_bounds(x, ub, lb, correction_method):
     '''Bound correction function
     Rescales x to fall within the lower lb and upper
     bounds ub specified. Available strategies are:
-    - ignore: Don't perform any boundary correction
+    - None: Don't perform any boundary correction
     - unif_resample: Resample each coordinate out of bounds uniformly within bounds
     - mirror: Mirror each coordinate around the boundary
-    - COTN: Resample each coordinate out of bounds using the one-sided normal distribution with variance 1/3 (bounds scaled to [0,1])
+    - COTN: Resample each coordinate out of bounds using the one-sided normal 
+        distribution with variance 1/3 (bounds scaled to [0,1])
     - saturate: Set each out-of-bounds coordinate to the boundary
     - toroidal: Reflect the out-of-bounds coordinates to the oposite bound inwards
 
@@ -300,40 +300,41 @@ def _correct_bounds(x, ub, lb, corr_type):
         upper bound
     ub: float
         lower bound
-    corr_type: string
+    correction_method: string
         type of correction to perform
     Returns
     -------
     np.ndarray
         bound corrected version of x
+    bool
+        whether the population was out of bounds
     '''
     out_of_bounds = np.logical_or(x > ub, x < lb)
     if not any(out_of_bounds):
         return x, False
-    if corr_type == "ignore":
+    
+    if not correction_method:
         return x, True
 
-    
     ub, lb = ub[out_of_bounds].copy(), lb[out_of_bounds].copy()
     y = (x[out_of_bounds] - lb) / (ub - lb)
 
-    if corr_type == "mirror":
-        x[out_of_bounds] = lb + (
-            ub - lb) * np.abs(y - np.floor(y) - np.mod(np.floor(y), 2))
-    elif corr_type == "COTN":
-        x[out_of_bounds] = lb + (
-            ub - lb) * np.abs( (y > 0) - np.abs(np.random.normal(0, 1/3, size=y.shape)))
-    elif corr_type == "unif_resample":
-        x[out_of_bounds] = lb + (
-            ub - lb) * np.abs(np.random.uniform(0, 1, size=y.shape))
-    elif corr_type == "saturate":
-        x[out_of_bounds] = lb + (
-            ub - lb) * (y > 0)
-    elif corr_type == "toroidal":
-        x[out_of_bounds] = lb + (
-            ub - lb) * np.abs(y - np.floor(y))
+    if correction_method == "mirror":
+        x[out_of_bounds] = lb + (ub - lb) * np.abs(
+            y - np.floor(y) - np.mod(np.floor(y), 2))
+    elif correction_method == "COTN":
+        x[out_of_bounds] = lb + (ub - lb) * np.abs(
+            (y > 0) - np.abs(np.random.normal(0, 1/3, size=y.shape)))
+    elif correction_method == "unif_resample":
+        x[out_of_bounds] = np.random.uniform(lb, ub, size=y.shape)
+    elif correction_method == "saturate":
+        x[out_of_bounds] = lb + (ub - lb) * (y > 0)
+    elif correction_method == "toroidal":
+        x[out_of_bounds] = lb + (ub - lb) * np.abs(y - np.floor(y))
     else:
-        raise ValueError("Unknown argument for corr_type")
+        raise ValueError(
+            f"Unknown argument: {correction_method} for correction_method"
+        )
     return x, True
 
 
@@ -408,8 +409,8 @@ def evaluate(
 
     Parameters
     ----------
-    optimizer_class: Optimizer
-        An instance of Optimizer or a child thereof, i.e. ConfigurableCMAES
+    optimizer_class: ConfigurableCMAES
+        An instance of ConfigurableCMAES or a child thereof, i.e. ConfigurableCMAES
     fid: int
         The id of the function 1 - 24
     dim: int
@@ -451,7 +452,7 @@ def evaluate(
             "{}\nOptimizing function {} in {}D for target {} + {}"
             " with {} iterations."
     ).format(label, fid, dim, target, rtol, iterations))
-    for i in tqdm(range(iterations)): 
+    for _ in range(iterations): 
         func, target = bbobbenchmarks.instantiate(fid, iinstance=1)
         if not logging:
             fitness_func = func
@@ -489,4 +490,4 @@ def sphere_function(x, fopt=79.48):
     -------
     float
     '''
-    return (np.linalg.norm(x.flatten()) ** 2) + fopt
+    return (x.flatten() ** 2).sum() + fopt

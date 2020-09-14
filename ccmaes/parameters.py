@@ -77,18 +77,6 @@ class BIPOPParameters(AnnotatedStruct):
                 ) ** (np.random.random() ** 2)
             ).astype(int)
 
-    
-    
-
-class SimpleParameters(AnnotatedStruct):
-    '''Simple implementation of the parameter.Parameters object.
-    This object is required in order to allow correct subclassing of the
-    optimizer.Optimizer object'''
-    target: float
-    budget: int
-    fopt: float = float("inf")
-    used_budget: int = 0
-
 
 class Parameters(AnnotatedStruct):
     '''AnnotatedStruct object for holding the parameters for the Configurable CMAES
@@ -153,7 +141,7 @@ class Parameters(AnnotatedStruct):
             and S. Chen. Evolution strategies with thresheld convergence. In
             Evolutionary Computation (CEC), 2015 IEEE Congress on, pages 2097–
             2104, May 2015.
-    bound_correction: str = ('ignore', 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',)
+    bound_correction: str = (None, 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',)
         Specifying whether to use bound correction to enforce ub and lbs
     orthogonal: bool = False
         Specifying whether to use orthogonal sampling
@@ -295,14 +283,13 @@ class Parameters(AnnotatedStruct):
         The generation in where the last restart has occored
     max_resamples: int
         The maximum amount of resamples which can be done when 'dismiss'-boundary correction is used
-    corrections: int
-        The number of corrections which have been done because of boundary conditions
+    n_out_of_bounds: int
+        The number of individals that are sampled out of bounds
     '''
 
     d: int
     target: float = -float("inf")
     budget: int = None
-    corrections: int = None
     lambda_: int = None
     mu: int = None
     init_sigma: float = .5
@@ -323,7 +310,8 @@ class Parameters(AnnotatedStruct):
     elitist: bool = False
     sequential: bool = False
     threshold_convergence: bool = False
-    bound_correction:  ('ignore', 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',) = 'saturate'
+    bound_correction: (None, 'saturate', 'unif_resample', 
+                        'COTN', 'toroidal', 'mirror',) = 'saturate'
     orthogonal: bool = False
     local_restart: (None, 'IPOP', 'BIPOP',) = None
     base_sampler: ('gaussian', 'sobol', 'halton',) = 'gaussian'
@@ -394,7 +382,7 @@ class Parameters(AnnotatedStruct):
         are not to be restarted during a optimization run.
         '''
         self.used_budget = 0
-        self.corrections = 0
+        self.n_out_of_bounds = 0
         self.budget = self.budget or int(1e4) * self.d
         self.max_lambda_ = (self.d * self.lambda_) ** 2
         self.fopt = float("inf")

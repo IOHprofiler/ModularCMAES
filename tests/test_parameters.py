@@ -6,7 +6,7 @@ import pickle
 
 import numpy as np
 
-from ccmaes.parameters import SimpleParameters, Parameters
+from ccmaes.parameters import Parameters
 from ccmaes.utils import AnyOf, sphere_function
 from ccmaes.population import Population
 
@@ -40,14 +40,6 @@ class TestParameters(unittest.TestCase):
         self.p.used_budget += 11
         bp.adapt(self.p.used_budget) 
         self.assertEqual(bp.used_budget, 33)
-
-    def test_types(self):
-        parameters = SimpleParameters(.1, 100, .1, 0)
-        for name, type_ in zip(
-                ('target', 'budget', 'fopt', 'used_budget',),
-                (float, int, float, int)
-                ):
-            self.try_wrong_types(parameters, name, type_)
 
 
     def test_sampler(self):

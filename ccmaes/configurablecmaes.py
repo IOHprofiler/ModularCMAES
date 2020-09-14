@@ -1,11 +1,11 @@
 import numpy as np
-from .optimizer import Optimizer
+from typing import List, Callable
 from .utils import _correct_bounds, _scale_with_threshold, _tpa_mutation
 from .parameters import Parameters
 from .population import Population
 
 
-class ConfigurableCMAES(Optimizer):
+class ConfigurableCMAES:
     '''The main class of the configurable CMA ES continous optimizer. 
 
     Attributes
@@ -19,6 +19,8 @@ class ConfigurableCMAES(Optimizer):
         constructor of a ConfigurableCMAES are directly passed into
         the constructor of a Parameters object. 
     '''
+    parameters: "Parameters"
+    _fitness_func: Callable
 
     def __init__(
             self,
@@ -61,11 +63,12 @@ class ConfigurableCMAES(Optimizer):
 
             yi = np.dot(self.parameters.B, self.parameters.D * zi)
             xi = self.parameters.m + (self.parameters.sigma * yi)
-    #             if self.parameters.bound_correction:
-            xi, corrected = _correct_bounds(xi, self.parameters.ub, self.parameters.lb, self.parameters.bound_correction)
-            self.parameters.corrections += corrected
-                
             
+            xi, out_of_bounds = _correct_bounds(xi, self.parameters.ub, 
+                self.parameters.lb, self.parameters.bound_correction)
+
+            self.parameters.n_out_of_bounds += out_of_bounds
+                
             fi = yield yi, xi
             [a.append(v) for a, v in ((y, yi), (x, xi), (f, fi),)]
 
@@ -149,8 +152,8 @@ class ConfigurableCMAES(Optimizer):
 
     def step(self) -> bool:
         '''The step method runs one iteration of the optimization process.
-        The method is called within the self.run loop, as defined in the 
-        Optimizer parent class. In there, a while loop runs until this step 
+        The method is called within the self.run loop. 
+        In there, a while loop runs until this step 
         function returns a Falsy value. 
 
         Returns
@@ -189,3 +192,45 @@ class ConfigurableCMAES(Optimizer):
                         )
                     )
         return False
+
+    def run(self):
+        '''Runs the step method until step method retuns a falsy value
+
+        Returns
+        -------
+        ConfigurableCMAES
+        '''
+        while self.step():
+            pass
+        return self
+
+    @property
+    def break_conditions(self) -> List[bool]:
+        '''Returns a list with break conditions based on the
+        interal state (parameters) of the optimization algorithm.
+
+        Returns
+        -------
+        [bool, bool]
+        '''
+        return [
+            self.parameters.target >= self.parameters.fopt,
+            self.parameters.used_budget >= self.parameters.budget
+        ]
+
+    def fitness_func(self, x: np.ndarray) -> float:
+        '''Wrapper function for calling self._fitness_func
+        adds 1 to self.parameters.used_budget for each fitnes function
+        call.
+
+        Parameters
+        ----------
+        x: np.ndarray
+            array on which to call the objective/fitness function
+
+        Returns
+        -------        
+        float
+        '''
+        self.parameters.used_budget += 1
+        return self._fitness_func(x.flatten())
