@@ -16,7 +16,7 @@ Welcome to CCMAES's Documentation!
 .. automodapi:: ccmaes.utils
     :members:
 
-.. automodapi:: ccmaes.optimizer
+.. automodapi:: ccmaes.asktellcmaes
     :members:
 
 

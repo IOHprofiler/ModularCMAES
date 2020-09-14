@@ -1,6 +1,6 @@
 evaluate
 ========
 
-.. currentmodule:: ccmaes.utils
+.. currentmodule:: ccmaes.configurablecmaes
 
 .. autofunction:: evaluate

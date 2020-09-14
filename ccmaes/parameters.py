@@ -77,18 +77,6 @@ class BIPOPParameters(AnnotatedStruct):
                 ) ** (np.random.random() ** 2)
             ).astype(int)
 
-    
-    
-
-class SimpleParameters(AnnotatedStruct):
-    '''Simple implementation of the parameter.Parameters object.
-    This object is required in order to allow correct subclassing of the
-    optimizer.Optimizer object'''
-    target: float
-    budget: int
-    fopt: float = float("inf")
-    used_budget: int = 0
-
 
 class Parameters(AnnotatedStruct):
     '''AnnotatedStruct object for holding the parameters for the Configurable CMAES
@@ -153,8 +141,8 @@ class Parameters(AnnotatedStruct):
             and S. Chen. Evolution strategies with thresheld convergence. In
             Evolutionary Computation (CEC), 2015 IEEE Congress on, pages 2097–
             2104, May 2015.
-    bound_correction: str = ('ignore', 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',)
-        Specifying whether to use bound correction to enforce ub and lbs
+    bound_correction: str = (None, 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',)
+        Specifying whether to use bound correction to enforce ub and lb
     orthogonal: bool = False
         Specifying whether to use orthogonal sampling
             H. Wang, M. Emmerich, and T. Bäck. Mirrored Orthogonal Sampling
@@ -295,14 +283,13 @@ class Parameters(AnnotatedStruct):
         The generation in where the last restart has occored
     max_resamples: int
         The maximum amount of resamples which can be done when 'dismiss'-boundary correction is used
-    corrections: int
-        The number of corrections which have been done because of boundary conditions
+    n_out_of_bounds: int
+        The number of individals that are sampled out of bounds
     '''
 
     d: int
     target: float = -float("inf")
     budget: int = None
-    corrections: int = None
     lambda_: int = None
     mu: int = None
     init_sigma: float = .5
@@ -323,7 +310,8 @@ class Parameters(AnnotatedStruct):
     elitist: bool = False
     sequential: bool = False
     threshold_convergence: bool = False
-    bound_correction:  ('ignore', 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',) = 'saturate'
+    bound_correction: (None, 'saturate', 'unif_resample', 
+                        'COTN', 'toroidal', 'mirror',) = None
     orthogonal: bool = False
     local_restart: (None, 'IPOP', 'BIPOP',) = None
     base_sampler: ('gaussian', 'sobol', 'halton',) = 'gaussian'
@@ -394,10 +382,11 @@ class Parameters(AnnotatedStruct):
         are not to be restarted during a optimization run.
         '''
         self.used_budget = 0
-        self.corrections = 0
+        self.n_out_of_bounds = 0
         self.budget = self.budget or int(1e4) * self.d
         self.max_lambda_ = (self.d * self.lambda_) ** 2
         self.fopt = float("inf")
+        self.xopt = None
         self.t = 0
         self.sigma_over_time = []
         self.best_fopts = []
@@ -416,7 +405,6 @@ class Parameters(AnnotatedStruct):
         '''Initialization function for parameters that are of influence
         in selection/population control.
         '''
-
         self.lambda_ = self.lambda_ or (
             4 + np.floor(3 * np.log(self.d))).astype(int)
         self.mu = self.mu or self.lambda_ // 2
@@ -473,7 +461,6 @@ class Parameters(AnnotatedStruct):
             self.nweights.sum()**2 /
             (self.nweights ** 2).sum()
         )
-        self.set_default
         self.c1 = self.c1 or 2 / ((self.d + 1.3)**2 + self.mueff)
         self.cmu = self.cmu or  min(1 - self.c1, (
             2 * ((self.mueff - 2 + (1 / self.mueff)) /
@@ -612,7 +599,6 @@ class Parameters(AnnotatedStruct):
         self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
             self.cs * (2 - self.cs) * self.mueff
         ) * self.invC @ self.dm) * self.ps_factor)
-
         self.adapt_sigma()
         self.adapt_covariance_matrix()
         # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
@@ -741,8 +727,7 @@ class Parameters(AnnotatedStruct):
             self.population.f[0] == self.population.f[
                 self.flat_fitness_index
             ]
-         )
-
+        )
         self.t += 1
         self.sigma_over_time.append(self.sigma)
         self.best_fopts.append(self.fopt)

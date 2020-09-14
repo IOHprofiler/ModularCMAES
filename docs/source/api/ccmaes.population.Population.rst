@@ -10,7 +10,9 @@ Population
 
    .. autosummary::
 
+      ~Population.d
       ~Population.f
+      ~Population.n
       ~Population.x
       ~Population.y
 
@@ -23,7 +25,9 @@ Population
 
    .. rubric:: Attributes Documentation
 
+   .. autoattribute:: d
    .. autoattribute:: f
+   .. autoattribute:: n
    .. autoattribute:: x
    .. autoattribute:: y
 
