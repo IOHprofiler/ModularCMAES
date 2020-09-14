@@ -35,8 +35,8 @@ extensions = [
     'sphinx_automodapi.smart_resolver',
     'sphinx.ext.intersphinx'
 ]
-numpydoc_show_class_members = False
-
+# numpydoc_show_class_members = False
+master_doc = 'index'
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
