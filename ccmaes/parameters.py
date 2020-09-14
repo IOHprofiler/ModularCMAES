@@ -142,7 +142,7 @@ class Parameters(AnnotatedStruct):
             Evolutionary Computation (CEC), 2015 IEEE Congress on, pages 2097–
             2104, May 2015.
     bound_correction: str = (None, 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',)
-        Specifying whether to use bound correction to enforce ub and lbs
+        Specifying whether to use bound correction to enforce ub and lb
     orthogonal: bool = False
         Specifying whether to use orthogonal sampling
             H. Wang, M. Emmerich, and T. Bäck. Mirrored Orthogonal Sampling
@@ -311,7 +311,7 @@ class Parameters(AnnotatedStruct):
     sequential: bool = False
     threshold_convergence: bool = False
     bound_correction: (None, 'saturate', 'unif_resample', 
-                        'COTN', 'toroidal', 'mirror',) = 'saturate'
+                        'COTN', 'toroidal', 'mirror',) = None
     orthogonal: bool = False
     local_restart: (None, 'IPOP', 'BIPOP',) = None
     base_sampler: ('gaussian', 'sobol', 'halton',) = 'gaussian'
@@ -729,8 +729,7 @@ class Parameters(AnnotatedStruct):
             self.population.f[0] == self.population.f[
                 self.flat_fitness_index
             ]
-         )
-
+        )
         self.t += 1
         self.sigma_over_time.append(self.sigma)
         self.best_fopts.append(self.fopt)

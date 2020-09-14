@@ -1,9 +1,11 @@
+import os
+from datetime import datetime
+
 import numpy as np
 from typing import List, Callable
-from .utils import _correct_bounds, _scale_with_threshold, _tpa_mutation
 from .parameters import Parameters
 from .population import Population
-
+from .utils import bbobbenchmarks, timeit, fgeneric, ert, DISTANCE_TO_TARGET
 
 class ConfigurableCMAES:
     '''The main class of the configurable CMA ES continous optimizer. 
@@ -22,19 +24,13 @@ class ConfigurableCMAES:
     parameters: "Parameters"
     _fitness_func: Callable
 
-    def __init__(
-            self,
-            fitness_func,
-            *args,
-            parameters=None,
-            **kwargs
-    ) -> None:
+    def __init__(self, fitness_func, *args, parameters=None, **kwargs) -> None:
         self._fitness_func = fitness_func
         self.parameters = parameters if isinstance(
             parameters, Parameters
         ) else Parameters(*args, **kwargs)
 
-    def get_mutation_generator(self) -> None:
+    def mutate(self) -> None:
         '''Returns a mutation generator, which performs mutation.
         First, a directional vector zi is sampled from a sampler object
         as defined in the self.parameters object. Then, this zi vector is
@@ -69,7 +65,7 @@ class ConfigurableCMAES:
 
             self.parameters.n_out_of_bounds += out_of_bounds
                 
-            fi = yield yi, xi
+            fi = self.fitness_func(xi)
             [a.append(v) for a, v in ((y, yi), (x, xi), (f, fi),)]
 
             if self.sequential_break_conditions(i, fi):
@@ -79,18 +75,6 @@ class ConfigurableCMAES:
             np.hstack(x),
             np.hstack(y),
             np.array(f))
-
-    def mutate(self):
-        '''Method performing mutation and evaluation of a set of individuals. 
-        Collects the output of the mutation generator.
-        '''
-        mutation_generator = self.get_mutation_generator()
-        yi, xi = next(mutation_generator)
-        while True:
-            try:
-                yi, xi = mutation_generator.send(self.fitness_func(xi))
-            except StopIteration:
-                break
 
     def select(self) -> None:
         '''Selection of best individuals in the population
@@ -234,3 +218,210 @@ class ConfigurableCMAES:
         '''
         self.parameters.used_budget += 1
         return self._fitness_func(x.flatten())
+
+    def __repr__(self):
+        return f"<{self.__class__.__qualname__}: {self._fitness_func}>"
+
+    def __str__(self):
+        return repr(self)
+
+def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
+    '''Helper function for applying the tpa mutation step.
+    The code was mostly taken from the ModEA framework, 
+    and there a slight differences with the procedure as defined in:
+        Nikolaus Hansen. CMA-ES with two-point 
+        step-size adaptation.CoRR, abs/0805.0231,2008.
+    The function should not be used outside of the ConfigurableCMAES optimizer
+
+    Parameters
+    ----------
+    fitness_func: typing.Callable
+        A fitness function to be optimized
+    parameters: Parameters
+        A CCMAES Parameters object
+    x: list
+        A list of new individuals
+    y: list
+        A list of new mutation vectors
+    f: list
+        A list of fitnesses
+    '''
+
+    yi = ((parameters.m - parameters.m_old) /
+          parameters.sigma)
+    y.extend([yi, -yi])
+    x.extend([
+        parameters.m + (parameters.sigma * yi),
+        parameters.m + (parameters.sigma * -yi)
+    ])
+    f.extend(list(map(fitness_func, x)))
+    if f[1] < f[0]:
+        parameters.rank_tpa = -parameters.a_tpa
+    else:
+        parameters.rank_tpa = (
+            parameters.a_tpa + parameters.b_tpa)
+
+def _scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
+    '''Function for scaling a vector z to have length > threshold
+
+    Used for threshold convergence.
+
+    Parameters
+    ----------
+    z : np.ndarray
+        the vector to be scaled
+    threshold : float
+        the length threshold the vector should at least be
+
+    Returns
+    -------
+    np.ndarray
+        a scaled version of z
+    '''
+
+    length = np.linalg.norm(z)
+    if length < threshold:
+        new_length = threshold + (threshold - length)
+        z *= (new_length / length)
+    return z
+
+def _correct_bounds(x:np.ndarray, ub:float, 
+        lb:float, correction_method:str) -> np.ndarray:
+    '''Bound correction function
+    Rescales x to fall within the lower lb and upper
+    bounds ub specified. Available strategies are:
+    - None: Don't perform any boundary correction
+    - unif_resample: Resample each coordinate out of bounds uniformly within bounds
+    - mirror: Mirror each coordinate around the boundary
+    - COTN: Resample each coordinate out of bounds using the one-sided normal 
+        distribution with variance 1/3 (bounds scaled to [0,1])
+    - saturate: Set each out-of-bounds coordinate to the boundary
+    - toroidal: Reflect the out-of-bounds coordinates to the oposite bound inwards
+
+    Parameters 
+    ----------
+    x: np.ndarray
+        vector of which the bounds should be corrected
+    ub: float
+        upper bound
+    ub: float
+        lower bound
+    correction_method: string
+        type of correction to perform
+    Returns
+    -------
+    np.ndarray
+        bound corrected version of x
+    bool
+        whether the population was out of bounds
+    '''
+    out_of_bounds = np.logical_or(x > ub, x < lb)
+    if not any(out_of_bounds):
+        return x, False
+    
+    if not correction_method:
+        return x, True
+
+    ub, lb = ub[out_of_bounds].copy(), lb[out_of_bounds].copy()
+    y = (x[out_of_bounds] - lb) / (ub - lb)
+
+    if correction_method == "mirror":
+        x[out_of_bounds] = lb + (ub - lb) * np.abs(
+            y - np.floor(y) - np.mod(np.floor(y), 2))
+    elif correction_method == "COTN":
+        x[out_of_bounds] = lb + (ub - lb) * np.abs(
+            (y > 0) - np.abs(np.random.normal(0, 1/3, size=y.shape)))
+    elif correction_method == "unif_resample":
+        x[out_of_bounds] = np.random.uniform(lb, ub, size=y.shape)
+    elif correction_method == "saturate":
+        x[out_of_bounds] = lb + (ub - lb) * (y > 0)
+    elif correction_method == "toroidal":
+        x[out_of_bounds] = lb + (ub - lb) * np.abs(y - np.floor(y))
+    else:
+        raise ValueError(
+            f"Unknown argument: {correction_method} for correction_method"
+        )
+    return x, True
+
+@timeit
+def evaluate(
+        fid,
+        dim,
+        iterations=50,
+        label='',
+        logging=False,
+        data_folder=None,
+        seed=42,
+        instance=1,
+        **kwargs):
+    '''Helper function to evaluate a ConfigurableCMAES on the BBOB test suite. 
+
+    Parameters
+    ----------
+    fid: int
+        The id of the function 1 - 24
+    dim: int
+        The dimensionality of the problem
+    iterations: int = 50
+        The number of iterations to be performed.
+    label: str = ''
+        The label to be given to the run, used for logging with BBOB
+    logging: bool = False
+        Specifies whether to use logging
+    seed: int = 42 
+        The random seed to be used
+    instance: int = 1
+        The bbob function instance
+    **kwargs
+        These are directly passed into the instance of optimizer_class,
+        in this manner parameters can be specified for the optimizer. 
+
+    Returns
+    -------
+    list
+        The number of evaluations for each run of the optimizer
+    fopts
+        The best fitness values for each run of the optimizer
+    '''
+
+    evals, fopts = np.array([]), np.array([])
+    if seed:
+        np.random.seed(seed)
+    if logging:
+        label = 'D{}_{}_{}'.format(
+            dim, label, datetime.now().strftime("%B"))
+        data_location = os.path.join(data_folder if os.path.isdir(
+            data_folder or ''
+        ) else os.getcwd(), label)
+        fitness_func = fgeneric.LoggingFunction(data_location, label)
+    
+    rtol = DISTANCE_TO_TARGET[fid - 1]
+    func, target = bbobbenchmarks.instantiate(fid, iinstance=instance)
+    print((
+            "{}\nOptimizing function {} in {}D for target {} + {}"
+            " with {} iterations."
+    ).format(label, fid, dim, target, rtol, iterations))
+    for _ in range(iterations): 
+        func, target = bbobbenchmarks.instantiate(fid, iinstance=instance)
+        if not logging:
+            fitness_func = func
+        else:
+            target = fitness_func.setfun(
+                *(func, target)
+            ).ftarget
+        optimizer = ConfigurableCMAES(
+            fitness_func, dim, target + rtol, **kwargs).run()
+        evals = np.append(evals, optimizer.parameters.used_budget)
+        fopts = np.append(fopts, optimizer.parameters.fopt)
+    
+    result_string = (
+            "FCE:\t{:10.8f}\t{:10.4f}\n"
+            "ERT:\t{:10.4f}\t{:10.4f}\n"
+            "{}/{} runs reached target"
+    )
+    print(result_string.format(
+        np.mean(fopts), np.std(fopts), 
+        *ert(evals, optimizer.parameters.budget),
+        iterations    
+    ))
+    return evals, fopts

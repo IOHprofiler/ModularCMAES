@@ -1,7 +1,6 @@
 from argparse import ArgumentParser
 
-from .configurablecmaes import ConfigurableCMAES
-from .utils import evaluate
+from .configurablecmaes import ConfigurableCMAES, evaluate
 
 
 parser = ArgumentParser(
@@ -42,6 +41,4 @@ args = vars(parser.parse_args())
 for arg in (args.pop("arguments") or []):
     exec(arg, None, args)
 
-evaluate(
-    ConfigurableCMAES, **args
-)
+evaluate(**args)

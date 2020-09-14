@@ -1,4 +1,8 @@
+import os
+import shutil
+import io
 import unittest
+import unittest.mock
 from functools import partial
 
 import numpy as np
@@ -23,8 +27,6 @@ class TestConfigurableCMAESMeta(type):
                 
         clsdict[f"test_standard"] = gen_test('active', True)
         return super().__new__(classes, name, bases, clsdict)
-
-
 
 class TestConfigurableCMAES(
         unittest.TestCase, 
@@ -64,6 +66,75 @@ class TestConfigurableCMAES(
             c.parameters.max_iter = 5
             c.step()
 
+
+class TestConfigurableCMAESFunctions(unittest.TestCase):
+    def test_tpa_mutation(self):
+        class TpaParameters:
+            sigma = .4
+            rank_tpa = None
+            a_tpa = .3
+            b_tpa = 0
+            def __init__(self, m_factor=1.1):
+                self.m =  np.ones(5) * .5
+                self.m_old = self.m * m_factor
+        
+        p = TpaParameters()
+        x, y, f = [], [], []
+        configurablecmaes._tpa_mutation(utils.sphere_function, p, x, y, f)
+        for _, l in enumerate([x,y,f]):
+            self.assertEqual(len(l), 2)
+        
+        self.assertListEqual((-y[0]).tolist(), y[1].tolist())
+       
+        for xi, fi in zip(x, f):
+            self.assertEqual(utils.sphere_function(xi), fi)
+        
+        self.assertEqual(p.rank_tpa, p.a_tpa + p.b_tpa) 
+
+        p = TpaParameters(-2)
+        x, y, f = [], [], []
+        configurablecmaes._tpa_mutation(utils.sphere_function, p, x, y, f)
+        self.assertEqual(p.rank_tpa, -p.a_tpa)
+
+    def test_scale_with_treshold(self):
+        threshold = 5
+        z = np.ones(20)
+        new_z = configurablecmaes._scale_with_threshold(z.copy(), threshold)
+        new_z_norm = np.linalg.norm(new_z)
+        self.assertNotEqual((z == new_z).all(), True)
+        self.assertNotEqual(np.linalg.norm(z), new_z_norm)
+        self.assertGreater(new_z_norm, threshold)
+
+    def test_correct_bounds(self):
+        x = np.ones(5) * np.array([2, 4, 6, -7, 3])
+        ub, lb = np.ones(5) * 5, np.ones(5) * -5
+        disabled, *correction_methods = parameters.Parameters.__annotations__\
+            .get("bound_correction")
+        new_x, corrected = configurablecmaes._correct_bounds(x.copy(), ub, lb, disabled)
+
+        self.assertEqual((x == new_x).all(), True)
+        self.assertEqual(corrected, True)
+        
+        for correction_method in correction_methods:
+            new_x, corrected = configurablecmaes.\
+                _correct_bounds(x.copy(), ub, lb, correction_method)     
+            self.assertEqual(corrected, True)
+            self.assertNotEqual((x == new_x).all(), True)
+            self.assertGreaterEqual( np.min(new_x), -5)
+            self.assertLessEqual(np.max(new_x), 5)
+            self.assertEqual((x[[0, 1, 4]] == new_x[[0, 1, 4]]).all(), True)
+
+        with self.assertRaises(ValueError):
+            configurablecmaes._correct_bounds(x.copy(), ub, lb, "something_undefined")
+            
+    @unittest.mock.patch('sys.stdout', new_callable=io.StringIO)
+    def test_evaluate(self, mock_std):
+        data_folder = os.path.join(os.path.dirname(__file__), 'tmp')
+        if not os.path.isdir(data_folder):
+            os.mkdir(data_folder)
+        configurablecmaes.evaluate(1, 1, 1, logging=True, data_folder=data_folder)
+        shutil.rmtree(data_folder) 
+        configurablecmaes.evaluate(1, 1, 1)
 
 if __name__ == '__main__':
     unittest.main()
