@@ -5,6 +5,9 @@ from collections import deque
 from typing import Generator, TypeVar
 import numpy as np
 
+from inverse_covariance import QuicGraphicalLasso
+from scipy.linalg import fractional_matrix_power
+
 from . import utils, population
 from .utils import AnnotatedStruct
 from .sampling import (
@@ -14,6 +17,86 @@ from .sampling import (
     sobol_sampling,
     halton_sampling,
 )
+
+
+
+def perform_eigendecomp(X):
+    X = np.triu(X) + np.triu(X, 1).T
+    D, B = np.linalg.eigh(X)
+    D = np.sqrt(D.astype(complex).reshape(-1, 1)).real
+    inv_root = np.dot(B, D ** -1 * B.T)
+    return X, D, B, inv_root
+
+
+
+class RegularizationParameters(AnnotatedStruct):
+    "Holds the parameters for gl-CMA-ES"
+    tau: float = 1.
+
+    def __init__(self, d, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.B_ = np.eye(d)
+        self.C = np.eye(d)
+        self.D_ = np.ones((d, 1))
+        self.inv_root_C = np.eye(d)
+        self.inv_C = np.eye(d)
+
+        # Intialize first values
+        self.regularize(self.C, self.inv_root_C)
+
+    def regularize(self, C, inv_root_C) -> None: 
+        'inv_root_C = C**-1/2'
+        diag_inv_root_C = np.diag(fractional_matrix_power(C,-.5)) 
+        C_tilde = diag_inv_root_C * C * diag_inv_root_C.reshape(-1, 1)
+
+        P = np.linalg.inv(C)
+
+        diag_inv_root_P =  np.diag(fractional_matrix_power(P, -.5)) 
+        P_tilde = diag_inv_root_P * P * diag_inv_root_P.reshape(-1, 1)
+
+        W = (P_tilde < self.tau).astype(np.int) 
+
+        # print(W)
+        # argmin: (np.trace(C_tilde * theta) - np.log10(np.linalg.det(theta))) + (W * theta).sum()
+        # TODO: Ask the guy for the parameters for this
+        try:
+            model = QuicGraphicalLasso(
+                lam = W,
+                Theta0 = P,               # Initial guess for the inverse covariance matrix. 
+                Sigma0 = C_tilde,         # Initial guess for the covariance matrix.
+                mode = 'trace',
+                score_metric = 'kl',
+            ).fit(C_tilde)
+        except:
+            breakpoint()
+
+        prec = model.precision_
+
+        # from sklearn.covariance import graphical_lasso
+        # cov, prec = graphical_lasso(P, alpha=self.tau, cov_init=C_tilde)
+        P_reg = np.linalg.inv(prec)
+        
+        diag_root_C = np.sqrt(np.diag(C))
+        C_reg = diag_root_C * P_reg * diag_root_C.reshape(-1, 1)
+        self.C, self.D_, self.B_, self.inv_root_C = perform_eigendecomp(C_reg)
+
+        self.inv_C = np.diag(self.inv_root_C) * self.C * np.diag(self.inv_root_C).reshape(-1, 1)
+      
+        self.n_z = (self.inv_C > 0).sum()
+
+        
+
+        # print(C)
+        # print(C_reg)
+        # print(np.around(np.abs(C) - np.abs(C_reg), 3))
+        # print("Sum diff:", (np.abs(C) - np.abs(self.C)).sum())
+        # print("*"*80)
+        # breakpoint()
+        # if self.tau == 0.:
+        #     assert np.isclose(C, C_reg).all()
+
+
+
 
 
 class BIPOPParameters(AnnotatedStruct):
@@ -249,7 +332,7 @@ class Parameters(AnnotatedStruct):
         The eigenvectors of the covariance matrix C
     D: np.ndarray
         The eigenvalues of the covariance matrix C
-    invC: np.ndarray
+    inv_root_C: np.ndarray
         The result of C**-(1/2)
     s: float
         Used for TPA
@@ -305,7 +388,8 @@ class Parameters(AnnotatedStruct):
     init_threshold: float = 0.1
     decay_factor: float = 0.995
     max_resamples: int = 1000
-    
+   
+
     active: bool = False
     elitist: bool = False
     sequential: bool = False
@@ -318,6 +402,9 @@ class Parameters(AnnotatedStruct):
     mirrored: (None, 'mirrored', 'mirrored pairwise',) = None
     weights_option: ('default', '1/mu', '1/2^mu', ) = 'default'
     step_size_adaptation: ('csa', 'tpa', 'msr', ) = 'csa'
+    # New
+    regularization: bool = False
+    tau: float = 1.
     
     population: TypeVar('Population') = None
     old_population: TypeVar('Population') = None
@@ -375,8 +462,7 @@ class Parameters(AnnotatedStruct):
         if self.mirrored:
             sampler = mirrored_sampling(sampler)
         return sampler
-
-    
+ 
     def init_fixed_parameters(self) -> None:
         '''Initialization function for parameters that 
         are not to be restarted during a optimization run.
@@ -399,7 +485,6 @@ class Parameters(AnnotatedStruct):
                 self.budget,
                 self.mu / self.lambda_
         )
-
         
     def init_selection_parameters(self) -> None:
         '''Initialization function for parameters that are of influence
@@ -450,6 +535,7 @@ class Parameters(AnnotatedStruct):
         else:
             self.weights = (np.log((self.lambda_ + 1) / 2) -
                             np.log(np.arange(1, self.lambda_ + 1)))
+
         self.pweights = self.weights[:self.mu]
         self.nweights = self.weights[self.mu:]
 
@@ -505,12 +591,13 @@ class Parameters(AnnotatedStruct):
         self.dm = np.zeros(self.d)
         self.pc = np.zeros((self.d, 1))
         self.ps = np.zeros((self.d, 1))
-        self.B = np.eye(self.d)
+        self.B_ = np.eye(self.d)
         self.C = np.eye(self.d)
-        self.D = np.ones((self.d, 1))
-        self.invC = np.eye(self.d)
+        self.D_ = np.ones((self.d, 1))
+        self.inv_root_C = np.eye(self.d)
         self.s = 0
         self.rank_tpa = None
+        self.regularization_parameters = RegularizationParameters(self.d, self.tau)
 
     def adapt_sigma(self) -> None:
         '''Method to adapt the step size sigma. There are three variants in 
@@ -555,9 +642,20 @@ class Parameters(AnnotatedStruct):
             self.cc * (2 - self.cc) * self.mueff
         )) * self.dm
 
-        rank_one = (self.c1 * self.pc * self.pc.T)
-        old_C = (1 - (self.c1 * dhs) - self.c1 -
-                 (self.cmu * self.pweights.sum())) * self.C
+        c1 = self.c1 
+        cmu = self.cmu
+        if self.regularization:
+            nz = self.regularization_parameters.n_z
+            # c1 = 2 / (((nz/self.d + 1.3)*(self.d + 1.3)) + self.mueff)
+            # cmu = min(1 - c1, (
+            #     2 * (( (self.mueff + 1) / (self.mueff - 1.75)) /
+            #          (((nz/self.d + 2)*(self.d + 2)) + self.mueff))
+            # ))
+
+
+        rank_one = (c1 * self.pc * self.pc.T)
+        old_C = (1 - (c1 * dhs) - self.c1 -
+                 (cmu * self.pweights.sum())) * self.C
 
         if self.active:
             weights = self.weights[::].copy()
@@ -565,12 +663,12 @@ class Parameters(AnnotatedStruct):
             weights[weights < 0] = weights[weights < 0] * (
                 self.d /
                 np.power(np.linalg.norm(
-                    self.invC @  self.population.y[:, weights < 0], axis=0), 2)
+                    self.inv_root_C @  self.population.y[:, weights < 0], axis=0), 2)
             )
-            rank_mu = self.cmu * \
+            rank_mu = cmu * \
                 (weights * self.population.y @ self.population.y.T)
         else:
-            rank_mu = (self.cmu *
+            rank_mu = (cmu *
                        (self.pweights * self.population.y[:, :self.mu] @
                         self.population.y[:, :self.mu].T))
         self.C = old_C + rank_one + rank_mu
@@ -583,10 +681,7 @@ class Parameters(AnnotatedStruct):
         if np.isinf(self.C).any() or np.isnan(self.C).any() or (not 1e-16 < self.sigma < 1e6):
             self.init_dynamic_parameters()
         else:
-            self.C = np.triu(self.C) + np.triu(self.C, 1).T
-            self.D, self.B = np.linalg.eigh(self.C)
-            self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
-            self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
+            self.C, self.D_, self.B_, self.inv_root_C = perform_eigendecomp(self.C)
 
     def adapt(self) -> None:
         '''Method for adapting the internal state paramters. 
@@ -596,18 +691,28 @@ class Parameters(AnnotatedStruct):
         '''
 
         self.dm = (self.m - self.m_old) / self.sigma
+        inv_root_C = self.inv_root_C if not self.regularization else self.regularization_parameters.inv_root_C
+
         self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
             self.cs * (2 - self.cs) * self.mueff
-        ) * self.invC @ self.dm) * self.ps_factor)
+        ) * inv_root_C @ self.dm) * self.ps_factor)
+
+        
         self.adapt_sigma()
         self.adapt_covariance_matrix()
         # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
-        self.perform_eigendecomposition()
+
+        if self.regularization:
+            self.regularization_parameters.regularize(self.C, self.inv_root_C)
+        else:
+            self.perform_eigendecomposition()
+
         self.record_statistics()
         self.calculate_termination_criteria()
         self.old_population = self.population.copy()
         if any(self.termination_criteria.values()):
             self.perform_local_restart()
+        
 
     def perform_local_restart(self) -> None:
         '''Method performing local restart, given that a restart
@@ -635,6 +740,19 @@ class Parameters(AnnotatedStruct):
                 name for name, value in self.termination_criteria.items() if value
             )), RuntimeWarning)
 
+    
+    @property
+    def D(self):
+        if self.regularization:
+            return self.regularization_parameters.D_
+        return self.D_
+
+    @property
+    def B(self):
+        if self.regularization:
+            return self.regularization_parameters.B_
+        return self.B_
+    
     @property
     def threshold(self) -> None:
         '''Calculate threshold for mutation, used in threshold convergence.'''
@@ -765,11 +883,11 @@ class Parameters(AnnotatedStruct):
                     * d_sigma) < (self.tolx * self.init_sigma)
                 ),
                 "tolupsigma": (
-                    d_sigma > self.tolup_sigma * np.sqrt(self.D.max())
+                    d_sigma > self.tolup_sigma * np.sqrt(self.D_.max())
                 ),
                 "conditioncov": np.linalg.cond(self.C) > self.condition_cov,
                 "noeffectaxis": np.all((1 * self.sigma * np.sqrt(
-                    self.D[_t, 0]) * self.B[:, _t] + self.m) == self.m
+                    self.D_[_t, 0]) * self.B_[:, _t] + self.m) == self.m
                 ),
                 "noeffectcoor": np.any(
                     (.2 * self.sigma * np.sqrt(diag_C) + self.m) == self.m

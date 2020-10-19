@@ -357,6 +357,7 @@ def evaluate(
         data_folder=None,
         seed=42,
         instance=1,
+        verbose=False,
         **kwargs):
     '''Helper function to evaluate a ConfigurableCMAES on the BBOB test suite. 
 
@@ -405,7 +406,7 @@ def evaluate(
             "{}\nOptimizing function {} in {}D for target {} + {}"
             " with {} iterations."
     ).format(label, fid, dim, target, rtol, iterations))
-    for _ in range(iterations): 
+    for i in range(iterations): 
         func, target = bbobbenchmarks.instantiate(fid, iinstance=instance)
         if not logging:
             fitness_func = func
@@ -415,6 +416,8 @@ def evaluate(
             ).ftarget
         optimizer = ConfigurableCMAES(
             fitness_func, dim, target + rtol, **kwargs).run()
+        if verbose:
+            print(f"Run {i} {optimizer.parameters.used_budget}: {optimizer.parameters.fopt}")
         evals = np.append(evals, optimizer.parameters.used_budget)
         fopts = np.append(fopts, optimizer.parameters.fopt)
     
