@@ -106,3 +106,4 @@ venv.bak/
 data/
 deploy.sh
 x.py
+tmp.py

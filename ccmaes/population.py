@@ -9,6 +9,7 @@ class Population(AnnotatedStruct):
     '''AnnotatedStruct object for holding a Population of individuals. '''
     x: np.ndarray
     y: np.ndarray
+    z: np.ndarray
     f: np.ndarray
 
     def __init__(self, *args, **kwargs):
@@ -17,12 +18,14 @@ class Population(AnnotatedStruct):
         if len(self.x.shape) == 1:
             self.x = self.x.reshape(-1, 1)
             self.y = self.y.reshape(-1, 1)
+            self.z = self.z.reshape(-1, 1)
 
     def sort(self) -> None:
         '''Sorts the population according to their fitness values'''
         rank = np.argsort(self.f)
         self.x = self.x[:, rank]
         self.y = self.y[:, rank]
+        self.z = self.z[:, rank]
         self.f = self.f[rank]
 
     def copy(self) -> "Population":
@@ -32,7 +35,7 @@ class Population(AnnotatedStruct):
         ------
         Population
         '''
-        return Population(self.x, self.y, self.f)
+        return Population(self.x, self.y, self.z, self.f)
 
     def __add__(self, other: "Population") -> "Population":
         '''Adds two population objects with each other
@@ -55,6 +58,7 @@ class Population(AnnotatedStruct):
         return Population(
             np.hstack([self.x, other.x]),
             np.hstack([self.y, other.y]),
+            np.hstack([self.z, other.z]),
             np.append(self.f, other.f)
         )
 
@@ -76,12 +80,14 @@ class Population(AnnotatedStruct):
             return Population(
                 self.x[:, key].reshape(-1, 1),
                 self.y[:, key].reshape(-1, 1),
+                self.z[:, key].reshape(-1, 1),
                 np.array([self.f[key]])
             )
         elif isinstance(key, slice):
             return Population(
                 self.x[:, key.start: key.stop: key.step],
                 self.y[:, key.start: key.stop: key.step],
+                self.z[:, key.start: key.stop: key.step],
                 self.f[key.start: key.stop: key.step]
             )
         elif isinstance(key, list) and all(
@@ -89,6 +95,7 @@ class Population(AnnotatedStruct):
             return Population(
                 self.x[:, key],
                 self.y[:, key],
+                self.z[:, key],
                 self.f[key]
             )
         else:

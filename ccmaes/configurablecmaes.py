@@ -45,36 +45,43 @@ class ConfigurableCMAES:
         individuals are created.
 
         '''
-        y, x, f = [], [], []
+        z, y, x, f = [], [], [], []
         n_offspring = self.parameters.lambda_
         if self.parameters.step_size_adaptation == 'tpa' and self.parameters.old_population:
             n_offspring -= 2
             _tpa_mutation(self.fitness_func, self.parameters, x, y, f)
 
         for i in range(1, n_offspring + 1):
-            
             zi = next(self.parameters.sampler)
             if self.parameters.threshold_convergence:
                 zi = _scale_with_threshold(zi, self.parameters.threshold)
 
             yi = np.dot(self.parameters.B, self.parameters.D * zi)
-            xi = self.parameters.m + (self.parameters.sigma * yi)
             
+            xi = self.parameters.m + (self.parameters.sigma * yi)
+
             xi, out_of_bounds = _correct_bounds(xi, self.parameters.ub, 
                 self.parameters.lb, self.parameters.bound_correction)
 
             self.parameters.n_out_of_bounds += out_of_bounds
                 
             fi = self.fitness_func(xi)
-            [a.append(v) for a, v in ((y, yi), (x, xi), (f, fi),)]
+            [a.append(v) for a, v in ((z, zi),(y, yi), (x, xi), (f, fi),)]
 
             if self.sequential_break_conditions(i, fi):
                 break
-    
+
         self.parameters.population = Population(
             np.hstack(x),
             np.hstack(y),
-            np.array(f))
+            np.hstack(z),
+            np.array(f)
+        )
+
+        if self.parameters.hessian_estimation:
+            self.parameters.sampled_population = self.parameters.population.copy()
+        
+
 
     def select(self) -> None:
         '''Selection of best individuals in the population
@@ -127,12 +134,23 @@ class ConfigurableCMAES:
         combination of the current mu best individuals. 
         TODO: check if this should be moved to parameters
         '''
+        if self.parameters.hessian_estimation:
+            self.parameters.fm = self.fitness_func(self.parameters.m)
+
         self.parameters.m_old = self.parameters.m.copy()
         self.parameters.m = self.parameters.m_old + (1 * (
             (self.parameters.population.x[:, :self.parameters.mu] -
                 self.parameters.m_old) @
             self.parameters.pweights).reshape(-1, 1)
         )
+
+    @property
+    def p(self):
+        return self.parameters
+
+    @property
+    def pop(self):
+        return self.parameters.population
 
     def step(self) -> bool:
         '''The step method runs one iteration of the optimization process.
@@ -148,7 +166,7 @@ class ConfigurableCMAES:
 
         self.mutate()
         self.select()
-        self.recombine()
+        self.recombine()      
         self.parameters.adapt()
         return not any(self.break_conditions)
 

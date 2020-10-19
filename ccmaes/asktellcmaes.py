@@ -92,7 +92,7 @@ class AskTellCMAES(ConfigurableCMAES):
         indices, *_ = np.where((self.parameters.population.x == xi).all(axis=0)) 
         if len(indices) == 0:
             raise ValueError("Unkown xi provided")
-        
+
         for index in indices:
             if self.parameters.population.f[index] == None:
                 self.parameters.population.f[index] = fi
@@ -109,5 +109,3 @@ class AskTellCMAES(ConfigurableCMAES):
             self.mutate() 
 
  
-
-
