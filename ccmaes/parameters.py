@@ -4,6 +4,7 @@ import warnings
 from collections import deque
 from typing import Generator, TypeVar
 import numpy as np
+import scipy.linalg as la
 
 from . import utils, population
 from .utils import AnnotatedStruct
@@ -149,6 +150,9 @@ class Parameters(AnnotatedStruct):
             with Pairwise Selection in Evolution Strategies. In Proceedings of the
             29th Annual ACM Symposium on Applied Computing, pages 154–156.
             ACM, 2014.
+    hessian_estimation: bool = False
+        Whether to perform normal or Hessian Estimation Covariance Matrix Update
+            T. Glasmachers and O. Krause. The Hessian Estimation Evolution Strategy (2020).
     base_sampler: str = ('gaussian', 'sobol', 'halton',)
         Denoting which base sampler to use, 'sobol', 'halton' can
         be selected to sample from a quasi random sequence.
@@ -310,6 +314,7 @@ class Parameters(AnnotatedStruct):
     elitist: bool = False
     sequential: bool = False
     threshold_convergence: bool = False
+    hessian_estimation: bool = False
     bound_correction: (None, 'saturate', 'unif_resample', 
                         'COTN', 'toroidal', 'mirror',) = None
     orthogonal: bool = False
@@ -339,7 +344,8 @@ class Parameters(AnnotatedStruct):
         "base_sampler",
         "weights_option",
         "local_restart",
-        "bound_correction"
+        "bound_correction",
+        "hessian_estimation"
      )
 
     def __init__(self, *args, **kwargs) -> None:
@@ -365,18 +371,17 @@ class Parameters(AnnotatedStruct):
             "halton": halton_sampling,
         }.get(self.base_sampler, gaussian_sampling)(self.d)
 
-        if self.orthogonal:
+        if self.orthogonal or self.hessian_estimation:
             n_samples = max(1, (
                 self.lambda_ // (2 - (not self.mirrored))) - (
                     2 * self.step_size_adaptation == 'tpa')
             )
             sampler = orthogonal_sampling(sampler, n_samples)
 
-        if self.mirrored:
+        if self.mirrored or self.hessian_estimation:
             sampler = mirrored_sampling(sampler)
         return sampler
 
-    
     def init_fixed_parameters(self) -> None:
         '''Initialization function for parameters that 
         are not to be restarted during a optimization run.
@@ -399,7 +404,6 @@ class Parameters(AnnotatedStruct):
                 self.budget,
                 self.mu / self.lambda_
         )
-
         
     def init_selection_parameters(self) -> None:
         '''Initialization function for parameters that are of influence
@@ -407,6 +411,10 @@ class Parameters(AnnotatedStruct):
         '''
         self.lambda_ = self.lambda_ or (
             4 + np.floor(3 * np.log(self.d))).astype(int)
+
+        if self.hessian_estimation:
+            self.lambda_ = 2 * self.d# int(self.d * np.round(self.lambda_ / self.d))
+
         self.mu = self.mu or self.lambda_ // 2
         if self.mu > self.lambda_:
             raise AttributeError(
@@ -502,6 +510,7 @@ class Parameters(AnnotatedStruct):
 
         self.sigma = self.init_sigma
         self.m = np.random.rand(self.d, 1)
+       
         self.dm = np.zeros(self.d)
         self.pc = np.zeros((self.d, 1))
         self.ps = np.zeros((self.d, 1))
@@ -511,6 +520,10 @@ class Parameters(AnnotatedStruct):
         self.invC = np.eye(self.d)
         self.s = 0
         self.rank_tpa = None
+        
+        self.fm = float("inf")
+        self.A = np.eye(self.d)
+
 
     def adapt_sigma(self) -> None:
         '''Method to adapt the step size sigma. There are three variants in 
@@ -596,18 +609,48 @@ class Parameters(AnnotatedStruct):
         '''
 
         self.dm = (self.m - self.m_old) / self.sigma
+        
         self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
             self.cs * (2 - self.cs) * self.mueff
         ) * self.invC @ self.dm) * self.ps_factor)
+
         self.adapt_sigma()
-        self.adapt_covariance_matrix()
+
+        if not self.hessian_estimation:
+            self.adapt_covariance_matrix()
+        else:
+            self.adapt_covariance_matrix_hessian()
+
         # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
         self.perform_eigendecomposition()
+        
+
         self.record_statistics()
         self.calculate_termination_criteria()
         self.old_population = self.population.copy()
         if any(self.termination_criteria.values()):
             self.perform_local_restart()
+
+    def adapt_covariance_matrix_hessian(self) -> None:
+        'Implement hessian estimation'
+        sp = self.sampled_population
+        b = sp.y.T[::2]
+        norm = np.linalg.norm(b, axis=1)
+        hess = (sp.f[::2] + sp.f[1::2] - 2 * self.fm) / norm ** 2
+        self.maxupdate = 3.
+        self.lr_A = .5
+        max_h = np.max(hess)
+        if self.t % 50 == 0:
+            print(self.fopt, self.population.f[0], self.sigma)
+        if max_h > 0:
+            hess = np.maximum(hess,  max_h / self.maxupdate)
+            self.eigval = np.exp((np.log(hess) - np.mean(np.log(hess))) * self.lr_A * -.5)
+
+            G = np.zeros((self.d, self.d))
+            for i, e in enumerate(self.eigval):
+                G += e / norm[i]**2 * np.outer(b[i], b[i])
+            self.A = np.dot(self.A, G)
+            self.C = np.dot(self.A, self.A)
 
     def perform_local_restart(self) -> None:
         '''Method performing local restart, given that a restart
@@ -719,7 +762,6 @@ class Parameters(AnnotatedStruct):
         with open(filename, 'wb') as f:
             self.sampler = None
             pickle.dump(self, f)
-
 
     def record_statistics(self) -> None:
         'Method for recording metadata. '

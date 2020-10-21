@@ -8,4 +8,6 @@ Running optimizer
                    [-s SEED] [-a ARGUMENTS [ARGUMENTS ...]]`
 
 
-[Documentation](https://ccmaes.readthedocs.io/)
+# [Documentation](https://ccmaes.readthedocs.io/)
+
+
