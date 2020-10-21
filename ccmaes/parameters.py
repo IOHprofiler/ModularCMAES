@@ -19,19 +19,29 @@ from .sampling import (
 )
 
 
+import warnings
+warnings.filterwarnings("error")
 
 def perform_eigendecomp(X):
     X = np.triu(X) + np.triu(X, 1).T
     D, B = np.linalg.eigh(X)
-    D = np.sqrt(D.astype(complex).reshape(-1, 1)).real
-    inv_root = np.dot(B, D ** -1 * B.T)
-    return X, D, B, inv_root
+    if not (D >= 0).all():
+        D[D < 1e-9] = 1e-9
+        X = B.dot(np.diag(D)).dot(B)
+        print("correcting machine 0")
 
+    D = np.sqrt(D.astype(complex).reshape(-1, 1)).real
+    try:
+        inv_root = np.dot(B, np.power(D, -1) * B.T)
+    except RuntimeWarning:
+        raise
+        breakpoint()
+    return X, D, B, inv_root
 
 
 class RegularizationParameters(AnnotatedStruct):
     "Holds the parameters for gl-CMA-ES"
-    tau: float = 1.
+    tau: float = 0.1
 
     def __init__(self, d, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -42,58 +52,56 @@ class RegularizationParameters(AnnotatedStruct):
         self.inv_C = np.eye(d)
 
         # Intialize first values
-        self.regularize(self.C, self.inv_root_C)
+        self.regularize(self.C, self.inv_root_C, self.B_, self.D_)
 
-    def regularize(self, C, inv_root_C) -> None: 
+    def regularize(self, C, inv_root_C, B, D) -> None: 
         'inv_root_C = C**-1/2'
-        diag_inv_root_C = np.diag(fractional_matrix_power(C,-.5)) 
-        C_tilde = diag_inv_root_C * C * diag_inv_root_C.reshape(-1, 1)
-
+        diag_inv_root_C = np.diag(np.diag(inv_root_C))
+        C_tilde = diag_inv_root_C.dot(C).dot(diag_inv_root_C)
+        
         P = np.linalg.inv(C)
+        P, *_, inv_root_P = perform_eigendecomp(P)
 
-        diag_inv_root_P =  np.diag(fractional_matrix_power(P, -.5)) 
-        P_tilde = diag_inv_root_P * P * diag_inv_root_P.reshape(-1, 1)
-
+        diag_inv_root_P = np.diag(np.diag(inv_root_P))
+        P_tilde = diag_inv_root_P.dot(P).dot(diag_inv_root_P)
+        
         W = (P_tilde < self.tau).astype(np.int) 
-
-        # print(W)
         # argmin: (np.trace(C_tilde * theta) - np.log10(np.linalg.det(theta))) + (W * theta).sum()
-        # TODO: Ask the guy for the parameters for this
         try:
             model = QuicGraphicalLasso(
                 lam = W,
-                Theta0 = P,               # Initial guess for the inverse covariance matrix. 
-                Sigma0 = C_tilde,         # Initial guess for the covariance matrix.
-                mode = 'trace',
-                score_metric = 'kl',
+                Theta0 = P_tilde,                 # Initial guess for the inverse covariance matrix. 
+                Sigma0 = C_tilde,                 # Initial guess for the covariance matrix.
+                # mode = 'trace',
+                # score_metric  = 'kl',
+                # init_method = "cov"
             ).fit(C_tilde)
         except:
             breakpoint()
 
         prec = model.precision_
-
-        # from sklearn.covariance import graphical_lasso
-        # cov, prec = graphical_lasso(P, alpha=self.tau, cov_init=C_tilde)
-        P_reg = np.linalg.inv(prec)
+        C_reg = np.linalg.inv(prec)       
         
-        diag_root_C = np.sqrt(np.diag(C))
-        C_reg = diag_root_C * P_reg * diag_root_C.reshape(-1, 1)
+        diag_root_C = np.diag(np.reciprocal(np.diag(diag_inv_root_C)))
+
+        C_reg = diag_root_C.dot(C_reg).dot(diag_root_C)
+
         self.C, self.D_, self.B_, self.inv_root_C = perform_eigendecomp(C_reg)
-
-        self.inv_C = np.diag(self.inv_root_C) * self.C * np.diag(self.inv_root_C).reshape(-1, 1)
-      
-        self.n_z = (self.inv_C > 0).sum()
-
+        self.n_z = (prec > 0).sum()
         
 
+        # print(self.C)
         # print(C)
-        # print(C_reg)
-        # print(np.around(np.abs(C) - np.abs(C_reg), 3))
+        # print(np.around(np.abs(C) - np.abs(C), 3))
         # print("Sum diff:", (np.abs(C) - np.abs(self.C)).sum())
+        # print(self.D_)
         # print("*"*80)
+        # from time import sleep
+        # sleep(1)
+   
         # breakpoint()
         # if self.tau == 0.:
-        #     assert np.isclose(C, C_reg).all()
+        #     assert np.isclose(C, self.C).all()
 
 
 
@@ -164,210 +172,210 @@ class BIPOPParameters(AnnotatedStruct):
 class Parameters(AnnotatedStruct):
     '''AnnotatedStruct object for holding the parameters for the Configurable CMAES
 
-    Attributes
-    ----------
-    d: int
-        The dimensionality of the problem
-    target: float = -float("inf")
-        The absolute target of the optimization problem
-    lambda_: int = None
-        The number of offspring in the population
-    mu: int = None
-        The number of parents in the population
-    budget: int = None
-        The maximum number of iterations
-    init_sigma: float = .5
-        The initial value of sigma (step size)
-    a_tpa: float = .5
-        Parameter used in TPA
-    b_tpa: float = 0.
-        Parameter used in TPA
-    cs: float = None
-        Learning rate parameter for sigma
-    seq_cutoff_factor: int = 1
-        Used in sequential selection, the number of times mu individuals must be seen
-        before a sequential break can be performed
-    ub: np.array = None 
-        The upper bound, used for bound correction and threshold convergence
-    lb: np.array = None
-        The lower bound, used for bound correction and threshold convergence
-    init_threshold: float = 0.2
-        The initial length theshold used in treshold convergence
-    decay_factor: float = 0.995
-        The decay for the threshold used in threshold covergence
-    active: bool = False
-        Specifying whether to use active update.
-            G. Jastrebski, D. V. Arnold, et al. Improving evolution strategies through
-            active covariance matrix adaptation. In Evolutionary Computation (CEC),
-            2006 IEEE Congress on, pages 2814–2821. IEEE, 2006
-    elitist: bool = False
-        Specifying whether to use an elitist approachCMAES
-    mirrored: str = (None, 'mirrored', mirrored pairwise', )
-        Specifying whether to use mirrored sampling
-            D. Brockhoff, A. Auger, N. Hansen, D. V. CMAEST. Hohm.
-            Mirrored Sampling and Sequential SelectioCMAESion Strategies.
-            In R. Schaefer, C. Cotta, J. Kołodziej, aCMAESh, editors, Parallel
-            Problem Solving from Nature, PPSN XI: 11tCMAESnal Conference,
-            Kraków, Poland, September 11-15, 2010, PrCMAESart I, pages
-            11–21, Berlin, Heidelberg, 2010. SpringerCMAESelberg.
-    sequential: bool = False
-        Specifying whether to use sequential selection
-            D. Brockhoff, A. Auger, N. Hansen, D. V. Arnold, and T. Hohm.
-            Mirrored Sampling and Sequential Selection for Evolution Strategies.
-            In R. Schaefer, C. Cotta, J. Kołodziej, and G. Rudolph, editors, Parallel
-            Problem Solving from Nature, PPSN XI: 11th International Conference,
-            Kraków, Poland, September 11-15, 2010, Proceedings, Part I, pages
-            11–21, Berlin, Heidelberg, 2010. Springer Berlin Heidelberg.
-    threshold_convergence: bool = False
-        Specifying whether to use threshold convergence
-            A. Piad-Morffis, S. Estevez-Velarde, A. Bolufe-Rohler, J. Montgomery,
-            and S. Chen. Evolution strategies with thresheld convergence. In
-            Evolutionary Computation (CEC), 2015 IEEE Congress on, pages 2097–
-            2104, May 2015.
-    bound_correction: str = (None, 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',)
-        Specifying whether to use bound correction to enforce ub and lb
-    orthogonal: bool = False
-        Specifying whether to use orthogonal sampling
-            H. Wang, M. Emmerich, and T. Bäck. Mirrored Orthogonal Sampling
-            with Pairwise Selection in Evolution Strategies. In Proceedings of the
-            29th Annual ACM Symposium on Applied Computing, pages 154–156.
-            ACM, 2014.
-    base_sampler: str = ('gaussian', 'sobol', 'halton',)
-        Denoting which base sampler to use, 'sobol', 'halton' can
-        be selected to sample from a quasi random sequence.
-            A. Auger, M. Jebalia, and O. Teytaud. Algorithms (x, sigma, eta):
-            random mutations for evolution strategies. In Artificial Evolution:
-            7th International Conference, Revised Selected Papers, pages 296–307.
-            Springer, 2006.
-    weights_option: str = ('default', '1/mu', '1/2^mu', )
-        Denoting the recombination weigths to be used.
-            Sander van Rijn, Hao Wang, Matthijs van Leeuwen, and Thomas Bäck. 2016.
-            Evolving the Structure of Evolution Strategies. Computer 49, 5 (May 2016), 54–63.
-    step_size_adaptation: str = ('csa', 'tpa', 'msr', )
-        Specifying which step size adaptation mechanism should be used.
-        csa:
-            Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR, abs/1604.00772, 2016
-        tpa:
-            Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, abs/0805.0231,2008.
-        msr:
-            Ouassim Ait Elhara, Anne Auger, and Nikolaus Hansen.
-            A Median Success Rule for Non-Elitist Evolution Strategies: Study of Feasibility.
-            In Blum et al. Christian, editor,Genetic and Evolutionary Computation Conference,
-            pages 415–422, Amsterdam, Nether-lands, July 2013. ACM, ACM Press.
-    local_restart: str = (None, 'IPOP', )
-        Specifying which local restart strategy should be used
-            IPOP:
-                Anne Auger and Nikolaus Hansen. A restart cma evolution strategy
-                with increasing population size. volume 2, pages 1769–1776, 01 2005
-    population: TypeVar('Population') = None
-        The current population of individuals
-    old_population: TypeVar('Population') = None
-        The old population of individuals
-    termination_criteria: dict = {}
-        A dictionary of termination criteria
-    ipop_factor: int = 2
-        The factor to increase the population after each resart (IPOP)
-    tolx: float = 10e-12
-        Use to compute restart condition
-    tolup_sigma: float = 10e20
-        Use to compute restart condition
-    condition_cov: float = 10e14
-        Use to compute restart condition
-    ps_factor: float = 1.
-        Determines the frequence of exploration/expliotation
-        1 is neutral, lower is more expliotative, higher is more explorative
-    sampler: generator
-        A generator object producing new samples
-    used_budget: int
-        The number of function evaluations used
-    fopt: float
-        The fitness of the current best individual
-    budget: int
-        The maximum number of objective function evaluations
-    target: float
-        The target value up until which to optimize
-    t: int
-        The number of generations
-    sigma_over_time: list
-        The value sigma has in each generation
-    best_fopts: list
-        The value of fopt in each generation
-    median_fitnesses: list
-        The median fitness value in each generation
-    best_fitnesses: list
-        The best fitness value observed in each generation
-    flat_fitnesses = deque
-        A deque containing boolean values denoting if a flat fitness value is observed
-        in recent generations
-    restarts: list
-        A list containing the t values (generations) where a restart has
-        taken place
-    seq_cutoff: int
-        The number of individuals that must be seen before a sequential break can be performed
-    diameter: float
-        The diameter of the search space
-    max_iter: float
-        The maximum number of iterations that can occur between two restarts.
-    nbin: int
-        Used to determine a window for equal function values
-    n_stagnation: int
-        Used to determine a window for stagnation
-    flat_fitness_index: int
-        Used to determine which ranked individual should be
-        the same as the first indivual in order to determine
-        flat fitness values.
-    sigma: float
-        The step size
-    m: np.ndarray
-        The mean value of the individuals
-    dm: np.ndarray
-        The difference in the new mean value of the individuals versus the old mean value.
-    pc: np.ndarray
-        The evolution path
-    ps: np.ndarray
-        The conjugate evolution path
-    C: np.ndarray
-        The covariance matrix
-    B: np.ndarray
-        The eigenvectors of the covariance matrix C
-    D: np.ndarray
-        The eigenvalues of the covariance matrix C
-    inv_root_C: np.ndarray
-        The result of C**-(1/2)
-    s: float
-        Used for TPA
-    rank_tpa: float
-        Used for TPA
-    weights: np.ndarray
-        The recombination weights.
-    pweights: np.ndarray
-        The positive recombination weights.
-    nweights: np.ndarray
-        The negative recombination weights, used in active update
-    mueff: float
-        The variance effective selection mass
-    c1: float
-        Learning rate for the rank-one update
-    cc: float
-        Learning rate for the rank-one update
-    cmu: float
-        Learning rate for the rank-mu update
-    cs: float
-        Learning rate for the cumulation of the step size control
-    damps: float
-        Used for adapting sigma with csa
-    chiN: np.ndarray
-        Value approaching E||N(0,I)||
-    ds: float
-        Used for msr
-    threshold: float
-        The length threshold used in threshold convergence
-    last_restart: int
-        The generation in where the last restart has occored
-    max_resamples: int
-        The maximum amount of resamples which can be done when 'dismiss'-boundary correction is used
-    n_out_of_bounds: int
-        The number of individals that are sampled out of bounds
+        Attributes
+        ----------
+        d: int
+            The dimensionality of the problem
+        target: float = -float("inf")
+            The absolute target of the optimization problem
+        lambda_: int = None
+            The number of offspring in the population
+        mu: int = None
+            The number of parents in the population
+        budget: int = None
+            The maximum number of iterations
+        init_sigma: float = .5
+            The initial value of sigma (step size)
+        a_tpa: float = .5
+            Parameter used in TPA
+        b_tpa: float = 0.
+            Parameter used in TPA
+        cs: float = None
+            Learning rate parameter for sigma
+        seq_cutoff_factor: int = 1
+            Used in sequential selection, the number of times mu individuals must be seen
+            before a sequential break can be performed
+        ub: np.array = None 
+            The upper bound, used for bound correction and threshold convergence
+        lb: np.array = None
+            The lower bound, used for bound correction and threshold convergence
+        init_threshold: float = 0.2
+            The initial length theshold used in treshold convergence
+        decay_factor: float = 0.995
+            The decay for the threshold used in threshold covergence
+        active: bool = False
+            Specifying whether to use active update.
+                G. Jastrebski, D. V. Arnold, et al. Improving evolution strategies through
+                active covariance matrix adaptation. In Evolutionary Computation (CEC),
+                2006 IEEE Congress on, pages 2814–2821. IEEE, 2006
+        elitist: bool = False
+            Specifying whether to use an elitist approachCMAES
+        mirrored: str = (None, 'mirrored', mirrored pairwise', )
+            Specifying whether to use mirrored sampling
+                D. Brockhoff, A. Auger, N. Hansen, D. V. CMAEST. Hohm.
+                Mirrored Sampling and Sequential SelectioCMAESion Strategies.
+                In R. Schaefer, C. Cotta, J. Kołodziej, aCMAESh, editors, Parallel
+                Problem Solving from Nature, PPSN XI: 11tCMAESnal Conference,
+                Kraków, Poland, September 11-15, 2010, PrCMAESart I, pages
+                11–21, Berlin, Heidelberg, 2010. SpringerCMAESelberg.
+        sequential: bool = False
+            Specifying whether to use sequential selection
+                D. Brockhoff, A. Auger, N. Hansen, D. V. Arnold, and T. Hohm.
+                Mirrored Sampling and Sequential Selection for Evolution Strategies.
+                In R. Schaefer, C. Cotta, J. Kołodziej, and G. Rudolph, editors, Parallel
+                Problem Solving from Nature, PPSN XI: 11th International Conference,
+                Kraków, Poland, September 11-15, 2010, Proceedings, Part I, pages
+                11–21, Berlin, Heidelberg, 2010. Springer Berlin Heidelberg.
+        threshold_convergence: bool = False
+            Specifying whether to use threshold convergence
+                A. Piad-Morffis, S. Estevez-Velarde, A. Bolufe-Rohler, J. Montgomery,
+                and S. Chen. Evolution strategies with thresheld convergence. In
+                Evolutionary Computation (CEC), 2015 IEEE Congress on, pages 2097–
+                2104, May 2015.
+        bound_correction: str = (None, 'saturate', 'unif_resample', 'COTN', 'toroidal', 'mirror',)
+            Specifying whether to use bound correction to enforce ub and lb
+        orthogonal: bool = False
+            Specifying whether to use orthogonal sampling
+                H. Wang, M. Emmerich, and T. Bäck. Mirrored Orthogonal Sampling
+                with Pairwise Selection in Evolution Strategies. In Proceedings of the
+                29th Annual ACM Symposium on Applied Computing, pages 154–156.
+                ACM, 2014.
+        base_sampler: str = ('gaussian', 'sobol', 'halton',)
+            Denoting which base sampler to use, 'sobol', 'halton' can
+            be selected to sample from a quasi random sequence.
+                A. Auger, M. Jebalia, and O. Teytaud. Algorithms (x, sigma, eta):
+                random mutations for evolution strategies. In Artificial Evolution:
+                7th International Conference, Revised Selected Papers, pages 296–307.
+                Springer, 2006.
+        weights_option: str = ('default', '1/mu', '1/2^mu', )
+            Denoting the recombination weigths to be used.
+                Sander van Rijn, Hao Wang, Matthijs van Leeuwen, and Thomas Bäck. 2016.
+                Evolving the Structure of Evolution Strategies. Computer 49, 5 (May 2016), 54–63.
+        step_size_adaptation: str = ('csa', 'tpa', 'msr', )
+            Specifying which step size adaptation mechanism should be used.
+            csa:
+                Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR, abs/1604.00772, 2016
+            tpa:
+                Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, abs/0805.0231,2008.
+            msr:
+                Ouassim Ait Elhara, Anne Auger, and Nikolaus Hansen.
+                A Median Success Rule for Non-Elitist Evolution Strategies: Study of Feasibility.
+                In Blum et al. Christian, editor,Genetic and Evolutionary Computation Conference,
+                pages 415–422, Amsterdam, Nether-lands, July 2013. ACM, ACM Press.
+        local_restart: str = (None, 'IPOP', )
+            Specifying which local restart strategy should be used
+                IPOP:
+                    Anne Auger and Nikolaus Hansen. A restart cma evolution strategy
+                    with increasing population size. volume 2, pages 1769–1776, 01 2005
+        population: TypeVar('Population') = None
+            The current population of individuals
+        old_population: TypeVar('Population') = None
+            The old population of individuals
+        termination_criteria: dict = {}
+            A dictionary of termination criteria
+        ipop_factor: int = 2
+            The factor to increase the population after each resart (IPOP)
+        tolx: float = 10e-12
+            Use to compute restart condition
+        tolup_sigma: float = 10e20
+            Use to compute restart condition
+        condition_cov: float = 10e14
+            Use to compute restart condition
+        ps_factor: float = 1.
+            Determines the frequence of exploration/expliotation
+            1 is neutral, lower is more expliotative, higher is more explorative
+        sampler: generator
+            A generator object producing new samples
+        used_budget: int
+            The number of function evaluations used
+        fopt: float
+            The fitness of the current best individual
+        budget: int
+            The maximum number of objective function evaluations
+        target: float
+            The target value up until which to optimize
+        t: int
+            The number of generations
+        sigma_over_time: list
+            The value sigma has in each generation
+        best_fopts: list
+            The value of fopt in each generation
+        median_fitnesses: list
+            The median fitness value in each generation
+        best_fitnesses: list
+            The best fitness value observed in each generation
+        flat_fitnesses = deque
+            A deque containing boolean values denoting if a flat fitness value is observed
+            in recent generations
+        restarts: list
+            A list containing the t values (generations) where a restart has
+            taken place
+        seq_cutoff: int
+            The number of individuals that must be seen before a sequential break can be performed
+        diameter: float
+            The diameter of the search space
+        max_iter: float
+            The maximum number of iterations that can occur between two restarts.
+        nbin: int
+            Used to determine a window for equal function values
+        n_stagnation: int
+            Used to determine a window for stagnation
+        flat_fitness_index: int
+            Used to determine which ranked individual should be
+            the same as the first indivual in order to determine
+            flat fitness values.
+        sigma: float
+            The step size
+        m: np.ndarray
+            The mean value of the individuals
+        dm: np.ndarray
+            The difference in the new mean value of the individuals versus the old mean value.
+        pc: np.ndarray
+            The evolution path
+        ps: np.ndarray
+            The conjugate evolution path
+        C: np.ndarray
+            The covariance matrix
+        B: np.ndarray
+            The eigenvectors of the covariance matrix C
+        D: np.ndarray
+            The eigenvalues of the covariance matrix C
+        inv_root_C: np.ndarray
+            The result of C**-(1/2)
+        s: float
+            Used for TPA
+        rank_tpa: float
+            Used for TPA
+        weights: np.ndarray
+            The recombination weights.
+        pweights: np.ndarray
+            The positive recombination weights.
+        nweights: np.ndarray
+            The negative recombination weights, used in active update
+        mueff: float
+            The variance effective selection mass
+        c1: float
+            Learning rate for the rank-one update
+        cc: float
+            Learning rate for the rank-one update
+        cmu: float
+            Learning rate for the rank-mu update
+        cs: float
+            Learning rate for the cumulation of the step size control
+        damps: float
+            Used for adapting sigma with csa
+        chiN: np.ndarray
+            Value approaching E||N(0,I)||
+        ds: float
+            Used for msr
+        threshold: float
+            The length threshold used in threshold convergence
+        last_restart: int
+            The generation in where the last restart has occored
+        max_resamples: int
+            The maximum amount of resamples which can be done when 'dismiss'-boundary correction is used
+        n_out_of_bounds: int
+            The number of individals that are sampled out of bounds
     '''
 
     d: int
@@ -645,14 +653,18 @@ class Parameters(AnnotatedStruct):
         c1 = self.c1 
         cmu = self.cmu
         if self.regularization:
-            nz = self.regularization_parameters.n_z
-            # c1 = 2 / (((nz/self.d + 1.3)*(self.d + 1.3)) + self.mueff)
-            # cmu = min(1 - c1, (
-            #     2 * (( (self.mueff + 1) / (self.mueff - 1.75)) /
-            #          (((nz/self.d + 2)*(self.d + 2)) + self.mueff))
-            # ))
-
-
+            nzd = self.regularization_parameters.n_z / self.d
+            c1 = 2 / (
+                (nzd + 1.3) * (self.d + 1.3) + self.mueff
+            )
+            cmu = min(1 - c1, (
+                2 * ( (self.mueff + 1 / self.mueff - 1.75) / (
+                        (nzd + 2) * (self.d + 2) + self.mueff
+                        )
+                    )
+                )
+            )
+ 
         rank_one = (c1 * self.pc * self.pc.T)
         old_C = (1 - (c1 * dhs) - self.c1 -
                  (cmu * self.pweights.sum())) * self.C
@@ -671,7 +683,9 @@ class Parameters(AnnotatedStruct):
             rank_mu = (cmu *
                        (self.pweights * self.population.y[:, :self.mu] @
                         self.population.y[:, :self.mu].T))
+
         self.C = old_C + rank_one + rank_mu
+
 
     def perform_eigendecomposition(self) -> None:
         '''Method to perform eigendecomposition
@@ -691,7 +705,8 @@ class Parameters(AnnotatedStruct):
         '''
 
         self.dm = (self.m - self.m_old) / self.sigma
-        inv_root_C = self.inv_root_C if not self.regularization else self.regularization_parameters.inv_root_C
+        inv_root_C = self.inv_root_C if not self.regularization \
+            else self.regularization_parameters.inv_root_C
 
         self.ps = ((1 - self.cs) * self.ps + (np.sqrt(
             self.cs * (2 - self.cs) * self.mueff
@@ -700,12 +715,14 @@ class Parameters(AnnotatedStruct):
         
         self.adapt_sigma()
         self.adapt_covariance_matrix()
-        # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
 
-        if self.regularization:
-            self.regularization_parameters.regularize(self.C, self.inv_root_C)
-        else:
+        # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
+        if self.t % 5 == 0:
             self.perform_eigendecomposition()
+
+            if self.regularization:
+                self.regularization_parameters.regularize(
+                    self.C, self.inv_root_C, self.B_, self.D_)
 
         self.record_statistics()
         self.calculate_termination_criteria()
