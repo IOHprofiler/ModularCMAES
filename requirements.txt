@@ -1,5 +1,5 @@
 coverage==5.0.3
 ghalton==0.6.2
 numpy>=1.18.5
-scipy==1.5.3
+scipy>=1.4.1
 sobol-seq==0.2.0
