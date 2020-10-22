@@ -27,7 +27,7 @@ def perform_eigendecomp(X):
     D, B = np.linalg.eigh(X)
     if not (D >= 0).all():
         D[D < 1e-9] = 1e-9
-        X = B.dot(np.diag(D)).dot(B)
+        X = B.dot(np.diag(D)).dot(B.T)
         print("correcting machine 0")
 
     D = np.sqrt(D.astype(complex).reshape(-1, 1)).real
