@@ -402,10 +402,10 @@ def evaluate(
     
     rtol = DISTANCE_TO_TARGET[fid - 1]
     func, target = bbobbenchmarks.instantiate(fid, iinstance=instance)
-    print((
-            "{}\nOptimizing function {} in {}D for target {} + {}"
-            " with {} iterations."
-    ).format(label, fid, dim, target, rtol, iterations))
+    runmsg = "{} fid: {}, {}D\nTarget: {} + {}, {} iterations.".format(
+        label, fid, dim, target, rtol, iterations
+    )
+    print(runmsg)
     for i in range(iterations): 
         func, target = bbobbenchmarks.instantiate(fid, iinstance=instance)
         if not logging:
@@ -425,10 +425,10 @@ def evaluate(
             "FCE:\t{:10.8f}\t{:10.4f}\n"
             "ERT:\t{:10.4f}\t{:10.4f}\n"
             "{}/{} runs reached target"
-    )
-    print(result_string.format(
+    ).format(
         np.mean(fopts), np.std(fopts), 
         *ert(evals, optimizer.parameters.budget),
         iterations    
-    ))
-    return evals, fopts
+    )
+    print(result_string)
+    return evals, fopts, f"{runmsg}\n{result_string}"
