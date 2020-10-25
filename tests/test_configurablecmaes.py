@@ -132,9 +132,9 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
         data_folder = os.path.join(os.path.dirname(__file__), 'tmp')
         if not os.path.isdir(data_folder):
             os.mkdir(data_folder)
-        configurablecmaes.evaluate(1, 1, 1, logging=True, data_folder=data_folder)
+        configurablecmaes.evaluate(1, 2, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder) 
-        configurablecmaes.evaluate(1, 1, 1)
+        configurablecmaes.evaluate(1, 2, 1)
 
 
 if __name__ == '__main__':

@@ -98,6 +98,9 @@ class RegularizationParameters(AnnotatedStruct):
         Args:
             C (np.ndarray): a covariance matrix
         """        
+        if self.d == 1:
+            return C
+            
         C_tilde = self.get_correlation_matrix(C)
         P = linalg.inv(C_tilde)
         P_tilde = self.get_correlation_matrix(P)
@@ -943,7 +946,7 @@ class Parameters(AnnotatedStruct):
                 "tolupsigma": (
                     d_sigma > self.tolup_sigma * np.sqrt(self.D_.max())
                 ),
-                "conditioncov": linalg.cond(self.C) > self.condition_cov,
+                "conditioncov": np.linalg.cond(self.C) > self.condition_cov,
                 "noeffectaxis": np.all((1 * self.sigma * np.sqrt(
                     self.D_[_t, 0]) * self.B_[:, _t] + self.m) == self.m
                 ),

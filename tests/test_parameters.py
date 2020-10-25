@@ -65,7 +65,7 @@ class TestParameters(unittest.TestCase):
             if type(m) == AnyOf:
                 for o in m.options:
                     setattr(self.p, module, o)
-                    Parameters(1, **{module:o})
+                    Parameters(2, **{module:o})
 
     def step(self):     
         y = np.random.rand(self.p.lambda_, self.p.d).T 
