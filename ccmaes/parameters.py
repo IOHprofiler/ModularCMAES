@@ -39,109 +39,6 @@ def perform_eigendecomp(X):
     return X, D, B, inv_root
 
 
-class RegularizationParameters(AnnotatedStruct):
-    ''' Holds the parameters for gl-CMA-ES
-    
-        Attributes
-        ----------
-        d: int
-            The dimensionality of the problem
-        mueff: float
-            The variance effective selection mass
-        tau: float
-            Threshold for applying regularization
-        alpha: float
-            Regularization factor        
-    ''' 
-    d:int = None
-    mueff:float = None
-    tau: float = None
-    alpha: float = None
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.B_ = np.eye(self.d)
-        self.C = np.eye(self.d)
-        self.D_ = np.ones((self.d, 1))
-        self.inv_root_C_ = np.eye(self.d)
-
-        # Intialize first values
-        self.regularize(self.C)
-
-
-    @staticmethod
-    def get_correlation_matrix(covariance: np.ndarray) -> np.ndarray:
-        """Method to calculate a correlation matrix from a covariance matrix
-
-        Args:
-            covariance (np.ndarray): a covariance matrix
-
-        Returns:
-            np.ndarray: The correlation matrix
-        """        
-        v = np.sqrt(np.diag(covariance))
-        correlation = covariance / np.outer(v, v)
-        correlation[covariance == 0] = 0
-        return correlation
-
-    def regularize(self, C: np.ndarray) -> None: 
-        """Method to perform regularization on C, which is a covariance matrix
-        Differences from paper:
-            1. A2, Covariance matrix is correlation matrix
-            2. Custom init method for QuicGraphicalLasso
-            3. P_tilde is also a correlation matrix, not diagP^-1/2 P diagP^-1/2
-            4. W is absolute, and scaled with alpha
-            5. nz is computed differently            
-            6. Weights, c1 and cmu are compute differently, 
-                I implemented the one from the paper, that looked cleaner
-
-        Args:
-            C (np.ndarray): a covariance matrix
-        """        
-        if self.d == 1:
-            return C
-            
-        C_tilde = self.get_correlation_matrix(C)
-        P = linalg.inv(C_tilde)
-        P_tilde = self.get_correlation_matrix(P)
-        
-        W = (np.abs(P_tilde) < self.tau).astype(np.int) * self.alpha
-        model = QuicGraphicalLasso(
-            lam = W,
-            Theta0 = P,                 # Initial guess for the inverse covariance matrix. 
-            Sigma0 = C_tilde,           # Initial guess for the covariance matrix.
-            init_method=lambda x: (x.copy(), np.max(np.abs(np.triu(x)))) # this was copied from the script from the author
-        ).fit(C_tilde)
-
-        diag_root_C = np.diag(np.sqrt(np.diag(C)))
-
-        self.C = diag_root_C.dot(model.covariance_).dot(diag_root_C.T)
-        self.C, self.D_, self.B_, self.inv_root_C_ = perform_eigendecomp(self.C)
-        
-        if self.tau == 0.:
-            # Not really nescessary, just a sanity check
-            # assert np.isclose(self.C, C).all()
-            pass # and it is also failing sometime due to float rounding errors
-
-
-        # this is different from the paper
-        self.nz = (np.abs(np.triu(model.precision_, 1)) > 0).sum() 
-        
-        # This is different in the code from the author
-        # code from the author is a but weird in how compute c1 & cmu
-        # TODO: do a second check for these learning rates
-        self.c1_ = 2 / (
-            (self.nz + 1.3) * (self.d + 1.3) + self.mueff
-        )
-        self.cmu_ = min(1 - self.c1_, (
-            2 * ( (self.mueff + 1 / self.mueff - 1.75) / (
-                    (self.nz + 2) * (self.d + 2) + self.mueff
-                    )
-                )
-            )
-        )
-
-
 class BIPOPParameters(AnnotatedStruct):
     'Seperate object which holds BIPOP specific parameters'
 
@@ -439,6 +336,7 @@ class Parameters(AnnotatedStruct):
     lb: np.ndarray = None
     init_threshold: float = 0.1
     decay_factor: float = 0.995
+    alpha_mu: float = 0.25
     max_resamples: int = 1000
    
 
@@ -601,10 +499,16 @@ class Parameters(AnnotatedStruct):
             (self.nweights ** 2).sum()
         )
         self.c1_ = self.c1_init or 2 / ((self.d + 1.3)**2 + self.mueff)
-        self.cmu_ = self.cmu_init or  min(1 - self.c1_, (
-            2 * ((self.mueff - 2 + (1 / self.mueff)) /
-                 ((self.d + 2)**2 + (2 * self.mueff / 2)))
-        ))
+        
+        # this is the term from the CMA-ES tutorial
+        # cmu_term = 2 * ((self.mueff - 2 + (1 / self.mueff)) /
+        #         ((self.d + 2)**2 + 2 * self.mueff / 2))
+        # this is the term from the PyCMA code, which works better
+        cmu_term = 2.0 * ((self.alpha_mu + self.mueff + 1 / self.mueff - 2) /
+                            ((self.d + 2)** 2.0 + 2.0 * self.mueff / 2))
+
+        self.cmu_ = self.cmu_init or min(1 - self.c1_, cmu_term) 
+
 
         self.pweights = self.pweights / self.pweights.sum()
         amu_neg = 1 + (self.c1_ / self.mu)
@@ -638,7 +542,6 @@ class Parameters(AnnotatedStruct):
         state of the CMAES algorithm, and are dynamic. Examples of such parameters
         are the Covariance matrix C and its eigenvectors and the learning rate sigma. 
         '''
-
         self.sigma = self.init_sigma
         self.m = np.random.rand(self.d, 1)
         self.dm = np.zeros(self.d)
@@ -650,8 +553,8 @@ class Parameters(AnnotatedStruct):
         self.inv_root_C_ = np.eye(self.d)
         self.s = 0
         self.rank_tpa = None
-        self.regularization_parameters = RegularizationParameters(
-            self.d, self.mueff, self.tau, self.alpha)
+        self.regularization_parameters = RegularizationParameters(self)
+            # self.d, self.mueff, self.tau, self.alpha)
 
     def adapt_sigma(self) -> None:
         '''Method to adapt the step size sigma. There are three variants in 
@@ -744,12 +647,15 @@ class Parameters(AnnotatedStruct):
         self.adapt_sigma()
         self.adapt_covariance_matrix()
 
-        # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
+        # TODO: eigendecomp is not neccesary to be beformed every iteration
+        # x = self.lambda_/(self.c1+self.cmu)/self.d/10
+        # x1 = 0.5 * self.d * self.lambda_ * (self.c1 + self.cmu)**-1 / self.d**2
+        
         if self.t % 5 == 0:
-            self.perform_eigendecomposition()
-
             if self.regularization:
                 self.regularization_parameters.regularize(self.C)
+            else:
+                self.perform_eigendecomposition()
 
         self.record_statistics()
         self.calculate_termination_criteria()
@@ -782,7 +688,6 @@ class Parameters(AnnotatedStruct):
             warnings.warn("Termination criteria met: {}".format(", ".join(
                 name for name, value in self.termination_criteria.items() if value
             )), RuntimeWarning)
-
     
     @property
     def D(self):
@@ -804,16 +709,15 @@ class Parameters(AnnotatedStruct):
 
     @property
     def c1(self):
-        if self.regularization and self.tau > 0.0: 
-            return self.regularization_parameters.c1_
+        if self.regularization: 
+            return self.c1_init or self.regularization_parameters.c1_
         return self.c1_
 
     @property
     def cmu(self):
-        if self.regularization and self.tau > 0.0:
-            return self.regularization_parameters.cmu_
+        if self.regularization:
+            return self.cmu_init or self.regularization_parameters.cmu_
         return self.cmu_
-
 
     @property
     def threshold(self) -> None:
@@ -962,3 +866,133 @@ class Parameters(AnnotatedStruct):
                     )
                 )
             }
+
+
+class RegularizationParameters:
+    ''' Holds the parameters for gl-CMA-ES
+    
+        Attributes
+        ----------
+        d: int
+            The dimensionality of the problem
+        mueff: float
+            The variance effective selection mass
+        tau: float
+            Threshold for applying regularization
+        alpha: float
+            Regularization factor        
+    ''' 
+    learning_rates_from_paper = False
+
+    def __init__(self, parameters: Parameters):
+        self.parameters = parameters
+        
+        self.B_ = np.eye(self.d)
+        self.C = np.eye(self.d)
+        self.D_ = np.ones((self.d, 1))
+        self.inv_root_C_ = np.eye(self.d)
+
+        # Intialize first values
+        self.regularize(self.C)
+
+    @property
+    def d(self):
+        return self.parameters.d
+
+    @property
+    def tau(self):
+        return self.parameters.tau
+
+    @property
+    def alpha(self):
+        return self.parameters.alpha
+
+    @property
+    def mueff(self):
+        return self.parameters.mueff
+
+    @staticmethod
+    def get_correlation_matrix(covariance: np.ndarray) -> np.ndarray:
+        """Method to calculate a correlation matrix from a covariance matrix
+
+        Args:
+            covariance (np.ndarray): a covariance matrix
+
+        Returns:
+            np.ndarray: The correlation matrix
+        """        
+        v = np.sqrt(np.diag(covariance))
+        correlation = covariance / np.outer(v, v)
+        correlation[covariance == 0] = 0
+        return correlation
+
+    def regularize(self, C: np.ndarray) -> None: 
+        """Method to perform regularization on C, which is a covariance matrix
+        Differences from paper:
+            1. A2, Covariance matrix is correlation matrix
+            2. Custom init method for QuicGraphicalLasso
+            3. P_tilde is also a correlation matrix, not diagP^-1/2 P diagP^-1/2
+            4. W is absolute, and scaled with alpha
+            5. nz is computed differently, also the dimension is added!            
+            6. Weights, c1 and cmu are compute differently, 
+                I implemented the one from the paper, that looked cleaner
+
+        Args:
+            C (np.ndarray): a covariance matrix
+        """        
+        if self.d == 1:
+            return C
+            
+        C_tilde = self.get_correlation_matrix(C)
+        P = linalg.inv(C_tilde)
+        P_tilde = self.get_correlation_matrix(P)
+        
+        W = (np.abs(P_tilde) < self.tau).astype(np.int) * self.alpha
+        model = QuicGraphicalLasso(
+            lam = W,
+            Theta0 = P,                 # Initial guess for the inverse covariance matrix. 
+            Sigma0 = C_tilde,           # Initial guess for the covariance matrix.
+            init_method=lambda x: (x.copy(), np.max(np.abs(np.triu(x)))) # this was copied from the script from the author
+        ).fit(C_tilde)
+
+        diag_root_C = np.diag(np.sqrt(np.diag(C)))
+
+        self.C = diag_root_C.dot(model.covariance_).dot(diag_root_C.T)
+        self.C, self.D_, self.B_, self.inv_root_C_ = perform_eigendecomp(self.C)
+        
+        if self.tau == 0.:
+            # Not really nescessary, just a sanity check
+            assert np.isclose(self.C, C).all()
+            pass # and it is also failing sometime due to float rounding errors
+
+
+        # this is different from the paper
+        self.nz = (np.abs(np.triu(model.precision_, 1)) > 0).sum() + self.d
+        
+        # This is different in the code from the author, this are from paper
+        if self.learning_rates_from_paper:
+            self.c1_ = 2 / (
+                (self.nz + 1.3) * (self.d + 1.3) + self.mueff
+            )
+            self.cmu_ = min(1 - self.c1_, (
+                2 * ( (self.mueff + 1 / self.mueff - 1.75) / (
+                        (self.nz + 2) * (self.d + 2) + self.mueff
+                        )
+                    )
+                )
+            )
+        else:
+            # These are from pycma/scripts 
+            rank_one = 2. / (
+                2 * (self.nz / self.d + 0.15) * (self.d + 1.3) + self.mueff
+            ) / self.parameters.c1_
+
+            self.c1_ = rank_one * (2 / ((self.d + 1.3)**2 + self.mueff))
+
+            t1 = 2. * (self.parameters.alpha_mu + self.mueff + 1. / self.mueff - 2.)
+            t2 = 2. * (self.nz / self.d + 0.5) * (self.d + 2.) + self.mueff
+
+            rank_mu = t1 / t2 / self.parameters.cmu_
+            cmu_term = t1 / ((self.d + 2)** 2.0 + 2.0 * self.mueff / 2)
+
+            self.cmu_ = min(1 - self.c1_, rank_mu * cmu_term)

@@ -358,6 +358,7 @@ def evaluate(
         seed=42,
         instance=1,
         verbose=False,
+        exp_name='',
         **kwargs):
     '''Helper function to evaluate a ConfigurableCMAES on the BBOB test suite. 
 
@@ -393,11 +394,12 @@ def evaluate(
     if seed:
         np.random.seed(seed)
     if logging:
-        label = 'D{}_{}_{}'.format(
-            dim, label, datetime.now().strftime("%B"))
+        # label = 'D{}_{}_{}'.format(
+        #     dim, label, datetime.now().strftime("%B"))
         data_location = os.path.join(data_folder if os.path.isdir(
             data_folder or ''
-        ) else os.getcwd(), label)
+        ) else os.getcwd(), exp_name)
+
         fitness_func = fgeneric.LoggingFunction(data_location, label)
     
     rtol = DISTANCE_TO_TARGET[fid - 1]
