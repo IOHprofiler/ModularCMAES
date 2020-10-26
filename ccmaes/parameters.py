@@ -54,9 +54,7 @@ class BIPOPParameters(AnnotatedStruct):
     @property
     def large(self) -> bool:
         'Deternotes where to use a large regime or small regime'
-        if (self.budget_large >= self.budget_small) and self.budget_large > 0:
-            return True 
-        return False
+        return (self.budget_large >= self.budget_small) and self.budget_large > 0
 
     @property
     def remaining_budget(self) -> int:
@@ -70,7 +68,7 @@ class BIPOPParameters(AnnotatedStruct):
 
     @property
     def sigma(self) -> float:
-        'Return value for sigma, based on which regime is active'
+        'Return value for sigma, based on which regime is active' 
         return 2 if self.large else 2e-2 * np.random.random()
     
     @property
@@ -437,6 +435,7 @@ class Parameters(AnnotatedStruct):
                 self.mu / self.lambda_
         )
         
+        
     def init_selection_parameters(self) -> None:
         '''Initialization function for parameters that are of influence
         in selection/population control.
@@ -536,6 +535,12 @@ class Parameters(AnnotatedStruct):
             self.d ** .5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
         )
         self.ds = 2 - (2 / self.d)
+
+        # Eigenupdate is not nescessary every generation
+        # these weights are taken from pycma
+        self.eigeneval_factor = 0.5 * self.d * self.lambda_ * (
+            self.c1 + self.cmu)**-1 / self.d**2
+
 
     def init_dynamic_parameters(self) -> None:
         '''Initialization function of parameters that represent the internal
@@ -647,11 +652,7 @@ class Parameters(AnnotatedStruct):
         self.adapt_sigma()
         self.adapt_covariance_matrix()
 
-        # TODO: eigendecomp is not neccesary to be beformed every iteration
-        # x = self.lambda_/(self.c1+self.cmu)/self.d/10
-        # x1 = 0.5 * self.d * self.lambda_ * (self.c1 + self.cmu)**-1 / self.d**2
-        
-        if self.t % 5 == 0:
+        if self.t % self.eigeneval_factor == 0:
             if self.regularization:
                 self.regularization_parameters.regularize(self.C)
             else:
