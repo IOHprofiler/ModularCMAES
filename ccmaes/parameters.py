@@ -538,8 +538,10 @@ class Parameters(AnnotatedStruct):
 
         # Eigenupdate is not nescessary every generation
         # these weights are taken from pycma
-        self.eigeneval_factor = 0.5 * self.d * self.lambda_ * (
-            self.c1 + self.cmu)**-1 / self.d**2
+        self.eigeneval_factor = 1 #max(1, np.floor(0.5 * self.d * self.lambda_ * (self.c1_ + self.cmu_)**-1 / self.d**2))
+
+        # breakpoint()
+        
 
 
     def init_dynamic_parameters(self) -> None:
@@ -963,8 +965,11 @@ class RegularizationParameters:
         
         if self.tau == 0.:
             # Not really nescessary, just a sanity check
-            assert np.isclose(self.C, C).all()
-            pass # and it is also failing sometime due to float rounding errors
+            # and it is also failing sometime due to float rounding errors
+            if not np.isclose(self.C, C).all():
+                warnings.warn(
+                    "Broken assumption under tau=0; "
+                    "regularized C does not equal C", RuntimeWarning)
 
 
         # this is different from the paper
