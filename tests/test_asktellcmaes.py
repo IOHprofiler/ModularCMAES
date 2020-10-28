@@ -1,14 +1,15 @@
 import unittest
 
 import numpy as np
-from ccmaes import asktellcmaes, bbob
+from ccmaes import asktellcmaes
+from IOHexperimenter import IOH_function
 
 class AskTellCMAESTestCase(unittest.TestCase):
     def setUp(self):
         self.d = 5
         self.fid = 1
-        self.func, self.target = bbob.bbobbenchmarks.instantiate(self.fid, 1)
-        self.opt = asktellcmaes.AskTellCMAES(self.d, self.target)
+        self.func = IOH_function(1, 5, 1, suite = "BBOB")
+        self.opt = asktellcmaes.AskTellCMAES(self.d)
 
     def test_sequential_selection_disabled(self):
         self.opt.parameters.sequential = True

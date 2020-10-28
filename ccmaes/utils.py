@@ -6,36 +6,6 @@ from functools import wraps
 from time import time
 import numpy as np
 
-from .bbob import bbobbenchmarks, fgeneric
-
-DISTANCE_TO_TARGET = [pow(10, p) for p in [
-    -8.,  # 1
-    -8.,  # 2
-    .4,  # 3
-    .8,  # 4
-    -8.,  # 5
-    -8.,  # 6
-    .0,  # 7
-    -8.,  # 8
-    -8.,  # 9
-    -8.,  # 10
-    -8.,  # 11
-    -8.,  # 12
-    -8.,  # 13
-    -8.,  # 14
-    .4,  # 15
-    -2.,  # 16
-    -4.4,  # 17
-    -4.0,  # 18
-    -.6,  # 19
-    .2,  # 20
-    -.6,  # 21
-    .0,  # 22
-    -.8,  # 23
-    1.0,  # 24
-]]
-
-
 class Descriptor:
     '''Data descriptor'''
 
@@ -267,18 +237,3 @@ def ert(evals, budget):
         except:
             pass
     return float('inf'), np.nan, 0
-
-
-def sphere_function(x, fopt=79.48):
-    '''Sphere function
-
-    Parameters
-    ----------
-    x: np.ndarray
-    fopt: float
-
-    Returns
-    -------
-    float
-    '''
-    return (x.flatten() ** 2).sum() + fopt

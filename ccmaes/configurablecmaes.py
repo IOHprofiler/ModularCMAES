@@ -5,7 +5,8 @@ import numpy as np
 from typing import List, Callable
 from .parameters import Parameters
 from .population import Population
-from .utils import bbobbenchmarks, timeit, fgeneric, ert, DISTANCE_TO_TARGET
+from .utils import timeit, ert
+from IOHexperimenter import IOH_function, IOH_logger
 
 class ConfigurableCMAES:
     '''The main class of the configurable CMA ES continous optimizer. 
@@ -348,7 +349,7 @@ def _correct_bounds(x:np.ndarray, ub:np.ndarray,
     return x, True
 
 @timeit
-def evaluate(
+def evaluate_bbob(
         fid,
         dim,
         iterations=50,
@@ -357,6 +358,7 @@ def evaluate(
         data_folder=None,
         seed=42,
         instance=1,
+        target_precision=1e-8,
         **kwargs):
     '''Helper function to evaluate a ConfigurableCMAES on the BBOB test suite. 
 
@@ -391,32 +393,24 @@ def evaluate(
     evals, fopts = np.array([]), np.array([])
     if seed:
         np.random.seed(seed)
-    if logging:
-        label = 'D{}_{}_{}'.format(
-            dim, label, datetime.now().strftime("%B"))
-        data_location = os.path.join(data_folder if os.path.isdir(
-            data_folder or ''
-        ) else os.getcwd(), label)
-        fitness_func = fgeneric.LoggingFunction(data_location, label)
+    fitness_func = IOH_function(fid, dim, instance, target_precision=target_precision, suite="BBOB")
     
-    rtol = DISTANCE_TO_TARGET[fid - 1]
-    func, target = bbobbenchmarks.instantiate(fid, iinstance=instance)
-    print((
-            "{}\nOptimizing function {} in {}D for target {} + {}"
-            " with {} iterations."
-    ).format(label, fid, dim, target, rtol, iterations))
-    for _ in range(iterations): 
-        func, target = bbobbenchmarks.instantiate(fid, iinstance=instance)
-        if not logging:
-            fitness_func = func
-        else:
-            target = fitness_func.setfun(
-                *(func, target)
-            ).ftarget
+    if logging:
+        data_location = data_folder if os.path.isdir(data_folder) else os.getcwd()
+        logger = IOH_logger(data_location, f"{label}F{fid}_{dim}D")
+        fitness_func.add_logger(logger)
+    
+    print(f"Optimizing function {fid} in {dim}D for target {target_precision} with {iterations} iterations.")
+    
+    for idx in range(iterations):
+        if idx > 0:
+            fitness_func.reset()
+        target = fitness_func.get_target()
+        
         optimizer = ConfigurableCMAES(
-            fitness_func, dim, target + rtol, **kwargs).run()
-        evals = np.append(evals, optimizer.parameters.used_budget)
-        fopts = np.append(fopts, optimizer.parameters.fopt)
+            fitness_func, dim, target = target, **kwargs).run()
+        evals = np.append(evals, fitness_func.evaluations)
+        fopts = np.append(fopts, fitness_func.best_so_far_precision)
     
     result_string = (
             "FCE:\t{:10.8f}\t{:10.4f}\n"
