@@ -14,6 +14,7 @@ docutils==0.15.2
 ghalton==0.6.1
 idna==2.8
 imagesize==1.1.0
+IOHexperimenter>=0.2.8
 ipython==7.18.1
 ipython-genutils==0.2.0
 isort==5.5.2
