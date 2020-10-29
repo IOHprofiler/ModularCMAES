@@ -371,9 +371,10 @@ class Parameters(AnnotatedStruct):
                     2 * self.step_size_adaptation == 'tpa')
             )
             sampler = orthogonal_sampling(sampler, n_samples)
-
+        
         if self.mirrored:
             sampler = mirrored_sampling(sampler)
+            
         return sampler
 
     
@@ -407,15 +408,18 @@ class Parameters(AnnotatedStruct):
         '''
         self.lambda_ = self.lambda_ or (
             4 + np.floor(3 * np.log(self.d))).astype(int)
+        
+        if self.mirrored == 'mirrored pairwise':
+            self.seq_cutoff_factor = max(2, self.seq_cutoff_factor)
+            if self.lambda_ % 2 != 0:
+                self.lambda_ += 1        
+                
         self.mu = self.mu or self.lambda_ // 2
         if self.mu > self.lambda_:
             raise AttributeError(
                 "\u03BC ({}) cannot be larger than \u03bb ({})".format(
                     self.mu, self.lambda_
                 ))
-
-        if self.mirrored == 'mirrored pairwise':
-            self.seq_cutoff_factor = max(2, self.seq_cutoff_factor)
         
         self.seq_cutoff = self.mu * self.seq_cutoff_factor
         self.sampler = self.get_sampler() 
@@ -431,7 +435,7 @@ class Parameters(AnnotatedStruct):
         self.max_iter = 100 + 50 * (self.d + 3)**2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
-        self.flat_fitness_index = int(np.ceil(.1 + self.lambda_ / 4))
+        self.flat_fitness_index = int(np.round(.1 + self.lambda_ / 4)) #TODO: check why this was ceil
 
     def init_adaptation_parameters(self) -> None:
         '''Initialization function for parameters that are of influence
@@ -443,10 +447,14 @@ class Parameters(AnnotatedStruct):
         if self.weights_option == '1/mu':
             ws = np.ones(self.mu) / self.mu
             self.weights = np.append(ws, ws[::-1] * -1)
+            if self.lambda_ %2 != 0:
+                self.weights = np.append([1/self.mu], self.weights)
         elif self.weights_option == '1/2^mu':
             ws = 1 / 2**np.arange(1, self.mu + 1) + (
                     (1 / (2**self.mu)) / self.mu)
             self.weights = np.append(ws, ws[::-1] * -1)
+            if self.lambda_ %2 != 0:
+                self.weights = np.append([1/self.mu**2], self.weights)
         else:
             self.weights = (np.log((self.lambda_ + 1) / 2) -
                             np.log(np.arange(1, self.lambda_ + 1)))
