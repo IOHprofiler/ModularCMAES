@@ -450,4 +450,4 @@ def fmin(func, dim, maxfun=None, **kwargs):
         The number of evaluations performed
     '''
     cma = ConfigurableCMAES(func, dim, budget = maxfun, **kwargs).run()
-    return cma.parameters.xopt, cma.parameters.yopt, cma.parameters.used_budget
+    return cma.parameters.xopt, cma.parameters.fopt, cma.parameters.used_budget
