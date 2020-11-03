@@ -1,7 +1,7 @@
 import types
 import unittest
 import numpy as np
-from ccmaes import population, utils
+from modcma import population, utils
 
 
 class TestPopulation(unittest.TestCase):

@@ -6,9 +6,9 @@ import pickle
 
 import numpy as np
 
-from ccmaes.parameters import Parameters
-from ccmaes.utils import AnyOf, sphere_function
-from ccmaes.population import Population
+from modcma.parameters import Parameters
+from modcma.utils import AnyOf, sphere_function
+from modcma.population import Population
 
 
 class TestParameters(unittest.TestCase):

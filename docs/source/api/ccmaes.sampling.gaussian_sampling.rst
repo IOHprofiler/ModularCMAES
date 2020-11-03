@@ -1,6 +1,6 @@
 gaussian_sampling
 =================
 
-.. currentmodule:: ccmaes.sampling
+.. currentmodule:: modcma.sampling
 
 .. autofunction:: gaussian_sampling

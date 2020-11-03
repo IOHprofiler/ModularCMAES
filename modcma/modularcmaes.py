@@ -22,7 +22,7 @@ class ModularCMAES:
         the constructor of a Parameters object. 
     See Also
     --------
-    ccmaes.parameters.Parameters
+    modcma.parameters.Parameters
     
     '''
     parameters: "Parameters"
@@ -242,7 +242,7 @@ def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: 
     fitness_func: typing.Callable
         A fitness function to be optimized
     parameters: Parameters
-        A CCMAES Parameters object
+        A modcma Parameters object
     x: list
         A list of new individuals
     y: list

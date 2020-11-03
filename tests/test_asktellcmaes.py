@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from ccmaes import asktellcmaes, bbob
+from modcma import asktellcmaes, bbob
 
 class AskTellCMAESTestCase(unittest.TestCase):
     def setUp(self):

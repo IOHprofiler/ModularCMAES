@@ -1,22 +1,22 @@
-Welcome to CCMAES's Documentation!
+Welcome to modcma's Documentation!
 ==================================
 
-.. automodapi:: ccmaes.modularcmaes
+.. automodapi:: modcma.modularcmaes
     :members:
 
-.. automodapi:: ccmaes.parameters
+.. automodapi:: modcma.parameters
     :members:
 
-.. automodapi:: ccmaes.population
+.. automodapi:: modcma.population
     :members:
 
-.. automodapi:: ccmaes.sampling
+.. automodapi:: modcma.sampling
     :members:
 
-.. automodapi:: ccmaes.utils
+.. automodapi:: modcma.utils
     :members:
 
-.. automodapi:: ccmaes.asktellcmaes
+.. automodapi:: modcma.asktellcmaes
     :members:
 
 

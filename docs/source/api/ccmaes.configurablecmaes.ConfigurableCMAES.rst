@@ -1,7 +1,7 @@
 ModularCMAES
 =================
 
-.. currentmodule:: ccmaes.modularcmaes
+.. currentmodule:: modcma.modularcmaes
 
 .. autoclass:: ModularCMAES
    :show-inheritance:

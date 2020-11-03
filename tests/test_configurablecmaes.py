@@ -5,7 +5,7 @@ import unittest
 import unittest.mock
 
 import numpy as np
-from ccmaes import parameters, utils, modularcmaes
+from modcma import parameters, utils, modularcmaes
 
 
 class TestConfigurableCMAESMeta(type):

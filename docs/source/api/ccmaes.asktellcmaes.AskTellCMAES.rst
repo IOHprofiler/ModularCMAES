@@ -1,7 +1,7 @@
 AskTellCMAES
 ============
 
-.. currentmodule:: ccmaes.asktellcmaes
+.. currentmodule:: modcma.asktellcmaes
 
 .. autoclass:: AskTellCMAES
    :show-inheritance:

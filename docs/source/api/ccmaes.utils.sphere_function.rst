@@ -1,6 +1,6 @@
 sphere_function
 ===============
 
-.. currentmodule:: ccmaes.utils
+.. currentmodule:: modcma.utils
 
 .. autofunction:: sphere_function

@@ -1,7 +1,7 @@
 Descriptor
 ==========
 
-.. currentmodule:: ccmaes.utils
+.. currentmodule:: modcma.utils
 
 .. autoclass:: Descriptor
    :show-inheritance:

@@ -1,8 +1,8 @@
 import os
 
 import numpy as np
-from ccmaes.modularcmaes import evaluate
-from ccmaes.bbob import bbobbenchmarks
+from modcma.modularcmaes import evaluate
+from modcma.bbob import bbobbenchmarks
 
 import numpy as np
 import cma

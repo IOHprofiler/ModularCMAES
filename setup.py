@@ -3,7 +3,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name='ccmaes',
+    name='modcma',
     version="1.0.7",
     author="Jacob de Nobel",
     author_email="jacobdenobel@gmail.com",

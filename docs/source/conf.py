@@ -16,7 +16,7 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'CCMAES'
+project = 'modcma'
 copyright = '2019, Jacob de Nobel'
 author = 'Jacob de Nobel'
 
