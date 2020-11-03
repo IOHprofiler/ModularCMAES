@@ -135,6 +135,11 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
         configurablecmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder) 
         configurablecmaes.evaluate_bbob(1, 1, 1)
+        
+    def test_fmin(self):
+        xopt, fopt, evaluations = configurablecmaes.fmin(sum, 5)
+        self.assertEqual(sum(xopt), fopt)
+        self.assertGreater(evaluations, 0)
 
 
 if __name__ == '__main__':

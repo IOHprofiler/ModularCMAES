@@ -6,7 +6,7 @@ from typing import List, Callable
 from .parameters import Parameters
 from .population import Population
 from .utils import timeit, ert
-from IOHexperimenter import IOH_function, IOH_logger
+from IOHexperimenter import IOH_function, IOH_logger, custom_IOH_function
 
 class ConfigurableCMAES:
     '''The main class of the configurable CMA ES continous optimizer. 
@@ -384,7 +384,7 @@ def evaluate_bbob(
 
     Returns
     -------
-    list
+    evals
         The number of evaluations for each run of the optimizer
     fopts
         The best fitness values for each run of the optimizer
@@ -423,3 +423,40 @@ def evaluate_bbob(
         iterations    
     ))
     return evals, fopts
+
+
+def fmin(func, dim, log_folder = None, lb = -5, ub = 5, **kwargs):
+    '''Minimize a function using the modular CMA-ES
+
+    Parameters
+    ----------
+    func: callable
+        The objective function to be minimized.
+    dim: int
+        The dimensionality of the problem
+    log_folder: str = None
+        The folder in which to store the log of the optimization (IOHprofiler format).
+        Set to None to disable this logging
+    lb, ub: float
+        The lower and upper bound of the search-space of the provided function. Either one value (same for each dimension) or a vector of lenght dim
+    **kwargs
+        These are directly passed into the instance of optimizer_class,
+        in this manner parameters can be specified for the optimizer. 
+
+    Returns
+    -------
+    xopt
+        The variables which minimize the function during this run
+    fopt
+        The value of function at found xopt
+    evals 
+        The number of evaluations performed
+    '''
+    f = custom_IOH_function(func, func.__name__, dim, False, lowerbound = lb, upperbound = ub)
+    if log_folder is not None:
+        logger = IOH_logger(log_folder)
+        f.add_logger(logger)
+        
+    result = ConfigurableCMAES(f, dim, **kwargs).run()
+    
+    return f.xopt, f.yopt, f.evaluations
