@@ -1,4 +1,4 @@
-# ConfigurableCMAES
+# ConfigurableCMAES ![Unittest](https://github.com/IOHprofiler/ModularCMAES/workflows/Unittest/badge.svg)
 
 Running tests
 `$ python3 -m unittest discover`
