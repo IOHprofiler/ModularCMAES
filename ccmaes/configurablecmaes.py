@@ -20,6 +20,7 @@ class ConfigurableCMAES:
         explicitly passed, all *args and **kwargs passed into the 
         constructor of a ConfigurableCMAES are directly passed into
         the constructor of a Parameters object. 
+        
     '''
     parameters: "Parameters"
     _fitness_func: Callable
