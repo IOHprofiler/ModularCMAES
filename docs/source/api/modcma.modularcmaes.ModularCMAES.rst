@@ -1,5 +1,5 @@
 ModularCMAES
-=================
+============
 
 .. currentmodule:: modcma.modularcmaes
 

@@ -3,3 +3,7 @@ ghalton==0.6.2
 numpy>=1.18.5
 scipy>=1.4.1
 sobol-seq==0.2.0
+Sphinx==3.3.0
+sphinx-automodapi==0.13
+sphinx-rtd-theme==0.5.0
+twine==3.2.0

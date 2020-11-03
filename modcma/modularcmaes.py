@@ -9,7 +9,6 @@ from .utils import bbobbenchmarks, timeit, fgeneric, ert, DISTANCE_TO_TARGET
 
 class ModularCMAES:
     '''The main class of the configurable CMA ES continous optimizer. 
-
     Attributes
     ----------
     _fitness_func: callable
@@ -53,18 +52,18 @@ class ModularCMAES:
         n_offspring = self.parameters.lambda_
         if self.parameters.step_size_adaptation == 'tpa' and self.parameters.old_population:
             n_offspring -= 2
-            _tpa_mutation(self.fitness_func, self.parameters, x, y, f)
+            tpa_mutation(self.fitness_func, self.parameters, x, y, f)
 
         for i in range(1, n_offspring + 1):
             
             zi = next(self.parameters.sampler)
             if self.parameters.threshold_convergence:
-                zi = _scale_with_threshold(zi, self.parameters.threshold)
+                zi = scale_with_threshold(zi, self.parameters.threshold)
 
             yi = np.dot(self.parameters.B, self.parameters.D * zi)
             xi = self.parameters.m + (self.parameters.sigma * yi)
             
-            xi, out_of_bounds = _correct_bounds(xi, self.parameters.ub, 
+            xi, out_of_bounds = correct_boundss(xi, self.parameters.ub, 
                 self.parameters.lb, self.parameters.bound_correction)
 
             self.parameters.n_out_of_bounds += out_of_bounds
@@ -229,7 +228,7 @@ class ModularCMAES:
     def __str__(self):
         return repr(self)
 
-def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
+def tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
     '''Helper function for applying the tpa mutation step.
     The code was mostly taken from the ModEA framework, 
     and there a slight differences with the procedure as defined in:
@@ -265,7 +264,7 @@ def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: 
         parameters.rank_tpa = (
             parameters.a_tpa + parameters.b_tpa)
 
-def _scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
+def scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
     '''Function for scaling a vector z to have length > threshold
 
     Used for threshold convergence.
@@ -289,7 +288,7 @@ def _scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
         z *= (new_length / length)
     return z
 
-def _correct_bounds(x:np.ndarray, ub:np.ndarray, 
+def correct_boundss(x:np.ndarray, ub:np.ndarray, 
                     lb:np.ndarray, correction_method:str) -> np.ndarray:
     '''Bound correction function
     Rescales x to fall within the lower lb and upper
