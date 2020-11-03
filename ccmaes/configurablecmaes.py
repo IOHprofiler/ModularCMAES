@@ -379,7 +379,7 @@ def evaluate_bbob(
     instance: int = 1
         The bbob function instance
     **kwargs
-        These are directly passed into the instance of optimizer_class,
+        These are directly passed into the instance of ConfigurableCMAES,
         in this manner parameters can be specified for the optimizer. 
 
     Returns
@@ -425,7 +425,7 @@ def evaluate_bbob(
     return evals, fopts
 
 
-def fmin(func, dim, log_folder = None, lb = -5, ub = 5, **kwargs):
+def fmin(func, dim, maxfun=None, **kwargs):
     '''Minimize a function using the modular CMA-ES
 
     Parameters
@@ -434,13 +434,10 @@ def fmin(func, dim, log_folder = None, lb = -5, ub = 5, **kwargs):
         The objective function to be minimized.
     dim: int
         The dimensionality of the problem
-    log_folder: str = None
-        The folder in which to store the log of the optimization (IOHprofiler format).
-        Set to None to disable this logging
-    lb, ub: float
-        The lower and upper bound of the search-space of the provided function. Either one value (same for each dimension) or a vector of lenght dim
+    maxfun: int = None
+        Maximum number of function evaluations to make.
     **kwargs
-        These are directly passed into the instance of optimizer_class,
+        These are directly passed into the instance of ConfigurableCMAES,
         in this manner parameters can be specified for the optimizer. 
 
     Returns
@@ -452,11 +449,5 @@ def fmin(func, dim, log_folder = None, lb = -5, ub = 5, **kwargs):
     evals 
         The number of evaluations performed
     '''
-    f = custom_IOH_function(func, func.__name__, dim, False, lowerbound = lb, upperbound = ub)
-    if log_folder is not None:
-        logger = IOH_logger(log_folder)
-        f.add_logger(logger)
-        
-    result = ConfigurableCMAES(f, dim, **kwargs).run()
-    
-    return f.xopt, f.yopt, f.evaluations
+    cma = ConfigurableCMAES(func, dim, budget = maxfun, **kwargs).run()
+    return cma.parameters.xopt, cma.parameters.yopt, cma.parameters.used_budget
