@@ -7,7 +7,7 @@ from .parameters import Parameters
 from .population import Population
 from .utils import bbobbenchmarks, timeit, fgeneric, ert, DISTANCE_TO_TARGET
 
-class ConfigurableCMAES:
+class ModularCMAES:
     '''The main class of the configurable CMA ES continous optimizer. 
 
     Attributes
@@ -18,8 +18,12 @@ class ConfigurableCMAES:
         All the parameters of the CMA ES algorithm are stored in 
         the parameters object. Note if a parameters object is not 
         explicitly passed, all *args and **kwargs passed into the 
-        constructor of a ConfigurableCMAES are directly passed into
+        constructor of a ModularCMAES are directly passed into
         the constructor of a Parameters object. 
+    See Also
+    --------
+    ccmaes.parameters.Parameters
+    
     '''
     parameters: "Parameters"
     _fitness_func: Callable
@@ -182,7 +186,7 @@ class ConfigurableCMAES:
 
         Returns
         -------
-        ConfigurableCMAES
+        ModularCMAES
         '''
         while self.step():
             pass
@@ -231,7 +235,7 @@ def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: 
     and there a slight differences with the procedure as defined in:
         Nikolaus Hansen. CMA-ES with two-point 
         step-size adaptation.CoRR, abs/0805.0231,2008.
-    The function should not be used outside of the ConfigurableCMAES optimizer
+    The function should not be used outside of the ModularCMAES optimizer
 
     Parameters
     ----------
@@ -358,7 +362,7 @@ def evaluate(
         seed=42,
         instance=1,
         **kwargs):
-    '''Helper function to evaluate a ConfigurableCMAES on the BBOB test suite. 
+    '''Helper function to evaluate a ModularCMAES on the BBOB test suite. 
 
     Parameters
     ----------
@@ -413,7 +417,7 @@ def evaluate(
             target = fitness_func.setfun(
                 *(func, target)
             ).ftarget
-        optimizer = ConfigurableCMAES(
+        optimizer = ModularCMAES(
             fitness_func, dim, target + rtol, **kwargs).run()
         evals = np.append(evals, optimizer.parameters.used_budget)
         fopts = np.append(fopts, optimizer.parameters.fopt)

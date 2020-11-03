@@ -3,7 +3,7 @@ import typing
 from collections import deque
 from functools import wraps
 import numpy as np
-from .configurablecmaes import ConfigurableCMAES
+from .modularcmaes import ModularCMAES
 
 
 def check_break_conditions(f:typing.Callable) -> typing.Callable:
@@ -15,8 +15,8 @@ def check_break_conditions(f:typing.Callable) -> typing.Callable:
         return f(self, *args, **kwargs)
     return inner
 
-class AskTellCMAES(ConfigurableCMAES):
-    'Ask tell interface for the ConfigurableCMAES'
+class AskTellCMAES(ModularCMAES):
+    'Ask tell interface for the ModularCMAES'
 
     def __init__(self, *args, **kwargs) -> None:
         'Override the fitness_function argument with an empty callable' 

@@ -1,7 +1,7 @@
 Welcome to CCMAES's Documentation!
 ==================================
 
-.. automodapi:: ccmaes.configurablecmaes
+.. automodapi:: ccmaes.modularcmaes
     :members:
 
 .. automodapi:: ccmaes.parameters

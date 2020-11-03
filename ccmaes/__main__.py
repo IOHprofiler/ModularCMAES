@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 
-from .configurablecmaes import ConfigurableCMAES, evaluate
+from .modularcmaes import ModularCMAES, evaluate
 
 
 parser = ArgumentParser(
