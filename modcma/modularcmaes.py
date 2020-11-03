@@ -63,7 +63,7 @@ class ModularCMAES:
             yi = np.dot(self.parameters.B, self.parameters.D * zi)
             xi = self.parameters.m + (self.parameters.sigma * yi)
             
-            xi, out_of_bounds = correct_boundss(xi, self.parameters.ub, 
+            xi, out_of_bounds = correct_bounds(xi, self.parameters.ub, 
                 self.parameters.lb, self.parameters.bound_correction)
 
             self.parameters.n_out_of_bounds += out_of_bounds
@@ -120,7 +120,7 @@ class ModularCMAES:
 
         if self.parameters.population.f[0] < self.parameters.fopt:
             self.parameters.fopt = self.parameters.population.f[0]
-            self.parameters.xopt = self.parameters.population.x[0]
+            self.parameters.xopt = self.parameters.population.x[:, 0]
 
     def recombine(self) -> None:
         '''Recombination of new individuals
@@ -288,7 +288,7 @@ def scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
         z *= (new_length / length)
     return z
 
-def correct_boundss(x:np.ndarray, ub:np.ndarray, 
+def correct_bounds(x:np.ndarray, ub:np.ndarray, 
                     lb:np.ndarray, correction_method:str) -> np.ndarray:
     '''Bound correction function
     Rescales x to fall within the lower lb and upper

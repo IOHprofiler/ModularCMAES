@@ -105,19 +105,19 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
         self.assertNotEqual(np.linalg.norm(z), new_z_norm)
         self.assertGreater(new_z_norm, threshold)
 
-    def testcorrect_boundss(self):
+    def testcorrect_bounds(self):
         x = np.ones(5) * np.array([2, 4, 6, -7, 3])
         ub, lb = np.ones(5) * 5, np.ones(5) * -5
         disabled, *correction_methods = parameters.Parameters.__annotations__\
             .get("bound_correction")
-        new_x, corrected = modularcmaes.correct_boundss(x.copy(), ub, lb, disabled)
+        new_x, corrected = modularcmaes.correct_bounds(x.copy(), ub, lb, disabled)
 
         self.assertEqual((x == new_x).all(), True)
         self.assertEqual(corrected, True)
         
         for correction_method in correction_methods:
             new_x, corrected = modularcmaes.\
-                correct_boundss(x.copy(), ub, lb, correction_method)     
+                correct_bounds(x.copy(), ub, lb, correction_method)     
             self.assertEqual(corrected, True)
             self.assertNotEqual((x == new_x).all(), True)
             self.assertGreaterEqual( np.min(new_x), -5)
@@ -125,7 +125,7 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
             self.assertEqual((x[[0, 1, 4]] == new_x[[0, 1, 4]]).all(), True)
 
         with self.assertRaises(ValueError):
-            modularcmaes.correct_boundss(x.copy(), ub, lb, "something_undefined")
+            modularcmaes.correct_bounds(x.copy(), ub, lb, "something_undefined")
             
     @unittest.mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_evaluate(self, mock_std):
