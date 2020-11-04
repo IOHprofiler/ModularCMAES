@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.abspath('../..'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'CCMAES'
-copyright = '2019, Jacob de Nobel'
+project = 'modcma'
+copyright = '2020, Jacob de Nobel'
 author = 'Jacob de Nobel'
 
 
@@ -30,6 +30,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.coverage',
     'sphinx.ext.napoleon',
+    'sphinx.ext.autosummary',
     'sphinx_automodapi.automodapi',
     'sphinx.ext.graphviz',
     'sphinx_automodapi.smart_resolver',
@@ -46,7 +47,7 @@ templates_path = ['_templates']
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = []
-
+numpydoc_show_class_members = False
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -58,4 +59,23 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
+
+github_url=  'https://github.com/IOHprofiler/ModularCMAES'
+html_theme_options = {
+    'canonical_url': '',
+   
+    # 'analytics_id': 'UA-XXXXXXX-1',  #  Provided by Google in your dashboard
+    'logo_only': False,
+    'display_version': True,
+    'prev_next_buttons_location': 'bottom',
+    'style_external_links': False,
+    # 'vcs_pageview_mode': '',
+    # 'style_nav_header_background': 'white',
+    # Toc options
+    'collapse_navigation': False,
+    'sticky_navigation': False,
+    'navigation_depth': 4,
+    'includehidden': True,
+    'titles_only': False
+}

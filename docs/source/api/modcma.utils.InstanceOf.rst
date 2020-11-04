@@ -1,7 +1,7 @@
 InstanceOf
 ==========
 
-.. currentmodule:: ccmaes.utils
+.. currentmodule:: modcma.utils
 
 .. autoclass:: InstanceOf
    :show-inheritance:

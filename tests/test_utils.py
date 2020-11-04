@@ -5,7 +5,7 @@ import unittest.mock
 
 import numpy as np
 
-from ccmaes import utils
+from modcma import utils
 
 
 class TestUtils(unittest.TestCase):

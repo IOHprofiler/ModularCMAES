@@ -1,7 +1,7 @@
 import types
 import unittest
 import numpy as np
-from ccmaes import sampling
+from modcma import sampling
 
 
 class TestSampling(unittest.TestCase):

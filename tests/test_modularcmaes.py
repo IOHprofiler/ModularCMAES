@@ -5,7 +5,7 @@ import unittest
 import unittest.mock
 
 import numpy as np
-from ccmaes import parameters, utils, configurablecmaes
+from modcma import parameters, utils, modularcmaes
 
 
 class TestConfigurableCMAESMeta(type):
@@ -38,11 +38,11 @@ class TestConfigurableCMAES(
                 self._dim, budget = self._budget,
                 **{module:value}
         ) 
-        self.c = configurablecmaes.ConfigurableCMAES(
+        self.c = modularcmaes.ModularCMAES(
                     sum, parameters=self.p).run()
 
     def test_select_raises(self):
-        c = configurablecmaes.ConfigurableCMAES(sum, 5, 
+        c = modularcmaes.ModularCMAES(sum, 5, 
             mirrored='mirrored pairwise'
         )
         c.mutate()
@@ -52,7 +52,7 @@ class TestConfigurableCMAES(
 
     def test_local_restart(self):
         for lr in filter(None, parameters.Parameters.local_restart.options):
-            c = configurablecmaes.ConfigurableCMAES(
+            c = modularcmaes.ModularCMAES(
                     sum, 5, local_restart=lr)
             for _ in range(10):
                 c.step()
@@ -63,11 +63,11 @@ class TestConfigurableCMAES(
     
 class TestConfigurableCMAESSingle(unittest.TestCase):
     def test_str_repr(self):
-        c = configurablecmaes.ConfigurableCMAES(sum, 5)
+        c = modularcmaes.ModularCMAES(sum, 5)
         self.assertIsInstance(str(c), str)
         self.assertIsInstance(repr(c), str)
 
-    def test_tpa_mutation(self):
+    def testtpa_mutation(self):
         class TpaParameters:
             sigma = .4
             rank_tpa = None
@@ -79,7 +79,7 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
         
         p = TpaParameters()
         x, y, f = [], [], []
-        configurablecmaes._tpa_mutation(sum, p, x, y, f)
+        modularcmaes.tpa_mutation(sum, p, x, y, f)
         for _, l in enumerate([x,y,f]):
             self.assertEqual(len(l), 2)
         
@@ -92,31 +92,31 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
 
         p = TpaParameters(-2)
         x, y, f = [], [], []
-        configurablecmaes._tpa_mutation(sum, p, x, y, f)
+        modularcmaes.tpa_mutation(sum, p, x, y, f)
         self.assertEqual(p.rank_tpa, -p.a_tpa)
 
     def test_scale_with_treshold(self):
         threshold = 5
         z = np.ones(20)
-        new_z = configurablecmaes._scale_with_threshold(z.copy(), threshold)
+        new_z = modularcmaes.scale_with_threshold(z.copy(), threshold)
         new_z_norm = np.linalg.norm(new_z)
         self.assertNotEqual((z == new_z).all(), True)
         self.assertNotEqual(np.linalg.norm(z), new_z_norm)
         self.assertGreater(new_z_norm, threshold)
 
-    def test_correct_bounds(self):
+    def testcorrect_bounds(self):
         x = np.ones(5) * np.array([2, 4, 6, -7, 3])
         ub, lb = np.ones(5) * 5, np.ones(5) * -5
         disabled, *correction_methods = parameters.Parameters.__annotations__\
             .get("bound_correction")
-        new_x, corrected = configurablecmaes._correct_bounds(x.copy(), ub, lb, disabled)
+        new_x, corrected = modularcmaes.correct_bounds(x.copy(), ub, lb, disabled)
 
         self.assertEqual((x == new_x).all(), True)
         self.assertEqual(corrected, True)
         
         for correction_method in correction_methods:
-            new_x, corrected = configurablecmaes.\
-                _correct_bounds(x.copy(), ub, lb, correction_method)     
+            new_x, corrected = modularcmaes.\
+                correct_bounds(x.copy(), ub, lb, correction_method)     
             self.assertEqual(corrected, True)
             self.assertNotEqual((x == new_x).all(), True)
             self.assertGreaterEqual( np.min(new_x), -5)
@@ -124,16 +124,16 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
             self.assertEqual((x[[0, 1, 4]] == new_x[[0, 1, 4]]).all(), True)
 
         with self.assertRaises(ValueError):
-            configurablecmaes._correct_bounds(x.copy(), ub, lb, "something_undefined")
+            modularcmaes.correct_bounds(x.copy(), ub, lb, "something_undefined")
             
     @unittest.mock.patch('sys.stdout', new_callable=io.StringIO)
     def test_evaluate_bbob(self, mock_std):
         data_folder = os.path.join(os.path.dirname(__file__), 'tmp')
         if not os.path.isdir(data_folder):
             os.mkdir(data_folder)
-        configurablecmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
+        modularcmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder) 
-        configurablecmaes.evaluate_bbob(1, 1, 1)
+        modularcmaes.evaluate_bbob(1, 1, 1)
         
 
 

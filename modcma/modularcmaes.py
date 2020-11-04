@@ -8,19 +8,23 @@ from .population import Population
 from .utils import timeit, ert
 from IOHexperimenter import IOH_function, IOH_logger, custom_IOH_function
 
-class ConfigurableCMAES:
+class ModularCMAES:
     '''The main class of the configurable CMA ES continous optimizer. 
 
-    Attributes
-    ----------
-    _fitness_func: callable
-        The objective function to be optimized
-    parameters: Parameters
-        All the parameters of the CMA ES algorithm are stored in 
-        the parameters object. Note if a parameters object is not 
-        explicitly passed, all *args and **kwargs passed into the 
-        constructor of a ConfigurableCMAES are directly passed into
-        the constructor of a Parameters object. 
+        Attributes
+        ----------
+        _fitness_func: callable
+            The objective function to be optimized
+        parameters: Parameters
+            All the parameters of the CMA ES algorithm are stored in 
+            the parameters object. Note if a parameters object is not 
+            explicitly passed, all \*args and \**kwargs passed into the 
+            constructor of a ModularCMAES are directly passed into
+            the constructor of a Parameters object. 
+        See Also
+        --------
+        modcma.parameters.Parameters
+        
     '''
     parameters: "Parameters"
     _fitness_func: Callable
@@ -50,18 +54,18 @@ class ConfigurableCMAES:
         n_offspring = self.parameters.lambda_
         if self.parameters.step_size_adaptation == 'tpa' and self.parameters.old_population:
             n_offspring -= 2
-            _tpa_mutation(self.fitness_func, self.parameters, x, y, f)
+            tpa_mutation(self.fitness_func, self.parameters, x, y, f)
 
         for i in range(1, n_offspring + 1):
             
             zi = next(self.parameters.sampler)
             if self.parameters.threshold_convergence:
-                zi = _scale_with_threshold(zi, self.parameters.threshold)
+                zi = scale_with_threshold(zi, self.parameters.threshold)
 
             yi = np.dot(self.parameters.B, self.parameters.D * zi)
             xi = self.parameters.m + (self.parameters.sigma * yi)
             
-            xi, out_of_bounds = _correct_bounds(xi, self.parameters.ub, 
+            xi, out_of_bounds = correct_bounds(xi, self.parameters.ub, 
                 self.parameters.lb, self.parameters.bound_correction)
 
             self.parameters.n_out_of_bounds += out_of_bounds
@@ -118,7 +122,7 @@ class ConfigurableCMAES:
 
         if self.parameters.population.f[0] < self.parameters.fopt:
             self.parameters.fopt = self.parameters.population.f[0]
-            self.parameters.xopt = self.parameters.population.x.transpose()[0]
+            self.parameters.xopt = self.parameters.population.x[:, 0]
 
     def recombine(self) -> None:
         '''Recombination of new individuals
@@ -183,7 +187,7 @@ class ConfigurableCMAES:
 
         Returns
         -------
-        ConfigurableCMAES
+        ModularCMAES
         '''
         while self.step():
             pass
@@ -226,26 +230,25 @@ class ConfigurableCMAES:
     def __str__(self):
         return repr(self)
 
-def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
+def tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
     '''Helper function for applying the tpa mutation step.
-    The code was mostly taken from the ModEA framework, 
-    and there a slight differences with the procedure as defined in:
-        Nikolaus Hansen. CMA-ES with two-point 
-        step-size adaptation.CoRR, abs/0805.0231,2008.
-    The function should not be used outside of the ConfigurableCMAES optimizer
+        The code was mostly taken from the ModEA framework, 
+        and there a slight differences with the procedure as defined in:
+        Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, abs/0805.0231,2008.
+        The function should not be used outside of the ModularCMAES optimizer
 
-    Parameters
-    ----------
-    fitness_func: typing.Callable
-        A fitness function to be optimized
-    parameters: Parameters
-        A CCMAES Parameters object
-    x: list
-        A list of new individuals
-    y: list
-        A list of new mutation vectors
-    f: list
-        A list of fitnesses
+        Parameters
+        ----------
+        fitness_func: typing.Callable
+            A fitness function to be optimized
+        parameters: Parameters
+            A modcma Parameters object
+        x: list
+            A list of new individuals
+        y: list
+            A list of new mutation vectors
+        f: list
+            A list of fitnesses
     '''
 
     yi = ((parameters.m - parameters.m_old) /
@@ -262,7 +265,7 @@ def _tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: 
         parameters.rank_tpa = (
             parameters.a_tpa + parameters.b_tpa)
 
-def _scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
+def scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
     '''Function for scaling a vector z to have length > threshold
 
     Used for threshold convergence.
@@ -286,39 +289,41 @@ def _scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
         z *= (new_length / length)
     return z
 
-def _correct_bounds(x:np.ndarray, ub:np.ndarray, 
+def correct_bounds(x:np.ndarray, ub:np.ndarray, 
                     lb:np.ndarray, correction_method:str) -> np.ndarray:
     '''Bound correction function
-    Rescales x to fall within the lower lb and upper
-    bounds ub specified. Available strategies are:
-    - None: Don't perform any boundary correction
-    - unif_resample: Resample each coordinate out of bounds uniformly within bounds
-    - mirror: Mirror each coordinate around the boundary
-    - COTN: Resample each coordinate out of bounds using the one-sided normal 
+        Rescales x to fall within the lower lb and upper
+        bounds ub specified. Available strategies are:
+        - None: Don't perform any boundary correction
+        - unif_resample: Resample each coordinate out of bounds uniformly within bounds
+        - mirror: Mirror each coordinate around the boundary
+        - COTN: Resample each coordinate out of bounds using the one-sided normal 
         distribution with variance 1/3 (bounds scaled to [0,1])
-    - saturate: Set each out-of-bounds coordinate to the boundary
-    - toroidal: Reflect the out-of-bounds coordinates to the oposite bound inwards
+        - saturate: Set each out-of-bounds coordinate to the boundary
+        - toroidal: Reflect the out-of-bounds coordinates to the oposite bound inwards
 
-    Parameters 
-    ----------
-    x: np.ndarray
-        vector of which the bounds should be corrected
-    ub: float
-        upper bound
-    lb: float
-        lower bound
-    correction_method: string
-        type of correction to perform
-    Returns
-    -------
-    np.ndarray
-        bound corrected version of x
-    bool
-        whether the population was out of bounds
-    Raises
-    ------
-    ValueError
-        When an unkown value for correction_method is provided
+        Parameters 
+        ----------
+        x: np.ndarray
+            vector of which the bounds should be corrected
+        ub: float
+            upper bound
+        lb: float
+            lower bound
+        correction_method: string
+            type of correction to perform
+
+        Returns
+        -------
+        np.ndarray
+            bound corrected version of x
+        bool
+            whether the population was out of bounds
+
+        Raises
+        ------
+        ValueError
+            When an unkown value for correction_method is provided
     '''
     out_of_bounds = np.logical_or(x > ub, x < lb)
     if not any(out_of_bounds):
@@ -360,7 +365,7 @@ def evaluate_bbob(
         instance=1,
         target_precision=1e-8,
         **kwargs):
-    '''Helper function to evaluate a ConfigurableCMAES on the BBOB test suite. 
+    '''Helper function to evaluate a ModularCMAES on the BBOB test suite. 
 
     Parameters
     ----------
@@ -379,7 +384,7 @@ def evaluate_bbob(
     instance: int = 1
         The bbob function instance
     **kwargs
-        These are directly passed into the instance of ConfigurableCMAES,
+        These are directly passed into the instance of ModularCMAES,
         in this manner parameters can be specified for the optimizer. 
 
     Returns
@@ -407,7 +412,7 @@ def evaluate_bbob(
             fitness_func.reset()
         target = fitness_func.get_target()
         
-        optimizer = ConfigurableCMAES(
+        optimizer = ModularCMAES(
             fitness_func, dim, target = target, **kwargs).run()
         evals = np.append(evals, fitness_func.evaluations)
         fopts = np.append(fopts, fitness_func.best_so_far_precision)
@@ -437,7 +442,7 @@ def fmin(func, dim, maxfun=None, **kwargs):
     maxfun: int = None
         Maximum number of function evaluations to make.
     **kwargs
-        These are directly passed into the instance of ConfigurableCMAES,
+        These are directly passed into the instance of ModularCMAES,
         in this manner parameters can be specified for the optimizer. 
 
     Returns
@@ -449,5 +454,5 @@ def fmin(func, dim, maxfun=None, **kwargs):
     evals 
         The number of evaluations performed
     '''
-    cma = ConfigurableCMAES(func, dim, budget = maxfun, **kwargs).run()
+    cma = ModularCMAES(func, dim, budget = maxfun, **kwargs).run()
     return cma.parameters.xopt, cma.parameters.fopt, cma.parameters.used_budget

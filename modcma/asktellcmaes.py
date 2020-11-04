@@ -3,10 +3,23 @@ import typing
 from collections import deque
 from functools import wraps
 import numpy as np
-from .configurablecmaes import ConfigurableCMAES
+from .modularcmaes import ModularCMAES
 
 
 def check_break_conditions(f:typing.Callable) -> typing.Callable:
+    '''Decorator function, checks for break conditions for the ~AskTellCMAES.
+        Raises a StopIteration if break_conditions are met for ~AskTellCMAES.
+
+        Parameters
+        ----------
+        f: callable
+            A method on ~AskTellCMAES
+        
+        Raises
+        ------
+        StopIteration
+            When any(~AskTellCMAES.break_conditions) == True
+    '''
     @wraps(f)
     def inner(self, *args, **kwargs) -> typing.Any:
         if any(self.break_conditions):
@@ -15,8 +28,8 @@ def check_break_conditions(f:typing.Callable) -> typing.Callable:
         return f(self, *args, **kwargs)
     return inner
 
-class AskTellCMAES(ConfigurableCMAES):
-    'Ask tell interface for the ConfigurableCMAES'
+class AskTellCMAES(ModularCMAES):
+    '''Ask tell interface for the ModularCMAES  '''
 
     def __init__(self, *args, **kwargs) -> None:
         'Override the fitness_function argument with an empty callable' 
@@ -27,38 +40,63 @@ class AskTellCMAES(ConfigurableCMAES):
         self.register_individual(x)
 
     def sequential_break_conditions(self, i: int, f: float) -> None:
-        '''Overwrite function sequential_break_conditions, 
-        raise NotImplemented if sequential selection is enabled'''
+        '''Overwrite ~modcma.modularcmaes.ModularCMAES.sequential_break_conditions
+            Raises not implemented if sequential selection is enabled, which
+            is not supported in the ask-tell interface.
+
+            Parameters
+            ----------
+            i: int 
+                The index of the currently sampled individual in the population
+            f: float
+                The fitness value of the currently sampled individual
+            
+            Raises
+            ------
+            NotImplementedError        
+                When self.parameters.sequential == True
+        '''
         if self.parameters.sequential:
             raise NotImplementedError("Sequential selection is not implemented "
                              "for ask-tell interface")
 
     def step(self):
-        'Overwrite function step, raise NotImplementedError'
+        '''This method is disabled on this interface
+        
+        Raises
+        ------
+        NotImplementedError
+        '''
         raise NotImplementedError("Step is undefined in this interface")
 
     def run(self):
-        'Overwrite function strunep, raise NotImplementedError'
+        '''This method is disabled on this interface
+        
+            Raises
+            ------
+            NotImplementedError
+        '''
         raise NotImplementedError("Run is undefined in this interface")
 
     def register_individual(self, x: np.ndarray) -> None:
-        '''Add new individuals to ask_queue
-        Parameters
-        ----------
-        x: np.ndarray
-            The vector to be added to the ask_queue
+        '''Add new individuals to self.ask_queue
+
+            Parameters
+            ----------
+            x: np.ndarray
+                The vector to be added to the ask_queue
         '''
         self.ask_queue.append(x)
 
     @check_break_conditions
     def ask(self) -> np.ndarray:
         '''Retrieves the next indivual from the ask_queue.
-        If the ask_queue is not defined yet, it is defined and mutate is
-        called in order to fill it.
-        
-        Returns
-        -------
-        np.ndarray
+            If the ask_queue is not defined yet, it is defined and mutate is
+            called in order to fill it.
+            
+            Returns
+            -------
+            np.ndarray
         '''
         if not hasattr(self, 'ask_queue'):
             self.ask_queue = deque()
@@ -68,23 +106,24 @@ class AskTellCMAES(ConfigurableCMAES):
     @check_break_conditions
     def tell(self, xi:np.ndarray, fi: float) -> None:
         '''Processes a provided fitness value fi for a given individual xi.
-        Parameters
-        ----------
-        xi: np.ndarray
-            An individual previously returned by ask()
-        fi: float
-            The fitness value for xi
-        Raises
-        ------
-        RuntimeError
-            When ask() is not called before tell()
-        ValueError
-            When an unknown xi is provided to the method
-        
-        Warns
-        -----
-        UserWarning
-            When the same xi is provided more than once
+
+            Parameters
+            ----------
+            xi: np.ndarray
+                An individual previously returned by ask()
+            fi: float
+                The fitness value for xi
+            Raises
+            ------
+            RuntimeError
+                When ask() is not called before tell()
+            ValueError
+                When an unknown xi is provided to the method
+            
+            Warns
+            -----
+            UserWarning
+                When the same xi is provided more than once
         '''
         if not self.parameters.population:
             raise RuntimeError("Call to tell without calling ask first is prohibited")

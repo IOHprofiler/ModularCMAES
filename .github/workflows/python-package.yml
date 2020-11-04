@@ -26,4 +26,4 @@ jobs:
     - name: Test with coverage
       run: |
         coverage run -m unittest discover --verbose
-        coverage report -m ccmaes/[a-z]*.py
+        coverage report -m modcma/[a-z]*.py

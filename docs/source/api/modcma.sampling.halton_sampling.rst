@@ -1,6 +1,6 @@
 halton_sampling
 ===============
 
-.. currentmodule:: ccmaes.sampling
+.. currentmodule:: modcma.sampling
 
 .. autofunction:: halton_sampling

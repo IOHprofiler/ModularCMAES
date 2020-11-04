@@ -1,7 +1,7 @@
 import unittest
 
 import numpy as np
-from ccmaes import asktellcmaes
+from modcma import asktellcmaes
 from IOHexperimenter import IOH_function
 
 class AskTellCMAESTestCase(unittest.TestCase):
@@ -9,7 +9,7 @@ class AskTellCMAESTestCase(unittest.TestCase):
         self.d = 5
         self.fid = 1
         self.func = IOH_function(1, 5, 1, suite = "BBOB")
-        self.opt = asktellcmaes.AskTellCMAES(self.d)
+        self.opt = asktellcmaes.AskTellCMAES(self.d, target = 79.48)
 
     def test_sequential_selection_disabled(self):
         self.opt.parameters.sequential = True
@@ -41,7 +41,7 @@ class AskTellCMAESTestCase(unittest.TestCase):
         self.opt.tell(xi, fi)
         self.assertEqual(self.opt.parameters.population.f[0], fi)
     
-    def test_single_generation(self):
+    def test_single_run(self):
         while True:
             try:
                 xi = self.opt.ask()

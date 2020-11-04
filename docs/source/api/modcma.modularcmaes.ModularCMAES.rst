@@ -1,28 +1,28 @@
-ConfigurableCMAES
-=================
+ModularCMAES
+============
 
-.. currentmodule:: ccmaes.configurablecmaes
+.. currentmodule:: modcma.modularcmaes
 
-.. autoclass:: ConfigurableCMAES
+.. autoclass:: ModularCMAES
    :show-inheritance:
 
    .. rubric:: Attributes Summary
 
    .. autosummary::
 
-      ~ConfigurableCMAES.break_conditions
+      ~ModularCMAES.break_conditions
 
    .. rubric:: Methods Summary
 
    .. autosummary::
 
-      ~ConfigurableCMAES.fitness_func
-      ~ConfigurableCMAES.mutate
-      ~ConfigurableCMAES.recombine
-      ~ConfigurableCMAES.run
-      ~ConfigurableCMAES.select
-      ~ConfigurableCMAES.sequential_break_conditions
-      ~ConfigurableCMAES.step
+      ~ModularCMAES.fitness_func
+      ~ModularCMAES.mutate
+      ~ModularCMAES.recombine
+      ~ModularCMAES.run
+      ~ModularCMAES.select
+      ~ModularCMAES.sequential_break_conditions
+      ~ModularCMAES.step
 
    .. rubric:: Attributes Documentation
 

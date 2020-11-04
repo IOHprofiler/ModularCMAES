@@ -1,6 +1,6 @@
 sobol_sampling
 ==============
 
-.. currentmodule:: ccmaes.sampling
+.. currentmodule:: modcma.sampling
 
 .. autofunction:: sobol_sampling

@@ -1,7 +1,7 @@
 BIPOPParameters
 ===============
 
-.. currentmodule:: ccmaes.parameters
+.. currentmodule:: modcma.parameters
 
 .. autoclass:: BIPOPParameters
    :show-inheritance:
