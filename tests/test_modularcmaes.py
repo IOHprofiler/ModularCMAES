@@ -38,11 +38,11 @@ class TestConfigurableCMAES(
                 self._dim, budget = self._budget,
                 **{module:value}
         ) 
-        self.c = configurablecmaes.ConfigurableCMAES(
+        self.c = modularcmaes.ModularCMAES(
                     sum, parameters=self.p).run()
 
     def test_select_raises(self):
-        c = configurablecmaes.ConfigurableCMAES(sum, 5, 
+        c = modularcmaes.ModularCMAES(sum, 5, 
             mirrored='mirrored pairwise'
         )
         c.mutate()
@@ -52,7 +52,7 @@ class TestConfigurableCMAES(
 
     def test_local_restart(self):
         for lr in filter(None, parameters.Parameters.local_restart.options):
-            c = configurablecmaes.ConfigurableCMAES(
+            c = modularcmaes.ModularCMAES(
                     sum, 5, local_restart=lr)
             for _ in range(10):
                 c.step()
@@ -63,7 +63,7 @@ class TestConfigurableCMAES(
     
 class TestConfigurableCMAESSingle(unittest.TestCase):
     def test_str_repr(self):
-        c = configurablecmaes.ConfigurableCMAES(sum, 5)
+        c = modularcmaes.ModularCMAES(sum, 5)
         self.assertIsInstance(str(c), str)
         self.assertIsInstance(repr(c), str)
 
@@ -79,7 +79,7 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
         
         p = TpaParameters()
         x, y, f = [], [], []
-        configurablecmaes._tpa_mutation(sum, p, x, y, f)
+        modularcmaes._tpa_mutation(sum, p, x, y, f)
         for _, l in enumerate([x,y,f]):
             self.assertEqual(len(l), 2)
         
@@ -92,7 +92,7 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
 
         p = TpaParameters(-2)
         x, y, f = [], [], []
-        configurablecmaes._tpa_mutation(sum, p, x, y, f)
+        modularcmaes._tpa_mutation(sum, p, x, y, f)
         self.assertEqual(p.rank_tpa, -p.a_tpa)
 
     def test_scale_with_treshold(self):
@@ -131,9 +131,9 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
         data_folder = os.path.join(os.path.dirname(__file__), 'tmp')
         if not os.path.isdir(data_folder):
             os.mkdir(data_folder)
-        configurablecmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
+        modularcmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder) 
-        configurablecmaes.evaluate_bbob(1, 1, 1)
+        modularcmaes.evaluate_bbob(1, 1, 1)
         
 
 

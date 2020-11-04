@@ -384,7 +384,7 @@ def evaluate_bbob(
     instance: int = 1
         The bbob function instance
     **kwargs
-        These are directly passed into the instance of ConfigurableCMAES,
+        These are directly passed into the instance of ModularCMAES,
         in this manner parameters can be specified for the optimizer. 
 
     Returns
@@ -412,7 +412,7 @@ def evaluate_bbob(
             fitness_func.reset()
         target = fitness_func.get_target()
         
-        optimizer = ConfigurableCMAES(
+        optimizer = ModularCMAES(
             fitness_func, dim, target = target, **kwargs).run()
         evals = np.append(evals, fitness_func.evaluations)
         fopts = np.append(fopts, fitness_func.best_so_far_precision)
@@ -442,7 +442,7 @@ def fmin(func, dim, maxfun=None, **kwargs):
     maxfun: int = None
         Maximum number of function evaluations to make.
     **kwargs
-        These are directly passed into the instance of ConfigurableCMAES,
+        These are directly passed into the instance of ModularCMAES,
         in this manner parameters can be specified for the optimizer. 
 
     Returns
@@ -454,5 +454,5 @@ def fmin(func, dim, maxfun=None, **kwargs):
     evals 
         The number of evaluations performed
     '''
-    cma = ConfigurableCMAES(func, dim, budget = maxfun, **kwargs).run()
+    cma = ModularCMAES(func, dim, budget = maxfun, **kwargs).run()
     return cma.parameters.xopt, cma.parameters.fopt, cma.parameters.used_budget
