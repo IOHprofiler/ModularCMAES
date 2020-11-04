@@ -5,8 +5,8 @@ from modcma.modularcmaes import evaluate
 from modcma.bbob import bbobbenchmarks
 
 import numpy as np
-import cma
-from inverse_covariance import QuicGraphicalLasso 
+# import cma
+# from inverse_covariance import QuicGraphicalLasso 
 from scipy.stats import special_ortho_group
 
 
@@ -155,12 +155,12 @@ def toast(msg):
 if __name__ == "__main__":
     import sys, shutil
     # run_pycma_reg()
+    *_, msg = evaluate(1, 5, 5, label="CMA-ES")
 
-    for f in (1, 2):
-        *_, msg = evaluate(f, 5, 5, regularization=False, label="CMA-ES")
-        for tau in np.linspace(.2, .99, 10):
-            print()
-            *_, msg = evaluate(f, 5, 5, regularization=True, tau=tau, label=f"CMA-ES (reg, tau={tau})")
+    # for f in (1, 2):
+    #     for tau in np.linspace(.2, .99, 10):
+    #         print()
+    #         *_, msg = evaluate(f, 5, 5, regularization=True, tau=tau, label=f"CMA-ES (reg, tau={tau})")
 
     # iterations = 5
     # for f in range(1, 25):
