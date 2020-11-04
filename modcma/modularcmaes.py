@@ -9,20 +9,21 @@ from .utils import bbobbenchmarks, timeit, fgeneric, ert, DISTANCE_TO_TARGET
 
 class ModularCMAES:
     '''The main class of the configurable CMA ES continous optimizer. 
-    Attributes
-    ----------
-    _fitness_func: callable
-        The objective function to be optimized
-    parameters: Parameters
-        All the parameters of the CMA ES algorithm are stored in 
-        the parameters object. Note if a parameters object is not 
-        explicitly passed, all *args and **kwargs passed into the 
-        constructor of a ModularCMAES are directly passed into
-        the constructor of a Parameters object. 
-    See Also
-    --------
-    modcma.parameters.Parameters
-    
+
+        Attributes
+        ----------
+        _fitness_func: callable
+            The objective function to be optimized
+        parameters: Parameters
+            All the parameters of the CMA ES algorithm are stored in 
+            the parameters object. Note if a parameters object is not 
+            explicitly passed, all \*args and \**kwargs passed into the 
+            constructor of a ModularCMAES are directly passed into
+            the constructor of a Parameters object. 
+        See Also
+        --------
+        modcma.parameters.Parameters
+        
     '''
     parameters: "Parameters"
     _fitness_func: Callable
@@ -230,24 +231,23 @@ class ModularCMAES:
 
 def tpa_mutation(fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list) -> None:
     '''Helper function for applying the tpa mutation step.
-    The code was mostly taken from the ModEA framework, 
-    and there a slight differences with the procedure as defined in:
-        Nikolaus Hansen. CMA-ES with two-point 
-        step-size adaptation.CoRR, abs/0805.0231,2008.
-    The function should not be used outside of the ModularCMAES optimizer
+        The code was mostly taken from the ModEA framework, 
+        and there a slight differences with the procedure as defined in:
+        Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, abs/0805.0231,2008.
+        The function should not be used outside of the ModularCMAES optimizer
 
-    Parameters
-    ----------
-    fitness_func: typing.Callable
-        A fitness function to be optimized
-    parameters: Parameters
-        A modcma Parameters object
-    x: list
-        A list of new individuals
-    y: list
-        A list of new mutation vectors
-    f: list
-        A list of fitnesses
+        Parameters
+        ----------
+        fitness_func: typing.Callable
+            A fitness function to be optimized
+        parameters: Parameters
+            A modcma Parameters object
+        x: list
+            A list of new individuals
+        y: list
+            A list of new mutation vectors
+        f: list
+            A list of fitnesses
     '''
 
     yi = ((parameters.m - parameters.m_old) /
@@ -291,36 +291,38 @@ def scale_with_threshold(z:np.ndarray, threshold:float) -> np.ndarray:
 def correct_bounds(x:np.ndarray, ub:np.ndarray, 
                     lb:np.ndarray, correction_method:str) -> np.ndarray:
     '''Bound correction function
-    Rescales x to fall within the lower lb and upper
-    bounds ub specified. Available strategies are:
-    - None: Don't perform any boundary correction
-    - unif_resample: Resample each coordinate out of bounds uniformly within bounds
-    - mirror: Mirror each coordinate around the boundary
-    - COTN: Resample each coordinate out of bounds using the one-sided normal 
+        Rescales x to fall within the lower lb and upper
+        bounds ub specified. Available strategies are:
+        - None: Don't perform any boundary correction
+        - unif_resample: Resample each coordinate out of bounds uniformly within bounds
+        - mirror: Mirror each coordinate around the boundary
+        - COTN: Resample each coordinate out of bounds using the one-sided normal 
         distribution with variance 1/3 (bounds scaled to [0,1])
-    - saturate: Set each out-of-bounds coordinate to the boundary
-    - toroidal: Reflect the out-of-bounds coordinates to the oposite bound inwards
+        - saturate: Set each out-of-bounds coordinate to the boundary
+        - toroidal: Reflect the out-of-bounds coordinates to the oposite bound inwards
 
-    Parameters 
-    ----------
-    x: np.ndarray
-        vector of which the bounds should be corrected
-    ub: float
-        upper bound
-    lb: float
-        lower bound
-    correction_method: string
-        type of correction to perform
-    Returns
-    -------
-    np.ndarray
-        bound corrected version of x
-    bool
-        whether the population was out of bounds
-    Raises
-    ------
-    ValueError
-        When an unkown value for correction_method is provided
+        Parameters 
+        ----------
+        x: np.ndarray
+            vector of which the bounds should be corrected
+        ub: float
+            upper bound
+        lb: float
+            lower bound
+        correction_method: string
+            type of correction to perform
+
+        Returns
+        -------
+        np.ndarray
+            bound corrected version of x
+        bool
+            whether the population was out of bounds
+
+        Raises
+        ------
+        ValueError
+            When an unkown value for correction_method is provided
     '''
     out_of_bounds = np.logical_or(x > ub, x < lb)
     if not any(out_of_bounds):
