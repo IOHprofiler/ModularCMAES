@@ -7,7 +7,7 @@ import pickle
 import numpy as np
 
 from modcma.parameters import Parameters
-from modcma.utils import AnyOf, sphere_function
+from modcma.utils import AnyOf
 from modcma.population import Population
 
 
@@ -70,7 +70,7 @@ class TestParameters(unittest.TestCase):
     def step(self):     
         y = np.random.rand(self.p.lambda_, self.p.d).T 
         x = self.p.m.reshape(-1,1) * y
-        f = np.array(list(map(sphere_function, x)))
+        f = np.array(list(map(sum, x)))
         self.p.used_budget += self.p.lambda_
         self.p.population = Population(x, y, f)
         self.p.m_old = self.p.m.copy()
