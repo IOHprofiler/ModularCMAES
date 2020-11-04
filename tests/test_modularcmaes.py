@@ -79,7 +79,7 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
         
         p = TpaParameters()
         x, y, f = [], [], []
-        modularcmaes._tpa_mutation(sum, p, x, y, f)
+        modularcmaes.tpa_mutation(sum, p, x, y, f)
         for _, l in enumerate([x,y,f]):
             self.assertEqual(len(l), 2)
         
@@ -92,7 +92,7 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
 
         p = TpaParameters(-2)
         x, y, f = [], [], []
-        modularcmaes._tpa_mutation(sum, p, x, y, f)
+        modularcmaes.tpa_mutation(sum, p, x, y, f)
         self.assertEqual(p.rank_tpa, -p.a_tpa)
 
     def test_scale_with_treshold(self):

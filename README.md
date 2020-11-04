@@ -10,11 +10,11 @@ Installation can be done via pip, using:
 ## Usage
 To optimize a single function, we provide a basic fmin interface, which can be used as follows:
 ''
-from ccmaes import modularcmaes
+from modcma import modularcmaes
 modularcmaes.fmin(func=sum, dim=5, maxfun=100)
 ''
 
-[Documentation](https://ccmaes.readthedocs.io/)
+[Documentation](https://modcma.readthedocs.io/)
 
 Running tests
 `$ python3 -m unittest discover`
