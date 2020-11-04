@@ -118,7 +118,7 @@ class ConfigurableCMAES:
 
         if self.parameters.population.f[0] < self.parameters.fopt:
             self.parameters.fopt = self.parameters.population.f[0]
-            self.parameters.xopt = self.parameters.population.x[0]
+            self.parameters.xopt = self.parameters.population.x.transpose()[0]
 
     def recombine(self) -> None:
         '''Recombination of new individuals

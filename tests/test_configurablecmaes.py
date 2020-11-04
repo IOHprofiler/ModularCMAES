@@ -32,11 +32,10 @@ class TestConfigurableCMAES(
 
     _dim = 2 
     _budget = int(1e2 * _dim)
-    _target = 79.48 + 1e-08
 
     def run_module(self, module, value):
         self.p = parameters.Parameters(
-                self._dim, self._target, self._budget,
+                self._dim, budget = self._budget,
                 **{module:value}
         ) 
         self.c = configurablecmaes.ConfigurableCMAES(
@@ -136,10 +135,7 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
         shutil.rmtree(data_folder) 
         configurablecmaes.evaluate_bbob(1, 1, 1)
         
-    def test_fmin(self):
-        xopt, fopt, evaluations = configurablecmaes.fmin(sum, 5)
-        self.assertEqual(sum(xopt), fopt)
-        self.assertGreater(evaluations, 0)
+
 
 
 if __name__ == '__main__':
