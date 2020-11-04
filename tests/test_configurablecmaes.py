@@ -32,18 +32,17 @@ class TestConfigurableCMAES(
 
     _dim = 2 
     _budget = int(1e2 * _dim)
-    _target = 79.48 + 1e-08
 
     def run_module(self, module, value):
         self.p = parameters.Parameters(
-                self._dim, self._target, self._budget,
+                self._dim, budget = self._budget,
                 **{module:value}
         ) 
         self.c = configurablecmaes.ConfigurableCMAES(
-                    utils.sphere_function, parameters=self.p).run()
+                    sum, parameters=self.p).run()
 
     def test_select_raises(self):
-        c = configurablecmaes.ConfigurableCMAES(utils.sphere_function, 5, 
+        c = configurablecmaes.ConfigurableCMAES(sum, 5, 
             mirrored='mirrored pairwise'
         )
         c.mutate()
@@ -54,7 +53,7 @@ class TestConfigurableCMAES(
     def test_local_restart(self):
         for lr in filter(None, parameters.Parameters.local_restart.options):
             c = configurablecmaes.ConfigurableCMAES(
-                    utils.sphere_function, 5, local_restart=lr)
+                    sum, 5, local_restart=lr)
             for _ in range(10):
                 c.step()
             
@@ -64,7 +63,7 @@ class TestConfigurableCMAES(
     
 class TestConfigurableCMAESSingle(unittest.TestCase):
     def test_str_repr(self):
-        c = configurablecmaes.ConfigurableCMAES(utils.sphere_function, 5)
+        c = configurablecmaes.ConfigurableCMAES(sum, 5)
         self.assertIsInstance(str(c), str)
         self.assertIsInstance(repr(c), str)
 
@@ -80,20 +79,20 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
         
         p = TpaParameters()
         x, y, f = [], [], []
-        configurablecmaes._tpa_mutation(utils.sphere_function, p, x, y, f)
+        configurablecmaes._tpa_mutation(sum, p, x, y, f)
         for _, l in enumerate([x,y,f]):
             self.assertEqual(len(l), 2)
         
         self.assertListEqual((-y[0]).tolist(), y[1].tolist())
        
         for xi, fi in zip(x, f):
-            self.assertEqual(utils.sphere_function(xi), fi)
+            self.assertEqual(sum(xi), fi)
         
         self.assertEqual(p.rank_tpa, p.a_tpa + p.b_tpa) 
 
         p = TpaParameters(-2)
         x, y, f = [], [], []
-        configurablecmaes._tpa_mutation(utils.sphere_function, p, x, y, f)
+        configurablecmaes._tpa_mutation(sum, p, x, y, f)
         self.assertEqual(p.rank_tpa, -p.a_tpa)
 
     def test_scale_with_treshold(self):
@@ -128,13 +127,15 @@ class TestConfigurableCMAESSingle(unittest.TestCase):
             configurablecmaes._correct_bounds(x.copy(), ub, lb, "something_undefined")
             
     @unittest.mock.patch('sys.stdout', new_callable=io.StringIO)
-    def test_evaluate(self, mock_std):
+    def test_evaluate_bbob(self, mock_std):
         data_folder = os.path.join(os.path.dirname(__file__), 'tmp')
         if not os.path.isdir(data_folder):
             os.mkdir(data_folder)
-        configurablecmaes.evaluate(1, 1, 1, logging=True, data_folder=data_folder)
+        configurablecmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder) 
-        configurablecmaes.evaluate(1, 1, 1)
+        configurablecmaes.evaluate_bbob(1, 1, 1)
+        
+
 
 
 if __name__ == '__main__':

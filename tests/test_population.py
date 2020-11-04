@@ -25,7 +25,7 @@ class TestPopulation(unittest.TestCase):
         ).T
         self.y = np.dot(self.B, self.D * self.z)
         self.x = self.xmean + (self._sigma * self.y)
-        self.f = np.array([utils.sphere_function(i) for i in self.x.T])
+        self.f = np.array([sum(i) for i in self.x.T])
         self.pop = population.Population(self.x, self.y, self.f)
 
 

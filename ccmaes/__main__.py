@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 
-from .configurablecmaes import ConfigurableCMAES, evaluate
+from .configurablecmaes import ConfigurableCMAES, evaluate_bbob
 
 
 parser = ArgumentParser(
@@ -41,4 +41,4 @@ args = vars(parser.parse_args())
 for arg in (args.pop("arguments") or []):
     exec(arg, None, args)
 
-evaluate(**args)
+evaluate_bbob(**args)
