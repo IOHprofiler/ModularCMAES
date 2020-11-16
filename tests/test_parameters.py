@@ -55,9 +55,8 @@ class TestParameters(unittest.TestCase):
             self.assertEqual(sampler.__name__, 'mirrored_sampling')
 
     def test_wrong_parameters(self):
-        with self.assertRaises(AttributeError):
+        with self.assertWarns(RuntimeWarning):
             Parameters(1, mu=3, lambda_=2)
-
 
     def test_options(self):
         for module in Parameters.__modules__:
