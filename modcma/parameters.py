@@ -417,7 +417,7 @@ class Parameters(AnnotatedStruct):
         self.mu = self.mu or self.lambda_ // 2
         if self.mu > self.lambda_:
             warnings.warn(
-                "\u03BC ({}) cannot be larger than \u03bb ({}). Modifying \u03bb to ".format(
+                "\u03BC ({}) cannot be larger than \u03bb ({}). Modifying \u03bb to ({})".format(
                     self.mu, self.lambda_, self.lambda_ // 2
                 ), RuntimeWarning)            
             self.mu = self.lambda_ // 2
