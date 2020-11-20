@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 
-from .modularcmaes import ModularCMAES, evaluate
+from .modularcmaes import ModularCMAES, evaluate_bbob
 
 
 parser = ArgumentParser(

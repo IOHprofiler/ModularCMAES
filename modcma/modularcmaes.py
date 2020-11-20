@@ -6,7 +6,7 @@ from typing import List, Callable
 from .parameters import Parameters
 from .population import Population
 from .utils import timeit, ert
-from IOHexperimenter import IOH_function, IOH_logger, custom_IOH_function
+
 
 class ModularCMAES:
     '''The main class of the configurable CMA ES continous optimizer. 
@@ -394,7 +394,9 @@ def evaluate_bbob(
     fopts
         The best fitness values for each run of the optimizer
     '''
-
+    # This speeds up the import, this import is quite slow, so import it lazy here
+    from IOHexperimenter import IOH_function, IOH_logger
+    
     evals, fopts = np.array([]), np.array([])
     if seed:
         np.random.seed(seed)

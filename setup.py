@@ -16,6 +16,7 @@ setuptools.setup(
         'scipy',
         'ghalton',
         'sobol_seq'
+        'iohexperimenter'
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
