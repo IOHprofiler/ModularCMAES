@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name='modcma',
-    version="0.0.1",
+    version="0.0.2",
     author="Jacob de Nobel",
     author_email="jacobdenobel@gmail.com",
     description="Package Containing Modular CMA-ES optimizer",
