@@ -2,9 +2,14 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+    
+__version__ = "auto"
+
+assert __version__ != "auto"
+
 setuptools.setup(
     name='modcma',
-    version="0.0.2",
+    version=__version__,
     author="Jacob de Nobel",
     author_email="jacobdenobel@gmail.com",
     description="Package Containing Modular CMA-ES optimizer",
