@@ -5,6 +5,8 @@ with open("README.md", "r") as fh:
     
 __version__ = "auto"
 
+# CI will change the above to match the github tag,
+# if you run this manually, change __version__. 
 assert __version__ != "auto"
 
 setuptools.setup(
@@ -20,7 +22,7 @@ setuptools.setup(
         'numpy',
         'scipy',
         'ghalton',
-        'sobol_seq'
+        'sobol_seq',
         'iohexperimenter'
     ],
     classifiers=[
