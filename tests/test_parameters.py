@@ -8,6 +8,7 @@ import numpy as np
 
 from modcma.parameters import Parameters
 from modcma.utils import AnyOf
+from modcma.sampling import mirrored_sampling
 from modcma.population import Population
 
 
@@ -21,6 +22,29 @@ class TestParameters(unittest.TestCase):
             if type(x) != type_:
                 with self.assertRaises(TypeError, msg=f"{name} {type_} {x}"):
                     setattr(p, name, x)
+
+
+    def test_updating(self):
+        self.p.update(dict(mirrored='mirrored'))
+        self.assertEqual(self.p.mirrored, 'mirrored')
+        self.assertEqual(self.p.sampler.__name__, 'mirrored_sampling')
+
+        with self.assertRaises(ValueError):
+            self.p.update(dict(nonexist=10))
+        
+        self.p.update(dict(active=True))
+        self.assertEqual(self.p.active, True)
+        self.assertEqual(self.p.mirrored, 'mirrored')
+        self.assertEqual(self.p.sampler.__name__, 'mirrored_sampling')
+
+        old_mueff = self.p.mueff
+        self.p.update(dict(weights_option="1/mu"), reset_default_modules=True)
+        self.assertEqual(self.p.active, False)
+        self.assertEqual(self.p.mirrored, None)
+        self.assertEqual(self.p.weights_option, "1/mu")
+        self.assertNotEqual(self.p.mueff, old_mueff)
+        
+
 
     def test_bipop_parameters(self):
         self.p.local_restart = 'BIPOP'

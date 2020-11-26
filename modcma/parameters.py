@@ -431,7 +431,8 @@ class Parameters(AnnotatedStruct):
         '''Initialization function for parameters that are used by
         local restart strategies, i.e. IPOP.
         '''
-        self.restarts.append(self.t)
+        if len(self.restarts) == 0:
+            self.restarts.append(self.t)
         self.max_iter = 100 + 50 * (self.d + 3)**2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
@@ -447,13 +448,13 @@ class Parameters(AnnotatedStruct):
         if self.weights_option == '1/mu':
             ws = np.ones(self.mu) / self.mu
             self.weights = np.append(ws, ws[::-1] * -1)
-            if self.lambda_ %2 != 0:
-                self.weights = np.append([1/self.mu], self.weights)
+            if self.lambda_ % 2 != 0:
+                self.weights = np.append([1 / self.mu], self.weights)
         elif self.weights_option == '1/2^mu':
             ws = 1 / 2**np.arange(1, self.mu + 1) + (
                     (1 / (2**self.mu)) / self.mu)
             self.weights = np.append(ws, ws[::-1] * -1)
-            if self.lambda_ %2 != 0:
+            if self.lambda_  % 2 != 0:
                 self.weights = np.append([1/self.mu**2], self.weights)
         else:
             self.weights = (np.log((self.lambda_ + 1) / 2) -
@@ -638,6 +639,7 @@ class Parameters(AnnotatedStruct):
             self.init_adaptation_parameters()
             self.init_dynamic_parameters()
             self.init_local_restart_parameters()
+            self.restarts.append(self.t)
         else:
             warnings.warn("Termination criteria met: {}".format(", ".join(
                 name for name, value in self.termination_criteria.items() if value
@@ -728,7 +730,6 @@ class Parameters(AnnotatedStruct):
             self.sampler = None
             pickle.dump(self, f)
 
-
     def record_statistics(self) -> None:
         'Method for recording metadata. '
         self.flat_fitnesses.append(
@@ -791,3 +792,37 @@ class Parameters(AnnotatedStruct):
                     )
                 )
             }
+
+    def update(self, parameters: dict, reset_default_modules=False):
+        '''Method to update the values of the Parameters object
+        based on a given dict of new parameters.
+
+        Note that some updated parameters might be overridden by:
+            self.init_selection_parameters()
+            self.init_adaptation_parameters()
+            self.init_local_restart_parameters()
+        which are called at the end of this function. Use with caution.
+        
+
+        Parameters
+        ----------
+        parameters: dict
+            A dict with new parameter values
+        
+        reset_default_modules: bool = False
+            Whether to reset the modules back to their default values.                
+        '''
+        if reset_default_modules:
+            for name in Parameters.__modules__:
+                default_option, *_ = getattr(getattr(Parameters, name), 
+                    "options", [False, True])
+                setattr(self, name, default_option)
+
+        for name, value in parameters.items():
+            if not hasattr(self, name):
+                raise ValueError(f"The parameter {name} doesn't exist")
+            setattr(self, name, value)
+
+        self.init_selection_parameters()
+        self.init_adaptation_parameters()
+        self.init_local_restart_parameters()
