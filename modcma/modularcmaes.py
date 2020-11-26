@@ -202,6 +202,8 @@ class ModularCMAES:
         -------
         [bool, bool]
         '''
+        if self.parameters.n_generations:
+            return [self.parameters.t >= self.parameters.n_generations]
         return [
             self.parameters.target >= self.parameters.fopt,
             self.parameters.used_budget >= self.parameters.budget

@@ -87,12 +87,16 @@ class Parameters(AnnotatedStruct):
             The dimensionality of the problem
         target: float = -float("inf")
             The absolute target of the optimization problem
+        budget: int = None
+            The maximum number of iterations
+        n_generations: int = None
+            The number of generations to run the optimizer. If this value is specified
+            this will override the default break-conditions, and the optimizer will only 
+            stop after n_generations. Target-reached and budget will be ignored.
         lambda_: int = None
             The number of offspring in the population
         mu: int = None
             The number of parents in the population
-        budget: int = None
-            The maximum number of iterations
         init_sigma: float = .5
             The initial value of sigma (step size)
         a_tpa: float = .5
@@ -100,7 +104,13 @@ class Parameters(AnnotatedStruct):
         b_tpa: float = 0.
             Parameter used in TPA
         cs: float = None
-            Learning rate parameter for sigma
+            Learning rate for the cumulation of the step size control
+        cc: float = None
+            Learning rate for the rank-one update
+        cmu: float = None
+            Learning rate for the rank-mu update
+        c1: float = None
+            Learning rate for the rank-one update
         seq_cutoff_factor: int = 1
             Used in sequential selection, the number of times mu individuals must be seen
             before a sequential break can be performed
@@ -112,21 +122,15 @@ class Parameters(AnnotatedStruct):
             The initial length theshold used in treshold convergence
         decay_factor: float = 0.995
             The decay for the threshold used in threshold covergence
+        max_resamples: int
+            The maximum amount of resamples which can be done when 'dismiss'-boundary correction is used
         active: bool = False
             Specifying whether to use active update.
                 [1] G. Jastrebski, D. V. Arnold, et al. Improving evolution strategies through
                 active covariance matrix adaptation. In Evolutionary Computation (CEC),
                 2006 IEEE Congress on, pages 2814–2821. IEEE, 2006
         elitist: bool = False
-            Specifying whether to use an elitist approachCMAES
-        mirrored: str = (None, 'mirrored', mirrored pairwise', )
-            Specifying whether to use mirrored sampling
-                [2] D. Brockhoff, A. Auger, N. Hansen, D. V. CMAEST. Hohm.
-                Mirrored Sampling and Sequential SelectioCMAESion Strategies.
-                In R. Schaefer, C. Cotta, J. Kołodziej, aCMAESh, editors, Parallel
-                Problem Solving from Nature, PPSN XI: 11tCMAESnal Conference,
-                Kraków, Poland, September 11-15, 2010, PrCMAESart I, pages
-                11–21, Berlin, Heidelberg, 2010. SpringerCMAESelberg.
+            Specifying whether to use an elitist approach 
         sequential: bool = False
             Specifying whether to use sequential selection
                 [3] D. Brockhoff, A. Auger, N. Hansen, D. V. Arnold, and T. Hohm.
@@ -148,7 +152,11 @@ class Parameters(AnnotatedStruct):
                 [5] H. Wang, M. Emmerich, and T. Bäck. Mirrored Orthogonal Sampling
                 with Pairwise Selection in Evolution Strategies. In Proceedings of the
                 29th Annual ACM Symposium on Applied Computing, pages 154–156.
-                ACM, 2014.
+        local_restart: str = (None, 'IPOP', )
+            Specifying which local restart strategy should be used
+                IPOP:
+                    [11] Anne Auger and Nikolaus Hansen. A restart cma evolution strategy
+                    with increasing population size. volume 2, pages 1769–1776, 01 2005
         base_sampler: str = ('gaussian', 'sobol', 'halton',)
             Denoting which base sampler to use, 'sobol', 'halton' can
             be selected to sample from a quasi random sequence.
@@ -156,6 +164,15 @@ class Parameters(AnnotatedStruct):
                 random mutations for evolution strategies. In Artificial Evolution:
                 7th International Conference, Revised Selected Papers, pages 296–307.
                 Springer, 2006.
+        mirrored: str = (None, 'mirrored', mirrored pairwise', )
+            Specifying whether to use mirrored sampling
+                [2] D. Brockhoff, A. Auger, N. Hansen, D. V. CMAEST. Hohm.
+                Mirrored Sampling and Sequential SelectioCMAESion Strategies.
+                In R. Schaefer, C. Cotta, J. Kołodziej, aCMAESh, editors, Parallel
+                Problem Solving from Nature, PPSN XI: 11tCMAESnal Conference,
+                Kraków, Poland, September 11-15, 2010, PrCMAESart I, pages
+                11–21, Berlin, Heidelberg, 2010. SpringerCMAESelberg.
+                ACM, 2014.
         weights_option: str = ('default', '1/mu', '1/2^mu', )
             Denoting the recombination weigths to be used.
                 [7] Sander van Rijn, Hao Wang, Matthijs van Leeuwen, and Thomas Bäck. 2016.
@@ -171,11 +188,6 @@ class Parameters(AnnotatedStruct):
                 A Median Success Rule for Non-Elitist Evolution Strategies: Study of Feasibility.
                 In Blum et al. Christian, editor,Genetic and Evolutionary Computation Conference,
                 pages 415–422, Amsterdam, Nether-lands, July 2013. ACM, ACM Press.
-        local_restart: str = (None, 'IPOP', )
-            Specifying which local restart strategy should be used
-                IPOP:
-                    [11] Anne Auger and Nikolaus Hansen. A restart cma evolution strategy
-                    with increasing population size. volume 2, pages 1769–1776, 01 2005
         population: TypeVar('Population') = None
             The current population of individuals
         old_population: TypeVar('Population') = None
@@ -199,10 +211,6 @@ class Parameters(AnnotatedStruct):
             The number of function evaluations used
         fopt: float
             The fitness of the current best individual
-        budget: int
-            The maximum number of objective function evaluations
-        target: float
-            The target value up until which to optimize
         t: int
             The number of generations
         sigma_over_time: list
@@ -263,14 +271,6 @@ class Parameters(AnnotatedStruct):
             The negative recombination weights, used in active update
         mueff: float
             The variance effective selection mass
-        c1: float
-            Learning rate for the rank-one update
-        cc: float
-            Learning rate for the rank-one update
-        cmu: float
-            Learning rate for the rank-mu update
-        cs: float
-            Learning rate for the cumulation of the step size control
         damps: float
             Used for adapting sigma with csa
         chiN: np.ndarray
@@ -290,6 +290,7 @@ class Parameters(AnnotatedStruct):
     d: int
     target: float = -float("inf")
     budget: int = None
+    n_generations: int = None
     lambda_: int = None
     mu: int = None
     init_sigma: float = .5
@@ -376,7 +377,6 @@ class Parameters(AnnotatedStruct):
             sampler = mirrored_sampling(sampler)
             
         return sampler
-
     
     def init_fixed_parameters(self) -> None:
         '''Initialization function for parameters that 
@@ -400,8 +400,7 @@ class Parameters(AnnotatedStruct):
                 self.budget,
                 self.mu / self.lambda_
         )
-
-        
+       
     def init_selection_parameters(self) -> None:
         '''Initialization function for parameters that are of influence
         in selection/population control.
@@ -432,7 +431,8 @@ class Parameters(AnnotatedStruct):
         '''Initialization function for parameters that are used by
         local restart strategies, i.e. IPOP.
         '''
-        self.restarts.append(self.t)
+        if len(self.restarts) == 0:
+            self.restarts.append(self.t)
         self.max_iter = 100 + 50 * (self.d + 3)**2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
@@ -448,13 +448,13 @@ class Parameters(AnnotatedStruct):
         if self.weights_option == '1/mu':
             ws = np.ones(self.mu) / self.mu
             self.weights = np.append(ws, ws[::-1] * -1)
-            if self.lambda_ %2 != 0:
-                self.weights = np.append([1/self.mu], self.weights)
+            if self.lambda_ % 2 != 0:
+                self.weights = np.append([1 / self.mu], self.weights)
         elif self.weights_option == '1/2^mu':
             ws = 1 / 2**np.arange(1, self.mu + 1) + (
                     (1 / (2**self.mu)) / self.mu)
             self.weights = np.append(ws, ws[::-1] * -1)
-            if self.lambda_ %2 != 0:
+            if self.lambda_  % 2 != 0:
                 self.weights = np.append([1/self.mu**2], self.weights)
         else:
             self.weights = (np.log((self.lambda_ + 1) / 2) -
@@ -639,6 +639,7 @@ class Parameters(AnnotatedStruct):
             self.init_adaptation_parameters()
             self.init_dynamic_parameters()
             self.init_local_restart_parameters()
+            self.restarts.append(self.t)
         else:
             warnings.warn("Termination criteria met: {}".format(", ".join(
                 name for name, value in self.termination_criteria.items() if value
@@ -729,7 +730,6 @@ class Parameters(AnnotatedStruct):
             self.sampler = None
             pickle.dump(self, f)
 
-
     def record_statistics(self) -> None:
         'Method for recording metadata. '
         self.flat_fitnesses.append(
@@ -792,3 +792,37 @@ class Parameters(AnnotatedStruct):
                     )
                 )
             }
+
+    def update(self, parameters: dict, reset_default_modules=False):
+        '''Method to update the values of the Parameters object
+        based on a given dict of new parameters.
+
+        Note that some updated parameters might be overridden by:
+            self.init_selection_parameters()
+            self.init_adaptation_parameters()
+            self.init_local_restart_parameters()
+        which are called at the end of this function. Use with caution.
+        
+
+        Parameters
+        ----------
+        parameters: dict
+            A dict with new parameter values
+        
+        reset_default_modules: bool = False
+            Whether to reset the modules back to their default values.                
+        '''
+        if reset_default_modules:
+            for name in Parameters.__modules__:
+                default_option, *_ = getattr(getattr(Parameters, name), 
+                    "options", [False, True])
+                setattr(self, name, default_option)
+
+        for name, value in parameters.items():
+            if not hasattr(self, name):
+                raise ValueError(f"The parameter {name} doesn't exist")
+            setattr(self, name, value)
+
+        self.init_selection_parameters()
+        self.init_adaptation_parameters()
+        self.init_local_restart_parameters()
