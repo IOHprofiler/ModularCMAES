@@ -8,7 +8,7 @@ import numpy as np
 from modcma import parameters, utils, modularcmaes
 
 
-class TestConfigurableCMAESMeta(type):
+class TestModularCMAESMeta(type):
     def __new__(classes, name, bases,  clsdict):
         def gen_test(module, value):
             def do_test(self):
@@ -26,9 +26,9 @@ class TestConfigurableCMAESMeta(type):
         clsdict[f"test_standard"] = gen_test('active', True)
         return super().__new__(classes, name, bases, clsdict)
 
-class TestConfigurableCMAES(
+class TestModularCMAES(
         unittest.TestCase, 
-        metaclass=TestConfigurableCMAESMeta):
+        metaclass=TestModularCMAESMeta):
 
     _dim = 2 
     _budget = int(1e2 * _dim)
@@ -61,11 +61,24 @@ class TestConfigurableCMAES(
             c.step()
     
     
-class TestConfigurableCMAESSingle(unittest.TestCase):
+class TestModularCMAESSingle(unittest.TestCase):
     def test_str_repr(self):
         c = modularcmaes.ModularCMAES(sum, 5)
         self.assertIsInstance(str(c), str)
         self.assertIsInstance(repr(c), str)
+
+    def test_n_generations(self):
+        c = modularcmaes.ModularCMAES(sum, 5, n_generations = 5)
+        self.assertEqual(1, len(c.break_conditions))
+
+        for i in range(5):
+            c.step()
+
+        self.assertTrue(any(c.break_conditions))
+
+        c = modularcmaes.ModularCMAES(sum, 5)
+        self.assertEqual(2, len(c.break_conditions))
+
 
     def testtpa_mutation(self):
         class TpaParameters:
