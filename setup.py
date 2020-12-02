@@ -4,9 +4,11 @@ with open("README.md", "r") as fh:
 
     
 __version__ = "auto"
-
-# CI will change the above to match the github tag,
-# if you run this manually, change __version__. 
+gh_ref = os.environ.get("GITHUB_REF")
+if gh_ref:
+    *_, tag = gh_ref.split("/")
+    __version__ = tag.replace("v", "")
+    
 assert __version__ != "auto"
 
 setuptools.setup(
