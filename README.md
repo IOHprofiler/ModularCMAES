@@ -14,7 +14,7 @@ from modcma import modularcmaes
 modularcmaes.fmin(func=sum, dim=5, maxfun=100)
 ''
 
-[Documentation](https://modcma.readthedocs.io/)
+[Documentation](https://modularcmaes.readthedocs.io/)
 
 Running tests
 `$ python3 -m unittest discover`
@@ -23,5 +23,3 @@ Running optimizer
 `$ python3 -m modcma  [-h] [-f FID] [-d DIM] [-i ITERATIONS] [-l] [-c] [-L LABEL]
                    [-s SEED] [-a ARGUMENTS [ARGUMENTS ...]]`
 
-
-[Documentation](https://modcma.readthedocs.io/)
