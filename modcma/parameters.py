@@ -14,70 +14,6 @@ from .sampling import (
     sobol_sampling,
     halton_sampling,
 )
-
-
-class BIPOPParameters(AnnotatedStruct):
-    'Seperate object which holds BIPOP specific parameters'
-
-    lambda_init: int
-    budget: int
-    mu_factor: float 
-    lambda_large: int = None
-    budget_small: int = None
-    budget_large: int = None
-    used_budget: int = 0
-
-
-    @property
-    def large(self) -> bool:
-        'Deternotes where to use a large regime or small regime'
-        if (self.budget_large >= self.budget_small) and self.budget_large > 0:
-            return True 
-        return False
-
-    @property
-    def remaining_budget(self) -> int:
-        'Compute the remaining budget'
-        return self.budget - self.used_budget
-
-    @property
-    def lambda_(self) -> int:
-        'Returns value for lambda, based which regime is active'
-        return self.lambda_large if self.large else self.lambda_small
-
-    @property
-    def sigma(self) -> float:
-        'Return value for sigma, based on which regime is active'
-        return 2 if self.large else 2e-2 * np.random.random()
-    
-    @property
-    def mu(self) -> int:
-        'Return value for mu, based on which '
-        return np.floor(self.lambda_ * self.mu_factor).astype(int)
-
-
-    def adapt(self, used_budget: int) -> None:
-        'Adapts the parameters for BIPOP on restart'
-    
-        used_previous_iteration = used_budget - self.used_budget
-        self.used_budget += used_previous_iteration
-
-        if self.lambda_large == None:
-            self.lambda_large = self.lambda_init * 2 
-            self.budget_small = self.remaining_budget // 2
-            self.budget_large = self.remaining_budget - self.budget_small
-        elif self.large:
-            self.budget_large -= used_previous_iteration
-            self.lambda_large *= 2
-        else:
-            self.budget_small -= used_previous_iteration
-        
-        self.lambda_small = np.floor(self.lambda_init * (
-                .5 * self.lambda_large / self.lambda_init
-                ) ** (np.random.random() ** 2)
-            ).astype(int)
-
-
 class Parameters(AnnotatedStruct):
     '''AnnotatedStruct object for holding the parameters for the Configurable CMAES
 
@@ -317,7 +253,7 @@ class Parameters(AnnotatedStruct):
     local_restart: (None, 'IPOP', 'BIPOP',) = None
     base_sampler: ('gaussian', 'sobol', 'halton',) = 'gaussian'
     mirrored: (None, 'mirrored', 'mirrored pairwise',) = None
-    weights_option: ('default', '1/mu', '1/2^mu', ) = 'default'
+    weights_option: ('default', 'equal', '1/2^lambda', ) = 'default'
     step_size_adaptation: ('csa', 'tpa', 'msr', ) = 'csa'
     
     population: TypeVar('Population') = None
@@ -445,17 +381,17 @@ class Parameters(AnnotatedStruct):
         matrix adapation.
         '''
 
-        if self.weights_option == '1/mu':
-            ws = np.ones(self.mu) / self.mu
+        if self.weights_option == 'equal':
+            ws = np.ones(self.lambda_) / self.lambda_
             self.weights = np.append(ws, ws[::-1] * -1)
             if self.lambda_ % 2 != 0:
-                self.weights = np.append([1 / self.mu], self.weights)
-        elif self.weights_option == '1/2^mu':
-            ws = 1 / 2**np.arange(1, self.mu + 1) + (
-                    (1 / (2**self.mu)) / self.mu)
+                self.weights = np.append([1 / self.lambda_], self.weights)
+        elif self.weights_option == '1/2^lambda':
+            ws = 1 / 2**np.arange(1, self.lambda_ + 1) + (
+                    (1 / (2**self.lambda_)) / self.lambda_)
             self.weights = np.append(ws, ws[::-1] * -1)
             if self.lambda_  % 2 != 0:
-                self.weights = np.append([1/self.mu**2], self.weights)
+                self.weights = np.append([1/self.lambda_**2], self.weights)
         else:
             self.weights = (np.log((self.lambda_ + 1) / 2) -
                             np.log(np.arange(1, self.lambda_ + 1)))
@@ -826,3 +762,66 @@ class Parameters(AnnotatedStruct):
         self.init_selection_parameters()
         self.init_adaptation_parameters()
         self.init_local_restart_parameters()
+
+
+
+class BIPOPParameters(AnnotatedStruct):
+    'Seperate object which holds BIPOP specific parameters'
+
+    lambda_init: int
+    budget: int
+    mu_factor: float 
+    lambda_large: int = None
+    budget_small: int = None
+    budget_large: int = None
+    used_budget: int = 0
+
+
+    @property
+    def large(self) -> bool:
+        'Deternotes where to use a large regime or small regime'
+        if (self.budget_large >= self.budget_small) and self.budget_large > 0:
+            return True 
+        return False
+
+    @property
+    def remaining_budget(self) -> int:
+        'Compute the remaining budget'
+        return self.budget - self.used_budget
+
+    @property
+    def lambda_(self) -> int:
+        'Returns value for lambda, based which regime is active'
+        return self.lambda_large if self.large else self.lambda_small
+
+    @property
+    def sigma(self) -> float:
+        'Return value for sigma, based on which regime is active'
+        return 2 if self.large else 2e-2 * np.random.random()
+    
+    @property
+    def mu(self) -> int:
+        'Return value for mu, based on which '
+        return np.floor(self.lambda_ * self.mu_factor).astype(int)
+
+
+    def adapt(self, used_budget: int) -> None:
+        'Adapts the parameters for BIPOP on restart'
+    
+        used_previous_iteration = used_budget - self.used_budget
+        self.used_budget += used_previous_iteration
+
+        if self.lambda_large == None:
+            self.lambda_large = self.lambda_init * 2 
+            self.budget_small = self.remaining_budget // 2
+            self.budget_large = self.remaining_budget - self.budget_small
+        elif self.large:
+            self.budget_large -= used_previous_iteration
+            self.lambda_large *= 2
+        else:
+            self.budget_small -= used_previous_iteration
+        
+        self.lambda_small = np.floor(self.lambda_init * (
+                .5 * self.lambda_large / self.lambda_init
+                ) ** (np.random.random() ** 2)
+            ).astype(int)
