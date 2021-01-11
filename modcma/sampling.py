@@ -443,6 +443,7 @@ class Sobol(Iterator):
     @staticmethod
     def l0(n: int) -> int:
         "Returns low 0 bit index for a given integer"
-        if (x := format(n, "b")[::-1].find("0")) != -1:
+        x = format(n, "b")[::-1].find("0")
+        if x != -1:
             return x + 1
         return len(format(n, "b")) + 1
