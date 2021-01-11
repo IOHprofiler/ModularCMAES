@@ -6,6 +6,7 @@ from modcma import population, utils
 class TestPopulation(unittest.TestCase):
     _dim = 5
     _lambda = 16
+    _sigma = 0.5
 
     def setUp(self):
         np.random.seed(12)
