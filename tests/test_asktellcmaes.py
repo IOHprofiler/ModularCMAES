@@ -4,12 +4,13 @@ import numpy as np
 from modcma import asktellcmaes
 from IOHexperimenter import IOH_function
 
+
 class AskTellCMAESTestCase(unittest.TestCase):
     def setUp(self):
         self.d = 5
         self.fid = 1
-        self.func = IOH_function(1, 5, 1, suite = "BBOB")
-        self.opt = asktellcmaes.AskTellCMAES(self.d, target = 79.48)
+        self.func = IOH_function(1, 5, 1, suite="BBOB")
+        self.opt = asktellcmaes.AskTellCMAES(self.d, target=79.48)
 
     def test_sequential_selection_disabled(self):
         self.opt.parameters.sequential = True
@@ -18,11 +19,10 @@ class AskTellCMAESTestCase(unittest.TestCase):
 
     def test_unkown_xi(self):
         with self.assertRaises(RuntimeError):
-            self.opt.tell(np.random.random((self.d, 1)), 90.)
+            self.opt.tell(np.random.random((self.d, 1)), 90.0)
         _ = self.opt.ask()
         with self.assertRaises(ValueError):
-            self.opt.tell(np.random.random((self.d, 1)), 90.)
-        
+            self.opt.tell(np.random.random((self.d, 1)), 90.0)
 
     def test_warns_on_repeated_xi(self):
         xi = self.opt.ask()
@@ -40,7 +40,7 @@ class AskTellCMAESTestCase(unittest.TestCase):
         fi = self.func(xi.flatten())
         self.opt.tell(xi, fi)
         self.assertEqual(self.opt.parameters.population.f[0], fi)
-    
+
     def test_single_run(self):
         while True:
             try:
@@ -57,5 +57,6 @@ class AskTellCMAESTestCase(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.opt.step()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

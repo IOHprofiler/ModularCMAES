@@ -1,29 +1,30 @@
 import warnings
 import typing
-from collections import OrderedDict
 from inspect import Signature, Parameter, getmodule
 from functools import wraps
 from time import time
+
 import numpy as np
 
+
 class Descriptor:
-    '''Data descriptor'''
+    """Data descriptor"""
 
     def __set_name__(self, owner, name):
-        '''Set name attribute '''
+        """Set name attribute """
         self.name = name
 
     def __set__(self, instance, value):
-        'Set value on instance'
+        "Set value on instance"
         instance.__dict__[self.name] = value
 
     def __delete__(self, instance):
-        '''Delete attribute from the instance __dict__'''
+        """Delete attribute from the instance __dict__"""
         del instance.__dict__[self.name]
 
 
 class InstanceOf(Descriptor):
-    '''Data descriptor checks for correct types. '''
+    """Data descriptor checks for correct types. """
 
     def __init__(self, dtype):
         self.dtype = dtype
@@ -31,73 +32,56 @@ class InstanceOf(Descriptor):
 
     def __set__(self, instance, value):
         if type(value) != type(None):
-            if type(value) != self.dtype and not (
-                    isinstance(value, np.generic) and type(
-                        value.item()) == self.dtype)\
-                    and str(self.dtype)[1:] != value.__class__.__name__:
-                    # we should find another way for the last statement
-                raise TypeError("{} should be {} got type {}: {}".format(
-                                self.name, self.dtype,
-                                type(value), str(value)[:50]
-                    ))
-            if hasattr(value, '__copy__'):
+            if (
+                type(value) != self.dtype
+                and not (
+                    isinstance(value, np.generic) and type(value.item()) == self.dtype
+                )
+                and str(self.dtype)[1:] != value.__class__.__name__
+            ):
+                # we should find another way for the last statement
+                raise TypeError(
+                    "{} should be {} got type {}: {}".format(
+                        self.name, self.dtype, type(value), str(value)[:50]
+                    )
+                )
+            if hasattr(value, "__copy__"):
                 value = value.copy()
         super().__set__(instance, value)
 
+
 class AnyOf(Descriptor):
-    '''Descriptor, checks of value is Any of a specified sequence of options. '''
+    """Descriptor, checks of value is Any of a specified sequence of options. """
 
     def __init__(self, options=None):
         self.options = options
-        self.__doc__ += "Options: [{}]".format(
-            ', '.join(map(str, self.options))
-        )
+        self.__doc__ += "Options: [{}]".format(", ".join(map(str, self.options)))
 
     def __set__(self, instance, value):
         if value not in self.options:
-            raise ValueError("{} should be any of {}".format(
-                self.name, self.options
-            ))
+            raise ValueError(
+                "{} should be any of [{}]. Got:".format(self.name, self.options, value)
+            )
         super().__set__(instance, value)
 
-class AnnotatedStructMeta(type):
-    '''Metaclass for class for AnnotatedStruct.
 
-    Wraps all parameters defined in the class body with 
-    __annotations__ into a signature. It additionally wraps each 
-    parameter into a descriptor using __annotations__, 
-    allowing for type checking. 
+class AnnotatedStructMeta(type):
+    """Metaclass for class for AnnotatedStruct.
+
+    Wraps all parameters defined in the class body with
+    __annotations__ into a signature. It additionally wraps each
+    parameter into a descriptor using __annotations__,
+    allowing for type checking.
     Currently, only two types of descriptors are implementated,
     InstanceOf and typing.AnyOf, the first implements simple type validation,
     the latter implements validation though the use of sequence of
-    allowed values. 
-    '''
-
-    @classmethod
-    def __prepare__(cls: typing.Any, name: str, bases: tuple) -> OrderedDict:
-        '''Normally, __prepare__ returns an empty dictionairy,
-        now an OrderedDict is returned. This allowes for ordering 
-        the parameters (*args). 
-
-        Parameters
-        ----------
-        cls: typing.Any
-            The empty body of the class to be instantiated
-        name: str
-            The name of the cls
-        bases: tuple
-            The base classes of the cls 
-
-        Returns
-        -------
-        OrderedDict        
-        '''
-        return OrderedDict()
+    allowed values.
+    """
 
     def __new__(cls: typing.Any, name: str, bases: tuple, attrs: dict) -> typing.Any:
-        '''Controls instance creation of classes that have AnnotatedStructMeta as metaclass
-        All cls attributes that are defined in __annotations__ are wrapped 
-        into either an typing.AnyOf or an InstanceOf descriptor, depending on 
+        """Controls instance creation of classes that have AnnotatedStructMeta as metaclass
+        All cls attributes that are defined in __annotations__ are wrapped
+        into either an typing.AnyOf or an InstanceOf descriptor, depending on
         the type of the annotation. If the annotation is a sequence, the first
         element is used as a default value.
 
@@ -108,47 +92,56 @@ class AnnotatedStructMeta(type):
         name: str
             The name of the cls
         bases: dict
-            The base classes of the cls 
+            The base classes of the cls
         attrs: dict
             The attributes of the cls
 
         Returns
         -------
         A new cls object
-        '''
+        """
         parameters = []
-        for key, annotation in attrs.get('__annotations__', {}).items():
+        for key, annotation in attrs.get("__annotations__", {}).items():
             default_value = attrs.get(key, Parameter.empty)
- 
+
             if isinstance(annotation, list) or isinstance(annotation, tuple):
                 attrs[key] = AnyOf(annotation)
             else:
-                if not type(annotation) == type and getmodule(type(annotation)) != typing:
+                if (
+                    not type(annotation) == type
+                    and getmodule(type(annotation)) != typing
+                ):
                     raise TypeError(
                         f"Detected wrong format for annotations of AnnotatedStruct.\n\t"
                         f"Format should be <name>: <type> = <default_value>\n\t"
                         f"Got: {name}: {annotation} = {default_value}"
-                        )
+                    )
                 attrs[key] = InstanceOf(annotation)
-            parameters.append(Parameter(name=key, default=default_value,
-                                        kind=Parameter.POSITIONAL_OR_KEYWORD))
+            parameters.append(
+                Parameter(
+                    name=key,
+                    default=default_value,
+                    kind=Parameter.POSITIONAL_OR_KEYWORD,
+                )
+            )
 
         clsobj = super().__new__(cls, name, bases, attrs)
-        setattr(clsobj, '__signature__', Signature(parameters=parameters))
+        setattr(clsobj, "__signature__", Signature(parameters=parameters))
         return clsobj
 
+
 class AnnotatedStruct(metaclass=AnnotatedStructMeta):
-    '''Custom class for defining structs. 
+    """Custom class for defining structs.
 
     Automatically sets parameters defined in the signature.
-    AnnotatedStruct objects, and children thereof, require 
+    AnnotatedStruct objects, and children thereof, require
     the following structure:
         class Foo(AnnotatedStruct):
             variable_wo_default : type
             variable_w_default  : type = value
 
     The metaclass will automatically assign a decriptor object
-    to every variable, allowing for type checking. 
+    to every variable, allowing for type checking.
     The init function will be dynamically generated, and user specified values
     in the *args **kwargs, will override the defaults.
     The *args will follow the order as defined in the class body:
@@ -160,7 +153,7 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
         The calling signature, instantiated by the metaclass
     __bound__ : Signature
         The bound signature, bound to the *args and **kwargs
-    '''
+    """
 
     def __init__(self, *args, **kwargs) -> None:
         self.__bound__ = self.__signature__.bind(*args, **kwargs)
@@ -170,21 +163,22 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
 
     def __repr__(self) -> str:
         return "<{}: ({})>".format(
-            self.__class__.__qualname__, ', '.join(
+            self.__class__.__qualname__,
+            ", ".join(
                 "{}={}".format(name, getattr(self, name))
                 for name, value in self.__bound__.arguments.items()
-            )
+            ),
         )
 
-    def set_default(self, name:str, default_value: typing.Any) -> None:
-        'Helper method to set default parameters'
+    def set_default(self, name: str, default_value: typing.Any) -> None:
+        "Helper method to set default parameters"
         current = getattr(self, name)
         if type(current) == type(None):
             setattr(self, name, default_value)
 
 
 def timeit(func):
-    '''Decorator function for timing the excecution of
+    """Decorator function for timing the excecution of
     a function.
 
     Parameters
@@ -196,18 +190,20 @@ def timeit(func):
     -------
     typing.Callable
         a wrapped function
-    '''
+    """
+
     @wraps(func)
     def inner(*args, **kwargs):
         start = time()
         res = func(*args, **kwargs)
         print("Time elapsed", time() - start)
         return res
+
     return inner
 
 
 def ert(evals, budget):
-    '''Computed the expected running time of 
+    """Computed the expected running time of
     a list of evaluations.
 
     Parameters
@@ -215,7 +211,7 @@ def ert(evals, budget):
     evals: list
         a list of running times (number of evaluations)
     budget: int
-        the maximum number of evaluations 
+        the maximum number of evaluations
     Returns
     -------
     float
@@ -225,7 +221,7 @@ def ert(evals, budget):
         The standard deviation of the expected running time
     int
         The number of successful runs
-    '''
+    """
     if any(evals):
         try:
             with warnings.catch_warnings():
@@ -236,4 +232,4 @@ def ert(evals, budget):
             return _ert, np.std(evals), n_succ
         except:
             pass
-    return float('inf'), np.nan, 0
+    return float("inf"), np.nan, 0
