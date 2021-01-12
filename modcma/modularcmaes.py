@@ -64,7 +64,7 @@ class ModularCMAES:
             and not self.parameters.bound_correction 
             and self.parameters.step_size_adaptation != "tpa"
         ):
-            z = np.hstack(tuple(islice(self.parameters.sampler, self.parameters.lambda_)))
+            z = np.hstack(tuple(islice(self.parameters.sampler, 0, self.parameters.lambda_)))
             if self.parameters.threshold_convergence:
                 z = scale_with_threshold(z, self.parameters.threshold)
             y = np.dot(self.parameters.B, self.parameters.D * z)
