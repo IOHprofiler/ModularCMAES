@@ -1,3 +1,5 @@
+""""Main implementation of Modular CMA-ES.""" 
+
 import os
 from typing import List, Callable
 
@@ -9,7 +11,7 @@ from .utils import timeit, ert
 
 
 class ModularCMAES:
-    """The main class of the configurable CMA ES continous optimizer.
+    r"""The main class of the configurable CMA ES continous optimizer.
 
     Attributes
     ----------
@@ -30,7 +32,8 @@ class ModularCMAES:
     parameters: "Parameters"
     _fitness_func: Callable
 
-    def __init__(self, fitness_func, *args, parameters=None, **kwargs) -> None:
+    def __init__(self, fitness_func:Callable, *args, parameters=None, **kwargs) -> None:
+        """"Set _fitness_func and forwards all other parameters to Parameters object.""" 
         self._fitness_func = fitness_func
         self.parameters = (
             parameters
@@ -39,7 +42,8 @@ class ModularCMAES:
         )
 
     def mutate(self) -> None:
-        """Returns a mutation generator, which performs mutation.
+        """Apply mutation operation.
+
         First, a directional vector zi is sampled from a sampler object
         as defined in the self.parameters object. Then, this zi vector is
         multiplied with the eigenvalues D, and the dot product is taken with the
@@ -81,14 +85,8 @@ class ModularCMAES:
             self.parameters.n_out_of_bounds += out_of_bounds
 
             fi = self.fitness_func(xi)
-            [
+            for a, v in ((y, yi), (x, xi), (f, fi),): 
                 a.append(v)
-                for a, v in (
-                    (y, yi),
-                    (x, xi),
-                    (f, fi),
-                )
-            ]
 
             if self.sequential_break_conditions(i, fi):
                 break
@@ -96,7 +94,8 @@ class ModularCMAES:
         self.parameters.population = Population(np.hstack(x), np.hstack(y), np.array(f))
 
     def select(self) -> None:
-        """Selection of best individuals in the population
+        """Selection of best individuals in the population.
+
         The population is sorted according to their respective fitness
         values. Normally, the mu best individuals would be selected afterwards.
         However, because the option of active update is available, (and we could
@@ -145,7 +144,8 @@ class ModularCMAES:
             self.parameters.xopt = self.parameters.population.x[:, 0]
 
     def recombine(self) -> None:
-        """Recombination of new individuals
+        """Recombination of new individuals.
+
         In the CMAES, recombination is not as explicit as in for example
         a genetic algorithm. In the CMAES, recombination happens though the
         moving of the mean m, by multiplying the old mean with a weighted
@@ -154,28 +154,22 @@ class ModularCMAES:
         """
         self.parameters.m_old = self.parameters.m.copy()
         self.parameters.m = self.parameters.m_old + (
-            1
-            * (
-                (
-                    self.parameters.population.x[:, : self.parameters.mu]
+            1* ((self.parameters.population.x[:, : self.parameters.mu]
                     - self.parameters.m_old
-                )
-                @ self.parameters.pweights
-            ).reshape(-1, 1)
+                ) @ self.parameters.pweights).reshape(-1, 1)
         )
 
     def step(self) -> bool:
         """The step method runs one iteration of the optimization process.
-        The method is called within the self.run loop.
-        In there, a while loop runs until this step
-        function returns a Falsy value.
+
+        The method is called within the self.run loop. There, a while loop runs 
+        until this step function returns a Falsy value.
 
         Returns
         -------
         bool
             Denoting whether to keep running this step function.
         """
-
         self.mutate()
         self.select()
         self.recombine()
@@ -183,9 +177,8 @@ class ModularCMAES:
         return not any(self.break_conditions)
 
     def sequential_break_conditions(self, i: int, f: float) -> bool:
-        """Method returning a boolean value, indicating whether there are any
-        sequential break conditions.
-
+        """Indicator whether there are any sequential break conditions.
+       
         Parameters
         ----------
         i: int
@@ -207,7 +200,7 @@ class ModularCMAES:
         return False
 
     def run(self):
-        """Runs the step method until step method retuns a falsy value
+        """Run the step method until step method retuns a falsy value.
 
         Returns
         -------
@@ -219,8 +212,7 @@ class ModularCMAES:
 
     @property
     def break_conditions(self) -> List[bool]:
-        """Returns a list with break conditions based on the
-        interal state (parameters) of the optimization algorithm.
+        """A list with break conditions based on the parameters of the CMA-ES.
 
         Returns
         -------
@@ -234,8 +226,9 @@ class ModularCMAES:
         ]
 
     def fitness_func(self, x: np.ndarray) -> float:
-        """Wrapper function for calling self._fitness_func
-        adds 1 to self.parameters.used_budget for each fitnes function
+        """Wrapper function for calling self._fitness_func.
+
+        Adds 1 to self.parameters.used_budget for each fitnes function
         call.
 
         Parameters
@@ -251,9 +244,11 @@ class ModularCMAES:
         return self._fitness_func(x.flatten())
 
     def __repr__(self):
+        """Representation of ModularCMA-ES.""" 
         return f"<{self.__class__.__qualname__}: {self._fitness_func}>"
 
     def __str__(self):
+        """String representation of ModularCMA-ES.""" 
         return repr(self)
 
 
@@ -261,6 +256,7 @@ def tpa_mutation(
     fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list
 ) -> None:
     """Helper function for applying the tpa mutation step.
+
     The code was mostly taken from the ModEA framework,
     and there a slight differences with the procedure as defined in:
     Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, abs/0805.0231,2008.
@@ -279,7 +275,6 @@ def tpa_mutation(
     f: list
         A list of fitnesses
     """
-
     yi = (parameters.m - parameters.m_old) / parameters.sigma
     y.extend([yi, -yi])
     x.extend(
@@ -296,7 +291,7 @@ def tpa_mutation(
 
 
 def scale_with_threshold(z: np.ndarray, threshold: float) -> np.ndarray:
-    """Function for scaling a vector z to have length > threshold
+    """Function for scaling a vector z to have length > threshold.
 
     Used for threshold convergence.
 
@@ -312,7 +307,6 @@ def scale_with_threshold(z: np.ndarray, threshold: float) -> np.ndarray:
     np.ndarray
         a scaled version of z
     """
-
     length = np.linalg.norm(z)
     if length < threshold:
         new_length = threshold + (threshold - length)
@@ -323,7 +317,8 @@ def scale_with_threshold(z: np.ndarray, threshold: float) -> np.ndarray:
 def correct_bounds(
     x: np.ndarray, ub: np.ndarray, lb: np.ndarray, correction_method: str
 ) -> np.ndarray:
-    """Bound correction function
+    """Bound correction function.
+
     Rescales x to fall within the lower lb and upper
     bounds ub specified. Available strategies are:
     - None: Don't perform any boundary correction
@@ -473,7 +468,7 @@ def evaluate_bbob(
 
 
 def fmin(func, dim, maxfun=None, **kwargs):
-    """Minimize a function using the modular CMA-ES
+    """Minimize a function using the modular CMA-ES.
 
     Parameters
     ----------

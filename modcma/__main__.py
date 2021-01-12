@@ -1,3 +1,5 @@
+"""This file allows the user to call the library as a cli-module."""
+
 from argparse import ArgumentParser
 
 from .modularcmaes import evaluate_bbob

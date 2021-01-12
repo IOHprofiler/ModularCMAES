@@ -1,3 +1,5 @@
+"""Entrypoint of Modular CMA-ES package."""
+
 from .asktellcmaes import AskTellCMAES
 from .modularcmaes import ModularCMAES, evaluate_bbob, fmin
 from .parameters import Parameters, BIPOPParameters
@@ -13,7 +15,7 @@ from .sampling import (
 )
 from .utils import timeit, ert
 
-__all__ = [
+__all__ = (
     "AskTellCMAES",
     "ModularCMAES",
     "evaluate_bbob",
@@ -30,4 +32,4 @@ __all__ = [
     "Sobol",
     "timeit",
     "ert",
-]
+)

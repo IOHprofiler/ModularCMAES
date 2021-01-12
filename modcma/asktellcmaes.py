@@ -1,3 +1,4 @@
+"""This file contains a ask and tell interface to the Modular CMA-ES."""
 import warnings
 import typing
 from collections import deque
@@ -8,6 +9,7 @@ from .modularcmaes import ModularCMAES
 
 def check_break_conditions(f: typing.Callable) -> typing.Callable:
     """Decorator function, checks for break conditions for the ~AskTellCMAES.
+
     Raises a StopIteration if break_conditions are met for ~AskTellCMAES.
 
     Parameters
@@ -20,7 +22,6 @@ def check_break_conditions(f: typing.Callable) -> typing.Callable:
     StopIteration
         When any(~AskTellCMAES.break_conditions) == True
     """
-
     @wraps(f)
     def inner(self, *args, **kwargs) -> typing.Any:
         if any(self.break_conditions):
@@ -33,18 +34,19 @@ def check_break_conditions(f: typing.Callable) -> typing.Callable:
 
 
 class AskTellCMAES(ModularCMAES):
-    """Ask tell interface for the ModularCMAES  """
+    """Ask tell interface for the ModularCMAES."""
 
     def __init__(self, *args, **kwargs) -> None:
-        "Override the fitness_function argument with an empty callable"
+        """Override the fitness_function argument with an empty callable."""
         super().__init__(lambda: None, *args, **kwargs)
 
     def fitness_func(self, x: np.ndarray) -> None:
-        "Overwrite function call for fitness_func, calls register_individual"
+        """Overwrite function call for fitness_func, calls register_individual."""
         self.register_individual(x)
 
     def sequential_break_conditions(self, i: int, f: float) -> None:
-        """Overwrite ~modcma.modularcmaes.ModularCMAES.sequential_break_conditions
+        """Overwrite ~modcma.modularcmaes.ModularCMAES.sequential_break_conditions.
+
         Raises not implemented if sequential selection is enabled, which
         is not supported in the ask-tell interface.
 
@@ -66,7 +68,7 @@ class AskTellCMAES(ModularCMAES):
             )
 
     def step(self):
-        """This method is disabled on this interface
+        """Method is disabled on this interface.
 
         Raises
         ------
@@ -75,7 +77,7 @@ class AskTellCMAES(ModularCMAES):
         raise NotImplementedError("Step is undefined in this interface")
 
     def run(self):
-        """This method is disabled on this interface
+        """Method is disabled on this interface.
 
         Raises
         ------
@@ -84,7 +86,7 @@ class AskTellCMAES(ModularCMAES):
         raise NotImplementedError("Run is undefined in this interface")
 
     def register_individual(self, x: np.ndarray) -> None:
-        """Add new individuals to self.ask_queue
+        """Add new individuals to self.ask_queue.
 
         Parameters
         ----------
@@ -95,7 +97,8 @@ class AskTellCMAES(ModularCMAES):
 
     @check_break_conditions
     def ask(self) -> np.ndarray:
-        """Retrieves the next indivual from the ask_queue.
+        """Retrieve the next indivual from the ask_queue.
+
         If the ask_queue is not defined yet, it is defined and mutate is
         called in order to fill it.
 
@@ -110,7 +113,7 @@ class AskTellCMAES(ModularCMAES):
 
     @check_break_conditions
     def tell(self, xi: np.ndarray, fi: float) -> None:
-        """Processes a provided fitness value fi for a given individual xi.
+        """Process a provided fitness value fi for a given individual xi.
 
         Parameters
         ----------

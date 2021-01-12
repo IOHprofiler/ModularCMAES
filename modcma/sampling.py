@@ -1,3 +1,4 @@
+"""Module implementing various samplers.""" 
 import itertools
 from typing import Generator
 from collections.abc import Iterator
@@ -24,7 +25,7 @@ def gaussian_sampling(d: int) -> Generator[np.ndarray, None, None]:
 
 
 def sobol_sampling(d: int) -> Generator[np.ndarray, None, None]:
-    """Generator yielding samples from a Sobol sequence
+    """Generator yielding samples from a Sobol sequence.
 
     Parameters
     ----------
@@ -41,7 +42,7 @@ def sobol_sampling(d: int) -> Generator[np.ndarray, None, None]:
 
 
 def halton_sampling(d: int) -> Generator[np.ndarray, None, None]:
-    """Generator yielding samples from a Halton sequence
+    """Generator yielding samples from a Halton sequence.
 
     Parameters
     ----------
@@ -59,6 +60,7 @@ def halton_sampling(d: int) -> Generator[np.ndarray, None, None]:
 
 def mirrored_sampling(sampler: Generator) -> Generator[np.ndarray, None, None]:
     """Generator yielding mirrored samples.
+
     For every sample from the input sampler (generator), both its
     original and complemented form are yielded.
 
@@ -80,6 +82,7 @@ def orthogonal_sampling(
     sampler: Generator, n_samples: int
 ) -> Generator[np.ndarray, None, None]:
     """Generator yielding orthogonal samples.
+
     This function orthogonalizes <n_samples>, and succesively yields each
     of them. It uses the linalg.orth decomposition function of the scipy library.
 
@@ -107,7 +110,7 @@ def orthogonal_sampling(
 
 
 class Halton(Iterator):
-    """Iterator implementing Halton Quasi random sequences
+    """Iterator implementing Halton Quasi random sequences.
 
     Attributes
     ----------
@@ -120,14 +123,14 @@ class Halton(Iterator):
     """
 
     def __init__(self, d, start=1):
+        """Compute the bases, and set index to start."""
         self.d = d
         self.bases = self.get_primes(self.d)
         self.index = itertools.count(start)
 
     @staticmethod
     def get_primes(n: int) -> np.ndarray:
-        "Returns n primes"
-
+        """Return n primes, starting from 0."""
         def inner(n_):
             sieve = np.ones(n_ // 3 + (n_ % 6 == 2), dtype=np.bool)
             for i in range(1, int(n_ ** 0.5) // 3 + 1):
@@ -143,12 +146,13 @@ class Halton(Iterator):
         return primes[:n]
 
     def __next__(self) -> np.ndarray:
+        """Return next Halton sequence."""
         return self.vectorized_next(next(self.index), self.bases)
 
     @staticmethod
     @vectorize([float64(int64, int64)])
     def vectorized_next(index: int, base: int) -> float:
-        """Vectorized method for computing halton sequence"""
+        """Vectorized method for computing halton sequence."""
         d, x = 1, 0
         while index > 0:
             index, remainder = divmod(index, base)
@@ -159,6 +163,7 @@ class Halton(Iterator):
 
 class Sobol(Iterator):
     """Iterator implementing Sobol Quasi random sequences.
+
     This is an iterator version of the version implemented in the python
     package: sobol-seq==0.2.0. This version is 4x faster due to better usage of
     numpy vectorization.
@@ -178,6 +183,10 @@ class Sobol(Iterator):
     """
 
     def __init__(self, d: int, seed: int = 0):
+        """Intialize the v matrix, used for generating Sobol sequences.
+        
+        The values for v and poly were taken from the python package sobol-seq.
+        """ 
         self.d = d
         self.seed = np.floor(max(0, seed)).astype(int)
         self.v = np.zeros((40, 30), dtype=int)
@@ -188,211 +197,28 @@ class Sobol(Iterator):
             np.tile(np.r_[np.tile([3, 1], 4), np.tile([1, 3], 4)], 2),
         ]
         self.v[3:40, 2] = [
-            7,
-            5,
-            1,
-            3,
-            3,
-            7,
-            5,
-            5,
-            7,
-            7,
-            1,
-            3,
-            3,
-            7,
-            5,
-            1,
-            1,
-            5,
-            3,
-            3,
-            1,
-            7,
-            5,
-            1,
-            3,
-            3,
-            7,
-            5,
-            1,
-            1,
-            5,
-            7,
-            7,
-            5,
-            1,
-            3,
-            3,
+            7,5,1,3,3,7,5,5,7,7,1,3,3,7,5,1,1,5,3,3,1,7,5,1,3,3,7,5,1,1,5,7,7,5,
+            1,3,3
         ]
         self.v[5:40, 3] = [
-            1,
-            7,
-            9,
-            13,
-            11,
-            1,
-            3,
-            7,
-            9,
-            5,
-            13,
-            13,
-            11,
-            3,
-            15,
-            5,
-            3,
-            15,
-            7,
-            9,
-            13,
-            9,
-            1,
-            11,
-            7,
-            5,
-            15,
-            1,
-            15,
-            11,
-            5,
-            3,
-            1,
-            7,
-            9,
+            1,7,9,13,11,1,3,7,9,5,13,13,11,3,15,5,3,15,7,9,13,9,1,11,7,5,15,1,
+            15,11,5,3,1,7,9
         ]
         self.v[7:40, 4] = [
-            9,
-            3,
-            27,
-            15,
-            29,
-            21,
-            23,
-            19,
-            11,
-            25,
-            7,
-            13,
-            17,
-            1,
-            25,
-            29,
-            3,
-            31,
-            11,
-            5,
-            23,
-            27,
-            19,
-            21,
-            5,
-            1,
-            17,
-            13,
-            7,
-            15,
-            9,
-            31,
-            9,
+            9,3,27,15,29,21,23,19,11,25,7,13,17,1,25,29,3,31,11, 5,23,27,19,21,
+            5,1,17,13,7,15,9,31,9
         ]
         self.v[13:40, 5] = [
-            37,
-            33,
-            7,
-            5,
-            11,
-            39,
-            63,
-            27,
-            17,
-            15,
-            23,
-            29,
-            3,
-            21,
-            13,
-            31,
-            25,
-            9,
-            49,
-            33,
-            19,
-            29,
-            11,
-            19,
-            27,
-            15,
-            25,
+            37,33,7,5,11,39,63,27,17,15,23,29,3,21,13,31,25,9,49,33,19,29,11,19,
+            27,15,25
         ]
         self.v[19:40, 6] = [
-            13,
-            33,
-            115,
-            41,
-            79,
-            17,
-            29,
-            119,
-            75,
-            73,
-            105,
-            7,
-            59,
-            65,
-            21,
-            3,
-            113,
-            61,
-            89,
-            45,
-            107,
+            13,33,115,41,79,17,29,119,75,73,105,7,59,65,21,3,113,61,89,45,107
         ]
         self.v[37:40, 7] = [7, 23, 39]
-
         poly = [
-            1,
-            3,
-            7,
-            11,
-            13,
-            19,
-            25,
-            37,
-            59,
-            47,
-            61,
-            55,
-            41,
-            67,
-            97,
-            91,
-            109,
-            103,
-            115,
-            131,
-            193,
-            137,
-            145,
-            143,
-            241,
-            157,
-            185,
-            167,
-            229,
-            171,
-            213,
-            191,
-            253,
-            203,
-            211,
-            239,
-            247,
-            285,
-            369,
-            299,
+            1,3,7,11,13,19,25,37,59,47,61,55,41,67,97,91,109,103,115,131,193,137,
+            145,143,241,157,185,167,229,171,213,191,253,203,211,239,247,285,369,299
         ]
 
         #  Find the number of bits in ATMOST.
@@ -425,10 +251,8 @@ class Sobol(Iterator):
         for l in map(self.l0, range(self.seed)):
             self.lastq = np.bitwise_xor(self.lastq, self.v[: self.d, l - 1])
 
-    def __iter__(self):
-        return self
-
     def __next__(self) -> np.ndarray:
+        """Return next Sobol sequence."""
         l = self.l0(self.seed)
         quasi = self.lastq * self.recipd
         self.lastq = np.bitwise_xor(self.lastq, self.v[: self.d, l - 1])
@@ -437,12 +261,12 @@ class Sobol(Iterator):
 
     @staticmethod
     def h1(n: int) -> int:
-        "Returns high 1 bit index for a given integer"
+        """Return high 1 bit index for a given integer."""
         return len(format(n, "b")) - abs(format(n, "b").find("1"))
 
     @staticmethod
     def l0(n: int) -> int:
-        "Returns low 0 bit index for a given integer"
+        """Return low 0 bit index for a given integer."""
         x = format(n, "b")[::-1].find("0")
         if x != -1:
             return x + 1

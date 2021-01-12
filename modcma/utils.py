@@ -1,3 +1,5 @@
+"""Implementation of various utilities used in ModularCMA-ES package."""  
+
 import warnings
 import typing
 from inspect import Signature, Parameter, getmodule
@@ -8,29 +10,36 @@ import numpy as np
 
 
 class Descriptor:
-    """Data descriptor"""
+    """Data descriptor."""
 
     def __set_name__(self, owner, name):
-        """Set name attribute """
+        """Set name attribute."""
         self.name = name
 
     def __set__(self, instance, value):
-        "Set value on instance"
+        """Set value on instance."""
         instance.__dict__[self.name] = value
 
     def __delete__(self, instance):
-        """Delete attribute from the instance __dict__"""
+        """Delete attribute from the instance __dict__."""
         del instance.__dict__[self.name]
 
 
 class InstanceOf(Descriptor):
-    """Data descriptor checks for correct types. """
+    """Data descriptor checks for correct types."""
 
     def __init__(self, dtype):
+        """Set dtype."""
         self.dtype = dtype
-        self.__doc__ += "Type: {}".format(self.dtype)
 
     def __set__(self, instance, value):
+        """Set the value of instance to value, checks type of argument.
+        
+        Raises
+        ------
+        TypeError
+            If type of the argument does not match self.dtype        
+        """ 
         if type(value) != type(None):
             if (
                 type(value) != self.dtype
@@ -39,7 +48,6 @@ class InstanceOf(Descriptor):
                 )
                 and str(self.dtype)[1:] != value.__class__.__name__
             ):
-                # we should find another way for the last statement
                 raise TypeError(
                     "{} should be {} got type {}: {}".format(
                         self.name, self.dtype, type(value), str(value)[:50]
@@ -51,16 +59,24 @@ class InstanceOf(Descriptor):
 
 
 class AnyOf(Descriptor):
-    """Descriptor, checks of value is Any of a specified sequence of options. """
+    """Descriptor, checks of value is Any of a specified sequence of options."""
 
     def __init__(self, options=None):
+        """Set options."""
         self.options = options
-        self.__doc__ += "Options: [{}]".format(", ".join(map(str, self.options)))
 
     def __set__(self, instance, value):
+        """Set the value of instance to value, checks value of argument to match self.options.
+        
+        Raises
+        ------
+        TypeError
+            If type of the argument does not match self.dtype        
+        """ 
         if value not in self.options:
             raise ValueError(
-                "{} should be any of [{}]. Got:".format(self.name, self.options, value)
+                "{} should be any of [{}]. Got: {}".format(
+                    self.name, self.options, value)
             )
         super().__set__(instance, value)
 
@@ -79,7 +95,8 @@ class AnnotatedStructMeta(type):
     """
 
     def __new__(cls: typing.Any, name: str, bases: tuple, attrs: dict) -> typing.Any:
-        """Controls instance creation of classes that have AnnotatedStructMeta as metaclass
+        """Control instance creation of classes that have AnnotatedStructMeta as metaclass.
+
         All cls attributes that are defined in __annotations__ are wrapped
         into either an typing.AnyOf or an InstanceOf descriptor, depending on
         the type of the annotation. If the annotation is a sequence, the first
@@ -156,12 +173,14 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
     """
 
     def __init__(self, *args, **kwargs) -> None:
+        """Bind *args and **kwargs to a signature instantiated by the metaclass.""" 
         self.__bound__ = self.__signature__.bind(*args, **kwargs)
         self.__bound__.apply_defaults()
         for name, value in self.__bound__.arguments.items():
             setattr(self, name, value)
 
     def __repr__(self) -> str:
+        """Representation for a AnnotatedStruct object."""
         return "<{}: ({})>".format(
             self.__class__.__qualname__,
             ", ".join(
@@ -171,15 +190,14 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
         )
 
     def set_default(self, name: str, default_value: typing.Any) -> None:
-        "Helper method to set default parameters"
+        """Helper method to set default parameters."""
         current = getattr(self, name)
         if type(current) == type(None):
             setattr(self, name, default_value)
 
 
 def timeit(func):
-    """Decorator function for timing the excecution of
-    a function.
+    """Decorator function for timing the excecution of a function.
 
     Parameters
     ----------
@@ -191,7 +209,6 @@ def timeit(func):
     typing.Callable
         a wrapped function
     """
-
     @wraps(func)
     def inner(*args, **kwargs):
         start = time()
@@ -203,8 +220,7 @@ def timeit(func):
 
 
 def ert(evals, budget):
-    """Computed the expected running time of
-    a list of evaluations.
+    """Computed the expected running time of a list of evaluations.
 
     Parameters
     ----------

@@ -1,3 +1,4 @@
+"""Defintion of Parameters objects, which are used by ModularCMA-ES."""
 import os
 import pickle
 import warnings
@@ -17,7 +18,7 @@ from .sampling import (
 
 
 class Parameters(AnnotatedStruct):
-    """AnnotatedStruct object for holding the parameters for the Configurable CMAES
+    """AnnotatedStruct object for holding the parameters for the ModularCMAES.
 
     Attributes
     ----------
@@ -244,45 +245,19 @@ class Parameters(AnnotatedStruct):
     init_threshold: float = 0.1
     decay_factor: float = 0.995
     max_resamples: int = 1000
-
+ 
     active: bool = False
     elitist: bool = False
     sequential: bool = False
     threshold_convergence: bool = False
     bound_correction: (
-        None,
-        "saturate",
-        "unif_resample",
-        "COTN",
-        "toroidal",
-        "mirror",
-    ) = None
+        None, "saturate", "unif_resample", "COTN", "toroidal", "mirror",) = None
     orthogonal: bool = False
-    local_restart: (
-        None,
-        "IPOP",
-        "BIPOP",
-    ) = None
-    base_sampler: (
-        "gaussian",
-        "sobol",
-        "halton",
-    ) = "gaussian"
-    mirrored: (
-        None,
-        "mirrored",
-        "mirrored pairwise",
-    ) = None
-    weights_option: (
-        "default",
-        "equal",
-        "1/2^lambda",
-    ) = "default"
-    step_size_adaptation: (
-        "csa",
-        "tpa",
-        "msr",
-    ) = "csa"
+    local_restart: (None, "IPOP", "BIPOP", ) = None
+    base_sampler: ("gaussian", "sobol", "halton", ) = "gaussian"
+    mirrored: (None, "mirrored", "mirrored pairwise", ) = None
+    weights_option: ("default","equal", "1/2^lambda", ) = "default"
+    step_size_adaptation: ("csa", "tpa", "msr", ) = "csa"
 
     population: TypeVar("Population") = None
     old_population: TypeVar("Population") = None
@@ -308,6 +283,7 @@ class Parameters(AnnotatedStruct):
     )
 
     def __init__(self, *args, **kwargs) -> None:
+        """Intialize parameters. Calls sub constructors for different parameter types."""
         super().__init__(*args, **kwargs)
         self.init_selection_parameters()
         self.init_fixed_parameters()
@@ -316,8 +292,7 @@ class Parameters(AnnotatedStruct):
         self.init_local_restart_parameters()
 
     def get_sampler(self) -> Generator:
-        """Function to return a sampler generator based on the values
-        of other parameters.
+        """Function to return a sampler generator based on the values of other parameters.
 
         Returns
         -------
@@ -344,9 +319,7 @@ class Parameters(AnnotatedStruct):
         return sampler
 
     def init_fixed_parameters(self) -> None:
-        """Initialization function for parameters that
-        are not to be restarted during a optimization run.
-        """
+        """Initialization function for parameters that are not restarted during a optimization run."""
         self.used_budget = 0
         self.n_out_of_bounds = 0
         self.budget = self.budget or int(1e4) * self.d
@@ -365,9 +338,7 @@ class Parameters(AnnotatedStruct):
         )
 
     def init_selection_parameters(self) -> None:
-        """Initialization function for parameters that are of influence
-        in selection/population control.
-        """
+        """Initialization function for parameters that influence in selection."""
         self.lambda_ = self.lambda_ or (4 + np.floor(3 * np.log(self.d))).astype(int)
 
         if self.mirrored == "mirrored pairwise":
@@ -392,8 +363,9 @@ class Parameters(AnnotatedStruct):
         self.diameter = np.linalg.norm(self.ub - (self.lb))
 
     def init_local_restart_parameters(self) -> None:
-        """Initialization function for parameters that are used by
-        local restart strategies, i.e. IPOP.
+        """Initialization function for parameters for local restart strategies, i.e. IPOP.
+
+        TODO: check if we can move this to separate object.
         """
         if len(self.restarts) == 0:
             self.restarts.append(self.t)
@@ -402,15 +374,14 @@ class Parameters(AnnotatedStruct):
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
         self.flat_fitness_index = int(
             np.round(0.1 + self.lambda_ / 4)
-        )  # TODO: check why this was ceil
+        )  
 
     def init_adaptation_parameters(self) -> None:
-        """Initialization function for parameters that are of influence
-        in the self-adaptive processes of the parameters. Examples are
-        recombination weights and learning rates for the covariance
+        """Initialization function for parameters for self-adaptive processes.
+        
+        Examples are recombination weights and learning rates for the covariance
         matrix adapation.
         """
-
         if self.weights_option == "equal":
             ws = np.ones(self.lambda_) / self.lambda_
             self.weights = np.append(ws, ws[::-1] * -1)
@@ -474,11 +445,11 @@ class Parameters(AnnotatedStruct):
         self.ds = 2 - (2 / self.d)
 
     def init_dynamic_parameters(self) -> None:
-        """Initialization function of parameters that represent the internal
-        state of the CMAES algorithm, and are dynamic. Examples of such parameters
-        are the Covariance matrix C and its eigenvectors and the learning rate sigma.
+        """Initialization function of parameters that represent the dynamic state of the CMA-ES.
+        
+        Examples of such parameters are the Covariance matrix C and its 
+        eigenvectors and the learning rate sigma.
         """
-
         self.sigma = self.init_sigma
         self.m = np.random.rand(self.d, 1)
         self.dm = np.zeros(self.d)
@@ -492,15 +463,15 @@ class Parameters(AnnotatedStruct):
         self.rank_tpa = None
 
     def adapt_sigma(self) -> None:
-        """Method to adapt the step size sigma. There are three variants in
-        the methodology, namely:
+        """Method to adapt the step size sigma.
+        
+        There are three variants in implemented here, namely:
             ~ Two-Point Stepsize Adaptation (tpa)
             ~ Median Success Rule (msr)
             ~ Cummulative Stepsize Adapatation (csa)
         One of these methods can be selected by setting the step_size_adaptation
         parameter.
         """
-
         if self.step_size_adaptation == "tpa" and self.old_population:
             self.s = ((1 - self.cs) * self.s) + (self.cs * self.rank_tpa)
             self.sigma *= np.exp(self.s)
@@ -517,9 +488,11 @@ class Parameters(AnnotatedStruct):
             )
 
     def adapt_covariance_matrix(self) -> None:
-        """Method for adapting the covariance matrix. If the option `active`
-        is specified, active update of the covariance matrix is performed, using
-        negative weights."""
+        """Method for adapting the covariance matrix.
+        
+        If the option `active` is specified, active update of the covariance 
+        matrix is performed, using negative weights.
+        """
         hs = (
             np.linalg.norm(self.ps)
             / np.sqrt(1 - np.power(1 - self.cs, 2 * (self.used_budget / self.lambda_)))
@@ -544,7 +517,7 @@ class Parameters(AnnotatedStruct):
                 / np.power(
                     np.linalg.norm(
                         self.invC @ self.population.y[:, weights < 0], axis=0
-                    ),
+                    ), 
                     2,
                 )
             )
@@ -558,7 +531,8 @@ class Parameters(AnnotatedStruct):
         self.C = old_C + rank_one + rank_mu
 
     def perform_eigendecomposition(self) -> None:
-        """Method to perform eigendecomposition
+        """Method to perform eigendecomposition.
+
         If sigma or the coveriance matrix has degenerated, the dynamic parameters
         are reset.
         """
@@ -575,19 +549,19 @@ class Parameters(AnnotatedStruct):
             self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
 
     def adapt(self) -> None:
-        """Method for adapting the internal state paramters.
+        """Method for adapting the internal state parameters.
+
         The conjugate evolution path ps is calculated, in addition to
         the difference in mean x values dm. Thereafter, sigma is adapated,
         followed by the adapatation of the covariance matrix.
+        TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
         """
-
         self.dm = (self.m - self.m_old) / self.sigma
         self.ps = (1 - self.cs) * self.ps + (
             np.sqrt(self.cs * (2 - self.cs) * self.mueff) * self.invC @ self.dm
         ) * self.ps_factor
         self.adapt_sigma()
         self.adapt_covariance_matrix()
-        # TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
         self.perform_eigendecomposition()
         self.record_statistics()
         self.calculate_termination_criteria()
@@ -596,11 +570,7 @@ class Parameters(AnnotatedStruct):
             self.perform_local_restart()
 
     def perform_local_restart(self) -> None:
-        """Method performing local restart, given that a restart
-        strategy is specified in the parameters.
-            ~ IPOP: after every restart, `lambda_` is multiplied with a factor.
-        """
-
+        """Method performing local restart, if a restart strategy is specified."""
         if self.local_restart:
             if self.local_restart == "IPOP":
                 self.mu *= self.ipop_factor
@@ -640,12 +610,12 @@ class Parameters(AnnotatedStruct):
 
     @property
     def last_restart(self):
-        """Returns the last index of self.restarts"""
+        """Return the last index of self.restarts."""
         return self.restarts[-1]
 
     @staticmethod
     def from_config_array(d: int, config_array: list) -> "Parameters":
-        """Instantiates a Parameters object from a configuration array
+        """Instantiate a Parameters object from a configuration array.
 
         Parameters
         ----------
@@ -677,7 +647,7 @@ class Parameters(AnnotatedStruct):
 
     @staticmethod
     def load(filename: str) -> "Parameters":
-        """Loads stored  parameter objects from pickle
+        """Load stored  parameter objects from pickle.
 
         Parameters
         ----------
@@ -702,7 +672,7 @@ class Parameters(AnnotatedStruct):
         return parameters
 
     def save(self, filename: str = "parameters.pkl") -> None:
-        """Saves a parameters object to pickle
+        """Save a parameters object to pickle.
 
         Parameters
         ----------
@@ -714,7 +684,7 @@ class Parameters(AnnotatedStruct):
             pickle.dump(self, f)
 
     def record_statistics(self) -> None:
-        "Method for recording metadata. "
+        """Method for recording metadata."""
         self.flat_fitnesses.append(
             self.population.f[0] == self.population.f[self.flat_fitness_index]
         )
@@ -725,10 +695,10 @@ class Parameters(AnnotatedStruct):
         self.median_fitnesses.append(np.median(self.population.f))
 
     def calculate_termination_criteria(self) -> None:
-        """Methods for computing restart criteria
-        Only computes when a local restart
-        strategy is specified, or when explicitly told to
-        to so, i.e.: self.compute_termination_criteria = True
+        """Method for computing restart criteria.
+
+        Only computes when a local restart strategy is specified, or when explicitly
+        told to do so, i.e.: self.compute_termination_criteria = True
         """
         if self.local_restart or self.compute_termination_criteria:
             _t = self.t % self.d
@@ -780,8 +750,7 @@ class Parameters(AnnotatedStruct):
             )
 
     def update(self, parameters: dict, reset_default_modules=False):
-        """Method to update the values of the Parameters object
-        based on a given dict of new parameters.
+        """Method to update the values of self based on a given dict of new parameters.
 
         Note that some updated parameters might be overridden by:
             self.init_selection_parameters()
@@ -816,7 +785,7 @@ class Parameters(AnnotatedStruct):
 
 
 class BIPOPParameters(AnnotatedStruct):
-    "Seperate object which holds BIPOP specific parameters"
+    """Object which holds BIPOP specific parameters."""
 
     lambda_init: int
     budget: int
@@ -828,34 +797,33 @@ class BIPOPParameters(AnnotatedStruct):
 
     @property
     def large(self) -> bool:
-        "Deternotes where to use a large regime or small regime"
+        """Determine where to use a large regime."""
         if (self.budget_large >= self.budget_small) and self.budget_large > 0:
             return True
         return False
 
     @property
     def remaining_budget(self) -> int:
-        "Compute the remaining budget"
+        """Compute the remaining budget."""
         return self.budget - self.used_budget
 
     @property
     def lambda_(self) -> int:
-        "Returns value for lambda, based which regime is active"
+        """Return value for lambda, based which regime is active."""
         return self.lambda_large if self.large else self.lambda_small
 
     @property
     def sigma(self) -> float:
-        "Return value for sigma, based on which regime is active"
+        """Return value for sigma, based on which regime is active."""
         return 2 if self.large else 2e-2 * np.random.uniform()
 
     @property
     def mu(self) -> int:
-        "Return value for mu, based on which "
+        """Return value for mu."""
         return np.floor(self.lambda_ * self.mu_factor).astype(int)
 
     def adapt(self, used_budget: int) -> None:
-        "Adapts the parameters for BIPOP on restart"
-
+        """Adapt the parameters for BIPOP on restart."""
         used_previous_iteration = used_budget - self.used_budget
         self.used_budget += used_previous_iteration
 
