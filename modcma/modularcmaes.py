@@ -64,10 +64,9 @@ class ModularCMAES:
             and self.parameters.old_population
         )
 
-        n_offspring = self.parameters.lambda_ - (2 * int(perform_tpa))
+        n_offspring = int(self.parameters.lambda_ - (2 * perform_tpa))
         
         if not self.parameters.sequential and not self.parameters.bound_correction:
-            print(type(n_offspring))
             z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
             if self.parameters.threshold_convergence:
                 z = scale_with_threshold(z, self.parameters.threshold)
