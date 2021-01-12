@@ -26,10 +26,10 @@ class AskTellCMAESTestCase(unittest.TestCase):
     def test_unkown_xi(self):
         """Test whether errors are produced correctly."""        
         with self.assertRaises(RuntimeError):
-            self.opt.tell(np.random.uniform((self.d, 1)), 90.0)
+            self.opt.tell(np.random.uniform(size=(self.d, 1)), 90.0)
         _ = self.opt.ask()
         with self.assertRaises(ValueError):
-            self.opt.tell(np.random.uniform((self.d, 1)), 90.0)
+            self.opt.tell(np.random.uniform(size=(self.d, 1)), 90.0)
 
     def test_warns_on_repeated_xi(self):
         """Test whether warnings are produced correctly."""
