@@ -1,16 +1,13 @@
-""""Main implementation of Modular CMA-ES.""" 
-
+"""Main implementation of Modular CMA-ES.""" 
 import os
 from itertools import islice
 from typing import List, Callable
-from fcmaes.cmaes import parallel
 
 import numpy as np
 
 from .parameters import Parameters
 from .population import Population
 from .utils import timeit, ert
-from .sampling import gaussian_sampling
 
 
 class ModularCMAES:
@@ -26,6 +23,7 @@ class ModularCMAES:
         explicitly passed, all \*args and \**kwargs passed into the
         constructor of a ModularCMAES are directly passed into
         the constructor of a Parameters object.
+
     See Also
     --------
     modcma.parameters.Parameters
@@ -35,8 +33,8 @@ class ModularCMAES:
     parameters: "Parameters"
     _fitness_func: Callable
 
-    def __init__(self, fitness_func:Callable, *args, parameters=None, **kwargs) -> None:
-        """"Set _fitness_func and forwards all other parameters to Parameters object.""" 
+    def __init__(self, fitness_func: Callable, *args, parameters=None, **kwargs) -> None:
+        """Set _fitness_func and forwards all other parameters to Parameters object.""" 
         self._fitness_func = fitness_func
         self.parameters = (
             parameters
@@ -60,7 +58,6 @@ class ModularCMAES:
         individuals are created.
 
         #TODO: make bound correction vectorized and integrate with tpa
-
         """
         if (
             not self.parameters.sequential 
@@ -73,7 +70,7 @@ class ModularCMAES:
             y = np.dot(self.parameters.B, self.parameters.D * z)
             x = self.parameters.m + (self.parameters.sigma * y)
             self.parameters.population = Population(
-                x, y, np.fromiter(map(self.fitness_func, x.T), dtype=np.float)
+                x, y, np.array(tuple(map(self.fitness_func, x.T)))
             )
             return 
 
@@ -114,6 +111,7 @@ class ModularCMAES:
                 break
 
         self.parameters.population = Population(np.hstack(x), np.hstack(y), np.array(f))
+
 
 
     def select(self) -> None:
@@ -192,6 +190,7 @@ class ModularCMAES:
         -------
         bool
             Denoting whether to keep running this step function.
+
         """
         self.mutate()
         self.select()
@@ -213,6 +212,7 @@ class ModularCMAES:
         Returns
         -------
         bool
+
         """
         if self.parameters.sequential:
             return (
@@ -228,6 +228,7 @@ class ModularCMAES:
         Returns
         -------
         ModularCMAES
+
         """
         while self.step():
             pass
@@ -240,6 +241,7 @@ class ModularCMAES:
         Returns
         -------
         [bool, bool]
+
         """
         if self.parameters.n_generations:
             return [self.parameters.t >= self.parameters.n_generations]
@@ -262,6 +264,7 @@ class ModularCMAES:
         Returns
         -------
         float
+
         """
         self.parameters.used_budget += 1
         return self._fitness_func(x.flatten())
@@ -297,6 +300,7 @@ def tpa_mutation(
         A list of new mutation vectors
     f: list
         A list of fitnesses
+
     """
     yi = (parameters.m - parameters.m_old) / parameters.sigma
     y.extend([yi, -yi])
@@ -329,6 +333,7 @@ def scale_with_threshold(z: np.ndarray, threshold: float) -> np.ndarray:
     -------
     np.ndarray
         a scaled version of z
+
     """
     length = np.linalg.norm(z)
     if length < threshold:
@@ -374,6 +379,7 @@ def correct_bounds(
     ------
     ValueError
         When an unkown value for correction_method is provided
+
     """
     out_of_bounds = np.logical_or(x > ub, x < lb)
     if not any(out_of_bounds):
@@ -431,10 +437,14 @@ def evaluate_bbob(
         The label to be given to the run, used for logging with BBOB
     logging: bool = False
         Specifies whether to use logging
+    data_folder: str = None
+        File path where to store data when logging = True
     seed: int = 42
         The random seed to be used
     instance: int = 1
         The bbob function instance
+    target_precision: float = 1e-8
+        The target precision for the objective function value
     **kwargs
         These are directly passed into the instance of ModularCMAES,
         in this manner parameters can be specified for the optimizer.
@@ -445,8 +455,10 @@ def evaluate_bbob(
         The number of evaluations for each run of the optimizer
     fopts
         The best fitness values for each run of the optimizer
+        
     """
     # This speeds up the import, this import is quite slow, so import it lazy here
+    #pylint: disable=import-outside-toplevel
     from IOHexperimenter import IOH_function, IOH_logger
 
     evals, fopts = np.array([]), np.array([])
@@ -513,6 +525,7 @@ def fmin(func, dim, maxfun=None, **kwargs):
         The value of function at found xopt
     evals
         The number of evaluations performed
+        
     """
     cma = ModularCMAES(func, dim, budget=maxfun, **kwargs).run()
     return cma.parameters.xopt, cma.parameters.fopt, cma.parameters.used_budget

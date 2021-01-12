@@ -1,4 +1,4 @@
-"""This file contains a ask and tell interface to the Modular CMA-ES."""
+"""Ask and tell interface to the Modular CMA-ES."""
 import warnings
 import typing
 from collections import deque
@@ -21,6 +21,7 @@ def check_break_conditions(f: typing.Callable) -> typing.Callable:
     ------
     StopIteration
         When any(~AskTellCMAES.break_conditions) == True
+
     """
     @wraps(f)
     def inner(self, *args, **kwargs) -> typing.Any:
@@ -61,6 +62,7 @@ class AskTellCMAES(ModularCMAES):
         ------
         NotImplementedError
             When self.parameters.sequential == True
+
         """
         if self.parameters.sequential:
             raise NotImplementedError(
@@ -73,6 +75,7 @@ class AskTellCMAES(ModularCMAES):
         Raises
         ------
         NotImplementedError
+
         """
         raise NotImplementedError("Step is undefined in this interface")
 
@@ -82,6 +85,7 @@ class AskTellCMAES(ModularCMAES):
         Raises
         ------
         NotImplementedError
+
         """
         raise NotImplementedError("Run is undefined in this interface")
 
@@ -92,8 +96,9 @@ class AskTellCMAES(ModularCMAES):
         ----------
         x: np.ndarray
             The vector to be added to the ask_queue
+
         """
-        self.ask_queue.append(x)
+        self.ask_queue.append(x.reshape(-1, 1))
 
     @check_break_conditions
     def ask(self) -> np.ndarray:
@@ -105,6 +110,7 @@ class AskTellCMAES(ModularCMAES):
         Returns
         -------
         np.ndarray
+
         """
         if not hasattr(self, "ask_queue"):
             self.ask_queue = deque()
@@ -132,16 +138,18 @@ class AskTellCMAES(ModularCMAES):
         -----
         UserWarning
             When the same xi is provided more than once
+            
         """
+        #pylint: disable=singleton-comparison
         if not self.parameters.population:
             raise RuntimeError("Call to tell without calling ask first is prohibited")
-
+        
         indices, *_ = np.where((self.parameters.population.x == xi).all(axis=0))
         if len(indices) == 0:
             raise ValueError("Unkown xi provided")
 
         for index in indices:
-            if self.parameters.population.f[index] == None:
+            if self.parameters.population.f[index] == None: # noqa
                 self.parameters.population.f[index] = fi
                 break
         else:
@@ -149,7 +157,7 @@ class AskTellCMAES(ModularCMAES):
             self.parameters.population.f[index] = fi
 
         self.parameters.used_budget += 1
-        if len(self.ask_queue) == 0 and (self.parameters.population.f != None).all():
+        if len(self.ask_queue) == 0 and (self.parameters.population.f != None).all(): # noqa
             self.select()
             self.recombine()
             self.parameters.adapt()

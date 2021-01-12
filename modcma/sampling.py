@@ -19,6 +19,7 @@ def gaussian_sampling(d: int) -> Generator[np.ndarray, None, None]:
     Yields
     ------
     numpy.ndarray
+
     """
     while True:
         yield np.random.randn(d, 1)
@@ -35,6 +36,7 @@ def sobol_sampling(d: int) -> Generator[np.ndarray, None, None]:
     Yields
     ------
     numpy.ndarray
+
     """
     sobol = Sobol(d, np.random.randint(2, max(3, d ** 2)))
     while True:
@@ -52,6 +54,7 @@ def halton_sampling(d: int) -> Generator[np.ndarray, None, None]:
     Yields
     ------
     numpy.ndarray
+
     """
     halton = Halton(d)
     while True:
@@ -72,6 +75,7 @@ def mirrored_sampling(sampler: Generator) -> Generator[np.ndarray, None, None]:
     Yields
     ------
     numpy.ndarray
+
     """
     for sample in sampler:
         yield sample
@@ -96,6 +100,7 @@ def orthogonal_sampling(
     Yields
     ------
     numpy.ndarray
+
     """
     samples = []
     for sample in sampler:
@@ -120,6 +125,7 @@ class Halton(Iterator):
         array of primes
     index: itertools.count
         current index
+
     """
 
     def __init__(self, d, start=1):
@@ -180,6 +186,7 @@ class Sobol(Iterator):
         1/(common denominator of the elements in v)
     lastq: np.ndarray
         vector containing last sample directions
+
     """
 
     def __init__(self, d: int, seed: int = 0):
@@ -248,14 +255,14 @@ class Sobol(Iterator):
         self.recipd = 1.0 / (2 * powers[-1])
         self.lastq = np.zeros(self.d, dtype=int)
 
-        for l in map(self.l0, range(self.seed)):
-            self.lastq = np.bitwise_xor(self.lastq, self.v[: self.d, l - 1])
+        for loc in map(self.l0, range(self.seed)):
+            self.lastq = np.bitwise_xor(self.lastq, self.v[: self.d, loc - 1])
 
     def __next__(self) -> np.ndarray:
         """Return next Sobol sequence."""
-        l = self.l0(self.seed)
+        loc = self.l0(self.seed)
         quasi = self.lastq * self.recipd
-        self.lastq = np.bitwise_xor(self.lastq, self.v[: self.d, l - 1])
+        self.lastq = np.bitwise_xor(self.lastq, self.v[: self.d, loc - 1])
         self.seed += 1
         return quasi
 

@@ -38,9 +38,11 @@ class InstanceOf(Descriptor):
         Raises
         ------
         TypeError
-            If type of the argument does not match self.dtype        
+            If type of the argument does not match self.dtype      
+
         """ 
         if type(value) != type(None):
+
             if (
                 type(value) != self.dtype
                 and not (
@@ -72,6 +74,7 @@ class AnyOf(Descriptor):
         ------
         TypeError
             If type of the argument does not match self.dtype        
+
         """ 
         if value not in self.options:
             raise ValueError(
@@ -116,12 +119,13 @@ class AnnotatedStructMeta(type):
         Returns
         -------
         A new cls object
+
         """
         parameters = []
         for key, annotation in attrs.get("__annotations__", {}).items():
             default_value = attrs.get(key, Parameter.empty)
 
-            if isinstance(annotation, list) or isinstance(annotation, tuple):
+            if isinstance(annotation, (list, tuple)):
                 attrs[key] = AnyOf(annotation)
             else:
                 if (
@@ -170,6 +174,7 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
         The calling signature, instantiated by the metaclass
     __bound__ : Signature
         The bound signature, bound to the *args and **kwargs
+
     """
 
     def __init__(self, *args, **kwargs) -> None:
@@ -208,6 +213,7 @@ def timeit(func):
     -------
     typing.Callable
         a wrapped function
+
     """
     @wraps(func)
     def inner(*args, **kwargs):
@@ -228,6 +234,7 @@ def ert(evals, budget):
         a list of running times (number of evaluations)
     budget: int
         the maximum number of evaluations
+
     Returns
     -------
     float
@@ -237,6 +244,7 @@ def ert(evals, budget):
         The standard deviation of the expected running time
     int
         The number of successful runs
+
     """
     if any(evals):
         try:
@@ -246,6 +254,6 @@ def ert(evals, budget):
                 n_succ = (evals < budget).sum()
                 _ert = float(evals.sum()) / int(n_succ)
             return _ert, np.std(evals), n_succ
-        except:
+        except Exception:
             pass
     return float("inf"), np.nan, 0

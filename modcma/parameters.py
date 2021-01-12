@@ -1,4 +1,4 @@
-"""Defintion of Parameters objects, which are used by ModularCMA-ES."""
+"""Definition of Parameters objects, which are used by ModularCMA-ES."""
 import os
 import pickle
 import warnings
@@ -225,6 +225,7 @@ class Parameters(AnnotatedStruct):
         The maximum amount of resamples which can be done when 'dismiss'-boundary correction is used
     n_out_of_bounds: int
         The number of individals that are sampled out of bounds
+
     """
 
     d: int
@@ -252,13 +253,13 @@ class Parameters(AnnotatedStruct):
     sequential: bool = False
     threshold_convergence: bool = False
     bound_correction: (
-        None, "saturate", "unif_resample", "COTN", "toroidal", "mirror",) = None
+        None, "saturate", "unif_resample", "COTN", "toroidal", "mirror") = None
     orthogonal: bool = False
-    local_restart: (None, "IPOP", "BIPOP", ) = None
-    base_sampler: ("gaussian", "sobol", "halton", ) = "gaussian"
-    mirrored: (None, "mirrored", "mirrored pairwise", ) = None
-    weights_option: ("default","equal", "1/2^lambda", ) = "default"
-    step_size_adaptation: ("csa", "tpa", "msr", ) = "csa"
+    local_restart: (None, "IPOP", "BIPOP") = None
+    base_sampler: ("gaussian", "sobol", "halton") = "gaussian"
+    mirrored: (None, "mirrored", "mirrored pairwise" ) = None
+    weights_option: ("default","equal", "1/2^lambda") = "default"
+    step_size_adaptation: ("csa", "tpa", "msr") = "csa"
 
     population: TypeVar("Population") = None
     old_population: TypeVar("Population") = None
@@ -299,6 +300,7 @@ class Parameters(AnnotatedStruct):
         -------
         generator
             a sampler
+
         """
         sampler = {
             "gaussian": gaussian_sampling,
@@ -406,14 +408,11 @@ class Parameters(AnnotatedStruct):
         mueff_neg = self.nweights.sum() ** 2 / (self.nweights ** 2).sum()
         self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
         self.cmu = self.cmu or min(
-            1 - self.c1,
-            (
-                2
-                * (
+            1 - self.c1, (2 * (
                     (self.mueff - 2 + (1 / self.mueff))
                     / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
                 )
-            ),
+            )
         )
 
         self.pweights = self.pweights / self.pweights.sum()
@@ -430,12 +429,7 @@ class Parameters(AnnotatedStruct):
         )
 
         self.cs = self.cs or (
-            0.3
-            if self.step_size_adaptation
-            in (
-                "msr",
-                "tpa",
-            )
+            0.3 if self.step_size_adaptation in ("msr", "tpa")
             else (self.mueff + 2) / (self.d + self.mueff + 5)
         )
 
@@ -514,12 +508,10 @@ class Parameters(AnnotatedStruct):
             weights = self.weights[::].copy()
             weights = weights[: self.population.y.shape[1]]
             weights[weights < 0] = weights[weights < 0] * (
-                self.d
-                / np.power(
+                self.d / np.power(
                     np.linalg.norm(
                         self.invC @ self.population.y[:, weights < 0], axis=0
-                    ), 
-                    2,
+                    ), 2
                 )
             )
             rank_mu = self.cmu * (weights * self.population.y @ self.population.y.T)
@@ -537,9 +529,6 @@ class Parameters(AnnotatedStruct):
         If sigma or the coveriance matrix has degenerated, the dynamic parameters
         are reset.
         """
-        # if 
-                # self.iterations % (1. / (self.ccov1 + self.ccovmu + negccov) / self.dim / 10.) < 1.
-
         if (
             np.isinf(self.C).any()
             or np.isnan(self.C).any()
@@ -633,6 +622,7 @@ class Parameters(AnnotatedStruct):
         Returns
         -------
         A new Parameters instance
+
         """
         if not len(config_array) == len(Parameters.__modules__):
             raise AttributeError(
@@ -682,6 +672,7 @@ class Parameters(AnnotatedStruct):
         ----------
         filename: str
             The name of the file to save to.
+
         """
         with open(filename, "wb") as f:
             self.sampler = None
@@ -770,6 +761,7 @@ class Parameters(AnnotatedStruct):
 
         reset_default_modules: bool = False
             Whether to reset the modules back to their default values.
+
         """
         if reset_default_modules:
             for name in Parameters.__modules__:
@@ -831,7 +823,7 @@ class BIPOPParameters(AnnotatedStruct):
         used_previous_iteration = used_budget - self.used_budget
         self.used_budget += used_previous_iteration
 
-        if self.lambda_large == None:
+        if self.lambda_large is None:
             self.lambda_large = self.lambda_init * 2
             self.budget_small = self.remaining_budget // 2
             self.budget_large = self.remaining_budget - self.budget_small

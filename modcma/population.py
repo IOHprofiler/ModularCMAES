@@ -1,4 +1,4 @@
-"""This file holds the implemention for the Population object used in the ModularCMA-ES."""
+"""TImplemention for the Population object used in the ModularCMA-ES."""
 from typing import Any
 import numpy as np
 
@@ -26,8 +26,9 @@ class Population:
         """Return a new population object, with it's variables copied.
 
         Returns
-        ------
+        -------
         Population
+
         """
         return Population(self.x.copy(), self.y.copy(), self.f.copy())
 
@@ -40,8 +41,9 @@ class Population:
             another population which is to be used to perform the addition
 
         Returns
-        ------
+        -------
         Population
+
         """
         if not isinstance(other, self.__class__):
             raise TypeError(
@@ -62,8 +64,9 @@ class Population:
             value by with to index the population
 
         Returns
-        ------
+        -------
         Population
+
         """
         if isinstance(key, int):
             return Population(
@@ -81,12 +84,12 @@ class Population:
             map(lambda x: isinstance(x, int) and x >= 0, key)
         ):
             return Population(self.x[:, key], self.y[:, key], self.f[key])
-        else:
-            raise KeyError(
-                "Key must be (list of non-negative) integer(s) or slice, not {}".format(
-                    type(key)
-                )
+            
+        raise KeyError(
+            "Key must be (list of non-negative) integer(s) or slice, not {}".format(
+                type(key)
             )
+        )
 
     @property
     def n(self) -> int:
