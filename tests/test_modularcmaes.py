@@ -1,3 +1,5 @@
+"""Module containing tests for ModularCMA-ES."""
+
 import os
 import shutil
 import io
@@ -9,7 +11,10 @@ from modcma import parameters, utils, modularcmaes
 
 
 class TestModularCMAESMeta(type):
+    """Metaclass for generating test-cases.""" 
+
     def __new__(classes, name, bases, clsdict):
+        """Method for generating new classes.""" 
         def gen_test(module, value):
             def do_test(self):
                 return self.run_module(module, value)
@@ -29,17 +34,20 @@ class TestModularCMAESMeta(type):
 
 
 class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
+    """Test case for ModularCMAES Object. Gets applied for all Parameters.__modules__."""
 
     _dim = 2
     _budget = int(1e2 * _dim)
 
     def run_module(self, module, value):
+        """Test a single run of the mechanism with a given module active."""
         self.p = parameters.Parameters(
             self._dim, budget=self._budget, **{module: value}
         )
         self.c = modularcmaes.ModularCMAES(sum, parameters=self.p).run()
 
     def test_select_raises(self):
+        """Test whether errors are produced correctly."""        
         c = modularcmaes.ModularCMAES(sum, 5, mirrored="mirrored pairwise")
         c.mutate()
         c.parameters.population = c.parameters.population[:3]
@@ -47,6 +55,7 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
             c.select()
 
     def test_local_restart(self):
+        """Test a single iteration of the mechanism with a given local restart active."""
         for lr in filter(None, parameters.Parameters.local_restart.options):
             c = modularcmaes.ModularCMAES(sum, 5, local_restart=lr)
             for _ in range(10):
@@ -57,16 +66,20 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
 
 
 class TestModularCMAESSingle(unittest.TestCase):
+    """Test case for ModularCMAES Object, holds custom tests."""
+
     def test_str_repr(self):
+        """Test the output of repr and str."""
         c = modularcmaes.ModularCMAES(sum, 5)
         self.assertIsInstance(str(c), str)
         self.assertIsInstance(repr(c), str)
 
     def test_n_generations(self):
+        """Test n iterations of the mechanism."""
         c = modularcmaes.ModularCMAES(sum, 5, n_generations=5)
         self.assertEqual(1, len(c.break_conditions))
 
-        for i in range(5):
+        for _ in range(5):
             c.step()
 
         self.assertTrue(any(c.break_conditions))
@@ -75,6 +88,7 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertEqual(2, len(c.break_conditions))
 
     def testtpa_mutation(self):
+        """Test tpa mutation.""" 
         class TpaParameters:
             sigma = 0.4
             rank_tpa = None
@@ -104,6 +118,7 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertEqual(p.rank_tpa, -p.a_tpa)
 
     def test_scale_with_treshold(self):
+        """Test threshold mutations.""" 
         threshold = 5
         z = np.ones(20)
         new_z = modularcmaes.scale_with_threshold(z.copy(), threshold)
@@ -113,6 +128,7 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertGreater(new_z_norm, threshold)
 
     def testcorrect_bounds(self):
+        """Test bound correction.""" 
         x = np.ones(5) * np.array([2, 4, 6, -7, 3])
         ub, lb = np.ones(5) * 5, np.ones(5) * -5
         disabled, *correction_methods = parameters.Parameters.__annotations__.get(
@@ -138,6 +154,7 @@ class TestModularCMAESSingle(unittest.TestCase):
 
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
     def test_evaluate_bbob(self, mock_std):
+        """Test the mechanism of evaluate_bbob.""" 
         data_folder = os.path.join(os.path.dirname(__file__), "tmp")
         if not os.path.isdir(data_folder):
             os.mkdir(data_folder)

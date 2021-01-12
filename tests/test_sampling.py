@@ -1,3 +1,5 @@
+"""Module containing tests for ModularCMA-ES samplers."""
+
 import types
 import unittest
 import numpy as np
@@ -5,12 +7,16 @@ from modcma import sampling
 
 
 class TestSampling(unittest.TestCase):
+    """Test case for Modular CMA-ES samplers."""
+
     _dim = 5
 
     def setUp(self):
+        """Test setup method."""
         np.random.seed(12)
 
     def is_sampler(self, sampler):
+        """Test if a sampler is a sampler."""
         self.assertIsInstance(sampler, types.GeneratorType)
         for x in range(10):
             sample = next(sampler)
@@ -24,18 +30,22 @@ class TestSampling(unittest.TestCase):
             )
 
     def test_gaussian(self):
+        """Test gaussian sampling."""
         sampler = sampling.gaussian_sampling(self._dim)
         self.is_sampler(sampler)
 
     def test_sobol(self):
+        """Test sobol sampling."""
         sampler = sampling.sobol_sampling(self._dim)
         self.is_sampler(sampler)
 
     def test_halton(self):
+        """Test halton sampling."""
         sampler = sampling.halton_sampling(self._dim)
         self.is_sampler(sampler)
 
     def test_orthogonal(self):
+        """Test orthogonal sampling."""
         for base_sampler in (
             sampling.gaussian_sampling(self._dim),
             sampling.sobol_sampling(self._dim),
@@ -46,6 +56,7 @@ class TestSampling(unittest.TestCase):
                 self.is_sampler(sampler)
 
     def test_mirrored(self):
+        """Test mirrored sampling."""
         for base_sampler in (
             sampling.gaussian_sampling(self._dim),
             sampling.sobol_sampling(self._dim),
