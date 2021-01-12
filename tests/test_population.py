@@ -6,7 +6,7 @@ from modcma import population
 
 
 class TestPopulation(unittest.TestCase):
-    
+
     """Test case for Population object of Modular CMA-ES."""
     
     _dim = 5
@@ -40,7 +40,7 @@ class TestPopulation(unittest.TestCase):
     def test_creation(self):
         """Test constructor behaviour.""" 
         self.assertIsInstance(self.pop, population.Population)
-        self.correct_copy(self.pop, self)
+        self.correct_copy(self.pop, self.pop.copy())
 
     def test_sort(self):
         """Test sorting behaviour.""" 

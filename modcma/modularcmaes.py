@@ -1,13 +1,16 @@
 """"Main implementation of Modular CMA-ES.""" 
 
 import os
+from itertools import islice
 from typing import List, Callable
+from fcmaes.cmaes import parallel
 
 import numpy as np
 
 from .parameters import Parameters
 from .population import Population
 from .utils import timeit, ert
+from .sampling import gaussian_sampling
 
 
 class ModularCMAES:
@@ -56,7 +59,25 @@ class ModularCMAES:
         If the step size adaptation method is 'tpa', two less 'normal'
         individuals are created.
 
+        #TODO: make bound correction vectorized and integrate with tpa
+
         """
+        if (
+            not self.parameters.sequential 
+            and not self.parameters.bound_correction 
+            and self.parameters.step_size_adaptation != "tpa"
+        ):
+            z = np.hstack(tuple(islice(self.parameters.sampler, self.parameters.lambda_)))
+            if self.parameters.threshold_convergence:
+                z = scale_with_threshold(z, self.parameters.threshold)
+            y = np.dot(self.parameters.B, self.parameters.D * z)
+            x = self.parameters.m + (self.parameters.sigma * y)
+            self.parameters.population = Population(
+                x, y, np.fromiter(map(self.fitness_func, x.T), dtype=np.float)
+            )
+            return 
+
+            
         y, x, f = [], [], []
         n_offspring = self.parameters.lambda_
         if (
@@ -66,6 +87,7 @@ class ModularCMAES:
             n_offspring -= 2
             tpa_mutation(self.fitness_func, self.parameters, x, y, f)
 
+      
         for i in range(1, n_offspring + 1):
 
             zi = next(self.parameters.sampler)
@@ -92,6 +114,7 @@ class ModularCMAES:
                 break
 
         self.parameters.population = Population(np.hstack(x), np.hstack(y), np.array(f))
+
 
     def select(self) -> None:
         """Selection of best individuals in the population.

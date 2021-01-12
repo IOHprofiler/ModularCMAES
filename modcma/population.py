@@ -2,19 +2,15 @@
 from typing import Any
 import numpy as np
 
-from .utils import AnnotatedStruct
 
+class Population: 
+    """Object for holding a Population of individuals."""
 
-class Population(AnnotatedStruct):
-    """AnnotatedStruct object for holding a Population of individuals."""
-
-    x: np.ndarray
-    y: np.ndarray
-    f: np.ndarray
-
-    def __init__(self, *args, **kwargs):
+    def __init__(self, x, y, f):
         """Reshape x and y."""
-        super().__init__(*args, **kwargs)
+        self.x = x
+        self.y = y
+        self.f = f
         if len(self.x.shape) == 1:
             self.x = self.x.reshape(-1, 1)
             self.y = self.y.reshape(-1, 1)
@@ -33,7 +29,7 @@ class Population(AnnotatedStruct):
         ------
         Population
         """
-        return Population(self.x, self.y, self.f)
+        return Population(self.x.copy(), self.y.copy(), self.f.copy())
 
     def __add__(self, other: "Population") -> "Population":
         """Add two population objects with each other.
@@ -75,13 +71,13 @@ class Population(AnnotatedStruct):
                 self.y[:, key].reshape(-1, 1),
                 np.array([self.f[key]]),
             )
-        elif isinstance(key, slice):
+        if isinstance(key, slice):
             return Population(
                 self.x[:, key.start : key.stop : key.step],
                 self.y[:, key.start : key.stop : key.step],
                 self.f[key.start : key.stop : key.step],
             )
-        elif isinstance(key, list) and all(
+        if isinstance(key, list) and all(
             map(lambda x: isinstance(x, int) and x >= 0, key)
         ):
             return Population(self.x[:, key], self.y[:, key], self.f[key])

@@ -6,6 +6,7 @@ from collections import deque
 from typing import Generator, TypeVar
 
 import numpy as np
+from scipy import linalg
 
 from .utils import AnnotatedStruct
 from .sampling import (
@@ -536,6 +537,9 @@ class Parameters(AnnotatedStruct):
         If sigma or the coveriance matrix has degenerated, the dynamic parameters
         are reset.
         """
+        # if 
+                # self.iterations % (1. / (self.ccov1 + self.ccovmu + negccov) / self.dim / 10.) < 1.
+
         if (
             np.isinf(self.C).any()
             or np.isnan(self.C).any()
@@ -544,7 +548,7 @@ class Parameters(AnnotatedStruct):
             self.init_dynamic_parameters()
         else:
             self.C = np.triu(self.C) + np.triu(self.C, 1).T
-            self.D, self.B = np.linalg.eigh(self.C)
+            self.D, self.B = linalg.eigh(self.C)
             self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
             self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
 
