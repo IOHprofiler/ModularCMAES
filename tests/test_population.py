@@ -2,10 +2,11 @@
 
 import unittest
 import numpy as np
-from modcma import population, utils
+from modcma import population
 
 
 class TestPopulation(unittest.TestCase):
+    
     """Test case for Population object of Modular CMA-ES."""
     
     _dim = 5

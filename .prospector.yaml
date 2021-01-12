@@ -1,0 +1,9 @@
+strictness: medium
+
+ignore-paths:
+  - docs
+  - venv
+
+pep257:
+  disable:
+    - D203
