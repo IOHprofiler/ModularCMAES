@@ -106,7 +106,10 @@ class ModularCMAES:
             f = np.array(f)
 
         if perform_tpa:
-            x, y, f = tpa_mutation(self.fitness_func, self.parameters, x, y, f)
+            yt, xt, ft = tpa_mutation(self.fitness_func, self.parameters)
+            y = np.c_[yt, y]
+            x = np.c_[xt, x]
+            f = np.r_[ft, f]
 
         self.parameters.population = Population(x, y, f)
 
@@ -275,13 +278,7 @@ class ModularCMAES:
         return repr(self)
 
 
-def tpa_mutation(
-    fitness_func: Callable, 
-    parameters: "Parameters", 
-    x: np.ndarray, 
-    y: np.ndarray, 
-    f: np.ndarray
-) -> None:
+def tpa_mutation(fitness_func: Callable, parameters: "Parameters") -> None:
     """Helper function for applying the tpa mutation step.
 
     The code was mostly taken from the ModEA framework,
@@ -303,15 +300,16 @@ def tpa_mutation(
         A list of fitnesses
 
     """
+
     yi = (parameters.m - parameters.m_old) / parameters.sigma
-    y = np.c_[yi, -yi, y]
-    x = np.c_[parameters.m + (parameters.sigma * y[:, :2]), x]
-    f = np.r_[np.array(list(map(fitness_func, x[:, :2].T))), f]
+    y = np.c_[yi, -yi]
+    x = parameters.m + (parameters.sigma * y[:, :2])
+    f = np.array(list(map(fitness_func, x[:, :2].T)))
     if f[1] < f[0]:
         parameters.rank_tpa = -parameters.a_tpa
     else:
         parameters.rank_tpa = parameters.a_tpa + parameters.b_tpa
-    return x, y, f
+    return y, x, f
 
 
 def scale_with_threshold(z: np.ndarray, threshold: float) -> np.ndarray:

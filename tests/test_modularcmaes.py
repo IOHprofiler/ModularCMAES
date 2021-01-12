@@ -96,25 +96,23 @@ class TestModularCMAESSingle(unittest.TestCase):
             b_tpa = 0
 
             def __init__(self, m_factor=1.1):
-                self.m = np.ones(5) * 0.5
+                self.m = np.random.rand(5, 1)
                 self.m_old = self.m * m_factor
 
         p = TpaParameters()
-        x, y, f = [], [], []
-        modularcmaes.tpa_mutation(sum, p, x, y, f)
+        y, x, f = modularcmaes.tpa_mutation(sum, p)
         for _, l in enumerate([x, y, f]):
-            self.assertEqual(len(l), 2)
+            self.assertIn(2, l.shape)
 
-        self.assertListEqual((-y[0]).tolist(), y[1].tolist())
+        self.assertListEqual((-y[:, 0]).tolist(), y[:, 1].tolist())
 
-        for xi, fi in zip(x, f):
+        for xi, fi in zip(x.T, f):
             self.assertEqual(sum(xi), fi)
 
         self.assertEqual(p.rank_tpa, p.a_tpa + p.b_tpa)
 
         p = TpaParameters(-2)
-        x, y, f = [], [], []
-        modularcmaes.tpa_mutation(sum, p, x, y, f)
+        y, x, f = modularcmaes.tpa_mutation(sum, p)
         self.assertEqual(p.rank_tpa, -p.a_tpa)
 
     def test_scale_with_treshold(self):
