@@ -59,59 +59,56 @@ class ModularCMAES:
 
         #TODO: make bound correction vectorized and integrate with tpa
         """
-        if (
-            not self.parameters.sequential 
-            and not self.parameters.bound_correction 
-            and self.parameters.step_size_adaptation != "tpa"
-        ):
-            z = np.hstack(tuple(islice(self.parameters.sampler, 0, self.parameters.lambda_)))
-            if self.parameters.threshold_convergence:
-                z = scale_with_threshold(z, self.parameters.threshold)
-            y = np.dot(self.parameters.B, self.parameters.D * z)
-            x = self.parameters.m + (self.parameters.sigma * y)
-            self.parameters.population = Population(
-                x, y, np.array(tuple(map(self.fitness_func, x.T)))
-            )
-            return 
-
-            
-        y, x, f = [], [], []
-        n_offspring = self.parameters.lambda_
-        if (
+        perform_tpa = bool(
             self.parameters.step_size_adaptation == "tpa"
             and self.parameters.old_population
-        ):
-            n_offspring -= 2
-            tpa_mutation(self.fitness_func, self.parameters, x, y, f)
+        )
 
-      
-        for i in range(1, n_offspring + 1):
-
-            zi = next(self.parameters.sampler)
+        n_offspring = self.parameters.lambda_ - (2 * perform_tpa)
+        
+        if not self.parameters.sequential and not self.parameters.bound_correction:
+            z = np.hstack(tuple(islice(self.parameters.sampler, 0, n_offspring)))
             if self.parameters.threshold_convergence:
-                zi = scale_with_threshold(zi, self.parameters.threshold)
+                z = scale_with_threshold(z, self.parameters.threshold)
+            
+            y = np.dot(self.parameters.B, self.parameters.D * z)
+            x = self.parameters.m + (self.parameters.sigma * y)
+            f = np.array(tuple(map(self.fitness_func, x.T)))
 
-            yi = np.dot(self.parameters.B, self.parameters.D * zi)
-            xi = self.parameters.m + (self.parameters.sigma * yi)
+        else:
+            x, y, f = [], [], []
+            for i in range(1, n_offspring + 1):
+                zi = next(self.parameters.sampler)
+                if self.parameters.threshold_convergence:
+                    zi = scale_with_threshold(zi, self.parameters.threshold)
 
-            xi, out_of_bounds = correct_bounds(
-                xi,
-                self.parameters.ub,
-                self.parameters.lb,
-                self.parameters.bound_correction,
-            )
+                yi = np.dot(self.parameters.B, self.parameters.D * zi)
+                xi = self.parameters.m + (self.parameters.sigma * yi)
 
-            self.parameters.n_out_of_bounds += out_of_bounds
+                xi, out_of_bounds = correct_bounds(
+                    xi,
+                    self.parameters.ub,
+                    self.parameters.lb,
+                    self.parameters.bound_correction,
+                )
 
-            fi = self.fitness_func(xi)
-            for a, v in ((y, yi), (x, xi), (f, fi),): 
-                a.append(v)
+                self.parameters.n_out_of_bounds += out_of_bounds
 
-            if self.sequential_break_conditions(i, fi):
-                break
+                fi = self.fitness_func(xi)
+                for a, v in ((y, yi), (x, xi), (f, fi),): 
+                    a.append(v)
 
-        self.parameters.population = Population(np.hstack(x), np.hstack(y), np.array(f))
+                if self.sequential_break_conditions(i, fi):
+                    break
 
+            x = np.hstack(x)
+            y = np.hstack(y)
+            f = np.array(f)
+
+        if perform_tpa:
+            x, y, f = tpa_mutation(self.fitness_func, self.parameters, x, y, f)
+
+        self.parameters.population = Population(x, y, f)
 
 
     def select(self) -> None:
@@ -279,7 +276,11 @@ class ModularCMAES:
 
 
 def tpa_mutation(
-    fitness_func: Callable, parameters: "Parameters", x: list, y: list, f: list
+    fitness_func: Callable, 
+    parameters: "Parameters", 
+    x: np.ndarray, 
+    y: np.ndarray, 
+    f: np.ndarray
 ) -> None:
     """Helper function for applying the tpa mutation step.
 
@@ -303,18 +304,14 @@ def tpa_mutation(
 
     """
     yi = (parameters.m - parameters.m_old) / parameters.sigma
-    y.extend([yi, -yi])
-    x.extend(
-        [
-            parameters.m + (parameters.sigma * yi),
-            parameters.m + (parameters.sigma * -yi),
-        ]
-    )
-    f.extend(list(map(fitness_func, x)))
+    y = np.c_[yi, -yi, y]
+    x = np.c_[parameters.m + (parameters.sigma * y[:, :2]), x]
+    f = np.r_[np.array(list(map(fitness_func, x[:, :2].T))), f]
     if f[1] < f[0]:
         parameters.rank_tpa = -parameters.a_tpa
     else:
         parameters.rank_tpa = parameters.a_tpa + parameters.b_tpa
+    return x, y, f
 
 
 def scale_with_threshold(z: np.ndarray, threshold: float) -> np.ndarray:
