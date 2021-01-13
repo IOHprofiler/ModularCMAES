@@ -1,0 +1,31 @@
+strictness: high
+
+ignore-paths:
+  - docs
+  - venv
+  - x.py
+
+pep257:
+  run: true 
+  disable:
+    - D203
+    - D213
+
+pyflakes:
+  disable:
+    - F821
+    - F722
+
+pep8:
+  disable:
+    - E721
+    
+pylint:
+  disable:
+    - too-many-locals
+    - too-many-arguments
+    - stop-iteration-return
+    - unidiomatic-typecheck
+    - invalid-name
+    - attribute-defined-outside-init
+    - too-many-instance-attributes
