@@ -18,7 +18,7 @@ class TestSampling(unittest.TestCase):
     def is_sampler(self, sampler):
         """Test if a sampler is a sampler."""
         self.assertIsInstance(sampler, types.GeneratorType)
-        for x in range(10):
+        for _ in range(10):
             sample = next(sampler)
             self.assertIsInstance(sample, np.ndarray)
             self.assertEqual(

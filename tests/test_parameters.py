@@ -9,7 +9,6 @@ import numpy as np
 
 from modcma.parameters import Parameters
 from modcma.utils import AnyOf
-from modcma.sampling import mirrored_sampling
 from modcma.population import Population
 
 
@@ -150,16 +149,16 @@ class TestParameters(unittest.TestCase):
 
         with self.assertRaises(AttributeError):
             _c_array = c_array[1:].copy()
-            p = Parameters.from_config_array(5, _c_array)
+            _ = Parameters.from_config_array(5, _c_array)
 
         with self.assertRaises(AttributeError):
             _c_array = c_array + [0]
-            p = Parameters.from_config_array(5, _c_array)
+            _ = Parameters.from_config_array(5, _c_array)
 
         with self.assertRaises(AttributeError):
             _c_array = c_array.copy()
             _c_array[0] = 2
-            p = Parameters.from_config_array(5, _c_array)
+            _ = Parameters.from_config_array(5, _c_array)
 
         p = Parameters.from_config_array(5, c_array)
 

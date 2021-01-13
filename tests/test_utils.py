@@ -71,6 +71,7 @@ class TestUtils(unittest.TestCase):
         with self.assertRaises(TypeError):
             class Foo(utils.AnnotatedStruct):
                 x: "x"
+            _ = Foo()
 
     def test_repr(self):
         """Test representation."""

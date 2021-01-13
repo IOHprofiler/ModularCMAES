@@ -75,7 +75,7 @@ class AnyOf(Descriptor):
         TypeError
             If type of the argument does not match self.dtype        
 
-        """ 
+        """
         if value not in self.options:
             raise ValueError(
                 "{} should be any of [{}]. Got: {}".format(

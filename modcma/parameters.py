@@ -63,7 +63,7 @@ class Parameters(AnnotatedStruct):
     decay_factor: float = 0.995
         The decay for the threshold used in threshold covergence
     max_resamples: int
-        The maximum amount of resamples which can be done when 
+        The maximum amount of resamples which can be done when
         'dismiss'-boundary correction is used
     active: bool = False
         Specifying whether to use active update.
@@ -121,7 +121,7 @@ class Parameters(AnnotatedStruct):
     step_size_adaptation: str = ('csa', 'tpa', 'msr', )
         Specifying which step size adaptation mechanism should be used.
         csa:
-            [8] Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR, 
+            [8] Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR,
             abs/1604.00772, 2016
         tpa:
             [9] Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, 
@@ -484,7 +484,7 @@ class Parameters(AnnotatedStruct):
     def adapt_covariance_matrix(self) -> None:
         """Method for adapting the covariance matrix.
 
-        If the option `active` is specified, active update of the covariance 
+        If the option `active` is specified, active update of the covariance
         matrix is performed, using negative weights.
         """
         hs = (

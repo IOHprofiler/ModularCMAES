@@ -7,7 +7,7 @@ from modcma import population
 
 class TestPopulation(unittest.TestCase):
     """Test case for Population object of Modular CMA-ES."""
-    
+
     _dim = 5
     _lambda = 16
     _sigma = 0.5
@@ -96,7 +96,7 @@ class TestPopulation(unittest.TestCase):
             self.pop += 1
 
     def test_n(self):
-        """Test n.""" 
+        """Test n."""
         self.assertEqual(self._lambda, self.pop.n)
 
     def test_d(self):
