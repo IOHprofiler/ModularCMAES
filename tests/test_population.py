@@ -106,6 +106,7 @@ class TestPopulation(unittest.TestCase):
     def test_repr(self):
         """Test representation.""" 
         self.assertEqual(type(repr(self.pop)), str)
+        self.assertEqual(type(str(self.pop)), str)
 
 
 if __name__ == "__main__":

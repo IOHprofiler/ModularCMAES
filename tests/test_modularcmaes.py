@@ -96,6 +96,12 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
 class TestModularCMAESSingle(unittest.TestCase):
     """Test case for ModularCMAES Object, holds custom tests."""
 
+    def test_tpa_threshold_cov_sequential(self):
+        c = modularcmaes.ModularCMAES(sum, 2,
+            threshold_convergence=True, sequential=True, 
+            step_size_adaptation='tpa', budget=10).run()
+        self.assertLess(c.parameters.fopt, 0.)
+
     def test_str_repr(self):
         """Test the output of repr and str."""
         c = modularcmaes.ModularCMAES(sum, 5)
@@ -188,7 +194,7 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertTrue(os.path.isdir(data_folder))
         modularcmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder)
-        modularcmaes.evaluate_bbob(1, 1, 1)
+        modularcmaes.evaluate_bbob(1, 1, 2)
         
 
 
