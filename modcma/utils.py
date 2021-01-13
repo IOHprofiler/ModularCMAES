@@ -1,4 +1,4 @@
-"""Implementation of various utilities used in ModularCMA-ES package."""  
+"""Implementation of various utilities used in ModularCMA-ES package."""
 
 import warnings
 import typing
@@ -34,13 +34,13 @@ class InstanceOf(Descriptor):
 
     def __set__(self, instance, value):
         """Set the value of instance to value, checks type of argument.
-        
+
         Raises
         ------
         TypeError
             If type of the argument does not match self.dtype      
 
-        """ 
+        """
         if type(value) != type(None):
 
             if (
@@ -69,7 +69,7 @@ class AnyOf(Descriptor):
 
     def __set__(self, instance, value):
         """Set the value of instance to value, checks value of argument to match self.options.
-        
+
         Raises
         ------
         TypeError
@@ -178,7 +178,7 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        """Bind *args and **kwargs to a signature instantiated by the metaclass.""" 
+        """Bind *args and **kwargs to a signature instantiated by the metaclass."""
         self.__bound__ = self.__signature__.bind(*args, **kwargs)
         self.__bound__.apply_defaults()
         for name, value in self.__bound__.arguments.items():
@@ -246,14 +246,12 @@ def ert(evals, budget):
         The number of successful runs
 
     """
-    if any(evals):
-        try:
-            with warnings.catch_warnings():
-                warnings.simplefilter("ignore")
-                evals = np.array(evals)
-                n_succ = (evals < budget).sum()
-                _ert = float(evals.sum()) / int(n_succ)
-            return _ert, np.std(evals), n_succ
-        except Exception:
-            pass
-    return float("inf"), np.nan, 0
+    try:
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            evals = np.array(evals)
+            n_succ = (evals < budget).sum()
+            _ert = float(evals.sum()) / int(n_succ)
+        return _ert, np.std(evals), n_succ
+    except Exception:
+        return float("inf"), np.nan, 0

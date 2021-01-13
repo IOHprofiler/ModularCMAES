@@ -73,11 +73,11 @@ class TestUtils(unittest.TestCase):
                 x: "x"
 
     def test_repr(self):
-        """Test representation.""" 
+        """Test representation."""
         self.assertEqual(type(repr(self.fooclass(1))), str)
 
     def test_descriptor(self):
-        """Test descriptor.""" 
+        """Test descriptor."""
         class Foo:
             x = utils.Descriptor()
 
@@ -89,7 +89,7 @@ class TestUtils(unittest.TestCase):
         self.assertNotIn("x", foo.__dict__)
 
     def test_ert(self):
-        """Test ert method.""" 
+        """Test ert method."""
         evals = [5000, 45000, 1000, 100, 10]
         budget = 10000
         ert, ert_sd, n_succ = utils.ert(evals, budget)

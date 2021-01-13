@@ -63,7 +63,8 @@ class Parameters(AnnotatedStruct):
     decay_factor: float = 0.995
         The decay for the threshold used in threshold covergence
     max_resamples: int
-        The maximum amount of resamples which can be done when 'dismiss'-boundary correction is used
+        The maximum amount of resamples which can be done when 
+        'dismiss'-boundary correction is used
     active: bool = False
         Specifying whether to use active update.
             [1] G. Jastrebski, D. V. Arnold, et al. Improving evolution strategies through
@@ -120,9 +121,11 @@ class Parameters(AnnotatedStruct):
     step_size_adaptation: str = ('csa', 'tpa', 'msr', )
         Specifying which step size adaptation mechanism should be used.
         csa:
-            [8] Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR, abs/1604.00772, 2016
+            [8] Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR, 
+            abs/1604.00772, 2016
         tpa:
-            [9] Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, abs/0805.0231,2008.
+            [9] Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, 
+            abs/0805.0231,2008.
         msr:
             [10] Ouassim Ait Elhara, Anne Auger, and Nikolaus Hansen.
             A Median Success Rule for Non-Elitist Evolution Strategies: Study of Feasibility.
@@ -222,7 +225,8 @@ class Parameters(AnnotatedStruct):
     last_restart: int
         The generation in where the last restart has occored
     max_resamples: int
-        The maximum amount of resamples which can be done when 'dismiss'-boundary correction is used
+        The maximum amount of resamples which can be done when 
+        'dismiss'-boundary correction is used
     n_out_of_bounds: int
         The number of individals that are sampled out of bounds
 
@@ -247,7 +251,6 @@ class Parameters(AnnotatedStruct):
     init_threshold: float = 0.1
     decay_factor: float = 0.995
     max_resamples: int = 1000
- 
     active: bool = False
     elitist: bool = False
     sequential: bool = False
@@ -257,10 +260,9 @@ class Parameters(AnnotatedStruct):
     orthogonal: bool = False
     local_restart: (None, "IPOP", "BIPOP") = None
     base_sampler: ("gaussian", "sobol", "halton") = "gaussian"
-    mirrored: (None, "mirrored", "mirrored pairwise" ) = None
-    weights_option: ("default","equal", "1/2^lambda") = "default"
+    mirrored: (None, "mirrored", "mirrored pairwise") = None
+    weights_option: ("default", "equal", "1/2^lambda") = "default"
     step_size_adaptation: ("csa", "tpa", "msr") = "csa"
-
     population: TypeVar("Population") = None
     old_population: TypeVar("Population") = None
     termination_criteria: dict = {}
@@ -322,7 +324,7 @@ class Parameters(AnnotatedStruct):
         return sampler
 
     def init_fixed_parameters(self) -> None:
-        """Initialization function for parameters that are not restarted during a optimization run."""
+        """Initialization function for parameters that are not restarted during a run."""
         self.used_budget = 0
         self.n_out_of_bounds = 0
         self.budget = self.budget or int(1e4) * self.d
@@ -381,7 +383,7 @@ class Parameters(AnnotatedStruct):
 
     def init_adaptation_parameters(self) -> None:
         """Initialization function for parameters for self-adaptive processes.
-        
+
         Examples are recombination weights and learning rates for the covariance
         matrix adapation.
         """
@@ -402,18 +404,15 @@ class Parameters(AnnotatedStruct):
                 np.arange(1, self.lambda_ + 1)
             )
         self.pweights = self.weights[: self.mu]
-        self.nweights = self.weights[self.mu :]
+        self.nweights = self.weights[self.mu:]
 
         self.mueff = self.pweights.sum() ** 2 / (self.pweights ** 2).sum()
         mueff_neg = self.nweights.sum() ** 2 / (self.nweights ** 2).sum()
         self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
-        self.cmu = self.cmu or min(
-            1 - self.c1, (2 * (
-                    (self.mueff - 2 + (1 / self.mueff))
-                    / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
-                )
-            )
-        )
+        self.cmu = self.cmu or min(1 - self.c1, (2 * (
+            (self.mueff - 2 + (1 / self.mueff))
+            / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
+        )))
 
         self.pweights = self.pweights / self.pweights.sum()
         amu_neg = 1 + (self.c1 / self.mu)
@@ -441,7 +440,7 @@ class Parameters(AnnotatedStruct):
 
     def init_dynamic_parameters(self) -> None:
         """Initialization function of parameters that represent the dynamic state of the CMA-ES.
-        
+
         Examples of such parameters are the Covariance matrix C and its 
         eigenvectors and the learning rate sigma.
         """
@@ -459,7 +458,7 @@ class Parameters(AnnotatedStruct):
 
     def adapt_sigma(self) -> None:
         """Method to adapt the step size sigma.
-        
+
         There are three variants in implemented here, namely:
             ~ Two-Point Stepsize Adaptation (tpa)
             ~ Median Success Rule (msr)
@@ -484,7 +483,7 @@ class Parameters(AnnotatedStruct):
 
     def adapt_covariance_matrix(self) -> None:
         """Method for adapting the covariance matrix.
-        
+
         If the option `active` is specified, active update of the covariance 
         matrix is performed, using negative weights.
         """
@@ -699,8 +698,8 @@ class Parameters(AnnotatedStruct):
             _t = self.t % self.d
             diag_C = np.diag(self.C.T)
             d_sigma = self.sigma / self.init_sigma
-            best_fopts = self.best_fitnesses[self.last_restart :]
-            median_fitnesses = self.median_fitnesses[self.last_restart :]
+            best_fopts = self.best_fitnesses[self.last_restart:]
+            median_fitnesses = self.median_fitnesses[self.last_restart:]
 
             self.termination_criteria = (
                 dict()
@@ -709,7 +708,7 @@ class Parameters(AnnotatedStruct):
                     "max_iter": (self.t - self.last_restart > self.max_iter),
                     "equalfunvalues": (
                         len(best_fopts) > self.nbin
-                        and np.ptp(best_fopts[-self.nbin :]) == 0
+                        and np.ptp(best_fopts[-self.nbin:]) == 0
                     ),
                     "flat_fitness": (
                         self.t - self.last_restart > self.flat_fitnesses.maxlen
@@ -735,9 +734,9 @@ class Parameters(AnnotatedStruct):
                     "stagnation": (
                         self.t - self.last_restart > self.n_stagnation
                         and (
-                            np.median(best_fopts[-int(0.3 * self.t) :])
+                            np.median(best_fopts[-int(0.3 * self.t):])
                             >= np.median(best_fopts[: int(0.3 * self.t)])
-                            and np.median(median_fitnesses[-int(0.3 * self.t) :])
+                            and np.median(median_fitnesses[-int(0.3 * self.t):])
                             >= np.median(median_fitnesses[: int(0.3 * self.t)])
                         )
                     ),
@@ -837,6 +836,6 @@ class BIPOPParameters(AnnotatedStruct):
             self.lambda_init
             * (0.5 * self.lambda_large / self.lambda_init) ** (np.random.uniform() ** 2)
         ).astype(int)
-        
+
         if self.lambda_small % 2 != 0:
             self.lambda_small += 1

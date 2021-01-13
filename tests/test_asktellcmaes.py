@@ -24,7 +24,7 @@ class AskTellCMAESTestCase(unittest.TestCase):
             _ = self.opt.ask()
 
     def test_unkown_xi(self):
-        """Test whether errors are produced correctly."""        
+        """Test whether errors are produced correctly."""
         with self.assertRaises(RuntimeError):
             self.opt.tell(np.random.uniform(size=(self.d, 1)), 90.0)
         _ = self.opt.ask()

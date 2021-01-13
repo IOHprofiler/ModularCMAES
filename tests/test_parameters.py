@@ -29,7 +29,7 @@ class TestParameters(unittest.TestCase):
                     setattr(p, name, x)
 
     def test_updating(self):
-        """Test the updating of parameters.""" 
+        """Test the updating of parameters."""
         self.p.update(dict(mirrored="mirrored"))
         self.assertEqual(self.p.mirrored, "mirrored")
         self.assertEqual(self.p.sampler.__name__, "mirrored_sampling")
@@ -50,7 +50,7 @@ class TestParameters(unittest.TestCase):
         self.assertNotEqual(self.p.mueff, old_mueff)
 
     def test_bipop_parameters(self):
-        """Test BIPOPParameters.""" 
+        """Test BIPOPParameters."""
         self.p.local_restart = "BIPOP"
         self.p.used_budget += 11
         self.p.bipop_parameters.adapt(self.p.used_budget)
@@ -88,7 +88,7 @@ class TestParameters(unittest.TestCase):
             Parameters(1, mu=3, lambda_=2)
 
     def test_options(self):
-        """"Test setting of options."""
+        """Test setting of options."""
         for module in Parameters.__modules__:
             m = getattr(Parameters, module)
             if type(m) == AnyOf:
