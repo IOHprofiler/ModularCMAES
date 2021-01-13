@@ -29,3 +29,4 @@ pylint:
     - invalid-name
     - attribute-defined-outside-init
     - too-many-instance-attributes
+    - import-error

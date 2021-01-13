@@ -21,7 +21,7 @@ class TestParameters(unittest.TestCase):
         self.p = Parameters(5)
 
     def try_wrong_types(self, p, name, type_):
-        """Test for wrong input types.""" 
+        """Test for wrong input types."""
         for x in (1, 1.0, "x", True, np.ndarray,):
             if type(x) != type_:
                 with self.assertRaises(TypeError, msg=f"{name} {type_} {x}"):
@@ -129,7 +129,7 @@ class TestParameters(unittest.TestCase):
         self.set_parameter_and_step("active", True)
 
     def test_reset(self):
-        """Test if C is correctly reset if it has inf.""" 
+        """Test if C is correctly reset if it has inf."""
         self.p.C[0][0] = np.inf
         self.step()
 
@@ -139,7 +139,7 @@ class TestParameters(unittest.TestCase):
         self.set_parameter_and_step("max_iter", True, 5, "ignore")
 
     def test_threshold(self):
-        """Test treshold mutation.""" 
+        """Test treshold mutation."""
         self.step()
         self.assertEqual(type(self.p.threshold), np.float64)
 
@@ -160,13 +160,13 @@ class TestParameters(unittest.TestCase):
             _c_array[0] = 2
             _ = Parameters.from_config_array(5, _c_array)
 
-        p = Parameters.from_config_array(5, c_array)
+        _ = Parameters.from_config_array(5, c_array)
 
     def test_save_load(self):
-        """Test pickle save and load mechanism."""  
+        """Test pickle save and load mechanism."""
         tmpfile = os.path.join(os.path.dirname(__file__), "tmp.pkl")
         self.p.save(tmpfile)
-        p = Parameters.load(tmpfile)
+        _ = Parameters.load(tmpfile)
         os.remove(tmpfile)
         with self.assertRaises(OSError):
             self.p.load("__________")
