@@ -837,3 +837,6 @@ class BIPOPParameters(AnnotatedStruct):
             self.lambda_init
             * (0.5 * self.lambda_large / self.lambda_init) ** (np.random.uniform() ** 2)
         ).astype(int)
+        
+        if self.lambda_small % 2 != 0:
+            self.lambda_small += 1
