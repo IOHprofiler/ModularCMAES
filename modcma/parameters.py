@@ -386,19 +386,23 @@ class Parameters(AnnotatedStruct):
 
         Examples are recombination weights and learning rates for the covariance
         matrix adapation.
+        TODO: clean the initlialization of these weights, this can be wrong in some cases
+        when mu != .5
         """
+
         if self.weights_option == "equal":
             ws = np.ones(self.lambda_) / self.lambda_
-            self.weights = np.append(ws, ws[::-1] * -1)
+            self.weights = np.append(ws[:self.mu], ws[self.mu::-1] * -1)
+
             if self.lambda_ % 2 != 0:
-                self.weights = np.append([1 / self.lambda_], self.weights)
+                self.weights = np.append([1 / self.lambda_], self.weights[:-1])
         elif self.weights_option == "1/2^lambda":
             ws = 1 / 2 ** np.arange(1, self.lambda_ + 1) + (
                 (1 / (2 ** self.lambda_)) / self.lambda_
             )
-            self.weights = np.append(ws, ws[::-1] * -1)
+            self.weights = np.append(ws[:self.mu], ws[self.mu::-1] * -1)
             if self.lambda_ % 2 != 0:
-                self.weights = np.append([1 / self.lambda_ ** 2], self.weights)
+                self.weights = np.append([1 / self.lambda_ ** 2], self.weights[:-1])
         else:
             self.weights = np.log((self.lambda_ + 1) / 2) - np.log(
                 np.arange(1, self.lambda_ + 1)
@@ -831,7 +835,7 @@ class BIPOPParameters(AnnotatedStruct):
             self.lambda_large *= 2
         else:
             self.budget_small -= used_previous_iteration
-
+        
         self.lambda_small = np.floor(
             self.lambda_init
             * (0.5 * self.lambda_large / self.lambda_init) ** (np.random.uniform() ** 2)

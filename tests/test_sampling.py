@@ -43,6 +43,7 @@ class TestSampling(unittest.TestCase):
         """Test halton sampling."""
         sampler = sampling.halton_sampling(self._dim)
         self.is_sampler(sampler)
+        self.assertEqual(sampling.Halton.vectorized_next(10, 2), .3125)
 
     def test_orthogonal(self):
         """Test orthogonal sampling."""

@@ -7,7 +7,7 @@ import pickle
 
 import numpy as np
 
-from modcma.parameters import Parameters
+from modcma.parameters import Parameters, BIPOPParameters
 from modcma.utils import AnyOf
 from modcma.population import Population
 
@@ -177,6 +177,23 @@ class TestParameters(unittest.TestCase):
             self.p.load(tmpfile)
         os.remove(tmpfile)
 
+    def test_fix_lambda_even(self):
+        self.p.lambda_ = 11
+        self.p.mirrored = 'mirrored pairwise'
+        self.assertEqual(self.p.lambda_, 11)
+        self.p.init_selection_parameters()
+        self.assertEqual(self.p.lambda_, 12)
+
+        for weights_option in ("equal", "1/2^lambda"):
+            self.p.weights_option = weights_option
+            self.p.lambda_ = 11
+            self.p.mu = 5
+            self.p.init_adaptation_parameters()
+            self.assertEqual(len(self.p.weights), 11)
+
+        b = BIPOPParameters(7, 20, .5)
+        b.adapt(11)
+        self.assertEqual(b.lambda_small, 8)
 
 if __name__ == "__main__":
     unittest.main()
