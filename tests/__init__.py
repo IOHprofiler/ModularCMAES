@@ -1,1 +1,0 @@
-"""Module containing tests for ModularCMA-ES package."""
