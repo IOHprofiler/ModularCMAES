@@ -3,7 +3,7 @@ from typing import Any
 import numpy as np
 
 
-class Population: 
+class Population:
     """Object for holding a Population of individuals."""
 
     def __init__(self, x, y, f):
@@ -57,7 +57,7 @@ class Population:
 
     def __getitem__(self, key: Any) -> "Population":
         """Method allowing for indexing the population object as if it were an np.ndarray.
-       
+
         Parameters
         ----------
         key: int, [int], itertools.slice
@@ -76,15 +76,15 @@ class Population:
             )
         if isinstance(key, slice):
             return Population(
-                self.x[:, key.start : key.stop : key.step],
-                self.y[:, key.start : key.stop : key.step],
-                self.f[key.start : key.stop : key.step],
+                self.x[:, key.start: key.stop: key.step],
+                self.y[:, key.start: key.stop: key.step],
+                self.f[key.start: key.stop: key.step],
             )
         if isinstance(key, list) and all(
             map(lambda x: isinstance(x, int) and x >= 0, key)
         ):
             return Population(self.x[:, key], self.y[:, key], self.f[key])
-            
+
         raise KeyError(
             "Key must be (list of non-negative) integer(s) or slice, not {}".format(
                 type(key)

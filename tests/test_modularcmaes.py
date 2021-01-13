@@ -17,7 +17,7 @@ from .expected import BBOB_2D_PER_MODULE_20_ITER
 class TestModularCMAESMeta(type):
     """Metaclass for generating test-cases."""
 
-    def __new__(classes, name, bases, clsdict):
+    def __new__(cls, name, bases, clsdict):
         """Method for generating new classes."""
 
         def generate_tests(module, value):
@@ -44,7 +44,7 @@ class TestModularCMAESMeta(type):
             elif type(m) == utils.InstanceOf:
                 clsdict.update(generate_tests(module, True))
 
-        return super().__new__(classes, name, bases, clsdict)
+        return super().__new__(cls, name, bases, clsdict)
 
 
 class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
@@ -85,7 +85,7 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
     def test_local_restart(self):
         """Test a single iteration of the mechanism with a given local restart active."""
         for lr in filter(None, parameters.Parameters.local_restart.options):
-            c = modularcmaes.ModularCMAES(sum, 5, local_restart=lr)
+            c = modularcmaes.ModularCMAES(sum, self._dim, local_restart=lr)
             for _ in range(10):
                 c.step()
 
@@ -185,9 +185,11 @@ class TestModularCMAESSingle(unittest.TestCase):
         data_folder = os.path.join(os.path.dirname(__file__), "tmp")
         if not os.path.isdir(data_folder):
             os.mkdir(data_folder)
+        self.assertTrue(os.path.isdir(data_folder))
         modularcmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder)
         modularcmaes.evaluate_bbob(1, 1, 1)
+        
 
 
 if __name__ == "__main__":

@@ -1,3 +1,5 @@
+"""Fixtures/Test data is placed in this file."""
+
 BBOB_2D_PER_MODULE_20_ITER = {
     "active_True": [
         79.60870540043959,

@@ -6,9 +6,8 @@ from modcma import population
 
 
 class TestPopulation(unittest.TestCase):
-
     """Test case for Population object of Modular CMA-ES."""
-    
+
     _dim = 5
     _lambda = 16
     _sigma = 0.5
@@ -32,18 +31,18 @@ class TestPopulation(unittest.TestCase):
         self.pop = population.Population(self.x, self.y, self.f)
 
     def correct_copy(self, instance, other):
-        """Test copy behaviour.""" 
+        """Test copy behaviour."""
         self.assertNotEqual(id(instance.x), id(other.x))
         self.assertNotEqual(id(instance.y), id(other.y))
         self.assertNotEqual(id(instance.f), id(other.f))
 
     def test_creation(self):
-        """Test constructor behaviour.""" 
+        """Test constructor behaviour."""
         self.assertIsInstance(self.pop, population.Population)
         self.correct_copy(self.pop, self.pop.copy())
 
     def test_sort(self):
-        """Test sorting behaviour.""" 
+        """Test sorting behaviour."""
         self.pop.sort()
         rank = np.argsort(self.f)
         for e in ("x", "y", ):
@@ -53,15 +52,15 @@ class TestPopulation(unittest.TestCase):
         self.assertListEqual(self.f[rank].tolist(), self.pop.f.tolist())
 
     def test_copy(self):
-        """Test copy behaviour.""" 
+        """Test copy behaviour."""
         self.correct_copy(self.pop, self.pop.copy())
 
     def test_getitem(self):
-        """Test whether errors are produced correctly."""      
+        """Test whether errors are produced correctly."""
         with self.assertRaises(KeyError):
-            self.pop["a"]
+            _= self.pop["a"]
         with self.assertRaises(KeyError):
-            self.pop[0.1]
+            _ = self.pop[0.1]
 
         self.assertIsInstance(self.pop[0], population.Population)
         self.assertIsInstance(self.pop[0:1], population.Population)
@@ -97,7 +96,7 @@ class TestPopulation(unittest.TestCase):
             self.pop += 1
 
     def test_n(self):
-        """Test n.""" 
+        """Test n."""
         self.assertEqual(self._lambda, self.pop.n)
 
     def test_d(self):
