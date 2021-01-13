@@ -7,29 +7,43 @@ import unittest
 import unittest.mock
 
 import numpy as np
+
 from modcma import parameters, utils, modularcmaes
+from IOHexperimenter import IOH_function
+
+from .expected import BBOB_2D_PER_MODULE_20_ITER
 
 
 class TestModularCMAESMeta(type):
-    """Metaclass for generating test-cases.""" 
+    """Metaclass for generating test-cases."""
 
     def __new__(classes, name, bases, clsdict):
-        """Method for generating new classes.""" 
-        def gen_test(module, value):
-            def do_test(self):
-                return self.run_module(module, value)
+        """Method for generating new classes."""
 
-            return do_test
+        def generate_tests(module, value):
+            return dict(
+                {
+                    f"test_{module}_{module}": lambda self: self.run_module(
+                        module, value
+                    )
+                },
+                **{
+                    f"test_{module}_{module}_f{fid}": lambda self: self.run_bbob_function(
+                        module, value, fid
+                    )
+                    for fid in range(1, 25)
+                },
+            )
 
         for module in parameters.Parameters.__modules__:
             m = getattr(parameters.Parameters, module)
             if type(m) == utils.AnyOf:
                 for o in filter(None, m.options):
-                    clsdict[f"test_{module}_{o}"] = gen_test(module, o)
-            elif type(m) == utils.InstanceOf:
-                clsdict[f"test_{module}_True"] = gen_test(module, True)
+                    clsdict.update(generate_tests(module, o))
 
-        clsdict[f"test_standard"] = gen_test("active", True)
+            elif type(m) == utils.InstanceOf:
+                clsdict.update(generate_tests(module, True))
+
         return super().__new__(classes, name, bases, clsdict)
 
 
@@ -37,7 +51,7 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
     """Test case for ModularCMAES Object. Gets applied for all Parameters.__modules__."""
 
     _dim = 2
-    _budget = int(1e2 * _dim)
+    _budget = int(1e1 * _dim)
 
     def run_module(self, module, value):
         """Test a single run of the mechanism with a given module active."""
@@ -46,8 +60,22 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
         )
         self.c = modularcmaes.ModularCMAES(sum, parameters=self.p).run()
 
+    def run_bbob_function(self, module, value, fid):
+        """Expects the output to be consistent with BBOB_2D_PER_MODULE_20_ITER."""
+        np.random.seed(42)
+        f = IOH_function(fid, self._dim, 1)
+        self.p = parameters.Parameters(
+            self._dim, budget=self._budget, **{module: value}
+        )
+        self.c = modularcmaes.ModularCMAES(f, parameters=self.p).run()
+
+        self.assertAlmostEqual(
+            self.c.parameters.fopt,
+            BBOB_2D_PER_MODULE_20_ITER[f"{module}_{value}"][fid - 1],
+        )
+
     def test_select_raises(self):
-        """Test whether errors are produced correctly."""        
+        """Test whether errors are produced correctly."""
         c = modularcmaes.ModularCMAES(sum, 5, mirrored="mirrored pairwise")
         c.mutate()
         c.parameters.population = c.parameters.population[:3]
@@ -88,7 +116,8 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertEqual(2, len(c.break_conditions))
 
     def testtpa_mutation(self):
-        """Test tpa mutation.""" 
+        """Test tpa mutation."""
+
         class TpaParameters:
             sigma = 0.4
             rank_tpa = None
@@ -116,7 +145,7 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertEqual(p.rank_tpa, -p.a_tpa)
 
     def test_scale_with_treshold(self):
-        """Test threshold mutations.""" 
+        """Test threshold mutations."""
         threshold = 5
         z = np.ones(20)
         new_z = modularcmaes.scale_with_threshold(z.copy(), threshold)
@@ -126,7 +155,7 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertGreater(new_z_norm, threshold)
 
     def testcorrect_bounds(self):
-        """Test bound correction.""" 
+        """Test bound correction."""
         x = np.ones(5) * np.array([2, 4, 6, -7, 3])
         ub, lb = np.ones(5) * 5, np.ones(5) * -5
         disabled, *correction_methods = parameters.Parameters.__annotations__.get(
@@ -152,7 +181,7 @@ class TestModularCMAESSingle(unittest.TestCase):
 
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
     def test_evaluate_bbob(self, mock_std):
-        """Test the mechanism of evaluate_bbob.""" 
+        """Test the mechanism of evaluate_bbob."""
         data_folder = os.path.join(os.path.dirname(__file__), "tmp")
         if not os.path.isdir(data_folder):
             os.mkdir(data_folder)
@@ -163,3 +192,4 @@ class TestModularCMAESSingle(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+    breakpoint()
