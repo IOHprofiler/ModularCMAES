@@ -24,9 +24,8 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     install_requires=[
         'numpy',
+        'numba',
         'scipy',
-        'ghalton',
-        'sobol_seq',
         'iohexperimenter'
     ],
     classifiers=[
