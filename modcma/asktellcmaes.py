@@ -138,12 +138,12 @@ class AskTellCMAES(ModularCMAES):
         -----
         UserWarning
             When the same xi is provided more than once
-            
+
         """
         #pylint: disable=singleton-comparison
         if not self.parameters.population:
             raise RuntimeError("Call to tell without calling ask first is prohibited")
-        
+
         indices, *_ = np.where((self.parameters.population.x == xi).all(axis=0))
         if len(indices) == 0:
             raise ValueError("Unkown xi provided")

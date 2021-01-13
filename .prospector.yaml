@@ -1,4 +1,4 @@
-strictness: medium
+strictness: high
 
 ignore-paths:
   - docs
@@ -26,3 +26,6 @@ pylint:
     - too-many-arguments
     - stop-iteration-return
     - unidiomatic-typecheck
+    - invalid-name
+    - attribute-defined-outside-init
+    - too-many-instance-attributes

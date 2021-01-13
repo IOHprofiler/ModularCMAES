@@ -377,7 +377,7 @@ class Parameters(AnnotatedStruct):
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
         self.flat_fitness_index = int(
             np.round(0.1 + self.lambda_ / 4)
-        )  
+        )
 
     def init_adaptation_parameters(self) -> None:
         """Initialization function for parameters for self-adaptive processes.

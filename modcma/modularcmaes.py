@@ -1,4 +1,4 @@
-"""Main implementation of Modular CMA-ES.""" 
+"""Main implementation of Modular CMA-ES."""
 import os
 from itertools import islice
 from typing import List, Callable
@@ -33,8 +33,10 @@ class ModularCMAES:
     parameters: "Parameters"
     _fitness_func: Callable
 
-    def __init__(self, fitness_func: Callable, *args, parameters=None, **kwargs) -> None:
-        """Set _fitness_func and forwards all other parameters to Parameters object.""" 
+    def __init__(
+        self, fitness_func: Callable, *args, parameters=None, **kwargs
+    ) -> None:
+        """Set _fitness_func and forwards all other parameters to Parameters object."""
         self._fitness_func = fitness_func
         self.parameters = (
             parameters
@@ -65,12 +67,12 @@ class ModularCMAES:
         )
 
         n_offspring = int(self.parameters.lambda_ - (2 * perform_tpa))
-        
+
         if not self.parameters.sequential and not self.parameters.bound_correction:
             z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
             if self.parameters.threshold_convergence:
                 z = scale_with_threshold(z, self.parameters.threshold)
-            
+
             y = np.dot(self.parameters.B, self.parameters.D * z)
             x = self.parameters.m + (self.parameters.sigma * y)
             f = np.array(tuple(map(self.fitness_func, x.T)))
@@ -95,7 +97,7 @@ class ModularCMAES:
                 self.parameters.n_out_of_bounds += out_of_bounds
 
                 fi = self.fitness_func(xi)
-                for a, v in ((y, yi), (x, xi), (f, fi),): 
+                for a, v in ((y, yi), (x, xi), (f, fi)):
                     a.append(v)
 
                 if self.sequential_break_conditions(i, fi):
@@ -112,7 +114,6 @@ class ModularCMAES:
             f = np.r_[ft, f]
 
         self.parameters.population = Population(x, y, f)
-
 
     def select(self) -> None:
         """Selection of best individuals in the population.
@@ -175,15 +176,20 @@ class ModularCMAES:
         """
         self.parameters.m_old = self.parameters.m.copy()
         self.parameters.m = self.parameters.m_old + (
-            1* ((self.parameters.population.x[:, : self.parameters.mu]
+            1
+            * (
+                (
+                    self.parameters.population.x[:, : self.parameters.mu]
                     - self.parameters.m_old
-                ) @ self.parameters.pweights).reshape(-1, 1)
+                )
+                @ self.parameters.pweights
+            ).reshape(-1, 1)
         )
 
     def step(self) -> bool:
         """The step method runs one iteration of the optimization process.
 
-        The method is called within the self.run loop. There, a while loop runs 
+        The method is called within the self.run loop. There, a while loop runs
         until this step function returns a Falsy value.
 
         Returns
@@ -200,7 +206,7 @@ class ModularCMAES:
 
     def sequential_break_conditions(self, i: int, f: float) -> bool:
         """Indicator whether there are any sequential break conditions.
-       
+
         Parameters
         ----------
         i: int
@@ -270,11 +276,11 @@ class ModularCMAES:
         return self._fitness_func(x.flatten())
 
     def __repr__(self):
-        """Representation of ModularCMA-ES.""" 
+        """Representation of ModularCMA-ES."""
         return f"<{self.__class__.__qualname__}: {self._fitness_func}>"
 
     def __str__(self):
-        """String representation of ModularCMA-ES.""" 
+        """String representation of ModularCMA-ES."""
         return repr(self)
 
 
@@ -300,7 +306,6 @@ def tpa_mutation(fitness_func: Callable, parameters: "Parameters") -> None:
         A list of fitnesses
 
     """
-
     yi = (parameters.m - parameters.m_old) / parameters.sigma
     y = np.c_[yi, -yi]
     x = parameters.m + (parameters.sigma * y[:, :2])
@@ -450,10 +455,10 @@ def evaluate_bbob(
         The number of evaluations for each run of the optimizer
     fopts
         The best fitness values for each run of the optimizer
-        
+
     """
     # This speeds up the import, this import is quite slow, so import it lazy here
-    #pylint: disable=import-outside-toplevel
+    # pylint: disable=import-outside-toplevel
     from IOHexperimenter import IOH_function, IOH_logger
 
     evals, fopts = np.array([]), np.array([])
@@ -469,7 +474,8 @@ def evaluate_bbob(
         fitness_func.add_logger(logger)
 
     print(
-        f"Optimizing function {fid} in {dim}D for target {target_precision} with {iterations} iterations."
+        f"Optimizing function {fid} in {dim}D for target "
+        f"{target_precision} with {iterations} iterations."
     )
 
     for idx in range(iterations):
@@ -520,7 +526,7 @@ def fmin(func, dim, maxfun=None, **kwargs):
         The value of function at found xopt
     evals
         The number of evaluations performed
-        
+
     """
     cma = ModularCMAES(func, dim, budget=maxfun, **kwargs).run()
     return cma.parameters.xopt, cma.parameters.fopt, cma.parameters.used_budget

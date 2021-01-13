@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+
+<meta charset="utf-8">
+<title>DS Lab | LIACS REL</title>
+<meta name="description" content="Data Science Lab">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="author" content="LIACS REL">
+
+<link rel="icon" type="image/png" href="https://rel.liacs.nl/themes/liacs-rel/img/logo.png" />
+
+<link href="https://rel.liacs.nl/themes/liacs-rel/css/bootstrap.min.css" rel="stylesheet">
+<link href="https://rel.liacs.nl/themes/liacs-rel/css/style.css" rel="stylesheet">
+
+<!--[if lt IE 9]>
+<script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
+<script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+<![endif]-->
+
+</head>
+
+<body>
+
+
+
+<nav class="navbar navbar-default navbar-fixed-top">
+<div class="container-fluid">
+<div class="navbar-header">
+  <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#main-navbar" aria-expanded="false" aria-controls="navbar">
+  <span class="sr-only">Toggle navigation</span>
+
+    <span class="icon-bar"></span>
+  <span class="icon-bar"></span>
+  <span class="icon-bar"></span>
+
+  </button>
+  <img class="navbar-brand" src="https://rel.liacs.nl/themes/liacs-rel/img/logo.png" />
+  <a class="navbar-brand" href="/">LIACS REL</a>
+</div>
+<div id="main-navbar" class="collapse navbar-collapse">
+
+
+<ul class="nav navbar-nav">
+
+                                <li class="dropdown">
+        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">General facilities<span class="caret"></span></a>
+        <ul class="dropdown-menu">
+                                                                                                                                                                                                                                                              <li class=""><a href="https://rel.liacs.nl/general/on-site">On-site Networking</a></li>
+                                                          <li class=""><a href="https://rel.liacs.nl/general/ssh-access">SSH Access</a></li>
+                                                          <li class=""><a href="https://rel.liacs.nl/general/vpn-access">VPN Access</a></li>
+                                                          <li class=""><a href="https://rel.liacs.nl/general/gitlab">LIACS GitLab servers</a></li>
+                                        <li class=""><a href="https://rel.liacs.nl/general/accounts">Accounts and Authentication Server</a></li>
+                                        <li class=""><a href="https://rel.liacs.nl/general/network">Network</a></li>
+                          </ul>
+        </li>
+
+                                <li class="dropdown">
+        <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">ISSC services<span class="caret"></span></a>
+        <ul class="dropdown-menu">
+                                                                                                                                                                                                                                                                                <li class=""><a href="https://rel.liacs.nl/issc/ssh-access">SSH access</a></li>
+                                                          <li class=""><a href="https://rel.liacs.nl/issc/file-web-mail">File storage, Webhosting, E-mail</a></li>
+                                                          <li class=""><a href="https://rel.liacs.nl/issc/printing">Printing</a></li>
+                                                                                </ul>
+        </li>
+
+                <li class="hidden-sm active"><a href="https://rel.liacs.nl/labs/dslab">DS Lab</a></li>
+
+                <li class="hidden-sm "><a href="https://rel.liacs.nl/labs/hpclab">HPC Lab</a></li>
+                <li class="dropdown hidden-sm">
+    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Other Sublabs <span class="caret"></span></a>
+    <ul class="dropdown-menu">
+                            <li class=""><a href="https://rel.liacs.nl/labs/imaging">Imaging Lab</a></li>
+                        <li class=""><a href="https://rel.liacs.nl/labs/medialab">MediaLab</a></li>
+                        <li class=""><a href="https://rel.liacs.nl/labs/naco">NaCo Lab</a></li>
+                                                                                                                                                                                        </ul>
+    </li>
+
+        <li class="dropdown visible-sm-block">
+    <a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false">Sublabs <span class="caret"></span></a>
+    <ul class="dropdown-menu">
+                                                                                            <li class="active"><a href="https://rel.liacs.nl/labs/dslab">DS Lab</a></li>
+                        <li class=""><a href="https://rel.liacs.nl/labs/hpclab">HPC Lab</a></li>
+                                                                                                                                                                   <li class=""><a href="https://rel.liacs.nl/labs/imaging">Imaging Lab</a></li>
+                         <li class=""><a href="https://rel.liacs.nl/labs/medialab">MediaLab</a></li>
+                         <li class=""><a href="https://rel.liacs.nl/labs/naco">NaCo Lab</a></li>
+                                                                                                                                                                                                           </ul>
+     </li>
+
+                                <li class=""><a href="https://rel.liacs.nl/help">Help</a></li>
+
+                                <li class=""><a href="https://rel.liacs.nl/about">About</a></li>
+                              </ul>
+
+</div> <!-- #navbar -->
+</div> <!-- .container -->
+</nav>
+
+
+<div class="container">
+
+<h2>Data Science Lab</h2>
+<p>The Data Science Lab (DSlab) is a sublab containing a number of high performance machines for running complex computations and data analyses.
+It is available for all staff and students affiliated with the Leiden Institute of Advanced Computer Science (<a href="http://liacs.leidenuniv.nl">LIACS</a>) and the Leiden Centre of Data Science (<a href="http://lcds.science.leidenuniv.nl">LCDS</a>).
+The DSlab is integrated and hosted within the LIACS Research and Education Lab (<a href="/">REL</a>), the specialized subnetwork of the Computer Science department of the Faculty of Science of Leiden University. </p>
+<p>The machines within the DSlab are identified by the domain <code>liacs.nl</code> and maintained/managed by the DSlab committee (see below).</p>
+<p>The Data Science Lab currently consists of a number of Linux machines with the following specifications:</p>
+<p><a href="../images/dslab-racks-groot.png"><img src="../images/dslab-racks-klein.png" alt="DSlab machines" class="logo pull-right"/></a></p>
+<table class="table table-condensed">
+<thead>
+<tr>
+<th>Hostname</th>
+<th>Aim</th>
+<th>RAM</th>
+<th>CPU/GPU</th>
+<th>Local Storage</th>
+<th>Status</th>
+<th>Available to?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>latinum.liacs.nl</code></td>
+<td><strong>Big-Memory</strong> machine</td>
+<td>1.5TB RAM</td>
+<td>16 Intel Xeon E5-2630v3 cores @ 2.40GHz (32 threads)</td>
+<td>3TB under <code>/local</code></td>
+<td>OK</td>
+<td>Students</td>
+</tr>
+<tr>
+<td><code>mithril.liacs.nl</code></td>
+<td><strong>Compute</strong> machine</td>
+<td>1TB RAM</td>
+<td>64 Intel Xeon E5-4667v3 cores @ 2.00GHz (128 threads)</td>
+<td>9TB SSD under <code>/local</code></td>
+<td>OK</td>
+<td>Students</td>
+</tr>
+<tr>
+<td><code>viridium.liacs.nl</code></td>
+<td><strong>Compute</strong> machine</td>
+<td>1TB RAM</td>
+<td>64 AMD EPYC 7601 cores @ 2.4GHz (128 threads)</td>
+<td>2.5 TB under <code>/local</code></td>
+<td>OK</td>
+<td>Staff</td>
+</tr>
+<tr>
+<td><code>adamant.liacs.nl</code></td>
+<td>Generic</td>
+<td>512GB RAM</td>
+<td>16 Intel Xeon E5-2630v3 cores @ 2.40GHz (32 threads)</td>
+<td>3.6TB under <code>/local</code></td>
+<td>OK</td>
+<td>Staff</td>
+</tr>
+<tr>
+<td><code>duranium.liacs.nl</code></td>
+<td><strong>GPU</strong> machine</td>
+<td>128GB RAM</td>
+<td>20 Intel Xeon E5-2650v3 cores @ 2.30GHz (40 threads),<br> 6 NVIDIA GTX 980 Ti GPUs (each with 6GB memory),<br>2 NVIDIA Titanium GPUs (each with 12GB memory)</td>
+<td>3TB under <code>/local</code></td>
+<td>OK</td>
+<td>Students</td>
+</tr>
+<tr>
+<td><code>tritanium.liacs.nl</code></td>
+<td><strong>GPU</strong> machine</td>
+<td>1TB RAM</td>
+<td>20 Intel Xeon E5-2650v3 cores @ 2.30GHz (40 threads),<br> 16 NVIDIA Tesla K80 GPUs (each with 11.5GB memory)<br>These are 8 dual-GPU boards</td>
+<td>3TB under <code>/local</code></td>
+<td>OK</td>
+<td>Staff</td>
+</tr>
+<tr>
+<td><code>octiron.liacs.nl</code></td>
+<td>Generic</td>
+<td>512GB RAM</td>
+<td>16 Intel Xeon E5-2630v3 cores @ 2.40Ghz (32 threads)</td>
+<td>3TB under <code>/local</code></td>
+<td>OK</td>
+<td>Students</td>
+</tr>
+<tr>
+<td><code>uridium.liacs.nl</code></td>
+<td>Generic</td>
+<td>512GB RAM</td>
+<td>16 Intel Xeon E5-2630v3 cores @ 2.40Ghz (32 threads)</td>
+<td>3TB under <code>/local</code></td>
+<td>Reduced memory</td>
+<td>Students</td>
+</tr>
+<tr>
+<td><code>cortosis.liacs.nl</code></td>
+<td>Generic</td>
+<td>512GB RAM</td>
+<td>16 Intel Xeon E5-2630v3 cores @ 2.40Ghz (32 threads)</td>
+<td>3TB under <code>/local</code></td>
+<td>OK</td>
+<td>Staff</td>
+</tr>
+</tbody>
+</table>
+<!-- Hotlink of DSLab load average statistics -->
+<p><a href="http://australium.liacs.nl/munin/DSLab/Summary/index.html" target="_blank"><img src="http://australium.liacs.nl/munin/DSLab/Summary/loadall-day.png" alt="DSlab daily load averages" class="logo pull-right"/></a></p>
+<p>The following Linux machines are also available, but have not yet been linked to the shared <code>/home</code> and <code>/data</code> drives.</p>
+<table class="table table-condensed">
+<thead>
+<tr>
+<th>Hostname</th>
+<th>Aim</th>
+<th>RAM</th>
+<th>CPU/GPU</th>
+<th>Local Storage</th>
+<th>Status</th>
+<th>Available to?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>drogium.liacs.nl</code></td>
+<td><strong>Compute</strong> machine</td>
+<td>512GB RAM</td>
+<td>128 AMD Epyc 7702 cores @ 2.00GHz (256 threads)</td>
+<td>3.3TB under <code>/home</code><br>3.4TB under <code>/local</code></td>
+<td>OK</td>
+<td>Students (until 2021-01-15)</td>
+</tr>
+<tr>
+<td><code>rivium.liacs.nl</code></td>
+<td><strong>Compute</strong> machine</td>
+<td>512GB RAM</td>
+<td>128 AMD Epyc 7702 cores @ 2.00GHz (256 threads)</td>
+<td>Not yet</td>
+<td>Not yet accessible</td>
+<td>Staff</td>
+</tr>
+<tr>
+<td><code>redstone.liacs.nl</code></td>
+<td><strong>GPU</strong> machine</td>
+<td>64GB RAM</td>
+<td>16 Intel Xeon E5-2650 cores @ 2.00GHz (32 threads),<br> 2 NVIDIA GeForce RTX 2080 GPUs (each with 11GB memory)</td>
+<td>8.6TB under <code>/home</code></td>
+<td>OK</td>
+<td>Staff</td>
+</tr>
+<tr>
+<td><code>runite.liacs.nl</code></td>
+<td><strong>GPU</strong> machine</td>
+<td>64GB RAM</td>
+<td>16 Intel Xeon E5-2650 cores @ 2.00GHz (32 threads),<br> 2 NVIDIA GeForce RTX 2080 GPUs (each with 11GB memory)</td>
+<td>8.6TB under <code>/home</code></td>
+<td>OK</td>
+<td>Staff</td>
+</tr>
+<tr>
+<td><code>phlogiston.liacs.nl</code></td>
+<td><strong>GPU</strong> machine</td>
+<td>64GB RAM</td>
+<td>16 Intel Xeon E5-2650 cores @ 2.00GHz (32 threads),<br> 2 NVIDIA GeForce RTX 2080 GPUs (each with 11GB memory)</td>
+<td>8.6TB under <code>/home</code></td>
+<td>OK</td>
+<td>Students</td>
+</tr>
+<tr>
+<td><code>kryptonite.liacs.nl</code></td>
+<td><strong>GPU</strong> machine</td>
+<td>64GB RAM</td>
+<td>16 Intel Xeon E5-2650 cores @ 2.00GHz (32 threads),<br> 2 NVIDIA GeForce RTX 2080 GPUs (each with 11GB memory)</td>
+<td>7.3TB under <code>/home</code></td>
+<td>OK</td>
+<td>Students (until 2021-01-15)</td>
+</tr>
+</tbody>
+</table>
+<p>Additionally, a small cluster is available to staff and students for
+batch computing at <code>fs.dslc.liacs.nl</code>. These nodes are re-used hardware from
+the old Little Green Machine project, so expect slow per-core performance.
+This cluser is mostly intended as a more easily accessible service compared to
+the <a href="/labs/hpclab">DAS</a> and <a href="https://wiki.alice.universiteitleiden.nl">ALICE</a>
+clusters.</p>
+<p>The cluster is accessible at <code>fs.dslc.liacs.nl</code> where jobs can be submitted
+using the <a href="https://slurm.schedmd.com/">SLURM scheduler</a>, and consists of nodes
+with the following specifications:</p>
+<table class="table table-condensed">
+<thead>
+<tr>
+<th>Node</th>
+<th>Aim</th>
+<th>RAM</th>
+<th>CPU</th>
+<th>GPU</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fs.dslc.liacs.nl</code></td>
+<td>Login and fileserver</td>
+<td>64GB RAM</td>
+<td>16 Intel Xeon E5-2650 cores @ 2.00GHz (32 threads)</td>
+<td>none</td>
+</tr>
+<tr>
+<td><code>node[01-09,12-15,19]</code> (14)</td>
+<td>GPU node</td>
+<td>24GB RAM</td>
+<td>8 Intel Xeon E5-5620 cores @ 2.40GHz (16 threads)</td>
+<td>2 NVIDIA Geforce GTX 480 GPU</td>
+</tr>
+<tr>
+<td><code>node[20-21]</code> (2)</td>
+<td>GPU node</td>
+<td>24GB RAM</td>
+<td>8 Intel Xeon E5-5620 cores @ 2.40GHz (16 threads)</td>
+<td>2 NVIDIA Tesla C2050 / C2070 GPU</td>
+</tr>
+<tr>
+<td><code>node[00,10-11,16-18]</code> (6)</td>
+<td>CPU node (DOWN)</td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>Finally, one more generic server has been installed as Windows servers and
+can for example be used to create particular visualizations. If you want
+to have access to these Windows machine, contact the DSlab committee (see
+next section).</p>
+<h3>Requesting access</h3>
+<p>All LIACS staff and students have access to the DSlab Linux machines by
+default. Simply login using your ULCN account, see also Access and
+authentication below.</p>
+<p>If you are not a LIACS staff member or LIACS student, you can request
+access by contacting the DSlab committee. This is done by
+sending an e-mail with the ULCN username and a few sentences about what they want to do to the DSlab committee: <a href="mailto:dslab@liacs.leidenuniv.nl">dslab@liacs.leidenuniv.nl</a>. The intention is to always reply promptly  and arrange access quickly. </p>
+<h3>Access and authentication</h3>
+<p>To access the machines in the DSlab, you have to be within the REL network. This can be done in various ways:</p>
+<ul>
+<li>Work on a physical staff workstation within the REL (self-managed machine).</li>
+<li>Connect your machine (from anywhere in the world) via SSH gateway <code>ssh.liacs.nl</code> (currently also known as <code>silver.liacs.nl</code>).</li>
+</ul>
+<p>For more information on remote access to REL, see the documentation on <a href="/general">general REL facilities</a>.
+All authentication is done using your regular ULCN username and password. </p>
+<p>Note that ISSC workstations and gateways are for <code>vuw.leidenuniv.nl</code>, which is not sufficient.
+One has to explicitly connect to the REL and enter the <code>liacs.nl</code> domain via the SSH gateway <code>ssh.liacs.nl</code>.</p>
+<h3>Shared storage and services</h3>
+<p>All DSlab machines share the same homedirectory, automatically mounted on all DSlab machines under</p>
+<p><code>/home</code></p>
+<p>This storage uses glusterfs and replicates itself on two storage-servers for high availability.
+Note that on <code>ssh.liacs.nl</code> (<code>silver</code>), there is a different homedirectory (shared between REL machines).
+However, the DSlab homedirectories are also available on <code>ssh.liacs.nl</code> (<code>silver</code>), but under <code>/dshome</code>, so that you can for example easily transfer files from anywhere via <code>ssh.liacs.nl</code> to the DSlab. </p>
+<p>There is a special <strong>data storage</strong> server with 50 TB of storage space. This space is available on all DSlab machines through</p>
+<p><code>/data</code></p>
+<p>Most DSlab machines also have significant local storage on the machine itself, mounted under</p>
+<p><code>/local</code> </p>
+<p>For all shared or local storage goes: always make a subdirectory with your username as a name, in which you work.
+Of course, for example to use your local workstation's IDE for development, you can mount the DSlab storage on your machine using for example <code>sshfs</code>.</p>
+<h3>Software</h3>
+<p>Most servers run CentOS 7. The aim is to in the future have the same set of packages installed on all servers, although this is work in progress.
+If you are missing a particular package or tool, send an e-mail to <a href="dslab@liacs.leidenuniv.nl">dslab@liacs.leidenuniv.nl</a> and state which package and version you would like, and on which machine.
+To speed up the process, you are advised to do a <code>yum search packagename</code> yourself to see if the package can be installed effortlessly through the package manager. If it can be, we can usually install it for you in a short time.
+If your packacke is not available via <code>yum</code>, and there is no need to have the package installed for the entire system, you can of course always install it locally in your homedirectory or on the machine's local storage.</p>
+<p>In general, CentOS does not aim to have very recent software packages.
+If you are confronted with this, <strong>Software Collection Libraries (SCLs)</strong> are sometimes needed to run code dependent on newer software packages.
+Such a library will use its version of packages if it has it, and otherwise it will default to the system's version.
+An example is <code>devtoolset-8</code>, which brings an up-to-date version of many packages, such as gcc and valgrind.
+To enable such a software collection manually in the bash prompt, use</p>
+<p><code>scl devtoolset-8 enable bash</code></p>
+<p>To exit the environment, just type <code>exit</code>.</p>
+<p>Another option is to use the SCL by default. You can add this in your <code>~/.bashrc</code> file:</p>
+<p><code>source /opt/rh/devtoolset-4/enable</code></p>
+<h3>Fair use policy</h3>
+<p>For all storage, memory and CPU/GPU time goes: there is a <strong>fair use policy</strong> in place.
+This asks you to be reasonable with your usage, and to be open and communicative towards colleagues and students that you want to share a particular resource with. </p>
+<p>If a user is taking up excessive amounts of resources on machines, or taking up GPUs without running experiments on them, you can email that user by finding their ULCN email. To do this, you can obtain the PID of the process taking up GPUs using <code>nvidia-smi</code>, and then use <code>ps up PID</code>. The output of that command then shows which user is running the problematic process(es). If the user is a student, you can reach them via <ULCN>@umail.leidenuniv.nl. If the user is staff, then run <code>getent passwd NAME</code> to obtain their real name, in order to look up their email address on the search box on <a href="https://leidenuniv.nl">leidenuniv.nl</a>.</p>
+<h3>DSlab committee</h3>
+<p>The Data Science Lab committee installs, maintains and arranges access to the DSlab machines.
+It currently consists of the following LIACS staff members:</p>
+<ul>
+<li>Matthijs van Leeuwen (Windows) - <a href="m.van.leeuwen@liacs.leidenuniv.nl">m.van.leeuwen@liacs.leidenuniv.nl</a>    </li>
+<li>Aske Plaat - <a href="a.plaat@liacs.leidenuniv.nl">a.plaat@liacs.leidenuniv.nl</a></li>
+<li>Frank Takes - <a href="f.w.takes@liacs.leidenuniv.nl">f.w.takes@liacs.leidenuniv.nl</a>  </li>
+<li>Wojtek Kowalczyk - <a href="w.j.kowalczyk@liacs.leidenuniv.nl">w.j.kowalczyk@liacs.leidenuniv.nl</a></li>
+</ul>
+<p>For general issues, contact <a href="dslab@liacs.leidenuniv.nl">dslab@liacs.leidenuniv.nl</a>.
+We also very much welcome your general input, suggestions, questions and ideas. </p>
+
+
+
+</div> <!-- .container -->
+
+<script src="https://rel.liacs.nl/themes/liacs-rel/js/jquery-1.12.3.min.js"></script>
+<script src="https://rel.liacs.nl/themes/liacs-rel/js/bootstrap.min.js"></script>
+<script src="https://rel.liacs.nl/themes/liacs-rel/js/pico-jonbeckett.js"></script>
+
+
+</body>
+</html>

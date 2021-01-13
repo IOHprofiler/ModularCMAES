@@ -30,6 +30,7 @@ parser.add_argument("-a", "--arguments", nargs="+", required=False)
 
 args = vars(parser.parse_args())
 for arg in args.pop("arguments") or []:
+    # pylint: disable=exec-used
     exec(arg, None, args)
 
 evaluate_bbob(**args)
