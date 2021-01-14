@@ -450,6 +450,7 @@ class Parameters(AnnotatedStruct):
         """
         self.sigma = self.init_sigma
         self.m = np.random.rand(self.d, 1)
+        self.m_old = np.empty((self.d, 1))
         self.dm = np.zeros(self.d)
         self.pc = np.zeros((self.d, 1))
         self.ps = np.zeros((self.d, 1))
@@ -459,6 +460,25 @@ class Parameters(AnnotatedStruct):
         self.invC = np.eye(self.d)
         self.s = 0
         self.rank_tpa = None
+        self.dhs = 0.
+
+    def adapt(self) -> None:
+        """Method for adapting the internal state parameters.
+
+        The conjugate evolution path ps is calculated, in addition to
+        the difference in mean x values dm. Thereafter, sigma is adapated,
+        followed by the adapatation of the covariance matrix.
+        TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
+        """
+        self.adapt_evolution_paths()
+        self.adapt_sigma()
+        self.adapt_covariance_matrix()
+        self.perform_eigendecomposition()
+        self.record_statistics()
+        self.calculate_termination_criteria()
+        self.old_population = self.population.copy()
+        if any(self.termination_criteria.values()):
+            self.perform_local_restart()
 
     def adapt_sigma(self) -> None:
         """Method to adapt the step size sigma.
@@ -491,20 +511,9 @@ class Parameters(AnnotatedStruct):
         If the option `active` is specified, active update of the covariance
         matrix is performed, using negative weights.
         """
-        hs = (
-            np.linalg.norm(self.ps)
-            / np.sqrt(1 - np.power(1 - self.cs, 2 * (self.used_budget / self.lambda_)))
-        ) < (1.4 + (2 / (self.d + 1))) * self.chiN
-
-        dhs = (1 - hs) * self.cc * (2 - self.cc)
-
-        self.pc = (1 - self.cc) * self.pc + (
-            hs * np.sqrt(self.cc * (2 - self.cc) * self.mueff)
-        ) * self.dm
-
         rank_one = self.c1 * self.pc * self.pc.T
         old_C = (
-            1 - (self.c1 * dhs) - self.c1 - (self.cmu * self.pweights.sum())
+            1 - (self.c1 * self.dhs) - self.c1 - (self.cmu * self.pweights.sum())
         ) * self.C
 
         if self.active:
@@ -544,27 +553,23 @@ class Parameters(AnnotatedStruct):
             self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
             self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
 
-    def adapt(self) -> None:
-        """Method for adapting the internal state parameters.
-
-        The conjugate evolution path ps is calculated, in addition to
-        the difference in mean x values dm. Thereafter, sigma is adapated,
-        followed by the adapatation of the covariance matrix.
-        TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
-        """
+    def adapt_evolution_paths(self) -> None:
+        """Method to adapt the evolution paths ps and pc.""" 
         self.dm = (self.m - self.m_old) / self.sigma
         self.ps = (1 - self.cs) * self.ps + (
             np.sqrt(self.cs * (2 - self.cs) * self.mueff) * self.invC @ self.dm
         ) * self.ps_factor
-        self.adapt_sigma()
-        self.adapt_covariance_matrix()
-        self.perform_eigendecomposition()
-        self.record_statistics()
-        self.calculate_termination_criteria()
-        self.old_population = self.population.copy()
-        if any(self.termination_criteria.values()):
-            self.perform_local_restart()
 
+        hs = (
+            np.linalg.norm(self.ps)
+            / np.sqrt(1 - np.power(1 - self.cs, 2 * (self.used_budget / self.lambda_)))
+        ) < (1.4 + (2 / (self.d + 1))) * self.chiN
+
+        self.dhs = (1 - hs) * self.cc * (2 - self.cc)
+        self.pc = (1 - self.cc) * self.pc + (
+            hs * np.sqrt(self.cc * (2 - self.cc) * self.mueff)
+        ) * self.dm    
+   
     def perform_local_restart(self) -> None:
         """Method performing local restart, if a restart strategy is specified."""
         if self.local_restart:
