@@ -421,6 +421,7 @@ def evaluate_bbob(
     seed=42,
     instance=1,
     target_precision=1e-8,
+    return_optimizer=False,
     **kwargs,
 ):
     """Helper function to evaluate a ModularCMAES on the BBOB test suite.
@@ -445,6 +446,8 @@ def evaluate_bbob(
         The bbob function instance
     target_precision: float = 1e-8
         The target precision for the objective function value
+    return_optimizer: bool = False
+        Whether to return the optimizer
     **kwargs
         These are directly passed into the instance of ModularCMAES,
         in this manner parameters can be specified for the optimizer.
@@ -500,6 +503,8 @@ def evaluate_bbob(
             iterations,
         )
     )
+    if return_optimizer: 
+        return evals, fopts, optimizer    
     return evals, fopts
 
 

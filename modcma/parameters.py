@@ -17,6 +17,24 @@ from .sampling import (
     halton_sampling,
 )
 
+def perform_eigendecomp(X):
+    X = np.triu(X) + np.triu(X, 1).T
+    D, B = linalg.eigh(X)
+    if not (D > 1e-9).all():
+        D[D < 1e-9] = 1e-9
+        X = B.dot(np.diag(D)).dot(B.T)
+        warnings.warn('Correcting machine 0 after eigendecomposition', RuntimeWarning)
+        
+    D = np.sqrt(D.astype(complex).reshape(-1, 1)).real
+    try:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.filterwarnings("error")
+            inv_root = B.dot(np.diag(1 / D.ravel())).dot(B.T)
+    except RuntimeWarning:
+        'Do not allow runtime warnings here'
+        raise
+    return X, D, B, inv_root
+
 
 class Parameters(AnnotatedStruct):
     """AnnotatedStruct object for holding the parameters for the ModularCMAES.
@@ -262,7 +280,7 @@ class Parameters(AnnotatedStruct):
     base_sampler: ("gaussian", "sobol", "halton") = "gaussian"
     mirrored: (None, "mirrored", "mirrored pairwise") = None
     weights_option: ("default", "equal", "1/2^lambda") = "default"
-    step_size_adaptation: ("csa", "tpa", "msr") = "csa"
+    step_size_adaptation: ("csa", "tpa", "msr", "xnes", "mxnes", "lnxnes") = "csa"
     population: TypeVar("Population") = None
     old_population: TypeVar("Population") = None
     termination_criteria: dict = {}
@@ -460,7 +478,7 @@ class Parameters(AnnotatedStruct):
         self.invC = np.eye(self.d)
         self.s = 0
         self.rank_tpa = None
-        self.dhs = 0.
+        self.hs = True
 
     def adapt(self) -> None:
         """Method for adapting the internal state parameters.
@@ -500,9 +518,32 @@ class Parameters(AnnotatedStruct):
 
             self.s = ((1 - self.cs) * self.s) + (self.cs * z)
             self.sigma *= np.exp(self.s / self.ds)
+
+        elif self.step_size_adaptation == "xnes":
+            # this breaks with negative weights
+            self.weights = 1 / np.arange(1, self.lambda_ + 1)
+            z = np.power(linalg.norm(self.invC.dot(self.population.y), axis=0), 2) - self.d
+            self.sigma *= np.exp(
+                (self.cs / np.sqrt(self.d)) * (self.weights * z).sum()
+            )
+
+        elif self.step_size_adaptation == "mxnes" and self.old_population:
+            z = (self.mueff * np.power(linalg.norm(self.invC.dot(self.dm)), 2)) - self.d
+            self.sigma *= np.exp(
+                (self.cs / self.d) * z
+            )
+        elif self.step_size_adaptation == "lnxnes":
+            beta = np.log(2) / (np.sqrt(self.d) * np.log(self.d))
+            sigmas = np.random.lognormal(np.log(self.sigma), beta, size=len(self.weights))
+            # maybe this is implossible, and we should use sigma here
+            # z = np.exp(self.cs * (self.weights * np.log(self.sigma)).sum())
+            self.cs = (9 * self.mueff) / (10 * np.sqrt(self.d))
+            z = np.exp(self.cs * (self.weights @ np.log(sigmas)))
+            self.sigma = np.power(self.sigma, 1 - self.cs) * z
+
         else:
             self.sigma *= np.exp(
-                (self.cs / self.damps) * ((np.linalg.norm(self.ps) / self.chiN) - 1)
+                (self.cs / self.damps) * ((linalg.norm(self.ps) / self.chiN) - 1)
             )
 
     def adapt_covariance_matrix(self) -> None:
@@ -512,8 +553,10 @@ class Parameters(AnnotatedStruct):
         matrix is performed, using negative weights.
         """
         rank_one = self.c1 * self.pc * self.pc.T
+        
+        dhs = (1 - self.hs) * self.cc * (2 - self.cc)
         old_C = (
-            1 - (self.c1 * self.dhs) - self.c1 - (self.cmu * self.pweights.sum())
+            1 - (self.c1 * dhs) - self.c1 - (self.cmu * self.pweights.sum())
         ) * self.C
 
         if self.active:
@@ -548,6 +591,8 @@ class Parameters(AnnotatedStruct):
         ):
             self.init_dynamic_parameters()
         else:
+            # self.C, self.D, self.B, self.invC = perform_eigendecomp(self.C)
+
             self.C = np.triu(self.C) + np.triu(self.C, 1).T
             self.D, self.B = linalg.eigh(self.C)
             self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
@@ -560,14 +605,13 @@ class Parameters(AnnotatedStruct):
             np.sqrt(self.cs * (2 - self.cs) * self.mueff) * self.invC @ self.dm
         ) * self.ps_factor
 
-        hs = (
+        self.hs = (
             np.linalg.norm(self.ps)
             / np.sqrt(1 - np.power(1 - self.cs, 2 * (self.used_budget / self.lambda_)))
         ) < (1.4 + (2 / (self.d + 1))) * self.chiN
-
-        self.dhs = (1 - hs) * self.cc * (2 - self.cc)
+        
         self.pc = (1 - self.cc) * self.pc + (
-            hs * np.sqrt(self.cc * (2 - self.cc) * self.mueff)
+            self.hs * np.sqrt(self.cc * (2 - self.cc) * self.mueff)
         ) * self.dm    
    
     def perform_local_restart(self) -> None:
