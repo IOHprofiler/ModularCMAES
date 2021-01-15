@@ -68,21 +68,34 @@ class ModularCMAES:
 
         n_offspring = int(self.parameters.lambda_ - (2 * perform_tpa))
 
-        if not self.parameters.sequential and not self.parameters.bound_correction:
+        if not self.parameters.sequential:
             z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
             if self.parameters.threshold_convergence:
                 z = scale_with_threshold(z, self.parameters.threshold)
 
             y = np.dot(self.parameters.B, self.parameters.D * z)
             x = self.parameters.m + (self.parameters.sigma * y)
+
+            x, n_out_of_bounds = correct_bounds(x, 
+                self.parameters.ub,
+                self.parameters.lb,
+                self.parameters.bound_correction
+            )
+            self.parameters.n_out_of_bounds += n_out_of_bounds
+
             f = np.array(tuple(map(self.fitness_func, x.T)))
 
         else:
             x, y, f = [], [], []
             for i in range(1, n_offspring + 1):
                 zi = next(self.parameters.sampler)
+
                 if self.parameters.threshold_convergence:
-                    zi = scale_with_threshold(zi, self.parameters.threshold)
+                    # TODO: clean this up this was the old code non vectorized
+                    length = np.linalg.norm(zi)
+                    if length < self.parameters.threshold:
+                        new_length = self.parameters.threshold + (self.parameters.threshold - length)
+                        zi *= new_length / length
 
                 yi = np.dot(self.parameters.B, self.parameters.D * zi)
                 xi = self.parameters.m + (self.parameters.sigma * yi)
@@ -335,10 +348,9 @@ def scale_with_threshold(z: np.ndarray, threshold: float) -> np.ndarray:
         a scaled version of z
 
     """
-    length = np.linalg.norm(z)
-    if length < threshold:
-        new_length = threshold + (threshold - length)
-        z *= new_length / length
+    length = np.linalg.norm(z, axis=0)
+    mask = length < threshold
+    z[:, mask] *= (threshold + (threshold - length[mask])) / length[mask]
     return z
 
 
@@ -382,13 +394,15 @@ def correct_bounds(
 
     """
     out_of_bounds = np.logical_or(x > ub, x < lb)
-    if not any(out_of_bounds):
-        return x, False
+    n_out_of_bounds = out_of_bounds.max(axis=0).sum()
+    if n_out_of_bounds == 0 or correction_method == None:
+        return x, n_out_of_bounds
 
-    if not correction_method:
-        return x, True
-
-    ub, lb = ub[out_of_bounds].copy(), lb[out_of_bounds].copy()
+    try:
+        _, n = x.shape
+    except ValueError:
+        n = 1
+    ub, lb = np.tile(ub, n)[out_of_bounds], np.tile(lb, n)[out_of_bounds]
     y = (x[out_of_bounds] - lb) / (ub - lb)
 
     if correction_method == "mirror":
@@ -407,7 +421,7 @@ def correct_bounds(
         x[out_of_bounds] = lb + (ub - lb) * np.abs(y - np.floor(y))
     else:
         raise ValueError(f"Unknown argument: {correction_method} for correction_method")
-    return x, True
+    return x, n_out_of_bounds
 
 
 @timeit
