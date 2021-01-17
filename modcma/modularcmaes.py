@@ -67,7 +67,7 @@ class ModularCMAES:
         )
 
         n_offspring = int(self.parameters.lambda_ - (2 * perform_tpa))
-        
+
         if self.parameters.step_size_adaptation == 'lnxnes' or self.parameters.sample_sigma:
             s = np.random.lognormal(
                 np.log(self.parameters.sigma), 
@@ -82,7 +82,7 @@ class ModularCMAES:
                 z = scale_with_threshold(z, self.parameters.threshold)
 
             y = np.dot(self.parameters.B, self.parameters.D * z)
-            x = self.parameters.m + (self.parameters.sigma * y)
+            x = self.parameters.m + (s * y)
             f = np.array(tuple(map(self.fitness_func, x.T)))
 
         else:

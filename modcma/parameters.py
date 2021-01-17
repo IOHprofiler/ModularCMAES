@@ -17,24 +17,6 @@ from .sampling import (
     halton_sampling,
 )
 
-def perform_eigendecomp(X):
-    X = np.triu(X) + np.triu(X, 1).T
-    D, B = linalg.eigh(X)
-    if not (D > 1e-9).all():
-        D[D < 1e-9] = 1e-9
-        X = B.dot(np.diag(D)).dot(B.T)
-        warnings.warn('Correcting machine 0 after eigendecomposition', RuntimeWarning)
-        
-    D = np.sqrt(D.astype(complex).reshape(-1, 1)).real
-    try:
-        with warnings.catch_warnings(record=True) as w:
-            warnings.filterwarnings("error")
-            inv_root = B.dot(np.diag(1 / D.ravel())).dot(B.T)
-    except RuntimeWarning:
-        'Do not allow runtime warnings here'
-        raise
-    return X, D, B, inv_root
-
 
 class Parameters(AnnotatedStruct):
     """AnnotatedStruct object for holding the parameters for the ModularCMAES.
@@ -526,13 +508,13 @@ class Parameters(AnnotatedStruct):
             self.sigma *= np.exp(self.s / self.ds)
 
         elif self.step_size_adaptation == "xnes":
-            z = np.power(linalg.norm(self.invC.dot(self.population.y), axis=0), 2) - self.d
+            z = np.power(np.linalg.norm(self.invC.dot(self.population.y), axis=0), 2) - self.d
             self.sigma *= np.exp(
                 (self.cs / np.sqrt(self.d)) * (self.weights.clip(0) * z).sum()
             )
 
         elif self.step_size_adaptation == "mxnes" and self.old_population:
-            z = (self.mueff * np.power(linalg.norm(self.invC.dot(self.dm)), 2)) - self.d
+            z = (self.mueff * np.power(np.linalg.norm(self.invC.dot(self.dm)), 2)) - self.d
             self.sigma *= np.exp(
                 (self.cs / self.d) * z
             )
@@ -542,7 +524,7 @@ class Parameters(AnnotatedStruct):
 
         else:
             self.sigma *= np.exp(
-                (self.cs / self.damps) * ((linalg.norm(self.ps) / self.chiN) - 1)
+                (self.cs / self.damps) * ((np.linalg.norm(self.ps) / self.chiN) - 1)
             )
 
     def adapt_covariance_matrix(self) -> None:
@@ -590,8 +572,6 @@ class Parameters(AnnotatedStruct):
         ):
             self.init_dynamic_parameters()
         else:
-            # self.C, self.D, self.B, self.invC = perform_eigendecomp(self.C)
-
             self.C = np.triu(self.C) + np.triu(self.C, 1).T
             self.D, self.B = linalg.eigh(self.C)
             self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
