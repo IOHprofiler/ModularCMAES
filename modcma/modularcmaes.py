@@ -67,6 +67,14 @@ class ModularCMAES:
         )
 
         n_offspring = int(self.parameters.lambda_ - (2 * perform_tpa))
+        
+        if self.parameters.step_size_adaptation == 'lnxnes' or self.parameters.sample_sigma:
+            s = np.random.lognormal(
+                np.log(self.parameters.sigma), 
+                self.parameters.beta, size=n_offspring
+            )
+        else:
+            s = np.ones(n_offspring) * self.parameters.sigma
 
         if not self.parameters.sequential and not self.parameters.bound_correction:
             z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
@@ -85,7 +93,7 @@ class ModularCMAES:
                     zi = scale_with_threshold(zi, self.parameters.threshold)
 
                 yi = np.dot(self.parameters.B, self.parameters.D * zi)
-                xi = self.parameters.m + (self.parameters.sigma * yi)
+                xi = self.parameters.m + (s[i-1] * yi)
 
                 xi, out_of_bounds = correct_bounds(
                     xi,
@@ -112,8 +120,9 @@ class ModularCMAES:
             y = np.c_[yt, y]
             x = np.c_[xt, x]
             f = np.r_[ft, f]
+            s = np.r_[np.repeat(self.parameters.sigma, 2), s]
 
-        self.parameters.population = Population(x, y, f)
+        self.parameters.population = Population(x, y, f, s)
 
     def select(self) -> None:
         """Selection of best individuals in the population.

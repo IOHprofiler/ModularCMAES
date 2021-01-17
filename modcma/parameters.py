@@ -166,6 +166,9 @@ class Parameters(AnnotatedStruct):
     ps_factor: float = 1.
         Determines the frequence of exploration/expliotation
         1 is neutral, lower is more expliotative, higher is more explorative
+    sample_sigma: bool = Flase
+        Whether to sample sigma for each individual from a lognormal 
+        distribution. 
     sampler: generator
         A generator object producing new samples
     used_budget: int
@@ -290,6 +293,8 @@ class Parameters(AnnotatedStruct):
     condition_cov: float = float(pow(10, 14))
     ps_factor: float = 1.0
     compute_termination_criteria: bool = False
+    sample_sigma: bool = False # TODO make this a module
+
     __modules__ = (
         "active",
         "elitist",
@@ -301,7 +306,6 @@ class Parameters(AnnotatedStruct):
         "base_sampler",
         "weights_option",
         "local_restart",
-        "bound_correction",
     )
 
     def __init__(self, *args, **kwargs) -> None:
@@ -425,6 +429,7 @@ class Parameters(AnnotatedStruct):
             self.weights = np.log((self.lambda_ + 1) / 2) - np.log(
                 np.arange(1, self.lambda_ + 1)
             )
+
         self.pweights = self.weights[: self.mu]
         self.nweights = self.weights[self.mu:]
 
@@ -479,6 +484,7 @@ class Parameters(AnnotatedStruct):
         self.s = 0
         self.rank_tpa = None
         self.hs = True
+        self.beta = np.log(2) / (np.sqrt(self.d) * np.log(self.d))
 
     def adapt(self) -> None:
         """Method for adapting the internal state parameters.
@@ -520,11 +526,9 @@ class Parameters(AnnotatedStruct):
             self.sigma *= np.exp(self.s / self.ds)
 
         elif self.step_size_adaptation == "xnes":
-            # this breaks with negative weights
-            self.weights = 1 / np.arange(1, self.lambda_ + 1)
             z = np.power(linalg.norm(self.invC.dot(self.population.y), axis=0), 2) - self.d
             self.sigma *= np.exp(
-                (self.cs / np.sqrt(self.d)) * (self.weights * z).sum()
+                (self.cs / np.sqrt(self.d)) * (self.weights.clip(0) * z).sum()
             )
 
         elif self.step_size_adaptation == "mxnes" and self.old_population:
@@ -533,12 +537,7 @@ class Parameters(AnnotatedStruct):
                 (self.cs / self.d) * z
             )
         elif self.step_size_adaptation == "lnxnes":
-            beta = np.log(2) / (np.sqrt(self.d) * np.log(self.d))
-            sigmas = np.random.lognormal(np.log(self.sigma), beta, size=len(self.weights))
-            # maybe this is implossible, and we should use sigma here
-            # z = np.exp(self.cs * (self.weights * np.log(self.sigma)).sum())
-            self.cs = (9 * self.mueff) / (10 * np.sqrt(self.d))
-            z = np.exp(self.cs * (self.weights @ np.log(sigmas)))
+            z = np.exp(self.cs * (self.weights.clip(0) @ np.log(self.population.s)))
             self.sigma = np.power(self.sigma, 1 - self.cs) * z
 
         else:
