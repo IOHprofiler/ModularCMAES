@@ -20,29 +20,33 @@ class TestModularCMAESMeta(type):
     def __new__(cls, name, bases, clsdict):
         """Method for generating new classes."""
 
-        def generate_tests(module, value):
-            return dict(
-                {
+        def make_test_fid(module, value, fid):
+            return {
+                f"test_{module}_{module}_f{fid}":  lambda self: self.run_bbob_function(
+                    module, value, fid
+                )
+            }
+        
+        def make_test_option(module, value):
+            return {
                     f"test_{module}_{module}": lambda self: self.run_module(
                         module, value
                     )
-                },
-                **{
-                    f"test_{module}_{module}_f{fid}": lambda self: self.run_bbob_function(
-                        module, value, fid
-                    )
-                    for fid in range(1, 25)
-                },
-            )
+                }
 
         for module in parameters.Parameters.__modules__:
             m = getattr(parameters.Parameters, module)
             if type(m) == utils.AnyOf:
                 for o in filter(None, m.options):
-                    clsdict.update(generate_tests(module, o))
+                    for fid in range(1, 25):
+                        clsdict.update(make_test_fid(module, o, fid))
+                    clsdict.update(make_test_option(module, o))
 
             elif type(m) == utils.InstanceOf:
-                clsdict.update(generate_tests(module, True))
+                for fid in range(1, 25):
+                    clsdict.update(make_test_fid(module, True, fid))
+
+                clsdict.update(make_test_option(module, True))
 
         return super().__new__(cls, name, bases, clsdict)
 
@@ -68,7 +72,6 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
             self._dim, budget=self._budget, **{module: value}
         )
         self.c = modularcmaes.ModularCMAES(f, parameters=self.p).run()
-
         self.assertAlmostEqual(
             self.c.parameters.fopt,
             BBOB_2D_PER_MODULE_20_ITER[f"{module}_{value}"][fid - 1],
