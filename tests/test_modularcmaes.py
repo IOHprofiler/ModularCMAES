@@ -22,14 +22,14 @@ class TestModularCMAESMeta(type):
 
         def make_test_fid(module, value, fid):
             return {
-                f"test_{module}_{module}_f{fid}":  lambda self: self.run_bbob_function(
+                f"test_{module}_{value}_f{fid}":  lambda self: self.run_bbob_function(
                     module, value, fid
                 )
             }
         
         def make_test_option(module, value):
             return {
-                    f"test_{module}_{module}": lambda self: self.run_module(
+                    f"test_{module}_{value}": lambda self: self.run_module(
                         module, value
                     )
                 }

@@ -26,7 +26,7 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Test with coverage
       run: |
-        coverage run -m unittest discover --verbose
+        coverage run -m unittest discover
         coverage report -m modcma/[a-z]*.py
     - name: Upload coverage report
       if: ${{ matrix.python-version == 3.8 }}
