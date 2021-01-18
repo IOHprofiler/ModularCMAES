@@ -16,13 +16,14 @@ class Population:
             self.x = self.x.reshape(-1, 1)
             self.y = self.y.reshape(-1, 1)
 
-    def sort(self) -> None:
+    def sort(self) -> "Population":
         """Sort the population according to their fitness values."""
         rank = np.argsort(self.f)
         self.x = self.x[:, rank]
         self.y = self.y[:, rank]
         self.f = self.f[rank]
         self.s = self.s[rank]
+        return self
 
     def copy(self) -> "Population":
         """Return a new population object, with it's variables copied.

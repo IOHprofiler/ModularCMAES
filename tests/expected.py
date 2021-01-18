@@ -495,6 +495,10 @@ BBOB_2D_PER_MODULE_20_ITER = {
         15.102687676216153,
         117.28401550404162,
     ],
+    "step_size_adaptation_xnes": [112.87464428268412] * 24,
+    "step_size_adaptation_m-xnes": [112.87464428268412] * 24,
+    "step_size_adaptation_lp-xnes": [112.87464428268412] * 24,
+    "step_size_adaptation_psr": [112.87464428268412] * 24,
     "threshold_convergence_True": [
         79.60197400323416,
         9075.81294241299,
