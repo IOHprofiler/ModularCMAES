@@ -149,8 +149,8 @@ class Parameters(AnnotatedStruct):
         Determines the frequence of exploration/expliotation
         1 is neutral, lower is more expliotative, higher is more explorative
     sample_sigma: bool = Flase
-        Whether to sample sigma for each individual from a lognormal 
-        distribution. 
+        Whether to sample sigma for each individual from a lognormal
+        distribution.
     sampler: generator
         A generator object producing new samples
     used_budget: int
@@ -473,7 +473,7 @@ class Parameters(AnnotatedStruct):
         self.inv_root_C = np.eye(self.d)
         self.s = 0
         self.rank_tpa = None
-        self.hs = True      
+        self.hs = True
 
     def adapt(self) -> None:
         """Method for adapting the internal state parameters.
@@ -501,8 +501,8 @@ class Parameters(AnnotatedStruct):
             ~ Two-Point Stepsize Adaptation (tpa)
             ~ Median Success Rule (msr)
             ~ xNES step size adaptation (xnes)
-            ~ median-xNES step size adaptation (m-xnes)      
-            ~ xNES with Log-normal Prior step size adaptation (lp-xnes)           
+            ~ median-xNES step size adaptation (m-xnes)
+            ~ xNES with Log-normal Prior step size adaptation (lp-xnes)
             ~ Population Step Size rule from lm-cmaes (psr)
 
         One of these methods can be selected by setting the step_size_adaptation
@@ -599,7 +599,7 @@ class Parameters(AnnotatedStruct):
             self.inv_root_C = np.dot(self.B, self.D ** -1 * self.B.T)
 
     def adapt_evolution_paths(self) -> None:
-        """Method to adapt the evolution paths ps and pc.""" 
+        """Method to adapt the evolution paths ps and pc."""
         self.dm = (self.m - self.m_old) / self.sigma
         self.ps = (1 - self.cs) * self.ps + (
             np.sqrt(self.cs * (2 - self.cs) * self.mueff) * self.inv_root_C @ self.dm
@@ -612,7 +612,7 @@ class Parameters(AnnotatedStruct):
 
         self.pc = (1 - self.cc) * self.pc + (
             self.hs * np.sqrt(self.cc * (2 - self.cc) * self.mueff)
-        ) * self.dm    
+        ) * self.dm
 
     def perform_local_restart(self) -> None:
         """Method performing local restart, if a restart strategy is specified."""

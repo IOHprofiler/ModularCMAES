@@ -1,6 +1,5 @@
 """Module containing tests for ModularCMA-ES."""
 
-from collections import defaultdict
 import os
 import shutil
 import io

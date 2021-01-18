@@ -70,7 +70,7 @@ class ModularCMAES:
 
         if self.parameters.step_size_adaptation == 'lp-xnes' or self.parameters.sample_sigma:
             s = np.random.lognormal(
-                np.log(self.parameters.sigma), 
+                np.log(self.parameters.sigma),
                 self.parameters.beta, size=n_offspring
             )
         else:
@@ -512,8 +512,8 @@ def evaluate_bbob(
             iterations,
         )
     )
-    if return_optimizer: 
-        return evals, fopts, optimizer    
+    if return_optimizer:
+        return evals, fopts, optimizer
     return evals, fopts
 
 
