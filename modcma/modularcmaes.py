@@ -68,7 +68,6 @@ class ModularCMAES:
 
         n_offspring = int(self.parameters.lambda_ - (2 * perform_tpa))
 
-
         if self.parameters.step_size_adaptation == 'lp-xnes' or self.parameters.sample_sigma:
             s = np.random.lognormal(
                 np.log(self.parameters.sigma),
@@ -77,58 +76,28 @@ class ModularCMAES:
         else:
             s = np.ones(n_offspring) * self.parameters.sigma
 
+        z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
+        if self.parameters.threshold_convergence:
+            z = scale_with_threshold(z, self.parameters.threshold)
 
-        if not self.parameters.sequential:
-            z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
-            if self.parameters.threshold_convergence:
-                z = scale_with_threshold(z, self.parameters.threshold)
+        y = np.dot(self.parameters.B, self.parameters.D * z)
+        x = self.parameters.m + (s * y)
+        x, n_out_of_bounds = correct_bounds(x, 
+            self.parameters.ub,
+            self.parameters.lb,
+            self.parameters.bound_correction
+        )
+        self.parameters.n_out_of_bounds += n_out_of_bounds
 
-            y = np.dot(self.parameters.B, self.parameters.D * z)
-
-            x = self.parameters.m + (s * y)
-            x, n_out_of_bounds = correct_bounds(x, 
-                self.parameters.ub,
-                self.parameters.lb,
-                self.parameters.bound_correction
-            )
-            self.parameters.n_out_of_bounds += n_out_of_bounds
-
-            f = np.array(tuple(map(self.fitness_func, x.T)))
-
-        else:
-            x, y, f = [], [], []
-            for i in range(1, n_offspring + 1):
-                zi = next(self.parameters.sampler)
-
-                if self.parameters.threshold_convergence:
-                    # TODO: clean this up this was the old code non vectorized
-                    length = np.linalg.norm(zi)
-                    if length < self.parameters.threshold:
-                        new_length = self.parameters.threshold + (self.parameters.threshold - length)
-                        zi *= new_length / length
-
-                yi = np.dot(self.parameters.B, self.parameters.D * zi)
-                xi = self.parameters.m + (s[i - 1] * yi)
-
-                xi, out_of_bounds = correct_bounds(
-                    xi,
-                    self.parameters.ub,
-                    self.parameters.lb,
-                    self.parameters.bound_correction,
-                )
-
-                self.parameters.n_out_of_bounds += out_of_bounds
-
-                fi = self.fitness_func(xi)
-                for a, v in ((y, yi), (x, xi), (f, fi)):
-                    a.append(v)
-
-                if self.sequential_break_conditions(i, fi):
-                    break
-
-            x = np.hstack(x)
-            y = np.hstack(y)
-            f = np.array(f)
+        f = np.empty(n_offspring, object)
+        for i in range(n_offspring):
+            f[i] = self.fitness_func(x[:, i])
+            if self.sequential_break_conditions(i, f[i]):
+                f = f[:i]
+                s = s[:i]
+                x = x[:, :i]
+                y = y[:, :i]
+                break
 
         if perform_tpa:
             yt, xt, ft = tpa_mutation(self.fitness_func, self.parameters)
