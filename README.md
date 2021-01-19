@@ -9,7 +9,7 @@ Installation can be done via pip, using:
 
 ## Usage
 To optimize a single function, we provide a basic fmin interface, which can be used as follows:
-```{python}
+```python
 from modcma import modularcmaes
 modularcmaes.fmin(func=sum, dim=5, maxfun=100)
 ```
