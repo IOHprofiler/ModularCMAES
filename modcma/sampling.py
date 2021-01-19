@@ -88,7 +88,7 @@ def orthogonal_sampling(
     """Generator yielding orthogonal samples.
 
     This function orthogonalizes <n_samples>, and succesively yields each
-    of them. It uses the linalg.orth decomposition function of the scipy library.
+    of them. It uses the linalg.qr decomposition function of the numpy library.
 
     Parameters
     ----------

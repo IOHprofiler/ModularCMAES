@@ -148,6 +148,9 @@ class Parameters(AnnotatedStruct):
     ps_factor: float = 1.
         Determines the frequence of exploration/expliotation
         1 is neutral, lower is more expliotative, higher is more explorative
+    sample_sigma: bool = Flase
+        Whether to sample sigma for each individual from a lognormal
+        distribution.
     sampler: generator
         A generator object producing new samples
     used_budget: int
@@ -200,7 +203,7 @@ class Parameters(AnnotatedStruct):
         The eigenvectors of the covariance matrix C
     D: np.ndarray
         The eigenvalues of the covariance matrix C
-    invC: np.ndarray
+    inv_root_C: np.ndarray
         The result of C**-(1/2)
     s: float
         Used for TPA
@@ -262,7 +265,8 @@ class Parameters(AnnotatedStruct):
     base_sampler: ("gaussian", "sobol", "halton") = "gaussian"
     mirrored: (None, "mirrored", "mirrored pairwise") = None
     weights_option: ("default", "equal", "1/2^lambda") = "default"
-    step_size_adaptation: ("csa", "tpa", "msr") = "csa"
+    step_size_adaptation: (
+        "csa", "tpa", "msr", "xnes", "m-xnes", "lp-xnes", "psr") = "csa"
     population: TypeVar("Population") = None
     old_population: TypeVar("Population") = None
     termination_criteria: dict = {}
@@ -272,6 +276,7 @@ class Parameters(AnnotatedStruct):
     condition_cov: float = float(pow(10, 14))
     ps_factor: float = 1.0
     compute_termination_criteria: bool = False
+    sample_sigma: bool = False  # TODO make this a module
     __modules__ = (
         "active",
         "elitist",
@@ -389,7 +394,6 @@ class Parameters(AnnotatedStruct):
         TODO: clean the initlialization of these weights, this can be wrong in some cases
         when mu != .5
         """
-
         if self.weights_option == "equal":
             ws = np.ones(self.lambda_) / self.lambda_
             self.weights = np.append(ws[:self.mu], ws[self.mu::-1] * -1)
@@ -407,6 +411,7 @@ class Parameters(AnnotatedStruct):
             self.weights = np.log((self.lambda_ + 1) / 2) - np.log(
                 np.arange(1, self.lambda_ + 1)
             )
+
         self.pweights = self.weights[: self.mu]
         self.nweights = self.weights[self.mu:]
 
@@ -431,16 +436,24 @@ class Parameters(AnnotatedStruct):
             (4 + (self.mueff / self.d)) / (self.d + 4 + (2 * self.mueff / self.d))
         )
 
-        self.cs = self.cs or (
-            0.3 if self.step_size_adaptation in ("msr", "tpa")
-            else (self.mueff + 2) / (self.d + self.mueff + 5)
-        )
+        self.cs = self.cs or {
+            "csa": (self.mueff + 2) / (self.d + self.mueff + 5),
+            "msr": .3,
+            "tpa": .3,
+            "xnes": self.mueff / (2 * np.log(max(2, self.d)) * np.sqrt(self.d)),
+            "m-xnes": 1.,
+            "lp-xnes": 9 * self.mueff / (10 * np.sqrt(self.d)),
+            "psr": .4
+        }[self.step_size_adaptation]
 
         self.damps = 1.0 + (
             2.0 * max(0.0, np.sqrt((self.mueff - 1) / (self.d + 1)) - 1) + self.cs
         )
         self.chiN = self.d ** 0.5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
         self.ds = 2 - (2 / self.d)
+
+        self.beta = np.log(2) / max((np.sqrt(self.d) * np.log(self.d)), 1)
+        self.succes_ratio = .25
 
     def init_dynamic_parameters(self) -> None:
         """Initialization function of parameters that represent the dynamic state of the CMA-ES.
@@ -450,40 +463,90 @@ class Parameters(AnnotatedStruct):
         """
         self.sigma = self.init_sigma
         self.m = np.random.rand(self.d, 1)
+        self.m_old = np.empty((self.d, 1))
         self.dm = np.zeros(self.d)
         self.pc = np.zeros((self.d, 1))
         self.ps = np.zeros((self.d, 1))
         self.B = np.eye(self.d)
         self.C = np.eye(self.d)
         self.D = np.ones((self.d, 1))
-        self.invC = np.eye(self.d)
+        self.inv_root_C = np.eye(self.d)
         self.s = 0
         self.rank_tpa = None
+        self.hs = True
+
+    def adapt(self) -> None:
+        """Method for adapting the internal state parameters.
+
+        The conjugate evolution path ps is calculated, in addition to
+        the difference in mean x values dm. Thereafter, sigma is adapated,
+        followed by the adapatation of the covariance matrix.
+        TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
+        """
+        self.adapt_evolution_paths()
+        self.adapt_sigma()
+        self.adapt_covariance_matrix()
+        self.perform_eigendecomposition()
+        self.record_statistics()
+        self.calculate_termination_criteria()
+        self.old_population = self.population.copy()
+        if any(self.termination_criteria.values()):
+            self.perform_local_restart()
 
     def adapt_sigma(self) -> None:
         """Method to adapt the step size sigma.
 
         There are three variants in implemented here, namely:
+            ~ Cummulative Stepsize Adaptation (csa)
             ~ Two-Point Stepsize Adaptation (tpa)
             ~ Median Success Rule (msr)
-            ~ Cummulative Stepsize Adapatation (csa)
+            ~ xNES step size adaptation (xnes)
+            ~ median-xNES step size adaptation (m-xnes)
+            ~ xNES with Log-normal Prior step size adaptation (lp-xnes)
+            ~ Population Step Size rule from lm-cmaes (psr)
+
         One of these methods can be selected by setting the step_size_adaptation
         parameter.
         """
-        if self.step_size_adaptation == "tpa" and self.old_population:
+        if self.step_size_adaptation == "csa":
+            self.sigma *= np.exp(
+                (self.cs / self.damps) * ((np.linalg.norm(self.ps) / self.chiN) - 1)
+            )
+
+        elif self.step_size_adaptation == "tpa" and self.old_population:
             self.s = ((1 - self.cs) * self.s) + (self.cs * self.rank_tpa)
             self.sigma *= np.exp(self.s)
 
         elif self.step_size_adaptation == "msr" and self.old_population:
             k_succ = (self.population.f < np.median(self.old_population.f)).sum()
             z = (2 / self.lambda_) * (k_succ - ((self.lambda_ + 1) / 2))
-
             self.s = ((1 - self.cs) * self.s) + (self.cs * z)
             self.sigma *= np.exp(self.s / self.ds)
-        else:
+
+        elif self.step_size_adaptation == "xnes":
+            z = np.power(
+                np.linalg.norm(self.inv_root_C.dot(self.population.y), axis=0), 2
+            ) - self.d
             self.sigma *= np.exp(
-                (self.cs / self.damps) * ((np.linalg.norm(self.ps) / self.chiN) - 1)
+                (self.cs / np.sqrt(self.d)) * (self.weights.clip(0) * z).sum()
             )
+
+        elif self.step_size_adaptation == "m-xnes" and self.old_population:
+            z = (self.mueff * np.power(np.linalg.norm(self.inv_root_C.dot(self.dm)), 2)) - self.d
+            self.sigma *= np.exp((self.cs / self.d) * z)
+
+        elif self.step_size_adaptation == "lp-xnes":
+            z = np.exp(self.cs * (self.weights.clip(0) @ np.log(self.population.s)))
+            self.sigma = np.power(self.sigma, 1 - self.cs) * z
+
+        elif self.step_size_adaptation == "psr" and self.old_population:
+            combined = (self.population + self.old_population).sort()
+            r = np.searchsorted(combined.f, self.population.f)
+            r_old = np.searchsorted(combined.f, self.old_population.f)
+
+            zpsr = (r_old - r).sum() / pow(self.lambda_, 2) - self.succes_ratio
+            self.s = (1 - self.cs) * self.s + (self.cs * zpsr)
+            self.sigma *= np.exp(self.s / self.ds)
 
     def adapt_covariance_matrix(self) -> None:
         """Method for adapting the covariance matrix.
@@ -491,18 +554,9 @@ class Parameters(AnnotatedStruct):
         If the option `active` is specified, active update of the covariance
         matrix is performed, using negative weights.
         """
-        hs = (
-            np.linalg.norm(self.ps)
-            / np.sqrt(1 - np.power(1 - self.cs, 2 * (self.used_budget / self.lambda_)))
-        ) < (1.4 + (2 / (self.d + 1))) * self.chiN
-
-        dhs = (1 - hs) * self.cc * (2 - self.cc)
-
-        self.pc = (1 - self.cc) * self.pc + (
-            hs * np.sqrt(self.cc * (2 - self.cc) * self.mueff)
-        ) * self.dm
-
         rank_one = self.c1 * self.pc * self.pc.T
+
+        dhs = (1 - self.hs) * self.cc * (2 - self.cc)
         old_C = (
             1 - (self.c1 * dhs) - self.c1 - (self.cmu * self.pweights.sum())
         ) * self.C
@@ -513,7 +567,7 @@ class Parameters(AnnotatedStruct):
             weights[weights < 0] = weights[weights < 0] * (
                 self.d / np.power(
                     np.linalg.norm(
-                        self.invC @ self.population.y[:, weights < 0], axis=0
+                        self.inv_root_C @ self.population.y[:, weights < 0], axis=0
                     ), 2
                 )
             )
@@ -542,28 +596,23 @@ class Parameters(AnnotatedStruct):
             self.C = np.triu(self.C) + np.triu(self.C, 1).T
             self.D, self.B = linalg.eigh(self.C)
             self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
-            self.invC = np.dot(self.B, self.D ** -1 * self.B.T)
+            self.inv_root_C = np.dot(self.B, self.D ** -1 * self.B.T)
 
-    def adapt(self) -> None:
-        """Method for adapting the internal state parameters.
-
-        The conjugate evolution path ps is calculated, in addition to
-        the difference in mean x values dm. Thereafter, sigma is adapated,
-        followed by the adapatation of the covariance matrix.
-        TODO: eigendecomp is not neccesary to be beformed every iteration, says CMAES tut.
-        """
+    def adapt_evolution_paths(self) -> None:
+        """Method to adapt the evolution paths ps and pc."""
         self.dm = (self.m - self.m_old) / self.sigma
         self.ps = (1 - self.cs) * self.ps + (
-            np.sqrt(self.cs * (2 - self.cs) * self.mueff) * self.invC @ self.dm
+            np.sqrt(self.cs * (2 - self.cs) * self.mueff) * self.inv_root_C @ self.dm
         ) * self.ps_factor
-        self.adapt_sigma()
-        self.adapt_covariance_matrix()
-        self.perform_eigendecomposition()
-        self.record_statistics()
-        self.calculate_termination_criteria()
-        self.old_population = self.population.copy()
-        if any(self.termination_criteria.values()):
-            self.perform_local_restart()
+
+        self.hs = (
+            np.linalg.norm(self.ps)
+            / np.sqrt(1 - np.power(1 - self.cs, 2 * (self.used_budget / self.lambda_)))
+        ) < (1.4 + (2 / (self.d + 1))) * self.chiN
+
+        self.pc = (1 - self.cc) * self.pc + (
+            self.hs * np.sqrt(self.cc * (2 - self.cc) * self.mueff)
+        ) * self.dm
 
     def perform_local_restart(self) -> None:
         """Method performing local restart, if a restart strategy is specified."""
@@ -835,7 +884,7 @@ class BIPOPParameters(AnnotatedStruct):
             self.lambda_large *= 2
         else:
             self.budget_small -= used_previous_iteration
-        
+
         self.lambda_small = np.floor(
             self.lambda_init
             * (0.5 * self.lambda_large / self.lambda_init) ** (np.random.uniform() ** 2)

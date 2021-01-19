@@ -68,65 +68,45 @@ class ModularCMAES:
 
         n_offspring = int(self.parameters.lambda_ - (2 * perform_tpa))
 
-        if not self.parameters.sequential:
-            z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
-            if self.parameters.threshold_convergence:
-                z = scale_with_threshold(z, self.parameters.threshold)
-
-            y = np.dot(self.parameters.B, self.parameters.D * z)
-            x = self.parameters.m + (self.parameters.sigma * y)
-
-            x, n_out_of_bounds = correct_bounds(x, 
-                self.parameters.ub,
-                self.parameters.lb,
-                self.parameters.bound_correction
+        if self.parameters.step_size_adaptation == 'lp-xnes' or self.parameters.sample_sigma:
+            s = np.random.lognormal(
+                np.log(self.parameters.sigma),
+                self.parameters.beta, size=n_offspring
             )
-            self.parameters.n_out_of_bounds += n_out_of_bounds
-
-            f = np.array(tuple(map(self.fitness_func, x.T)))
-
         else:
-            x, y, f = [], [], []
-            for i in range(1, n_offspring + 1):
-                zi = next(self.parameters.sampler)
+            s = np.ones(n_offspring) * self.parameters.sigma
 
-                if self.parameters.threshold_convergence:
-                    # TODO: clean this up this was the old code non vectorized
-                    length = np.linalg.norm(zi)
-                    if length < self.parameters.threshold:
-                        new_length = self.parameters.threshold + (self.parameters.threshold - length)
-                        zi *= new_length / length
+        z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
+        if self.parameters.threshold_convergence:
+            z = scale_with_threshold(z, self.parameters.threshold)
 
-                yi = np.dot(self.parameters.B, self.parameters.D * zi)
-                xi = self.parameters.m + (self.parameters.sigma * yi)
+        y = np.dot(self.parameters.B, self.parameters.D * z)
+        x = self.parameters.m + (s * y)
+        x, n_out_of_bounds = correct_bounds(x, 
+            self.parameters.ub,
+            self.parameters.lb,
+            self.parameters.bound_correction
+        )
+        self.parameters.n_out_of_bounds += n_out_of_bounds
 
-                xi, out_of_bounds = correct_bounds(
-                    xi,
-                    self.parameters.ub,
-                    self.parameters.lb,
-                    self.parameters.bound_correction,
-                )
-
-                self.parameters.n_out_of_bounds += out_of_bounds
-
-                fi = self.fitness_func(xi)
-                for a, v in ((y, yi), (x, xi), (f, fi)):
-                    a.append(v)
-
-                if self.sequential_break_conditions(i, fi):
-                    break
-
-            x = np.hstack(x)
-            y = np.hstack(y)
-            f = np.array(f)
+        f = np.empty(n_offspring, object)
+        for i in range(n_offspring):
+            f[i] = self.fitness_func(x[:, i])
+            if self.sequential_break_conditions(i, f[i]):
+                f = f[:i]
+                s = s[:i]
+                x = x[:, :i]
+                y = y[:, :i]
+                break
 
         if perform_tpa:
             yt, xt, ft = tpa_mutation(self.fitness_func, self.parameters)
             y = np.c_[yt, y]
             x = np.c_[xt, x]
             f = np.r_[ft, f]
+            s = np.r_[np.repeat(self.parameters.sigma, 2), s]
 
-        self.parameters.population = Population(x, y, f)
+        self.parameters.population = Population(x, y, f, s)
 
     def select(self) -> None:
         """Selection of best individuals in the population.
@@ -435,6 +415,7 @@ def evaluate_bbob(
     seed=42,
     instance=1,
     target_precision=1e-8,
+    return_optimizer=False,
     **kwargs,
 ):
     """Helper function to evaluate a ModularCMAES on the BBOB test suite.
@@ -459,6 +440,8 @@ def evaluate_bbob(
         The bbob function instance
     target_precision: float = 1e-8
         The target precision for the objective function value
+    return_optimizer: bool = False
+        Whether to return the optimizer
     **kwargs
         These are directly passed into the instance of ModularCMAES,
         in this manner parameters can be specified for the optimizer.
@@ -514,6 +497,8 @@ def evaluate_bbob(
             iterations,
         )
     )
+    if return_optimizer:
+        return evals, fopts, optimizer
     return evals, fopts
 
 
