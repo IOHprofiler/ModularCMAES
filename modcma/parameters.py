@@ -540,11 +540,12 @@ class Parameters(AnnotatedStruct):
             self.sigma = np.power(self.sigma, 1 - self.cs) * z
 
         elif self.step_size_adaptation == "psr" and self.old_population:
-            combined = (self.population + self.old_population).sort()
-            r = np.searchsorted(combined.f, self.population.f)
-            r_old = np.searchsorted(combined.f, self.old_population.f)
+            n = min(self.population.n, self.old_population.n)
+            combined = (self.population[:n] + self.old_population[:n]).sort()
+            r = np.searchsorted(combined.f, self.population.f[:n])
+            r_old = np.searchsorted(combined.f, self.old_population.f[:n])
 
-            zpsr = (r_old - r).sum() / pow(self.lambda_, 2) - self.succes_ratio
+            zpsr = (r_old - r).sum() / pow(n, 2) - self.succes_ratio
             self.s = (1 - self.cs) * self.s + (self.cs * zpsr)
             self.sigma *= np.exp(self.s / self.ds)
 
