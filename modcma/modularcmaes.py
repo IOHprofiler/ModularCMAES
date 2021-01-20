@@ -464,7 +464,7 @@ def evaluate_bbob(
     fitness_func = IOH_function(
         fid, dim, instance, target_precision=target_precision, suite="BBOB"
     )
-
+    
     if logging:
         data_location = data_folder if os.path.isdir(data_folder) else os.getcwd()
         logger = IOH_logger(data_location, f"{label}F{fid}_{dim}D")
