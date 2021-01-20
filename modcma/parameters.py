@@ -524,19 +524,19 @@ class Parameters(AnnotatedStruct):
             self.sigma *= np.exp(self.s / self.ds)
 
         elif self.step_size_adaptation == "xnes":
+            w = self.weights.clip(0)[:self.population.n]
             z = np.power(
                 np.linalg.norm(self.inv_root_C.dot(self.population.y), axis=0), 2
             ) - self.d
-            self.sigma *= np.exp(
-                (self.cs / np.sqrt(self.d)) * (self.weights.clip(0) * z).sum()
-            )
+            self.sigma *= np.exp((self.cs / np.sqrt(self.d)) * (w * z).sum())
 
         elif self.step_size_adaptation == "m-xnes" and self.old_population:
             z = (self.mueff * np.power(np.linalg.norm(self.inv_root_C.dot(self.dm)), 2)) - self.d
             self.sigma *= np.exp((self.cs / self.d) * z)
 
         elif self.step_size_adaptation == "lp-xnes":
-            z = np.exp(self.cs * (self.weights.clip(0) @ np.log(self.population.s)))
+            w = self.weights.clip(0)[:self.population.n]
+            z = np.exp(self.cs * (w @ np.log(self.population.s)))
             self.sigma = np.power(self.sigma, 1 - self.cs) * z
 
         elif self.step_size_adaptation == "psr" and self.old_population:
