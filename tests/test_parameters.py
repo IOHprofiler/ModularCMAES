@@ -54,7 +54,7 @@ class TestParameters(unittest.TestCase):
         self.p.used_budget += 11
         self.p.bipop_parameters.adapt(self.p.used_budget)
         self.assertEqual(self.p.bipop_parameters.large, True)
-        bp = self.p.bipop_parameters
+        bp = self.p.bipop_parameters 
         self.assertEqual(bp.lambda_, self.p.lambda_ * 2)
         self.assertEqual(bp.mu, self.p.mu * 2)
         self.assertEqual(bp.sigma, 2)
@@ -63,7 +63,7 @@ class TestParameters(unittest.TestCase):
         self.assertEqual(self.p.bipop_parameters.large, False)
         self.assertLessEqual(bp.lambda_, self.p.lambda_)
         self.assertLessEqual(bp.mu, self.p.mu)
-        self.assertLessEqual(bp.sigma, self.p.init_sigma)
+        self.assertLessEqual(bp.sigma, self.p.sigma0)
         self.p.used_budget += 11
         bp.adapt(self.p.used_budget)
         self.assertEqual(bp.used_budget, 33)
