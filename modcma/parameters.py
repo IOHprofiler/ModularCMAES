@@ -599,11 +599,16 @@ class Parameters(AnnotatedStruct):
         ):
             self.init_dynamic_parameters()
         else:
+            C = self.C.copy()
             self.C = np.triu(self.C) + np.triu(self.C, 1).T
             self.D, self.B = linalg.eigh(self.C)
-            self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
-            self.inv_root_C = np.dot(self.B, self.D ** -1 * self.B.T)
+            if np.all(self.D > 0):
+                self.D = np.sqrt(self.D.reshape(-1, 1))
+                self.inv_root_C = np.dot(self.B, self.D ** -1 * self.B.T)
+            else:
+                self.init_dynamic_parameters()
 
+        
     def adapt_evolution_paths(self) -> None:
         """Method to adapt the evolution paths ps and pc."""
         self.dm = (self.m - self.m_old) / self.sigma
