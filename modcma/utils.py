@@ -253,5 +253,5 @@ def ert(evals, budget):
             n_succ = (evals < budget).sum()
             _ert = float(evals.sum()) / int(n_succ)
         return _ert, np.std(evals), n_succ
-    except Exception:
+    except ZeroDivisionError:
         return float("inf"), np.nan, 0

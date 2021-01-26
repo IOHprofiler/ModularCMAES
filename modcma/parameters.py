@@ -354,7 +354,6 @@ class Parameters(AnnotatedStruct):
         self.beta = np.log(2) / max((np.sqrt(self.d) * np.log(self.d)), 1)
         self.succes_ratio = .25
 
-
     def init_selection_parameters(self) -> None:
         """Initialization function for parameters that influence in selection."""
         self.lambda_ = self.lambda_ or (4 + np.floor(3 * np.log(self.d))).astype(int)
@@ -457,7 +456,7 @@ class Parameters(AnnotatedStruct):
         self.damps = 1.0 + (
             2.0 * max(0.0, np.sqrt((self.mueff - 1) / (self.d + 1)) - 1) + self.cs
         )
-       
+
     def init_dynamic_parameters(self) -> None:
         """Initialization function of parameters that represent the dynamic state of the CMA-ES.
 
@@ -465,12 +464,10 @@ class Parameters(AnnotatedStruct):
         eigenvectors and the learning rate sigma.
         """
         self.sigma = np.float64(self.sigma0)
-
         if hasattr(self, "m") or self.x0 is None: 
             self.m = np.float64(np.random.rand(self.d, 1))
         else:
             self.m = np.float64(self.x0.copy())
-        
         self.m_old = np.empty((self.d, 1), dtype=np.float64)
         self.dm = np.zeros(self.d, dtype=np.float64)
         self.pc = np.zeros((self.d, 1), dtype=np.float64)
