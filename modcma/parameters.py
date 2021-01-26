@@ -25,6 +25,8 @@ class Parameters(AnnotatedStruct):
     ----------
     d: int
         The dimensionality of the problem
+    x0: np.ndarray
+        Initial guess of the population center of mass.
     target: float = -float("inf")
         The absolute target of the optimization problem
     budget: int = None
@@ -37,7 +39,7 @@ class Parameters(AnnotatedStruct):
         The number of offspring in the population
     mu: int = None
         The number of parents in the population
-    init_sigma: float = .5
+    sigma0: float = .5
         The initial value of sigma (step size)
     a_tpa: float = .5
         Parameter used in TPA
@@ -236,12 +238,13 @@ class Parameters(AnnotatedStruct):
     """
 
     d: int
+    x0: np.ndarray = None
     target: float = -float("inf")
     budget: int = None
     n_generations: int = None
     lambda_: int = None
     mu: int = None
-    init_sigma: float = 0.5
+    sigma0: float = 0.5
     a_tpa: float = 0.5
     b_tpa: float = 0.0
     cs: float = None
@@ -346,6 +349,10 @@ class Parameters(AnnotatedStruct):
         self.bipop_parameters = BIPOPParameters(
             self.lambda_, self.budget, self.mu / self.lambda_
         )
+        self.chiN = self.d ** 0.5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
+        self.ds = 2 - (2 / self.d)
+        self.beta = np.log(2) / max((np.sqrt(self.d) * np.log(self.d)), 1)
+        self.succes_ratio = .25
 
     def init_selection_parameters(self) -> None:
         """Initialization function for parameters that influence in selection."""
@@ -391,22 +398,22 @@ class Parameters(AnnotatedStruct):
 
         Examples are recombination weights and learning rates for the covariance
         matrix adapation.
-        TODO: clean the initlialization of these weights, this can be wrong in some cases
-        when mu != .5
         """
         if self.weights_option == "equal":
-            ws = np.ones(self.lambda_) / self.lambda_
-            self.weights = np.append(ws[:self.mu], ws[self.mu::-1] * -1)
-
-            if self.lambda_ % 2 != 0:
-                self.weights = np.append([1 / self.lambda_], self.weights[:-1])
-        elif self.weights_option == "1/2^lambda":
-            ws = 1 / 2 ** np.arange(1, self.lambda_ + 1) + (
-                (1 / (2 ** self.lambda_)) / self.lambda_
+            ws = 1 / self.mu
+            self.weights = np.append(
+                np.ones(self.mu) * ws, np.ones(self.lambda_ - self.mu) * ws * -1
             )
-            self.weights = np.append(ws[:self.mu], ws[self.mu::-1] * -1)
-            if self.lambda_ % 2 != 0:
-                self.weights = np.append([1 / self.lambda_ ** 2], self.weights[:-1])
+        elif self.weights_option == "1/2^lambda":
+            base = np.float64(2)
+            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + (
+                (1 / (base ** self.mu)) / self.mu
+            )
+            n = self.lambda_ - self.mu
+            negative = (1 / (base ** np.arange(1, n + 1)) + (
+                (1 / (base ** n)) / n
+            ))[::-1] * -1
+            self.weights = np.append(positive, negative)
         else:
             self.weights = np.log((self.lambda_ + 1) / 2) - np.log(
                 np.arange(1, self.lambda_ + 1)
@@ -414,16 +421,16 @@ class Parameters(AnnotatedStruct):
 
         self.pweights = self.weights[: self.mu]
         self.nweights = self.weights[self.mu:]
-
         self.mueff = self.pweights.sum() ** 2 / (self.pweights ** 2).sum()
         mueff_neg = self.nweights.sum() ** 2 / (self.nweights ** 2).sum()
+
+        self.pweights = self.pweights / self.pweights.sum()
         self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
         self.cmu = self.cmu or min(1 - self.c1, (2 * (
             (self.mueff - 2 + (1 / self.mueff))
             / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
         )))
 
-        self.pweights = self.pweights / self.pweights.sum()
         amu_neg = 1 + (self.c1 / self.mu)
         amueff_neg = 1 + ((2 * mueff_neg) / (self.mueff + 2))
         aposdef_neg = (1 - self.c1 - self.cmu) / (self.d * self.cmu)
@@ -449,11 +456,6 @@ class Parameters(AnnotatedStruct):
         self.damps = 1.0 + (
             2.0 * max(0.0, np.sqrt((self.mueff - 1) / (self.d + 1)) - 1) + self.cs
         )
-        self.chiN = self.d ** 0.5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
-        self.ds = 2 - (2 / self.d)
-
-        self.beta = np.log(2) / max((np.sqrt(self.d) * np.log(self.d)), 1)
-        self.succes_ratio = .25
 
     def init_dynamic_parameters(self) -> None:
         """Initialization function of parameters that represent the dynamic state of the CMA-ES.
@@ -461,16 +463,19 @@ class Parameters(AnnotatedStruct):
         Examples of such parameters are the Covariance matrix C and its 
         eigenvectors and the learning rate sigma.
         """
-        self.sigma = self.init_sigma
-        self.m = np.random.rand(self.d, 1)
-        self.m_old = np.empty((self.d, 1))
-        self.dm = np.zeros(self.d)
-        self.pc = np.zeros((self.d, 1))
-        self.ps = np.zeros((self.d, 1))
-        self.B = np.eye(self.d)
-        self.C = np.eye(self.d)
-        self.D = np.ones((self.d, 1))
-        self.inv_root_C = np.eye(self.d)
+        self.sigma = np.float64(self.sigma0)
+        if hasattr(self, "m") or self.x0 is None: 
+            self.m = np.float64(np.random.rand(self.d, 1))
+        else:
+            self.m = np.float64(self.x0.copy())
+        self.m_old = np.empty((self.d, 1), dtype=np.float64)
+        self.dm = np.zeros(self.d, dtype=np.float64)
+        self.pc = np.zeros((self.d, 1), dtype=np.float64)
+        self.ps = np.zeros((self.d, 1), dtype=np.float64)
+        self.B = np.eye(self.d, dtype=np.float64)
+        self.C = np.eye(self.d, dtype=np.float64)
+        self.D = np.ones((self.d, 1), dtype=np.float64)
+        self.inv_root_C = np.eye(self.d, dtype=np.float64)
         self.s = 0
         self.rank_tpa = None
         self.hs = True
@@ -594,11 +599,16 @@ class Parameters(AnnotatedStruct):
         ):
             self.init_dynamic_parameters()
         else:
+            C = self.C.copy()
             self.C = np.triu(self.C) + np.triu(self.C, 1).T
             self.D, self.B = linalg.eigh(self.C)
-            self.D = np.sqrt(self.D.astype(complex).reshape(-1, 1)).real
-            self.inv_root_C = np.dot(self.B, self.D ** -1 * self.B.T)
+            if np.all(self.D > 0):
+                self.D = np.sqrt(self.D.reshape(-1, 1))
+                self.inv_root_C = np.dot(self.B, self.D ** -1 * self.B.T)
+            else:
+                self.init_dynamic_parameters()
 
+        
     def adapt_evolution_paths(self) -> None:
         """Method to adapt the evolution paths ps and pc."""
         self.dm = (self.m - self.m_old) / self.sigma
@@ -618,7 +628,7 @@ class Parameters(AnnotatedStruct):
     def perform_local_restart(self) -> None:
         """Method performing local restart, if a restart strategy is specified."""
         if self.local_restart:
-            if self.local_restart == "IPOP":
+            if self.local_restart == "IPOP" and self.mu > 512: 
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
 
@@ -751,7 +761,7 @@ class Parameters(AnnotatedStruct):
         if self.local_restart or self.compute_termination_criteria:
             _t = self.t % self.d
             diag_C = np.diag(self.C.T)
-            d_sigma = self.sigma / self.init_sigma
+            d_sigma = self.sigma / self.sigma0
             best_fopts = self.best_fitnesses[self.last_restart:]
             median_fitnesses = self.median_fitnesses[self.last_restart:]
 
@@ -771,7 +781,7 @@ class Parameters(AnnotatedStruct):
                     ),
                     "tolx": np.all(
                         (np.append(self.pc.T, diag_C) * d_sigma)
-                        < (self.tolx * self.init_sigma)
+                        < (self.tolx * self.sigma0)
                     ),
                     "tolupsigma": (d_sigma > self.tolup_sigma * np.sqrt(self.D.max())),
                     "conditioncov": np.linalg.cond(self.C) > self.condition_cov,

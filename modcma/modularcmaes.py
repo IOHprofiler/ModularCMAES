@@ -82,7 +82,8 @@ class ModularCMAES:
 
         y = np.dot(self.parameters.B, self.parameters.D * z)
         x = self.parameters.m + (s * y)
-        x, n_out_of_bounds = correct_bounds(x, 
+        x, n_out_of_bounds = correct_bounds(
+            x, 
             self.parameters.ub,
             self.parameters.lb,
             self.parameters.bound_correction
@@ -375,7 +376,7 @@ def correct_bounds(
     """
     out_of_bounds = np.logical_or(x > ub, x < lb)
     n_out_of_bounds = out_of_bounds.max(axis=0).sum()
-    if n_out_of_bounds == 0 or correction_method == None:
+    if n_out_of_bounds == 0 or correction_method is None:
         return x, n_out_of_bounds
 
     try:
@@ -464,7 +465,7 @@ def evaluate_bbob(
     fitness_func = IOH_function(
         fid, dim, instance, target_precision=target_precision, suite="BBOB"
     )
-    
+
     if logging:
         data_location = data_folder if os.path.isdir(data_folder) else os.getcwd()
         logger = IOH_logger(data_location, f"{label}F{fid}_{dim}D")
