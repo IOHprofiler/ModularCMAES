@@ -1,34 +1,25 @@
-Welcome to CCMAES's Documentation!
-==================================
-
-.. automodapi:: ccmaes.configurablecmaes
-    :members:
-
-.. automodapi:: ccmaes.parameters
-    :members:
-
-.. automodapi:: ccmaes.population
-    :members:
-
-.. automodapi:: ccmaes.sampling
-    :members:
-
-.. automodapi:: ccmaes.utils
-    :members:
-
-.. automodapi:: ccmaes.asktellcmaes
-    :members:
-
+Welcome to the Modular CMAES's Documentation!
+=============================================
 
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+   :caption: The Modular CMA-ES
+   :maxdepth: 4
+
+   self
+   modcma.rst
+   asktell.rst
+   parameters.rst
+   population.rst
+   samplers.rst
+   utils.rst
+
 
 
 Indices and tables
 ==================
-
 * :ref:`genindex`
 * :ref:`modindex`
 * :ref:`search`
+
+

@@ -2,3 +2,6 @@ IOHexperimenter>=0.2.8
 numba>=0.52.0
 numpy>=1.18.5
 scipy>=1.4.1
+Sphinx==3.3.0
+sphinx-automodapi==0.13
+sphinx-rtd-theme==0.5.0
