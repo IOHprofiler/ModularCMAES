@@ -7,6 +7,7 @@ from functools import wraps
 from time import time
 
 import numpy as np
+from scipy import linalg
 
 
 class Descriptor:
@@ -255,3 +256,20 @@ def ert(evals, budget):
         return _ert, np.std(evals), n_succ
     except ZeroDivisionError:
         return float("inf"), np.nan, 0
+
+
+
+def perform_eigendecomp(X):
+    X = np.triu(X) + np.triu(X, 1).T
+    D, B = linalg.eigh(X)
+    if not all(D > 0):
+        raise linalg.LinAlgError("Matrix is not positive definite")
+
+    D = np.sqrt(D.reshape(-1, 1))
+    try:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.filterwarnings("error")
+            inv_root = np.dot(B, D ** -1 * B.T)
+    except RuntimeWarning as warning:
+        raise linalg.LinAlgError(str(warning))
+    return X, D, B, inv_root

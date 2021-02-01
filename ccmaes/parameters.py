@@ -434,8 +434,7 @@ class Parameters(AnnotatedStruct):
                 self.budget,
                 self.mu / self.lambda_
         )
-        
-        
+          
     def init_selection_parameters(self) -> None:
         '''Initialization function for parameters that are of influence
         in selection/population control.
@@ -540,9 +539,6 @@ class Parameters(AnnotatedStruct):
         # these weights are taken from pycma
         self.eigeneval_factor = 1 #max(1, np.floor(0.5 * self.d * self.lambda_ * (self.c1_ + self.cmu_)**-1 / self.d**2))
 
-        # breakpoint()
-        
-
 
     def init_dynamic_parameters(self) -> None:
         '''Initialization function of parameters that represent the internal
@@ -561,7 +557,6 @@ class Parameters(AnnotatedStruct):
         self.s = 0
         self.rank_tpa = None
         self.regularization_parameters = RegularizationParameters(self)
-            # self.d, self.mueff, self.tau, self.alpha)
 
     def adapt_sigma(self) -> None:
         '''Method to adapt the step size sigma. There are three variants in 

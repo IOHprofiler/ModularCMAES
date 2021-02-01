@@ -196,5 +196,6 @@ class TestParameters(unittest.TestCase):
         b.adapt(11)
         self.assertEqual(b.lambda_small, 8)
 
+
 if __name__ == "__main__":
     unittest.main()

@@ -7,8 +7,9 @@ from typing import Generator, TypeVar
 
 import numpy as np
 from scipy import linalg
+from inverse_covariance import QuicGraphicalLasso
 
-from .utils import AnnotatedStruct
+from .utils import AnnotatedStruct, perform_eigendecomp
 from .sampling import (
     gaussian_sampling,
     orthogonal_sampling,
@@ -67,6 +68,10 @@ class Parameters(AnnotatedStruct):
     max_resamples: int
         The maximum amount of resamples which can be done when
         'dismiss'-boundary correction is used
+    tau: float = .99
+        Threshold for applying regularization
+    alpha: float = 1 
+        Regularization factor   
     active: bool = False
         Specifying whether to use active update.
             [1] G. Jastrebski, D. V. Arnold, et al. Improving evolution strategies through
@@ -133,6 +138,11 @@ class Parameters(AnnotatedStruct):
             A Median Success Rule for Non-Elitist Evolution Strategies: Study of Feasibility.
             In Blum et al. Christian, editor,Genetic and Evolutionary Computation Conference,
             pages 415–422, Amsterdam, Nether-lands, July 2013. ACM, ACM Press.
+    regularization: bool = False
+        Specifying where regularization should be applied
+            Konstantinos Varelas, Anne Auger, and Nikolaus Hansen,
+                Sparse Inverse Covariance Learning for CMA-ES with Graphical Lasso,
+                PPSN 2020                
     population: TypeVar('Population') = None
         The current population of individuals
     old_population: TypeVar('Population') = None
@@ -279,7 +289,13 @@ class Parameters(AnnotatedStruct):
     condition_cov: float = float(pow(10, 14))
     ps_factor: float = 1.0
     compute_termination_criteria: bool = False
-    sample_sigma: bool = False  # TODO make this a module
+    sample_sigma: bool = False  
+
+    regularization: bool = False
+    tau: float = .99
+    alpha: float = 1.
+    alpha_mu: float = 0.25
+
     __modules__ = (
         "active",
         "elitist",
@@ -297,6 +313,11 @@ class Parameters(AnnotatedStruct):
     def __init__(self, *args, **kwargs) -> None:
         """Intialize parameters. Calls sub constructors for different parameter types."""
         super().__init__(*args, **kwargs)
+        
+        # This is stupid
+        self.c1_init = self.c1
+        self.cmu_init = self.cmu
+
         self.init_selection_parameters()
         self.init_fixed_parameters()
         self.init_adaptation_parameters()
@@ -424,13 +445,19 @@ class Parameters(AnnotatedStruct):
         self.mueff = self.pweights.sum() ** 2 / (self.pweights ** 2).sum()
         mueff_neg = self.nweights.sum() ** 2 / (self.nweights ** 2).sum()
 
-        self.pweights = self.pweights / self.pweights.sum()
-        self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
-        self.cmu = self.cmu or min(1 - self.c1, (2 * (
-            (self.mueff - 2 + (1 / self.mueff))
-            / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
-        )))
+        self.c1 = self.c1_init or 2 / ((self.d + 1.3) ** 2 + self.mueff)
 
+        cmu_term = 2 * ((self.mueff - 2 + (1 / self.mueff)) /
+                ((self.d + 2)**2 + 2 * self.mueff / 2))
+                
+        # this term works better
+        if self.regularization:
+            cmu_term = 2.0 * ((self.alpha_mu + self.mueff + 1 / self.mueff - 2) /
+                            ((self.d + 2) ** 2.0 + 2.0 * self.mueff / 2))
+
+        self.cmu = self.cmu_init or min(1 - self.c1, cmu_term) 
+
+        self.pweights = self.pweights / self.pweights.sum()
         amu_neg = 1 + (self.c1 / self.mu)
         amueff_neg = 1 + ((2 * mueff_neg) / (self.mueff + 2))
         aposdef_neg = (1 - self.c1 - self.cmu) / (self.d * self.cmu)
@@ -456,6 +483,9 @@ class Parameters(AnnotatedStruct):
         self.damps = 1.0 + (
             2.0 * max(0.0, np.sqrt((self.mueff - 1) / (self.d + 1)) - 1) + self.cs
         )
+        
+        #max(1, np.floor(0.5 * self.d * self.lambda_ * (self.c1_ + self.cmu_)**-1 / self.d**2))
+        self.eigeneval_factor = 1 
 
     def init_dynamic_parameters(self) -> None:
         """Initialization function of parameters that represent the dynamic state of the CMA-ES.
@@ -479,7 +509,10 @@ class Parameters(AnnotatedStruct):
         self.s = 0
         self.rank_tpa = None
         self.hs = True
-
+        self.regularization_parameters = RegularizationParameters(self)
+        self.adapt_eigen = self.perform_eigendecomposition \
+            if not self.regularization else self.regularization_parameters.regularize
+         
     def adapt(self) -> None:
         """Method for adapting the internal state parameters.
 
@@ -491,7 +524,10 @@ class Parameters(AnnotatedStruct):
         self.adapt_evolution_paths()
         self.adapt_sigma()
         self.adapt_covariance_matrix()
-        self.perform_eigendecomposition()
+
+        if self.t % self.eigeneval_factor == 0:
+            self.adapt_eigen()
+
         self.record_statistics()
         self.calculate_termination_criteria()
         self.old_population = self.population.copy()
@@ -560,11 +596,14 @@ class Parameters(AnnotatedStruct):
         If the option `active` is specified, active update of the covariance
         matrix is performed, using negative weights.
         """
-        rank_one = self.c1 * self.pc * self.pc.T
+        c1 = self.get_c1()
+        cmu = self.get_cmu()
+        
+        rank_one = c1 * self.pc * self.pc.T
 
         dhs = (1 - self.hs) * self.cc * (2 - self.cc)
         old_C = (
-            1 - (self.c1 * dhs) - self.c1 - (self.cmu * self.pweights.sum())
+            1 - (c1 * dhs) - c1 - (cmu * self.pweights.sum())
         ) * self.C
 
         if self.active:
@@ -577,9 +616,9 @@ class Parameters(AnnotatedStruct):
                     ), 2
                 )
             )
-            rank_mu = self.cmu * (weights * self.population.y @ self.population.y.T)
+            rank_mu = cmu * (weights * self.population.y @ self.population.y.T)
         else:
-            rank_mu = self.cmu * (
+            rank_mu = cmu * (
                 self.pweights
                 * self.population.y[:, : self.mu]
                 @ self.population.y[:, : self.mu].T
@@ -589,26 +628,19 @@ class Parameters(AnnotatedStruct):
     def perform_eigendecomposition(self) -> None:
         """Method to perform eigendecomposition.
 
-        If sigma or the coveriance matrix has degenerated, the dynamic parameters
+        If sigma or the covariance matrix has degenerated, the dynamic parameters
         are reset.
         """
-        if (
-            np.isinf(self.C).any()
-            or np.isnan(self.C).any()
-            or (not 1e-16 < self.sigma < 1e6)
-        ):
-            self.init_dynamic_parameters()
-        else:
-            C = self.C.copy()
-            self.C = np.triu(self.C) + np.triu(self.C, 1).T
-            self.D, self.B = linalg.eigh(self.C)
-            if np.all(self.D > 0):
-                self.D = np.sqrt(self.D.reshape(-1, 1))
-                self.inv_root_C = np.dot(self.B, self.D ** -1 * self.B.T)
-            else:
-                self.init_dynamic_parameters()
+        if (np.isinf(self.C).any()
+                or np.isnan(self.C).any()
+                or (not 1e-16 < self.sigma < 1e6)):
+            self.restart()
 
-        
+        try:
+            self.C, self.D, self.B, self.inv_root_C = perform_eigendecomp(self.C)
+        except linalg.LinAlgError:
+            self.restart()
+                
     def adapt_evolution_paths(self) -> None:
         """Method to adapt the evolution paths ps and pc."""
         self.dm = (self.m - self.m_old) / self.sigma
@@ -638,11 +670,7 @@ class Parameters(AnnotatedStruct):
                 self.lambda_ = self.bipop_parameters.lambda_
                 self.mu = self.bipop_parameters.mu
 
-            self.init_selection_parameters()
-            self.init_adaptation_parameters()
-            self.init_dynamic_parameters()
-            self.init_local_restart_parameters()
-            self.restarts.append(self.t)
+            self.restart()
         else:
             warnings.warn(
                 "Termination criteria met: {}".format(
@@ -654,7 +682,24 @@ class Parameters(AnnotatedStruct):
                 ),
                 RuntimeWarning,
             )
+    
+    def restart(self) -> None:
+        """Restart the parameters object."""
+        self.init_selection_parameters()
+        self.init_adaptation_parameters()
+        self.init_dynamic_parameters()
+        self.init_local_restart_parameters()
 
+    def get_c1(self):
+        if self.regularization: 
+            return self.c1_init or self.regularization_parameters.c1
+        return self.c1
+    
+    def get_cmu(self):
+        if self.regularization:
+            return self.cmu_init or self.regularization_parameters.cmu
+        return self.cmu
+    
     @property
     def threshold(self) -> None:
         """Calculate threshold for mutation, used in threshold convergence."""
@@ -903,3 +948,122 @@ class BIPOPParameters(AnnotatedStruct):
 
         if self.lambda_small % 2 != 0:
             self.lambda_small += 1
+
+
+class RegularizationParameters:
+    '''Holds the parameters for gl-CMA-ES.''' 
+
+    def __init__(self, parameters: Parameters):
+        self.parameters = parameters
+        self.C = np.eye(self.d)
+        self.update_learning_rates(self.d)
+
+    def restart(self):
+        self.parameters.restart() 
+        self.C = np.eye(self.d)
+        self.update_learning_rates(self.d)
+
+    @property
+    def d(self):
+        return self.parameters.d
+
+    @property
+    def tau(self):
+        return self.parameters.tau
+
+    @property
+    def alpha(self):
+        return self.parameters.alpha
+
+    @property
+    def mueff(self):
+        return self.parameters.mueff
+
+    @staticmethod
+    def get_correlation_matrix(covariance: np.ndarray) -> np.ndarray:
+        """Method to calculate a correlation matrix from a covariance matrix."""        
+        v = np.sqrt(np.diag(covariance))
+        correlation = covariance / np.outer(v, v)
+        correlation[covariance == 0] = 0
+        return correlation
+
+    def regularize(self) -> None: 
+        """Method to perform regularization on C, which is a covariance matrix
+        Differences from paper:
+            1. A2, Covariance matrix is correlation matrix
+            2. Custom init method for QuicGraphicalLasso
+            3. P_tilde is also a correlation matrix, not diagP^-1/2 P diagP^-1/2
+            4. W is absolute, and scaled with alpha
+            5. nz is computed differently, also the dimension is added!            
+            6. Weights, c1 and cmu are compute differently, 
+                I implemented the one from the paper, that looked cleaner
+
+        Args:
+            C (np.ndarray): a covariance matrix
+        """        
+        if self.d == 1:
+            return 
+        C = self.parameters.C
+
+        C = np.triu(C) + np.triu(C, 1).T
+
+        
+        C_tilde = self.get_correlation_matrix(C)
+        P = linalg.inv(C_tilde)
+        P_tilde = self.get_correlation_matrix(P)
+
+        try:
+            linalg.cholesky(P)
+        except linalg.LinAlgError:
+            self.restart()
+            self.regularize()
+            return
+
+        W = (np.abs(P_tilde) < self.tau).astype(np.int) * self.alpha
+
+        model = QuicGraphicalLasso(
+                lam = W,
+                Theta0 = P,                 # Initial guess for the inverse covariance matrix. 
+                Sigma0 = C_tilde,           # Initial guess for the covariance matrix.
+                init_method=lambda x: (x.copy(), np.max(np.abs(np.triu(x)))),
+                max_iter=10
+        ).fit(C_tilde)
+
+        diag_root_C = np.diag(np.sqrt(np.diag(C)))
+                
+        self.C = diag_root_C.dot(model.covariance_).dot(diag_root_C.T)
+        
+        try:
+            self.C, self.parameters.D, self.parameters.B, self.parameters.inv_root_C =\
+                perform_eigendecomp(self.C)
+        except linalg.LinAlgError:
+            self.restart()
+
+
+        if self.tau == 0.:
+            # Not really nescessary, just a sanity check
+            # and it is also failing sometime due to float rounding errors
+            if not np.isclose(self.C, C).all():
+                warnings.warn(
+                    "Broken assumption under tau=0; "
+                    "regularized C does not equal C", RuntimeWarning)
+
+        # this is different from the paper
+        nz = (np.abs(np.triu(model.precision_, 1)) > 0).sum() + self.d
+        self.update_learning_rates(nz) 
+        
+
+    def update_learning_rates(self, nz):
+        rank_one = 2. / (
+            2 * (nz / self.d + 0.15) * (self.d + 1.3) + self.mueff
+        ) / self.parameters.c1
+
+        self.c1 = rank_one * (2 / ((self.d + 1.3)**2 + self.mueff))
+
+        t1 = 2. * (self.parameters.alpha_mu + self.mueff + 1. / self.mueff - 2.)
+        t2 = 2. * (nz / self.d + 0.5) * (self.d + 2.) + self.mueff
+
+        rank_mu = t1 / t2 / self.parameters.cmu
+        cmu_term = t1 / ((self.d + 2) ** 2.0 + 2.0 * self.mueff / 2)
+
+        self.cmu = min(1 - self.c1, rank_mu * cmu_term)
