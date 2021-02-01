@@ -1,4 +1,6 @@
+Cython>=0.29.21
 IOHexperimenter>=0.2.8
 numba>=0.52.0
 numpy>=1.18.5
 scipy>=1.4.1
+skggm>=0.2.8
