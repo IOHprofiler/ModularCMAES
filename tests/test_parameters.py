@@ -178,6 +178,7 @@ class TestParameters(unittest.TestCase):
         os.remove(tmpfile)
 
     def test_fix_lambda_even(self):
+        """Test for when lambda is even"""
         self.p.lambda_ = 11
         self.p.mirrored = 'mirrored pairwise'
         self.assertEqual(self.p.lambda_, 11)
@@ -194,6 +195,7 @@ class TestParameters(unittest.TestCase):
         b = BIPOPParameters(7, 20, .5)
         b.adapt(11)
         self.assertEqual(b.lambda_small, 8)
+
 
 if __name__ == "__main__":
     unittest.main()
