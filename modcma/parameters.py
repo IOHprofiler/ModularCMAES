@@ -406,7 +406,7 @@ class Parameters(AnnotatedStruct):
             )
         elif self.weights_option == "1/2^lambda":
             base = np.float64(2)
-            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + (
+            positive = 1 / (base ** np.arange(1, self.mu + 1)) + (
                 (1 / (base ** self.mu)) / self.mu
             )
             n = self.lambda_ - self.mu
