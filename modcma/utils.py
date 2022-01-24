@@ -261,7 +261,8 @@ def ert(evals, budget):
 
 def perform_eigendecomp(X):
     X = np.triu(X) + np.triu(X, 1).T
-    D, B = linalg.eigh(X)
+    # D, B = linalg.eigh(X, np.eye(X.shape[0]), check_finite=False, driver='gvd')
+    D, B = linalg.eigh(X, check_finite=False, overwrite_a=True, overwrite_b=True)
     if not all(D > 0):
         raise linalg.LinAlgError("Matrix is not positive definite")
 

@@ -427,7 +427,7 @@ class Parameters(AnnotatedStruct):
             )
         elif self.weights_option == "1/2^lambda":
             base = np.float64(2)
-            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + (
+            positive = 1 / (base ** np.arange(1, self.mu + 1)) + (
                 (1 / (base ** self.mu)) / self.mu
             )
             n = self.lambda_ - self.mu
@@ -449,7 +449,7 @@ class Parameters(AnnotatedStruct):
 
         cmu_term = 2 * ((self.mueff - 2 + (1 / self.mueff)) /
                 ((self.d + 2)**2 + 2 * self.mueff / 2))
-                
+
         # this term works better
         if self.regularization:
             cmu_term = 2.0 * ((self.alpha_mu + self.mueff + 1 / self.mueff - 2) /
@@ -607,6 +607,9 @@ class Parameters(AnnotatedStruct):
         ) * self.C
 
         if self.active:
+            # TODO: check what happens if you have weights that are base on rank
+            # i.e. what happens when the entire population is good?
+            
             weights = self.weights[::].copy()
             weights = weights[: self.population.y.shape[1]]
             weights[weights < 0] = weights[weights < 0] * (
@@ -1007,7 +1010,6 @@ class RegularizationParameters:
 
         C = np.triu(C) + np.triu(C, 1).T
 
-        
         C_tilde = self.get_correlation_matrix(C)
         P = linalg.inv(C_tilde)
         P_tilde = self.get_correlation_matrix(P)
@@ -1052,7 +1054,6 @@ class RegularizationParameters:
         nz = (np.abs(np.triu(model.precision_, 1)) > 0).sum() + self.d
         self.update_learning_rates(nz) 
         
-
     def update_learning_rates(self, nz):
         rank_one = 2. / (
             2 * (nz / self.d + 0.15) * (self.d + 1.3) + self.mueff
