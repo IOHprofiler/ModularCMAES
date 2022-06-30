@@ -841,6 +841,15 @@ class Parameters(AnnotatedStruct):
         self.init_selection_parameters()
         self.init_adaptation_parameters()
         self.init_local_restart_parameters()
+        
+    def update_popsize(self, lambda_new):
+        """Manually control the population size"""
+        if self.local_restart is not None:
+            warnings.warn("Modification of population size is disabled when local restart startegies are used")
+            return
+        self.lambda_ = lambda_new
+        self.mu = lambda_new//2
+        self.init_adaptation_parameters()
 
 
 class BIPOPParameters(AnnotatedStruct):

@@ -187,6 +187,17 @@ class TestModularCMAESSingle(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             modularcmaes.correct_bounds(x.copy(), ub, lb, "something_undefined")
+            
+    def test_popsize_changes(self):
+        """Test manual changes to population size."""
+        c = modularcmaes.ModularCMAES(sum, 2)
+        c.step()
+        c.parameters.update_popsize(40)
+        c.step()
+        self.assertEqual(c.parameters.population.n, 40)
+        c.parameters.update_popsize(6)
+        c.step()
+        self.assertEqual(c.parameters.population.n, 6)
 
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
     def test_evaluate_bbob(self, mock_std):
