@@ -457,19 +457,19 @@ def evaluate_bbob(
     """
     # This speeds up the import, this import is quite slow, so import it lazy here
     # pylint: disable=import-outside-toplevel
-    from IOHexperimenter import IOH_function, IOH_logger
+    import ioh
 
     evals, fopts = np.array([]), np.array([])
     if seed:
         np.random.seed(seed)
-    fitness_func = IOH_function(
-        fid, dim, instance, target_precision=target_precision, suite="BBOB"
+    fitness_func = ioh.get_problem(
+        fid, dimension=dim, instance=instance, suite="BBOB"
     )
 
     if logging:
         data_location = data_folder if os.path.isdir(data_folder) else os.getcwd()
-        logger = IOH_logger(data_location, f"{label}F{fid}_{dim}D")
-        fitness_func.add_logger(logger)
+        logger = ioh.logger.Analyzer(data_location, f"{label}F{fid}_{dim}D")
+        fitness_func.attach_logger(logger)
 
     print(
         f"Optimizing function {fid} in {dim}D for target "
@@ -479,11 +479,11 @@ def evaluate_bbob(
     for idx in range(iterations):
         if idx > 0:
             fitness_func.reset()
-        target = fitness_func.get_target()
+        target = fitness_func.objective.y + target_precision
 
         optimizer = ModularCMAES(fitness_func, dim, target=target, **kwargs).run()
-        evals = np.append(evals, fitness_func.evaluations)
-        fopts = np.append(fopts, fitness_func.best_so_far_precision)
+        evals = np.append(evals, fitness_func.state.evaluations)
+        fopts = np.append(fopts, fitness_func.state.current_best_internal.y)
 
     result_string = (
         "FCE:\t{:10.8f}\t{:10.4f}\n"
