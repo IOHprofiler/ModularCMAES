@@ -9,7 +9,7 @@ import unittest.mock
 import numpy as np
 
 from modcma import parameters, utils, modularcmaes
-from IOHexperimenter import IOH_function
+import ioh
 
 from .expected import BBOB_2D_PER_MODULE_20_ITER
 
@@ -67,7 +67,7 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
     def run_bbob_function(self, module, value, fid):
         """Expects the output to be consistent with BBOB_2D_PER_MODULE_20_ITER."""
         np.random.seed(42)
-        f = IOH_function(fid, self._dim, 1)
+        f = ioh.get_problem(fid, dimension=self._dim, instance=1)
         self.p = parameters.Parameters(
             self._dim, budget=self._budget, **{module: value}
         )
