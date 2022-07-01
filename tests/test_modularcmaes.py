@@ -213,9 +213,9 @@ class TestModularCMAESSingle(unittest.TestCase):
         if not os.path.isdir(data_folder):
             os.mkdir(data_folder)
         self.assertTrue(os.path.isdir(data_folder))
-        modularcmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
+        modularcmaes.evaluate_bbob(1, 2, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder)
-        modularcmaes.evaluate_bbob(1, 1, 2)
+        modularcmaes.evaluate_bbob(1, 2, 2)
         
 
 
