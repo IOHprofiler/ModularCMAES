@@ -463,7 +463,7 @@ def evaluate_bbob(
     if seed:
         np.random.seed(seed)
     fitness_func = ioh.get_problem(
-        fid, dimension=dim, instance=instance, suite="BBOB"
+        fid, dimension=dim, instance=instance
     )
 
     if logging:

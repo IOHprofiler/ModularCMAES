@@ -17,7 +17,7 @@ def run_bbob_function(module, value, fid):
         )
         ModularCMAES(f, parameters=p).run()
         return f.state.current_best_internal.y
-        
+
 def create_expected_dict():
     """Creates the dictionary containing the expected final function values."""
     BBOB_2D_PER_MODULE_20_ITER = dict()
