@@ -13,7 +13,7 @@ class AskTellCMAESTestCase(unittest.TestCase):
         """Test setup method."""
         self.d = 5
         self.fid = 1
-        self.func = ioh.get_problem(1, dimension=5, instance=1, suite="BBOB")
+        self.func = ioh.get_problem(1, dimension=5, instance=1)
         self.opt = asktellcmaes.AskTellCMAES(self.d, target=79.48)
 
     def test_sequential_selection_disabled(self):

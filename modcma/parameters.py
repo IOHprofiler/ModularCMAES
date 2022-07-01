@@ -843,7 +843,7 @@ class Parameters(AnnotatedStruct):
         self.init_local_restart_parameters()
         
     def update_popsize(self, lambda_new):
-        """Manually control the population size"""
+        """Manually control the population size."""
         if self.local_restart is not None:
             warnings.warn("Modification of population size is disabled when local restart startegies are used")
             return

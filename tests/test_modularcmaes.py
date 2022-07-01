@@ -59,6 +59,7 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
     _budget = int(1e1 * _dim)
     
     def __init__(self, args, **kwargs):
+        """Initializes the expected function value dictionary."""
         with open("tests/expected.json", "r") as f:
             self.BBOB_2D_PER_MODULE_20_ITER = json.load(f)
         super().__init__(args, **kwargs)
