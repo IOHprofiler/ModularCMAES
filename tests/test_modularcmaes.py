@@ -10,8 +10,9 @@ import numpy as np
 
 from modcma import parameters, utils, modularcmaes
 import ioh
+import json
 
-from .expected import BBOB_2D_PER_MODULE_20_ITER
+# from .expected import BBOB_2D_PER_MODULE_20_ITER
 
 
 class TestModularCMAESMeta(type):
@@ -56,6 +57,11 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
 
     _dim = 2
     _budget = int(1e1 * _dim)
+    
+    def __init__(self, args, **kwargs):
+        with open("tests/expected.json", "r") as f:
+            self.BBOB_2D_PER_MODULE_20_ITER = json.load(f)
+        super().__init__(args, **kwargs)
 
     def run_module(self, module, value):
         """Test a single run of the mechanism with a given module active."""
@@ -73,8 +79,8 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
         )
         self.c = modularcmaes.ModularCMAES(f, parameters=self.p).run()
         self.assertAlmostEqual(
-            self.c.parameters.fopt,
-            BBOB_2D_PER_MODULE_20_ITER[f"{module}_{value}"][fid - 1],
+            f.state.current_best_internal.y,
+            self.BBOB_2D_PER_MODULE_20_ITER[f"{module}_{value}"][fid - 1],
         )
 
     def test_select_raises(self):
