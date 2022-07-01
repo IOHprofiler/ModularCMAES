@@ -4,8 +4,7 @@ import unittest
 
 import numpy as np
 from modcma import asktellcmaes
-from IOHexperimenter import IOH_function
-
+import ioh
 
 class AskTellCMAESTestCase(unittest.TestCase):
     """Test case for ask-tell interface of Modular CMA-ES."""
@@ -14,7 +13,7 @@ class AskTellCMAESTestCase(unittest.TestCase):
         """Test setup method."""
         self.d = 5
         self.fid = 1
-        self.func = IOH_function(1, 5, 1, suite="BBOB")
+        self.func = ioh.get_problem(1, dimension=5, instance=1, suite="BBOB")
         self.opt = asktellcmaes.AskTellCMAES(self.d, target=79.48)
 
     def test_sequential_selection_disabled(self):
