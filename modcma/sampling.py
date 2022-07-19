@@ -109,7 +109,7 @@ def orthogonal_sampling(
             samples = np.hstack(samples)
             L = np.linalg.norm(samples, axis=0)
             Q, *_ = np.linalg.qr(samples.T)
-            samples = [s.reshape(-1, 1) for s in (Q.T * L).T]
+            samples = [s.reshape(-1, 1) for s in (Q.T * L).T][::-1]
             for _ in range(n_samples):
                 yield samples.pop()
 

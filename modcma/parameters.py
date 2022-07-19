@@ -577,6 +577,7 @@ class Parameters(AnnotatedStruct):
                     ), 2
                 )
             )
+
             rank_mu = self.cmu * (weights * self.population.y @ self.population.y.T)
         else:
             rank_mu = self.cmu * (
@@ -599,8 +600,8 @@ class Parameters(AnnotatedStruct):
         ):
             self.init_dynamic_parameters()
         else:
-            C = self.C.copy()
             self.C = np.triu(self.C) + np.triu(self.C, 1).T
+
             self.D, self.B = linalg.eigh(self.C)
             if np.all(self.D > 0):
                 self.D = np.sqrt(self.D.reshape(-1, 1))
@@ -608,7 +609,6 @@ class Parameters(AnnotatedStruct):
             else:
                 self.init_dynamic_parameters()
 
-        
     def adapt_evolution_paths(self) -> None:
         """Method to adapt the evolution paths ps and pc."""
         self.dm = (self.m - self.m_old) / self.sigma
