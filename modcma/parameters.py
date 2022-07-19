@@ -406,7 +406,7 @@ class Parameters(AnnotatedStruct):
             )
         elif self.weights_option == "1/2^lambda":
             base = np.float64(2)
-            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + (
+            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + ( # "self.mu /" should be "1 /"
                 (1 / (base ** self.mu)) / self.mu
             )
             n = self.lambda_ - self.mu
@@ -465,7 +465,7 @@ class Parameters(AnnotatedStruct):
         """
         self.sigma = np.float64(self.sigma0)
         if hasattr(self, "m") or self.x0 is None: 
-            self.m = np.float64(np.random.rand(self.d, 1))
+            self.m = np.float64(np.random.uniform(self.lb, self.ub, (self.d, 1))
         else:
             self.m = np.float64(self.x0.copy())
         self.m_old = np.empty((self.d, 1), dtype=np.float64)
@@ -764,18 +764,18 @@ class Parameters(AnnotatedStruct):
             d_sigma = self.sigma / self.sigma0
             best_fopts = self.best_fitnesses[self.last_restart:]
             median_fitnesses = self.median_fitnesses[self.last_restart:]
-
+            time_since_restart = self.t - self.last_restart
             self.termination_criteria = (
                 dict()
                 if self.lambda_ > self.max_lambda_
                 else {
-                    "max_iter": (self.t - self.last_restart > self.max_iter),
+                    "max_iter": (time_since_restart > self.max_iter),
                     "equalfunvalues": (
                         len(best_fopts) > self.nbin
                         and np.ptp(best_fopts[-self.nbin:]) == 0
                     ),
                     "flat_fitness": (
-                        self.t - self.last_restart > self.flat_fitnesses.maxlen
+                        time_since_restart > self.flat_fitnesses.maxlen
                         and len(self.flat_fitnesses) == self.flat_fitnesses.maxlen
                         and np.sum(self.flat_fitnesses) > (self.d / 3)
                     ),
@@ -796,12 +796,12 @@ class Parameters(AnnotatedStruct):
                         (0.2 * self.sigma * np.sqrt(diag_C) + self.m) == self.m
                     ),
                     "stagnation": (
-                        self.t - self.last_restart > self.n_stagnation
+                        time_since_restart > self.n_stagnation
                         and (
-                            np.median(best_fopts[-int(0.3 * self.t):])
-                            >= np.median(best_fopts[: int(0.3 * self.t)])
-                            and np.median(median_fitnesses[-int(0.3 * self.t):])
-                            >= np.median(median_fitnesses[: int(0.3 * self.t)])
+                            np.median(best_fopts[-int(0.3 * time_since_restart):])
+                            >= np.median(best_fopts[: int(0.3 * time_since_restart)])
+                            and np.median(median_fitnesses[-int(0.3 * time_since_restart):])
+                            >= np.median(median_fitnesses[: int(0.3 * time_since_restart)])
                         )
                     ),
                 }
