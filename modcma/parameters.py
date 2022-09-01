@@ -631,7 +631,7 @@ class Parameters(AnnotatedStruct):
             if len(self.restarts) == 0:
                 self.restarts.append(self.t)
 
-            if self.local_restart == "IPOP" and self.mu > 512: 
+            if self.local_restart == "IPOP" and self.mu < 512: 
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
 
