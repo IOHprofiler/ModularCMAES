@@ -345,7 +345,7 @@ class Parameters(AnnotatedStruct):
         self.median_fitnesses = []
         self.best_fitnesses = []
         self.flat_fitnesses = deque(maxlen=self.d)
-        self.restarts = []
+        self.restarts = [0]
         self.bipop_parameters = BIPOPParameters(
             self.lambda_, self.budget, self.mu / self.lambda_
         )
