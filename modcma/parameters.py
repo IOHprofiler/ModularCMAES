@@ -244,7 +244,7 @@ class Parameters(AnnotatedStruct):
     n_generations: int = None
     lambda_: int = None
     mu: int = None
-    sigma0: float = 0.5
+    sigma0: float = 0.2
     a_tpa: float = 0.5
     b_tpa: float = 0.0
     cs: float = None
@@ -463,7 +463,7 @@ class Parameters(AnnotatedStruct):
         Examples of such parameters are the Covariance matrix C and its 
         eigenvectors and the learning rate sigma.
         """
-        self.sigma = np.float64(self.sigma0)
+        self.sigma = np.float64(self.sigma0) * (self.ub[0,0] - self.lb[0,0])
         if hasattr(self, "m") or self.x0 is None: 
             self.m = np.float64(np.random.uniform(self.lb, self.ub, (self.d, 1)))
         else:
