@@ -3,16 +3,14 @@
 import os
 import shutil
 import io
+import json
 import unittest
 import unittest.mock
 
 import numpy as np
+import ioh
 
 from modcma import parameters, utils, modularcmaes
-import ioh
-import json
-
-# from .expected import BBOB_2D_PER_MODULE_20_ITER
 
 
 class TestModularCMAESMeta(type):
@@ -23,17 +21,17 @@ class TestModularCMAESMeta(type):
 
         def make_test_fid(module, value, fid):
             return {
-                f"test_{module}_{value}_f{fid}":  lambda self: self.run_bbob_function(
+                f"test_{module}_{value}_f{fid}": lambda self: self.run_bbob_function(
                     module, value, fid
                 )
             }
-        
+            
         def make_test_option(module, value):
             return {
-                    f"test_{module}_{value}": lambda self: self.run_module(
-                        module, value
-                    )
-                }
+                f"test_{module}_{value}": lambda self: self.run_module(
+                    module, value
+                )
+            }
 
         for module in parameters.Parameters.__modules__:
             m = getattr(parameters.Parameters, module)
@@ -61,7 +59,7 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
     def __init__(self, args, **kwargs):
         """Initializes the expected function value dictionary."""
         with open("tests/expected.json", "r") as f:
-            self.BBOB_2D_PER_MODULE_20_ITER = json.load(f)
+            self.bbob2d_per_module = json.load(f)
         super().__init__(args, **kwargs)
 
     def run_module(self, module, value):
@@ -81,7 +79,7 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
         self.c = modularcmaes.ModularCMAES(f, parameters=self.p).run()
         self.assertAlmostEqual(
             f.state.current_best_internal.y,
-            self.BBOB_2D_PER_MODULE_20_ITER[f"{module}_{value}"][fid - 1],
+            self.bbob2d_per_module[f"{module}_{value}"][fid - 1],
         )
 
     def test_select_raises(self):
@@ -221,4 +219,3 @@ class TestModularCMAESSingle(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-    breakpoint()

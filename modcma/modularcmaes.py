@@ -1,4 +1,5 @@
 """Main implementation of Modular CMA-ES."""
+from inspect import Parameter
 import os
 from itertools import islice
 from typing import List, Callable
@@ -89,16 +90,20 @@ class ModularCMAES:
             self.parameters.bound_correction
         )
         self.parameters.n_out_of_bounds += n_out_of_bounds
-
-        f = np.empty(n_offspring, object)
-        for i in range(n_offspring):
-            f[i] = self.fitness_func(x[:, i])
-            if self.sequential_break_conditions(i, f[i]):
-                f = f[:i]
-                s = s[:i]
-                x = x[:, :i]
-                y = y[:, :i]
-                break
+        
+        if not self.parameters.sequential and self.parameters.vectorized_fitness:
+            f = self._fitness_func(x.T)
+            self.parameters.used_budget += len(x.T)       
+        else:
+            f = np.empty(n_offspring, object)
+            for i in range(n_offspring):
+                f[i] = self.fitness_func(x[:, i])
+                if self.sequential_break_conditions(i, f[i]):
+                    f = f[:i]
+                    s = s[:i]
+                    x = x[:, :i]
+                    y = y[:, :i]
+                    break
 
         if perform_tpa:
             yt, xt, ft = tpa_mutation(self.fitness_func, self.parameters)
