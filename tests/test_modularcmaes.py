@@ -9,9 +9,10 @@ import unittest.mock
 import numpy as np
 
 from modcma import parameters, utils, modularcmaes
-from IOHexperimenter import IOH_function
+import ioh
+import json
 
-from .expected import BBOB_2D_PER_MODULE_20_ITER
+# from .expected import BBOB_2D_PER_MODULE_20_ITER
 
 
 class TestModularCMAESMeta(type):
@@ -56,6 +57,12 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
 
     _dim = 2
     _budget = int(1e1 * _dim)
+    
+    def __init__(self, args, **kwargs):
+        """Initializes the expected function value dictionary."""
+        with open("tests/expected.json", "r") as f:
+            self.BBOB_2D_PER_MODULE_20_ITER = json.load(f)
+        super().__init__(args, **kwargs)
 
     def run_module(self, module, value):
         """Test a single run of the mechanism with a given module active."""
@@ -67,14 +74,14 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
     def run_bbob_function(self, module, value, fid):
         """Expects the output to be consistent with BBOB_2D_PER_MODULE_20_ITER."""
         np.random.seed(42)
-        f = IOH_function(fid, self._dim, 1)
+        f = ioh.get_problem(fid, dimension=self._dim, instance=1)
         self.p = parameters.Parameters(
             self._dim, budget=self._budget, **{module: value}
         )
         self.c = modularcmaes.ModularCMAES(f, parameters=self.p).run()
         self.assertAlmostEqual(
-            self.c.parameters.fopt,
-            BBOB_2D_PER_MODULE_20_ITER[f"{module}_{value}"][fid - 1],
+            f.state.current_best_internal.y,
+            self.BBOB_2D_PER_MODULE_20_ITER[f"{module}_{value}"][fid - 1],
         )
 
     def test_select_raises(self):
@@ -187,6 +194,17 @@ class TestModularCMAESSingle(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             modularcmaes.correct_bounds(x.copy(), ub, lb, "something_undefined")
+            
+    def test_popsize_changes(self):
+        """Test manual changes to population size."""
+        c = modularcmaes.ModularCMAES(sum, 2)
+        c.step()
+        c.parameters.update_popsize(40)
+        c.step()
+        self.assertEqual(c.parameters.population.n, 40)
+        c.parameters.update_popsize(6)
+        c.step()
+        self.assertEqual(c.parameters.population.n, 6)
 
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
     def test_evaluate_bbob(self, mock_std):
@@ -195,9 +213,9 @@ class TestModularCMAESSingle(unittest.TestCase):
         if not os.path.isdir(data_folder):
             os.mkdir(data_folder)
         self.assertTrue(os.path.isdir(data_folder))
-        modularcmaes.evaluate_bbob(1, 1, 1, logging=True, data_folder=data_folder)
+        modularcmaes.evaluate_bbob(1, 2, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder)
-        modularcmaes.evaluate_bbob(1, 1, 2)
+        modularcmaes.evaluate_bbob(1, 2, 2)
         
 
 

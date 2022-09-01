@@ -1,4 +1,4 @@
-IOHexperimenter>=0.2.8
+ioh>=0.3.2.8.3
 numba>=0.52.0
 numpy>=1.18.5
 scipy>=1.4.1

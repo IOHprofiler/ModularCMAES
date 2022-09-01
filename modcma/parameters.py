@@ -384,8 +384,7 @@ class Parameters(AnnotatedStruct):
 
         TODO: check if we can move this to separate object.
         """
-        if len(self.restarts) == 0:
-            self.restarts.append(self.t)
+       
         self.max_iter = 100 + 50 * (self.d + 3) ** 2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
@@ -628,6 +627,10 @@ class Parameters(AnnotatedStruct):
     def perform_local_restart(self) -> None:
         """Method performing local restart, if a restart strategy is specified."""
         if self.local_restart:
+
+            if len(self.restarts) == 0:
+                self.restarts.append(self.t)
+
             if self.local_restart == "IPOP" and self.mu > 512: 
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
@@ -743,6 +746,7 @@ class Parameters(AnnotatedStruct):
 
     def record_statistics(self) -> None:
         """Method for recording metadata."""
+        # if self.local_restart or self.compute_termination_criteria:
         self.flat_fitnesses.append(
             self.population.f[0] == self.population.f[self.flat_fitness_index]
         )
@@ -838,6 +842,17 @@ class Parameters(AnnotatedStruct):
                 raise ValueError(f"The parameter {name} doesn't exist")
             setattr(self, name, value)
 
+        self.init_selection_parameters()
+        self.init_adaptation_parameters()
+        self.init_local_restart_parameters()
+        
+    def update_popsize(self, lambda_new):
+        """Manually control the population size."""
+        if self.local_restart is not None:
+            warnings.warn("Modification of population size is disabled when local restart startegies are used")
+            return
+        self.lambda_ = lambda_new
+        self.mu = lambda_new//2
         self.init_selection_parameters()
         self.init_adaptation_parameters()
         self.init_local_restart_parameters()
