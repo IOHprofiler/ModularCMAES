@@ -1,5 +1,6 @@
 """Module containing tests for ModularCMA-ES Parameters."""
 
+from email.mime import base
 import os
 import unittest
 import warnings
@@ -175,6 +176,17 @@ class TestParameters(unittest.TestCase):
             pickle.dump({}, f)
         with self.assertRaises(AttributeError):
             self.p.load(tmpfile)
+        os.remove(tmpfile)
+
+    def test_save_load_samplers(self):
+        tmpfile = os.path.join(os.path.dirname(__file__), "tmp.pkl")
+        for base_sampler in getattr(Parameters, "base_sampler").options:
+            p = Parameters(2, base_sampler=base_sampler)
+            p.save(tmpfile)
+            sample = next(p.sampler)
+            p2 = Parameters.load(tmpfile)
+            sample2 = next(p2.sampler)
+            self.assertTrue(np.all(sample == sample2))
         os.remove(tmpfile)
 
     def test_fix_lambda_even(self):

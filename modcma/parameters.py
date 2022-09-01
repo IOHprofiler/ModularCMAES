@@ -15,6 +15,8 @@ from .sampling import (
     mirrored_sampling,
     sobol_sampling,
     halton_sampling,
+    Sobol, 
+    Halton
 )
 
 
@@ -116,7 +118,7 @@ class Parameters(AnnotatedStruct):
             Kraków, Poland, September 11-15, 2010, PrCMAESart I, pages
             11–21, Berlin, Heidelberg, 2010. SpringerCMAESelberg.
             ACM, 2014.
-    weights_option: str = ('default', '1/mu', '1/2^mu', )
+    weights_option: str = ("default", "equal", "1/2^lambda", )
         Denoting the recombination weigths to be used.
             [7] Sander van Rijn, Hao Wang, Matthijs van Leeuwen, and Thomas Bäck. 2016.
             Evolving the Structure of Evolution Strategies. Computer 49, 5 (May 2016), 54–63.
@@ -280,6 +282,10 @@ class Parameters(AnnotatedStruct):
     ps_factor: float = 1.0
     compute_termination_criteria: bool = False
     sample_sigma: bool = False  # TODO make this a module
+    vectorized_fitness: bool = False
+    sobol: TypeVar("Sobol") = None
+    halton: TypeVar("Halton") = None
+
     __modules__ = (
         "active",
         "elitist",
@@ -312,11 +318,14 @@ class Parameters(AnnotatedStruct):
             a sampler
 
         """
-        sampler = {
-            "gaussian": gaussian_sampling,
-            "sobol": sobol_sampling,
-            "halton": halton_sampling,
-        }.get(self.base_sampler, gaussian_sampling)(self.d)
+        if self.base_sampler == 'gaussian':
+            sampler = gaussian_sampling(self.d)
+        elif self.base_sampler == 'sobol':
+            self.sobol = self.sobol or Sobol(self.d)
+            sampler = sobol_sampling(self.sobol)      
+        elif self.base_sampler == 'halton':
+            self.halton = self.halton or Halton(self.d)
+            sampler = halton_sampling(self.halton)
 
         if self.orthogonal:
             n_samples = max(
@@ -631,7 +640,7 @@ class Parameters(AnnotatedStruct):
             if len(self.restarts) == 0:
                 self.restarts.append(self.t)
 
-            if self.local_restart == "IPOP" and self.mu > 512: 
+            if self.local_restart == "IPOP" and self.mu < 512: 
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
 
@@ -728,6 +737,7 @@ class Parameters(AnnotatedStruct):
                 raise AttributeError(
                     f"{filename} does not contain " "a Parameters object"
                 )
+        np.random.set_state(parameters.random_state)
         parameters.sampler = parameters.get_sampler()
         return parameters
 
@@ -740,9 +750,13 @@ class Parameters(AnnotatedStruct):
             The name of the file to save to.
 
         """
+        sampler = self.sampler 
         with open(filename, "wb") as f:
             self.sampler = None
+            self.random_state = np.random.get_state()
             pickle.dump(self, f)
+        self.sampler = sampler
+
 
     def record_statistics(self) -> None:
         """Method for recording metadata."""

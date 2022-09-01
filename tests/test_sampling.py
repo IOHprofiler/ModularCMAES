@@ -36,21 +36,20 @@ class TestSampling(unittest.TestCase):
 
     def test_sobol(self):
         """Test sobol sampling."""
-        sampler = sampling.sobol_sampling(self._dim)
+        sampler = sampling.sobol_sampling(sampling.Sobol(self._dim))
         self.is_sampler(sampler)
 
     def test_halton(self):
         """Test halton sampling."""
-        sampler = sampling.halton_sampling(self._dim)
+        sampler = sampling.halton_sampling(sampling.Halton(self._dim))
         self.is_sampler(sampler)
-        self.assertEqual(sampling.Halton.vectorized_next(10, 2), .3125)
 
     def test_orthogonal(self):
         """Test orthogonal sampling."""
         for base_sampler in (
             sampling.gaussian_sampling(self._dim),
-            sampling.sobol_sampling(self._dim),
-            sampling.halton_sampling(self._dim),
+            sampling.sobol_sampling(sampling.Sobol(self._dim)),  
+            sampling.halton_sampling(sampling.Halton(self._dim)),
         ):
             for n_samples in (3, 6):
                 sampler = sampling.orthogonal_sampling(base_sampler, n_samples)
@@ -60,8 +59,8 @@ class TestSampling(unittest.TestCase):
         """Test mirrored sampling."""
         for base_sampler in (
             sampling.gaussian_sampling(self._dim),
-            sampling.sobol_sampling(self._dim),
-            sampling.halton_sampling(self._dim),
+            sampling.sobol_sampling(sampling.Sobol(self._dim)),  
+            sampling.halton_sampling(sampling.Halton(self._dim)),
         ):
             sampler = sampling.mirrored_sampling(base_sampler)
             self.is_sampler(sampler)
