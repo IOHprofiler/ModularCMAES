@@ -118,7 +118,7 @@ class Parameters(AnnotatedStruct):
             Kraków, Poland, September 11-15, 2010, PrCMAESart I, pages
             11–21, Berlin, Heidelberg, 2010. SpringerCMAESelberg.
             ACM, 2014.
-    weights_option: str = ('default', '1/mu', '1/2^mu', )
+    weights_option: str = ("default", "equal", "1/2^lambda", )
         Denoting the recombination weigths to be used.
             [7] Sander van Rijn, Hao Wang, Matthijs van Leeuwen, and Thomas Bäck. 2016.
             Evolving the Structure of Evolution Strategies. Computer 49, 5 (May 2016), 54–63.

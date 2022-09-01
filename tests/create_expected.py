@@ -10,7 +10,7 @@ from modcma import ModularCMAES, parameters, utils
 
 
 def run_bbob_function(module, value, fid):
-    """Runs the specified version of ModularCMAES on the bbob-function"""
+    """Runs the specified version of ModularCMAES on the bbob-function."""
     np.random.seed(42)
     function = ioh.get_problem(fid, dimension=2, instance=1)
     p = parameters.Parameters(2, budget=20, **{module: value})
