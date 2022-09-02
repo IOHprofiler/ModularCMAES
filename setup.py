@@ -5,7 +5,7 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-__version__ = "0.0.2.8.3"
+__version__ = "0.0.2.8.4"
 
 setuptools.setup(
     name='modcma',
