@@ -45,7 +45,7 @@ class Sobol(QmcSampler):
             dimensionality of the generated samples
 
         """
-        super().__init__(stats.qmc.Sobol(d, seed=np.random.randint(1e16)))
+        super().__init__(stats.qmc.Sobol(d, seed=np.random.randint(1e9)))
 
 
 class Halton(QmcSampler):
@@ -60,7 +60,7 @@ class Halton(QmcSampler):
             dimensionality of the generated samples
 
         """
-        super().__init__(stats.qmc.Halton(d, seed=np.random.randint(1e16)))
+        super().__init__(stats.qmc.Halton(d, seed=np.random.randint(1e9)))
 
 
 def gaussian_sampling(d: int) -> Generator[np.ndarray, None, None]:
