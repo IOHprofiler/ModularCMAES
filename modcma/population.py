@@ -8,9 +8,9 @@ class Population:
 
     def __init__(self, x, y, f, s=None):
         """Reshape x and y."""
-        self.x = x
+        self.x = x # 
         self.y = y
-        self.f = f
+        self.f = f # function values
         self.s = np.empty(self.f.shape) if s is None else s
         if len(self.x.shape) == 1:
             self.x = self.x.reshape(-1, 1)
