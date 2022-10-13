@@ -1,6 +1,6 @@
 # ModularCMAES ![Unittest](https://github.com/IOHprofiler/ModularCMAES/workflows/Unittest/badge.svg) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/e25b2d338c194d67954fc9e138ca69cc)](https://app.codacy.com/gh/IOHprofiler/ModularCMAES?utm_source=github.com&utm_medium=referral&utm_content=IOHprofiler/ModularCMAES&utm_campaign=Badge_Grade) [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/73720e228a89480585bdde05d3806661)](https://www.codacy.com/gh/IOHprofiler/ModularCMAES/dashboard?utm_source=github.com&utm_medium=referral&utm_content=IOHprofiler/ModularCMAES&utm_campaign=Badge_Coverage)
 
-This is a restructured version of the Modular CMA-ES framework, first introduced in ...
+This is a fork of a restructured version of the Modular CMA-ES framework, first introduced in ...
 Its modular design allows for the creation of thousands of variants of the CMA-ES algorithm.
 
 ## Installation
