@@ -84,16 +84,16 @@ class ModularCMAES:
         y = np.dot(self.parameters.B, self.parameters.D * z)
         x = self.parameters.m + (s * y)
         x, n_out_of_bounds = correct_bounds(
-            x, 
+            x,
             self.parameters.ub,
             self.parameters.lb,
             self.parameters.bound_correction
         )
         self.parameters.n_out_of_bounds += n_out_of_bounds
-        
+
         if not self.parameters.sequential and self.parameters.vectorized_fitness:
             f = self._fitness_func(x.T)
-            self.parameters.used_budget += len(x.T)       
+            self.parameters.used_budget += len(x.T)
         else:
             f = np.empty(n_offspring, object)
             for i in range(n_offspring):

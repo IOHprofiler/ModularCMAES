@@ -128,7 +128,7 @@ class Parameters(AnnotatedStruct):
             [8] Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR,
             abs/1604.00772, 2016
         tpa:
-            [9] Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, 
+            [9] Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR,
             abs/0805.0231,2008.
         msr:
             [10] Ouassim Ait Elhara, Anne Auger, and Nikolaus Hansen.
@@ -322,7 +322,7 @@ class Parameters(AnnotatedStruct):
             sampler = gaussian_sampling(self.d)
         elif self.base_sampler == 'sobol':
             self.sobol = self.sobol or Sobol(self.d)
-            sampler = sobol_sampling(self.sobol)      
+            sampler = sobol_sampling(self.sobol)
         elif self.base_sampler == 'halton':
             self.halton = self.halton or Halton(self.d)
             sampler = halton_sampling(self.halton)
@@ -393,7 +393,7 @@ class Parameters(AnnotatedStruct):
 
         TODO: check if we can move this to separate object.
         """
-       
+
         self.max_iter = 100 + 50 * (self.d + 3) ** 2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
@@ -468,11 +468,11 @@ class Parameters(AnnotatedStruct):
     def init_dynamic_parameters(self) -> None:
         """Initialization function of parameters that represent the dynamic state of the CMA-ES.
 
-        Examples of such parameters are the Covariance matrix C and its 
+        Examples of such parameters are the Covariance matrix C and its
         eigenvectors and the learning rate sigma.
         """
         self.sigma = np.float64(self.sigma0) * (self.ub[0,0] - self.lb[0,0])
-        if hasattr(self, "m") or self.x0 is None: 
+        if hasattr(self, "m") or self.x0 is None:
             self.m = np.float64(np.random.uniform(self.lb, self.ub, (self.d, 1)))
         else:
             self.m = np.float64(self.x0.copy())
@@ -640,7 +640,7 @@ class Parameters(AnnotatedStruct):
             if len(self.restarts) == 0:
                 self.restarts.append(self.t)
 
-            if self.local_restart == "IPOP" and self.mu < 512: 
+            if self.local_restart == "IPOP" and self.mu < 512:
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
 
@@ -859,7 +859,7 @@ class Parameters(AnnotatedStruct):
         self.init_selection_parameters()
         self.init_adaptation_parameters()
         self.init_local_restart_parameters()
-        
+
     def update_popsize(self, lambda_new):
         """Manually control the population size."""
         if self.local_restart is not None:
