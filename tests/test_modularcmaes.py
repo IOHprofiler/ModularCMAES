@@ -204,7 +204,7 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertEqual(c.parameters.population.n, 6)
 
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
-    def test_evaluate_bbob(self, mock_std):
+    def test_evaluate_bbob(self, _):
         """Test the mechanism of evaluate_bbob."""
         data_folder = os.path.join(os.path.dirname(__file__), "tmp")
         if not os.path.isdir(data_folder):
