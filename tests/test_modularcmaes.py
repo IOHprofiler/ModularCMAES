@@ -77,10 +77,9 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
             self._dim, budget=self._budget, **{module: value}
         )
         self.c = modularcmaes.ModularCMAES(f, parameters=self.p).run()
-        self.assertAlmostEqual(
-            f.state.current_best_internal.y,
-            self.bbob2d_per_module[f"{module}_{value}"][fid - 1],
-        )
+        expected = self.bbob2d_per_module[f"{module}_{value}"][fid - 1]
+
+        self.assertAlmostEqual(f.state.current_best_internal.y, expected)
 
     def test_select_raises(self):
         """Test whether errors are produced correctly."""
