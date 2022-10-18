@@ -401,7 +401,7 @@ class Parameters(AnnotatedStruct):
             np.round(0.1 + self.lambda_ / 4)
         )
 
-    def init_adaptation_parameters(self) -> None:
+    def init_adaptation_parameters(self, force_overwrite = False) -> None:
         """Initialization function for parameters for self-adaptive processes.
 
         Examples are recombination weights and learning rates for the covariance
@@ -433,11 +433,14 @@ class Parameters(AnnotatedStruct):
         mueff_neg = self.nweights.sum() ** 2 / (self.nweights ** 2).sum()
 
         self.pweights = self.pweights / self.pweights.sum()
-        self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
-        self.cmu = self.cmu or min(1 - self.c1, (2 * (
-            (self.mueff - 2 + (1 / self.mueff))
-            / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
-        )))
+        if force_overwrite or not self.c1:
+            self.c1 = 2 / ((self.d + 1.3) ** 2 + self.mueff)
+        # self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
+        if force_overwrite or not self.cmu:
+            self.cmu = min(1 - self.c1, (2 * (
+                (self.mueff - 2 + (1 / self.mueff))
+                / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
+            )))
 
         amu_neg = 1 + (self.c1 / self.mu)
         amueff_neg = 1 + ((2 * mueff_neg) / (self.mueff + 2))
@@ -446,20 +449,22 @@ class Parameters(AnnotatedStruct):
             min(amu_neg, amueff_neg, aposdef_neg) / np.abs(self.nweights).sum()
         ) * self.nweights
         self.weights = np.append(self.pweights, self.nweights)
+        
+        if force_overwrite or not self.cc:
+            self.cc = (
+                (4 + (self.mueff / self.d)) / (self.d + 4 + (2 * self.mueff / self.d))
+            )
 
-        self.cc = self.cc or (
-            (4 + (self.mueff / self.d)) / (self.d + 4 + (2 * self.mueff / self.d))
-        )
-
-        self.cs = self.cs or {
-            "csa": (self.mueff + 2) / (self.d + self.mueff + 5),
-            "msr": .3,
-            "tpa": .3,
-            "xnes": self.mueff / (2 * np.log(max(2, self.d)) * np.sqrt(self.d)),
-            "m-xnes": 1.,
-            "lp-xnes": 9 * self.mueff / (10 * np.sqrt(self.d)),
-            "psr": .4
-        }[self.step_size_adaptation]
+        if force_overwrite or not self.cs:
+            self.cs = {
+                "csa": (self.mueff + 2) / (self.d + self.mueff + 5),
+                "msr": .3,
+                "tpa": .3,
+                "xnes": self.mueff / (2 * np.log(max(2, self.d)) * np.sqrt(self.d)),
+                "m-xnes": 1.,
+                "lp-xnes": 9 * self.mueff / (10 * np.sqrt(self.d)),
+                "psr": .4
+            }[self.step_size_adaptation]
 
         self.damps = 1.0 + (
             2.0 * max(0.0, np.sqrt((self.mueff - 1) / (self.d + 1)) - 1) + self.cs
@@ -860,7 +865,7 @@ class Parameters(AnnotatedStruct):
         self.init_adaptation_parameters()
         self.init_local_restart_parameters()
         
-    def update_popsize(self, lambda_new):
+    def update_popsize(self, lambda_new, force_overwrite = True):
         """Manually control the population size."""
         if self.local_restart is not None:
             warnings.warn("Modification of population size is disabled when local restart startegies are used")
@@ -868,7 +873,7 @@ class Parameters(AnnotatedStruct):
         self.lambda_ = lambda_new
         self.mu = lambda_new//2
         self.init_selection_parameters()
-        self.init_adaptation_parameters()
+        self.init_adaptation_parameters(force_overwrite)
         self.init_local_restart_parameters()
 
 
