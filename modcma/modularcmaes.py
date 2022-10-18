@@ -1,5 +1,4 @@
 """Main implementation of Modular CMA-ES."""
-from inspect import Parameter
 import os
 from itertools import islice
 from typing import List, Callable
@@ -283,7 +282,7 @@ class ModularCMAES:
         return repr(self)
 
 
-def tpa_mutation(fitness_func: Callable, parameters: "Parameters") -> None:
+def tpa_mutation(fitness_func: Callable, parameters: "Parameters"):
     """Helper function for applying the tpa mutation step.
 
     The code was mostly taken from the ModEA framework,
@@ -342,7 +341,7 @@ def scale_with_threshold(z: np.ndarray, threshold: float) -> np.ndarray:
 
 def correct_bounds(
     x: np.ndarray, ub: np.ndarray, lb: np.ndarray, correction_method: str
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray]:
     """Bound correction function.
 
     Rescales x to fall within the lower lb and upper
