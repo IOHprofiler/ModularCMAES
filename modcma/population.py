@@ -1,12 +1,17 @@
 """TImplemention for the Population object used in the ModularCMA-ES."""
-from typing import Any
+from typing import Any, Optional
 import numpy as np
 
 
 class Population:
     """Object for holding a Population of individuals."""
 
-    def __init__(self, x, y, f, f_true=None, s=None):
+    def __init__(self,
+                 x: np.ndarray,
+                 y: np.ndarray,
+                 f: np.ndarray,
+                 f_true: Optional[np.ndarray] = None,
+                 s: Optional[np.ndarray] = None):
         """Reshape x and y."""
         self.x = x  # mu + sigma * y
         self.y = y  # B*D*Normal(0,1)
