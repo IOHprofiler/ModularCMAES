@@ -64,6 +64,19 @@ class Population:
             np.append(self.s, other.s),
         )
 
+    def __iadd__(self, other: "Population") -> "Population":
+        if not isinstance(other, self.__class__):
+            raise TypeError(
+                f"Other should be {self.__class__}" f"got {other.__class__}"
+            )
+
+        self.x = np.hstack([self.x, other.x]),
+        self.y = np.hstack([self.y, other.y]),
+        self.f = np.append(self.f, other.f),
+        self.f_true = np.append(self.f_true, other.f_true),
+        self.s = np.append(self.s, other.s),
+        return self
+
     def __getitem__(self, key: Any) -> "Population":
         """Method allowing for indexing the population object
         as if it were an np.ndarray.
