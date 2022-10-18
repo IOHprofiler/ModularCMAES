@@ -15,7 +15,7 @@ from .sampling import (
     mirrored_sampling,
     sobol_sampling,
     halton_sampling,
-    Sobol, 
+    Sobol,
     Halton
 )
 
@@ -34,8 +34,9 @@ class Parameters(AnnotatedStruct):
     budget: int = None
         The maximum number of iterations
     n_generations: int = None
-        The number of generations to run the optimizer. If this value is specified
-        this will override the default break-conditions, and the optimizer will only
+        The number of generations to run the optimizer.
+        If this value is specified this will override
+        the default break-conditions, and the optimizer will only
         stop after n_generations. Target-reached and budget will be ignored.
     lambda_: int = None
         The number of offspring in the population
@@ -56,8 +57,8 @@ class Parameters(AnnotatedStruct):
     c1: float = None
         Learning rate for the rank-one update
     seq_cutoff_factor: int = 1
-        Used in sequential selection, the number of times mu individuals must be seen
-        before a sequential break can be performed
+        Used in sequential selection, the number of times mu individuals
+        must be seen before a sequential break can be performed
     ub: np.array = None
         The upper bound, used for bound correction and threshold convergence
     lb: np.array = None
@@ -71,9 +72,10 @@ class Parameters(AnnotatedStruct):
         'dismiss'-boundary correction is used
     active: bool = False
         Specifying whether to use active update.
-            [1] G. Jastrebski, D. V. Arnold, et al. Improving evolution strategies through
-            active covariance matrix adaptation. In Evolutionary Computation (CEC),
-            2006 IEEE Congress on, pages 2814–2821. IEEE, 2006
+            [1] G. Jastrebski, D. V. Arnold, et al. Improving evolution
+            strategies through active covariance matrix adaptation.
+            In Evolutionary Computation (CEC), 2006 IEEE Congress on,
+            pages 2814–2821. IEEE, 2006
     elitist: bool = False
         Specifying whether to use an elitist approach
     sequential: bool = False
@@ -178,7 +180,8 @@ class Parameters(AnnotatedStruct):
         A list containing the t values (generations) where a restart has
         taken place
     seq_cutoff: int
-        The number of individuals that must be seen before a sequential break can be performed
+        The number of individuals that must be seen before a sequential break
+        can be performed.
     diameter: float
         The diameter of the search space
     max_iter: float
@@ -196,7 +199,8 @@ class Parameters(AnnotatedStruct):
     m: np.ndarray
         The mean value of the individuals
     dm: np.ndarray
-        The difference in the new mean value of the individuals versus the old mean value.
+        The difference in the new mean value of the individuals
+        versus the old mean value.
     pc: np.ndarray
         The evolution path
     ps: np.ndarray
@@ -232,7 +236,7 @@ class Parameters(AnnotatedStruct):
     last_restart: int
         The generation in where the last restart has occored
     max_resamples: int
-        The maximum amount of resamples which can be done when 
+        The maximum amount of resamples which can be done when
         'dismiss'-boundary correction is used
     n_out_of_bounds: int
         The number of individals that are sampled out of bounds
