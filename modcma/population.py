@@ -8,10 +8,11 @@ class Population:
 
     def __init__(self, x, y, f, f_true=None, s=None):
         """Reshape x and y."""
-        self.x = x # mu + sigma * y
-        self.y = y # B*D*Normal(0,1)
-        self.f = f # function values
-        self.f_true = np.ones(self.f.shape, dtype=np.bool) if f_true is None else f_true # is it from surrogate or not
+        self.x = x  # mu + sigma * y
+        self.y = y  # B*D*Normal(0,1)
+        self.f = f  # function values
+        self.f_true = np.ones(self.f.shape, dtype=np.bool_) if f_true is None \
+            else f_true  # is it from surrogate or not
         self.s = np.empty(self.f.shape) if s is None else s
         if len(self.x.shape) == 1:
             self.x = self.x.reshape(-1, 1)
@@ -35,7 +36,8 @@ class Population:
         Population
 
         """
-        return Population(self.x.copy(), self.y.copy(), self.f.copy(), self.f_true.copy(), self.s.copy())
+        return Population(self.x.copy(), self.y.copy(), self.f.copy(),
+                          self.f_true.copy(), self.s.copy())
 
     def __add__(self, other: "Population") -> "Population":
         """Add two population objects with each other.
@@ -63,7 +65,8 @@ class Population:
         )
 
     def __getitem__(self, key: Any) -> "Population":
-        """Method allowing for indexing the population object as if it were an np.ndarray.
+        """Method allowing for indexing the population object
+        as if it were an np.ndarray.
 
         Parameters
         ----------
@@ -94,12 +97,11 @@ class Population:
         if isinstance(key, list) and all(
             map(lambda x: isinstance(x, int) and x >= 0, key)
         ):
-            return Population(self.x[:, key], self.y[:, key], self.f[key], self.f_true[key], self.s[key])
+            return Population(self.x[:, key], self.y[:, key], self.f[key],
+                              self.f_true[key], self.s[key])
 
         raise KeyError(
-            "Key must be (list of non-negative) integer(s) or slice, not {}".format(
-                type(key)
-            )
+            f"Key must be (list of non-negative) integer(s) or slice, not {key}"
         )
 
     @property
