@@ -1,24 +1,28 @@
 """TImplemention for the Population object used in the ModularCMA-ES."""
-from typing import Any, Optional
+from typing import Any, Optional, List, Union
 import numpy as np
+from numpy.typing import NDArray
+
+POSITION_ARRAY = NDArray[np.float64]
 
 
 class Population:
     """Object for holding a Population of individuals."""
 
     def __init__(self,
-                 x: np.ndarray,
-                 y: np.ndarray,
-                 f: np.ndarray,
-                 f_true: Optional[np.ndarray] = None,
-                 s: Optional[np.ndarray] = None):
+                 x: NDArray[np.float64],
+                 y: NDArray[np.float64],
+                 f: NDArray[np.float64],
+                 f_true: Optional[NDArray[np.bool_]] = None,
+                 s: Optional[NDArray[np.float64]] = None):
         """Reshape x and y."""
-        self.x = x  # mu + sigma * y
-        self.y = y  # B*D*Normal(0,1)
-        self.f = f  # function values
-        self.f_true = np.ones(self.f.shape, dtype=np.bool_) if f_true is None \
-            else f_true  # is it from surrogate or not
-        self.s = np.empty(self.f.shape) if s is None else s
+        self.x: NDArray[np.float64] = x  # mu + sigma * y
+        self.y: NDArray[np.float64] = y  # B*D*Normal(0,1)
+        self.f: NDArray[np.float64] = f  # function values
+        self.f_true: NDArray[np.bool_] = np.ones(self.f.shape, dtype=np.bool_)\
+            if f_true is None else f_true  # is it from surrogate or not
+        self.s: NDArray[np.float64] = np.empty(self.f.shape) \
+            if s is None else s
         if len(self.x.shape) == 1:
             self.x = self.x.reshape(-1, 1)
             self.y = self.y.reshape(-1, 1)
@@ -75,14 +79,14 @@ class Population:
                 f"Other should be {self.__class__}" f"got {other.__class__}"
             )
 
-        self.x = np.hstack([self.x, other.x]),
-        self.y = np.hstack([self.y, other.y]),
-        self.f = np.append(self.f, other.f),
-        self.f_true = np.append(self.f_true, other.f_true),
-        self.s = np.append(self.s, other.s),
+        self.x = np.hstack((self.x, other.x))
+        self.y = np.hstack((self.y, other.y))
+        self.f = np.append(self.f, other.f)
+        self.f_true = np.append(self.f_true, other.f_true)
+        self.s = np.append(self.s, other.s)
         return self
 
-    def __getitem__(self, key: Any) -> "Population":
+    def __getitem__(self, key: Union[int, slice, List[int]]) -> "Population":
         """Method allowing for indexing the population object
         as if it were an np.ndarray.
 
