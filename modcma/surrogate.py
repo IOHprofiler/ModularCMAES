@@ -1,11 +1,20 @@
+from sklearn import preprocessing
+from sklearn.base import BaseEstimator, TransformerMixin
 from .parameters import Parameters
 from .population import Population
 import numpy as np
 import numpy.typing as npt
 
-from typing import Any, Union, Tuple
+from typing import Any, Optional, Union, Tuple
 
 from abc import abstractmethod, ABCMeta
+
+import math
+import sklearn
+import sklearn.linear_model
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LinearRegression
 
 #####################
 # Population Storage Management
@@ -98,12 +107,125 @@ class FilterDistanceMahalanobis(FilterDistance):
 FILTER_TYPE = Union[FilterRealEvaluation, FilterDistanceMahalanobis]
 
 ####################
+# Helper functions
+
+
+class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X) -> npt.NDArray[np.float64]:
+        return np.hstack((X, np.square(X)))
+
+
+####################
 # Surrogate Model
 
 
-class SurrogateModel:
+class SurrogateModel(metaclass=ABCMeta):
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
 
-    def __call__(self, x) -> np.ndarray:
+    def _get_training_samples(self) -> Tuple[npt.NDArray[np.float64],
+                                             npt.NDArray[np.float64]]:
+        # TODO: get data
+        # TODO: make data unique 
+        return np.empty((0,0)), np.empty((0,0))
+
+    @abstractmethod
+    def train(self) -> bool:
+        return False
+
+    @abstractmethod
+    def evaluate(self, x: npt.NDArray[np.float64]) -> np.ndarray:
         return np.repeat(np.nan, [x.shape[0], 1])
+
+
+class Sklearn_SurrogateModels(SurrogateModel):
+    @abstractmethod
+    def train(self) -> bool:
+        self.model = Pipeline([])
+        return super().train()
+
+    def evaluate(self, x: npt.NDArray[np.float64]) -> np.ndarray:
+        return self.model.predict(x.T).T
+
+
+class LQ_SurrogateModel(Sklearn_SurrogateModels):
+    SAFETY_MARGIN: float = 1.1
+
+    def train(self) -> bool:
+        X, y = self._get_training_samples()
+        assert X.shape[0] == self.parameters.d
+        self.model = self.select_model(D=X.shape[0], N=X.shape[1])
+        self.model = self.model.fit(X, y)
+        return True
+
+    def select_model(self, D: int, N: int) -> Pipeline:
+        # model             degree of freedom
+        # linear            D + 1
+        # quadratic         2D + 1
+        # full-quadratic    C_r(D, 1) + C_r(D, 2) = (D^2 + 3D)/2
+
+        if N >= self.SAFETY_MARGIN * ((D**2 + 3*D) / 2 + 1):
+            ppl = [PolynomialFeatures(degree=2, include_bias=False)]
+        elif N >= self.SAFETY_MARGIN * (2*D + 1):
+            ppl = [PureQuadraticFeatures()]
+        else:  # N >= self.SAFETY_MARGIN * (D + 1):
+            ppl = []
+        return Pipeline(ppl + [LinearRegression()])
+
+
+####################
+# Special models
+
+
+class LQR2_SurrogateModel(SurrogateModel):
+    # TODO: Adjusted R^2 to switch between models
+    # TODO: Interaction only for PolynomialFeatures as an option
+    # TODO: Add ^3
+    pass
+
+
+####################
+# Other models
+
+
+class Linear_SurrogateModel(Sklearn_SurrogateModels):
+    def train(self) -> bool:
+        X, y = self._get_training_samples()
+        self.model = LinearRegression().fit(X.T, y.T)
+        return True
+
+
+class QuadraticPure_SurrogateModel(Sklearn_SurrogateModels):
+    def train(self) -> bool:
+        X, y = self._get_training_samples()
+        self.model = Pipeline([
+            ('quad.f.', PureQuadraticFeatures()),
+            ('lin. m.', LinearRegression())
+        ]).fit(X.T, y.T)
+        return True
+
+
+class QuadraticInteraction_SurrogateModel(Sklearn_SurrogateModels):
+    def train(self) -> bool:
+        X, y = self._get_training_samples()
+        self.model = Pipeline([
+            ('quad.f.', PolynomialFeatures(degree=2,
+                                           interaction_only=True,
+                                           include_bias=False)),
+            ('lin. m.', LinearRegression())
+        ]).fit(X.T, y.T)
+        return True
+
+
+class Quadratic_SurrogateModel(Sklearn_SurrogateModels):
+    def train(self) -> bool:
+        X, y = self._get_training_samples()
+        self.model = Pipeline([
+            ('quad.f.', PolynomialFeatures(degree=2,
+                                           include_bias=False)),
+            ('lin. m.', LinearRegression())
+        ]).fit(X.T, y.T)
+        return True
