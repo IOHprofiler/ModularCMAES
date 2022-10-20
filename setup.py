@@ -1,5 +1,5 @@
-import os
-from glob import glob
+"""Setup script."""
+
 import setuptools
 
 with open("README.md", "r") as fh:

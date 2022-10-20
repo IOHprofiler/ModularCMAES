@@ -77,10 +77,9 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
             self._dim, budget=self._budget, **{module: value}
         )
         self.c = modularcmaes.ModularCMAES(f, parameters=self.p).run()
-        self.assertAlmostEqual(
-            f.state.current_best_internal.y,
-            self.bbob2d_per_module[f"{module}_{value}"][fid - 1],
-        )
+        expected = self.bbob2d_per_module[f"{module}_{value}"][fid - 1]
+
+        self.assertAlmostEqual(f.state.current_best_internal.y, expected)
 
     def test_select_raises(self):
         """Test whether errors are produced correctly."""
@@ -205,7 +204,7 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertEqual(c.parameters.population.n, 6)
 
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
-    def test_evaluate_bbob(self, mock_std):
+    def test_evaluate_bbob(self, _):
         """Test the mechanism of evaluate_bbob."""
         data_folder = os.path.join(os.path.dirname(__file__), "tmp")
         if not os.path.isdir(data_folder):

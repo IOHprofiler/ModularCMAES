@@ -484,7 +484,7 @@ def evaluate_bbob(
     for idx in range(iterations):
         if idx > 0:
             fitness_func.reset()
-        target = fitness_func.objective.y + target_precision
+        target = fitness_func.optimum.y + target_precision
 
         optimizer = ModularCMAES(fitness_func, dim, target=target, **kwargs).run()
         evals = np.append(evals, fitness_func.state.evaluations)
