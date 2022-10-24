@@ -1,24 +1,22 @@
-from sklearn import preprocessing
 from sklearn.base import BaseEstimator, TransformerMixin
 from .parameters import Parameters
 from .population import Population
 import numpy as np
 import numpy.typing as npt
 
-from typing import Any, Optional, Union, Tuple
+from typing import Any, Callable, Optional, Union, Tuple, Iterable
 
 from abc import abstractmethod, ABCMeta
 
-import math
-import sklearn
-import sklearn.linear_model
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression
 
+from scipy.stats import kendalltau
+
+
 #####################
 # Population Storage Management
-
 
 class PopHistory:
     '''Saves Entire Population History
@@ -26,39 +24,36 @@ class PopHistory:
         += Population to add another
     '''
 
-    def __init__(self, x, y, f, f_true, s, generation=None):
-        self.population: Population = Population(
-                x=x, y=y, f=f, f_true=f_true, s=s
-            )
-        self.generation: npt.NDArray[np.int32] = \
-            np.empty(shape=(1, 0), dtype=np.int32) if generation is None else \
-            generation
+    def __init__(self, x, f, f_true, generation):
+        # copy constructor
+        self.x: npt.NDArray[np.float64] = x
+        self.f: npt.NDArray[np.float64] = f
+        self.f_true: npt.NDArray[np.bool_] = f_true
+        self.generation: npt.NDArray[np.int32] = generation
 
     @staticmethod
     def empty(d: int) -> "PopHistory":
         return PopHistory(
                 x=np.empty(shape=(d, 0)),
-                y=np.empty(shape=(d, 0)),
                 f=np.empty(shape=(1, 0)),
-                f_true=np.empty(shape=(1, 0)),
-                s=np.empty(shape=(1, 0))
+                f_true=np.empty(shape=(1, 0), dtype=np.bool_),
+                generation=np.empty(shape=(1, 0), dtype=np.int32)
             )
 
     def __iadd__(self, parameters: Parameters, population: Population) -> None:
-        self.population += population
-        # extra info
+        self.x = np.hstack((self.x, population.x))
+        self.f = np.append(self.f, population.f)
+        self.f_true = np.append(self.f_true, population.f_true)
         self.generation = np.append(
             self.generation,
             parameters.t + np.zeros_like(population.f, dtype=np.int32)
         )
 
-    def __getitem__(self, key: npt.NDArray[np.bool_]) -> "PopHistory":
+    def __getitem__(self, key: npt.NDArray[Union[np.bool_, np.int32]]) -> "PopHistory":
         return PopHistory(
-            self.population.x[:, key],
-            self.population.y[:, key],
-            self.population.f[key],
-            self.population.f_true[key],
-            self.population.s[key],
+            self.x[:, key],
+            self.f[key],
+            self.f_true[key],
             self.generation[key]
         )
 
@@ -66,13 +61,28 @@ class PopHistory:
 #####################
 # FILTER CLASSES for surrogate models
 
-class FilterRealEvaluation:
+class Filter(metaclass=ABCMeta):
+    '''
+        Remove
+    '''
+    @abstractmethod
     def __call__(self, pop: PopHistory) -> PopHistory:
-        mask = pop.population.f_true
+        pass
+
+
+class FilterRealEvaluation(Filter):
+    def __call__(self, pop: PopHistory) -> PopHistory:
+        mask = pop.f_true
         return pop[mask]
 
 
-class FilterDistance(metaclass=ABCMeta):
+class FilterUnique(Filter):
+    def __call__(self, pop: PopHistory) -> PopHistory:
+        _, ind = np.unique(pop.x, axis=1, return_index=True)
+        return pop[ind]
+
+
+class FilterDistance(Filter):
     def __init__(self, parameters: Parameters, distance: float):
         self.max_distance = distance
         self.parameters = parameters
@@ -100,13 +110,17 @@ class FilterDistanceMahalanobis(FilterDistance):
         self.transformation = np.linalg.inv(B) @ np.diag((1./sigma)*(1./D))
 
     def _compute_distance(self, pop: PopHistory) -> npt.NDArray[np.float32]:
-        center_x = pop.population.x - self.parameters.m
+        center_x = pop.x - self.parameters.m
         return np.sqrt(self.transformation @ center_x)
 
 
-FILTER_TYPE = Union[FilterRealEvaluation, FilterDistanceMahalanobis]
+FILTER_TYPE = Union[
+    FilterRealEvaluation,
+    FilterUnique,
+    FilterDistanceMahalanobis
+]
 
-####################
+###############################################################################
 # Helper functions
 
 
@@ -118,40 +132,36 @@ class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
         return np.hstack((X, np.square(X)))
 
 
-####################
+###############################################################################
 # Surrogate Model
 
 
-class SurrogateModel(metaclass=ABCMeta):
+class SurrogateModelBase(metaclass=ABCMeta):
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
 
     def _get_training_samples(self) -> Tuple[npt.NDArray[np.float64],
                                              npt.NDArray[np.float64]]:
-        # TODO: get data
-        # TODO: make data unique 
-        return np.empty((0,0)), np.empty((0,0))
+        archive: PopHistory = self.parameters.archive
+        filters: Iterable[FILTER_TYPE] = self.parameters.filters
+
+        for f in filters:
+            archive = f(archive)
+
+        return archive.x, archive.f
+
+    def train(self) -> None:
+        pass
 
     @abstractmethod
-    def train(self) -> bool:
-        return False
-
-    @abstractmethod
-    def evaluate(self, x: npt.NDArray[np.float64]) -> np.ndarray:
-        return np.repeat(np.nan, [x.shape[0], 1])
-
-
-class Sklearn_SurrogateModels(SurrogateModel):
-    @abstractmethod
-    def train(self) -> bool:
-        self.model = Pipeline([])
-        return super().train()
-
-    def evaluate(self, x: npt.NDArray[np.float64]) -> np.ndarray:
-        return self.model.predict(x.T).T
+    def evaluate(self,
+                 x: npt.NDArray[np.float64],
+                 ) -> npt.NDArray[np.float64]:
+        pass
+        # return np.repeat(np.nan, [x.shape[0], 1])
 
 
-class LQ_SurrogateModel(Sklearn_SurrogateModels):
+class LQ_SurrogateModel(SurrogateModelBase):
     SAFETY_MARGIN: float = 1.1
 
     def train(self) -> bool:
@@ -168,12 +178,42 @@ class LQ_SurrogateModel(Sklearn_SurrogateModels):
         # full-quadratic    C_r(D, 1) + C_r(D, 2) = (D^2 + 3D)/2
 
         if N >= self.SAFETY_MARGIN * ((D**2 + 3*D) / 2 + 1):
-            ppl = [PolynomialFeatures(degree=2, include_bias=False)]
+            ppl = [('full-quadratic',
+                    PolynomialFeatures(degree=2, include_bias=False))]
         elif N >= self.SAFETY_MARGIN * (2*D + 1):
-            ppl = [PureQuadraticFeatures()]
+            ppl = [('pure-quadratic', PureQuadraticFeatures())]
         else:  # N >= self.SAFETY_MARGIN * (D + 1):
             ppl = []
-        return Pipeline(ppl + [LinearRegression()])
+        return Pipeline(ppl + [('lm', LinearRegression())])
+
+
+###############################################################################
+# Special models
+
+class SurrogateStrategyBase:
+    @abstractmethod
+    def evaluate(self,
+                 x: npt.NDArray[np.float64],
+                 y: npt.NDArray[np.float64],
+                 s: npt.NDArray[np.float64],
+                 n_offspring: int,
+                 fitness_func: Callable,
+                 mcmaes,
+                 ) -> npt.NDArray[np.float64]:
+
+        f = np.empty(n_offspring, object)
+        for i in range(n_offspring):
+            f[i] = mcmaes.fitness_func(x[:, i])
+            if mcmaes.sequential_break_conditions(i, f[i]):
+                f = f[:i]
+                s = s[:i]
+                x = x[:, :i]
+                y = y[:, :i]
+                break
+        return x, y, f, s
+
+
+
 
 
 ####################
@@ -188,17 +228,26 @@ class LQR2_SurrogateModel(SurrogateModel):
 
 
 ####################
-# Other models
+# Other Surrogate Models
+
+class SklearnSurrogateModelBase(SurrogateModelBase):
+    @abstractmethod
+    def train(self) -> bool:
+        self.model = Pipeline([])
+        return super().train()
+
+    def evaluate(self, x: npt.NDArray[np.float64]) -> np.ndarray:
+        return self.model.predict(x.T).T
 
 
-class Linear_SurrogateModel(Sklearn_SurrogateModels):
+class Linear_SurrogateModel(SklearnSurrogateModelBase):
     def train(self) -> bool:
         X, y = self._get_training_samples()
         self.model = LinearRegression().fit(X.T, y.T)
         return True
 
 
-class QuadraticPure_SurrogateModel(Sklearn_SurrogateModels):
+class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
     def train(self) -> bool:
         X, y = self._get_training_samples()
         self.model = Pipeline([
@@ -208,7 +257,7 @@ class QuadraticPure_SurrogateModel(Sklearn_SurrogateModels):
         return True
 
 
-class QuadraticInteraction_SurrogateModel(Sklearn_SurrogateModels):
+class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
     def train(self) -> bool:
         X, y = self._get_training_samples()
         self.model = Pipeline([
@@ -220,7 +269,7 @@ class QuadraticInteraction_SurrogateModel(Sklearn_SurrogateModels):
         return True
 
 
-class Quadratic_SurrogateModel(Sklearn_SurrogateModels):
+class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
     def train(self) -> bool:
         X, y = self._get_training_samples()
         self.model = Pipeline([
