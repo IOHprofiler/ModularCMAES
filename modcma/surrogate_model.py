@@ -187,35 +187,6 @@ class LQ_SurrogateModel(SurrogateModelBase):
         return Pipeline(ppl + [('lm', LinearRegression())])
 
 
-###############################################################################
-# Special models
-
-class SurrogateStrategyBase:
-    @abstractmethod
-    def evaluate(self,
-                 x: npt.NDArray[np.float64],
-                 y: npt.NDArray[np.float64],
-                 s: npt.NDArray[np.float64],
-                 n_offspring: int,
-                 fitness_func: Callable,
-                 mcmaes,
-                 ) -> npt.NDArray[np.float64]:
-
-        f = np.empty(n_offspring, object)
-        for i in range(n_offspring):
-            f[i] = mcmaes.fitness_func(x[:, i])
-            if mcmaes.sequential_break_conditions(i, f[i]):
-                f = f[:i]
-                s = s[:i]
-                x = x[:, :i]
-                y = y[:, :i]
-                break
-        return x, y, f, s
-
-
-
-
-
 ####################
 # Special models
 
