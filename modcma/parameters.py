@@ -936,3 +936,34 @@ class BIPOPParameters(AnnotatedStruct):
 
         if self.lambda_small % 2 != 0:
             self.lambda_small += 1
+
+
+
+import sympy as smp
+
+
+class SurrogateStrategySettings(AnnotatedStruct):
+    minimum_model_size = 3 #  absolute minimum number of true evaluation to build a model
+
+
+class LQSurrogateStrategySettings(SurrogateStrategySettings):
+    # variables
+    dfMax = smp.symbols('dfMax')  # Max degrees of freedom 
+    lam = smp.symbols('lam')  # size of population
+    surrogate_size = smp.symbols('surrogate_size') # number of evaluations avail.
+
+    # constants
+
+    return_true_fitness_if_all_evaluated: bool = True
+
+    tau_truth_threshold: float = 0.85
+    truncation_ratio = 0.75
+
+    min_evals_percent: int = 2
+    number_of_evaluated = smp.Integer(1) + \
+        smp.floor(smp.maximum(lam * min_evals_percent / 100,
+                              3. / truncation_ratio - surrogate_size
+        ))
+    increase_of_number_of_evaluated: float = 0.5
+
+
