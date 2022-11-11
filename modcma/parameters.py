@@ -942,28 +942,58 @@ class BIPOPParameters(AnnotatedStruct):
 import sympy as smp
 
 
+
 class SurrogateStrategySettings(AnnotatedStruct):
+    # do not use model if the number of training samples are not bigger than the value
     minimum_model_size = 3 #  absolute minimum number of true evaluation to build a model
+
+    # return true fitness only if all samples are evaluated
+    return_true_fitness_if_all_evaluated: bool = True
+
 
 
 class LQSurrogateStrategySettings(SurrogateStrategySettings):
-    # variables
-    dfMax = smp.symbols('dfMax')  # Max degrees of freedom 
-    lam = smp.symbols('lam')  # size of population
-    surrogate_size = smp.symbols('surrogate_size') # number of evaluations avail.
+    # ************ VARIABLES ***************
 
-    # constants
+    # Max degrees of freedom 
+    # (usually depends on the model and dimensionality of the problem)
+    dfMax = smp.symbols('dfMax', positive=True, integer=True)
 
-    return_true_fitness_if_all_evaluated: bool = True
+    # size of population - it can be increased when restart ...
+    lam = smp.symbols('lam', positive=True, integer=True)
 
+    # number of evaluations avail.
+    surrogate_size = smp.symbols('surrogate_size', positive=True, integer=True)
+
+    # *********** SETTINGS ************
+
+    # require another true evaluations if the kendall tau \in (-1, 1) is 
+    # lower than this value
     tau_truth_threshold: float = 0.85
+
+    # every unsuccesfull (kendall tau) iteration, increse
+    # the number of evauated samples by this fraction
+    # evals = evals + evals * increase_of_number_of_evaluated
+    increase_of_number_of_evaluated: float = 0.5
+
+
+
+    # TODO: ???
     truncation_ratio = 0.75
 
+    # TOOD: ???
     min_evals_percent: int = 2
+
+    # TODO: ???
     number_of_evaluated = smp.Integer(1) + \
         smp.floor(smp.maximum(lam * min_evals_percent / 100,
                               3. / truncation_ratio - surrogate_size
         ))
-    increase_of_number_of_evaluated: float = 0.5
+
+
+    
+
+class LQ_SurrogateModel_Settings(AnnotatedStruct):
+    pass
 
 
