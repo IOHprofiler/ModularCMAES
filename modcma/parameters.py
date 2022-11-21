@@ -3,13 +3,14 @@ import os
 import pickle
 import warnings
 from collections import deque
-from typing import Generator, TypeVar
+from typing import Generator, TypeVar, Optional
+import sympy as smp
 
 import numpy as np
 from scipy import linalg
 
-from .utils import AnnotatedStruct
-from .sampling import (
+from utils import AnnotatedStruct
+from sampling import (
     gaussian_sampling,
     orthogonal_sampling,
     mirrored_sampling,
@@ -938,12 +939,53 @@ class BIPOPParameters(AnnotatedStruct):
             self.lambda_small += 1
 
 
+# #######################################
+# SurrogateEvaluation : It evaluates current population with <SurrogateModel>
+#       if the evaluation is not precise enough, more data will be added
+#       to the <SurrogateData>
+# SurrogateModel      : Given training data it does the regression
+#       It uses samples and weights provided by <SurrogateData>
+# SurrogateData       : Storage of data. It can be sorted and weighted.
 
-import sympy as smp
+
+class SurrogateEvaluation_Settings(AnnotatedStruct):
+    # Minimal number / proportion of population to be evaluated 
+    # using true objective function
+    min_evals_percent: int = 2  # Max 100
+    min_evals_absolute: int = 1
+
+
+class SurrogateModel_Settings(AnnotatedStruct):
+    pass
+
+
+class SurrogateData_Settings(AnnotatedStruct):
+    max_size: Optional[int] = None
+
+    #  max_size_relative_df: Optional[float] = 2.0  # df
+
+    # Weighting
+    weight_function: str = 'linear'
+    weight_max: float = 20.
+    weight_min: float = 1.
+
+    # Sorting method:
+    sorting: str = 'LQ'
 
 
 
-class SurrogateStrategySettings(AnnotatedStruct):
+'''
+# **************** MODEL **************** 
+
+class KendalTau_SurrogateEvaluation_Settings(SurrogateEvaluation_Settings):
+
+    # require another true evaluations if the kendall tau \in (-1, 1) is 
+    # lower than this value
+    tau_truth_threshold: float = 0.85
+
+
+
+class SurrogateStrategy_Settings(AnnotatedStruct):
     # do not use model if the number of training samples are not bigger than the value
     minimum_model_size = 3 #  absolute minimum number of true evaluation to build a model
 
@@ -951,8 +993,7 @@ class SurrogateStrategySettings(AnnotatedStruct):
     return_true_fitness_if_all_evaluated: bool = True
 
 
-
-class LQSurrogateStrategySettings(SurrogateStrategySettings):
+class LQ_SurrogateStrategy_Settings(SurrogateStrategy_Settings):
     # ************ VARIABLES ***************
 
     # Max degrees of freedom 
@@ -965,11 +1006,12 @@ class LQSurrogateStrategySettings(SurrogateStrategySettings):
     # number of evaluations avail.
     surrogate_size = smp.symbols('surrogate_size', positive=True, integer=True)
 
+    # number of evaluations as training samples in the current model
+
+
+
     # *********** SETTINGS ************
 
-    # require another true evaluations if the kendall tau \in (-1, 1) is 
-    # lower than this value
-    tau_truth_threshold: float = 0.85
 
     # every unsuccesfull (kendall tau) iteration, increse
     # the number of evauated samples by this fraction
@@ -981,8 +1023,6 @@ class LQSurrogateStrategySettings(SurrogateStrategySettings):
     # TODO: ???
     truncation_ratio = 0.75
 
-    # TOOD: ???
-    min_evals_percent: int = 2
 
     # TODO: ???
     number_of_evaluated = smp.Integer(1) + \
@@ -990,10 +1030,16 @@ class LQSurrogateStrategySettings(SurrogateStrategySettings):
                               3. / truncation_ratio - surrogate_size
         ))
 
+    n_for_tau = smp.max(
+        15,
+        smp.min(1.2 * ,
+                0.75 * lam)
+    )
 
-    
+        int(max((15, min((1.2 * nevaluated, 0.75 * popsi)))))
 
-class LQ_SurrogateModel_Settings(AnnotatedStruct):
-    pass
+
+'''
+
 
 
