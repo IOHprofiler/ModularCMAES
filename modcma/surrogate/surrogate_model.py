@@ -1,6 +1,6 @@
 from sklearn.base import BaseEstimator, TransformerMixin
-from .parameters import Parameters
-from .population import Population
+from parameters import Parameters
+
 import numpy as np
 import numpy.typing as npt
 
@@ -12,49 +12,35 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression
 
-from scipy.stats import kendalltau
 
-
-
-
-###############################################################################
-# Surrogate Model
-
+from typing_utils import *
 
 class SurrogateModelBase(metaclass=ABCMeta):
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
 
-    def _get_training_samples(self) -> Tuple[npt.NDArray[np.float64],
-                                             npt.NDArray[np.float64]]:
-        archive: PopHistory = self.parameters.archive
-        filters: Iterable[FILTER_TYPE] = self.parameters.filters
-
-        for f in filters:
-            archive = f(archive)
-
-        return archive.x, archive.f
-
-    def train(self) -> None:
+    @abstractmethod
+    def fit(self, X: XType, F: YType) -> None:
         pass
 
     @abstractmethod
-    def evaluate(self,
-                 x: npt.NDArray[np.float64],
-                 ) -> npt.NDArray[np.float64]:
-        pass
-        # return np.repeat(np.nan, [x.shape[0], 1])
+    def predict(self, X: XType) -> YType:
+        return np.tile(np.nan, (len(X), 1))
+
+    @abstractmethod
+    def predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
+        F = self.predict(X)
+        return (F, np.tile(np.nan, F.shape))
 
 
 class LQ_SurrogateModel(SurrogateModelBase):
     SAFETY_MARGIN: float = 1.1
 
-    def train(self) -> bool:
+    def train(self, X, F) -> None:
         X, y = self._get_training_samples()
         assert X.shape[0] == self.parameters.d
         self.model = self.select_model(D=X.shape[0], N=X.shape[1])
         self.model = self.model.fit(X, y)
-        return True
 
     def select_model(self, D: int, N: int) -> Pipeline:
         # model             degree of freedom
