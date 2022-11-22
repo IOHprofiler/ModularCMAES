@@ -1,3 +1,4 @@
+from typing_extensions import overload, override
 from sklearn.base import BaseEstimator, TransformerMixin
 from parameters import Parameters
 
@@ -55,18 +56,20 @@ class LQ_SurrogateModel(SurrogateModelBase):
             ppl = []
         return Pipeline(ppl + [('lm', LinearRegression())])
 
+    @override
     def fit(self, X: XType, F: YType) -> None:
         self.model = self._select_model(D=X.shape[0], N=X.shape[1])
         self.model = self.model.fit(X, F)
 
+    @override
     def predict(self, X: XType) -> YType:
+        if self.model is None:
+            return super().predict(X)
         return self.model.predict(X)
-
 
 
 ####################
 # Special models
-
 
 class LQR2_SurrogateModel(SurrogateModel):
     # TODO: Adjusted R^2 to switch between models
@@ -79,50 +82,42 @@ class LQR2_SurrogateModel(SurrogateModel):
 # Other Surrogate Models
 
 class SklearnSurrogateModelBase(SurrogateModelBase):
-    @abstractmethod
-    def train(self) -> bool:
-        self.model = Pipeline([])
-        return super().train()
-
-    def evaluate(self, x: npt.NDArray[np.float64]) -> np.ndarray:
+    @override
+    def predict(self, x: npt.NDArray[np.float64]) -> np.ndarray:
         return self.model.predict(x.T).T
 
 
 class Linear_SurrogateModel(SklearnSurrogateModelBase):
-    def train(self) -> bool:
-        X, y = self._get_training_samples()
-        self.model = LinearRegression().fit(X.T, y.T)
-        return True
+    @override
+    def fit(self, X: XType, F: YType) -> None:
+        self.model = LinearRegression().fit(X, F)
 
 
 class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
-    def train(self) -> bool:
-        X, y = self._get_training_samples()
+    @override
+    def fit(self, X: XType, F: YType) -> None:
         self.model = Pipeline([
             ('quad.f.', PureQuadraticFeatures()),
             ('lin. m.', LinearRegression())
-        ]).fit(X.T, y.T)
-        return True
+        ]).fit(X, F)
 
 
 class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
-    def train(self) -> bool:
-        X, y = self._get_training_samples()
+    @override
+    def fit(self, X: XType, F: YType) -> None:
         self.model = Pipeline([
             ('quad.f.', PolynomialFeatures(degree=2,
                                            interaction_only=True,
                                            include_bias=False)),
             ('lin. m.', LinearRegression())
-        ]).fit(X.T, y.T)
-        return True
+        ]).fit(X, F)
 
 
 class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
-    def train(self) -> bool:
-        X, y = self._get_training_samples()
+    @override
+    def fit(self, X: XType, F: YType) -> None:
         self.model = Pipeline([
             ('quad.f.', PolynomialFeatures(degree=2,
                                            include_bias=False)),
             ('lin. m.', LinearRegression())
-        ]).fit(X.T, y.T)
-        return True
+        ]).fit(X, F)
