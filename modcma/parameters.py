@@ -9,8 +9,8 @@ import sympy as smp
 import numpy as np
 from scipy import linalg
 
-from utils import AnnotatedStruct
-from sampling import (
+from .utils import AnnotatedStruct
+from .sampling import (
     gaussian_sampling,
     orthogonal_sampling,
     mirrored_sampling,
