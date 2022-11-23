@@ -435,11 +435,5 @@ FILTER_TYPE = Union[
 # Helper functions
 
 
-class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X) -> npt.NDArray[np.float64]:
-        return np.hstack((X, np.square(X)))
 
 '''

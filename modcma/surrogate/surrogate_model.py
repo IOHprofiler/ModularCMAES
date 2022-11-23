@@ -1,11 +1,8 @@
-from typing_extensions import overload, override
-from sklearn.base import BaseEstimator, TransformerMixin
-from parameters import Parameters
-
 import numpy as np
 import numpy.typing as npt
 
 from typing import Any, Callable, Optional, Union, Tuple, Iterable
+from typing_extensions import override
 
 from abc import abstractmethod, ABCMeta
 
@@ -13,8 +10,10 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LinearRegression
 
+from sklearn.base import BaseEstimator, TransformerMixin
 
-from typing_utils import *
+from ..parameters import Parameters
+from ..typing_utils import XType, YType
 
 class SurrogateModelBase(metaclass=ABCMeta):
     def __init__(self, parameters: Parameters):
@@ -69,22 +68,15 @@ class LQ_SurrogateModel(SurrogateModelBase):
 
 
 ####################
-# Special models
-
-class LQR2_SurrogateModel(SurrogateModel):
-    # TODO: Adjusted R^2 to switch between models
-    # TODO: Interaction only for PolynomialFeatures as an option
-    # TODO: Add ^3
-    pass
-
-
-####################
 # Other Surrogate Models
 
 class SklearnSurrogateModelBase(SurrogateModelBase):
     @override
-    def predict(self, x: npt.NDArray[np.float64]) -> np.ndarray:
-        return self.model.predict(x.T).T
+    def predict(self, X: XType) -> YType:
+        return self.model.predict(X)
+
+    def predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
+        return super().predict_with_confidence(X)
 
 
 class Linear_SurrogateModel(SklearnSurrogateModelBase):
@@ -121,3 +113,46 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
                                            include_bias=False)),
             ('lin. m.', LinearRegression())
         ]).fit(X, F)
+
+
+####################
+# Helper functions
+
+class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X) -> npt.NDArray[np.float64]:
+        return np.hstack((X, np.square(X)))
+
+
+
+if __name__ == '__main__':
+    import unittest
+
+    class TestInterface(unittest.TestCase):
+        def test_Linear(self):
+            parameters = Parameters(d=2)
+            model = Linear_SurrogateModel(parameters)
+
+            X = np.hstack([np.array([np.linspace(0, 1, 10)]).T, np.random.rand(10, 2)])
+            F = X[:, 0] * 2
+            model.fit(X, F)
+
+            X = np.array([[20., 3.1, 3.4]])
+            Fh = model.predict(X)
+            self.assertAlmostEqual(Fh[0], 40.)
+
+    unittest.main()
+
+
+'''
+####################
+# Special models
+
+class LQR2_SurrogateModel(SurrogateModelBase):
+    # TODO: Adjusted R^2 to switch between models
+    # TODO: Interaction only for PolynomialFeatures as an option
+    # TODO: Add ^3
+    pass
+'''
