@@ -331,61 +331,9 @@ if __name__ == '__main__':
     unittest.main()
 
 
-
-
 '''
 #####################
 # Population Storage Management
-
-class PopHistory:
-    def __init__(self, x, f, f_true, generation):
-        # copy constructor
-        self.x: npt.NDArray[np.float64] = x
-        self.f: npt.NDArray[np.float64] = f
-        self.f_true: npt.NDArray[np.bool_] = f_true
-        self.generation: npt.NDArray[np.int32] = generation
-
-    @staticmethod
-    def empty(d: int) -> "PopHistory":
-        return PopHistory(
-                x=np.empty(shape=(d, 0)),
-                f=np.empty(shape=(1, 0)),
-                f_true=np.empty(shape=(1, 0), dtype=np.bool_),
-                generation=np.empty(shape=(1, 0), dtype=np.int32)
-            )
-
-    def __iadd__(self, parameters: Parameters, population: Population) -> None:
-        self.x = np.hstack((self.x, population.x))
-        self.f = np.append(self.f, population.f)
-        self.f_true = np.append(self.f_true, population.f_true)
-        self.generation = np.append(
-            self.generation,
-            parameters.t + np.zeros_like(population.f, dtype=np.int32)
-        )
-
-    def __getitem__(self, key: npt.NDArray[Union[np.bool_, np.int32]]) -> "PopHistory":
-        return PopHistory(
-            self.x[:, key],
-            self.f[key],
-            self.f_true[key],
-            self.generation[key]
-        )
-
-
-#####################
-# FILTER CLASSES for surrogate models
-
-class Filter(metaclass=ABCMeta):
-    @abstractmethod
-    def __call__(self, pop: PopHistory) -> PopHistory:
-        pass
-
-
-class FilterRealEvaluation(Filter):
-    def __call__(self, pop: PopHistory) -> PopHistory:
-        mask = pop.f_true
-        return pop[mask]
-
 
 class FilterUnique(Filter):
     def __call__(self, pop: PopHistory) -> PopHistory:
@@ -430,10 +378,5 @@ FILTER_TYPE = Union[
     FilterUnique,
     FilterDistanceMahalanobis
 ]
-
-###############################################################################
-# Helper functions
-
-
 
 '''
