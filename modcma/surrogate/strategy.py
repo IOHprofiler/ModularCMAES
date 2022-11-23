@@ -1,5 +1,79 @@
 
+import numpy as np
 
+from abc import ABCMeta, abstractmethod
+
+from modcma.parameters import Parameters
+
+from ..typing_utils import XType, YType, yType
+import .data
+import .model
+
+from ..modularcmaes import ModularCMAES
+
+
+class SurrogateStrategyBase(metaclass=ABCMeta):
+    def __init__(self, modcma: ModularCMAES):
+        self.modcma = modcma
+        if self.modcma.parameters.sequential:
+            raise NotImplementedError("Cannot use surrogate model with sequential selection")
+
+        self.data = data.SurrogateData_V1(
+            modcma.parameters.surrogate.data)
+
+        self._model_class: model.SurrogateModelBase
+
+    @property
+    def model(self):
+        model = self._model_class()
+        model.fit(self.data.X, self.data.F)
+        return model
+
+    def fitness_func(self, x):
+        f = self.modcma.fitness_func(x)
+        self.data.push(x, f)
+        return f
+
+    @abstractmethod
+    def __call__(self, X: XType) -> YType:
+        F = np.empty(len(X), yType)
+        for i in range(len(X)):
+            F[i] = self.fitness_func(X[i])
+        return F
+
+
+class Unsure_Strategy(SurrogateStrategyBase):
+    def __call__(self, X: XType) -> YType:
+        return super().__call__(X)
+
+
+class Proportion_Strategy(SurrogateStrategyBase):
+    def __init__(self, modcma: ModularCMAES):
+        super().__init__(modcma)
+        self.true_eval: float = modcma.parameters.surrogate.strategy.proportion.true_eval
+
+    def __call__(self, X: XType) -> YType:
+        sample = np.random.rand(len(X), 1) <= self.true_eval
+
+        Xtrue = X[sample]
+        Ftrue = super().__call__(Xtrue)
+
+        Xfalse = X[np.logical_not(sample)]
+        Ffalse = self.model.predict(Xfalse)
+
+        F = np.empty(shape=(len(X), 1), dtype=yType)
+        F[sample] = Ftrue
+        F[np.logical_not(sample)] = Ffalse
+
+        return F
+
+
+
+
+
+
+
+'''
 class SurrogateModelBase(metaclass=ABCMeta):
     def on_population_size_change(self, new_size) -> None:
         pass
@@ -102,7 +176,7 @@ class PopulationRepresentation:
 
         # popsi = len(x)
         # nevaluated = self.evaluations
-        n_for_tau = lambda popsi, nevaluated: 
+        n_for_tau = lambda popsi, nevaluated:
             int(max((15, min((1.2 * nevaluated, 0.75 * popsi)))))
             max(
         int(max((15, min((1.2 * nevaluated, 0.75 * popsi)))))
@@ -127,3 +201,4 @@ class PopulationRepresentation:
 class LQ_SurrogateStrategy(ModularCMAES):
     pass
 
+'''

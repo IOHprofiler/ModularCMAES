@@ -2,19 +2,25 @@
 from parameters import *
 
 # #######################################
-# SurrogateEvaluation : It evaluates current population with <SurrogateModel>
+# SurrogateStrategy : It evaluates current population with <SurrogateModel>
 #       if the evaluation is not precise enough, more data will be added
 #       to the <SurrogateData>
 # SurrogateModel      : Given training data it does the regression
 #       It uses samples and weights provided by <SurrogateData>
 # SurrogateData       : Storage of data. It can be sorted and weighted.
 
+class SurrogateStrategy_Proportion_Settings(AnnotatedStruct):
+    true_eval: float = 0.5
 
-class SurrogateEvaluation_Settings(AnnotatedStruct):
+class SurrogateStrategy_Settings(AnnotatedStruct):
     # Minimal number / proportion of population to be evaluated 
     # using true objective function
     min_evals_percent: int = 2  # Max 100
     min_evals_absolute: int = 1
+
+    proportion = SurrogateStrategy_Proportion_Settings()
+
+
 
 
 class SurrogateModel_Settings(AnnotatedStruct):
