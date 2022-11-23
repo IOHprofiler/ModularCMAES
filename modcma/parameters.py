@@ -291,6 +291,26 @@ class Parameters(AnnotatedStruct):
     sobol: TypeVar("Sobol") = None
     halton: TypeVar("Halton") = None
 
+    # surrogate - data
+    surrogate_data_weighting: ('linear', ) = 'linear'
+    surrogate_data_min_weight: float = 1.
+    surrogate_data_max_weight: float = 20.
+    surrogate_data_sorting: ('time', 'lq', 'mahalanobis') = 'time'
+    surrogate_data_max_size: int = None
+
+    # surrogate - strategy
+    surrogate_strategy: ('Unsure', 'Random', 'Kendall') = 'trueEval'
+    # > random
+    surrogate_strategy_random_trueEval: float = 0.5
+    # > kendall
+    surrogate_strategy_kendall_minimum_trueEval_relative: float = 0.02
+    surrogate_strategy_kendall_minimum_trueEval_absolute: int = 1
+    surrogate_strategy_kendall_multiplicative_increase_relative: float = 1.5
+    surrogate_strategy_kendall_evaluation_selection: ('random', 'modelfitness') = 'random'
+
+    # surrogate -  models
+    surrogate_model: ('Linear', 'Quadratic', 'QuadraticPure', 'QuadraticInteraction', 'LQ') = 'Linear'
+
     __modules__ = (
         "active",
         "elitist",

@@ -1,7 +1,10 @@
+import inspect
+import sys
+
 import numpy as np
 import numpy.typing as npt
 
-from typing import Any, Callable, Optional, Union, Tuple, Iterable
+from typing import Any, Callable, Optional, Union, Tuple, Iterable, Type
 from typing_extensions import override
 
 from abc import abstractmethod, ABCMeta
@@ -14,6 +17,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from ..parameters import Parameters
 from ..typing_utils import XType, YType
+
 
 class SurrogateModelBase(metaclass=ABCMeta):
     def __init__(self, parameters: Parameters):
@@ -34,6 +38,7 @@ class SurrogateModelBase(metaclass=ABCMeta):
 
 
 class LQ_SurrogateModel(SurrogateModelBase):
+    ModelName = 'LQ'
     SAFETY_MARGIN: float = 1.1
 
     def __init__(self, parameters):
@@ -80,12 +85,16 @@ class SklearnSurrogateModelBase(SurrogateModelBase):
 
 
 class Linear_SurrogateModel(SklearnSurrogateModelBase):
+    ModelName = 'Linear'
+
     @override
     def fit(self, X: XType, F: YType) -> None:
         self.model = LinearRegression().fit(X, F)
 
 
 class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
+    ModelName = 'QuadraticPure'
+
     @override
     def fit(self, X: XType, F: YType) -> None:
         self.model = Pipeline([
@@ -95,6 +104,8 @@ class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
 
 
 class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
+    ModelName = 'QuadraticInteraction'
+
     @override
     def fit(self, X: XType, F: YType) -> None:
         self.model = Pipeline([
@@ -106,6 +117,8 @@ class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
 
 
 class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
+    ModelName = 'Quadratic'
+
     @override
     def fit(self, X: XType, F: YType) -> None:
         self.model = Pipeline([
@@ -114,6 +127,13 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
             ('lin. m.', LinearRegression())
         ]).fit(X, F)
 
+
+def str_to_model(string) -> Type[SurrogateModelBase]:
+    clsmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
+    for model in filter(lambda x: hasattr(x, 'ModelName'), clsmembers):
+        if model.ModelName == string:
+            return model
+    raise NotImplementedError(f'Cannot find model with name "{string}"')
 
 ####################
 # Helper functions

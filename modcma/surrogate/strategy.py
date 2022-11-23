@@ -14,28 +14,32 @@ from ..modularcmaes import ModularCMAES
 
 class SurrogateStrategyBase(metaclass=ABCMeta):
     def __init__(self, modcma: ModularCMAES):
-        self.modcma = modcma
-        if self.modcma.parameters.sequential:
+        self.parameters: Parameters = modcma.parameters
+        if self.parameters.sequential:
             raise NotImplementedError("Cannot use surrogate model with sequential selection")
 
-        self.data = data.SurrogateData_V1(
-            modcma.parameters.surrogate.data)
+        self.data = data.SurrogateData_V1(self.parameters)
 
-        self._model_class: model.SurrogateModelBase
+        self._model_class = model.str_to_model(self.parameters.surrogate_model)
 
     @property
     def model(self):
-        model = self._model_class()
+        ''' gets the model and trains it '''
+        if self.data.X is None or self.data.F is None:
+            return None
+        model = self._model_class(self.parameters)
         model.fit(self.data.X, self.data.F)
         return model
 
     def fitness_func(self, x):
+        ''' evaluate one sample using true objective function & saves the result in the archive '''
         f = self.modcma.fitness_func(x)
         self.data.push(x, f)
         return f
 
     @abstractmethod
     def __call__(self, X: XType) -> YType:
+        ''' evaluates all samples using true objective function '''
         F = np.empty(len(X), yType)
         for i in range(len(X)):
             F[i] = self.fitness_func(X[i])
@@ -43,17 +47,21 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
 
 
 class Unsure_Strategy(SurrogateStrategyBase):
+    StrategyName = 'Unsure'
+
     def __call__(self, X: XType) -> YType:
         return super().__call__(X)
 
 
-class Proportion_Strategy(SurrogateStrategyBase):
+class Random_Strategy(SurrogateStrategyBase):
+    StrategyName = 'Random'
+
     def __init__(self, modcma: ModularCMAES):
         super().__init__(modcma)
-        self.true_eval: float = modcma.parameters.surrogate.strategy.proportion.true_eval
+        self.trueEval: float = self.parameters.surrogate_strategy_random_trueEval
 
     def __call__(self, X: XType) -> YType:
-        sample = np.random.rand(len(X), 1) <= self.true_eval
+        sample = np.random.rand(len(X), 1) <= self.trueEval
 
         Xtrue = X[sample]
         Ftrue = super().__call__(Xtrue)
@@ -66,6 +74,47 @@ class Proportion_Strategy(SurrogateStrategyBase):
         F[np.logical_not(sample)] = Ffalse
 
         return F
+
+
+class Kendall_Strategy(SurrogateStrategyBase):
+    StrategyName = 'Kendall'
+
+    def __init__(self, modcma: ModularCMAES):
+        super().__init__(modcma)
+
+    def __call__(self, X: XType) -> YType:
+        F = np.tile(np.nan, reps=(len(X), 1))
+        to_evaluate = max(
+            self.parameters.surrogate_strategy_kendall_minimum_trueEval_absolute,
+            int(self.parameters.surrogate_strategy_kendall_minimum_trueEval_relative * len(X))
+        )
+
+        while np.any(np.isnan(F)):
+            pass # <-- eval
+
+            to_evaluate += max(1,
+                int((self.parameters.surrogate_strategy_kendall_multiplicative_increase_relative - 1.) *
+                    to_evaluate)
+            )
+
+        self.model 
+        return super().__call__(X)
+
+    def _eval_sequence(self, number, X):
+        """evaluate unevaluated entries until `number` of entries are evaluated *overall*.
+        """
+        F_model = self.model(X)
+
+        for i in np.argsort(F_model):
+            if self.evaluations >= number:
+                break
+            if not self.evaluated[i]:
+                self.fvalues[i] = self.fitness_function(self.X[i])
+                self.evaluated[i] = True
+
+        assert self.evaluations == number or \
+            self.evaluations == len(self.X) < number
+
 
 
 
