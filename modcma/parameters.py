@@ -298,15 +298,38 @@ class Parameters(AnnotatedStruct):
     surrogate_data_sorting: ('time', 'lq', 'mahalanobis') = 'time'
     surrogate_data_max_size: int = None
 
+    #########################################
     # surrogate - strategy
+    # TODO: Kendall
     surrogate_strategy: ('Unsure', 'Random', 'Kendall') = 'trueEval'
-    # > random
-    surrogate_strategy_random_trueEval: float = 0.5
+    # TODO: Kendall 
+    surrogate_strategy_sort_type: (None, 'all', 'evaluated') = None
+
+    # > Unsure
+    # > Random
+    #       minimum fraction of actual population to evaluate by the obj. func.
+    surrogate_strategy_Random_eval_relative: float = 0.5
+
     # > kendall
-    surrogate_strategy_kendall_minimum_trueEval_relative: float = 0.02
-    surrogate_strategy_kendall_minimum_trueEval_absolute: int = 1
-    surrogate_strategy_kendall_multiplicative_increase_relative: float = 1.5
-    surrogate_strategy_kendall_evaluation_selection: ('random', 'modelfitness') = 'random'
+    #       minimum fraction of actual population to evaluate by the obj. func.
+    surrogate_strategy_Kendall_minimum_eval_relative: float = 0.02
+    #       minimum number of members to evaluate by the obj. func.
+    surrogate_strategy_Kendall_minimum_eval_absolute: int = 1
+    #       only the top ?? from the queue will enter the model training
+    surrogate_strategy_Kendall_truncation_ratio: float = 0.75
+    #       every iteration evaluate etxtra from total num. of eval.
+    surrogate_strategy_Kendall_iterative_increse: float = 0.5
+    #       minimum number of samples to make model pass  the kanall test
+    surrogate_strategy_Kendall_tau_minimum_samples: int = 3
+    #       the size of a training dataset for testing the model
+    surrogate_strategy_Kendall_tau_training_size_relative: float = 1.2
+    #       the same size but not relative
+    surrogate_strategy_Kendall_tau_training_size_minimum: int = 15
+    #       if the model evaluated all values, return them (not surrogate)
+    surrogate_strategy_Kendall_return_true_values_if_all_available: bool = True
+
+
+    surrogate_strategy_Kendall_evaluation_selection: ('random', 'modelfitness') = 'random'
 
     # surrogate -  models
     surrogate_model: ('Linear', 'Quadratic', 'QuadraticPure', 'QuadraticInteraction', 'LQ') = 'Linear'
