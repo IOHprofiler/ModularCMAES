@@ -91,8 +91,8 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
 
         return F
 
-    def signal_better_model(self):
-        self.model.signal_better_model(self.data)
+    def signal_for_bigger_model(self):
+        self.model.signal_for_bigger_model(self.data)
 
 
 class Unsure_Strategy(SurrogateStrategyBase):
@@ -148,7 +148,7 @@ class Kendall_Strategy(SurrogateStrategyBase):
         self.tau_training_size_minimum: int
         self.tau_training_size_relative: float
         self.tau_threshold: float
-        self.tau_threashold_to_signal_for_better_model: float
+        self.tau_threashold_to_signal_for_bigger_model: float
 
         self.return_true_values_if_all_available: bool
 
@@ -215,7 +215,7 @@ class Kendall_Strategy(SurrogateStrategyBase):
 
             to_evaluate = int(math.ceil(evaluated * self.iterative_increse))
 
-        if tau < self.tau_threashold_to_signal_for_better_model:
+        if tau < self.tau_threashold_to_signal_for_bigger_model:
             self.signal_better_model()
 
         if self.return_true_values_if_all_available and len(X) == evaluated:
