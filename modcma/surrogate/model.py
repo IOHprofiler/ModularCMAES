@@ -128,11 +128,11 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
         ]).fit(X, F)
 
 
-def str_to_model(string) -> Type[SurrogateModelBase]:
+def get_model(parameters: Parameters) -> Type[SurrogateModelBase]:
     clsmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
     for model in filter(lambda x: hasattr(x, 'ModelName'), clsmembers):
-        if model.ModelName == string:
-            return model
+        if model.ModelName == parameters.surrogate_strategy:
+            return model(parameters)
     raise NotImplementedError(f'Cannot find model with name "{string}"')
 
 ####################

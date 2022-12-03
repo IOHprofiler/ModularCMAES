@@ -27,7 +27,7 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
 
         self.data = data.SurrogateData_V1(self.parameters)
 
-        self._model_class = model.str_to_model(self.parameters.surrogate_model)
+        self._model = self.get_model(self.parameters)
         self._load_strategy_parameters()
 
     def _load_strategy_parameters(self):
@@ -46,11 +46,11 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
     @property
     def model(self) -> Type[model.SurrogateModelBase]:
         ''' gets the model and trains it '''
-        if self.data.X is None or self.data.F is None:
+        X, F = self.data.X, self.data.F
+        if X is None or F is None:
             return None
-        model = self._model_class(self.parameters)
-        model.fit(self.data.X, self.data.F)
-        return model
+        self._model.fit(X, F)
+        return self._model
 
     def fitness_func(self, x):
         ''' evaluate one sample using true objective function & saves the result in the archive '''
@@ -92,10 +92,7 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
         return F
 
     def signal_better_model(self):
-        # TODO
-        self.model
-        ## ??
-        pass
+        self.model.signal_better_model(self.data)
 
 
 class Unsure_Strategy(SurrogateStrategyBase):
