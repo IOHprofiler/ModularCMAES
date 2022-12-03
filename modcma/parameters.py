@@ -291,12 +291,20 @@ class Parameters(AnnotatedStruct):
     sobol: TypeVar("Sobol") = None
     halton: TypeVar("Halton") = None
 
+    #########################################
     # surrogate - data
+    #       type of weighting for models that are capable ...
     surrogate_data_weighting: ('linear', ) = 'linear'
+    #       minimum weight
     surrogate_data_min_weight: float = 1.
+    #       maximum weight
     surrogate_data_max_weight: float = 20.
+    #       what is the measure to evaluate what is better 
     surrogate_data_sorting: ('time', 'lq', 'mahalanobis') = 'time'
+    #       maximum number of data to be passed for traning
     surrogate_data_max_size: int = None
+    #       TODO
+    surrogate_data_truncation_ratio: float = 0.75
 
     #########################################
     # surrogate - strategy
@@ -305,12 +313,12 @@ class Parameters(AnnotatedStruct):
     # TODO: Kendall 
     surrogate_strategy_sort_type: (None, 'all', 'evaluated') = None
 
-    # > Unsure
-    # > Random
+    # >     [Unsure Strategy]
+    # >     [Random Strategy]
     #       minimum fraction of actual population to evaluate by the obj. func.
     surrogate_strategy_Random_eval_relative: float = 0.5
 
-    # > kendall
+    # >     [Kendall Strategy]
     #       minimum fraction of actual population to evaluate by the obj. func.
     surrogate_strategy_Kendall_minimum_eval_relative: float = 0.02
     #       minimum number of members to evaluate by the obj. func.
@@ -327,9 +335,13 @@ class Parameters(AnnotatedStruct):
     surrogate_strategy_Kendall_tau_training_size_minimum: int = 15
     #       if the model evaluated all values, return them (not surrogate)
     surrogate_strategy_Kendall_return_true_values_if_all_available: bool = True
-
+    # TODO
+    surrogate_strategy_Kendall_tau_threashold_to_signal_for_better_model: float = 0.5
 
     surrogate_strategy_Kendall_evaluation_selection: ('random', 'modelfitness') = 'random'
+
+    #########################################
+    # surrogate - model 
 
     # surrogate -  models
     surrogate_model: ('Linear', 'Quadratic', 'QuadraticPure', 'QuadraticInteraction', 'LQ') = 'Linear'

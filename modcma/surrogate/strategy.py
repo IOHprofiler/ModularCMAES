@@ -1,7 +1,6 @@
 
 import math
 import numpy as np
-import itertools, functools, operators
 
 from abc import ABCMeta, abstractmethod
 
@@ -71,7 +70,11 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
                 "Cannot find an implementation for 'surrogate_strategy_sort_type'")
 
     @abstractmethod
-    def __call__(self, X: XType, sort: Union[int,bool]=True) -> YType:
+    def __call__(self,
+                 X: XType,
+                 sort: Union[int, bool] = True,
+                 prune: bool = False
+                 ) -> YType:
         ''' evaluates all samples using true objective function '''
         F = np.empty(len(X), yType)
         for i in range(len(X)):
@@ -83,7 +86,16 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
         elif isinstance(sort, int):
             self.apply_sort(sort)
 
+        if prune:
+            self.data.prune()
+
         return F
+
+    def signal_better_model(self):
+        # TODO
+        self.model
+        ## ??
+        pass
 
 
 class Unsure_Strategy(SurrogateStrategyBase):
@@ -129,8 +141,8 @@ class Kendall_Strategy(SurrogateStrategyBase):
     StrategyName = 'Kendall'
 
     def __init__(self, modcma: ModularCMAES):
-        self.minimum_eval_relative: float
-        self.minimum_eval_absolute: int
+        self.minimum_eval_relative: float  # ok
+        self.minimum_eval_absolute: int  # ok
         self.truncation_ratio: float
 
         self.iterative_increse: float
@@ -139,6 +151,7 @@ class Kendall_Strategy(SurrogateStrategyBase):
         self.tau_training_size_minimum: int
         self.tau_training_size_relative: float
         self.tau_threshold: float
+        self.tau_threashold_to_signal_for_better_model: float
 
         self.return_true_values_if_all_available: bool
 
@@ -180,45 +193,33 @@ class Kendall_Strategy(SurrogateStrategyBase):
         tau = kendalltau(TestF, PredictF).correlation
         if np.isnan(tau):
             tau = 0
-        return tau >= self.tau_threshold
-
-
-    # <<<< TODO
-    @property
-    def model(self) -> Type[model.SurrogateModelBase]:
-        ''' gets the model and trains it '''
-        if self.data.X is None or self.data.F is None:
-            return None
-        model = self._model_class(self.parameters)
-        model.fit(self.data.X, self.data.F)
-        return model
-
-    @property
-    def model_size(self) -> int:
-        pass
+        return tau
 
     def __call__(self, X: XType) -> YType:
         NE = np.ones(shape=(len(X),), dtype=np.bool_)  # not evaluated
         F = np.tile(np.nan, reps=(len(X), 1))  # values
 
         evaluated = 0
-        to_evaluate = 1 + int(max((
+        to_evaluate = int(math.ceil(max((
             self.minimum_eval_absolute,
-            self.minimum_eval_relative * len(X),
-            3 / self.truncation_ratio - self.model_size  # this line is strange
-        )))
+            self.minimum_eval_relative * len(X)
+        ))))
 
         while np.any(NE):
             order = _get_order_of_F_by_surrogate(X, top=to_evaluate, mask=NE)
             evaluated += len(order)
-            F[order] = super().__call__(X[order], sort=evaluated)
+            F[order] = super().__call__(X[order], sort=evaluated, prune=True)
             NE[order] = False
 
             # Kendall test !!!!
-            if self._kendall_test():
+            tau = self._kendall_test()
+            if tau >= self.tau_threshold:
                 break
 
             to_evaluate = int(math.ceil(evaluated * self.iterative_increse))
+
+        if tau < self.tau_threashold_to_signal_for_better_model:
+            self.signal_better_model()
 
         if self.return_true_values_if_all_available and len(X) == evaluated:
             return F
@@ -227,8 +228,6 @@ class Kendall_Strategy(SurrogateStrategyBase):
             F_values = self.model(X)
             m_offset = np.nanmin(F_values)
             return F_values - m_offset + f_offset
-
-
 
 
 
