@@ -16,6 +16,7 @@ from scipy.stats import kendalltau
 from ..modularcmaes import ModularCMAES
 
 
+
 class SurrogateStrategyBase(metaclass=ABCMeta):
     StrategyName = "Base"
 
@@ -92,7 +93,7 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
         return F
 
     def signal_for_bigger_model(self):
-        self.model.signal_for_bigger_model(self.data)
+        self._model.signal_for_bigger_model(self.data)
 
 
 class Unsure_Strategy(SurrogateStrategyBase):
@@ -227,7 +228,13 @@ class Kendall_Strategy(SurrogateStrategyBase):
             return F_values - m_offset + f_offset
 
 
+if __name__ == '__main__':
+    import unittest
 
+    class Test(unittest.TestCase):
+        pass
+
+    unittest.main()
 
 
 
