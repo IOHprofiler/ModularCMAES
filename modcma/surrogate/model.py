@@ -7,7 +7,7 @@ import numpy.typing as npt
 from typing import Any, Callable, Optional, Union, Tuple, Iterable, Type
 from typing_extensions import override
 
-from abc import abstractmethod, ABCMeta
+from abc import abstractmethod, abstractproperty, ABCMeta
 
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
@@ -15,6 +15,7 @@ from sklearn.linear_model import LinearRegression
 
 from sklearn.base import BaseEstimator, TransformerMixin
 
+from .data import SurrogateData_V1
 from ..parameters import Parameters
 from ..typing_utils import XType, YType
 
@@ -36,14 +37,26 @@ class SurrogateModelBase(metaclass=ABCMeta):
         F = self.predict(X)
         return (F, np.tile(np.nan, F.shape))
 
+    def signal_for_bigger_model(self, data: SurrogateData_V1):
+        data.signal_for_bigger_model()
+
+    @abstractproperty
+    def df(self):
+        return 0
+
+    @property
+    def max_df(self):
+        return self.df
+
 
 class LQ_SurrogateModel(SurrogateModelBase):
     ModelName = 'LQ'
     SAFETY_MARGIN: float = 1.1
 
-    def __init__(self, parameters):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.model: Optional[Pipeline] = None
-        self.parameters = parameters
+        self._dof = self.parameters.d + 1
 
     def _select_model(self, D: int, N: int) -> Pipeline:
         # model             degree of freedom
@@ -54,10 +67,16 @@ class LQ_SurrogateModel(SurrogateModelBase):
         if N >= self.SAFETY_MARGIN * ((D**2 + 3*D) / 2 + 1):
             ppl = [('full-quadratic',
                     PolynomialFeatures(degree=2, include_bias=False))]
+            self._dof = (self.parameters.d**2 + 3*self.parameters.d + 2)//2
+            self.i_model = 2
         elif N >= self.SAFETY_MARGIN * (2*D + 1):
             ppl = [('pure-quadratic', PureQuadraticFeatures())]
-        else:  # N >= self.SAFETY_MARGIN * (D + 1):
+            self._dof = 2*self.parameters.d + 1
+            self.i_model = 1
+        else:
             ppl = []
+            self._dof = self.parameters.d + 1
+            self.i_model = 0
         return Pipeline(ppl + [('lm', LinearRegression())])
 
     @override
@@ -70,6 +89,20 @@ class LQ_SurrogateModel(SurrogateModelBase):
         if self.model is None:
             return super().predict(X)
         return self.model.predict(X)
+
+    @override
+    def signal_for_bigger_model(self, data: SurrogateData_V1):
+        if self.
+        data.signal_for_bigger_model()
+
+    @property
+    def df(self):
+        return self._dof
+
+    @property
+    def max_df(self):
+        return (self.parameters.d**2 + 3*self.parameters.d)/2 + 1
+
 
 
 ####################
@@ -91,6 +124,10 @@ class Linear_SurrogateModel(SklearnSurrogateModelBase):
     def fit(self, X: XType, F: YType) -> None:
         self.model = LinearRegression().fit(X, F)
 
+    @property
+    def df(self):
+        return self.parameters.d + 1
+
 
 class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
     ModelName = 'QuadraticPure'
@@ -101,6 +138,10 @@ class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
             ('quad.f.', PureQuadraticFeatures()),
             ('lin. m.', LinearRegression())
         ]).fit(X, F)
+
+    @property
+    def df(self):
+        return 2*self.parameters.d + 1
 
 
 class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
@@ -115,6 +156,10 @@ class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
             ('lin. m.', LinearRegression())
         ]).fit(X, F)
 
+    @property
+    def df(self):
+        return (self.parameters.d*(self.parameters.d + 1) + 2)//2
+
 
 class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
     ModelName = 'Quadratic'
@@ -126,6 +171,10 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
                                            include_bias=False)),
             ('lin. m.', LinearRegression())
         ]).fit(X, F)
+
+    @property
+    def df(self):
+        return (self.parameters.d + 2)*(self.parameters.d + 1) // 2
 
 
 def get_model(parameters: Parameters) -> Type[SurrogateModelBase]:
