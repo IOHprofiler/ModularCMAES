@@ -56,7 +56,8 @@ class LQ_SurrogateModel(SurrogateModelBase):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.model: Optional[Pipeline] = None
-        self._dof = self.parameters.d + 1
+        self._dof: int = self.parameters.d + 1
+        self.i_model: int = 0
 
     def _select_model(self, D: int, N: int) -> Pipeline:
         # model             degree of freedom
@@ -92,8 +93,8 @@ class LQ_SurrogateModel(SurrogateModelBase):
 
     @override
     def signal_for_bigger_model(self, data: SurrogateData_V1):
-        if self.
-        data.signal_for_bigger_model()
+        if self.i_model == 2:  # only when full quadratic
+            data.signal_for_bigger_model()
 
     @property
     def df(self):
@@ -178,11 +179,13 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
 
 
 def get_model(parameters: Parameters) -> Type[SurrogateModelBase]:
+    # TODO isfinal, isinstanceof
     clsmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
     for model in filter(lambda x: hasattr(x, 'ModelName'), clsmembers):
+        model: SurrogateModelBase
         if model.ModelName == parameters.surrogate_strategy:
             return model(parameters)
-    raise NotImplementedError(f'Cannot find model with name "{string}"')
+    raise NotImplementedError(f'Cannot find model with name "{parameters.surrogate_strategy}"')
 
 ####################
 # Helper functions
