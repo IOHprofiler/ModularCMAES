@@ -37,9 +37,6 @@ class SurrogateModelBase(metaclass=ABCMeta):
         F = self.predict(X)
         return (F, np.tile(np.nan, F.shape))
 
-    def signal_for_bigger_model(self, data: SurrogateData_V1):
-        data.signal_for_bigger_model()
-
     @abstractproperty
     def df(self):
         return 0
@@ -90,11 +87,6 @@ class LQ_SurrogateModel(SurrogateModelBase):
         if self.model is None:
             return super().predict(X)
         return self.model.predict(X)
-
-    @override
-    def signal_for_bigger_model(self, data: SurrogateData_V1):
-        if self.i_model == 2:  # only when full quadratic
-            data.signal_for_bigger_model()
 
     @property
     def df(self):

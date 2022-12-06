@@ -92,9 +92,6 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
 
         return F
 
-    def signal_for_bigger_model(self):
-        self._model.signal_for_bigger_model(self.data)
-
 
 class Unsure_Strategy(SurrogateStrategyBase):
     ''' always calls true evaluation '''
@@ -215,9 +212,6 @@ class Kendall_Strategy(SurrogateStrategyBase):
                 break
 
             to_evaluate = int(math.ceil(evaluated * self.iterative_increse))
-
-        if tau < self.tau_threashold_to_signal_for_bigger_model:
-            self.signal_better_model()
 
         if self.return_true_values_if_all_available and len(X) == evaluated:
             return F

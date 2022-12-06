@@ -307,15 +307,6 @@ class Parameters(AnnotatedStruct):
     surrogate_data_max_size: int = None
     #       maximum number of points saved in queue *(dof)
     surrogate_data_max_relative_size: int = None
-
-    ##       maximum number of points to be stored (relative to the df of the model)
-    #surrogate_data_max_size_relative_init: float = None
-    ##       maximum number of points to be stored (relative to the df of the model)
-    #surrogate_data_min_size_relative_end: float = None
-    ##       when calling for model to increase, the increase is weighted 
-    #surrogate_data_size_relative_factor: float = None
-
-    #       
     #       proportion of data desisgnated to make a model
     surrogate_data_truncation_ratio: float = 0.75
 
