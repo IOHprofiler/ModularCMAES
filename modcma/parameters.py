@@ -293,6 +293,7 @@ class Parameters(AnnotatedStruct):
 
     #########################################
     # surrogate - data
+    #   WEIGHTING
     #       type of weighting for models that are capable ...
     surrogate_data_weighting: ('linear', ) = 'linear'
     #       minimum weight
@@ -301,10 +302,25 @@ class Parameters(AnnotatedStruct):
     surrogate_data_max_weight: float = 20.
     #       what is the measure to evaluate what is better 
     surrogate_data_sorting: ('time', 'lq', 'mahalanobis') = 'time'
-    #       maximum number of data to be passed for traning
+
+    #       maximum number of points to be stored
     surrogate_data_max_size: int = None
-    #       TODO
+    #       maximum number of points saved in queue *(dof)
+    surrogate_data_max_relative_size: int = None
+
+    ##       maximum number of points to be stored (relative to the df of the model)
+    #surrogate_data_max_size_relative_init: float = None
+    ##       maximum number of points to be stored (relative to the df of the model)
+    #surrogate_data_min_size_relative_end: float = None
+    ##       when calling for model to increase, the increase is weighted 
+    #surrogate_data_size_relative_factor: float = None
+
+    #       
+    #       proportion of data desisgnated to make a model
     surrogate_data_truncation_ratio: float = 0.75
+
+    #       signaling
+    surrogate_data_signal
 
     #########################################
     # surrogate - strategy
