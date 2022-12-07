@@ -47,10 +47,10 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
     @property
     def model(self) -> Type[model.SurrogateModelBase]:
         ''' gets the model and trains it '''
-        X, F = self.data.X, self.data.F
+        X, F, W = self.data.X, self.data.F, self.data.W
         if X is None or F is None:
             return None
-        self._model.fit(X, F)
+        self._model.fit(X, F, W)
         return self._model
 
     def fitness_func(self, x):
@@ -151,6 +151,19 @@ class Kendall_Strategy(SurrogateStrategyBase):
         self.return_true_values_if_all_available: bool
 
         super().__init__(modcma)
+
+    @property
+    def model(self) -> Type[model.SurrogateModelBase]:
+        ''' gets the model and trains it '''
+        X, F, W = self.data.X, self.data.F, self.data.W
+        if X is None or F is None:
+            return None
+
+        ntrain = min(len(X), int(math.ceil(self.truncation_ratio * len(X))))
+        self._model.fit(X[-ntrain:], F[-ntrain:], W[-ntrain:])
+        return self._model
+
+    # TODO: n_for_tau
 
 
     def _get_order_of_F_by_surrogate(self, X, top=None, mask=None):

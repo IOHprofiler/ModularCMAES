@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 from typing import Callable, List, Union, Self, Optional, Any
 from numpy.typing import NDArray
@@ -102,10 +103,32 @@ class SurrogateData_V1(metaclass=ABCMeta):
     @property
     def model_size(self) -> int:
         ''' number of samples selected for training a surrogate model '''
-        if self.settings.max_size is None:
-            return len(self)
-        else:
-            return min(len(self), self.settings.max_size)
+        size = len(self)
+
+        # absolute max
+        if self.settings.surrogate_data_max_size is not None:
+            size = min(size, self.settings.surrogate_data_max_size)
+
+        # relative max
+        if self.settings.surrogate_data_max_relative_size is not None:
+            if self.settings.surrogate_model_instance is not None:
+                if self.settings.surrogate_model_instance.dof > 0:
+                    size = min(size,
+                               int(math.ceil(
+                                   self.settings.surrogate_data_max_relative_size
+                                   * self.settings.surrogate_model_instance.dof)))
+
+        # truncation ratio
+        #if self.settings.surrogate_data_truncation_ratio is not None:
+        #    size = int(math.ceil(size * self.settings.surrogate_data_truncation_ratio))
+        #return size
+
+
+    def __getitem__(self, items):
+        return
+        pass
+
+    # MODEL BUILDING BUSINESS
 
     @property
     def X(self) -> Optional[XType]:  # Covariates

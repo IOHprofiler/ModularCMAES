@@ -307,11 +307,7 @@ class Parameters(AnnotatedStruct):
     surrogate_data_max_size: int = None
     #       maximum number of points saved in queue *(dof)
     surrogate_data_max_relative_size: int = None
-    #       proportion of data desisgnated to make a model
-    surrogate_data_truncation_ratio: float = 0.75
 
-    #       signaling
-    surrogate_data_signal
 
     #########################################
     # surrogate - strategy
@@ -342,8 +338,6 @@ class Parameters(AnnotatedStruct):
     surrogate_strategy_Kendall_tau_training_size_minimum: int = 15
     #       if the model evaluated all values, return them (not surrogate)
     surrogate_strategy_Kendall_return_true_values_if_all_available: bool = True
-    # TODO
-    surrogate_strategy_Kendall_tau_threashold_to_signal_for_bigger_model: float = 0.5
 
     surrogate_strategy_Kendall_evaluation_selection: ('random', 'modelfitness') = 'random'
 
