@@ -57,7 +57,7 @@ class SurrogateData_V1(metaclass=ABCMeta):
         if self._F is None:
             return
 
-        if self.settings.sorting in ['LQ', ]:
+        if self.settings.surrogate_data_sorting in ['LQ', 'lq' ]:
             measure = self._F[selection].ravel()
             order = np.argsort(measure)[::-1]
         else:
@@ -67,7 +67,9 @@ class SurrogateData_V1(metaclass=ABCMeta):
     def sort(self, n: Optional[int] = None) -> None:
         ''' sorts top n elements default: sorts all elements '''
 
-        if (n is not None and n <= 1) or len(self) <= 1:
+        if (n is not None and n <= 1) \
+            or len(self) <= 1 \
+            or self.settings.surrogate_data_sorting == 'time':
             return
 
         if n is None:
@@ -89,10 +91,8 @@ class SurrogateData_V1(metaclass=ABCMeta):
         ''' removes unwanted elements '''
 
         # MAX_SIZE
-        if self.settings.max_size:
-            to_remove = len(self) - self.settings.max_size
-            if to_remove > 0:
-                self.pop(number=to_remove)
+        if len(self) > self.model_size:
+            self.pop(number=len(self) - self.model_size)
 
     def __len__(self) -> int:
         ''' number of saved samples (not nessesary for trainign purposes) '''
@@ -145,9 +145,9 @@ class SurrogateData_V1(metaclass=ABCMeta):
 
     @property
     def W(self):  # Weight
-        if self.settings.weight_function == 'linear':
-            return np.linspace(self.settings.weight_min,
-                               self.settings.weight_max,
+        if self.settings.surrogate_data_weighting == 'linear':
+            return np.linspace(self.settings.surrogate_data_min_weight,
+                               self.settings.surrogate_data_max_weight,
                                num=self.model_size)
         else:
             raise NotImplementedError("Couldnt interpret the weight_function")
@@ -239,11 +239,13 @@ if __name__ == '__main__':
             self.assertEqual(target, self.A.F)
 
         def test_sort(self):
+            self.S = Parameters(5, surrogate_data_sorting='lq')
+            self.A = SurrogateData_V1(self.S)
             x = np.array([
                 [1, 1, 3, 5],
                 [2, 3, 2, 3],
                 [1, 1, 1, 2],
-                [2, 9, 1, 2],
+                [2, 9, 1, 25],
                 [1, 8, 1, 2]
             ])
             y = np.array([[4, 3, 1, 5, 2]]).T
@@ -275,10 +277,10 @@ if __name__ == '__main__':
             self.assertEqual(self.A.X, xok)
 
         def test_max_size(self):
-            S = SurrogateData_Settings()
+            S = Parameters(5)
 
             for size in [3, 64, 101, 200]:
-                S.max_size = size
+                S.surrogate_data_max_size = size
                 A = SurrogateData_V1(S)
 
                 X = np.random.rand(size + 101, 5)
@@ -291,13 +293,13 @@ if __name__ == '__main__':
                 self.assertEqual(A.X.shape[1], 5)
 
         def test_weight(self):
-            S = SurrogateData_Settings()
+            S = Parameters(5)
 
             # FULL
             for size in [3, 64, 101, 200]:
-                S.max_size = size
-                S.weight_min = 2.5
-                S.weight_max = 100
+                S.surrogate_data_max_size = size
+                S.surrogate_data_min_weight = 2.5
+                S.surrogate_data_max_weight = 100.
                 A = SurrogateData_V1(S)
 
                 X = np.random.rand(size + 101, 5)
@@ -305,8 +307,8 @@ if __name__ == '__main__':
                 A.push_many(X, F)
 
                 self.assertEqual(len(A.W), size)
-                self.assertEqual(A.W[0], S.weight_min)
-                self.assertEqual(A.W[-1], S.weight_max)
+                self.assertEqual(A.W[0], S.surrogate_data_min_weight)
+                self.assertEqual(A.W[-1], S.surrogate_data_max_weight)
                 self.assertAlmostEqual(A.W[1] - A.W[0], A.W[-1] - A.W[-2])
 
             # NOT FILLED
@@ -314,21 +316,21 @@ if __name__ == '__main__':
             A.push(np.random.rand(1,5), np.random.rand(1,1))
 
             self.assertEqual(len(A.W), 1)
-            self.assertEqual(A.W[0], S.weight_min)
+            self.assertEqual(A.W[0], S.surrogate_data_min_weight)
 
             A.push(np.random.rand(1,5), np.random.rand(1,1))
             self.assertEqual(len(A.W), 2)
-            self.assertEqual(A.W[0], S.weight_min)
-            self.assertEqual(A.W[-1], S.weight_max)
+            self.assertEqual(A.W[0], S.surrogate_data_min_weight)
+            self.assertEqual(A.W[-1], S.surrogate_data_max_weight)
 
             A.push(np.random.rand(1,5), np.random.rand(1,1))
             self.assertEqual(len(A.W), 3)
-            self.assertEqual(A.W[0], S.weight_min)
-            self.assertAlmostEqual(A.W[1], (S.weight_min + S.weight_max)/2)
-            self.assertEqual(A.W[-1], S.weight_max)
+            self.assertEqual(A.W[0], S.surrogate_data_min_weight)
+            self.assertAlmostEqual(A.W[1], (S.surrogate_data_min_weight + S.surrogate_data_max_weight)/2)
+            self.assertEqual(A.W[-1], S.surrogate_data_max_weight)
 
         def test_prune(self):
-            S = SurrogateData_Settings()
+            S = Parameters(5)
 
             # FULL
             for size in [3, 4, 101, 200]:

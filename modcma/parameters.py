@@ -301,6 +301,9 @@ class Parameters(AnnotatedStruct):
     #       maximum weight
     surrogate_data_max_weight: float = 20.
     #       what is the measure to evaluate what is better 
+    #           time - do not sort
+    #           lq - sort based on lowest value
+    #           mahalanobis - sort based on distance to the population mean
     surrogate_data_sorting: ('time', 'lq', 'mahalanobis') = 'time'
 
     #       maximum number of points to be stored
