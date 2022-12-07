@@ -341,13 +341,15 @@ if __name__ == '__main__':
                     X = np.random.rand(size + add_size, 5)
                     F = np.random.rand(size + add_size, 1)
                     A.push_many(X, F)
+                    self.assertIsNotNone(A.F)
+                    self.assertIsNotNone(A.X)
 
                     A.prune()
 
-                    self.assertEqual(len(self.F), size)
-                    self.assertEqual(len(self.X), size)
-                    self.assertEqual(self.F, F[-size:])
-                    self.assertEqual(self.X, X[-size:])
+                    self.assertEqual(len(A.F), size)
+                    self.assertEqual(len(A.X), size)
+                    self.assertEqual(A.F, F[-size:])
+                    self.assertEqual(A.X, X[-size:])
 
         @unittest.skip('TODO')
         def test_parameters(self):
