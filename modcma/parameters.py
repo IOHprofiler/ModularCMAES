@@ -311,7 +311,7 @@ class Parameters(AnnotatedStruct):
     #       maximum number of points saved in queue *(dof)
     surrogate_data_max_relative_size: int = None
 
-    # TODO
+    #       models are trained in mahalanobis space
     surrogate_data_mahalanobis_space: bool = True
 
 
@@ -545,6 +545,7 @@ class Parameters(AnnotatedStruct):
             self.m = np.float64(self.x0.copy())
         self.m_old = np.empty((self.d, 1), dtype=np.float64)
         self.dm = np.zeros(self.d, dtype=np.float64)
+        # evolution paths
         self.pc = np.zeros((self.d, 1), dtype=np.float64)
         self.ps = np.zeros((self.d, 1), dtype=np.float64)
         # eigenvectors of the covariance matrix
@@ -553,6 +554,7 @@ class Parameters(AnnotatedStruct):
         self.C = np.eye(self.d, dtype=np.float64)
         # eigenvalues of the covariance matrix
         self.D = np.ones((self.d, 1), dtype=np.float64)
+        # C^(-1/2) = B * diag(D^-1) * B'
         self.inv_root_C = np.eye(self.d, dtype=np.float64)
         self.s = 0
         self.rank_tpa = None

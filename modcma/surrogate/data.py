@@ -148,7 +148,11 @@ class SurrogateData_V1(metaclass=ABCMeta):
         # TODO: return mahalanobis
         if self._X is None:
             return None
-        return self._X[-self.model_size:]
+
+        X = self._X[-self.model_size:]
+        if self.settings.surrogate_data_mahalanobis_space:
+            X = self.settings.inv_root_C @ (X - self.settings.m.T)
+        return X
 
     @property
     def F(self) -> Optional[YType]:  # Target Values
