@@ -117,6 +117,7 @@ class SurrogateData_V1(metaclass=ABCMeta):
                                int(math.ceil(
                                    self.settings.surrogate_data_max_relative_size
                                    * self.settings.surrogate_model_instance.dof)))
+        return size
 
         # truncation ratio
         #if self.settings.surrogate_data_truncation_ratio is not None:
