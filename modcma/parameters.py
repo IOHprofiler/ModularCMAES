@@ -308,11 +308,14 @@ class Parameters(AnnotatedStruct):
     #       maximum number of points saved in queue *(dof)
     surrogate_data_max_relative_size: int = None
 
+    # TODO
+    surrogate_data_mahalanobis_space: bool = True
+
 
     #########################################
     # surrogate - strategy
     # TODO: Kendall
-    surrogate_strategy: ('Unsure', 'Random', 'Kendall') = 'trueEval'
+    surrogate_strategy: ('Unsure', 'Random', 'Kendall') = 'Unsure'
     # TODO: Kendall 
     surrogate_strategy_sort_type: (None, 'all', 'evaluated') = None
 
