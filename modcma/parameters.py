@@ -547,8 +547,11 @@ class Parameters(AnnotatedStruct):
         self.dm = np.zeros(self.d, dtype=np.float64)
         self.pc = np.zeros((self.d, 1), dtype=np.float64)
         self.ps = np.zeros((self.d, 1), dtype=np.float64)
+        # eigenvectors of the covariance matrix
         self.B = np.eye(self.d, dtype=np.float64)
+        # covariance matrix
         self.C = np.eye(self.d, dtype=np.float64)
+        # eigenvalues of the covariance matrix
         self.D = np.ones((self.d, 1), dtype=np.float64)
         self.inv_root_C = np.eye(self.d, dtype=np.float64)
         self.s = 0

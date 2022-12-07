@@ -54,15 +54,27 @@ class SurrogateData_V1(metaclass=ABCMeta):
 
     def _sort_selection(self, selection: slice):
         ''' implemnts the sorting algorithm; returns order indices '''
-        if self._F is None:
+        if self._F is None or self._X is None:
             return
 
-        if self.settings.surrogate_data_sorting in ['LQ', 'lq' ]:
-            measure = self._F[selection].ravel()
-            order = np.argsort(measure)[::-1]
+        s_type = self.settings.surrogate_data_sorting.lower()
+
+        if s_type == 'lq':
+            measure = self._F[selection]
+        elif s_type == 'mahalanobis':
+            inv_root_C = self.settings.inv_root_C
+            p = inv_root_C @ (self._X[selection] - self.settings.m.T)
+            measure = (p.T @ p)
+        elif s_type == 'time':
+            raise RuntimeError('This should not happen')
         else:
             raise NotImplementedError('Unknown sorting method')
+
+        # smallest last
+        measure = -measure.ravel()
+        order = np.argsort(measure)
         return order
+
 
     def sort(self, n: Optional[int] = None) -> None:
         ''' sorts top n elements default: sorts all elements '''
@@ -133,6 +145,7 @@ class SurrogateData_V1(metaclass=ABCMeta):
 
     @property
     def X(self) -> Optional[XType]:  # Covariates
+        # TODO: return mahalanobis
         if self._X is None:
             return None
         return self._X[-self.model_size:]
