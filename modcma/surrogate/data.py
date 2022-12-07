@@ -3,19 +3,19 @@ import math
 
 from typing import Callable, List, Union, Self, Optional, Any
 from numpy.typing import NDArray
-from typing_utils import XType, YType, xType, yType
 from scipy.stats import kendalltau
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 
 #  from modularcmaes import ModularCMAES
-from parameters import SurrogateData_Settings
+from ..parameters import Parameters
+from ..typing_utils import XType, YType, xType, yType
 
 
 class SurrogateData_V1(metaclass=ABCMeta):
     FIELDS = ['_X', '_F']
 
-    def __init__(self, settings: SurrogateData_Settings):
+    def __init__(self, settings: Parameters):
         self.settings = settings
 
         self._X: Optional[XType] = None
@@ -165,7 +165,7 @@ if __name__ == '__main__':
             return super().assertEqual(first, second, msg)
 
         def setUp(self):
-            self.S = SurrogateData_Settings()
+            self.S = Parameters(5)
             self.A = SurrogateData_V1(self.S)
 
         def fillin(self, n=1):
@@ -332,20 +332,19 @@ if __name__ == '__main__':
             # FULL
             for size in [3, 4, 101, 200]:
                 for add_size in [2, 5, 1001, 1024]:
+                    S.surrogate_data_max_size = size
 
-                S.max_size = size
+                    A = SurrogateData_V1(S)
+                    X = np.random.rand(size + add_size, 5)
+                    F = np.random.rand(size + add_size, 1)
+                    A.push_many(X, F)
 
-                A = SurrogateData_V1(S)
-                X = np.random.rand(size + add_size, 5)
-                F = np.random.rand(size + add_size, 1)
-                A.push_many(X, F)
+                    A.prune()
 
-                A.prune()
-
-                self.assertEqual(len(self.F), size)
-                self.assertEqual(len(self.X), size)
-                self.assertEqual(self.F, F[-size:])
-                self.assertEqual(self.X, X[-size:])
+                    self.assertEqual(len(self.F), size)
+                    self.assertEqual(len(self.X), size)
+                    self.assertEqual(self.F, F[-size:])
+                    self.assertEqual(self.X, X[-size:])
 
         @unittest.skip('TODO')
         def test_parameters(self):
