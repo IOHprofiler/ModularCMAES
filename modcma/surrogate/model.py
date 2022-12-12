@@ -26,7 +26,16 @@ class SurrogateModelBase(metaclass=ABCMeta):
 
     @abstractmethod
     def fit(self, X: XType, F: YType, W: YType) -> None:
-        pass
+        self.fitted = True
+
+    @property
+    def fitted(self):
+        return self._fitted
+
+    @fitted.setter
+    def fitted(self, value):
+        assert value is False
+        self._fitted = False
 
     @abstractmethod
     def predict(self, X: XType) -> YType:
@@ -81,6 +90,7 @@ class LQ_SurrogateModel(SurrogateModelBase):
     def fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = self._select_model(D=X.shape[0], N=X.shape[1])
         self.model = self.model.fit(X, F, sample_weight=W)
+        super().fit(X, F, W)
 
     @override
     def predict(self, X: XType) -> YType:
@@ -116,6 +126,7 @@ class Linear_SurrogateModel(SklearnSurrogateModelBase):
     @override
     def fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = LinearRegression().fit(X, F, sample_weight=W)
+        super().fit(X, F, W)
 
     @property
     def df(self):
@@ -131,6 +142,7 @@ class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
             ('quad.f.', PureQuadraticFeatures()),
             ('lin. m.', LinearRegression())
         ]).fit(X, F, sample_weight=W)
+        super().fit(X, F, W)
 
     @property
     def df(self):
@@ -148,6 +160,7 @@ class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
                                            include_bias=False)),
             ('lin. m.', LinearRegression())
         ]).fit(X, F, sample_weight=W)
+        super().fit(X, F, W)
 
     @property
     def df(self):
@@ -158,12 +171,13 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
     ModelName = 'Quadratic'
 
     @override
-    def fit(self, X: XType, F: YType) -> None:
+    def fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = Pipeline([
             ('quad.f.', PolynomialFeatures(degree=2,
                                            include_bias=False)),
             ('lin. m.', LinearRegression())
         ]).fit(X, F)
+        super().fit(X, F, W)
 
     @property
     def df(self):
