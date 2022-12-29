@@ -24,7 +24,8 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
         self.parameters: Parameters = modcma.parameters
 
         if self.parameters.sequential:
-            raise NotImplementedError("Cannot use surrogate model with sequential selection")
+            raise NotImplementedError(
+                "Cannot use surrogate model with sequential selection")
 
         self.data = SurrogateData_V1(self.parameters)
 
@@ -58,7 +59,9 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
         self._model.fit(X, F, W)
 
     def fitness_func(self, x):
-        ''' evaluate one sample using true objective function & saves the result in the archive '''
+        ''' evaluate one sample using true objective function
+        & saves the result in the archive
+        '''
         f = self.modcma.fitness_func(x)
         self.data.push(x, f)
         return f
@@ -73,7 +76,8 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
             self.data.sort(n=n)
         else:
             raise NotImplementedError(
-                "Cannot find an implementation for 'surrogate_strategy_sort_type'")
+                "Cannot find an implementation for \
+                'surrogate_strategy_sort_type'")
 
     @abstractmethod
     def __call__(self,
