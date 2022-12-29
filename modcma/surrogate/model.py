@@ -60,7 +60,6 @@ class SurrogateModelBase(metaclass=ABCMeta):
     def predict(self, X: XType) -> YType:
         return np.tile(np.nan, (len(X), 1))
 
-    @abstractmethod
     def predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
         F = self.predict(X)
         return (F, np.tile(np.nan, F.shape))
@@ -207,7 +206,7 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
 
 
 def get_model(parameters: Parameters) -> SurrogateModelBase:
-    to_find = normalize_string(parameters.surrogate_strategy)
+    to_find = normalize_string(parameters.surrogate_model)
     clsmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
 
     for (modelname, model) in clsmembers:
@@ -233,6 +232,28 @@ class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
 if __name__ == '__main__':
     import unittest
 
+    class Test_get_model(unittest.TestCase):
+        def test_empty(self):
+            p = Parameters(2)
+            m = get_model(p)
+            self.assertIsInstance(m, Linear_SurrogateModel)
+
+        def test_Quandratic(self):
+            p = Parameters(2)
+            p.surrogate_model = 'Quadratic'
+            m = get_model(p)
+            self.assertIsInstance(m, Quadratic_SurrogateModel)
+
+        def test_LQ(self):
+            p = Parameters(2)
+            p.surrogate_model = 'LQ'
+            m = get_model(p)
+            self.assertIsInstance(m, LQ_SurrogateModel)
+
+
+
+
+    '''
     class TestInterface(unittest.TestCase):
         def test_Linear(self):
             parameters = Parameters(d=2)
@@ -246,8 +267,9 @@ if __name__ == '__main__':
             X = np.array([[20., 3.1, 3.4]])
             Fh = model.predict(X)
             self.assertAlmostEqual(Fh[0], 40.)
+    '''
 
-    unittest.main()
+    unittest.main(verbosity=2)
 
 
 '''
