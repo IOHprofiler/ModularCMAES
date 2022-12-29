@@ -22,6 +22,7 @@ from ..typing_utils import XType, YType
 def normalize_string(s: str):
     return s.lower().replace(' ', '_')
 
+
 class SurrogateModelBase(metaclass=ABCMeta):
     ModelName = "Base"
 
@@ -61,6 +62,7 @@ class SurrogateModelBase(metaclass=ABCMeta):
     @classmethod
     def name(cls) -> str:
         return normalize_string(cls.ModelName)
+
 
 class LQ_SurrogateModel(SurrogateModelBase):
     ModelName = 'LQ'
