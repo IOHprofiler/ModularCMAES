@@ -6,15 +6,15 @@ from abc import ABCMeta, abstractmethod
 
 from modcma.parameters import Parameters
 
-from typing import Type, Optional
+from typing import Type, Optional, Union
 from ..typing_utils import XType, YType, yType
 import .data
-import .model
+
+from .model import SurrogateModelBase, get_model
 
 from scipy.stats import kendalltau
 
 from ..modularcmaes import ModularCMAES
-
 
 
 class SurrogateStrategyBase(metaclass=ABCMeta):
@@ -23,12 +23,13 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
     def __init__(self, modcma: ModularCMAES):
         self.modcma = modcma
         self.parameters: Parameters = modcma.parameters
+
         if self.parameters.sequential:
             raise NotImplementedError("Cannot use surrogate model with sequential selection")
 
         self.data = data.SurrogateData_V1(self.parameters)
 
-        self._model = self.get_model(self.parameters)
+        self._model: Type[SurrogateModelBase] = get_model(self.parameters)
         self._load_strategy_parameters()
 
     def _load_strategy_parameters(self):
@@ -44,14 +45,20 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
         for name in settings_for_this_strategy:
             setattr(self, name, getattr(self.parameters, prefix + name))
 
-    @property
-    def model(self) -> Type[model.SurrogateModelBase]:
-        ''' gets the model and trains it '''
+    def _get_model(self) -> Type[SurrogateModelBase]:
+        if self._model.fitted:
+            return self._model
+        else:
+            self._train_model()
+            assert self._model.fitted is True
+            return self._model
+
+    def _clear_model(self) -> None:
+        self._model.fitted = False
+
+    def _train_model(self) -> None:
         X, F, W = self.data.X, self.data.F, self.data.W
-        if X is None or F is None:
-            return None
         self._model.fit(X, F, W)
-        return self._model
 
     def fitness_func(self, x):
         ''' evaluate one sample using true objective function & saves the result in the archive '''
@@ -60,6 +67,7 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
         return f
 
     def apply_sort(self, n):
+        ''' sorts data in the archive acording to settings '''
         if self.parameters.surrogate_strategy_sort_type is None:
             return
         elif self.parameters.surrogate_strategy_sort_type == 'all':
@@ -110,7 +118,7 @@ class Random_Strategy(SurrogateStrategyBase):
         super().__init__(modcma)
 
     def __call__(self, X: XType) -> YType:
-        n = min(len(X), math.ceil(len(X) * self.eval_relative))
+        n = int(min(len(X), math.ceil(len(X) * self.eval_relative)))
         sample = np.arange(len(X))
         np.random.shuffle(sample)
         sample, not_sample = sample[:n], sample[n:]
@@ -121,8 +129,10 @@ class Random_Strategy(SurrogateStrategyBase):
         Xtrue = X[sample]
         Ftrue = super().__call__(Xtrue)
         # surrogate
+        self._clear_model()
+        m = self._get_model()
         Xfalse = X[not_sample]
-        Ffalse = self.model.predict(Xfalse)
+        Ffalse = m.predict(Xfalse)
 
         # putting it altogether
         F = np.empty(shape=(len(X), 1), dtype=yType)
@@ -152,9 +162,9 @@ class Kendall_Strategy(SurrogateStrategyBase):
 
         super().__init__(modcma)
 
+    '''
     @property
     def model(self) -> Type[model.SurrogateModelBase]:
-        ''' gets the model and trains it '''
         X, F, W = self.data.X, self.data.F, self.data.W
         if X is None or F is None:
             return None
@@ -165,23 +175,28 @@ class Kendall_Strategy(SurrogateStrategyBase):
 
     # TODO: n_for_tau
 
+    def _train_model(self):
 
-    def _get_order_of_F_by_surrogate(self, X, top=None, mask=None):
-        """ evaluates some of the X's rows by the true function & returns which one (index) are evaluated and their values
+        X, F, W = self.data.X, self.data.F, self.data.W
+        self._model.fit(X, F, W)
+        return super()._train_model()
+    '''
+
+    def _get_order_of_F_by_surrogate(self, X, mask, top=None):
+        """ returns order in which the best points can be sorted samples using surrogate
         """
-        if mask is not None:
-            masked_argange = np.arange(len(X))[mask]
-            X = X[mask]
+        masked_argange = np.arange(len(X))[mask]
+        X = X[mask]
 
-        # try to get actual model ...
-        F_model = self.model(X)
+        # try to get the model ...
+        model = self._get_model()
+        F_model = model.predict(X)
+        self._clear_model()
+
         if F_model is None:
             F_model = np.random.rand(len(X), 1)
         order = np.argsort(F_model)[:top]
-
-        if mask is not None:
-            order = masked_argange[order]
-        return order
+        return masked_argange[order]
 
     def _kendall_test(self) -> bool:
         n_for_tau = max(
@@ -214,16 +229,19 @@ class Kendall_Strategy(SurrogateStrategyBase):
         ))))
 
         while np.any(NE):
-            order = _get_order_of_F_by_surrogate(X, top=to_evaluate, mask=NE)
+            # Firstly, select the best candidates for evaluation
+            order = self._get_order_of_F_by_surrogate(X, NE, top=to_evaluate)
             evaluated += len(order)
             F[order] = super().__call__(X[order], sort=evaluated, prune=True)
             NE[order] = False
+            # Save the results 
 
-            # Kendall test !!!!
+            # Secondly, do the kendall tau test
             tau = self._kendall_test()
             if tau >= self.tau_threshold:
                 break
 
+            # Lastly, increase the size of the next evaluation
             to_evaluate = int(math.ceil(evaluated * self.iterative_increse))
 
         if self.return_true_values_if_all_available and len(X) == evaluated:
