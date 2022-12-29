@@ -15,12 +15,16 @@ from sklearn.linear_model import LinearRegression
 
 from sklearn.base import BaseEstimator, TransformerMixin
 
-from .data import SurrogateData_V1
 from ..parameters import Parameters
 from ..typing_utils import XType, YType
 
 
+def normalize_string(s: str):
+    return s.lower().replace(' ', '_')
+
 class SurrogateModelBase(metaclass=ABCMeta):
+    ModelName = "Base"
+
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
 
@@ -54,6 +58,9 @@ class SurrogateModelBase(metaclass=ABCMeta):
     def max_df(self):
         return self.df
 
+    @classmethod
+    def name(cls) -> str:
+        return normalize_string(cls.ModelName)
 
 class LQ_SurrogateModel(SurrogateModelBase):
     ModelName = 'LQ'
@@ -107,13 +114,14 @@ class LQ_SurrogateModel(SurrogateModelBase):
         return (self.parameters.d**2 + 3*self.parameters.d)/2 + 1
 
 
-
 ####################
 # Other Surrogate Models
+
 
 class SklearnSurrogateModelBase(SurrogateModelBase):
     @override
     def predict(self, X: XType) -> YType:
+        self.model: Pipeline
         return self.model.predict(X)
 
     def predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
@@ -125,7 +133,8 @@ class Linear_SurrogateModel(SklearnSurrogateModelBase):
 
     @override
     def fit(self, X: XType, F: YType, W: YType) -> None:
-        self.model = LinearRegression().fit(X, F, sample_weight=W)
+        self.model = Pipeline([
+            ('linear', LinearRegression())]).fit(X, F, sample_weight=W)
         super().fit(X, F, W)
 
     @property
@@ -184,17 +193,21 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
         return (self.parameters.d + 2)*(self.parameters.d + 1) // 2
 
 
-def get_model(parameters: Parameters) -> Type[SurrogateModelBase]:
-    # TODO isfinal, isinstanceof
+def get_model(parameters: Parameters) -> SurrogateModelBase:
+    to_find = normalize_string(parameters.surrogate_strategy)
     clsmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-    for model in filter(lambda x: hasattr(x, 'ModelName'), clsmembers):
-        model: SurrogateModelBase
-        if model.ModelName == parameters.surrogate_strategy:
-            return model(parameters)
-    raise NotImplementedError(f'Cannot find model with name "{parameters.surrogate_strategy}"')
+
+    for (modelname, model) in clsmembers:
+        if issubclass(model, SurrogateModelBase):
+            model: Type[SurrogateModelBase]
+            if model.name() == to_find:
+                return model(parameters)
+    raise NotImplementedError(
+        f'Cannot find model with name "{parameters.surrogate_strategy}"')
 
 ####################
 # Helper functions
+
 
 class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
     def fit(self, X, y=None):
@@ -202,7 +215,6 @@ class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
 
     def transform(self, X) -> npt.NDArray[np.float64]:
         return np.hstack((X, np.square(X)))
-
 
 
 if __name__ == '__main__':
