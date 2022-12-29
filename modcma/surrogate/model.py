@@ -2,6 +2,7 @@ import inspect
 import sys
 
 import numpy as np
+from numpy.random import sample
 import numpy.typing as npt
 
 from typing import Any, Callable, Optional, Union, Tuple, Iterable, Type
@@ -149,7 +150,8 @@ class Linear_SurrogateModel(SklearnSurrogateModelBase):
     @override
     def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = Pipeline([
-            ('linear', LinearRegression())]).fit(X, F, sample_weight=W)
+            ('linear', LinearRegression())
+         ]).fit(X, F, sample_weight=W)
 
     @property
     def df(self):
@@ -197,7 +199,7 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
             ('quad.f.', PolynomialFeatures(degree=2,
                                            include_bias=False)),
             ('lin. m.', LinearRegression())
-        ]).fit(X, F)
+        ]).fit(X, F, sample_weight=W)
 
     @property
     def df(self):
