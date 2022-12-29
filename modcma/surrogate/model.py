@@ -28,10 +28,24 @@ class SurrogateModelBase(metaclass=ABCMeta):
 
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
+        self.fit
+
+    def fit(self,
+            X: Union[XType, None],
+            F: Union[YType, None],
+            W: Union[YType, None]) -> None:
+        ''' fit the surrogate '''
+        if X is None or F is None:
+            self.fitted = False
+            return
+        if W is None:
+            W = np.ones_like(F)
+        self._fit(X, F, W)
+        self.fitted = True
 
     @abstractmethod
-    def fit(self, X: XType, F: YType, W: YType) -> None:
-        self.fitted = True
+    def _fit(self, X: XType, F: YType, W: YType):
+        pass
 
     @property
     def fitted(self):
@@ -39,7 +53,6 @@ class SurrogateModelBase(metaclass=ABCMeta):
 
     @fitted.setter
     def fitted(self, value):
-        assert value is False
         self._fitted = False
 
     @abstractmethod
@@ -96,7 +109,7 @@ class LQ_SurrogateModel(SurrogateModelBase):
         return Pipeline(ppl + [('lm', LinearRegression())])
 
     @override
-    def fit(self, X: XType, F: YType, W: YType) -> None:
+    def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = self._select_model(D=X.shape[0], N=X.shape[1])
         self.model = self.model.fit(X, F, sample_weight=W)
         super().fit(X, F, W)
@@ -134,10 +147,9 @@ class Linear_SurrogateModel(SklearnSurrogateModelBase):
     ModelName = 'Linear'
 
     @override
-    def fit(self, X: XType, F: YType, W: YType) -> None:
+    def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = Pipeline([
             ('linear', LinearRegression())]).fit(X, F, sample_weight=W)
-        super().fit(X, F, W)
 
     @property
     def df(self):
@@ -148,12 +160,11 @@ class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
     ModelName = 'QuadraticPure'
 
     @override
-    def fit(self, X: XType, F: YType, W: YType) -> None:
+    def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = Pipeline([
             ('quad.f.', PureQuadraticFeatures()),
             ('lin. m.', LinearRegression())
         ]).fit(X, F, sample_weight=W)
-        super().fit(X, F, W)
 
     @property
     def df(self):
@@ -164,14 +175,13 @@ class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
     ModelName = 'QuadraticInteraction'
 
     @override
-    def fit(self, X: XType, F: YType, W: YType) -> None:
+    def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = Pipeline([
             ('quad.f.', PolynomialFeatures(degree=2,
                                            interaction_only=True,
                                            include_bias=False)),
             ('lin. m.', LinearRegression())
         ]).fit(X, F, sample_weight=W)
-        super().fit(X, F, W)
 
     @property
     def df(self):
@@ -182,13 +192,12 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
     ModelName = 'Quadratic'
 
     @override
-    def fit(self, X: XType, F: YType, W: YType) -> None:
+    def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = Pipeline([
             ('quad.f.', PolynomialFeatures(degree=2,
                                            include_bias=False)),
             ('lin. m.', LinearRegression())
         ]).fit(X, F)
-        super().fit(X, F, W)
 
     @property
     def df(self):
