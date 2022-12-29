@@ -3,16 +3,15 @@ import math
 import numpy as np
 
 from abc import ABCMeta, abstractmethod
+from typing import Type, Optional, Union
+
+from scipy.stats import kendalltau
 
 from modcma.parameters import Parameters
 
-from typing import Type, Optional, Union
 from ..typing_utils import XType, YType, yType
-import .data
-
+from .data import SurrogateData_V1
 from .model import SurrogateModelBase, get_model
-
-from scipy.stats import kendalltau
 
 from ..modularcmaes import ModularCMAES
 
@@ -27,9 +26,9 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
         if self.parameters.sequential:
             raise NotImplementedError("Cannot use surrogate model with sequential selection")
 
-        self.data = data.SurrogateData_V1(self.parameters)
+        self.data = SurrogateData_V1(self.parameters)
 
-        self._model: Type[SurrogateModelBase] = get_model(self.parameters)
+        self._model: SurrogateModelBase = get_model(self.parameters)
         self._load_strategy_parameters()
 
     def _load_strategy_parameters(self):
@@ -45,13 +44,11 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
         for name in settings_for_this_strategy:
             setattr(self, name, getattr(self.parameters, prefix + name))
 
-    def _get_model(self) -> Type[SurrogateModelBase]:
-        if self._model.fitted:
-            return self._model
-        else:
+    def _get_model(self) -> SurrogateModelBase:
+        if not self._model.fitted:
             self._train_model()
-            assert self._model.fitted is True
-            return self._model
+        assert self._model.fitted is True
+        return self._model
 
     def _clear_model(self) -> None:
         self._model.fitted = False
@@ -130,9 +127,10 @@ class Random_Strategy(SurrogateStrategyBase):
         Ftrue = super().__call__(Xtrue)
         # surrogate
         self._clear_model()
-        m = self._get_model()
+        model = self._get_model()
         Xfalse = X[not_sample]
-        Ffalse = m.predict(Xfalse)
+        Ffalse = model.predict(Xfalse)
+        self._clear_model()
 
         # putting it altogether
         F = np.empty(shape=(len(X), 1), dtype=yType)
