@@ -20,7 +20,17 @@ from ..parameters import Parameters
 from ..typing_utils import XType, YType
 
 
-# TYPE QUICK
+####################
+# Helper functions
+
+
+class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X) -> npt.NDArray[np.float64]:
+        return np.hstack((X, np.square(X)))
+
 
 def normalize_string(s: str):
     return s.lower().replace(' ', '_')
@@ -36,6 +46,10 @@ def normalize_F(Y: YType):
 
 
 normalize_W = normalize_F
+
+
+####################
+# Models
 
 
 class SurrogateModelBase(metaclass=ABCMeta):
@@ -243,16 +257,9 @@ def get_model(parameters: Parameters) -> SurrogateModelBase:
     raise NotImplementedError(
         f'Cannot find model with name "{parameters.surrogate_strategy}"')
 
-####################
-# Helper functions
 
-
-class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
-    def fit(self, X, y=None):
-        return self
-
-    def transform(self, X) -> npt.NDArray[np.float64]:
-        return np.hstack((X, np.square(X)))
+###################
+# TESTS
 
 
 if __name__ == '__main__':
@@ -356,23 +363,10 @@ if __name__ == '__main__':
             Y = np.array([201, 1723])
             self.try_model(X, Y)
 
-
-
-    '''
-    class TestInterface(unittest.TestCase):
-        def test_Linear(self):
-            parameters = Parameters(d=2)
-            model = Linear_SurrogateModel(parameters)
-
-            X = np.hstack([np.array([np.linspace(0, 1, 10)]).T, np.random.rand(10, 2)])
-            F = X[:, 0] * 2
-            W = np.ones_like(F)
-            model.fit(X, F, W)
-
-            X = np.array([[20., 3.1, 3.4]])
-            Fh = model.predict(X)
-            self.assertAlmostEqual(Fh[0], 40.)
-    '''
+    class Test_LQ_SurrogateModel(TestModelsBase):
+        @unittest.skip("TODO")
+        def test_1(self):
+            pass
 
     unittest.main(verbosity=2)
 
