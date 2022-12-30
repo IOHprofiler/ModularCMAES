@@ -20,8 +20,22 @@ from ..parameters import Parameters
 from ..typing_utils import XType, YType
 
 
+# TYPE QUICK
+
 def normalize_string(s: str):
     return s.lower().replace(' ', '_')
+
+
+def normalize_X(X: XType, d):
+    assert X.shape[1] == d
+    return X
+
+
+def normalize_F(Y: YType):
+    return Y.ravel()
+
+
+normalize_W = normalize_F
 
 
 class SurrogateModelBase(metaclass=ABCMeta):
@@ -39,8 +53,14 @@ class SurrogateModelBase(metaclass=ABCMeta):
         if X is None or F is None:
             self.fitted = False
             return
+
+        X = normalize_X(X, self.parameters.d)
+        F = normalize_F(F)
+
         if W is None:
             W = np.ones_like(F)
+        else:
+            W = normalize_W(W)
         self._fit(X, F, W)
         self.fitted = True
 
@@ -49,10 +69,8 @@ class SurrogateModelBase(metaclass=ABCMeta):
         pass
 
     def predict(self, X: XType) -> YType:
-        Y = self._predict(X)
-        if len(Y.shape) == 1:
-            Y = np.reshape(Y, (-1, 1))
-        return Y
+        F = self._predict(X)
+        return normalize_F(F)
 
     @abstractmethod
     def _predict(self, X: XType) -> YType:
@@ -259,30 +277,85 @@ if __name__ == '__main__':
             m = get_model(p)
             self.assertIsInstance(m, LQ_SurrogateModel)
 
+    class TestModelsBase(unittest.TestCase):
+        def train_try_model(self, X, Y):
+            self.model.fit(X, Y, None)
+            self.try_model(X, Y)
 
-    class Test_Linear_SurrogateModel(unittest.TestCase):
+        def try_model(self, X, Y):
+            Yt = self.model.predict(X)
+            self.assertIsNone(assert_array_almost_equal(Y, Yt))
+
+
+    class Test_Linear_SurrogateModel(TestModelsBase):
         def test_1(self) -> None:
             p = Parameters(2)
-            model = get_model(p)
+            self.model = get_model(p)
 
             X = np.array([
-                [1, 4],
-                [2, 2],
-                [3, 7],
-                [4, 0],
+                [1, 4], [2, 2],
+                [3, 7], [4, 0],
             ])
             Y = X[:,0] + X[:,1]*3 + 1
-
-            model.fit(X, Y, None)
-            Yt = model.predict(X)
-
-            self.assertIsNone(assert_array_almost_equal(Y, Yt))
+            self.train_try_model(X, Y)
 
             X = np.array([[2, 2], [0, 0]])
-            Y = np.array([[9], [1]])
+            Y = np.array([9, 1])
+            self.try_model(X, Y)
 
-            Yt = model.predict(X)
-            self.assertIsNone(assert_array_almost_equal(Y, Yt))
+    class Test_QuadraticPure_SurrogateModel(TestModelsBase):
+        def test_1(self) -> None:
+            p = Parameters(1)
+            p.surrogate_model = 'QuadraticPure'
+            self.model = get_model(p)
+
+            X = np.array([
+                [1], [2], [3], [4],
+            ])
+            Y = np.array([3, 7,  13, 21])
+            self.train_try_model(X, Y)
+
+            X = np.array([[5], [6]])
+            Y = np.array([31, 43])
+            self.try_model(X, Y)
+
+    class Test_QuadraticInteraction_SurrogateModel(TestModelsBase):
+        def test_1(self) -> None:
+            p = Parameters(2)
+            p.surrogate_model = 'QuadraticInteraction'
+            self.model = get_model(p)
+
+            X = np.array([
+                [0, 0], [1, 0], [0, 1], [1, 1]
+            ])
+            Y = np.array([1, 3, 4, 11])
+            self.train_try_model(X, Y)
+
+            X = np.array([[5, 2], [3, 4]])
+            Y = np.array([67, 79])
+            self.try_model(X, Y)
+
+    class Test_Quadratic_SurrogateModel(TestModelsBase):
+        def test_1(self) -> None:
+            # Intercept=1, 2 3 5 7 11
+            p = Parameters(2)
+            p.surrogate_model = 'Quadratic'
+            self.model = get_model(p)
+
+            X = np.array([
+                [0, 0], [1, 0], [0, 1], [1, 1], [3, 0], [0, 3]
+            ])
+            Y = np.array([1, 8, 11, 29, 52, 73])
+            self.train_try_model(X, Y)
+
+            X = np.array([[3, 1], [1, 3]])
+            Y = np.array([95, 113])
+            self.try_model(X, Y)
+
+            X = np.array([[5, 1], [8, 9]])
+            Y = np.array([201, 1723])
+            self.try_model(X, Y)
+
 
 
     '''
