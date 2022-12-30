@@ -48,6 +48,20 @@ class SurrogateModelBase(metaclass=ABCMeta):
     def _fit(self, X: XType, F: YType, W: YType):
         pass
 
+    def predict(self, X: XType) -> YType:
+        Y = self._predict(X)
+        if len(Y.shape) == 1:
+            Y = np.reshape(Y, (-1, 1))
+        return Y
+
+    @abstractmethod
+    def _predict(self, X: XType) -> YType:
+        return np.tile(np.nan, (len(X), 1))
+
+    def predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
+        F = self.predict(X)
+        return (F, np.tile(np.nan, F.shape))
+
     @property
     def fitted(self):
         return self._fitted
@@ -55,14 +69,6 @@ class SurrogateModelBase(metaclass=ABCMeta):
     @fitted.setter
     def fitted(self, value):
         self._fitted = False
-
-    @abstractmethod
-    def predict(self, X: XType) -> YType:
-        return np.tile(np.nan, (len(X), 1))
-
-    def predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
-        F = self.predict(X)
-        return (F, np.tile(np.nan, F.shape))
 
     @abstractproperty
     def df(self):
@@ -106,16 +112,16 @@ class LQ_SurrogateModel(SurrogateModelBase):
             ppl = []
             self._dof = self.parameters.d + 1
             self.i_model = 0
-        return Pipeline(ppl + [('lm', LinearRegression())])
+        return Pipeline(ppl + [('linearregression', LinearRegression())])
 
     @override
     def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = self._select_model(D=X.shape[0], N=X.shape[1])
-        self.model = self.model.fit(X, F, sample_weight=W)
+        self.model = self.model.fit(X, F, linearregression__sample_weight=W)
         super().fit(X, F, W)
 
     @override
-    def predict(self, X: XType) -> YType:
+    def _predict(self, X: XType) -> YType:
         if self.model is None:
             return super().predict(X)
         return self.model.predict(X)
@@ -135,12 +141,14 @@ class LQ_SurrogateModel(SurrogateModelBase):
 
 class SklearnSurrogateModelBase(SurrogateModelBase):
     @override
-    def predict(self, X: XType) -> YType:
+    def _predict(self, X: XType) -> YType:
         self.model: Pipeline
         return self.model.predict(X)
 
+    '''
     def predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
         return super().predict_with_confidence(X)
+    '''
 
 
 class Linear_SurrogateModel(SklearnSurrogateModelBase):
@@ -149,8 +157,8 @@ class Linear_SurrogateModel(SklearnSurrogateModelBase):
     @override
     def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = Pipeline([
-            ('linear', LinearRegression())
-         ]).fit(X, F, sample_weight=W)
+            ('linearregression', LinearRegression())
+         ]).fit(X, F, linearregression__sample_weight=W)
 
     @property
     def df(self):
@@ -164,8 +172,8 @@ class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
     def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = Pipeline([
             ('quad.f.', PureQuadraticFeatures()),
-            ('lin. m.', LinearRegression())
-        ]).fit(X, F, sample_weight=W)
+            ('linearregression', LinearRegression())
+        ]).fit(X, F, linearregression__sample_weight=W)
 
     @property
     def df(self):
@@ -181,8 +189,8 @@ class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
             ('quad.f.', PolynomialFeatures(degree=2,
                                            interaction_only=True,
                                            include_bias=False)),
-            ('lin. m.', LinearRegression())
-        ]).fit(X, F, sample_weight=W)
+            ('linearregression', LinearRegression())
+        ]).fit(X, F, linearregression__sample_weight=W)
 
     @property
     def df(self):
@@ -197,8 +205,8 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
         self.model = Pipeline([
             ('quad.f.', PolynomialFeatures(degree=2,
                                            include_bias=False)),
-            ('lin. m.', LinearRegression())
-        ]).fit(X, F, sample_weight=W)
+            ('linearregression', LinearRegression())
+        ]).fit(X, F, linearregression__sample_weight=W)
 
     @property
     def df(self):
@@ -231,6 +239,7 @@ class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
 
 if __name__ == '__main__':
     import unittest
+    from numpy.testing import assert_array_equal, assert_array_almost_equal
 
     class Test_get_model(unittest.TestCase):
         def test_empty(self):
@@ -251,6 +260,29 @@ if __name__ == '__main__':
             self.assertIsInstance(m, LQ_SurrogateModel)
 
 
+    class Test_Linear_SurrogateModel(unittest.TestCase):
+        def test_1(self) -> None:
+            p = Parameters(2)
+            model = get_model(p)
+
+            X = np.array([
+                [1, 4],
+                [2, 2],
+                [3, 7],
+                [4, 0],
+            ])
+            Y = X[:,0] + X[:,1]*3 + 1
+
+            model.fit(X, Y, None)
+            Yt = model.predict(X)
+
+            self.assertIsNone(assert_array_almost_equal(Y, Yt))
+
+            X = np.array([[2, 2], [0, 0]])
+            Y = np.array([[9], [1]])
+
+            Yt = model.predict(X)
+            self.assertIsNone(assert_array_almost_equal(Y, Yt))
 
 
     '''
