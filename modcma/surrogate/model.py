@@ -150,7 +150,6 @@ class LQ_SurrogateModel(SurrogateModelBase):
     def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = self._select_model(D=X.shape[0], N=X.shape[1])
         self.model = self.model.fit(X, F, linearregression__sample_weight=W)
-        super().fit(X, F, W)
 
     @override
     def _predict(self, X: XType) -> YType:
@@ -285,14 +284,21 @@ if __name__ == '__main__':
             self.assertIsInstance(m, LQ_SurrogateModel)
 
     class TestModelsBase(unittest.TestCase):
-        def train_try_model(self, X, Y):
+        def train_model(self, X, Y):
+            self.model: SurrogateModelBase
             self.model.fit(X, Y, None)
+
+        def train_try_model(self, X, Y):
+            self.train_model(X, Y)
             self.try_model(X, Y)
 
         def try_model(self, X, Y):
             Yt = self.model.predict(X)
             self.assertIsNone(assert_array_almost_equal(Y, Yt))
 
+        def try_ne_model(self, X, Y):
+            Yt = self.model.predict(X)
+            self.assertFalse(np.allclose(Y, Yt))
 
     class Test_Linear_SurrogateModel(TestModelsBase):
         def test_1(self) -> None:
@@ -364,9 +370,58 @@ if __name__ == '__main__':
             self.try_model(X, Y)
 
     class Test_LQ_SurrogateModel(TestModelsBase):
+        def test_1_small(self):
+            p = Parameters(2)
+            p.surrogate_model = 'LQ'
+            self.model = get_model(p)
+
+            X = np.array([[0, 0], [1, 0]])
+            Y = np.array([1, 3])
+            self.train_try_model(X, Y)
+
+            X = np.array([[-1, 0], [2, 3]])
+            Y = np.array([-1, 5])
+            self.try_model(X, Y)
+
+        def test_2_full_linear(self):
+            p = Parameters(2)
+            p.surrogate_model = 'LQ'
+            self.model = get_model(p)
+
+            X = np.array([[0, 0], [1, 0], [0, 1]])
+            Y = np.array([1, 3, 2])
+            self.train_try_model(X, Y)
+
+            X = np.array([[-1, 0], [2, 3]])
+            Y = np.array([-1, 8])
+            self.try_model(X, Y)
+
+        def test_2_full_linear_neg_case(self):
+            p = Parameters(2)
+            p.surrogate_model = 'LQ'
+            self.model = get_model(p)
+
+            X = np.array([[0, 0], [1, 0], [2, 0]])
+            Y = np.array([1, 1+1, 1+4])
+            self.train_model(X, Y)
+
+            X = np.array([[3, 0], [1, 0]])
+            Y = np.array([1+9, 1+1])
+            self.try_ne_model(X, Y)
+
         @unittest.skip("TODO")
-        def test_1(self):
-            pass
+        def test_2_quadratic_part(self):
+            p = Parameters(2)
+            p.surrogate_model = 'LQ'
+            self.model = get_model(p)
+
+            X = np.array([[0, 0], [1, 0], [0, 1], []])
+            Y = np.array([1, 3, 2])
+            self.train_try_model(X, Y)
+
+            X = np.array([[-1, 0], [2, 3]])
+            Y = np.array([-1, 8])
+            self.try_model(X, Y)
 
     unittest.main(verbosity=2)
 
