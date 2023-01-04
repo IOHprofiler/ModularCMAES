@@ -348,7 +348,9 @@ class Parameters(AnnotatedStruct):
     surrogate_strategy_Kendall_evaluation_selection: ('random', 'modelfitness') = 'random'
 
     #########################################
-    # surrogate - model 
+    # surrogate - model
+    #       minimum number of samples to use (*df) for non-linear models only
+    surrogate_model_lq_margin: float = 1.1
 
     # surrogate -  models
     surrogate_model: ('Linear', 'Quadratic', 'QuadraticPure', 'QuadraticInteraction', 'LQ') = 'Linear'

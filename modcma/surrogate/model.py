@@ -131,12 +131,14 @@ class LQ_SurrogateModel(SurrogateModelBase):
         # quadratic         2D + 1
         # full-quadratic    C_r(D, 1) + C_r(D, 2) = (D^2 + 3D)/2 + 1
 
-        if N >= self.SAFETY_MARGIN * ((D**2 + 3*D) / 2 + 1):
+        margin = self.parameters.surrogate_model_lq_margin
+
+        if N >= margin * ((D**2 + 3*D) / 2 + 1):
             ppl = [('full-quadratic',
                     PolynomialFeatures(degree=2, include_bias=False))]
             self._dof = (self.parameters.d**2 + 3*self.parameters.d + 2)//2
             self.i_model = 2
-        elif N >= self.SAFETY_MARGIN * (2*D + 1):
+        elif N >= margin * (2*D + 1):
             ppl = [('pure-quadratic', PureQuadraticFeatures())]
             self._dof = 2*self.parameters.d + 1
             self.i_model = 1
@@ -264,6 +266,7 @@ def get_model(parameters: Parameters) -> SurrogateModelBase:
 
 if __name__ == '__main__':
     import unittest
+    import math
     from numpy.testing import assert_array_equal, assert_array_almost_equal
 
     class Test_get_model(unittest.TestCase):
@@ -497,6 +500,52 @@ if __name__ == '__main__':
                 self.model.df,
                 len(self.model.model['linearregression'].coef_) + 1
             )
+
+        def test_changes(self):
+            def LM_th():
+                return (4 + 1)
+                # linear + intercept
+
+            def QP_th():
+                return (4 + 4 + 1)
+                # quadratic + linear + intercept
+
+            def QF_th():
+                return (6 + 4 + 4 + 1)
+                # all combinations + quadratic + linear + intercept
+
+            def train_and_return(N):
+                X, Y = np.random.randn(N, 4), np.random.randn(N, 1)
+                self.train_model(X, Y)
+                return self.model.i_model
+
+            def myfloor(th):
+                thf = math.floor(th)
+                if th == thf:
+                    return thf - 1
+                return thf
+            p = Parameters(4)
+            p.surrogate_model = 'LQ'
+
+
+            for margin in [1.5, 2.0, 1.]:
+                p.surrogate_model_lq_margin = margin
+                self.model = get_model(p)
+
+                #N = 1
+                #self.assertEqual(0, train_and_return(N))
+                N = myfloor(LM_th() * margin)
+                self.assertEqual(0, train_and_return(N))
+                N += 1
+                self.assertEqual(0, train_and_return(N))
+                N = myfloor(QP_th() * margin)
+                self.assertEqual(0, train_and_return(N))
+                N += 1
+                self.assertEqual(1, train_and_return(N))
+                N = myfloor(QF_th() * margin)
+                self.assertEqual(1, train_and_return(N))
+                N += 1
+                self.assertEqual(2, train_and_return(N))
 
     unittest.main(verbosity=2)
 
