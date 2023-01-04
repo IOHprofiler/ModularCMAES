@@ -125,7 +125,7 @@ class LQ_SurrogateModel(SurrogateModelBase):
         self._dof: int = self.parameters.d + 1
         self.i_model: int = 0
 
-    def _select_model(self, D: int, N: int) -> Pipeline:
+    def _select_model(self, N: int, D: int) -> Pipeline:
         # model             degree of freedom
         # linear            D + 1
         # quadratic         2D + 1
@@ -148,7 +148,8 @@ class LQ_SurrogateModel(SurrogateModelBase):
 
     @override
     def _fit(self, X: XType, F: YType, W: YType) -> None:
-        self.model = self._select_model(D=X.shape[0], N=X.shape[1])
+        (N, D) = X.shape
+        self.model = self._select_model(N, D)
         self.model = self.model.fit(X, F, linearregression__sample_weight=W)
 
     @override
@@ -383,6 +384,9 @@ if __name__ == '__main__':
             Y = np.array([-1, 5])
             self.try_model(X, Y)
 
+            self.assertEqual(0, self.model.i_model)
+            self.assertEqual(3, self.model.df)
+
         def test_2_full_linear(self):
             p = Parameters(2)
             p.surrogate_model = 'LQ'
@@ -395,6 +399,9 @@ if __name__ == '__main__':
             X = np.array([[-1, 0], [2, 3]])
             Y = np.array([-1, 8])
             self.try_model(X, Y)
+
+            self.assertEqual(0, self.model.i_model)
+            self.assertEqual(3, self.model.df)
 
         def test_2_full_linear_neg_case(self):
             p = Parameters(2)
@@ -409,19 +416,87 @@ if __name__ == '__main__':
             Y = np.array([1+9, 1+1])
             self.try_ne_model(X, Y)
 
-        @unittest.skip("TODO")
-        def test_2_quadratic_part(self):
+            self.assertEqual(0, self.model.i_model)
+            self.assertEqual(3, self.model.df)
+
+        def test_2_quadratic_pure_exist_quad(self):
             p = Parameters(2)
             p.surrogate_model = 'LQ'
             self.model = get_model(p)
 
-            X = np.array([[0, 0], [1, 0], [0, 1], []])
-            Y = np.array([1, 3, 2])
+            X = np.array([[0, 0], [1, 0],
+                          [2, 0], [3, 0],
+                          [1, 1], [2, 2],
+                          ])
+            Y = 11*X[:, 0]**2 + 3*X[:, 1] + 1
             self.train_try_model(X, Y)
 
-            X = np.array([[-1, 0], [2, 3]])
-            Y = np.array([-1, 8])
+            self.assertEqual(1, self.model.i_model)
+            self.assertEqual(5, self.model.df)
+
+            X = np.array([[-1, 0], [-2, 1]])
+            Y = 11*X[:, 0]**2 + 3*X[:, 1] + 1
             self.try_model(X, Y)
+
+        def test_2_quadratic_pure_ne_exist(self):
+            p = Parameters(2)
+            p.surrogate_model = 'LQ'
+            self.model = get_model(p)
+
+            X = np.array([[0, 0], [1, 0],
+                          [2, 0], [3, 0],
+                          [1, 1], [2, 2],
+                          ])
+            Y = + 11*X[:, 0]**2 \
+                + 31*X[:, 1]**2 \
+                + 3*X[:, 0] \
+                + 2*X[:, 1] \
+                - 7
+            self.train_try_model(X, Y)
+            self.assertEqual(1, self.model.i_model)
+            self.assertEqual(5, self.model.df)
+            self.assertEqual(
+                self.model.df,
+                len(self.model.model['linearregression'].coef_) + 1
+            )
+
+            X = np.array([[0, 0], [1, 0],
+                          [2, 0], [0, 1],
+                          [1, 2], [3, 2],
+                          ])
+            Y = + 11*X[:, 0]**2 \
+                + 31*X[:, 1]**2 \
+                + 3*X[:, 0] \
+                + 2*X[:, 1] \
+                - 7 \
+                + 5*X[:, 0]*X[:, 1] \
+
+            self.train_model(X, Y)
+            self.try_ne_model(X, Y)
+
+        def test_3_quadratic_full(self):
+            p = Parameters(3)
+            p.surrogate_model = 'LQ'
+            self.model = get_model(p)
+
+            X = np.random.randn(12, 3)
+            Y = + 11*X[:, 0]**2 \
+                + 31*X[:, 1]**2 \
+                + 17*X[:, 2]**2 \
+                + 3*X[:, 0] \
+                + 2*X[:, 1] \
+                + 5*X[:, 2] \
+                + 13*X[:, 0]*X[:, 1] \
+                + 19*X[:, 0]*X[:, 2] \
+                + 23*X[:, 1]*X[:, 2] \
+                - 7
+            self.train_try_model(X, Y)
+            self.assertEqual(2, self.model.i_model)
+            self.assertEqual(10, self.model.df)
+            self.assertEqual(
+                self.model.df,
+                len(self.model.model['linearregression'].coef_) + 1
+            )
 
     unittest.main(verbosity=2)
 
