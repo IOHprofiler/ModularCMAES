@@ -79,7 +79,7 @@ class SurrogateModelBase(metaclass=ABCMeta):
         self.fitted = True
 
     @abstractmethod
-    def _fit(self, X: XType, F: YType, W: YType):
+    def _fit(self, X: XType, F: YType, W: YType) -> None:
         pass
 
     def predict(self, X: XType) -> YType:
@@ -95,7 +95,7 @@ class SurrogateModelBase(metaclass=ABCMeta):
         return (F, np.tile(np.nan, F.shape))
 
     @property
-    def fitted(self):
+    def fitted(self) -> bool:
         return self._fitted
 
     @fitted.setter
@@ -103,11 +103,11 @@ class SurrogateModelBase(metaclass=ABCMeta):
         self._fitted = value
 
     @abstractproperty
-    def df(self):
+    def df(self) -> int:
         return 0
 
     @property
-    def max_df(self):
+    def max_df(self) -> int:
         return self.df
 
     @classmethod
@@ -161,12 +161,12 @@ class LQ_SurrogateModel(SurrogateModelBase):
         return self.model.predict(X)
 
     @property
-    def df(self):
+    def df(self) -> int:
         return self._dof
 
     @property
-    def max_df(self):
-        return (self.parameters.d**2 + 3*self.parameters.d)/2 + 1
+    def max_df(self) -> int:
+        return (self.parameters.d**2 + 3*self.parameters.d)//2 + 1
 
 
 
@@ -200,7 +200,7 @@ class Linear_SurrogateModel(SklearnSurrogateModelBase):
          ]).fit(X, F, linearregression__sample_weight=W)
 
     @property
-    def df(self):
+    def df(self) -> int:
         return self.parameters.d + 1
 
 
@@ -215,7 +215,7 @@ class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
         ]).fit(X, F, linearregression__sample_weight=W)
 
     @property
-    def df(self):
+    def df(self) -> int:
         return 2*self.parameters.d + 1
 
 
@@ -232,7 +232,7 @@ class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
         ]).fit(X, F, linearregression__sample_weight=W)
 
     @property
-    def df(self):
+    def df(self) -> int:
         return (self.parameters.d*(self.parameters.d + 1) + 2)//2
 
 
