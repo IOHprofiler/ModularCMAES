@@ -99,8 +99,8 @@ class SurrogateModelBase(metaclass=ABCMeta):
         return self._fitted
 
     @fitted.setter
-    def fitted(self, value):
-        self._fitted = False
+    def fitted(self, value: bool):
+        self._fitted = value
 
     @abstractproperty
     def df(self):
@@ -167,6 +167,11 @@ class LQ_SurrogateModel(SurrogateModelBase):
     @property
     def max_df(self):
         return (self.parameters.d**2 + 3*self.parameters.d)/2 + 1
+
+
+
+
+
 
 
 ####################
