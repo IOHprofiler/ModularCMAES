@@ -62,7 +62,7 @@ class SurrogateModelBase(metaclass=ABCMeta):
     def fit(self,
             X: Union[XType, None],
             F: Union[YType, None],
-            W: Union[YType, None]) -> None:
+            W: Union[YType, None] = None) -> None:
         ''' fit the surrogate '''
         if X is None or F is None:
             self.fitted = False
