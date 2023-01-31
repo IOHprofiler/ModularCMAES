@@ -22,26 +22,25 @@ def initialize_parameters(problem: ioh.ProblemType, budget: int, lambda_: int, m
                             ipop_factor=ipop_factor, ps_factor=ps_factor, sample_sigma=sample_sigma)
     return CMAES_params
 
-def initialize(problem_id: int, dimension: int, budget: int, lambda_: list[int], mu_: list[int]):
-    problem = ioh.get_problem(fid=problem_id, instance=1, dimension=dimension, problem_type=ioh.ProblemType.BBOB) # TODO replace dimension
+def initialize(problem_id: int, dimension: int, budget: int, iterations: int, lambda_: list[int], mu_: list[int], sharing_point: int):
+    problem = ioh.get_problem(fid=problem_id, instance=2, dimension=dimension, problem_type=ioh.ProblemType.BBOB) # TODO replace dimension
     # print(problem)
 
     # params = initiate_parameters(problem=problem, budget=budget, lambda_=(lambda_//subpop_n), mu_=(mu_//subpop_n))
     # print(params)
 
     # TODO fix logger issue
-    # log = ioh.logger.Analyzer(root="data", folder_name="run", algorithm_name=f"CMAES_E", algorithm_info="test of IOHexperimenter in python")
-    # problem.attach_logger(log)
+    logger = ioh.logger.Analyzer(root="data", folder_name="run", algorithm_name=f"CMAES_E", algorithm_info="test of IOHexperimenter in python")
+    problem.attach_logger(logger)
 
     # initialize (subpop) number of populations
     subpop_n = len(lambda_)
-    print(subpop_n)
     cmaes = []
     for i in range(subpop_n):
         params = initialize_parameters(problem=problem, budget=budget, lambda_=lambda_[i], mu_=mu_[i])
         cmaes.append(modularcmaes.ModularCMAES(fitness_func=problem, parameters=params))
 
-    return cmaes
+    return run_cma(CMAES=cmaes, iterations=iterations, sharing_point=sharing_point)
 
 def run_cma(CMAES: list[modularcmaes.ModularCMAES], iterations: int, sharing_point: int):
     for _ in range(iterations):
@@ -52,14 +51,27 @@ def run_cma(CMAES: list[modularcmaes.ModularCMAES], iterations: int, sharing_poi
 
 def main(problem_id: int, dimension: int, iterations: int, budget: int, lambda_: int, mu_: int, sharing_point: int):
     # initialize
-    cmaes = initialize(problem_id=problem_id, dimension=dimension, budget=budget, lambda_=lambda_, mu_=mu_)
-    # run algo
-    cmaes = run_cma(CMAES=cmaes, iterations=iterations, sharing_point=sharing_point)
+    cmaes = initialize(problem_id=problem_id, dimension=dimension, budget=budget, iterations=iterations, lambda_=lambda_, mu_=mu_, sharing_point=sharing_point)
+    
+    # TODO run algo
+    # cmaes = run_cma(CMAES=cmaes, iterations=iterations, sharing_point=sharing_point)
+
     # display results
     for cma in cmaes:
-        print(f"CMA: {cma} f:{cma.parameters.fopt}, {cma._fitness_func.optimum.y}")
+        print(f"CMA: {cma} f:{cma.parameters.fopt}, {cma._fitness_func.optimum.y}, {cma.parameters.population}")
 
     
+def normal_cma_benchmark(problem_id: int, dimension: int, iterations: int, budget: int, lambda_: int, mu_: int):
+    problem = ioh.get_problem(fid=problem_id, instance=1, dimension=dimension, problem_type=ioh.ProblemType.BBOB)
+
+    logger = ioh.logger.Analyzer(root='data', folder_name="run", algorithm_name="ModCMAES", algorithm_info="default version of ModCMAES benchmarked with default parameters.")
+    problem.attach_logger(logger)
+
+    params = initialize_parameters(problem=problem, budget=budget, lambda_=lambda_, mu_=mu_)
+
+    cmaes = modularcmaes.ModularCMAES(fitness_func=problem, parameters=params)
+    for _ in range(iterations):
+        cmaes.step()
 
 if __name__ == "__main__":
     # TODO: seed
@@ -77,7 +89,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     # TODO update lambda_ and mu_ arguments for subpopulation
-
     if args.subpop_type == 1:
         # no subpopulations, hard-coded size (hard-coded for now)
         lambda_ = [100]
@@ -91,6 +102,13 @@ if __name__ == "__main__":
         lambda_ = [5, 10, 20, 30, 50]
         mu_ = [5, 10, 20, 30, 50]
     
+    normal_cma_benchmark(problem_id=args.problem_id, 
+            dimension=args.dimension, 
+            iterations=args.iterations, 
+            budget=args.budget, 
+            lambda_=100,
+            mu_=100)
+
     main(problem_id=args.problem_id, 
             dimension=args.dimension, 
             iterations=args.iterations, 
@@ -98,6 +116,4 @@ if __name__ == "__main__":
             lambda_=lambda_,
             mu_=mu_,
             sharing_point=None)
-
-
     # python main.py -
