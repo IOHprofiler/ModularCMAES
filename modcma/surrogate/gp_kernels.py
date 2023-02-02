@@ -388,12 +388,12 @@ for kernel in _basic_kernels + _functor_kernels:
     locals()[kernel.__name__] = kernel
 
 
-
 if __name__ == '__main__':
     import unittest
 
     class Mock2:
         d = 2
+
     class Mock5:
         d = 5
 
@@ -447,7 +447,6 @@ if __name__ == '__main__':
             k = k(Mock5)
             self.assertEqual(len(k.kernel().trainable_variables), 3)
 
-
         def test_addition_dof_var(self):
             kc = Linear + Linear + MaternOneHalf
             ko = kc(Mock5)
@@ -466,7 +465,4 @@ if __name__ == '__main__':
             # dof
             self.assertEqual(ko.dof, 8)
 
-
-
     unittest.main()
-
