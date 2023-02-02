@@ -49,7 +49,7 @@ class GP_kernel_meta(ABCMeta):
 
             @property
             def dof(self) -> int:
-                return self._obj_first.df + self._obj_second.df
+                return self._obj_first.dof + self._obj_second.dof
 
             def kernel(self):
                 return self._obj_first.kernel() + self._obj_second.kernel()
@@ -71,7 +71,7 @@ class GP_kernel_meta(ABCMeta):
 
             @property
             def dof(self) -> int:
-                return self._obj_first.df + self._obj_second.df
+                return self._obj_first.dof + self._obj_second.dof
 
             def kernel(self):
                 return self._obj_first.kernel() * self._obj_second.kernel()
