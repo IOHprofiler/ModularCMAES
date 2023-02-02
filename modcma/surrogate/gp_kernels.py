@@ -421,6 +421,19 @@ if __name__ == '__main__':
 
             self.assertEqual(k.dof, 2 + 5)
 
+        def test_dof_feature_scale_complex(self):
+            k = FeatureScaled(MaternOneHalf) + FeatureScaled(Linear)
+            k = k(Mock2)
+
+            self.assertEqual(k.dof, 2 + 2 + 2 + 3)
+            self.assertEqual(len(k.kernel().trainable_variables), 1+1+2+3)
+
+            k = FeatureScaled(FeatureScaled(MaternOneHalf) + Linear)
+            k = k(Mock5)
+
+            self.assertEqual(k.dof, 5 + 5 + 2 + 3)
+            self.assertEqual(len(k.kernel().trainable_variables), 1+1+2+3)
+
         def test_number_of_variables(self):
             k = MaternOneHalf
             k = k(Mock5)
