@@ -38,7 +38,7 @@ class GP_kernel_meta(ABCMeta):
 
     def __add__(cls, other):
         ''' adds addition of kernel classes '''
-        class SumKernel(GP_kernel_base_interface):
+        class SumKernel(GP_kernel_base_interface, metaclass=GP_kernel_meta):
             _cls_first = cls
             _cls_second = other
 
@@ -60,7 +60,7 @@ class GP_kernel_meta(ABCMeta):
 
     def __mul__(cls, other):
         ''' adds multiplication of kernel classes '''
-        class MulKernel(GP_kernel_base_interface):
+        class MulKernel(GP_kernel_base_interface, metaclass=GP_kernel_meta):
             _cls_first = cls
             _cls_second = other
 
@@ -392,10 +392,13 @@ for kernel in _basic_kernels + _functor_kernels:
 if __name__ == '__main__':
     import unittest
 
+    class Mock2:
+        d = 2
+    class Mock5:
+        d = 5
+
     class TestMatern(unittest.TestCase):
         def test_dof(self):
-            class Mock2:
-                d = 2
             k = MaternOneHalf(Mock2)
 
             self.assertEqual(k.dof, 2)
@@ -408,19 +411,49 @@ if __name__ == '__main__':
             self.assertEqual(k.dof, 2)
 
         def test_dof_feature_scale(self):
-            class Mock2:
-                d = 2
             k = FeatureScaled(MaternOneHalf)
             k = k(Mock2)
 
             self.assertEqual(k.dof, 2 + 2)
 
-            class Mock5:
-                d = 5
             k = FeatureScaled(MaternOneHalf)
             k = k(Mock5)
 
             self.assertEqual(k.dof, 2 + 5)
+
+        def test_number_of_variables(self):
+            k = MaternOneHalf
+            k = k(Mock5)
+            self.assertEqual(len(k.kernel().trainable_variables), 2)
+
+            k = Linear
+            k = k(Mock5)
+            self.assertEqual(len(k.kernel().trainable_variables), 3)
+
+            k = Cubic
+            k = k(Mock5)
+            self.assertEqual(len(k.kernel().trainable_variables), 3)
+
+
+        def test_addition_dof_var(self):
+            kc = Linear + Linear + MaternOneHalf
+            ko = kc(Mock5)
+
+            # variables
+            self.assertEqual(len(ko.kernel().trainable_variables), 8)
+            # dof
+            self.assertEqual(ko.dof, 8)
+
+        def test_multiplication_dof_var(self):
+            kc = (Linear + Linear) * MaternOneHalf
+            ko = kc(Mock5)
+
+            # variables
+            self.assertEqual(len(ko.kernel().trainable_variables), 8)
+            # dof
+            self.assertEqual(ko.dof, 8)
+
+
 
     unittest.main()
 
