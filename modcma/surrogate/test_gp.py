@@ -1,12 +1,15 @@
-import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+from abc import abstractmethod, ABCMeta
 
-from abc import abstractmethod
-import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
-import tensorflow_probability as tfp
 
+import os
+
+from tensorflow.python.ops.variable_scope import init_ops
+os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+
+import tensorflow as tf
+import tensorflow_probability as tfp
 
 from .model import SurrogateModelBase
 from ..typing_utils import XType, YType
@@ -16,10 +19,82 @@ tfd = tfp.distributions
 psd_kernels = tfp.math.psd_kernels
 
 
+
+def create_positive_variable(default, dtype=tf.float64, name=None):
+    if isinstance(default, (float, int)):
+        default = tf.constant(default, dtype=dtype)
+
+    bijector = tfb.Shift(np.finfo(np.float64).tiny)(tfb.Exp())
+
+    return tfp.util.TransformedVariable(
+        initial_value=default,
+        bijector=bijector,
+        dtype=dtype,
+        name=name,
+    )
+
+
+class GP_RegressionModel(SurrogateModelBase):
+    ModelName = 'GP_Base'
+
+    def __init__(self, d, kernel_cls):
+        self.d = d
+
+        # create variables ...
+        self._kernel_obj = kernel_cls(self)
+        self._kernel = self._kernel_obj.kernel()
+
+        self.observation_noise_variance = create_positive_variable(
+            1., name='observation_noise_variance'
+        )
+
+        self.observation_index_points = None
+        self.observations = None
+
+    @abstractmethod
+    def _fit(self, X: XType, F: YType, W: YType) -> None:
+        self.observation_index_points = tf.constant(X, dtype=tf.float64)
+        self.observations = tf.constant(F, dtype=tf.float64)
+
+        # TODO - how can you weight the GP ??
+        # self.weights = tf.constant(W, tf.float64)
+        pass
+
+'''
+    @abstractmethod
+    def _predict(self, X: XType) -> YType:
+        return np.tile(np.nan, (len(X), 1))
+
+    @abstractproperty
+    def df(self) -> int:
+        return 0
+'''
+    @abstractmethod
+    def train_model(self, observation_index_points, observations) -> None:
+        pass
+
+    def _generate_train_model(self):
+        self.gp = tfd.GaussianProcess(
+            kernel=self._kernel,
+            index_points=self.observation_index_points,
+            observation_noise_variance=self.observation_noise_variance
+        )
+    def _generate_regression_model(self, X):
+        self.gprm = tfd.GaussianProcessRegressionModel(
+            kernel=self.gp.kernel,
+            mean_fn=self.gp.mean_fn,
+            index_points=X,
+            observation_index_points=self.observation_index_points,
+            observations=self.observations,
+            observation_noise_variance=self.observation_noise_variance,
+            predictive_noise_variance=self.observation_noise_variance,
+        )
+
+
 class GP_ModelBase(SurrogateModelBase):
     ModelName = 'Base_GP'
 
-    def __init__(self, parameters):
+    def __init__(self, ):
         super().__init__(parameters)
         self.default_observation_noise_variance = tf.constant(np.exp(-5), dtype=tf.float64)
         self.observation_noise_variance = tfp.util.TransformedVariable(
@@ -27,8 +102,10 @@ class GP_ModelBase(SurrogateModelBase):
 
         self.kernel = self._kernel()
 
-    @abstractmethod
-    def _kernel(self):
+    @property
+    def kernel(self):
+        if self._kernel_obj is None:
+            self.parameters.surrogate_m
         pass
 
     @property
@@ -41,9 +118,17 @@ class GP_ModelBase(SurrogateModelBase):
         self.observations = tf.constant(Y, dtype=np.float64)
         return
 
+    def _generate_gp_model(self):
+        self.gp = tfd.GaussianProcess(
+            kernel=self.kernel,
+            index_points=self.observation_index_points,
+            observation_noise_variance=self.observation_noise_variance)
+
+
     def _generate_regression_model(self, X) -> tfp.distributions.GaussianProcessRegressionModel:
         gprm = tfd.GaussianProcessRegressionModel(
-            kernel=self.kernel,
+            kernel=self.gp.kernel,
+            mean_fn=self.gp.mean_fn,
             index_points=X,
             observation_index_points=self.observation_index_points,
             observations=self.observations,
@@ -59,6 +144,7 @@ class GP_ModelBase(SurrogateModelBase):
         mean = gprm.mean().numpy()
         var = gprm.variance().numpy()
         return mean, var
+
 
 class GP_ML_ModelBase(GP_ModelBase):
     ModelName = 'Base_GP_ML'
@@ -83,12 +169,11 @@ class GP_ML_ModelBase(GP_ModelBase):
             with tf.GradientTape() as tape:
                 loss = -gp.log_prob(self.observations)
                 tf.print(loss)
-            import pdb; pdb.set_trace()
             grads = tape.gradient(loss, gp.trainable_variables)
             optimizer.apply_gradients(zip(grads, gp.trainable_variables))
             return loss
 
-        for i in range(10000):
+        for i in range(1000):
             neg_log_likelihood = optimize_gaussian_process()
             if i % 100 == 0:
                 print("Step {}: NLL = {}".format(i, neg_log_likelihood))
@@ -97,6 +182,7 @@ class GP_ML_ModelBase(GP_ModelBase):
         print('-'*80)
 
 
+        
 
 class GP_ML_ExponentiatedQuadratic(GP_ML_ModelBase):
     ModelName = 'ExponentiatedQuadratic'
