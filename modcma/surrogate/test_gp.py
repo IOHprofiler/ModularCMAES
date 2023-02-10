@@ -1,25 +1,23 @@
-from abc import abstractmethod, ABCMeta
-from typing import Tuple
-
-import matplotlib.pyplot as plt
-import numpy as np
-
+from inspect import Parameter
 import os
 
-from ..parameters import Parameters
+from abc import abstractmethod, ABCMeta
+from typing import Tuple, Optional
 
-from tensorflow.python.ops.variable_scope import init_ops
-os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+import numpy as np
+from ..typing_utils import XType, YType
 
 import tensorflow as tf
 import tensorflow_probability as tfp
 
 from .model import SurrogateModelBase
-from ..typing_utils import XType, YType
+from ..parameters import Parameters
 
 tfb = tfp.bijectors
 tfd = tfp.distributions
 psd_kernels = tfp.math.psd_kernels
+
+# os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
 def create_positive_variable(default, dtype=tf.float64, name=None):
@@ -36,7 +34,7 @@ def create_positive_variable(default, dtype=tf.float64, name=None):
     )
 
 
-def create_constant(default, dtype=tf.float64, name=None):
+def create_constant(default, dtype=tf.float64, name: Optional[str] = None):
     return tf.constant(default, dtype=dtype, name=name)
 
 # ###############################################################################
@@ -218,15 +216,22 @@ class GaussianProcess(SurrogateModelBase):
         return 0
 
 
+if __name__ == '__main__':
+    import unittest
+
+    class TestBasic(unittest.TestCase):
+        def test_gp_init(self):
+            parameters = Parameters(3)
+            model = GaussianProcess(parameters)
+
+    unittest.main()
 
 
-
-
-        
 
 
 
 '''
+import matplotlib.pyplot as plt
 from ..parameters import Parameters
 
 p = Parameters(1)
