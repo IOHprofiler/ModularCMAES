@@ -347,6 +347,7 @@ class Parameters(AnnotatedStruct):
 
     surrogate_strategy_Kendall_evaluation_selection: ('random', 'modelfitness') = 'random'
 
+
     #########################################
     # surrogate - model
     #       minimum number of samples to use (*df) for non-linear models only
@@ -354,6 +355,11 @@ class Parameters(AnnotatedStruct):
 
     # surrogate -  models
     surrogate_model: ('Linear', 'Quadratic', 'QuadraticPure', 'QuadraticInteraction', 'LQ') = 'Linear'
+
+    surrogate_model_gp_learning_rate: float = 0.01
+    surrogate_model_gp_max_iterations: int = 1000
+    surrogate_model_gp_early_stopping_delta: float = 1e-6
+    surrogate_model_gp_early_stopping_patience: int = 20
 
     __modules__ = (
         "active",

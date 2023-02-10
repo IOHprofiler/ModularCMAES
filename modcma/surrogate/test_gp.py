@@ -5,8 +5,7 @@ import numpy as np
 
 import os
 
-#from typing import override
-
+from ..parameters import Parameters
 
 from tensorflow.python.ops.variable_scope import init_ops
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
@@ -110,9 +109,8 @@ class _ModelBuilding_Noisy(_ModelBuilding_Noiseless):
 # ###############################################################################
 
 class _ModelTrainingBase(metaclass=ABCMeta):
-    def __init__(self, settings):
-
-        pass
+    def __init__(self, parameters: Parameters):
+        self.parameters = parameters
 
     @abstractmethod
     def train(self,
@@ -122,12 +120,21 @@ class _ModelTrainingBase(metaclass=ABCMeta):
         pass
 
 
-class _ModelTrainingBase_MaximumLikelihood(metaclass=ABCMeta):
+class _ModelTrainingBase_MaximumLikelihood(_ModelTrainingBase):
     LEARNING_RATE: float = 0.01
     MAX_ITERATIONS: int = 1000
 
     EARLY_STOPPING_DELTA = 1e-6
     EARLY_STOPPING_PATIENCE = 20
+
+    def __init__(self, parameters: Parameters):
+        super().__init__(parameters)
+
+        self.LEARNING_RATE = self.parameters.surrogate_model_gp_learning_rate
+        self.MAX_ITERATIONS = self.parameters.surrogate_model_gp_max_iterations
+        self.EARLY_STOPPING_DELTA = self.parameters.surrogate_model_gp_early_stopping_delta
+        self.EARLY_STOPPING_PATIENCE = self.parameters.surrogate_model_gp_early_stopping_patience
+
 
     def train(self,
               observation_index_points,
@@ -167,10 +174,10 @@ class _ModelTrainingBase_MaximumLikelihood(metaclass=ABCMeta):
 # ###############################################################################
 
 class GaussianProcess(SurrogateModelBase):
-    KERNEL = ???
+    def __init__(self, parameters: Parameters):
+        super().__init__(parameters)
 
-    def __init__(self):
-        pass
+        self.KERNEL_CLS = ???
 
 
 class GP_RegressionModel(SurrogateModelBase):
