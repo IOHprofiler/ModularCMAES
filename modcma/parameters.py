@@ -21,6 +21,7 @@ from .sampling import (
 )
 
 
+
 class Parameters(AnnotatedStruct):
     """AnnotatedStruct object for holding the parameters for the ModularCMAES.
 
@@ -354,7 +355,10 @@ class Parameters(AnnotatedStruct):
     surrogate_model_lq_margin: float = 1.1
 
     # surrogate -  models
-    surrogate_model: ('Linear', 'Quadratic', 'QuadraticPure', 'QuadraticInteraction', 'LQ') = 'Linear'
+    surrogate_model: ('Linear', 'Quadratic', 'QuadraticPure', 'QuadraticInteraction', 'LQ', 'GP') = 'Linear'
+    surrogate_model_gp_kernel = 'Linear'
+    surrogate_model_gp_noisy_samples: bool = True
+
 
     surrogate_model_gp_learning_rate: float = 0.01
     surrogate_model_gp_max_iterations: int = 1000
