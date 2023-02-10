@@ -5,6 +5,9 @@ import numpy as np
 
 import os
 
+#from typing import override
+
+
 from tensorflow.python.ops.variable_scope import init_ops
 os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
@@ -19,7 +22,6 @@ tfd = tfp.distributions
 psd_kernels = tfp.math.psd_kernels
 
 
-
 def create_positive_variable(default, dtype=tf.float64, name=None):
     if isinstance(default, (float, int)):
         default = tf.constant(default, dtype=dtype)
@@ -32,6 +34,143 @@ def create_positive_variable(default, dtype=tf.float64, name=None):
         dtype=dtype,
         name=name,
     )
+
+
+def create_constant(default, dtype=tf.float64, name=None):
+    return tf.constant(default, dtype=dtype, name=name)
+
+# ###############################################################################
+# ### MODEL BUILDING COMPOSITION MODELS
+# ###############################################################################
+
+class _ModelBuildingBase(metaclass=ABCMeta):
+    def __init__(self, kernel):
+        self.kernel = kernel
+        self.mean_fn = None
+
+    @abstractmethod
+    def build_for_training(self,
+                           observation_index_points=None,
+                           observations=None) -> tfp.distributions.GaussianProcess:
+        self.observation_index_points = observation_index_points
+        self.observations = observations
+
+    @abstractmethod
+    def build_for_regression(self,
+                             X,
+                             observation_index_points=None,
+                             observations=None
+                             ) -> tfp.distributions.GaussianProcessRegressionModel:
+        self.observation_index_points = observation_index_points or self.observation_index_points
+        self.observations = observations or self.observations
+
+
+class _ModelBuilding_Noiseless(_ModelBuildingBase):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.observation_noise_variance = create_constant(0.)
+
+    def build_for_training(self,
+                           observation_index_points=None,
+                           observations=None):
+        super().build_for_training(observation_index_points, observations)
+
+        return tfd.GaussianProcess(
+            kernel=self.kernel,
+            mean_fn=self.mean_fn,
+            index_points=self.observation_index_points,
+            observation_noise_variance=self.observation_noise_variance
+        )
+
+    def build_for_regression(self,
+                             X,
+                             observation_index_points=None,
+                             observations=None):
+        super().build_for_regression(X, observation_index_points, observations)
+        return tfd.GaussianProcessRegressionModel(
+            kernel=self.kernel,
+            mean_fn=self.mean_fn,
+            index_points=X,
+            observation_index_points=self.observation_index_points,
+            observations=self.observations,
+            observation_noise_variance=self.observation_noise_variance,
+            predictive_noise_variance=self.observation_noise_variance,
+        )
+
+
+class _ModelBuilding_Noisy(_ModelBuilding_Noiseless):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.observation_noise_variance = \
+            create_positive_variable(1., name='observation_noise_variance')
+
+
+# ###############################################################################
+# ### MODEL TRAINING COMPOSITION MODELS
+# ###############################################################################
+
+class _ModelTrainingBase(metaclass=ABCMeta):
+    def __init__(self, settings):
+
+        pass
+
+    @abstractmethod
+    def train(self,
+              observation_index_points,
+              observations,
+              model: _ModelBuildingBase):
+        pass
+
+
+class _ModelTrainingBase_MaximumLikelihood(metaclass=ABCMeta):
+    LEARNING_RATE: float = 0.01
+    MAX_ITERATIONS: int = 1000
+
+    EARLY_STOPPING_DELTA = 1e-6
+    EARLY_STOPPING_PATIENCE = 20
+
+    def train(self,
+              observation_index_points,
+              observations,
+              model: _ModelBuildingBase):
+        ''' '''
+        gp = model.build_for_training(observation_index_points, observations)
+        optimizer = tf.optimizers.Adam(learning_rate=self.LEARNING_RATE)
+
+        @tf.function
+        def step():
+            with tf.GradientTape() as tape:
+                loss = -gp.log_prob(observations)
+            grads = tape.gradient(loss, gp.trainable_variables)
+            optimizer.apply_gradients(zip(grads, gp.trainable_variables))
+            return loss
+
+        minimal_neg_log_likelihood = np.inf
+        minimal_index = 0
+
+        for i in range(self.MAX_ITERATIONS):
+            neg_log_likelihood = step()
+            neg_log_likelihood = neg_log_likelihood.numpy()
+            # nan
+            if np.isnan(neg_log_likelihood):
+                break
+
+            if minimal_neg_log_likelihood - self.EARLY_STOPPING_DELTA > neg_log_likelihood:
+                minimal_neg_log_likelihood = neg_log_likelihood
+                minimal_index = i
+            elif minimal_index + self.EARLY_STOPPING_PATIENCE < i:
+                break
+
+
+# ###############################################################################
+# ### MODELS
+# ###############################################################################
+
+class GaussianProcess(SurrogateModelBase):
+    KERNEL = ???
+
+    def __init__(self):
+        pass
 
 
 class GP_RegressionModel(SurrogateModelBase):
@@ -59,6 +198,7 @@ class GP_RegressionModel(SurrogateModelBase):
         # TODO - how can you weight the GP ??
         # self.weights = tf.constant(W, tf.float64)
         pass
+
 
 '''
     @abstractmethod
