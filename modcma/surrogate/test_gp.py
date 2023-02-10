@@ -1,6 +1,3 @@
-from inspect import Parameter
-import os
-
 from abc import abstractmethod, ABCMeta
 from typing import Tuple, Optional
 
@@ -13,10 +10,16 @@ import tensorflow_probability as tfp
 from .model import SurrogateModelBase
 from ..parameters import Parameters
 
+# import kernels
+from gp_kernels import _basic_kernels, _functor_kernels
+for k in _basic_kernels + _functor_kernels:
+    locals()[k.__name__] = k
+
 tfb = tfp.bijectors
 tfd = tfp.distributions
 psd_kernels = tfp.math.psd_kernels
 
+# import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
 
 
