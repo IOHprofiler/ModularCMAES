@@ -121,12 +121,6 @@ class _ModelTrainingBase(metaclass=ABCMeta):
 
 
 class _ModelTrainingBase_MaximumLikelihood(_ModelTrainingBase):
-    LEARNING_RATE: float = 0.01
-    MAX_ITERATIONS: int = 1000
-
-    EARLY_STOPPING_DELTA = 1e-6
-    EARLY_STOPPING_PATIENCE = 20
-
     def __init__(self, parameters: Parameters):
         super().__init__(parameters)
 
@@ -134,7 +128,6 @@ class _ModelTrainingBase_MaximumLikelihood(_ModelTrainingBase):
         self.MAX_ITERATIONS = self.parameters.surrogate_model_gp_max_iterations
         self.EARLY_STOPPING_DELTA = self.parameters.surrogate_model_gp_early_stopping_delta
         self.EARLY_STOPPING_PATIENCE = self.parameters.surrogate_model_gp_early_stopping_patience
-
 
     def train(self,
               observation_index_points,
