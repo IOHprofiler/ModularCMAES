@@ -57,7 +57,6 @@ class SurrogateModelBase(metaclass=ABCMeta):
 
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
-        self.fit
 
     def fit(self,
             X: Union[XType, None],
