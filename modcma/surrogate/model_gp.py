@@ -183,15 +183,15 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
 # ### MODELS
 # ###############################################################################
 
-class GaussianProcess(SurrogateModelBase):
-    def __init__(self, parameters: Parameters):
-        super().__init__(parameters)
+class _GaussianProcessModel:
+    ''' gaussian process wihtout known kernel '''
 
-        self.KERNEL_CLS = self.parameters.surrogate_model_gp_kernel
-        self.KERNEL_CLS = eval(self.KERNEL_CLS)
+    def __init__(self, parameters: Parameters, kernel_cls):
+        self.parameters = parameters
+        self.KERNEL_CLS = kernel_cls
 
-        self.MODEL_GENERATION_CLS = _ModelBuildingBase.create_class(parameters)
-        self.MODEL_TRAINING_CLS = _ModelTrainingBase.create_class(parameters)
+        self.MODEL_GENERATION_CLS = _ModelBuildingBase.create_class(self.parameters)
+        self.MODEL_TRAINING_CLS = _ModelTrainingBase.create_class(self.parameters)
 
     def _fit(self, X: XType, F: YType, W: YType) -> None:
         # kernel
@@ -215,6 +215,27 @@ class GaussianProcess(SurrogateModelBase):
 
     def df(self) -> int:
         return 0
+
+
+class GaussianProcess(_GaussianProcessModel, SurrogateModelBase):
+    def __init__(self, parameters: Parameters):
+        SurrogateModelBase.__init__(self, parameters)
+        KERNEL_CLS = eval(self.parameters.surrogate_model_gp_kernel)
+
+        _GaussianProcessModel.__init__(self, parameters, KERNEL_CLS)
+
+
+class GaussianProcessBasicSelection(SurrogateModelBase):
+    def __init__(self, parameters: Parameters):
+        super().__init__(parameters)
+
+    def _fit(self, X: XType, F: YType, W: YType) -> None:
+        return super()._fit(X, F, W)
+
+    def _predict(self, X: XType) -> YType:
+        return super()._predict(X)
+
+
 
 
 if __name__ == '__main__':
