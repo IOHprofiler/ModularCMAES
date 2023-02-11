@@ -1,5 +1,7 @@
 from abc import abstractmethod, ABCMeta
 from typing import Tuple, Optional, Type, List
+import operator
+
 
 import numpy as np
 from ..typing_utils import XType, YType
@@ -179,6 +181,7 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
         minimal_neg_log_likelihood = np.inf
         minimal_index = 0
 
+        neg_log_likelihood = np.nan
         for i in range(self.MAX_ITERATIONS):
             neg_log_likelihood = step()
             neg_log_likelihood = neg_log_likelihood.numpy()
@@ -191,7 +194,7 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
                 minimal_index = i
             elif minimal_index + self.EARLY_STOPPING_PATIENCE < i:
                 break
-
+        return neg_log_likelihood
 
 # ###############################################################################
 # ### MODELS
@@ -207,7 +210,7 @@ class _GaussianProcessModel:
         self.MODEL_GENERATION_CLS = _ModelBuildingBase.create_class(self.parameters)
         self.MODEL_TRAINING_CLS = _ModelTrainingBase.create_class(self.parameters)
 
-    def _fit(self, X: XType, F: YType, W: YType) -> None:
+    def _fit(self, X: XType, F: YType, W: YType):
         # kernel
         self._kernel_obj = self.KERNEL_CLS(self.parameters)
         self._kernel = self._kernel_obj.kernel()
@@ -215,7 +218,9 @@ class _GaussianProcessModel:
         self.model_generation = self.MODEL_GENERATION_CLS(self.parameters, self._kernel)
         self.model_training = self.MODEL_TRAINING_CLS(self.parameters)
 
-        self.model_training.train(observation_index_points=X, observations=F, model=self.model_generation)
+        self._train_loss = self.model_training.train(
+            observation_index_points=X, observations=F, model=self.model_generation)
+        return self
 
     def _predict(self, X: XType) -> YType:
         gprm = self.model_generation.build_for_regression(X)
@@ -226,6 +231,10 @@ class _GaussianProcessModel:
         mean = gprm.mean().numpy()
         stddev = gprm.stddev().numpy()
         return mean, stddev
+
+    @property
+    def loss(self):
+        return self._train_loss
 
     def df(self) -> int:
         return 0
@@ -259,11 +268,21 @@ class GaussianProcessBasicSelection(SurrogateModelBase):
             #Constant,
         ]
 
-    def _fit(self, X: XType, F: YType, W: YType) -> None:
-        return super()._fit(X, F, W)
+    def _partial_fit(self, kernel_cls, X, F, W) -> _GaussianProcessModel:
+        return _GaussianProcessModel(self.parameters, kernel_cls)._fit(X, F, W)
+
+    def _full_fit(self, X, F, W):
+        return [self._partial_fit(k, X, F, W) for k in self.model_classes]
+
+    def _fit(self, X: XType, F: YType, W: YType):
+        models = self._full_fit(X, F, W)
+        losses = np.array(list(map(operator.attrgetter('loss'), models)))
+        best_index = np.nanargmin(losses)
+        self.best_model = models[best_index]
+        return self
 
     def _predict(self, X: XType) -> YType:
-        return super()._predict(X)
+        return self.best_model._predict(X)
 
 
 

@@ -61,11 +61,11 @@ class SurrogateModelBase(metaclass=ABCMeta):
     def fit(self,
             X: Union[XType, None],
             F: Union[YType, None],
-            W: Union[YType, None] = None) -> None:
+            W: Union[YType, None] = None):
         ''' fit the surrogate '''
         if X is None or F is None:
             self.fitted = False
-            return
+            return self
 
         X = normalize_X(X, self.parameters.d)
         F = normalize_F(F)
@@ -76,6 +76,7 @@ class SurrogateModelBase(metaclass=ABCMeta):
             W = normalize_W(W)
         self._fit(X, F, W)
         self.fitted = True
+        return self
 
     @abstractmethod
     def _fit(self, X: XType, F: YType, W: YType) -> None:
