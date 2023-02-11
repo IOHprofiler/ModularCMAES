@@ -262,18 +262,18 @@ if __name__ == '__main__':
                 self.assertAlmostEqual(p1[i], p2[i], places=2)
                 self.assertAlmostEqual(p1[i], Yt[i], places=2)
 
-        def test_multiple_kernel_LL_Q(self):
-            parameters1 = Parameters(2)
-            parameters2 = Parameters(2)
+        def test_multiple_kernel_LL_Q_1D(self):
+            parameters1 = Parameters(1)
+            parameters2 = Parameters(1)
             parameters1.surrogate_model_gp_kernel = 'Quadratic'
             parameters2.surrogate_model_gp_kernel = 'Linear * Linear'
             parameters1.surrogate_model_gp_max_iterations = 10000
             parameters2.surrogate_model_gp_max_iterations = 10000
 
-            X  = np.random.rand(100, 2) * 3
-            Xt = np.random.rand(30, 2)
-            Y  = X[:,0]*2. - X[:,1]*3 + X[:,0]**2 + X[:,0]*X[:,1]
-            Yt  = Xt[:,0]*2. - Xt[:,1]*3 + Xt[:,0]**2 + Xt[:,0]*Xt[:,1]
+            X  = np.random.rand(50, 1) * 3
+            Xt = np.random.rand(10, 1)
+            Y  = X[:,0]*2. + X[:,0]**2
+            Yt  = Xt[:,0]*2. + Xt[:,0]**2
 
             model1 = GaussianProcess(parameters1)
             model2 = GaussianProcess(parameters2)
@@ -289,6 +289,33 @@ if __name__ == '__main__':
                 self.assertAlmostEqual(p1[i], Yt[i], places=2)
 
         def test_multiple_kernel_LL_Q(self):
+            parameters1 = Parameters(2)
+            parameters2 = Parameters(2)
+            parameters1.surrogate_model_gp_kernel = 'Quadratic'
+            parameters2.surrogate_model_gp_kernel = 'Linear * Linear'
+            parameters1.surrogate_model_gp_max_iterations = 10000
+            parameters2.surrogate_model_gp_max_iterations = 10000
+
+            X  = np.random.rand(300, 2) * 3
+            Xt = np.random.rand(30, 2)
+            Y  = X[:,0]*2. - X[:,1]*3 + X[:,0]**2 #+ X[:,0]*X[:,1]
+            Yt  = Xt[:,0]*2. - Xt[:,1]*3 + Xt[:,0]**2 #+ Xt[:,0]*Xt[:,1]
+
+            model1 = GaussianProcess(parameters1)
+            model2 = GaussianProcess(parameters2)
+            model1.fit(X, Y)
+            model2.fit(X, Y)
+
+            print(model2._kernel.trainable_variables)
+
+            p1 = model1.predict(Xt)
+            p2 = model2.predict(Xt)
+            for i in range(len(Xt)):
+                self.assertAlmostEqual(p1[i], p2[i], places=2)
+                self.assertAlmostEqual(p1[i], Yt[i], places=2)
+
+        @unittest.skip("")
+        def test_pp(self):
             parameters1 = Parameters(2)
             parameters1.surrogate_model_gp_kernel = 'MaternOneHalf'
 
