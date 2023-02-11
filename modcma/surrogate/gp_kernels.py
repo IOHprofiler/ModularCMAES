@@ -82,6 +82,7 @@ class GP_kernel_meta(ABCMeta):
 
 
 class GP_kernel_concrete_base(GP_kernel_base_interface, metaclass=GP_kernel_meta):
+    NOISE_PRETRANSFORMED_STDDEV = 0.01
     KERNEL_CLS: psd_kernels.AutoCompositeTensorPsdKernel = None
 
     BASIS: tuple = ()
@@ -140,6 +141,10 @@ class GP_kernel_concrete_base(GP_kernel_base_interface, metaclass=GP_kernel_meta
                 trainable=True,
                 name=vname,
             )
+            noise = tf.random.normal(tf.shape(initial_value),
+                                     stddev=self.NOISE_PRETRANSFORMED_STDDEV,
+                                     dtype=tf.float64)
+            p.pretransformed_input.assign_add(noise)
             self.variables[vname] = p
 
     @staticmethod

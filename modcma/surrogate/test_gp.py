@@ -197,9 +197,6 @@ class GaussianProcess(SurrogateModelBase):
         # kernel
         self._kernel_obj = self.KERNEL_CLS(self.parameters)
         self._kernel = self._kernel_obj.kernel()
-        for variable in self._kernel.trainable_variables:
-            epsilon = tf.random.normal(tf.shape(variable), stddev=0.001, dtype=tf.float64)
-            variable.assign_add(epsilon)
 
         self.model_generation = self.MODEL_GENERATION_CLS(self.parameters, self._kernel)
         self.model_training = self.MODEL_TRAINING_CLS(self.parameters)
