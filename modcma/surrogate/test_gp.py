@@ -228,7 +228,7 @@ if __name__ == '__main__':
         def test_gp_linear(self):
             parameters = Parameters(3)
 
-            X = np.random.randn(100, 3)
+            X = np.random.rand(200, 3)
             Y = X[:,0]*2. + X[:,1] - X[:,2]
 
             model = GaussianProcess(parameters)
@@ -238,21 +238,54 @@ if __name__ == '__main__':
             Yt = Xt[:,0]*2. + Xt[:,1] - Xt[:,2]
             Yp = model.predict(Xt)
 
-            for i in range(10):
-                self.assertAlmostEqual(Yp[i], Yt[i], places=3)
+            for i in range(len(Xt)):
+                self.assertAlmostEqual(Yp[i], Yt[i], places=2)
 
-        @unittest.skip('TODO')
         def test_multiple_kernel_LL(self):
             parameters1 = Parameters(2)
             parameters2 = Parameters(2)
             parameters2.surrogate_model_gp_kernel = 'Linear + Linear'
 
-            X  = np.random.randn(50, 3)
-            Xt = np.random.randn(30, 3)
-            Y  = X[:,0]*2. - X[:,1]*3 + X[:,2]
-            Yt = Xt[:,0]*2. - Xt[:,1]*3 + Xt[:,2]
+            X  = np.random.rand(200, 2)
+            Xt = np.random.rand(30, 2)
+            Y  = X[:,0]*2. - X[:,1]*3
+            Yt = Xt[:,0]*2. - Xt[:,1]*3
 
-            model = GaussianProcess(parameters)
+            model1 = GaussianProcess(parameters1)
+            model2 = GaussianProcess(parameters2)
+            model1.fit(X, Y)
+            model2.fit(X, Y)
+
+            p1 = model1.predict(Xt)
+            p2 = model2.predict(Xt)
+            for i in range(len(Xt)):
+                self.assertAlmostEqual(p1[i], p2[i], places=2)
+                self.assertAlmostEqual(p1[i], Yt[i], places=2)
+
+        @unittest.skip('TODO')
+        def test_multiple_kernel_LL_Q(self):
+            parameters1 = Parameters(2)
+            parameters2 = Parameters(2)
+            parameters1.surrogate_model_gp_kernel = 'Quadratic'
+            parameters2.surrogate_model_gp_kernel = 'Linear * Linear'
+
+            X  = np.random.rand(200, 2)
+            Xt = np.random.rand(30, 2)
+            Y  = X[:,0]*2. - X[:,1]*3 + X[:,0]**2 + X[:,0]*X[:,1]
+            Yt  = Xt[:,0]*2. - Xt[:,1]*3 + Xt[:,0]**2 + Xt[:,0]*Xt[:,1]
+
+            model1 = GaussianProcess(parameters1)
+            model2 = GaussianProcess(parameters2)
+            model1.fit(X, Y)
+            model2.fit(X, Y)
+
+            p1 = model1.predict(Xt)
+            p2 = model2.predict(Xt)
+            for i in range(len(Xt)):
+                self.assertAlmostEqual(p1[i], p2[i], places=2)
+                self.assertAlmostEqual(p1[i], Yt[i], places=2)
+
+
 
 
 
