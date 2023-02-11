@@ -197,6 +197,9 @@ class GaussianProcess(SurrogateModelBase):
         # kernel
         self._kernel_obj = self.KERNEL_CLS(self.parameters)
         self._kernel = self._kernel_obj.kernel()
+        for variable in self._kernel.trainable_variables:
+            epsilon = tf.random.normal(tf.shape(variable), stddev=0.001, dtype=tf.float64)
+            variable.assign_add(epsilon)
 
         self.model_generation = self.MODEL_GENERATION_CLS(self.parameters, self._kernel)
         self.model_training = self.MODEL_TRAINING_CLS(self.parameters)
@@ -262,14 +265,15 @@ if __name__ == '__main__':
                 self.assertAlmostEqual(p1[i], p2[i], places=2)
                 self.assertAlmostEqual(p1[i], Yt[i], places=2)
 
-        @unittest.skip('TODO')
         def test_multiple_kernel_LL_Q(self):
             parameters1 = Parameters(2)
             parameters2 = Parameters(2)
             parameters1.surrogate_model_gp_kernel = 'Quadratic'
             parameters2.surrogate_model_gp_kernel = 'Linear * Linear'
+            parameters1.surrogate_model_gp_max_iterations = 10000
+            parameters2.surrogate_model_gp_max_iterations = 10000
 
-            X  = np.random.rand(200, 2)
+            X  = np.random.rand(100, 2) * 3
             Xt = np.random.rand(30, 2)
             Y  = X[:,0]*2. - X[:,1]*3 + X[:,0]**2 + X[:,0]*X[:,1]
             Yt  = Xt[:,0]*2. - Xt[:,1]*3 + Xt[:,0]**2 + Xt[:,0]*Xt[:,1]
@@ -278,6 +282,8 @@ if __name__ == '__main__':
             model2 = GaussianProcess(parameters2)
             model1.fit(X, Y)
             model2.fit(X, Y)
+
+            print(model2._kernel.trainable_variables)
 
             p1 = model1.predict(Xt)
             p2 = model2.predict(Xt)
