@@ -44,6 +44,7 @@ def create_constant(default, dtype=tf.float64, name: Optional[str] = None):
 # ### MODEL BUILDING COMPOSITION MODELS
 # ###############################################################################
 
+
 class _ModelBuildingBase(metaclass=ABCMeta):
     def __init__(self, parameters, kernel):
         self.parameters = parameters
@@ -72,7 +73,6 @@ class _ModelBuildingBase(metaclass=ABCMeta):
             return _ModelBuilding_Noisy
         else:
             return _ModelBuilding_Noiseless
-
 
 
 class _ModelBuilding_Noiseless(_ModelBuildingBase):
@@ -119,6 +119,7 @@ class _ModelBuilding_Noisy(_ModelBuilding_Noiseless):
 # ### MODEL TRAINING COMPOSITION MODELS
 # ###############################################################################
 
+
 class _ModelTrainingBase(metaclass=ABCMeta):
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
@@ -133,6 +134,7 @@ class _ModelTrainingBase(metaclass=ABCMeta):
     @staticmethod
     def create_class(parameters: Parameters):
         return _ModelTraining_MaximumLikelihood
+
 
 class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
     def __init__(self, parameters: Parameters):
@@ -190,7 +192,6 @@ class GaussianProcess(SurrogateModelBase):
         self.MODEL_GENERATION_CLS = _ModelBuildingBase.create_class(parameters)
         self.MODEL_TRAINING_CLS = _ModelTrainingBase.create_class(parameters)
 
-
     def _fit(self, X: XType, F: YType, W: YType) -> None:
         # kernel
         self._kernel_obj = self.KERNEL_CLS(self.parameters)
@@ -199,11 +200,11 @@ class GaussianProcess(SurrogateModelBase):
         self.model_generation = self.MODEL_GENERATION_CLS(self.parameters, self._kernel)
         self.model_training = self.MODEL_TRAINING_CLS(self.parameters)
 
-        gp = self.model_generation.build_for_training(
-                observation_index_points=X,
-                observations=F)
+        #gp = self.model_generation.build_for_training(
+        #        observation_index_points=X,
+        #        observations=F)
 
-        self.model_training.train(observation_index_points=X, observations=F, model=gp)
+        self.model_training.train(observation_index_points=X, observations=F, model=self.model_generation)
 
     def _predict(self, X: XType) -> YType:
         gprm = self.model_generation.build_for_regression(X)
@@ -226,6 +227,25 @@ if __name__ == '__main__':
         def test_gp_init(self):
             parameters = Parameters(3)
             model = GaussianProcess(parameters)
+
+        def test_gp_linear(self):
+            parameters = Parameters(3)
+
+            X = np.random.randn(10, 3)
+            Y = X[:,0]*2 + X[:, 1] - 3*X[:, 2]
+
+            model = GaussianProcess(parameters)
+            model.fit(X, Y)
+
+            Xt = np.random.randn(10, 3)
+            Yt = X[:,0]*2 + X[:, 1] - 3*X[:, 2]
+
+            Yp = model.predict(Xt)
+
+            for i in range(10):
+                self.assertAlmostEqual(Yp[i], Yt[i])
+
+
 
     unittest.main()
 
