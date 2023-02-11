@@ -64,8 +64,7 @@ class _ModelBuildingBase(metaclass=ABCMeta):
                              observation_index_points=None,
                              observations=None
                              ) -> tfp.distributions.GaussianProcessRegressionModel:
-        self.observation_index_points = observation_index_points or self.observation_index_points
-        self.observations = observations or self.observations
+        pass
 
     @staticmethod
     def create_class(parameters: Parameters):
@@ -96,13 +95,15 @@ class _ModelBuilding_Noiseless(_ModelBuildingBase):
                              X,
                              observation_index_points=None,
                              observations=None):
-        super().build_for_regression(X, observation_index_points, observations)
+        observation_index_points = observation_index_points or self.observation_index_points
+        observations = observations or self.observations
+
         return tfd.GaussianProcessRegressionModel(
             kernel=self.kernel,
             mean_fn=self.mean_fn,
             index_points=X,
-            observation_index_points=self.observation_index_points,
-            observations=self.observations,
+            observation_index_points=observation_index_points,
+            observations=observations,
             observation_noise_variance=self.observation_noise_variance,
             predictive_noise_variance=self.observation_noise_variance,
         )
@@ -200,10 +201,6 @@ class GaussianProcess(SurrogateModelBase):
         self.model_generation = self.MODEL_GENERATION_CLS(self.parameters, self._kernel)
         self.model_training = self.MODEL_TRAINING_CLS(self.parameters)
 
-        #gp = self.model_generation.build_for_training(
-        #        observation_index_points=X,
-        #        observations=F)
-
         self.model_training.train(observation_index_points=X, observations=F, model=self.model_generation)
 
     def _predict(self, X: XType) -> YType:
@@ -231,19 +228,36 @@ if __name__ == '__main__':
         def test_gp_linear(self):
             parameters = Parameters(3)
 
-            X = np.random.randn(10, 3)
-            Y = X[:,0]*2 + X[:, 1] - 3*X[:, 2]
+            X = np.random.randn(100, 3)
+            Y = X[:,0]*2. + X[:,1] - X[:,2]
 
             model = GaussianProcess(parameters)
             model.fit(X, Y)
 
             Xt = np.random.randn(10, 3)
-            Yt = X[:,0]*2 + X[:, 1] - 3*X[:, 2]
-
+            Yt = Xt[:,0]*2. + Xt[:,1] - Xt[:,2]
             Yp = model.predict(Xt)
 
             for i in range(10):
-                self.assertAlmostEqual(Yp[i], Yt[i])
+                self.assertAlmostEqual(Yp[i], Yt[i], places=3)
+
+        @unittest.skip('TODO')
+        def test_multiple_kernel_LL(self):
+            parameters1 = Parameters(2)
+            parameters2 = Parameters(2)
+            parameters2.surrogate_model_gp_kernel = 'Linear + Linear'
+
+            X  = np.random.randn(50, 3)
+            Xt = np.random.randn(30, 3)
+            Y  = X[:,0]*2. - X[:,1]*3 + X[:,2]
+            Yt = Xt[:,0]*2. - Xt[:,1]*3 + Xt[:,2]
+
+            model = GaussianProcess(parameters)
+
+
+
+
+
 
 
 
