@@ -291,6 +291,26 @@ if __name__ == '__main__':
                 self.assertAlmostEqual(p1[i], p2[i], places=2)
                 self.assertAlmostEqual(p1[i], Yt[i], places=2)
 
+        def test_multiple_kernel_LL_Q(self):
+            parameters1 = Parameters(2)
+            parameters1.surrogate_model_gp_kernel = 'MaternOneHalf'
+
+            X  = np.random.rand(10, 2) * 3
+            Xt = np.random.rand(3, 2)
+            Y  = X[:,0]*2. - X[:,1]*3 + X[:,0]**2 + X[:,0]*X[:,1]
+            Yt  = Xt[:,0]*2. - Xt[:,1]*3 + Xt[:,0]**2 + Xt[:,0]*Xt[:,1]
+
+            model1 = GaussianProcess(parameters1)
+            model1.fit(X, Y)
+
+            import pdb
+            for var in model1._kernel.trainable_variables:
+                print(var)
+                var.assign_add(-10.)
+                print(var)
+
+                pdb.set_trace()
+
 
 
 
