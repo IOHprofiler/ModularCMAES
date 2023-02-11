@@ -226,6 +226,7 @@ if __name__ == '__main__':
             model = GaussianProcess(parameters)
 
         def test_gp_linear(self):
+            ''' L should be linear '''
             parameters = Parameters(3)
 
             X = np.random.rand(200, 3)
@@ -242,6 +243,7 @@ if __name__ == '__main__':
                 self.assertAlmostEqual(Yp[i], Yt[i], places=2)
 
         def test_multiple_kernel_LL(self):
+            ''' L + L = L '''
             parameters1 = Parameters(2)
             parameters2 = Parameters(2)
             parameters2.surrogate_model_gp_kernel = 'Linear + Linear'
@@ -262,85 +264,28 @@ if __name__ == '__main__':
                 self.assertAlmostEqual(p1[i], p2[i], places=2)
                 self.assertAlmostEqual(p1[i], Yt[i], places=2)
 
-        def test_multiple_kernel_LL_Q_1D(self):
-            parameters1 = Parameters(1)
-            parameters2 = Parameters(1)
-            parameters1.surrogate_model_gp_kernel = 'Quadratic'
-            parameters2.surrogate_model_gp_kernel = 'Linear * Linear'
-            parameters1.surrogate_model_gp_max_iterations = 10000
-            parameters2.surrogate_model_gp_max_iterations = 10000
-
-            X  = np.random.rand(50, 1) * 3
-            Xt = np.random.rand(10, 1)
-            Y  = X[:,0]*2. + X[:,0]**2
-            Yt  = Xt[:,0]*2. + Xt[:,0]**2
-
-            model1 = GaussianProcess(parameters1)
-            model2 = GaussianProcess(parameters2)
-            model1.fit(X, Y)
-            model2.fit(X, Y)
-
-            print(model2._kernel.trainable_variables)
-
-            p1 = model1.predict(Xt)
-            p2 = model2.predict(Xt)
-            for i in range(len(Xt)):
-                self.assertAlmostEqual(p1[i], p2[i], places=2)
-                self.assertAlmostEqual(p1[i], Yt[i], places=2)
-
         def test_multiple_kernel_LL_Q(self):
+            ''' L * L = Q '''
             parameters1 = Parameters(2)
             parameters2 = Parameters(2)
-            parameters1.surrogate_model_gp_kernel = 'Quadratic'
+            parameters1.surrogate_model_gp_kernel = 'Quadratic + Linear'
             parameters2.surrogate_model_gp_kernel = 'Linear * Linear'
-            parameters1.surrogate_model_gp_max_iterations = 10000
-            parameters2.surrogate_model_gp_max_iterations = 10000
 
-            X  = np.random.rand(300, 2) * 3
+            X  = np.random.rand(200, 2) * 3
             Xt = np.random.rand(30, 2)
-            Y  = X[:,0]*2. - X[:,1]*3 + X[:,0]**2 #+ X[:,0]*X[:,1]
-            Yt  = Xt[:,0]*2. - Xt[:,1]*3 + Xt[:,0]**2 #+ Xt[:,0]*Xt[:,1]
-
-            model1 = GaussianProcess(parameters1)
-            model2 = GaussianProcess(parameters2)
-            model1.fit(X, Y)
-            model2.fit(X, Y)
-
-            print(model2._kernel.trainable_variables)
-
-            p1 = model1.predict(Xt)
-            p2 = model2.predict(Xt)
-            for i in range(len(Xt)):
-                self.assertAlmostEqual(p1[i], p2[i], places=2)
-                self.assertAlmostEqual(p1[i], Yt[i], places=2)
-
-        @unittest.skip("")
-        def test_pp(self):
-            parameters1 = Parameters(2)
-            parameters1.surrogate_model_gp_kernel = 'MaternOneHalf'
-
-            X  = np.random.rand(10, 2) * 3
-            Xt = np.random.rand(3, 2)
             Y  = X[:,0]*2. - X[:,1]*3 + X[:,0]**2 + X[:,0]*X[:,1]
             Yt  = Xt[:,0]*2. - Xt[:,1]*3 + Xt[:,0]**2 + Xt[:,0]*Xt[:,1]
 
             model1 = GaussianProcess(parameters1)
+            model2 = GaussianProcess(parameters2)
             model1.fit(X, Y)
+            model2.fit(X, Y)
 
-            import pdb
-            for var in model1._kernel.trainable_variables:
-                print(var)
-                var.assign_add(-10.)
-                print(var)
-
-                pdb.set_trace()
-
-
-
-
-
-
-
+            p1 = model1.predict(Xt)
+            p2 = model2.predict(Xt)
+            for i in range(len(Xt)):
+                self.assertAlmostEqual(p1[i], p2[i], places=2)
+                self.assertAlmostEqual(p1[i], Yt[i], places=2)
 
 
 
@@ -350,32 +295,3 @@ if __name__ == '__main__':
 
 
 
-'''
-import matplotlib.pyplot as plt
-from ..parameters import Parameters
-
-p = Parameters(1)
-gp = GP_ML_ExponentiatedQuadratic(p)
-
-f = lambda x: np.sin(10*x[..., 0]) * np.exp(-x[..., 0]**2)
-X = np.random.uniform(-1., 1., 50)[..., np.newaxis]
-Y = f(X) + np.random.normal(0., .05, 50)
-
-
-gp.fit(X, Y)
-
-index_points = np.linspace(-1., 1., 100)[..., np.newaxis]
-#samples = gp._predict(index_points).sample(10).numpy()
-samples, var = gp._predict_with_confidence(index_points)
-
-
-import matplotlib.pyplot as plt
-
-plt.scatter(np.squeeze(X), Y)
-plt.plot(index_points, samples, alpha = 1.)
-plt.plot(index_points, samples - np.sqrt(var)*3, alpha = .5)
-plt.plot(index_points, samples + np.sqrt(var)*3, alpha = .5)
-
-#plt.plot(np.stack([index_points[:, 0]]*10).T, samples.T, c='r', alpha=.2)
-plt.show()
-'''
