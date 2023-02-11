@@ -1,5 +1,5 @@
 from abc import abstractmethod, ABCMeta
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Type, List
 
 import numpy as np
 from ..typing_utils import XType, YType
@@ -11,9 +11,23 @@ from .model import SurrogateModelBase
 from ..parameters import Parameters
 
 # import kernels
-from gp_kernels import _basic_kernels, _functor_kernels
+from gp_kernels import _basic_kernels, _functor_kernels, GP_kernel_concrete_base
 for k in _basic_kernels + _functor_kernels:
     locals()[k.__name__] = k
+
+# Stuff for statitc typing
+MaternFiveHalves: Type[GP_kernel_concrete_base]
+MaternOneHalf: Type[GP_kernel_concrete_base]
+MaternThreeHalves: Type[GP_kernel_concrete_base]
+RationalQuadratic: Type[GP_kernel_concrete_base]
+ExponentiatedQuadratic: Type[GP_kernel_concrete_base]
+ExpSinSquared: Type[GP_kernel_concrete_base]
+Linear: Type[GP_kernel_concrete_base]
+Quadratic: Type[GP_kernel_concrete_base]
+Cubic: Type[GP_kernel_concrete_base]
+Parabolic: Type[GP_kernel_concrete_base]
+ExponentialCurve: Type[GP_kernel_concrete_base]
+Constant: Type[GP_kernel_concrete_base]
 
 tfb = tfp.bijectors
 tfd = tfp.distributions
@@ -228,6 +242,22 @@ class GaussianProcess(_GaussianProcessModel, SurrogateModelBase):
 class GaussianProcessBasicSelection(SurrogateModelBase):
     def __init__(self, parameters: Parameters):
         super().__init__(parameters)
+
+        # the selection ...
+        self.model_classes: List[Type[GP_kernel_concrete_base]] = [
+            MaternFiveHalves,
+            MaternOneHalf,
+            MaternThreeHalves,
+            RationalQuadratic,
+            ExponentiatedQuadratic,
+            ExpSinSquared,  # a.k.a. 'periodic kernel'
+            Linear,
+            Quadratic,
+            #Cubic,
+            #Parabolic,
+            #ExponentialCurve,
+            #Constant,
+        ]
 
     def _fit(self, X: XType, F: YType, W: YType) -> None:
         return super()._fit(X, F, W)
