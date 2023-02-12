@@ -32,15 +32,28 @@ class GP_kernel_base_interface(metaclass=ABCMeta):
     def dof(self) -> int:
         return 0
 
+    '''
+    @property
+    def uid(self):
+        return self._uid
+
+    @uid.setter
+    def uid(self, new):
+        # normalization
+        self._uid = tuple(sorted(new))
+    '''
 
 class GP_kernel_meta(ABCMeta):
     ''' adds basic operations to all kernel classes '''
 
     def __add__(cls, other):
+        new_uid = tuple(sorted(cls._uid + other._uid))
+
         ''' adds addition of kernel classes '''
         class SumKernel(GP_kernel_base_interface, metaclass=GP_kernel_meta):
             _cls_first = cls
             _cls_second = other
+            _uid = new_uid
 
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
@@ -90,6 +103,8 @@ class GP_kernel_concrete_base(GP_kernel_base_interface, metaclass=GP_kernel_meta
 
     VAR_DEFAULT: dict = {}
     VAR_BIJECTORS: dict = {}
+
+    _uid = tuple()
 
     def __init__(self, *args, **kwargs):
         '''
@@ -151,6 +166,9 @@ class GP_kernel_concrete_base(GP_kernel_base_interface, metaclass=GP_kernel_meta
     def create_class(kernel_params, basis=None):
         if basis is None:
             basis = tuple()
+        new_name = kernel_params.kernel.__name__
+        if kernel_params.name is not None:
+            new_name = kernel_params.name
 
         class GP_kernel_concrete(GP_kernel_concrete_base):
             KERNEL_CLS = kernel_params.kernel
@@ -158,10 +176,8 @@ class GP_kernel_concrete_base(GP_kernel_base_interface, metaclass=GP_kernel_meta
             VAR_DEFAULT = kernel_params.defaults
             VAR_BIJECTORS = kernel_params.bijectors
             CONSTANTS = kernel_params.constants
+            _uid = (new_name,)
 
-        new_name = kernel_params.kernel.__name__
-        if kernel_params.name is not None:
-            new_name = kernel_params.name
         GP_kernel_concrete.__name__ = new_name
         GP_kernel_concrete.__qualname__ = new_name
         return GP_kernel_concrete
