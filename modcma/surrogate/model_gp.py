@@ -165,7 +165,7 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
     def train(self,
               observation_index_points,
               observations,
-              model: _ModelBuildingBase):
+              model: _ModelBuildingBase) -> float:
         ''' '''
         gp = model.build_for_training(observation_index_points, observations)
         optimizer = tf.optimizers.Adam(learning_rate=self.LEARNING_RATE)
@@ -194,7 +194,7 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
                 minimal_index = i
             elif minimal_index + self.EARLY_STOPPING_PATIENCE < i:
                 break
-        return neg_log_likelihood
+        return float(neg_log_likelihood)
 
 # ###############################################################################
 # ### MODELS
@@ -209,6 +209,7 @@ class _GaussianProcessModel:
 
         self.MODEL_GENERATION_CLS = _ModelBuildingBase.create_class(self.parameters)
         self.MODEL_TRAINING_CLS = _ModelTrainingBase.create_class(self.parameters)
+        self._train_loss = float(np.nan)
 
     def _fit(self, X: XType, F: YType, W: YType):
         # kernel
@@ -233,7 +234,7 @@ class _GaussianProcessModel:
         return mean, stddev
 
     @property
-    def loss(self):
+    def loss(self) -> float:
         return self._train_loss
 
     @loss.setter
@@ -253,8 +254,8 @@ class GaussianProcess(_GaussianProcessModel, SurrogateModelBase):
 
 
 class _GaussianProcessModelMixtureBase:
-    TRAIN_MAX_MODELS: int = 30
-    TRAIN_MAX_TIME_S: int = 120
+    TRAIN_MAX_MODELS: Optional[int] = None
+    TRAIN_MAX_TIME_S: Optional[int] = None
 
     def __init__(self, parameters: Parameters) -> None:
         self.parameters = parameters
@@ -298,15 +299,15 @@ class _GaussianProcessModelMixtureBase:
             if self.TRAIN_MAX_TIME_S:
                 if time.time() - time_start > self.TRAIN_MAX_TIME_S:
                     break
-        return self.restricted_full_fit_postprocessing(trained_models)
+        self.best_model = self.restricted_full_fit_postprocessing(trained_models)
 
-    def restricted_full_fit_postprocessing(self, trained_models: List[Type[GP_kernel_concrete_base]]):
+    def restricted_full_fit_postprocessing(self, trained_models: List[_GaussianProcessModel]):
         losses = np.array(list(map(operator.attrgetter('loss'), trained_models)))
         best_index = np.nanargmin(losses)
         return trained_models[best_index]
 
     @abstractmethod
-    def penalize_kernel(self, loss, kernel_obj):
+    def penalize_kernel(self, loss: float, kernel_obj: GP_kernel_concrete_base):
         return loss
 
     @abstractmethod
@@ -321,14 +322,14 @@ class GaussianProcessBasicSelection(SurrogateModelBase, _GaussianProcessModelMix
         SurrogateModelBase.__init__(self, parameters)
         _GaussianProcessModelMixtureBase.__init__(self, parameters)
 
-    def _full_fit(self, X, F, W):
-        return [self._partial_fit(k, X, F, W) for k in self._model_classes]
+    def penalize_kernel(self, loss, kernel_obj):
+        return super().penalize_kernel(loss, kernel_obj)
+
+    def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
+        return super().generate_kernel_space()
 
     def _fit(self, X: XType, F: YType, W: YType):
-        models = self._full_fit(X, F, W)
-        losses = np.array(list(map(operator.attrgetter('loss'), models)))
-        best_index = np.nanargmin(losses)
-        self.best_model = models[best_index]
+        self.restricted_full_fit(X, F, W)
         return self
 
     def _predict(self, X: XType) -> YType:
