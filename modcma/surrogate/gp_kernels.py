@@ -502,4 +502,22 @@ if __name__ == '__main__':
             k = Linear + MaternOneHalf
             self.assertEqual(k._uid, ('Linear', 'MaternOneHalf'))
 
+        def test_triple(self):
+            k = Quadratic + MaternOneHalf + Linear
+            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf', 'Quadratic'))
+
+    @unittest.skip('TODO')
+    class TestsUID_mul(unittest.TestCase):
+        def testLL(self):
+            k = Linear + Linear
+            self.assertEqual(k._uid, (('Linear', 'Linear'), ))
+
+        @unittest.skip('TODO')
+        def test_LM(self):
+            k = MaternOneHalf + Linear
+            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf'))
+
+            k = Linear + MaternOneHalf
+            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf'))
+
     unittest.main(verbosity=2)
