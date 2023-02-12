@@ -156,7 +156,7 @@ class GP_kernel_concrete_base(GP_kernel_base_interface, metaclass=GP_kernel_meta
                 trainable=True,
                 name=vname,
             )
-            noise = tf.random.normal(tf.shape(initial_value),
+            noise = tf.random.normal(tf.shape(p.pretransformed_input),
                                      stddev=self.NOISE_PRETRANSFORMED_STDDEV,
                                      dtype=tf.float64)
             p.pretransformed_input.assign_add(noise)
