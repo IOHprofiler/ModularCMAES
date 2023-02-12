@@ -253,13 +253,13 @@ class GaussianProcessBasicSelection(SurrogateModelBase):
         super().__init__(parameters)
 
         # the selection ...
-        self.model_classes: List[Type[GP_kernel_concrete_base]] = [
+        self._model_classes: List[Type[GP_kernel_concrete_base]] = [
             MaternFiveHalves,
             MaternOneHalf,
             MaternThreeHalves,
             RationalQuadratic,
             ExponentiatedQuadratic,
-            ExpSinSquared,  # a.k.a. 'periodic kernel'
+            ExpSinSquared,
             Linear,
             Quadratic,
             #Cubic,
@@ -272,7 +272,7 @@ class GaussianProcessBasicSelection(SurrogateModelBase):
         return _GaussianProcessModel(self.parameters, kernel_cls)._fit(X, F, W)
 
     def _full_fit(self, X, F, W):
-        return [self._partial_fit(k, X, F, W) for k in self.model_classes]
+        return [self._partial_fit(k, X, F, W) for k in self._model_classes]
 
     def _fit(self, X: XType, F: YType, W: YType):
         models = self._full_fit(X, F, W)
@@ -284,6 +284,38 @@ class GaussianProcessBasicSelection(SurrogateModelBase):
     def _predict(self, X: XType) -> YType:
         return self.best_model._predict(X)
 
+    def _predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
+        return self.best_model._predict_with_confidence(X)
+
+
+class GaussianProcessPenalizedSelection(SurrogateModelBase):
+    TRAIN_MAX_MODELS = 30
+    TRAON_MAX_TIME_S = 120
+
+    def __init__(self, parameters: Parameters):
+        super().__init__(parameters)
+
+        # the selection ...
+        self._base_classes: List[Type[GP_kernel_concrete_base]] = [
+            MaternFiveHalves,
+            MaternOneHalf,
+            MaternThreeHalves,
+            RationalQuadratic,
+            ExponentiatedQuadratic,
+            ExpSinSquared,
+            Linear,
+        ]
+
+    def _fit(self, X: XType, F: YType, W: YType) -> None:
+
+        self.best_model;
+        return super()._fit(X, F, W)
+
+    def _predict(self, X: XType) -> YType:
+        return self.best_model._predict(X)
+
+    def _predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
+        return self.best_model._predict_with_confidence(X)
 
 
 
@@ -294,8 +326,7 @@ if __name__ == '__main__':
         def test_gp_init(self):
             parameters = Parameters(3)
             model = GaussianProcess(parameters)
-
-        def test_gp_linear(self):
+def test_gp_linear(self):
             ''' L should be linear '''
             parameters = Parameters(3)
 
