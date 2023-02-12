@@ -315,18 +315,10 @@ class _GaussianProcessModelMixtureBase:
         yield from self._building_blocks
 
 
-
-
 class GaussianProcessBasicSelection(SurrogateModelBase, _GaussianProcessModelMixtureBase):
     def __init__(self, parameters: Parameters):
         SurrogateModelBase.__init__(self, parameters)
         _GaussianProcessModelMixtureBase.__init__(self, parameters)
-
-    def penalize_kernel(self, loss, kernel_obj):
-        return super().penalize_kernel(loss, kernel_obj)
-
-    def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
-        return super().generate_kernel_space()
 
     def _fit(self, X: XType, F: YType, W: YType):
         self.restricted_full_fit(X, F, W)
@@ -338,34 +330,22 @@ class GaussianProcessBasicSelection(SurrogateModelBase, _GaussianProcessModelMix
     def _predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
         return self.best_model._predict_with_confidence(X)
 
+    def penalize_kernel(self, loss, kernel_obj):
+        return super().penalize_kernel(loss, kernel_obj)
 
-class GaussianProcessPenalizedSelection(SurrogateModelBase):
+    def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
+        return super().generate_kernel_space()
 
-    def __init__(self, parameters: Parameters):
-        super().__init__(parameters)
 
-        # the selection ...
-        self._base_classes: List[Type[GP_kernel_concrete_base]] = [
-            MaternFiveHalves,
-            MaternOneHalf,
-            MaternThreeHalves,
-            RationalQuadratic,
-            ExponentiatedQuadratic,
-            ExpSinSquared,
-            Linear,
-        ]
-
-    def _fit(self, X: XType, F: YType, W: YType) -> None:
-
-        self.best_model;
-        return super()._fit(X, F, W)
+class GaussianProcessPenalizedAdditiveSelection(GaussianProcessBasicSelection):
+    def penalize_kernel(self, loss, kernel_obj):
+        return super().penalize_kernel(loss, kernel_obj)
 
     def _predict(self, X: XType) -> YType:
         return self.best_model._predict(X)
 
     def _predict_with_confidence(self, X: XType) -> Tuple[YType, YType]:
         return self.best_model._predict_with_confidence(X)
-
 
 
 if __name__ == '__main__':
@@ -437,6 +417,9 @@ def test_gp_linear(self):
                 self.assertAlmostEqual(p1[i], p2[i], places=2)
                 self.assertAlmostEqual(p1[i], Yt[i], places=2)
 
+    class TestModelSelectors(unittest.TestCase):
+        def test_GP_basic_model_selection(self):
+            pass
 
 
     unittest.main()
