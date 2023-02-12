@@ -486,4 +486,20 @@ if __name__ == '__main__':
             # dof
             self.assertEqual(ko.dof, 8)
 
-    unittest.main()
+    class TestsUID(unittest.TestCase):
+        def testLinear(self):
+            k = Linear
+            self.assertEqual(k._uid, ('Linear',))
+
+        def test_LL(self):
+            k = Linear + Linear
+            self.assertEqual(k._uid, ('Linear', 'Linear'))
+
+        def test_LM(self):
+            k = MaternOneHalf + Linear
+            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf'))
+
+            k = Linear + MaternOneHalf
+            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf'))
+
+    unittest.main(verbosity=2)
