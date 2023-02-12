@@ -355,7 +355,8 @@ if __name__ == '__main__':
         def test_gp_init(self):
             parameters = Parameters(3)
             model = GaussianProcess(parameters)
-def test_gp_linear(self):
+
+        def test_gp_linear(self):
             ''' L should be linear '''
             parameters = Parameters(3)
 
