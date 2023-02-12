@@ -1,6 +1,6 @@
 from abc import abstractmethod, ABCMeta
-from typing import Tuple, Optional, Type, List
-import operator
+from typing import Tuple, Optional, Type, List, Generator
+import operator, itertools, time
 
 
 import numpy as np
@@ -236,6 +236,10 @@ class _GaussianProcessModel:
     def loss(self):
         return self._train_loss
 
+    @loss.setter
+    def loss(self, other):
+        self._train_loss = other
+
     def df(self) -> int:
         return 0
 
@@ -248,12 +252,15 @@ class GaussianProcess(_GaussianProcessModel, SurrogateModelBase):
         _GaussianProcessModel.__init__(self, parameters, KERNEL_CLS)
 
 
-class GaussianProcessBasicSelection(SurrogateModelBase):
-    def __init__(self, parameters: Parameters):
-        super().__init__(parameters)
+class _GaussianProcessModelMixtureBase:
+    TRAIN_MAX_MODELS: int = 30
+    TRAIN_MAX_TIME_S: int = 120
+
+    def __init__(self, parameters: Parameters) -> None:
+        self.parameters = parameters
 
         # the selection ...
-        self._model_classes: List[Type[GP_kernel_concrete_base]] = [
+        self._building_blocks: List[Type[GP_kernel_concrete_base]] = [
             MaternFiveHalves,
             MaternOneHalf,
             MaternThreeHalves,
@@ -270,6 +277,49 @@ class GaussianProcessBasicSelection(SurrogateModelBase):
 
     def _partial_fit(self, kernel_cls, X, F, W) -> _GaussianProcessModel:
         return _GaussianProcessModel(self.parameters, kernel_cls)._fit(X, F, W)
+
+    def _penalized_partial_fit(self, kernel_cls, X, F, W) -> _GaussianProcessModel:
+        gpm = self._partial_fit(kernel_cls, X, F, W)
+        gpm.loss = self.penalize_kernel(gpm.loss, gpm._kernel_obj)
+        return gpm
+
+    def restricted_full_fit(self, X, F, W):
+        time_start = time.time()
+        trained_models = []
+
+        iterator = self.generate_kernel_space()
+        if self.TRAIN_MAX_MODELS:
+            iterator = itertools.islice(iterator, self.TRAIN_MAX_MODELS)
+
+        for kernel_cls in iterator:
+            model = self._penalized_partial_fit(kernel_cls, X, F, W)
+            trained_models.append(model)
+
+            if self.TRAIN_MAX_TIME_S:
+                if time.time() - time_start > self.TRAIN_MAX_TIME_S:
+                    break
+        return self.restricted_full_fit_postprocessing(trained_models)
+
+    def restricted_full_fit_postprocessing(self, trained_models: List[Type[GP_kernel_concrete_base]]):
+        losses = np.array(list(map(operator.attrgetter('loss'), trained_models)))
+        best_index = np.nanargmin(losses)
+        return trained_models[best_index]
+
+    @abstractmethod
+    def penalize_kernel(self, loss, kernel_obj):
+        return loss
+
+    @abstractmethod
+    def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
+        yield from self._building_blocks
+
+
+
+
+class GaussianProcessBasicSelection(SurrogateModelBase, _GaussianProcessModelMixtureBase):
+    def __init__(self, parameters: Parameters):
+        SurrogateModelBase.__init__(self, parameters)
+        _GaussianProcessModelMixtureBase.__init__(self, parameters)
 
     def _full_fit(self, X, F, W):
         return [self._partial_fit(k, X, F, W) for k in self._model_classes]
@@ -289,8 +339,6 @@ class GaussianProcessBasicSelection(SurrogateModelBase):
 
 
 class GaussianProcessPenalizedSelection(SurrogateModelBase):
-    TRAIN_MAX_MODELS = 30
-    TRAON_MAX_TIME_S = 120
 
     def __init__(self, parameters: Parameters):
         super().__init__(parameters)
