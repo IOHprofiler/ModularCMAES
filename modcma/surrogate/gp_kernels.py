@@ -72,10 +72,19 @@ class GP_kernel_meta(ABCMeta):
         return SumKernel
 
     def __mul__(cls, other):
+        new_uid = []
+        for e1 in other._uid:
+            assert isinstance(e1, tuple)
+            for e2 in cls._uid:
+                assert isinstance(e2, tuple)
+                new_uid.append(tuple(sorted(e1 + e2)))
+        new_uid = tuple(sorted(new_uid))
+
         ''' adds multiplication of kernel classes '''
         class MulKernel(GP_kernel_base_interface, metaclass=GP_kernel_meta):
             _cls_first = cls
             _cls_second = other
+            _uid = new_uid
 
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
@@ -176,7 +185,7 @@ class GP_kernel_concrete_base(GP_kernel_base_interface, metaclass=GP_kernel_meta
             VAR_DEFAULT = kernel_params.defaults
             VAR_BIJECTORS = kernel_params.bijectors
             CONSTANTS = kernel_params.constants
-            _uid = (new_name,)
+            _uid = ((new_name,),)
 
         GP_kernel_concrete.__name__ = new_name
         GP_kernel_concrete.__qualname__ = new_name
@@ -489,27 +498,26 @@ if __name__ == '__main__':
     class TestsUID(unittest.TestCase):
         def testLinear(self):
             k = Linear
-            self.assertEqual(k._uid, ('Linear',))
+            self.assertEqual(k._uid, (('Linear',),))
 
         def test_LL(self):
             k = Linear + Linear
-            self.assertEqual(k._uid, ('Linear', 'Linear'))
+            self.assertEqual(k._uid, (('Linear',), ('Linear',)))
 
         def test_LM(self):
             k = MaternOneHalf + Linear
-            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf'))
+            self.assertEqual(k._uid, (('Linear',), ('MaternOneHalf',)))
 
             k = Linear + MaternOneHalf
-            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf'))
+            self.assertEqual(k._uid, (('Linear',), ('MaternOneHalf',)))
 
         def test_triple(self):
             k = Quadratic + MaternOneHalf + Linear
-            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf', 'Quadratic'))
+            self.assertEqual(k._uid, (('Linear',), ('MaternOneHalf',), ('Quadratic',)))
 
-    @unittest.skip('TODO')
     class TestsUID_mul(unittest.TestCase):
         def testLL(self):
-            k = Linear + Linear
+            k = Linear * Linear
             self.assertEqual(k._uid, (('Linear', 'Linear'), ))
 
         def test_LM(self):
@@ -537,23 +545,23 @@ if __name__ == '__main__':
 
             k = (Quadratic + MaternOneHalf) * Linear + Linear
             self.assertEqual(k._uid, (
+                ('Linear',),
                 ('Linear', 'MaternOneHalf'),
                 ('Linear', 'Quadratic'),
-                ('Linear',),
             ))
 
             k = (Quadratic + MaternOneHalf + Linear) * Linear
             self.assertEqual(k._uid, (
+                ('Linear', 'Linear'),
                 ('Linear', 'MaternOneHalf'),
                 ('Linear', 'Quadratic'),
-                ('Linear', 'Linear'),
             ))
 
             k = (Quadratic + MaternOneHalf + Linear) * Linear * Cubic
             self.assertEqual(k._uid, (
+                ('Cubic', 'Linear', 'Linear'),
                 ('Cubic', 'Linear', 'MaternOneHalf'),
                 ('Cubic', 'Linear', 'Quadratic'),
-                ('Cubic', 'Linear', 'Linear'),
             ))
 
         def test_distributive_2(self):
@@ -561,8 +569,8 @@ if __name__ == '__main__':
             self.assertEqual(k._uid, (
                 ('Cubic', 'MaternOneHalf'),
                 ('Cubic', 'Quadratic'),
-                ('Linear', 'Quadratic'),
                 ('Linear', 'MaternOneHalf'),
+                ('Linear', 'Quadratic'),
             ))
 
     @unittest.skip('The output is in the question ...')
