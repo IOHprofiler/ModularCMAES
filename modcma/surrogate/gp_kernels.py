@@ -414,8 +414,8 @@ for kernel in _concrete_kernel_options:
         _functor_kernels.append(output)
 
 # ??
-for kernel in _basic_kernels + _functor_kernels:
-    locals()[kernel.__name__] = kernel
+#for kernel in _basic_kernels + _functor_kernels:
+#    locals()[kernel.__name__] = kernel
 
 
 if __name__ == '__main__':
