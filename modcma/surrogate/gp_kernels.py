@@ -512,12 +512,42 @@ if __name__ == '__main__':
             k = Linear + Linear
             self.assertEqual(k._uid, (('Linear', 'Linear'), ))
 
-        @unittest.skip('TODO')
         def test_LM(self):
-            k = MaternOneHalf + Linear
-            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf'))
+            k = MaternOneHalf * Linear
+            self.assertEqual(k._uid, (('Linear', 'MaternOneHalf'),))
 
-            k = Linear + MaternOneHalf
-            self.assertEqual(k._uid, ('Linear', 'MaternOneHalf'))
+            k = Linear * MaternOneHalf
+            self.assertEqual(k._uid, (('Linear', 'MaternOneHalf'),))
+
+        def test_triple(self):
+            k = Linear * MaternOneHalf * Quadratic
+            self.assertEqual(k._uid, (('Linear', 'MaternOneHalf', 'Quadratic'),))
+
+            k = Quadratic * Linear * MaternOneHalf
+            self.assertEqual(k._uid, (('Linear', 'MaternOneHalf', 'Quadratic'),))
+
+            k = Quadratic * MaternOneHalf * Linear
+            self.assertEqual(k._uid, (('Linear', 'MaternOneHalf', 'Quadratic'),))
+
+        def test_addition_distribution(self):
+            k = (Quadratic + MaternOneHalf) * Linear
+            self.assertEqual(k._uid, (
+                ('Linear', 'MaternOneHalf'),
+                ('Linear', 'Quadratic'),))
+
+            k = (Quadratic + MaternOneHalf) * Linear + Linear
+            self.assertEqual(k._uid, (
+                ('Linear', 'MaternOneHalf'),
+                ('Linear', 'Quadratic'),
+                ('Linear',),
+            ))
+
+            k = (Quadratic + MaternOneHalf + Linear) * Linear
+            self.assertEqual(k._uid, (
+                ('Linear', 'MaternOneHalf'),
+                ('Linear', 'Quadratic'),
+                ('Linear', 'Linear'),
+            ))
+
 
     unittest.main(verbosity=2)
