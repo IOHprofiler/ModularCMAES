@@ -35,16 +35,6 @@ class GP_kernel_base_interface(metaclass=ABCMeta):
     def dof(self) -> int:
         return 0
 
-    '''
-    @property
-    def uid(self):
-        return self._uid
-
-    @uid.setter
-    def uid(self, new):
-        # normalization
-        self._uid = tuple(sorted(new))
-    '''
 
 class GP_kernel_meta(ABCMeta):
     ''' adds basic operations to all kernel classes '''
@@ -259,7 +249,7 @@ class Kernel:
                 try:
                     p_prop = all_variables[varname]
                     self.bijectors[varname] = p_prop.default_constraining_bijector_fn
-                except:
+                except KeyError:
                     raise NotImplementedError(f'Cannot fill up bijector {varname}')
 
 
@@ -442,7 +432,8 @@ def kernel_similarity_measure_best_matching(k1, k2) -> float:
     y = pulp.LpVariable.dicts("pair", [(i, j)
                                        for i in range(len(k1._uid))
                                        for j in range(len(k2._uid))
-                                      ], cat='Binary')
+                                       ], cat='Binary'
+                              )
     # objective
     problem += pulp.lpSum([
         score[j][i] * y[(i, j)]
@@ -462,6 +453,7 @@ def kernel_similarity_measure_best_matching(k1, k2) -> float:
     if isinstance(obj_value, float):
         return obj_value / (len(k1._uid) + len(k2._uid) - obj_value)
     return 0.
+
 
 if __name__ == '__main__':
     import unittest
