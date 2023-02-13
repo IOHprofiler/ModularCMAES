@@ -671,10 +671,17 @@ if __name__ == '__main__':
             b = Linear
             self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 0.5)
 
-        @unittest.skip('todo')
         def test_L_LM_symetry(self):
             a = Linear * MaternOneHalf
             b = Linear + MaternOneHalf
-            self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 0.0)
+            self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 1./5.)
+
+            a = Linear * MaternOneHalf + Linear * MaternOneHalf
+            b = Linear + MaternOneHalf
+            self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 1./3.)
+
+            a = Linear * MaternOneHalf + Linear
+            b = Linear + MaternOneHalf
+            self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 3./5.)
 
     unittest.main(verbosity=2)
