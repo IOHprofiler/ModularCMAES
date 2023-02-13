@@ -441,12 +441,12 @@ def kernel_similarity_measure_best_matching(k1, k2) -> float:
     # variables
     y = pulp.LpVariable.dicts("pair", [(i, j)
                                        for i in range(len(k1._uid))
-                                       for j in range(k2._uid)
+                                       for j in range(len(k2._uid))
                                       ], cat='Binary')
     # objective
     problem += pulp.lpSum([
         score[j][i] * y[(i, j)]
-        for i in range(len(k1._uid)) for j in range(k2._uid)])
+        for i in range(len(k1._uid)) for j in range(len(k2._uid))])
     # constraints
     for i in range(len(k1._uid)):
         problem += pulp.lpSum(y[(i, j)] for j in range(len(k2._uid))) <= 1
@@ -455,22 +455,13 @@ def kernel_similarity_measure_best_matching(k1, k2) -> float:
 
     problem.solve()
 
-    if probelm.sol_status != 1:
+    if problem.sol_status != 1:
         return 0.
 
     obj_value = problem.objective.value()
     if isinstance(obj_value, float):
         return obj_value / (len(k1._uid) + len(k2._uid) - obj_value)
     return 0.
-
-
-
-
-
-    # best matching for other elements
-
-
-    return ouptut
 
 if __name__ == '__main__':
     import unittest
