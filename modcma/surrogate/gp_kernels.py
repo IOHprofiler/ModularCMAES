@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from collections import Counter
 
 from typing import Optional
+import pulp
+import numpy as np
 
 import tensorflow as tf
 import tensorflow_probability as tfp
@@ -416,12 +418,59 @@ for kernel in _concrete_kernel_options:
 
 
 def kernel_similarity_measure_jaccard(k1, k2) -> float:
+    ''' kernel similarity based on modified jaccard distance '''
     k1 = Counter(k1._uid)
     k2 = Counter(k2._uid)
 
     intersection = k1 & k2
     union = k1 | k2
     return intersection.total() / union.total()
+
+
+def kernel_similarity_measure_best_matching(k1, k2) -> float:
+    ''' kernel similarity measure based on optional matching
+    of sub modified jaccard distances '''
+    c1 = [Counter(e1) for e1 in k1._uid]
+    c2 = [Counter(e2) for e2 in k2._uid]
+
+    score = [[(a & b).total() / (a | b).total()
+             for a in c1] for b in c2
+             ]
+
+    problem = pulp.LpProblem("Matching kernels", pulp.LpMaximize)
+    # variables
+    y = pulp.LpVariable.dicts("pair", [(i, j)
+                                       for i in range(len(k1._uid))
+                                       for j in range(k2._uid)
+                                      ], cat='Binary')
+    # objective
+    problem += pulp.lpSum([
+        score[j][i] * y[(i, j)]
+        for i in range(len(k1._uid)) for j in range(k2._uid)])
+    # constraints
+    for i in range(len(k1._uid)):
+        problem += pulp.lpSum(y[(i, j)] for j in range(len(k2._uid))) <= 1
+    for j in range(len(k2._uid)):
+        problem += pulp.lpSum(y[(i, j)] for i in range(len(k1._uid))) <= 1
+
+    problem.solve()
+
+    if probelm.sol_status != 1:
+        return 0.
+
+    obj_value = problem.objective.value()
+    if isinstance(obj_value, float):
+        return obj_value / (len(k1._uid) + len(k2._uid) - obj_value)
+    return 0.
+
+
+
+
+
+    # best matching for other elements
+
+
+    return ouptut
 
 if __name__ == '__main__':
     import unittest
