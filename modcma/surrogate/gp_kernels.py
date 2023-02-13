@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractproperty, abstractmethod
 from dataclasses import dataclass
+from collections import Counter
 
 from typing import Optional
 
@@ -417,6 +418,13 @@ for kernel in _concrete_kernel_options:
 #for kernel in _basic_kernels + _functor_kernels:
 #    locals()[kernel.__name__] = kernel
 
+def kernel_similarity_measure_jaccard(k1, k2) -> float:
+    k1 = Counter(k1._uid)
+    k2 = Counter(k2._uid)
+
+    intersection = k1 & k2
+    union = k1 | k2
+    return intersection.total() / union.total()
 
 if __name__ == '__main__':
     import unittest
