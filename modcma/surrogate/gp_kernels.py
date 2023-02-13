@@ -651,4 +651,30 @@ if __name__ == '__main__':
             b = Linear + MaternOneHalf
             self.assertAlmostEqual(kernel_similarity_measure_jaccard(a, b), 0.0)
 
+    class Tests_distance_matching(unittest.TestCase):
+        def test_LL(self):
+            a = Linear
+            b = Linear
+            self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 1.)
+
+        def test_LM(self):
+            a = Linear
+            b = MaternOneHalf
+            self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 0.)
+
+        def test_L_LM_symetry(self):
+            a = Linear
+            b = Linear + MaternOneHalf
+            self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 0.5)
+
+            a = Linear + MaternOneHalf
+            b = Linear
+            self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 0.5)
+
+        @unittest.skip('todo')
+        def test_L_LM_symetry(self):
+            a = Linear * MaternOneHalf
+            b = Linear + MaternOneHalf
+            self.assertAlmostEqual(kernel_similarity_measure_best_matching(a, b), 0.0)
+
     unittest.main(verbosity=2)
