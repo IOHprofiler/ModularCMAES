@@ -414,9 +414,6 @@ for kernel in _concrete_kernel_options:
         output = GP_kernel_concrete_base.create_functor(kernel)
         _functor_kernels.append(output)
 
-# ??
-#for kernel in _basic_kernels + _functor_kernels:
-#    locals()[kernel.__name__] = kernel
 
 def kernel_similarity_measure_jaccard(k1, k2) -> float:
     k1 = Counter(k1._uid)
@@ -428,6 +425,8 @@ def kernel_similarity_measure_jaccard(k1, k2) -> float:
 
 if __name__ == '__main__':
     import unittest
+    for kernel in _basic_kernels + _functor_kernels:
+        locals()[kernel.__name__] = kernel
 
     class Mock2:
         d = 2
@@ -586,5 +585,30 @@ if __name__ == '__main__':
         def test_L(self):
             k = FeatureScaled(Linear)
             self.assertTrue(False)
+
+    class Tests_distance_jaccard(unittest.TestCase):
+        def test_LL(self):
+            a = Linear
+            b = Linear
+            self.assertAlmostEqual(kernel_similarity_measure_jaccard(a, b), 1.)
+
+        def test_LM(self):
+            a = Linear
+            b = MaternOneHalf
+            self.assertAlmostEqual(kernel_similarity_measure_jaccard(a, b), 0.)
+
+        def test_L_LM_symetry(self):
+            a = Linear
+            b = Linear + MaternOneHalf
+            self.assertAlmostEqual(kernel_similarity_measure_jaccard(a, b), 0.5)
+
+            a = Linear + MaternOneHalf
+            b = Linear
+            self.assertAlmostEqual(kernel_similarity_measure_jaccard(a, b), 0.5)
+
+        def test_L_LM_symetry(self):
+            a = Linear * MaternOneHalf
+            b = Linear + MaternOneHalf
+            self.assertAlmostEqual(kernel_similarity_measure_jaccard(a, b), 0.0)
 
     unittest.main(verbosity=2)
