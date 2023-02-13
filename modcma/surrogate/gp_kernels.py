@@ -549,5 +549,17 @@ if __name__ == '__main__':
                 ('Linear', 'Linear'),
             ))
 
+            k = (Quadratic + MaternOneHalf + Linear) * Linear * Cubic
+            self.assertEqual(k._uid, (
+                ('Cubic', 'Linear', 'MaternOneHalf'),
+                ('Cubic', 'Linear', 'Quadratic'),
+                ('Cubic', 'Linear', 'Linear'),
+            ))
+
+    @unittest.skip('The output is in the question ...')
+    class TestsUID_functor(unittest.TestCase):
+        def test_L(self):
+            k = FeatureScaled(Linear)
+            self.assertTrue(False)
 
     unittest.main(verbosity=2)
