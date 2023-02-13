@@ -453,7 +453,7 @@ def kernel_similarity_measure_best_matching(k1, k2) -> float:
     for j in range(len(k2._uid)):
         problem += pulp.lpSum(y[(i, j)] for i in range(len(k1._uid))) <= 1
 
-    problem.solve()
+    problem.solve(pulp.PULP_CBC_CMD(msg=0))
 
     if problem.sol_status != 1:
         return 0.
