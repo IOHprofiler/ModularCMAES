@@ -529,7 +529,7 @@ if __name__ == '__main__':
             k = Quadratic * MaternOneHalf * Linear
             self.assertEqual(k._uid, (('Linear', 'MaternOneHalf', 'Quadratic'),))
 
-        def test_addition_distribution(self):
+        def test_addition_distributive(self):
             k = (Quadratic + MaternOneHalf) * Linear
             self.assertEqual(k._uid, (
                 ('Linear', 'MaternOneHalf'),
@@ -554,6 +554,15 @@ if __name__ == '__main__':
                 ('Cubic', 'Linear', 'MaternOneHalf'),
                 ('Cubic', 'Linear', 'Quadratic'),
                 ('Cubic', 'Linear', 'Linear'),
+            ))
+
+        def test_distributive_2(self):
+            k = (Linear + Cubic) * (Quadratic + MaternOneHalf)
+            self.assertEqual(k._uid, (
+                ('Cubic', 'MaternOneHalf'),
+                ('Cubic', 'Quadratic'),
+                ('Linear', 'Quadratic'),
+                ('Linear', 'MaternOneHalf'),
             ))
 
     @unittest.skip('The output is in the question ...')
