@@ -35,6 +35,31 @@ class GP_kernel_base_interface(metaclass=ABCMeta):
     def dof(self) -> int:
         return 0
 
+    @abstractmethod
+    def get_variables(self):
+        return []
+
+
+class _BasicCombinedKernel(GP_kernel_base_interface):
+    _cls_first: GP_kernel_base_interface = None
+    _cls_second: GP_kernel_base_interface = None
+    _uid = None
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._obj_first = self._cls_first(*args, **kwargs)
+        self._obj_second = self._cls_second(*args, **kwargs)
+
+    @property
+    def dof(self) -> int:
+        return self._obj_first.dof + self._obj_second.dof
+
+    def get_variables(self):
+        return self._obj_first.get_variables() + self._obj_second.get_variables()
+
+    @abstractmethod
+    def kernel(self) -> psd_kernels.AutoCompositeTensorPsdKernel:
+        pass
 
 class GP_kernel_meta(ABCMeta):
     ''' adds basic operations to all kernel classes '''
@@ -43,19 +68,10 @@ class GP_kernel_meta(ABCMeta):
         new_uid = tuple(sorted(cls._uid + other._uid))
 
         ''' adds addition of kernel classes '''
-        class SumKernel(GP_kernel_base_interface, metaclass=GP_kernel_meta):
+        class SumKernel(_BasicCombinedKernel, metaclass=GP_kernel_meta):
             _cls_first = cls
             _cls_second = other
             _uid = new_uid
-
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self._obj_first = self._cls_first(*args, **kwargs)
-                self._obj_second = self._cls_second(*args, **kwargs)
-
-            @property
-            def dof(self) -> int:
-                return self._obj_first.dof + self._obj_second.dof
 
             def kernel(self):
                 return self._obj_first.kernel() + self._obj_second.kernel()
@@ -74,19 +90,10 @@ class GP_kernel_meta(ABCMeta):
         new_uid = tuple(sorted(new_uid))
 
         ''' adds multiplication of kernel classes '''
-        class MulKernel(GP_kernel_base_interface, metaclass=GP_kernel_meta):
+        class MulKernel(_BasicCombinedKernel, metaclass=GP_kernel_meta):
             _cls_first = cls
             _cls_second = other
             _uid = new_uid
-
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self._obj_first = self._cls_first(*args, **kwargs)
-                self._obj_second = self._cls_second(*args, **kwargs)
-
-            @property
-            def dof(self) -> int:
-                return self._obj_first.dof + self._obj_second.dof
 
             def kernel(self):
                 return self._obj_first.kernel() * self._obj_second.kernel()
@@ -164,6 +171,9 @@ class GP_kernel_concrete_base(GP_kernel_base_interface, metaclass=GP_kernel_meta
             p.pretransformed_input.assign_add(noise)
             self.variables[vname] = p
 
+    def get_variables(self):
+        return list(self.variables.items())
+
     @staticmethod
     def create_class(kernel_params, basis=None):
         if basis is None:
@@ -230,7 +240,7 @@ class Kernel:
         # remove None
         to_remove = set(varname for varname in self.defaults if self.defaults[varname] is None)
 
-        # remove non-present vars
+        # remove variables that are not set already
         if issubclass(self.kernel, psd_kernels.AutoCompositeTensorPsdKernel):
             all_variables = self.kernel.parameter_properties(tf.float64)
             extra = set(self.defaults).difference(set(all_variables.keys()))
@@ -273,17 +283,6 @@ _combined_kernel_options = [
     ),
     KernelGroup(
         kernels=(
-            psd_kernels.ExpSinSquared,  # a.k.a. 'periodic kernel'
-        ),
-        defaults={
-            'amplitude':            tf_one,
-            'length_scale':         tf_one,
-            'inverse_length_scale': None,
-            'period':               tf_one,
-        },
-    ),
-    KernelGroup(
-        kernels=(
             psd_kernels.FeatureScaled,
             psd_kernels.PointwiseExponential,
         ),
@@ -296,6 +295,19 @@ _combined_kernel_options = [
             'scale_diag': lambda: tfb.SoftmaxCentered()
         },
         arity=1
+    ),
+    Kernel(
+        kernel=psd_kernels.ExpSinSquared,  # a.k.a. 'periodic kernel'
+        defaults={
+            'amplitude':            tf_one,
+            'length_scale':         tf_one,
+            'inverse_length_scale': None,
+            'period':               tf_one,
+        },
+        bijectors={
+            #'period': (lambda: tfb.Exp()),
+            #'length_scale': lambda: tfb.Exp(tfb.Exp()),
+        }
     ),
     # KERNELS :
     Kernel(
@@ -466,11 +478,13 @@ if __name__ == '__main__':
     class Mock5:
         d = 5
 
-    class TestMatern(unittest.TestCase):
+    class TestKernels(unittest.TestCase):
         def test_dof(self):
             k = MaternOneHalf(Mock2)
 
             self.assertEqual(k.dof, 2)
+            self.assertIsInstance(k.get_variables(), list)
+            self.assertEqual(len(k.get_variables()), 2)
 
             class Mock5:
                 d = 5
@@ -478,6 +492,8 @@ if __name__ == '__main__':
             k = k(Mock2)
 
             self.assertEqual(k.dof, 2)
+            self.assertIsInstance(k.get_variables(), list)
+            self.assertEqual(len(k.get_variables()), 2)
 
         def test_dof_feature_scale(self):
             k = FeatureScaled(MaternOneHalf)
@@ -515,6 +531,8 @@ if __name__ == '__main__':
             k = Cubic
             k = k(Mock5)
             self.assertEqual(len(k.kernel().trainable_variables), 3)
+            self.assertIsInstance(k.get_variables(), list)
+            self.assertEqual(len(k.get_variables()), 3)
 
         def test_addition_dof_var(self):
             kc = Linear + Linear + MaternOneHalf
@@ -533,6 +551,14 @@ if __name__ == '__main__':
             self.assertEqual(len(ko.kernel().trainable_variables), 8)
             # dof
             self.assertEqual(ko.dof, 8)
+            self.assertIsInstance(ko.get_variables(), list)
+            self.assertEqual(len(ko.get_variables()), 8)
+
+        def test_expsinsquared(self):
+            kc = ExpSinSquared(Mock2)
+            self.assertEqual(len(kc.kernel().trainable_variables), 3)
+            self.assertIsInstance(kc.get_variables(), list)
+            self.assertEqual(len(kc.get_variables()), 3)
 
     class TestsUID(unittest.TestCase):
         def testLinear(self):
