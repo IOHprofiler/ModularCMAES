@@ -302,12 +302,8 @@ _combined_kernel_options = [
             'amplitude':            tf_one,
             'length_scale':         tf_one,
             'inverse_length_scale': None,
-            'period':               tf_one,
+            'period':               tf_one*100,
         },
-        bijectors={
-            #'period': (lambda: tfb.Exp()),
-            #'length_scale': lambda: tfb.Exp(tfb.Exp()),
-        }
     ),
     # KERNELS :
     Kernel(
