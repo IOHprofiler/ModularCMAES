@@ -2,7 +2,6 @@ from abc import abstractmethod, ABCMeta
 from typing import Tuple, Optional, Type, List, Generator
 import operator, itertools, time
 
-
 import numpy as np
 from ..typing_utils import XType, YType
 
@@ -270,6 +269,7 @@ class _GaussianProcessModelMixtureBase:
             ExpSinSquared,
             Linear,
             Quadratic,
+            ####
             #Cubic,
             #Parabolic,
             #ExponentialCurve,
@@ -299,6 +299,7 @@ class _GaussianProcessModelMixtureBase:
             if self.TRAIN_MAX_TIME_S:
                 if time.time() - time_start > self.TRAIN_MAX_TIME_S:
                     break
+
         self.best_model = self.restricted_full_fit_postprocessing(trained_models)
 
     def restricted_full_fit_postprocessing(self, trained_models: List[_GaussianProcessModel]):
@@ -336,6 +337,20 @@ class GaussianProcessBasicSelection(SurrogateModelBase, _GaussianProcessModelMix
     def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
         return super().generate_kernel_space()
 
+    def df(self):
+        return 0
+
+class GaussianProcessBasicAdditiveSelection(GaussianProcessBasicSelection):
+    def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
+        yield from super().generate_kernel_space()
+        for (a, b) in itertools.combinations(self._building_blocks, 2):
+            if a is b:
+                if a in (Linear, Quadratic):
+                    continue
+            yield a + b
+
+
+
 
 class GaussianProcessPenalizedAdditiveSelection(GaussianProcessBasicSelection):
     def penalize_kernel(self, loss, kernel_obj):
@@ -350,6 +365,40 @@ class GaussianProcessPenalizedAdditiveSelection(GaussianProcessBasicSelection):
 
 if __name__ == '__main__':
     import unittest
+
+    if False:
+        # For debugging purposes
+        import matplotlib.pyplot as plt
+
+        parameters = Parameters(1)
+        parameters.learning_rate = 0.10
+        parameters.surrogate_model_gp_max_iterations = 10000000
+        parameters.surrogate_model_gp_early_stopping_patience = 3
+        parameters.surrogate_model_gp_early_stopping_delta = 0.1
+        parameters.surrogate_model_gp_noisy_samples = False
+        #parameters.surrogate_model_gp_noisy_samples = True
+        parameters.surrogate_model_gp_kernel = 'ExpSinSquared'
+        #parameters.surrogate_model_gp_kernel = 'MaternOneHalf'
+
+
+        def function(x):
+            return -0.3 + np.abs(np.sin(x/3.5 + 0.12)) * 0.5
+
+        data = np.random.rand(72, 1) * 100
+        target = function(data)
+
+        model = GaussianProcess(parameters)
+        model.fit(data, target)
+
+        test_data = np.linspace(0, 100., 1000)[:, np.newaxis]
+        test_target = function(test_data)
+        test_prediction = model.predict(test_data)
+
+        plt.plot(test_data, test_target)
+        plt.plot(test_data, test_prediction)
+        plt.scatter(data, target)
+        plt.show()
+        exit(0)
 
     class TestBasic(unittest.TestCase):
         def test_gp_init(self):
@@ -418,9 +467,40 @@ if __name__ == '__main__':
                 self.assertAlmostEqual(p1[i], p2[i], places=2)
                 self.assertAlmostEqual(p1[i], Yt[i], places=2)
 
-    class TestModelSelectors(unittest.TestCase):
-        def test_GP_basic_model_selection(self):
-            pass
+    class Test_GaussianProcessBasicSelection(unittest.TestCase):
+        def test_quadratic(self):
+            data = np.random.rand(50, 1)
+            target = data[:,0]**2
+
+            parameters = Parameters(1)
+            parameters.surrogate_model_gp_noisy_samples = False
+            model = GaussianProcessBasicSelection(parameters)
+            model.fit(data, target)
+
+            self.assertIsInstance(model.best_model._kernel_obj, Quadratic)
+
+        def test_linear(self):
+            data = np.random.rand(50, 2)
+            target = data[:,0] + data[:,1] * 10
+
+            parameters = Parameters(2)
+            parameters.surrogate_model_gp_noisy_samples = False
+            model = GaussianProcessBasicSelection(parameters)
+            model.fit(data, target)
+
+            self.assertIsInstance(model.best_model._kernel_obj, Linear)
+
+        def test_sin(self):
+            #data = np.linspace(-3.14/2, 3.14/2, 77)[:, np.newaxis]
+            data = np.random.rand(272, 1) * 3.14 * 100
+
+            target = np.sin(data/4 + 0.14)
+
+            parameters = Parameters(1)
+            model = GaussianProcessBasicSelection(parameters)
+            model.fit(data, target)
+
+            self.assertIsInstance(model.best_model._kernel_obj, ExpSinSquared)
 
 
     unittest.main()
