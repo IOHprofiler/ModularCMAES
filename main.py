@@ -81,6 +81,7 @@ if __name__ == "__main__":
     parser.add_argument("-i", "--iterations", help="how many iterations to run the algorithm for", default=10000, type=int) # only those two for now
     parser.add_argument("-b", "--budget", help="decides the budget of the problem, defaults to 1e4*dimension", nargs='?', default=1e4, type=float)
     parser.add_argument("-pt", "--subpop_type", help="sizes of subpopulations", choices=[1,2], default=1, type=int)
+    parser.add_argument("-n", "--algo_name", help="algorithm name", default='ModCMA', type=str)
     # parser.add_argument("-l", "--lambda_", help="size of offsprings to generate", nargs='*', default=100, type=int)
     # parser.add_argument("-m", "--mu_", help="size of parents to use", nargs='*', default=100, type=int)
     # parser.add_argument("-p", "--subpop", help="size of subpopulation parents and offspring\neg: [100, 50, 20, 10, 5]", nargs='+', default=None, type=int)
@@ -97,18 +98,16 @@ if __name__ == "__main__":
         # multiple subpopulations, same sizes (hard-coded for now)
         lambda_ = [20, 20, 20, 20, 20]
         mu_ = [20, 20, 20, 20, 20]
-    else:
-        # multiple subpopulations, different sizes (hard-coded for now)
-        lambda_ = [5, 10, 20, 30, 50]
-        mu_ = [5, 10, 20, 30, 50]
 
     print("Subpopulation CMA-ES: start")
     main(problem_id=args.problem_id, 
          problem_instance=args.problem_instance,
          dimension=args.dimension, 
          iterations=args.iterations, 
-            budget=args.budget, 
-            lambda_=lambda_,
-            mu_=mu_,
-            sharing_point=None)
-    # python main.py -
+         budget=int(args.budget*args.dimension), 
+         lambda_=lambda_,
+         mu_=mu_, 
+         sharing_point=None,
+         logger_info={'name':args.algo_name, 'description': ''})
+    print("Subpopulation CMA-ES: complete")
+    # python main.py -pt
