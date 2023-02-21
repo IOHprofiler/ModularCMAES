@@ -199,6 +199,7 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
 # ### MODELS
 # ###############################################################################
 
+
 class _GaussianProcessModel:
     ''' gaussian process wihtout known kernel '''
 
@@ -313,7 +314,7 @@ class _GaussianProcessModelMixtureBase:
 
     @abstractmethod
     def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
-        yield from self._building_blocks
+        return self._building_blocks
 
 
 class GaussianProcessBasicSelection(SurrogateModelBase, _GaussianProcessModelMixtureBase):
@@ -340,14 +341,34 @@ class GaussianProcessBasicSelection(SurrogateModelBase, _GaussianProcessModelMix
     def df(self):
         return 0
 
+
 class GaussianProcessBasicAdditiveSelection(GaussianProcessBasicSelection):
     def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
         yield from super().generate_kernel_space()
-        for (a, b) in itertools.combinations(self._building_blocks, 2):
-            if a is b:
-                if a in (Linear, Quadratic):
-                    continue
+        for (a, b) in itertools.combinations_with_replacement(self._building_blocks, 2):
+            if (a, b) in [(Linear, Linear), (Quadratic, Quadratic), ]:
+                continue
             yield a + b
+
+
+class GaussianProcessBasicMultiplicativeSelection:
+    def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
+        yield from super().generate_kernel_space()
+        for (a, b) in itertools.combinations_with_replacement(self._building_blocks, 2):
+            if (a, b) in [(Linear, Linear), ]:
+                continue
+            yield a * b
+
+
+class GaussianProcessBasicBinarySelection:
+    def generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
+        yield from super().generate_kernel_space()
+        for (a, b) in itertools.combinations_with_replacement(self._building_blocks, 2):
+            if (a, b) not in [(Linear, Linear), ]:
+                yield a * b
+            if (a, b) not in [(Linear, Linear), (Quadratic, Quadratic), ]:
+                yield a + b
+
 
 
 
@@ -365,6 +386,7 @@ class GaussianProcessPenalizedAdditiveSelection(GaussianProcessBasicSelection):
 
 if __name__ == '__main__':
     import unittest
+    import math
 
     if False:
         # For debugging purposes
@@ -491,7 +513,6 @@ if __name__ == '__main__':
             self.assertIsInstance(model.best_model._kernel_obj, Linear)
 
         def test_sin(self):
-            #data = np.linspace(-3.14/2, 3.14/2, 77)[:, np.newaxis]
             data = np.random.rand(272, 1) * 3.14 * 100
 
             target = np.sin(data/4 + 0.14)
@@ -501,6 +522,50 @@ if __name__ == '__main__':
             model.fit(data, target)
 
             self.assertIsInstance(model.best_model._kernel_obj, ExpSinSquared)
+
+        def test_generator(self):
+            parameters = Parameters(1)
+            model = GaussianProcessBasicSelection(parameters)
+            self.assertEqual(
+                len(list(model.generate_kernel_space())),
+                len(model._building_blocks)
+            )
+
+    class Test_GaussianProcessExtendedSelection(unittest.TestCase):
+        def combination_number(self, a):
+            return math.factorial(a + 2 - 1) // math.factorial(2) // math.factorial(a - 1)
+
+        def test_generator_additive(self):
+            parameters = Parameters(1)
+            model = GaussianProcessBasicSelection(parameters)
+            self.assertEqual(
+                len(list(model.generate_kernel_space())),
+                len(model._building_blocks) +
+                self.combination_number(len(model._building_blocks)) - 2
+                # Lin + Lin == Lin
+                # Qua + Qua == Qua
+            )
+
+        def test_generator_multiplicative(self):
+            parameters = Parameters(1)
+            model = GaussianProcessBasicSelection(parameters)
+            self.assertEqual(
+                len(list(model.generate_kernel_space())),
+                len(model._building_blocks) +
+                self.combination_number(len(model._building_blocks)) - 1
+                # Lin + Lin == Qua
+            )
+
+        def test_generator_both(self):
+            parameters = Parameters(1)
+            model = GaussianProcessBasicSelection(parameters)
+            self.assertEqual(
+                len(list(model.generate_kernel_space())),
+                len(model._building_blocks) +
+                self.combination_number(len(model._building_blocks)) - 3
+            )
+
+
 
 
     unittest.main()
