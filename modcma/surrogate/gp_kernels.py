@@ -435,7 +435,7 @@ def kernel_similarity_measure_best_matching(k1, k2) -> float:
              for a in c1] for b in c2
              ]
 
-    problem = pulp.LpProblem("Matching kernels", pulp.LpMaximize)
+    problem = pulp.LpProblem("Matching_kernels", pulp.LpMaximize)
     # variables
     y = pulp.LpVariable.dicts("pair", [(i, j)
                                        for i in range(len(k1._uid))
