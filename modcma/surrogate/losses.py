@@ -22,7 +22,7 @@ class L1(Loss):
     name = 'L1'
 
     def __call__(self, predict, target):
-        #super().__call__(predict, target)
+        super().__call__(predict, target)
         return np.mean(np.abs(predict - target))
 
 
@@ -30,29 +30,30 @@ class L2(Loss):
     name = 'L2'
 
     def __call__(self, predict, target):
-        #super().__call__(predict, target)
+        super().__call__(predict, target)
         return np.mean(np.square(predict - target))
 
 
 class L1Drop10P(Loss):
     name = 'L1Drop10P'
+
     def __call__(self, predict, target):
-         super().__call__(predict, target)
-         num_of_res = int(round(float(target.shape[0])*(9./10.)))
-         residuals = np.abs(predict - target)
-         residuals = np.sort(residuals, axis=0)[:num_of_res]
-         return np.mean(residuals)
+        super().__call__(predict, target)
+        num_of_res = int(round(float(target.shape[0])*(9./10.)))
+        residuals = np.abs(predict - target)
+        residuals = np.sort(residuals, axis=0)[:num_of_res]
+        return np.mean(residuals)
 
 
 class L2Drop10P(Loss):
     name = 'L2Drop10P'
 
     def __call__(self, predict, target):
-         super().__call__(predict, target)
-         num_of_res = int(round(float(target.shape[0])*(9./10.)))
-         residuals = np.square(predict - target)
-         residuals = np.sort(residuals, axis=0)[:num_of_res]
-         return np.mean(residuals)
+        super().__call__(predict, target)
+        num_of_res = int(round(float(target.shape[0])*(9./10.)))
+        residuals = np.square(predict - target)
+        residuals = np.sort(residuals, axis=0)[:num_of_res]
+        return np.mean(residuals)
 
 
 class Kendall(Loss):
@@ -96,6 +97,7 @@ class _MakeAuto(ABCMeta):
         setattr(newclass, '__call__', __call__)
         return newclass
 
+
 class RDE(Loss, metaclass=type):
     ''' Ranking Difference Error Loss '''
     name = 'RDE'
@@ -110,7 +112,7 @@ class RDE(Loss, metaclass=type):
         prvni_sloupec = np.arange(1, -mu, step=-1)[:, np.newaxis]
         assert len(prvni_sloupec) == mu + 1
 
-        radek = np.arange(1,mu+1)[np.newaxis, :]
+        radek = np.arange(1, mu+1)[np.newaxis, :]
         radek_obraceny = np.arange(lam, lam-mu, step=-1)[np.newaxis, :]
         assert radek.shape[1] == mu
         assert radek_obraceny.shape[1] == mu
@@ -121,8 +123,8 @@ class RDE(Loss, metaclass=type):
         return vysledek
 
     def __call__(self, predict, target):
+        super().__call__(predict, target)
         assert self.mu is not None
-        #super().__call__(predict, target)
         lam = len(predict)
         try:
             err_max = self.cache[(lam, self.mu)]
@@ -131,7 +133,7 @@ class RDE(Loss, metaclass=type):
             self.cache[(lam, self.mu)] = err_max
 
         si_predict = np.argsort(predict)
-        si_target  = np.argsort(target)[:self.mu]
+        si_target = np.argsort(target)[:self.mu]
 
         inRank = np.zeros(lam)
         inRank[si_predict] = np.arange(lam)
@@ -141,15 +143,15 @@ class RDE(Loss, metaclass=type):
         return np.sum(np.abs(r1 - r2))/err_max
 
 
-
-
 class SRDE(Loss):
     ''' Soft Ranking Difference Error '''
+    name = 'SRDE'
 
     def __init__(self, mu):
         self.mu = mu
 
     def __call__(self, predict, target):
+        super().__call__(predict, target)
         order = np.argsort(target)
         # Choose top mu variables (based on target)
         predict = predict[order][:self.mu]
@@ -179,7 +181,7 @@ class SRDE(Loss):
         abs_var = [pulp.LpVariable(name='a'+str(index), lowBound=0.)
                    for index in range(self.mu)]
 
-        # to couple the var and abs_var, we need to add two constrains per variable
+        # to couple the var and abs_var we need to add two constrains per variable
         for index in range(self.mu):
             problem += +var[index] <= abs_var[index]
             problem += -var[index] <= abs_var[index]
@@ -193,11 +195,13 @@ class SRDE(Loss):
 
 class SSRDE(SRDE):
     ''' Soft Scaled Ranking Difference Error '''
+    name = 'SSRDE'
 
     def __init__(self, mu):
         self.mu = mu
 
     def __call__(self, predict, target):
+        super().__call__(predict, target)
         order = np.argsort(target)
 
         # Choose top mu variables (based on target)
