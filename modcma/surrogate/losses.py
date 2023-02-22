@@ -1,12 +1,12 @@
 import numpy as np
 import math
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 
 from scipy.stats import kendalltau
 import pulp
 
 
-class Loss(ABC):
+class Loss(metaclass=ABCMeta):
     name = 'error'
 
     @abstractmethod
@@ -56,6 +56,7 @@ class L2Drop10P(Loss):
 
 
 class Kendall(Loss):
+    ''' Kendall Loss '''
     name = 'Kendall'
 
     def __call__(self, predict, target):
@@ -64,21 +65,44 @@ class Kendall(Loss):
         return c
 
 
-class RDE(Loss):
+class _MakeFull(ABCMeta):
+    def __new__(cls, clsname, bases, attrs):
+        def __init__(self):
+            pass
+
+        def __call__(self, predict, target):
+            self.mu = len(target)
+            return bases[0].__call__(self, predict, target)
+
+        newclass = super().__new__(cls, clsname, bases, attrs)
+
+        setattr(newclass, '__init__', __init__)
+        setattr(newclass, '__call__', __call__)
+        return newclass
+
+
+class _MakeAuto(ABCMeta):
+    def __new__(cls, clsname, bases, attrs):
+        def __init__(self):
+            pass
+
+        def __call__(self, predict, target):
+            self.mu = len(target) // 2
+            return bases[0].__call__(self, predict, target)
+
+        newclass = super().__new__(cls, clsname, bases, attrs)
+
+        setattr(newclass, '__init__', __init__)
+        setattr(newclass, '__call__', __call__)
+        return newclass
+
+class RDE(Loss, metaclass=type):
+    ''' Ranking Difference Error Loss '''
     name = 'RDE'
     cache = {}
 
     def __init__(self, mu):
-        self._mu = mu
-
-    @property
-    def mu(self):
-        return self._mu
-
-    @mu.setter
-    def mu(self, mu):
-        assert isinstance(mu, int)
-        self._mu = mu
+        self.mu = mu
 
     def _compute_normalization_coefficient(self, lam, mu):
         assert mu <= lam
@@ -97,45 +121,44 @@ class RDE(Loss):
         return vysledek
 
     def __call__(self, predict, target):
-        assert self._mu is not None
+        assert self.mu is not None
         #super().__call__(predict, target)
         lam = len(predict)
         try:
-            err_max = self.cache[(lam, self._mu)]
+            err_max = self.cache[(lam, self.mu)]
         except KeyError:
-            err_max = self._compute_normalization_coefficient(lam, self._mu)
-            self.cache[(lam, self._mu)] = err_max
+            err_max = self._compute_normalization_coefficient(lam, self.mu)
+            self.cache[(lam, self.mu)] = err_max
 
         si_predict = np.argsort(predict)
-        si_target  = np.argsort(target)[:self._mu]
+        si_target  = np.argsort(target)[:self.mu]
 
         inRank = np.zeros(lam)
         inRank[si_predict] = np.arange(lam)
 
-        r1 = inRank[si_target[:self._mu]]
-        r2 = np.arange(self._mu)
+        r1 = inRank[si_target[:self.mu]]
+        r2 = np.arange(self.mu)
         return np.sum(np.abs(r1 - r2))/err_max
 
 
-class RDE_auto(RDE):
-    def __init__(self):
-        pass
-
-    def __call__(self, predict, target):
-        lam = len(target)
-        self._mu = int(math.floor(lam / 2))
-        return super().__call__(predict, target)
 
 
 class SRDE(Loss):
+    ''' Soft Ranking Difference Error '''
+
     def __init__(self, mu):
         self.mu = mu
 
     def __call__(self, predict, target):
         order = np.argsort(target)
-
         # Choose top mu variables (based on target)
         predict = predict[order][:self.mu]
+
+        return self._solve_problem(predict)
+
+    def _solve_problem(self, predict):
+        if len(predict) == 0:
+            return 0.
 
         # Create optimization problem
         problem = pulp.LpProblem("SmoothRDE", pulp.LpMinimize)
@@ -165,28 +188,44 @@ class SRDE(Loss):
         problem += pulp.lpSum(abs_var)
 
         problem.solve(pulp.PULP_CBC_CMD(msg=0))
-        return sum(abs_var)
+        return float(sum(abs_var).value()) / len(var)
 
 
-class SRDE_full(SRDE):
-    def __init__(self):
-        pass
+class SSRDE(SRDE):
+    ''' Soft Scaled Ranking Difference Error '''
 
-    def __call__(self, predict, target):
-        # Firstly order the prediction (and target)
-        self.mu = len(target)
-        return super().__call__(predict, target)
-
-
-class SRDE_auto(SRDE):
-    def __init__(self):
-        pass
+    def __init__(self, mu):
+        self.mu = mu
 
     def __call__(self, predict, target):
-        # Firstly order the prediction (and target)
-        self.mu = len(target) // 2
-        return super().__call__(predict, target)
+        order = np.argsort(target)
 
+        # Choose top mu variables (based on target)
+        predict = predict[order][:self.mu]
+        scale = np.max(predict) - np.min(predict)
+
+        if scale > 0:
+            predict = predict / scale
+        return self._solve_problem(predict)
+
+
+class RDE_auto(RDE, metaclass=_MakeAuto):
+    pass
+
+class RDE_full(RDE, metaclass=_MakeFull):
+    pass
+
+class SRDE_full(SRDE, metaclass=_MakeFull):
+    pass
+
+class SRDE_auto(SRDE, metaclass=_MakeAuto):
+    pass
+
+class SSRDE_full(SRDE, metaclass=_MakeFull):
+    pass
+
+class SSRDE_auto(SRDE, metaclass=_MakeAuto):
+    pass
 
 if __name__ == '__main__':
     import unittest
@@ -209,82 +248,102 @@ if __name__ == '__main__':
             loss = SRDE_full()
             predict = np.array([1., 2.])
             target = np.array([10., 100.])
-            self.assertEqual(loss(predict, target), 0.)
+            self.assertEqual(loss(predict, target), 0./2)
 
             predict = np.array([2., 1.])
             target = np.array([10., 100.])
-            self.assertEqual(loss(predict, target), 1.)
+            self.assertEqual(loss(predict, target), 1./2)
 
             predict = np.array([3., 1.])
             target = np.array([10., 100.])
-            self.assertEqual(loss(predict, target), 2.)
+            self.assertEqual(loss(predict, target), 2./2)
 
         def test_SRDE_full_size_three(self):
             loss = SRDE_full()
             predict = np.array([1., 2., 2.])
             target = np.array([1., 2., 3.])
-            self.assertEqual(loss(predict, target), 0.)
+            self.assertEqual(loss(predict, target), 0./3)
 
             predict = np.array([1., 1., 1.])
             target = np.array([1., 2., 3.])
-            self.assertEqual(loss(predict, target), 0.)
+            self.assertEqual(loss(predict, target), 0./3)
 
             predict = np.array([1., 3., 2.])
             target = np.array([1., 2., 3.])
-            self.assertEqual(loss(predict, target), 1.)
+            self.assertEqual(loss(predict, target), 1./3)
 
             predict = np.array([30., 20., 10.])
             target = np.array([1., 2., 3.])
-            self.assertEqual(loss(predict, target), 20.)
+            self.assertEqual(loss(predict, target), 20./3)
 
         def test_SRDE_full_order(self):
             loss = SRDE_full()
             predict = np.array([2., 2., 1.])
             target = np.array([2., 3., 1.])
-            self.assertEqual(loss(predict, target), 0.)
+            self.assertEqual(loss(predict, target), 0./3)
 
             predict = np.array([1., 1., 1.])
             target = np.array([3., 1., 2.])
-            self.assertEqual(loss(predict, target), 0.)
+            self.assertEqual(loss(predict, target), 0./3)
 
             predict = np.array([1., 2., 3.])
             target = np.array([1., 3., 2.])
-            self.assertEqual(loss(predict, target), 1.)
+            self.assertEqual(loss(predict, target), 1./3)
 
             predict = np.array([20., 30., 10.])
             target = np.array([2., 1., 3.])
-            self.assertEqual(loss(predict, target), 20.)
+            self.assertEqual(loss(predict, target), 20./3)
 
         def test_SRDE_auto(self):
             loss = SRDE_auto()
             predict = np.array([1., 2., 3., 4., 6., 5.])
             target = np.array([1., 2., 3., 4., 5., 6.])
-            self.assertEqual(loss(predict, target), 0.)
+            self.assertEqual(loss(predict, target), 0./3)
 
             loss = SRDE_full()
             predict = np.array([1., 2., 3., 4., 6., 5.])
             target = np.array([1., 2., 3., 4., 5., 6.])
-            self.assertEqual(loss(predict, target), 1.)
+            self.assertEqual(loss(predict, target), 1./6)
 
             loss = SRDE_auto()
             predict = np.array([1., 2., 3., 6., 4., 5.])
             target = np.array([1., 2., 3., 4., 5., 6.])
-            self.assertEqual(loss(predict, target), 0.)
+            self.assertEqual(loss(predict, target), 0./3)
 
             loss = SRDE_auto()
-            predict = np.array([1., 2., 5., 6., 4., 5.])
+            predict = np.array([1., 2., 1., 6., 4., 5.])
             target = np.array([1., 2., 3., 4., 5., 6.])
-            self.assertNotEqual(loss(predict, target), 0.)
+            self.assertNotEqual(loss(predict, target), 0./3)
 
         def test_SRDE(self):
             loss = SRDE(2)
             predict = np.array([1., 2., 0., 4., 6., 5.])
             target = np.array([1., 2., 3., 4., 5., 6.])
-            self.assertEqual(loss(predict, target), 0.)
+            self.assertEqual(loss(predict, target), 0./2)
 
             predict = np.array([2., 1., 0., 4., 6., 5.])
             target = np.array([1., 2., 3., 4., 5., 6.])
-            self.assertEqual(loss(predict, target), 1.)
+            self.assertEqual(loss(predict, target), 1./2)
+
+        def test_SSRDE(self):
+            loss = SSRDE(2)
+            predict = np.array([1., 2., 0., 4., 6., 5.])
+            target = np.array([1., 2., 3., 4., 5., 6.])
+            self.assertEqual(loss(predict, target), 0./2)
+
+            predict = np.array([2., 1., 0., 4., 6., 5.])
+            target = np.array([1., 2., 3., 4., 5., 6.])
+            self.assertEqual(loss(predict, target), 1./2)
+
+            predict = np.array([3., 1., 0., 4., 6., 5.])
+            target = np.array([1., 2., 3., 4., 5., 6.])
+            self.assertEqual(loss(predict, target), 1./2)
+
+            loss = SSRDE(4)
+            predict = np.array([0., 2., 1., 4., 6., 5.])
+            target = np.array([1., 2., 3., 4., 5., 6.])
+            self.assertEqual(loss(predict, target), 0.25/4)
+
 
         def test_RDE(self):
             vec = np.array([0.8147, 0.9058, 0.1270, 0.9134, 0.6324, 0.0975, 0.2785, 0.5469, 0.9575, 0.9649])
