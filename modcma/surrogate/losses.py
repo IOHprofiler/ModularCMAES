@@ -88,7 +88,7 @@ class _MakeAuto(ABCMeta):
             pass
 
         def __call__(self, predict, target):
-            self.mu = len(target) // 2
+            self.mu = max(len(target) // 2, 1)
             return bases[0].__call__(self, predict, target)
 
         newclass = super().__new__(cls, clsname, bases, attrs)
@@ -104,6 +104,7 @@ class RDE(Loss, metaclass=type):
     cache = {}
 
     def __init__(self, mu):
+        assert(mu > 0)
         self.mu = mu
 
     def _compute_normalization_coefficient(self, lam, mu):
@@ -148,6 +149,7 @@ class SRDE(Loss):
     name = 'SRDE'
 
     def __init__(self, mu):
+        assert(mu > 0)
         self.mu = mu
 
     def __call__(self, predict, target):
@@ -159,6 +161,10 @@ class SRDE(Loss):
         return self._solve_problem(predict)
 
     def _solve_problem(self, predict):
+        ''' returns the minimal sum of absolute elements of a vector
+            that after adding to predict makes vector in ascending order
+        '''
+        mu = min(self.mu, len(predict))
         if len(predict) == 0:
             return 0.
 
@@ -167,9 +173,9 @@ class SRDE(Loss):
 
         # Creates the variables (mu times)
         var = [pulp.LpVariable(name=str(index))
-               for index in range(self.mu)]
+               for index in range(mu)]
 
-        for index in range(self.mu - 1):
+        for index in range(mu - 1):
             upravena_hodnota = predict[index] + var[index]
             nasledujici_hodnota = predict[index+1] + var[index+1]
 
@@ -179,10 +185,10 @@ class SRDE(Loss):
         # Now we want sum(abs(vars)), but it is not possible
         # => create substitute variables
         abs_var = [pulp.LpVariable(name='a'+str(index), lowBound=0.)
-                   for index in range(self.mu)]
+                   for index in range(mu)]
 
         # to couple the var and abs_var we need to add two constrains per variable
-        for index in range(self.mu):
+        for index in range(mu):
             problem += +var[index] <= abs_var[index]
             problem += -var[index] <= abs_var[index]
 
@@ -190,7 +196,7 @@ class SRDE(Loss):
         problem += pulp.lpSum(abs_var)
 
         problem.solve(pulp.PULP_CBC_CMD(msg=0))
-        return float(sum(abs_var).value()) / len(var)
+        return float(sum(abs_var).value()) / mu
 
 
 class SSRDE(SRDE):
@@ -198,6 +204,7 @@ class SSRDE(SRDE):
     name = 'SSRDE'
 
     def __init__(self, mu):
+        assert(mu > 0)
         self.mu = mu
 
     def __call__(self, predict, target):
@@ -328,6 +335,12 @@ if __name__ == '__main__':
             predict = np.array([2., 1., 0., 4., 6., 5.])
             target = np.array([1., 2., 3., 4., 5., 6.])
             self.assertEqual(loss(predict, target), 1./2)
+
+        def test_SRDE_safety_mu(self):
+            loss = SRDE(100)
+            predict = np.array([1., 2., 0.])
+            target = np.array([1., 2., 3.])
+            self.assertEqual(loss(predict, target), 2./3)
 
         def test_SSRDE(self):
             loss = SSRDE(2)
