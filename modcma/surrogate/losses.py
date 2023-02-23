@@ -441,6 +441,23 @@ if __name__ == '__main__':
             target = np.array([1., 2., 3., 4., 5., 6.])
             self.assertEqual(loss(predict, target), 0.25/4)
 
+        def test_ESRDE(self):
+            loss = ESRDE(2)
+            predict = np.array([2., 1., 0., 4., 6., 5.])
+            target = np.array([1., 2., 3., 4., 5., 6.])
+            self.assertEqual(loss(predict, target), 2./2.)
+
+            predict = np.array([2., 1., -4., 4., 6., 5.])
+            target = np.array([1., 2., 3., 4., 5., 6.])
+            self.assertEqual(loss(predict, target), 6./2.)
+
+        def test_Scaled_ESRDE(self):
+            loss = Scaled_ESRDE(2)
+            predict = np.array([2., 1., 0., 4., 6., 5.])
+            target = np.array([1., 2., 3., 4., 5., 6.])
+            self.assertEqual(loss(predict, target), 2./2./2.)
+
+
 
         def test_RDE(self):
             vec = np.array([0.8147, 0.9058, 0.1270, 0.9134, 0.6324, 0.0975, 0.2785, 0.5469, 0.9575, 0.9649])
