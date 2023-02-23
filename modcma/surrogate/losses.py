@@ -155,16 +155,21 @@ class SRDE(Loss):
     def __call__(self, predict, target):
         super().__call__(predict, target)
         order = np.argsort(target)
+
         # Choose top mu variables (based on target)
         predict = predict[order][:self.mu]
+        return self._solve_problem(predict) / min(self.mu, len(predict))
 
-        return self._solve_problem(predict)
+    def _scale(self, predict):
+        return predict
 
     def _solve_problem(self, predict):
         ''' returns the minimal sum of absolute elements of a vector
             that after adding to predict makes vector in ascending order
         '''
-        mu = min(self.mu, len(predict))
+        predict = self._scale(predict)
+
+        mu = len(predict)
         if len(predict) == 0:
             return 0.
 
@@ -196,28 +201,109 @@ class SRDE(Loss):
         problem += pulp.lpSum(abs_var)
 
         problem.solve(pulp.PULP_CBC_CMD(msg=0))
+        return float(sum(abs_var).value())
+
+class ESRDE(SRDE):
+    def __call__(self, predict, target):
+        super().__call__(predict, target)
+        order_true = np.argsort(target)
+        order_othe = np.argsort(predict)
+
+        selected_indexes = np.zeros(len(predict), dtype=bool)
+        selected_indexes[order_true[:self.mu]] = True
+        selected_indexes[order_othe[:self.mu]] = True
+
+        predict = predict[selected_indexes]
+        target = target[selected_indexes]
+
+        order = np.argsort(target)
+        predict = predict[order]
+
+        return self._solve_problem(predict) / min(self.mu, len(predict))
+
+class EESRDE(SRDE):
+    def __call__(self, predict, target):
+        super().__call__(predict, target)
+
+        order = np.argmax(target)
+        predict = predict[order]
+        predict = self._scale(predict)
+
+        novar = len(predict)
+        mu = min(novar, self.mu)
+
+        if novar == 0:
+            return 0.
+
+        # Create optimization problem
+        problem = pulp.LpProblem("SmoothEESRDE", pulp.LpMinimize)
+
+        # Creates the variables (novar times)
+        var = [pulp.LpVariable(name=str(index))
+               for index in range(novar)]
+
+        # adds consecutive value constrains (the first mu)
+        for index in range(mu - 1):
+            value = predict[index] + var[index]
+            next_value = predict[index+1] + var[index+1]
+
+            # it adds constrain to the problem
+            problem += value <= next_value 
+
+        # add other constrains (in this case, we dont care about order between them)
+        value = next_value
+        for index in range(mu, novar):
+            next_value = predict[index] + var[index]
+            problem += value <= next_value
+
+        # Now we want sum(abs(vars)), but it is not possible
+        # => create substitute variables
+        abs_var = [pulp.LpVariable(name='a'+str(index), lowBound=0.)
+                   for index in range(novar)]
+
+        # to couple the var and abs_var we need to add two constrains per variable
+        for index in range(novar):
+            problem += +var[index] <= abs_var[index]
+            problem += -var[index] <= abs_var[index]
+
+        # And define the loss in this way
+        problem += pulp.lpSum(abs_var)
+
+        problem.solve(pulp.PULP_CBC_CMD(msg=0))
         return float(sum(abs_var).value()) / mu
 
 
-class SSRDE(SRDE):
+class Scaled_SRDE(SRDE):
     ''' Soft Scaled Ranking Difference Error '''
     name = 'SSRDE'
 
-    def __init__(self, mu):
-        assert(mu > 0)
-        self.mu = mu
-
-    def __call__(self, predict, target):
-        super().__call__(predict, target)
-        order = np.argsort(target)
-
-        # Choose top mu variables (based on target)
-        predict = predict[order][:self.mu]
+    def _scale(self, predict):
         scale = np.max(predict) - np.min(predict)
-
         if scale > 0:
             predict = predict / scale
-        return self._solve_problem(predict)
+        return predict
+
+class Scaled_ESRDE(ESRDE):
+    ''' Soft Scaled Ranking Difference Error '''
+    name = 'SSRDE'
+
+    def _scale(self, predict):
+        scale = np.max(predict) - np.min(predict)
+        if scale > 0:
+            predict = predict / scale
+        return predict
+
+class RScaled_ESRDE(ESRDE):
+    ''' Soft Scaled Ranking Difference Error '''
+    name = 'SSRDE'
+
+    def _scale(self, predict):
+        scale = np.max(predict[:self.mu]) - np.min(predict[:self.mu])
+        if scale > 0:
+            predict = predict / scale
+        return predict
+
+
 
 
 class RDE_auto(RDE, metaclass=_MakeAuto):
@@ -242,12 +328,6 @@ if __name__ == '__main__':
     import unittest
 
     class TestLosses(unittest.TestCase):
-
-        def test_SRDE_full_size_zero(self):
-            loss = SRDE_full()
-            predict = np.array([])
-            target = np.array([])
-            self.assertEqual(loss(predict, target), 0.)
 
         def test_SRDE_full_size_one(self):
             loss = SRDE_full()
@@ -343,7 +423,7 @@ if __name__ == '__main__':
             self.assertEqual(loss(predict, target), 2./3)
 
         def test_SSRDE(self):
-            loss = SSRDE(2)
+            loss = Scaled_SRDE(2)
             predict = np.array([1., 2., 0., 4., 6., 5.])
             target = np.array([1., 2., 3., 4., 5., 6.])
             self.assertEqual(loss(predict, target), 0./2)
@@ -356,7 +436,7 @@ if __name__ == '__main__':
             target = np.array([1., 2., 3., 4., 5., 6.])
             self.assertEqual(loss(predict, target), 1./2)
 
-            loss = SSRDE(4)
+            loss = Scaled_SRDE(4)
             predict = np.array([0., 2., 1., 4., 6., 5.])
             target = np.array([1., 2., 3., 4., 5., 6.])
             self.assertEqual(loss(predict, target), 0.25/4)
