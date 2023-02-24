@@ -5,6 +5,156 @@ from abc import ABCMeta, abstractmethod
 from scipy.stats import kendalltau
 import pulp
 
+import functools
+import scipy.optimize
+
+def singleton_args(cls):
+    instances = {}
+
+    def wrapper(*args):
+        if args not in instances:
+            instances[args] = cls(*args)
+        return instances[args]
+
+    return wrapper
+
+
+class _MakeFull(ABCMeta):
+    def __new__(cls, clsname, bases, attrs):
+        def __init__(self):
+            pass
+
+        def __call__(self, predict, target):
+            self.mu = len(target)
+            return bases[0].__call__(self, predict, target)
+
+        newclass = super().__new__(cls, clsname, bases, attrs)
+
+        setattr(newclass, '__init__', __init__)
+        setattr(newclass, '__call__', __call__)
+        return newclass
+
+
+class _MakeAuto(ABCMeta):
+    def __new__(cls, clsname, bases, attrs):
+        def __init__(self):
+            pass
+
+        def __call__(self, predict, target):
+            self.mu = max(len(target) // 2, 1)
+            return bases[0].__call__(self, predict, target)
+
+        newclass = super().__new__(cls, clsname, bases, attrs)
+
+        setattr(newclass, '__init__', __init__)
+        setattr(newclass, '__call__', __call__)
+        return newclass
+
+
+@singleton_args
+class OrderSolver:
+    def __init__(self, variables: int):
+        #print(f'Created OrderSolver: {variables}')
+        self.variables = variables
+
+        # objective function == sum of absolute values
+        self.c = np.concatenate(
+            [np.zeros(variables), np.ones(variables)])
+
+        # bounds
+        self.bounds = [(None, None)] * variables + [(0., None)] * variables
+
+        # absolute values - inequalities
+        e = np.eye(variables)
+        A_ub_abs = np.block([[+e, -e], [-e, -e]])
+
+        self.b_ub_abs = np.zeros(variables*2)
+
+        # order inequalities
+        e = np.eye(variables - 1)
+        g = np.zeros((variables - 1, 1))
+        A_ub_order = np.hstack([
+            np.hstack([e, g]) - np.hstack([g, e]),
+            np.zeros((variables-1, variables))
+        ])
+
+        self.A_ub = np.vstack([A_ub_abs, A_ub_order])
+
+    def __call__(self, vector):
+        assert(len(vector) == self.variables)
+
+        b_ub_order = vector[1:] - vector[:-1]
+        b_ub = np.concatenate([self.b_ub_abs, b_ub_order])
+
+        result = scipy.optimize.linprog(
+            self.c,
+            A_ub=self.A_ub,
+            b_ub=b_ub,
+            bounds=self.bounds,
+            method='highs-ds',  # fast [1.08, 19.9]
+            # method='highs-ipm', [slover, 4.33, 84.3]
+            # method='highs', [very slow, 88s, ?]
+        )
+
+        return np.sum(result.x[self.variables:])
+
+@singleton_args
+class WeakOrderSolver:
+    def __init__(self, variables: int, weak_variables: int):
+        #print(f'Created WeakOrderSolver: {variables}, {weak_variables}')
+        all_variables = variables + weak_variables
+        self.variables = variables
+        self.weak_variables = weak_variables
+
+        # objective function == sum of absolute values
+        self.c = np.concatenate(
+            [np.zeros(all_variables), np.ones(all_variables)])
+
+        # bounds
+        self.bounds = [(None, None)] * all_variables \
+            + [(0., None)] * all_variables
+
+        # absolute values - inequalities
+        e = np.eye(all_variables)
+        A_ub_abs = np.block([[+e, -e], [-e, -e]])
+
+        self.b_ub_abs = np.zeros(all_variables*2)
+
+        # order inequalities
+        e = np.eye(variables - 1)
+        g = np.zeros((variables - 1, 1))
+        A_ub_order = np.hstack([
+            np.hstack([e, g]) - np.hstack([g, e]),
+            np.zeros((variables-1, all_variables + weak_variables))
+        ])
+
+        A_ub_weak = np.hstack([
+            np.zeros((weak_variables, variables-1)),
+            np.ones((weak_variables, 1)),
+            -np.eye(weak_variables),
+            np.zeros((weak_variables, all_variables))
+        ])
+
+        self.A_ub = np.vstack([A_ub_abs, A_ub_order, A_ub_weak])
+
+    def __call__(self, vector):
+        assert(len(vector) == self.variables + self.weak_variables)
+
+        b_ub_order = vector[1:self.variables] - vector[:self.variables-1]
+        b_ub_weak = vector[self.variables:] - vector[self.variables-1]
+        assert(len(b_ub_weak) == self.weak_variables)
+        b_ub = np.concatenate([self.b_ub_abs, b_ub_order, b_ub_weak])
+
+        result = scipy.optimize.linprog(
+            self.c,
+            A_ub=self.A_ub,
+            b_ub=b_ub,
+            bounds=self.bounds,
+            method='highs-ds',
+        )
+
+        return np.sum(result.x[self.variables + self.weak_variables:])
+
 
 class Loss(metaclass=ABCMeta):
     name = 'error'
@@ -64,38 +214,6 @@ class Kendall(Loss):
         super().__call__(predict, target)
         c, _ = kendalltau(predict, target)
         return c
-
-
-class _MakeFull(ABCMeta):
-    def __new__(cls, clsname, bases, attrs):
-        def __init__(self):
-            pass
-
-        def __call__(self, predict, target):
-            self.mu = len(target)
-            return bases[0].__call__(self, predict, target)
-
-        newclass = super().__new__(cls, clsname, bases, attrs)
-
-        setattr(newclass, '__init__', __init__)
-        setattr(newclass, '__call__', __call__)
-        return newclass
-
-
-class _MakeAuto(ABCMeta):
-    def __new__(cls, clsname, bases, attrs):
-        def __init__(self):
-            pass
-
-        def __call__(self, predict, target):
-            self.mu = max(len(target) // 2, 1)
-            return bases[0].__call__(self, predict, target)
-
-        newclass = super().__new__(cls, clsname, bases, attrs)
-
-        setattr(newclass, '__init__', __init__)
-        setattr(newclass, '__call__', __call__)
-        return newclass
 
 
 class RDE(Loss, metaclass=type):
@@ -164,46 +282,23 @@ class SRDE(Loss):
         return predict
 
     def _solve_problem(self, predict):
-        ''' returns the minimal sum of absolute elements of a vector
-            that after adding to predict makes vector in ascending order
-        '''
         predict = self._scale(predict)
+        solver = OrderSolver(len(predict))
+        return solver(predict)
 
-        mu = len(predict)
-        if len(predict) == 0:
-            return 0.
 
-        # Create optimization problem
-        problem = pulp.LpProblem("SmoothRDE", pulp.LpMinimize)
+class TRDE(SRDE):
+    def __call__(self, predict, target):
+        super().__call__(predict, target)
+        order_predicted = np.argpartition(predict, self.mu)[:self.mu]
+        target = target[order_predicted]
+        predict = predict[order_predicted]
+        order = np.argsort(target)
+        predict = predict[order]
+        return self._solve_problem(predict) / min(self.mu, len(predict))
 
-        # Creates the variables (mu times)
-        var = [pulp.LpVariable(name=str(index))
-               for index in range(mu)]
 
-        for index in range(mu - 1):
-            upravena_hodnota = predict[index] + var[index]
-            nasledujici_hodnota = predict[index+1] + var[index+1]
-
-            # it adds constrain to the problem
-            problem += upravena_hodnota <= nasledujici_hodnota
-
-        # Now we want sum(abs(vars)), but it is not possible
-        # => create substitute variables
-        abs_var = [pulp.LpVariable(name='a'+str(index), lowBound=0.)
-                   for index in range(mu)]
-
-        # to couple the var and abs_var we need to add two constrains per variable
-        for index in range(mu):
-            problem += +var[index] <= abs_var[index]
-            problem += -var[index] <= abs_var[index]
-
-        # And define the loss in this way
-        problem += pulp.lpSum(abs_var)
-
-        problem.solve(pulp.PULP_CBC_CMD(msg=0))
-        return float(sum(abs_var).value())
-
-class ESRDE(SRDE):
+class STRDE(SRDE):
     def __call__(self, predict, target):
         super().__call__(predict, target)
         order_true = np.argsort(target)
@@ -221,11 +316,11 @@ class ESRDE(SRDE):
 
         return self._solve_problem(predict) / min(self.mu, len(predict))
 
-class EESRDE(SRDE):
+
+class ESRDE(SRDE):
     def __call__(self, predict, target):
         super().__call__(predict, target)
-
-        order = np.argmax(target)
+        order = np.argsort(target)
         predict = predict[order]
         predict = self._scale(predict)
 
@@ -235,42 +330,9 @@ class EESRDE(SRDE):
         if novar == 0:
             return 0.
 
-        # Create optimization problem
-        problem = pulp.LpProblem("SmoothEESRDE", pulp.LpMinimize)
-
-        # Creates the variables (novar times)
-        var = [pulp.LpVariable(name=str(index))
-               for index in range(novar)]
-
-        # adds consecutive value constrains (the first mu)
-        for index in range(mu - 1):
-            value = predict[index] + var[index]
-            next_value = predict[index+1] + var[index+1]
-
-            # it adds constrain to the problem
-            problem += value <= next_value 
-
-        # add other constrains (in this case, we dont care about order between them)
-        value = next_value
-        for index in range(mu, novar):
-            next_value = predict[index] + var[index]
-            problem += value <= next_value
-
-        # Now we want sum(abs(vars)), but it is not possible
-        # => create substitute variables
-        abs_var = [pulp.LpVariable(name='a'+str(index), lowBound=0.)
-                   for index in range(novar)]
-
-        # to couple the var and abs_var we need to add two constrains per variable
-        for index in range(novar):
-            problem += +var[index] <= abs_var[index]
-            problem += -var[index] <= abs_var[index]
-
-        # And define the loss in this way
-        problem += pulp.lpSum(abs_var)
-
-        problem.solve(pulp.PULP_CBC_CMD(msg=0))
-        return float(sum(abs_var).value()) / mu
+        solver = WeakOrderSolver(mu, novar - mu)
+        g = solver(predict)
+        return g / mu
 
 
 class Scaled_SRDE(SRDE):
@@ -283,6 +345,29 @@ class Scaled_SRDE(SRDE):
             predict = predict / scale
         return predict
 
+
+class Scaled_TRDE(TRDE):
+    ''' Soft Scaled Ranking Difference Error '''
+    name = 'SSRDE'
+
+    def _scale(self, predict):
+        scale = np.max(predict) - np.min(predict)
+        if scale > 0:
+            predict = predict / scale
+        return predict
+
+
+class Scaled_STRDE(STRDE):
+    ''' Soft Scaled Ranking Difference Error '''
+    name = 'SSRDE'
+
+    def _scale(self, predict):
+        scale = np.max(predict) - np.min(predict)
+        if scale > 0:
+            predict = predict / scale
+        return predict
+
+
 class Scaled_ESRDE(ESRDE):
     ''' Soft Scaled Ranking Difference Error '''
     name = 'SSRDE'
@@ -293,6 +378,8 @@ class Scaled_ESRDE(ESRDE):
             predict = predict / scale
         return predict
 
+
+"""
 class RScaled_ESRDE(ESRDE):
     ''' Soft Scaled Ranking Difference Error '''
     name = 'SSRDE'
@@ -304,7 +391,28 @@ class RScaled_ESRDE(ESRDE):
         return predict
 
 
+class Scaled_EESRDE(EESRDE):
+    ''' Soft Scaled Ranking Difference Error '''
+    name = 'SSRDE'
 
+    def _scale(self, predict):
+        scale = np.max(predict) - np.min(predict)
+        if scale > 0:
+            predict = predict / scale
+        return predict
+
+
+class RScaled_EESRDE(EESRDE):
+    ''' Soft Scaled Ranking Difference Error '''
+    name = 'SSRDE'
+
+    def _scale(self, predict):
+        scale = np.max(predict[:self.mu]) - np.min(predict[:self.mu])
+        if scale > 0:
+            predict = predict / scale
+        return predict
+
+"""
 
 class RDE_auto(RDE, metaclass=_MakeAuto):
     pass
@@ -457,6 +565,28 @@ if __name__ == '__main__':
             target = np.array([1., 2., 3., 4., 5., 6.])
             self.assertEqual(loss(predict, target), 2./2./2.)
 
+        def test_EERDE(self):
+            loss = EESRDE(2)
+            predict = np.array([20., 10., 0., 0.])
+            target = np.array([1., 2., 3., 4.])
+            self.assertEqual(loss(predict, target), (7.5*4)/2.)
+
+        def test_Scaled_EERDE(self):
+            loss = Scaled_EESRDE(2)
+            predict = np.array([20., 10., 0., 0.])
+            target = np.array([1., 2., 3., 4.])
+            self.assertEqual(loss(predict, target), (7.5*4)/2./20.)
+
+        def test_RScaled_EERDE(self):
+            loss = RScaled_EESRDE(2)
+            predict = np.array([20., 10., 0., 0.])
+            target = np.array([1., 2., 3., 4.])
+            self.assertEqual(loss(predict, target), (np.mean(predict)*4)/2./10.)
+
+            predict = np.array([20., 10., 0., 2.])
+            target = np.array([1., 2., 3., 4.])
+            self.assertAlmostEqual(loss(predict, target),
+                             np.sum(np.abs(predict - np.mean(predict)))/2./10.)
 
 
         def test_RDE(self):
