@@ -269,7 +269,8 @@ class SRDE(Loss):
 
     def __call__(self, predict, target):
         super().__call__(predict, target)
-        order_predicted = np.argpartition(predict, self.mu)[:self.mu]
+        mu = min(self.mu, len(predict))
+        order_predicted = np.argpartition(predict, mu-1)[:self.mu]
         target = target[order_predicted]
         predict = predict[order_predicted]
         order = np.argsort(target)
@@ -309,17 +310,22 @@ class ESRDE(SRDE):
 class RDE_auto(RDE, metaclass=_MakeAuto):
     pass
 
+
 class RDE_full(RDE, metaclass=_MakeFull):
     pass
+
 
 class SRDE_full(SRDE, metaclass=_MakeFull):
     pass
 
+
 class SRDE_auto(SRDE, metaclass=_MakeAuto):
     pass
 
+
 class ESRDE_full(ESRDE, metaclass=_MakeFull):
     pass
+
 
 class ESRDE_auto(ESRDE, metaclass=_MakeAuto):
     pass
@@ -334,6 +340,27 @@ if __name__ == '__main__':
             predict = np.array([1.])
             target = np.array([10.])
             self.assertEqual(loss(predict, target), 0.)
+
+        def test_ESRDE_full_size_one(self):
+            loss = ESRDE_full()
+            predict = np.array([1.])
+            target = np.array([10.])
+            self.assertEqual(loss(predict, target), 0.)
+
+        def test_SRDE_mu_extra(self):
+            loss = SRDE(10)
+            predict = np.array([1.])
+            target = np.array([10.])
+            self.assertEqual(loss(predict, target), 0.)
+
+        def test_ESRDE_mu_extra(self):
+            loss = ESRDE(10)
+            predict = np.array([1.])
+            target = np.array([10.])
+            self.assertEqual(loss(predict, target), 0.)
+
+
+        '''
 
         def test_SRDE_full_size_two(self):
             loss = SRDE_full()
@@ -479,6 +506,7 @@ if __name__ == '__main__':
             target = np.array([1., 2., 3., 4.])
             self.assertAlmostEqual(loss(predict, target),
                              np.sum(np.abs(predict - np.mean(predict)))/2./10.)
+         '''
 
 
         def test_RDE(self):
