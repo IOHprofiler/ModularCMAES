@@ -263,31 +263,10 @@ class RDE(Loss, metaclass=type):
 
 
 class SRDE(Loss):
-    ''' Soft Ranking Difference Error '''
-    name = 'SRDE'
-
     def __init__(self, mu):
         assert(mu > 0)
         self.mu = mu
 
-    def __call__(self, predict, target):
-        super().__call__(predict, target)
-        order = np.argsort(target)
-
-        # Choose top mu variables (based on target)
-        predict = predict[order][:self.mu]
-        return self._solve_problem(predict) / min(self.mu, len(predict))
-
-    def _scale(self, predict):
-        return predict
-
-    def _solve_problem(self, predict):
-        predict = self._scale(predict)
-        solver = OrderSolver(len(predict))
-        return solver(predict)
-
-
-class TRDE(SRDE):
     def __call__(self, predict, target):
         super().__call__(predict, target)
         order_predicted = np.argpartition(predict, self.mu)[:self.mu]
@@ -297,24 +276,16 @@ class TRDE(SRDE):
         predict = predict[order]
         return self._solve_problem(predict) / min(self.mu, len(predict))
 
+    def _scale(self, predict):
+        scale = np.max(predict) - np.min(predict)
+        if scale > 0:
+            predict = predict / scale
+        return predict
 
-class STRDE(SRDE):
-    def __call__(self, predict, target):
-        super().__call__(predict, target)
-        order_true = np.argsort(target)
-        order_othe = np.argsort(predict)
-
-        selected_indexes = np.zeros(len(predict), dtype=bool)
-        selected_indexes[order_true[:self.mu]] = True
-        selected_indexes[order_othe[:self.mu]] = True
-
-        predict = predict[selected_indexes]
-        target = target[selected_indexes]
-
-        order = np.argsort(target)
-        predict = predict[order]
-
-        return self._solve_problem(predict) / min(self.mu, len(predict))
+    def _solve_problem(self, predict):
+        predict = self._scale(predict)
+        solver = OrderSolver(len(predict))
+        return solver(predict)
 
 
 class ESRDE(SRDE):
@@ -335,85 +306,6 @@ class ESRDE(SRDE):
         return g / mu
 
 
-class Scaled_SRDE(SRDE):
-    ''' Soft Scaled Ranking Difference Error '''
-    name = 'SSRDE'
-
-    def _scale(self, predict):
-        scale = np.max(predict) - np.min(predict)
-        if scale > 0:
-            predict = predict / scale
-        return predict
-
-
-class Scaled_TRDE(TRDE):
-    ''' Soft Scaled Ranking Difference Error '''
-    name = 'SSRDE'
-
-    def _scale(self, predict):
-        scale = np.max(predict) - np.min(predict)
-        if scale > 0:
-            predict = predict / scale
-        return predict
-
-
-class Scaled_STRDE(STRDE):
-    ''' Soft Scaled Ranking Difference Error '''
-    name = 'SSRDE'
-
-    def _scale(self, predict):
-        scale = np.max(predict) - np.min(predict)
-        if scale > 0:
-            predict = predict / scale
-        return predict
-
-
-class Scaled_ESRDE(ESRDE):
-    ''' Soft Scaled Ranking Difference Error '''
-    name = 'SSRDE'
-
-    def _scale(self, predict):
-        scale = np.max(predict) - np.min(predict)
-        if scale > 0:
-            predict = predict / scale
-        return predict
-
-
-"""
-class RScaled_ESRDE(ESRDE):
-    ''' Soft Scaled Ranking Difference Error '''
-    name = 'SSRDE'
-
-    def _scale(self, predict):
-        scale = np.max(predict[:self.mu]) - np.min(predict[:self.mu])
-        if scale > 0:
-            predict = predict / scale
-        return predict
-
-
-class Scaled_EESRDE(EESRDE):
-    ''' Soft Scaled Ranking Difference Error '''
-    name = 'SSRDE'
-
-    def _scale(self, predict):
-        scale = np.max(predict) - np.min(predict)
-        if scale > 0:
-            predict = predict / scale
-        return predict
-
-
-class RScaled_EESRDE(EESRDE):
-    ''' Soft Scaled Ranking Difference Error '''
-    name = 'SSRDE'
-
-    def _scale(self, predict):
-        scale = np.max(predict[:self.mu]) - np.min(predict[:self.mu])
-        if scale > 0:
-            predict = predict / scale
-        return predict
-
-"""
-
 class RDE_auto(RDE, metaclass=_MakeAuto):
     pass
 
@@ -426,10 +318,10 @@ class SRDE_full(SRDE, metaclass=_MakeFull):
 class SRDE_auto(SRDE, metaclass=_MakeAuto):
     pass
 
-class SSRDE_full(SRDE, metaclass=_MakeFull):
+class ESRDE_full(ESRDE, metaclass=_MakeFull):
     pass
 
-class SSRDE_auto(SRDE, metaclass=_MakeAuto):
+class ESRDE_auto(ESRDE, metaclass=_MakeAuto):
     pass
 
 if __name__ == '__main__':
