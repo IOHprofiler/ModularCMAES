@@ -1,12 +1,11 @@
 import numpy as np
-import math
 from abc import ABCMeta, abstractmethod
-
 from scipy.stats import kendalltau
-import pulp
-
-import functools
 import scipy.optimize
+from typing import Union
+
+from modcma.parameters import Parameters
+
 
 def singleton_args(cls):
     instances = {}
@@ -21,19 +20,21 @@ def singleton_args(cls):
 
 _all_loss_classes = {}
 
+
 class _RegisterLossMeta(ABCMeta):
     def __new__(cls, clsname, bases, attrs):
         newclass = super().__new__(cls, clsname, bases, attrs)
-        if hasattr(newclass, 'name'):
-            assert(newclass.name not in _all_loss_classes)
-            _all_loss_classes[newclass.name] = newclass
-            return newclass
+        if 'name' in attrs:
+            assert(attrs['name'] not in _all_loss_classes)
+            _all_loss_classes[attrs['name']] = newclass
         return newclass
 
-class _MakeFull(_RegisterLossMeta):
+
+class _MakeFullMu(_RegisterLossMeta):
     def __new__(cls, clsname, bases, attrs):
-        def __init__(self):
-            pass
+        attrs['require_parameters'] = False
+
+        def __init__(self): pass
 
         def __call__(self, predict, target, **kwargs):
             self.mu = len(target)
@@ -42,7 +43,7 @@ class _MakeFull(_RegisterLossMeta):
         if 'name' not in attrs:
             assert(len(bases) == 1)
             assert(hasattr(bases[0], 'name'))
-            newname = bases[0].name + 'Full'
+            newname = bases[0].name + '_Full'
             attrs['name'] = newname
         newclass = super().__new__(cls, clsname, bases, attrs)
 
@@ -51,8 +52,10 @@ class _MakeFull(_RegisterLossMeta):
         return newclass
 
 
-class _MakeAuto(_RegisterLossMeta):
+class _MakeAutoMu(_RegisterLossMeta):
     def __new__(cls, clsname, bases, attrs):
+        attrs['require_parameters'] = False
+
         def __init__(self):
             pass
 
@@ -63,7 +66,7 @@ class _MakeAuto(_RegisterLossMeta):
         if 'name' not in attrs:
             assert(len(bases) == 1)
             assert(hasattr(bases[0], 'name'))
-            newname = bases[0].name + 'Auto'
+            newname = bases[0].name + '_Auto'
             attrs['name'] = newname
         newclass = super().__new__(cls, clsname, bases, attrs)
 
@@ -75,7 +78,6 @@ class _MakeAuto(_RegisterLossMeta):
 @singleton_args
 class OrderSolver:
     def __init__(self, variables: int):
-        #print(f'Created OrderSolver: {variables}')
         self.variables = variables
 
         # objective function == sum of absolute values
@@ -178,6 +180,8 @@ class WeakOrderSolver:
 
 
 class Loss(metaclass=_RegisterLossMeta):
+    require_parameters = False
+
     @abstractmethod
     def __call__(self, predict, target, **kwargs):
         assert isinstance(predict, np.ndarray)
@@ -185,6 +189,7 @@ class Loss(metaclass=_RegisterLossMeta):
         assert predict.shape == target.shape
         assert len(predict.shape) == 1
         return None
+
 
 class L1(Loss):
     name = 'L1'
@@ -237,11 +242,15 @@ class Kendall(Loss):
 class RDE(Loss, metaclass=type):
     ''' Ranking Difference Error '''
     name = 'RDE'
+    require_parameters = True
     cache = {}
 
-    def __init__(self, mu):
-        assert(mu > 0)
-        self.mu = mu
+    def __init__(self, mu: Union[int, Parameters]):
+        if isinstance(mu, Parameters):
+            mu = mu.mu
+        if isinstance(mu, int):
+            assert(mu > 0)
+            self.mu = mu
 
     def _compute_normalization_coefficient(self, lam, mu):
         assert mu <= lam
@@ -282,9 +291,14 @@ class RDE(Loss, metaclass=type):
 
 class SRDE(Loss):
     name = 'SRDE'
-    def __init__(self, mu):
-        assert(mu > 0)
-        self.mu = mu
+    require_parameters = True
+
+    def __init__(self, mu: Union[int, Parameters]):
+        if isinstance(mu, Parameters):
+            mu = mu.mu
+        if isinstance(mu, int):
+            assert(mu > 0)
+            self.mu = mu
 
     def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
@@ -310,6 +324,8 @@ class SRDE(Loss):
 
 class ESRDE(SRDE):
     name = 'ESRDE'
+    require_parameters = True
+
     def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         order = np.argsort(target)
@@ -327,32 +343,35 @@ class ESRDE(SRDE):
         return g / mu
 
 
-class RDE_auto(RDE, metaclass=_MakeAuto):
+class RDE_Auto(RDE, metaclass=_MakeAutoMu):
     pass
 
 
-class RDE_full(RDE, metaclass=_MakeFull):
+class RDE_Full(RDE, metaclass=_MakeFullMu):
     pass
 
 
-class SRDE_full(SRDE, metaclass=_MakeFull):
+class SRDE_Auto(SRDE, metaclass=_MakeAutoMu):
     pass
 
 
-class SRDE_auto(SRDE, metaclass=_MakeAuto):
+class SRDE_Full(SRDE, metaclass=_MakeFullMu):
     pass
 
 
-class ESRDE_full(ESRDE, metaclass=_MakeFull):
+class ESRDE_Full(ESRDE, metaclass=_MakeFullMu):
     pass
 
 
-class ESRDE_auto(ESRDE, metaclass=_MakeAuto):
+class ESRDE_Auto(ESRDE, metaclass=_MakeAutoMu):
     pass
 
 
-def get_cls_by_name(name):
-    return _all_loss_classes[name]
+def get_cls_by_name(name, parameters: Parameters):
+    cls = _all_loss_classes[name]
+    if cls.require_parameters:
+        return cls(parameters)
+    return cls()
 
 
 if __name__ == '__main__':
@@ -361,13 +380,13 @@ if __name__ == '__main__':
     class TestLosses(unittest.TestCase):
 
         def test_SRDE_full_size_one(self):
-            loss = SRDE_full()
+            loss = SRDE_Full()
             predict = np.array([1.])
             target = np.array([10.])
             self.assertEqual(loss(predict, target), 0.)
 
         def test_ESRDE_full_size_one(self):
-            loss = ESRDE_full()
+            loss = ESRDE_Full()
             predict = np.array([1.])
             target = np.array([10.])
             self.assertEqual(loss(predict, target), 0.)
@@ -384,6 +403,17 @@ if __name__ == '__main__':
             target = np.array([10.])
             self.assertEqual(loss(predict, target), 0.)
 
+        def test_get_cls_by_name(self):
+            parameters = Parameters(10)
+            assert parameters.mu is not None
+
+            self.assertIsInstance(get_cls_by_name('RDE', parameters), RDE)
+            self.assertIsInstance(get_cls_by_name('SRDE', parameters), SRDE)
+            self.assertIsInstance(get_cls_by_name('ESRDE', parameters), ESRDE)
+            self.assertIsInstance(get_cls_by_name('L1', parameters), L1)
+            self.assertIsInstance(get_cls_by_name('L2', parameters), L2)
+            self.assertIsInstance(get_cls_by_name('SRDE_Auto', parameters), SRDE_Auto)
+            self.assertIsInstance(get_cls_by_name('ESRDE_Full', parameters), ESRDE_Full)
 
         '''
 
@@ -533,7 +563,6 @@ if __name__ == '__main__':
                              np.sum(np.abs(predict - np.mean(predict)))/2./10.)
          '''
 
-
         def test_RDE(self):
             vec = np.array([0.8147, 0.9058, 0.1270, 0.9134, 0.6324, 0.0975, 0.2785, 0.5469, 0.9575, 0.9649])
             tar = np.array([0.1576, 0.9706, 0.9572, 0.4854, 0.8003, 0.1419, 0.4218, 0.9157, 0.7922, 0.9595])
@@ -573,7 +602,6 @@ if __name__ == '__main__':
                   0.6797, 0.6551, 0.1626, 0.1190, 0.4984, 0.9597, 0.3404, 0.5853, 0.2238, 0.7513, 0.2551, ])
             loss = L2()
             a = loss(vec, tar)
-
 
         def test_kendall(self):
             vec = np.array([0.6557, 0.0357, 0.8491, 0.9340, 0.6787, 0.7577, 0.7431, 0.3922, 0.6555, 0.1712,
