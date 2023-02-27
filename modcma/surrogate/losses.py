@@ -19,7 +19,18 @@ def singleton_args(cls):
     return wrapper
 
 
-class _MakeFull(ABCMeta):
+_all_loss_classes = {}
+
+class _RegisterLossMeta(ABCMeta):
+    def __new__(cls, clsname, bases, attrs):
+        newclass = super().__new__(cls, clsname, bases, attrs)
+        if hasattr(newclass, 'name'):
+            assert(newclass.name not in _all_loss_classes)
+            _all_loss_classes[newclass.name] = newclass
+            return newclass
+        return newclass
+
+class _MakeFull(_RegisterLossMeta):
     def __new__(cls, clsname, bases, attrs):
         def __init__(self):
             pass
@@ -28,6 +39,11 @@ class _MakeFull(ABCMeta):
             self.mu = len(target)
             return bases[0].__call__(self, predict, target)
 
+        if 'name' not in attrs:
+            assert(len(bases) == 1)
+            assert(hasattr(bases[0], 'name'))
+            newname = bases[0].name + 'Full'
+            attrs['name'] = newname
         newclass = super().__new__(cls, clsname, bases, attrs)
 
         setattr(newclass, '__init__', __init__)
@@ -35,7 +51,7 @@ class _MakeFull(ABCMeta):
         return newclass
 
 
-class _MakeAuto(ABCMeta):
+class _MakeAuto(_RegisterLossMeta):
     def __new__(cls, clsname, bases, attrs):
         def __init__(self):
             pass
@@ -44,6 +60,11 @@ class _MakeAuto(ABCMeta):
             self.mu = max(len(target) // 2, 1)
             return bases[0].__call__(self, predict, target)
 
+        if 'name' not in attrs:
+            assert(len(bases) == 1)
+            assert(hasattr(bases[0], 'name'))
+            newname = bases[0].name + 'Auto'
+            attrs['name'] = newname
         newclass = super().__new__(cls, clsname, bases, attrs)
 
         setattr(newclass, '__init__', __init__)
@@ -156,9 +177,7 @@ class WeakOrderSolver:
         return np.sum(result.x[self.variables + self.weak_variables:])
 
 
-class Loss(metaclass=ABCMeta):
-    name = 'error'
-
+class Loss(metaclass=_RegisterLossMeta):
     @abstractmethod
     def __call__(self, predict, target, **kwargs):
         assert isinstance(predict, np.ndarray)
@@ -216,7 +235,7 @@ class Kendall(Loss):
 
 
 class RDE(Loss, metaclass=type):
-    ''' Ranking Difference Error Loss '''
+    ''' Ranking Difference Error '''
     name = 'RDE'
     cache = {}
 
@@ -262,6 +281,7 @@ class RDE(Loss, metaclass=type):
 
 
 class SRDE(Loss):
+    name = 'SRDE'
     def __init__(self, mu):
         assert(mu > 0)
         self.mu = mu
@@ -289,6 +309,7 @@ class SRDE(Loss):
 
 
 class ESRDE(SRDE):
+    name = 'ESRDE'
     def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         order = np.argsort(target)
@@ -328,6 +349,11 @@ class ESRDE_full(ESRDE, metaclass=_MakeFull):
 
 class ESRDE_auto(ESRDE, metaclass=_MakeAuto):
     pass
+
+
+def get_cls_by_name(name):
+    return _all_loss_classes[name]
+
 
 if __name__ == '__main__':
     import unittest
