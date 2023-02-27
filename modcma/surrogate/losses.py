@@ -24,7 +24,7 @@ class _MakeFull(ABCMeta):
         def __init__(self):
             pass
 
-        def __call__(self, predict, target):
+        def __call__(self, predict, target, **kwargs):
             self.mu = len(target)
             return bases[0].__call__(self, predict, target)
 
@@ -40,7 +40,7 @@ class _MakeAuto(ABCMeta):
         def __init__(self):
             pass
 
-        def __call__(self, predict, target):
+        def __call__(self, predict, target, **kwargs):
             self.mu = max(len(target) // 2, 1)
             return bases[0].__call__(self, predict, target)
 
@@ -160,18 +160,17 @@ class Loss(metaclass=ABCMeta):
     name = 'error'
 
     @abstractmethod
-    def __call__(self, predict, target):
+    def __call__(self, predict, target, **kwargs):
         assert isinstance(predict, np.ndarray)
         assert isinstance(target, np.ndarray)
         assert predict.shape == target.shape
         assert len(predict.shape) == 1
         return None
 
-
 class L1(Loss):
     name = 'L1'
 
-    def __call__(self, predict, target):
+    def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         return np.mean(np.abs(predict - target))
 
@@ -179,7 +178,7 @@ class L1(Loss):
 class L2(Loss):
     name = 'L2'
 
-    def __call__(self, predict, target):
+    def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         return np.mean(np.square(predict - target))
 
@@ -187,7 +186,7 @@ class L2(Loss):
 class L1Drop10P(Loss):
     name = 'L1Drop10P'
 
-    def __call__(self, predict, target):
+    def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         num_of_res = int(round(float(target.shape[0])*(9./10.)))
         residuals = np.abs(predict - target)
@@ -198,7 +197,7 @@ class L1Drop10P(Loss):
 class L2Drop10P(Loss):
     name = 'L2Drop10P'
 
-    def __call__(self, predict, target):
+    def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         num_of_res = int(round(float(target.shape[0])*(9./10.)))
         residuals = np.square(predict - target)
@@ -210,7 +209,7 @@ class Kendall(Loss):
     ''' Kendall Loss '''
     name = 'Kendall'
 
-    def __call__(self, predict, target):
+    def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         c, _ = kendalltau(predict, target)
         return c
@@ -241,7 +240,7 @@ class RDE(Loss, metaclass=type):
         vysledek = np.amax(np.sum(np.abs(tabulka - radek), axis=1))
         return vysledek
 
-    def __call__(self, predict, target):
+    def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         assert self.mu is not None
         lam = len(predict)
@@ -267,7 +266,7 @@ class SRDE(Loss):
         assert(mu > 0)
         self.mu = mu
 
-    def __call__(self, predict, target):
+    def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         mu = min(self.mu, len(predict))
         order_predicted = np.argpartition(predict, mu-1)[:self.mu]
@@ -290,7 +289,7 @@ class SRDE(Loss):
 
 
 class ESRDE(SRDE):
-    def __call__(self, predict, target):
+    def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
         order = np.argsort(target)
         predict = predict[order]
