@@ -1,6 +1,7 @@
 from modcma import modularcmaes, Parameters, Population
 import ioh
-from scipy.stats.qmc import scale, LatinHypercube as lhc
+from scipy.stats.qmc import scale, LatinHypercube as lhs, Sobol as sobol, Halton as halton
+from sklearn.cluster import KMeans
 
 from argparse import ArgumentParser
 import numpy as np
@@ -25,19 +26,24 @@ def initialize_parameters(problem: ioh.ProblemType, budget: int, lambda_: int, m
                             ipop_factor=ipop_factor, ps_factor=ps_factor, sample_sigma=sample_sigma)
     return CMAES_params
 
-def initialize_centroids(problem: ioh.ProblemType, sub_pop: int, init_method: str):
-    if init_method == 'rng':
+def initialize_centroids(problem: ioh.ProblemType, sub_pop: int, sampler: str):
+    if sampler == 'uniform':
         return [None]*sub_pop
-    elif init_method == 'lhc':
-        return np.float64(scale(lhc(d=problem.meta_data.n_variables).random(sub_pop), l_bounds=problem.bounds.lb, u_bounds=problem.bounds.ub))
+    elif sampler == 'lhs':
+        return np.float64(scale(lhs(d=problem.meta_data.n_variables).random(sub_pop), l_bounds=problem.bounds.lb, u_bounds=problem.bounds.ub))
     else:
         raise ValueError("Incorrect initialization technique.")
 
-def initialize(problem_id: int, problem_instance: int, dimension: int, budget: int, iterations: int, lambda_: list[int], mu_: list[int], init_method: str, sharing_point: int, logger_info: dict):
+def initialize(problem_id: int, problem_instance: int, dimension: int, budget: int, iterations: int, lambda_: list[int], mu_: list[int], sampler: str, sharing_point: int, logger_info: dict):
     problem = ioh.get_problem(fid=problem_id, instance=problem_instance, dimension=dimension, problem_type=ioh.ProblemType.BBOB) # TODO replace dimension
     # print(problem)
 
-    x0 = initialize_centroids(problem=problem, sub_pop=len(lambda_), init_method=init_method)
+    if sampler == 'lhs':
+        base_sampler = 'gaussian'
+        x0 = initialize_centroids(problem=problem, sub_pop=len(lambda_), sampler=sampler)
+    else:
+        base_sampler = sampler
+        x0 = [None]*len(lambda_)
 
     logger = ioh.logger.Analyzer(root="data", folder_name="run", algorithm_name=logger_info['name'], algorithm_info="test of IOHexperimenter in python")
     problem.attach_logger(logger)
@@ -46,7 +52,7 @@ def initialize(problem_id: int, problem_instance: int, dimension: int, budget: i
     subpop_n = len(lambda_)
     cmaes = []
     for i in range(subpop_n):
-        params = initialize_parameters(problem=problem, budget=budget, lambda_=lambda_[i], mu_=mu_[i], x0=x0[i])
+        params = initialize_parameters(problem=problem, budget=budget, lambda_=lambda_[i], mu_=mu_[i], x0=x0[i], base_sampler=base_sampler)
         cmaes.append(modularcmaes.ModularCMAES(fitness_func=problem, parameters=params))
 
     return run_cma(CMAES=cmaes, iterations=iterations, sharing_point=sharing_point)
@@ -59,9 +65,9 @@ def run_cma(CMAES: list[modularcmaes.ModularCMAES], iterations: int, sharing_poi
             # print(flag)
     return CMAES
 
-def main(problem_id: int, problem_instance: int, dimension: int, iterations: int, budget: int, lambda_: int, mu_: int, init_method: str, sharing_point: int, logger_info: dict):
+def main(problem_id: int, problem_instance: int, dimension: int, iterations: int, budget: int, lambda_: int, mu_: int, sampler: str, sharing_point: int, logger_info: dict):
     # initialize
-    cmaes = initialize(problem_id=problem_id, problem_instance=problem_instance, dimension=dimension, budget=budget, iterations=iterations, lambda_=lambda_, mu_=mu_, init_method=init_method, sharing_point=sharing_point, logger_info=logger_info)
+    cmaes = initialize(problem_id=problem_id, problem_instance=problem_instance, dimension=dimension, budget=budget, iterations=iterations, lambda_=lambda_, mu_=mu_, sampler=sampler, sharing_point=sharing_point, logger_info=logger_info)
     
     # TODO fix run algo
     # cmaes = run_cma(CMAES=cmaes, iterations=iterations, sharing_point=sharing_point)
@@ -91,8 +97,8 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--dimension", help="the dimension of the problem we are solving {5/20}", default=5, type=int)
     parser.add_argument("-i", "--iterations", help="how many iterations to run the algorithm for", default=10000, type=int) # only those two for now
     parser.add_argument("-b", "--budget", help="decides the budget of the problem, defaults to 1e4*dimension", nargs='?', default=1e4, type=float)
-    parser.add_argument("-pt", "--subpop_type", help="sizes of subpopulations", choices=[1,2], default=1, type=int)
-    parser.add_argument("-im", "--init_method", help="tactic for initialize the first population", default="rng", type=str)
+    parser.add_argument("-pt", "--subpop_type", help="sizes of subpopulations", choices=[1,2,3], default=1, type=int)
+    parser.add_argument("-s", "--sampler", help="", default="gaussian", type=str)
     parser.add_argument("-n", "--algo_name", help="algorithm name", default='ModCMA', type=str)
     # parser.add_argument("-l", "--lambda_", help="size of offsprings to generate", nargs='*', default=100, type=int)
     # parser.add_argument("-m", "--mu_", help="size of parents to use", nargs='*', default=100, type=int)
@@ -110,6 +116,10 @@ if __name__ == "__main__":
         # multiple subpopulations, same sizes (hard-coded for now)
         lambda_ = [20, 20, 20, 20, 20]
         mu_ = [20, 20, 20, 20, 20]
+    elif args.subpop_type == 3:
+        # multiple subpopulations, same sizes (hard-coded for now)
+        lambda_ = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
+        mu_ = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print("Subpopulation CMA-ES: start")
     main(problem_id=args.problem_id, 
@@ -119,7 +129,7 @@ if __name__ == "__main__":
          budget=int(args.budget*args.dimension), 
          lambda_=lambda_,
          mu_=mu_, 
-         init_method=args.init_method,
+         sampler=args.sampler,
          sharing_point=None,
          logger_info={'name':args.algo_name, 'description': ''})
     print("Subpopulation CMA-ES: complete")
