@@ -1,6 +1,7 @@
 import numpy as np
 from abc import ABCMeta, abstractmethod
 from scipy.stats import kendalltau
+import scipy.stats
 import scipy.optimize
 from typing import Union
 
@@ -239,7 +240,14 @@ class Kendall(Loss):
         return c
 
 
-class RDE(Loss, metaclass=type):
+class LogLikelihood(Loss):
+    def __call__(self, predict, target, stddev=None, **kwargs):
+        if stddev is None:
+            raise RuntimeError('stddev is required for likelihood loss')
+        return np.sum(scipy.stats.norm.logpdf(target, loc=predict, scale=stddev))
+
+
+class RDE(Loss):
     ''' Ranking Difference Error '''
     name = 'RDE'
     require_parameters = True
