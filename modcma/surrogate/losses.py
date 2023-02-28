@@ -241,6 +241,8 @@ class Kendall(Loss):
 
 
 class LogLikelihood(Loss):
+    name = 'LogLikelihood'
+
     def __call__(self, predict, target, stddev=None, **kwargs):
         if stddev is None:
             raise RuntimeError('stddev is required for likelihood loss')
