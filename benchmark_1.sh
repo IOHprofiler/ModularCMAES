@@ -2,13 +2,14 @@ echo 'BENCHMARK START'
 for i in {1..15}
 do
     echo iter $i
-    python main.py -pid 3 -iid $i -d 5 -pt 1  -n 'ModCMA'
-    python main.py -pid 3 -iid $i -d 20 -pt 1  -n 'ModCMA'
-    python main.py -pid 3 -iid $i -d 5 -pt 2 -n 'SP-CMA'
-    python main.py -pid 3 -iid $i -d 20 -pt 2 -n 'SP-CMA'
-    python main.py -pid 4 -iid $i -d 5 -pt 1  -n 'ModCMA'
-    python main.py -pid 4 -iid $i -d 20 -pt 1  -n 'ModCMA'
-    python main.py -pid 4 -iid $i -d 5 -pt 2 -n 'SP-CMA'
-    python main.py -pid 4 -iid $i -d 20 -pt 2 -n 'SP-CMA'
+    for j in {3,4}
+    do
+        for d in {5,20}
+        do
+            python main.py -pid $j -iid $i -d $d -pt 1 -n 'ModCMA'
+            python main.py -pid $j -iid $i -d $d -pt 2 -n 'SP[20]-CMA'
+            python main.py -pid $j -iid $i -d $d -pt 3 -n 'SP[10]-CMA'
+        done
+    done
 done
 echo 'BENCHMARK COMPLETE'
