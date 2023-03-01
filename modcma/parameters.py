@@ -359,10 +359,14 @@ class Parameters(AnnotatedStruct):
     surrogate_model_gp_kernel = 'Linear'
     surrogate_model_gp_noisy_samples: bool = True
 
+    # only for specific models
+    surrogate_model_selection_criteria: ('LogLikelihood', 'RDE', 'SRDE', 'ESRDE', 'L1', 'L2', 'Kendall') = 'ESRDE'
+    surrogate_model_selection_cross_validation_folds = 5  # if less than one - no cv
+    surrogate_model_selection_cross_validation_random_state: int = None
 
-    surrogate_model_gp_learning_rate: float = 0.01
-    surrogate_model_gp_max_iterations: int = 1000
-    surrogate_model_gp_early_stopping_delta: float = 1e-6
+    surrogate_model_gp_learning_rate: float = 0.03
+    surrogate_model_gp_max_iterations: int = 5000
+    surrogate_model_gp_early_stopping_delta: float = 1e-3
     surrogate_model_gp_early_stopping_patience: int = 20
 
     __modules__ = (
