@@ -1,20 +1,28 @@
 from abc import abstractmethod, ABCMeta
+from functools import cache
 from typing import Tuple, Optional, Type, List, Generator
 import operator
 import itertools
 import time
+import copy
+from collections import defaultdict
 
 import numpy as np
 
 import tensorflow as tf
 import tensorflow_probability as tfp
 
+from sklearn.model_selection import KFold, LeaveOneOut
+
 from modcma.typing_utils import XType, YType
 from modcma.surrogate.model import SurrogateModelBase
 from modcma.parameters import Parameters
 
+import modcma.surrogate.losses as losses
+
+
 # import kernels
-from gp_kernels import basic_kernels, functor_kernels, GP_kernel_concrete_base
+from modcma.surrogate.gp_kernels import basic_kernels, functor_kernels, GP_kernel_concrete_base
 for k in basic_kernels + functor_kernels:
     locals()[k.__name__] = k
 
@@ -63,10 +71,15 @@ def create_constant(default, dtype=tf.float64, name: Optional[str] = None):
 
 
 class _ModelBuildingBase(metaclass=ABCMeta):
-    def __init__(self, parameters, kernel):
+    def __init__(self, parameters, kernel_cls):
         self.parameters = parameters
-        self.kernel = kernel
+        self.kernel_cls = kernel_cls
         self.mean_fn = None
+
+        # default
+        self.observation_index_points = None
+        self.observations = None
+        self.kernel = None
 
     @abstractmethod
     def build_for_training(self,
@@ -74,6 +87,7 @@ class _ModelBuildingBase(metaclass=ABCMeta):
                            observations=None) -> tfp.distributions.GaussianProcess:
         self.observation_index_points = observation_index_points
         self.observations = observations
+        self.kernel = self.kernel_cls(self.parameters)
 
     @abstractmethod
     def build_for_regression(self,
@@ -90,6 +104,12 @@ class _ModelBuildingBase(metaclass=ABCMeta):
         else:
             return _ModelBuilding_Noiseless
 
+    def copy(self):
+        a = copy.copy(self)
+        a.observation_index_points = None
+        a.observations = None
+        a.kernel = None
+        return a
 
 class _ModelBuilding_Noiseless(_ModelBuildingBase):
     def __init__(self, *args, **kwargs):
@@ -102,7 +122,7 @@ class _ModelBuilding_Noiseless(_ModelBuildingBase):
         super().build_for_training(observation_index_points, observations)
 
         return tfd.GaussianProcess(
-            kernel=self.kernel,
+            kernel=self.kernel.kernel(),
             mean_fn=self.mean_fn,
             index_points=self.observation_index_points,
             observation_noise_variance=self.observation_noise_variance
@@ -116,7 +136,7 @@ class _ModelBuilding_Noiseless(_ModelBuildingBase):
         observations = observations or self.observations
 
         return tfd.GaussianProcessRegressionModel(
-            kernel=self.kernel,
+            kernel=self.kernel.kernel(),
             mean_fn=self.mean_fn,
             index_points=X,
             observation_index_points=observation_index_points,
@@ -141,17 +161,53 @@ class _ModelBuilding_Noisy(_ModelBuilding_Noiseless):
 class _ModelTrainingBase(metaclass=ABCMeta):
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
+        self.training_cache = defaultdict(list)
+
+    def _loss_agregation_method(self, loss_history) -> float:
+        return float(np.nanmean(loss_history))
 
     @abstractmethod
-    def train(self,
-              observation_index_points,
-              observations,
-              model: _ModelBuildingBase):
+    def loss(self,
+             model: _ModelBuildingBase,
+             observation_test_points,
+             observations_test,
+             observation_index_points,
+             observations) -> float:
+        ''' predicts loss of the model (the model may be changed) '''
         pass
+
+    @abstractmethod
+    def _fit(self,
+             model: _ModelBuildingBase,
+             observation_index_points,
+             observations) -> _ModelBuildingBase:
+        ''' fits the model, the model is changed '''
+        pass
+
+    def fit(self,
+            model: _ModelBuildingBase,
+            observation_index_points,
+            observations) -> _ModelBuildingBase:
+        ''' fits the model '''
+        if model.observation_index_points is not None and \
+           model.observations is not None and \
+           np.array_equal(model.observation_index_points, observation_index_points) and \
+           np.array_equal(model.observations, observations):
+            return model
+        # cache miss ...
+        return self._fit(model, observation_index_points, observations)
 
     @staticmethod
     def create_class(parameters: Parameters):
-        return _ModelTraining_MaximumLikelihood
+        if self.parameters.surrogate_model_selection_cross_validation_folds:
+            return _ModelTraining_CVMaximumLikelihood
+        else:
+            return _ModelTraining_MaximumLikelihood
+
+    def _compute_loss(self, observations, predictions, predictions_stddev=None):
+        loss_name = self.parameters.surrogate_model_selection_criteria
+        loss = losses.get_cls_by_name(loss_name, self.parameters)
+        return loss(predictions, observations, stddev=predictions_stddev)
 
 
 class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
@@ -163,20 +219,15 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
         self.EARLY_STOPPING_DELTA = self.parameters.surrogate_model_gp_early_stopping_delta
         self.EARLY_STOPPING_PATIENCE = self.parameters.surrogate_model_gp_early_stopping_patience
 
-    def train(self,
-              observation_index_points,
-              observations,
-              model: _ModelBuildingBase) -> float:
-        ''' '''
-        gp = model.build_for_training(observation_index_points, observations)
+    def _fit_gp(self, model, observations):
         optimizer = tf.optimizers.Adam(learning_rate=self.LEARNING_RATE)
 
         @tf.function
         def step():
             with tf.GradientTape() as tape:
-                loss = -gp.log_prob(observations)
-            grads = tape.gradient(loss, gp.trainable_variables)
-            optimizer.apply_gradients(zip(grads, gp.trainable_variables))
+                loss = -model.log_prob(observations)
+            grads = tape.gradient(loss, model.trainable_variables)
+            optimizer.apply_gradients(zip(grads, model.trainable_variables))
             return loss
 
         minimal_neg_log_likelihood = np.inf
@@ -195,7 +246,91 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
                 minimal_index = i
             elif minimal_index + self.EARLY_STOPPING_PATIENCE < i:
                 break
-        return float(neg_log_likelihood)
+        return model
+
+    def _fit(self,
+             model: _ModelBuildingBase,
+             observation_index_points,
+             observations) -> _ModelBuildingBase:
+        gp = model.build_for_training(observation_index_points, observations)
+        self._fit_gp(gp, observations)
+        return model
+
+    @abstractmethod
+    def loss(self,
+             model: _ModelBuildingBase,
+             observation_test_points,
+             observations_test,
+             observation_index_points,
+             observations) -> Tuple[float, Optional[_ModelBuildingBase]]:
+        gp = self._fit(model, observation_index_points, observations)
+
+        train_loss = np.array_equal(observation_index_points,
+                                    observation_test_points)\
+            and np.array_equal(observations, observations_test)
+
+        if not train_loss:
+            gp = model.build_for_regression(
+                observation_test_points,
+                observation_index_points,
+                observations)
+
+        mean = gp.mean().numpy()
+        stddev = gp.stddev().numpy()
+        return self._compute_loss(observations_test, mean, predictions_stddev=stddev)
+
+
+class _ModelTraining_CVMaximumLikelihood(_ModelTraining_MaximumLikelihood):
+    def __init__(self, parameters: Parameters):
+        super().__init__(parameters)
+
+        self.FOLDS: int = self.parameters.surrogate_model_selection_cross_validation_folds
+        self.RANDOM_STATE: Optional[int] = \
+            self.parameters.surrogate_model_selection_cross_validation_random_state
+
+    def _setup_folding(self, observation_index_points):
+        if len(observation_index_points) < self.FOLDS:
+            return LeaveOneOut()
+        else:
+            return KFold(
+                n_splits=self.FOLDS,
+                shuffle=True,
+                random_state=self.RANDOM_STATE
+            )
+
+    def loss(self,
+             model: _ModelBuildingBase,
+             observation_index_points,
+             observations) -> float:
+
+        loss_history = []
+        folding_method = self._setup_folding(observation_index_points)
+
+        for train_idx, test_idx in folding_method.split(observation_index_points):
+            partial_model = model.copy()
+
+            # training 
+            act_observation_index_points = observation_index_points[train_idx]
+            act_observations = observations[train_idx]
+
+            partial_gp_model = partial_model.build_for_training(act_observation_index_points, act_observations)
+            self._fit_gp(partial_gp_model, act_observations)
+
+            # testing
+            act_test_observation_index_points = observation_index_points[test_idx]
+            act_test_observations = observations[test_idx]
+
+            partial_gp_model = partial_model.build_for_regression(
+                act_test_observation_index_points,
+                act_observation_index_points,
+                act_observations)
+
+            mean = partial_gp_model.regression.mean().numpy()
+            stddev = partial_gp_model.stddev().numpy()
+            loss = self._compute_loss(act_test_observations, mean, predictions_stddev=stddev)
+            loss_history.append(loss)
+        return self._loss_agregation_method(loss_history)
+
 
 # ###############################################################################
 # ### MODELS
@@ -214,11 +349,7 @@ class _GaussianProcessModel:
         self._train_loss = float(np.nan)
 
     def _fit(self, X: XType, F: YType, W: YType):
-        # kernel
-        self._kernel_obj = self.KERNEL_CLS(self.parameters)
-        self._kernel = self._kernel_obj.kernel()
-
-        self.model_generation = self.MODEL_GENERATION_CLS(self.parameters, self._kernel)
+        self.model_generation = self.MODEL_GENERATION_CLS(self.parameters, self.KERNEL_CLS)
         self.model_training = self.MODEL_TRAINING_CLS(self.parameters)
 
         self._train_loss = self.model_training.train(
@@ -370,9 +501,6 @@ class GaussianProcessBasicBinarySelection:
                 yield a * b
             if (a, b) not in [(Linear, Linear), (Quadratic, Quadratic), ]:
                 yield a + b
-
-
-
 
 
 class GaussianProcessPenalizedAdditiveSelection(GaussianProcessBasicSelection):
