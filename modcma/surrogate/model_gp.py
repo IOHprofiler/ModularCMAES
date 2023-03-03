@@ -343,7 +343,7 @@ class _GaussianProcessModel:
         self.model_generation = self.MODEL_GENERATION_CLS(self.parameters, self.KERNEL_CLS)
         self.model_training = self.MODEL_TRAINING_CLS(self.parameters)
 
-        self._train_loss = self.model_training.train(
+        self._train_loss = self.model_training.fit(
             observation_index_points=X, observations=F, model=self.model_generation)
         return self
 
