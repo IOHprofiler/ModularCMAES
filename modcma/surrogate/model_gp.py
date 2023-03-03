@@ -157,14 +157,33 @@ class _ModelBuilding_Noisy(_ModelBuilding_Noiseless):
 # ### MODEL TRAINING COMPOSITION MODELS
 # ###############################################################################
 
+class NoFold:
+    def split(self, X):
+        h = np.arange(len(X))
+        return h, h
 
 class _ModelTrainingBase(metaclass=ABCMeta):
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
         self.training_cache = defaultdict(list)
 
+        self.FOLDS: int = self.parameters.surrogate_model_selection_cross_validation_folds
+        self.RANDOM_STATE: Optional[int] = \
+            self.parameters.surrogate_model_selection_cross_validation_random_state
+
     def _loss_agregation_method(self, loss_history) -> float:
+        if len(loss_history) == 1:
+            return loss_history[0]
         return float(np.nanmean(loss_history))
+
+    def _setup_folding(self, X):
+        if self.FOLDS is None or self.FOLDS <= 0:
+            return NoFold()
+        return KFold(
+            n_splits=min(self.FOLDS, len(X)),
+            shuffle=True,
+            random_state=self.RANDOM_STATE
+        )
 
     @abstractmethod
     def loss(self,
@@ -199,10 +218,7 @@ class _ModelTrainingBase(metaclass=ABCMeta):
 
     @staticmethod
     def create_class(parameters: Parameters):
-        if self.parameters.surrogate_model_selection_cross_validation_folds:
-            return _ModelTraining_CVMaximumLikelihood
-        else:
-            return _ModelTraining_MaximumLikelihood
+        return _ModelTraining_MaximumLikelihood
 
     def _compute_loss(self, observations, predictions, predictions_stddev=None):
         loss_name = self.parameters.surrogate_model_selection_criteria
@@ -220,6 +236,7 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
         self.EARLY_STOPPING_PATIENCE = self.parameters.surrogate_model_gp_early_stopping_patience
 
     def _fit_gp(self, model, observations):
+        ''' fits one gp, returns the gp '''
         optimizer = tf.optimizers.Adam(learning_rate=self.LEARNING_RATE)
 
         @tf.function
@@ -252,17 +269,17 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
              model: _ModelBuildingBase,
              observation_index_points,
              observations) -> _ModelBuildingBase:
+        ''' fits one model, returns the model '''
         gp = model.build_for_training(observation_index_points, observations)
         self._fit_gp(gp, observations)
         return model
 
-    @abstractmethod
-    def loss(self,
-             model: _ModelBuildingBase,
-             observation_test_points,
-             observations_test,
-             observation_index_points,
-             observations) -> Tuple[float, Optional[_ModelBuildingBase]]:
+    def _loss_of_one_model(self,
+                           model,
+                           observation_index_points,
+                           observations,
+                           observation_test_points,
+                           observations_test):
         gp = self._fit(model, observation_index_points, observations)
 
         train_loss = np.array_equal(observation_index_points,
@@ -279,25 +296,6 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
         stddev = gp.stddev().numpy()
         return self._compute_loss(observations_test, mean, predictions_stddev=stddev)
 
-
-class _ModelTraining_CVMaximumLikelihood(_ModelTraining_MaximumLikelihood):
-    def __init__(self, parameters: Parameters):
-        super().__init__(parameters)
-
-        self.FOLDS: int = self.parameters.surrogate_model_selection_cross_validation_folds
-        self.RANDOM_STATE: Optional[int] = \
-            self.parameters.surrogate_model_selection_cross_validation_random_state
-
-    def _setup_folding(self, observation_index_points):
-        if len(observation_index_points) < self.FOLDS:
-            return LeaveOneOut()
-        else:
-            return KFold(
-                n_splits=self.FOLDS,
-                shuffle=True,
-                random_state=self.RANDOM_STATE
-            )
-
     def loss(self,
              model: _ModelBuildingBase,
              observation_index_points,
@@ -309,26 +307,19 @@ class _ModelTraining_CVMaximumLikelihood(_ModelTraining_MaximumLikelihood):
         for train_idx, test_idx in folding_method.split(observation_index_points):
             partial_model = model.copy()
 
-            # training 
+            # data selection
             act_observation_index_points = observation_index_points[train_idx]
             act_observations = observations[train_idx]
-
-            partial_gp_model = partial_model.build_for_training(act_observation_index_points, act_observations)
-            self._fit_gp(partial_gp_model, act_observations)
-
-            # testing
             act_test_observation_index_points = observation_index_points[test_idx]
             act_test_observations = observations[test_idx]
 
-            partial_gp_model = partial_model.build_for_regression(
-                act_test_observation_index_points,
-                act_observation_index_points,
-                act_observations)
-
-            mean = partial_gp_model.regression.mean().numpy()
-            stddev = partial_gp_model.stddev().numpy()
-            loss = self._compute_loss(act_test_observations, mean, predictions_stddev=stddev)
+            loss = self._loss_of_one_model(partial_model,
+                                           act_observation_index_points,
+                                           act_observations,
+                                           act_test_observation_index_points,
+                                           act_test_observations)
             loss_history.append(loss)
+
         return self._loss_agregation_method(loss_history)
 
 
