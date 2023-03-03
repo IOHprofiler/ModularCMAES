@@ -163,6 +163,8 @@ class NoFold:
         return h, h
 
 class _ModelTrainingBase(metaclass=ABCMeta):
+    ''' provides training and loss prediction '''
+
     def __init__(self, parameters: Parameters):
         self.parameters = parameters
         self.training_cache = defaultdict(list)
@@ -171,12 +173,14 @@ class _ModelTrainingBase(metaclass=ABCMeta):
         self.RANDOM_STATE: Optional[int] = \
             self.parameters.surrogate_model_selection_cross_validation_random_state
 
-    def _loss_agregation_method(self, loss_history) -> float:
+    def _loss_aggregation_method(self, loss_history) -> float:
+        ''' aggregate losses into one value '''
         if len(loss_history) == 1:
             return loss_history[0]
         return float(np.nanmean(loss_history))
 
     def _setup_folding(self, X):
+        ''' return folding object with .split(X) -> ixd, idx interface '''
         if self.FOLDS is None or self.FOLDS <= 0:
             return NoFold()
         return KFold(
@@ -227,6 +231,8 @@ class _ModelTrainingBase(metaclass=ABCMeta):
 
 
 class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
+    ''' implements maximum likelihood training for GP '''
+
     def __init__(self, parameters: Parameters):
         super().__init__(parameters)
 
@@ -265,22 +271,15 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
                 break
         return model
 
-    def _fit(self,
-             model: _ModelBuildingBase,
-             observation_index_points,
-             observations) -> _ModelBuildingBase:
-        ''' fits one model, returns the model '''
-        gp = model.build_for_training(observation_index_points, observations)
-        self._fit_gp(gp, observations)
-        return model
-
     def _loss_of_one_model(self,
                            model,
                            observation_index_points,
                            observations,
                            observation_test_points,
                            observations_test):
-        gp = self._fit(model, observation_index_points, observations)
+        ''' computes loss of one model '''
+        gp = model.build_for_training(observation_index_points, observations)
+        self._fit_gp(gp, observations)
 
         train_loss = np.array_equal(observation_index_points,
                                     observation_test_points)\
@@ -300,7 +299,6 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
              model: _ModelBuildingBase,
              observation_index_points,
              observations) -> float:
-
         loss_history = []
         folding_method = self._setup_folding(observation_index_points)
 
@@ -320,7 +318,7 @@ class _ModelTraining_MaximumLikelihood(_ModelTrainingBase):
                                            act_test_observations)
             loss_history.append(loss)
 
-        return self._loss_agregation_method(loss_history)
+        return self._loss_aggregation_method(loss_history)
 
 
 # ###############################################################################
@@ -337,14 +335,12 @@ class _GaussianProcessModel:
 
         self.MODEL_GENERATION_CLS = _ModelBuildingBase.create_class(self.parameters)
         self.MODEL_TRAINING_CLS = _ModelTrainingBase.create_class(self.parameters)
-        self._train_loss = float(np.nan)
 
-    def _fit(self, X: XType, F: YType, W: YType):
         self.model_generation = self.MODEL_GENERATION_CLS(self.parameters, self.KERNEL_CLS)
         self.model_training = self.MODEL_TRAINING_CLS(self.parameters)
 
-        self._train_loss = self.model_training.fit(
-            observation_index_points=X, observations=F, model=self.model_generation)
+    def _fit(self, X: XType, F: YType, W: YType):
+        self.model_training.fit(self.model_generation, X, F)
         return self
 
     def _predict(self, X: XType) -> YType:
