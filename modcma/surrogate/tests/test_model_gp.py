@@ -9,7 +9,6 @@ tf.config.threading.set_inter_op_parallelism_threads(1)
 
 from modcma.surrogate.model_gp import *
 
-
 import unittest
 import math
 
@@ -46,6 +45,7 @@ if False:
     plt.scatter(data, target)
     plt.show()
     exit(0)
+
 
 class TestBasic(unittest.TestCase):
     def setUp(self) -> None:
@@ -119,6 +119,7 @@ class TestBasic(unittest.TestCase):
             self.assertAlmostEqual(p1[i], p2[i], places=2)
             self.assertAlmostEqual(p1[i], Yt[i], places=2)
 
+
 class Test_GaussianProcessBasicSelection(unittest.TestCase):
     def test_quadratic(self):
         data = np.random.rand(50, 1)
@@ -157,9 +158,10 @@ class Test_GaussianProcessBasicSelection(unittest.TestCase):
         parameters = Parameters(1)
         model = GaussianProcessBasicSelection(parameters)
         self.assertEqual(
-            len(list(model.generate_kernel_space())),
+            len(list(model._generate_kernel_space())),
             len(model._building_blocks)
         )
+
 
 class Test_GaussianProcessExtendedSelection(unittest.TestCase):
     def combination_number(self, a):
@@ -169,7 +171,7 @@ class Test_GaussianProcessExtendedSelection(unittest.TestCase):
         parameters = Parameters(1)
         model = GaussianProcessBasicSelection(parameters)
         self.assertEqual(
-            len(list(model.generate_kernel_space())),
+            len(list(model._generate_kernel_space())),
             len(model._building_blocks) +
             self.combination_number(len(model._building_blocks)) - 2
             # Lin + Lin == Lin
@@ -180,7 +182,7 @@ class Test_GaussianProcessExtendedSelection(unittest.TestCase):
         parameters = Parameters(1)
         model = GaussianProcessBasicSelection(parameters)
         self.assertEqual(
-            len(list(model.generate_kernel_space())),
+            len(list(model._generate_kernel_space())),
             len(model._building_blocks) +
             self.combination_number(len(model._building_blocks)) - 1
             # Lin + Lin == Qua
@@ -190,7 +192,7 @@ class Test_GaussianProcessExtendedSelection(unittest.TestCase):
         parameters = Parameters(1)
         model = GaussianProcessBasicSelection(parameters)
         self.assertEqual(
-            len(list(model.generate_kernel_space())),
+            len(list(model._generate_kernel_space())),
             len(model._building_blocks) +
             self.combination_number(len(model._building_blocks)) - 3
         )
