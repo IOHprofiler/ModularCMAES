@@ -1,13 +1,15 @@
 from modcma import modularcmaes, Parameters, Population
 import ioh
 from scipy.stats.qmc import scale, LatinHypercube as lhs, PoissonDisk as pds
+from sklearn.svm import LinearSVC
 
 from argparse import ArgumentParser
 import numpy as np
 
 
-def initialize_parameters(problem: ioh.ProblemType, budget: int, lambda_: int, mu_: int,
-                        n_generations: int = None, x0: np.ndarray = None, sigma0: float = 0.5, a_tpa: float = 0.5, b_tpa: float = 0., cs: float = None,
+def initialize_parameters(problem: ioh.ProblemType, budget: int, lambda_: int, mu_: int, n_generations: int = None, 
+                        x0: np.ndarray = None, sigma0: float = 0.2, initialization_correction: str = None, svc: LinearSVC = None, subpopulation_target: str = '1',
+                        a_tpa: float = 0.5, b_tpa: float = 0., cs: float = None,
                         cmu: float = None, c1: float = None, seq_cutoff_factor: int = 1, init_threshold: float = 0.2,
                         decay_factor: float = 0.995, max_resamples: int = 100, active: bool = False, elitist: bool = False,
                         sequential: bool = False, threshold_convergence: bool = False, bound_correction: str = None,
@@ -15,7 +17,7 @@ def initialize_parameters(problem: ioh.ProblemType, budget: int, lambda_: int, m
                         mirrored: str = "mirrored", weights_option: str = "default", step_size_adaptation: str = "csa",
                         population: Population = None, old_population: Population = None, ipop_factor: int = 2,
                         ps_factor: float = 1., sample_sigma: bool = False):        
-    CMAES_params = Parameters(d=problem.meta_data.n_variables, lambda_=lambda_, mu=mu_, x0=x0, #ub=problem.bounds.ub, lb=problem.bounds.lb, 
+    CMAES_params = Parameters(d=problem.meta_data.n_variables, lambda_=lambda_, mu=mu_, x0=x0, initialization_correction=initialization_correction, svc=svc, subpopulation_target=subpopulation_target, #ub=problem.bounds.ub, lb=problem.bounds.lb, 
                             budget=budget, target=problem.optimum.y, n_generations=n_generations, sigma0=sigma0, a_tpa=a_tpa, b_tpa=b_tpa, cs=cs, cmu=cmu, c1=c1, 
                             seq_cutoff_factor=seq_cutoff_factor, init_threshold=init_threshold, decay_factor=decay_factor, 
                             max_resamples=max_resamples, active=active, elitist=elitist, sequential=sequential, 
@@ -27,19 +29,26 @@ def initialize_parameters(problem: ioh.ProblemType, budget: int, lambda_: int, m
 
 def initialize_centroids(problem: ioh.ProblemType, sub_pop: int, init_method: str):
     if init_method == 'uniform':
-        return [None]*sub_pop
+        return np.float64([np.random.uniform(problem.bounds.lb, problem.bounds.ub, (problem.meta_data.n_variables,)) for _ in range(sub_pop)])
     elif init_method == 'lhs':
-        return np.float64(scale(lhs(d=problem.meta_data.n_variables).random(sub_pop), l_bounds=problem.bounds.lb, u_bounds=problem.bounds.ub)).reshape((sub_pop, problem.meta_data.n_variables, 1))
+        return np.float64(scale(lhs(d=problem.meta_data.n_variables).random(sub_pop), l_bounds=problem.bounds.lb, u_bounds=problem.bounds.ub))
     elif init_method == 'poisson':
-        return np.float64(scale(pds(d=problem.meta_data.n_variables).random(sub_pop), l_bounds=problem.bounds.lb, u_bounds=problem.bounds.ub)).reshape((sub_pop, problem.meta_data.n_variables, 1))
+        return np.float64(scale(pds(d=problem.meta_data.n_variables).random(sub_pop), l_bounds=problem.bounds.lb, u_bounds=problem.bounds.ub))
     else:
         raise ValueError("Incorrect initialization technique.")
 
-def initialize(problem_id: int, problem_instance: int, dimension: int, budget: int, iterations: int, lambda_: list[int], mu_: list[int], init_method: str, sharing_point: int, logger_info: dict):
+def initialize(problem_id: int, problem_instance: int, dimension: int, budget: int, iterations: int, lambda_: list[int], mu_: list[int], init_method: str, sigma0: float, init_corr: str, sharing_point: int, logger_info: dict):
     problem = ioh.get_problem(fid=problem_id, instance=problem_instance, dimension=dimension, problem_type=ioh.ProblemType.BBOB) # TODO replace dimension
     # print(problem)
 
     x0 = initialize_centroids(problem=problem, sub_pop=len(lambda_), init_method=init_method)
+
+    SVC, labels = None, [None]*len(lambda_)
+    if init_corr:
+        labels = [str(n) for n in range(1, len(lambda_)+1)]
+        SVC = LinearSVC().fit(x0, labels)
+    
+    x0 = x0.reshape((len(lambda_), problem.meta_data.n_variables, 1))
 
     logger = ioh.logger.Analyzer(root="data", folder_name="run", algorithm_name=logger_info['name'], algorithm_info="test of IOHexperimenter in python")
     problem.attach_logger(logger)
@@ -48,22 +57,27 @@ def initialize(problem_id: int, problem_instance: int, dimension: int, budget: i
     subpop_n = len(lambda_)
     cmaes = []
     for i in range(subpop_n):
-        params = initialize_parameters(problem=problem, budget=budget, lambda_=lambda_[i], mu_=mu_[i], x0=x0[i])
+        params = initialize_parameters(problem=problem, budget=budget, lambda_=lambda_[i], mu_=mu_[i], x0=x0[i], sigma0=sigma0, initialization_correction=init_corr, svc=SVC, subpopulation_target=labels[i])
         cmaes.append(modularcmaes.ModularCMAES(fitness_func=problem, parameters=params))
 
-    return run_cma(CMAES=cmaes, iterations=iterations, sharing_point=sharing_point)
+    return run_cma(CMAES=cmaes, iterations=iterations, SVC=SVC, sharing_point=sharing_point)
 
-def run_cma(CMAES: list[modularcmaes.ModularCMAES], iterations: int, sharing_point: int):
+def run_cma(CMAES: list[modularcmaes.ModularCMAES], iterations: int, SVC: LinearSVC, sharing_point: int):
     for _ in range(iterations):
         for i in range(len(CMAES)):
+            if SVC: CMAES[i].parameters.svc = SVC
             break_condition = CMAES[i].step()
+            # print(break_condition)
             if break_condition: break
-            # print(flag)
+        
+        if SVC:
+            centroids = np.float64([CMAES[n].parameters.m.reshape((2,)) for n in range(len(CMAES))])
+            SVC = SVC.fit(centroids, [str(n) for n in range(1, len(lambda_)+1)])
     return CMAES
 
-def main(problem_id: int, problem_instance: int, dimension: int, iterations: int, budget: int, lambda_: int, mu_: int, init_method: str, sharing_point: int, logger_info: dict):
+def main(problem_id: int, problem_instance: int, dimension: int, iterations: int, budget: int, lambda_: int, mu_: int, init_method: str, sigma0: float, init_corr: str, sharing_point: int, logger_info: dict):
     # initialize
-    cmaes = initialize(problem_id=problem_id, problem_instance=problem_instance, dimension=dimension, budget=budget, iterations=iterations, lambda_=lambda_, mu_=mu_, init_method=init_method, sharing_point=sharing_point, logger_info=logger_info)
+    cmaes = initialize(problem_id=problem_id, problem_instance=problem_instance, dimension=dimension, budget=budget, iterations=iterations, lambda_=lambda_, mu_=mu_, init_method=init_method, sigma0=sigma0, init_corr=init_corr, sharing_point=sharing_point, logger_info=logger_info)
     
     # TODO fix run algo
     # cmaes = run_cma(CMAES=cmaes, iterations=iterations, sharing_point=sharing_point)
@@ -93,8 +107,10 @@ if __name__ == "__main__":
     parser.add_argument("-d", "--dimension", help="the dimension of the problem we are solving {5/20}", default=5, type=int)
     parser.add_argument("-i", "--iterations", help="how many iterations to run the algorithm for", default=10000, type=int) # only those two for now
     parser.add_argument("-b", "--budget", help="decides the budget of the problem, defaults to 1e4*dimension", nargs='?', default=1e4, type=float)
-    parser.add_argument("-pt", "--subpop_type", help="sizes of subpopulations", choices=[1,2,3], default=1, type=int)
+    parser.add_argument("-pt", "--subpop_type", help="sizes of subpopulations", choices=[1,2,3,4], default=1, type=int)
     parser.add_argument("-im", "--init_method", help="", default='uniform', type=str)
+    parser.add_argument("-s", "--sigma0", help="", default=.2, type=float)
+    parser.add_argument("-ic", "--init_corr", help="Initialization correction, currently only {None or 'svm'}", default=None, type=str)
     parser.add_argument("-n", "--algo_name", help="algorithm name", default='ModCMA', type=str)
     # parser.add_argument("-l", "--lambda_", help="size of offsprings to generate", nargs='*', default=100, type=int)
     # parser.add_argument("-m", "--mu_", help="size of parents to use", nargs='*', default=100, type=int)
@@ -109,10 +125,14 @@ if __name__ == "__main__":
         lambda_ = [100]
         mu_ = [100]
     elif args.subpop_type == 2:
+        # no subpopulations, hard-coded size (hard-coded for now)
+        lambda_ = [50, 50]
+        mu_ = [50, 50]
+    elif args.subpop_type == 3:
         # multiple subpopulations, same sizes (hard-coded for now)
         lambda_ = [20, 20, 20, 20, 20]
         mu_ = [20, 20, 20, 20, 20]
-    elif args.subpop_type == 3:
+    elif args.subpop_type == 4:
         # multiple subpopulations, same sizes (hard-coded for now)
         lambda_ = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
         mu_ = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
@@ -126,6 +146,8 @@ if __name__ == "__main__":
          lambda_=lambda_,
          mu_=mu_, 
          init_method=args.init_method,
+         sigma0=args.sigma0,
+         init_corr=args.init_corr,
          sharing_point=None,
          logger_info={'name':args.algo_name, 'description': ''})
     print("Subpopulation CMA-ES: complete")

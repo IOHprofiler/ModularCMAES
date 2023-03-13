@@ -10,6 +10,8 @@ from .parameters import Parameters
 from .population import Population
 from .utils import timeit, ert
 
+from sklearn.svm import LinearSVC
+
 
 class ModularCMAES:
     r"""The main class of the configurable CMA ES continous optimizer.
@@ -44,6 +46,29 @@ class ModularCMAES:
             if isinstance(parameters, Parameters)
             else Parameters(*args, **kwargs)
         )
+
+    def sub_area_correction(self, x: np.ndarray):
+        X = x.T
+        Y = self.parameters.svc.predict(X)
+        I = [j for j in range(len(Y)) if Y[j] != self.parameters.subpopulation_target]
+        s = np.array(self.parameters.sigma)
+        # print(I)
+        for i in I:
+            target = Y[i]
+            repeats = 0
+            while target[0] != self.parameters.subpopulation_target:
+                if repeats == 100:
+                    x = self.parameters.x0.reshape(self.parameters.d,)
+                    break
+                s = np.ones(1) * (s*.8)
+                z = np.hstack(tuple(islice(self.parameters.sampler, 1)))
+                y = np.dot(self.parameters.B, self.parameters.D * z)
+                x = self.parameters.m + (s * y)
+                target = self.parameters.svc.predict(x.T)
+                # print(target, self.parameters.subpopulation_target, repeats)
+                repeats += 1
+            X[i] = x.reshape((self.parameters.d, ))
+        return X.T
 
     def mutate(self) -> None:
         """Apply mutation operation.
@@ -83,6 +108,10 @@ class ModularCMAES:
 
         y = np.dot(self.parameters.B, self.parameters.D * z)
         x = self.parameters.m + (s * y)
+
+        if self.parameters.initialization_correction:
+            x = self.sub_area_correction(x)
+
         x, n_out_of_bounds = correct_bounds(
             x, 
             self.parameters.ub,
