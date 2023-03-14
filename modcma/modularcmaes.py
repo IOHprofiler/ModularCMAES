@@ -58,7 +58,7 @@ class ModularCMAES:
             repeats = 0
             while target[0] != self.parameters.subpopulation_target:
                 if repeats == 100:
-                    x = self.parameters.x0.reshape(self.parameters.d,)
+                    x = self.parameters.m
                     break
                 s = np.ones(1) * (s*.8)
                 z = np.hstack(tuple(islice(self.parameters.sampler, 1)))
