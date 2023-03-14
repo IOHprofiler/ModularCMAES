@@ -83,6 +83,21 @@ class AnyOf(Descriptor):
             )
         super().__set__(instance, value)
 
+class UnionOf(Descriptor):
+    def __init__(self, options=None):
+        """Set options."""
+        self.options = options
+
+    def __set__(self, instance, value):
+        """Set the value of instance to value, checks value of argument to match self.options.
+
+        Raises
+        ------
+        TypeError
+            If type of the argument does not match self.dtype        
+
+        """
+        super().__set__(instance, value)
 
 class AnnotatedStructMeta(type):
     """Metaclass for class for AnnotatedStruct.
@@ -127,6 +142,8 @@ class AnnotatedStructMeta(type):
 
             if isinstance(annotation, (list, tuple)):
                 attrs[key] = AnyOf(annotation)
+            elif type(annotation) == typing._UnionGenericAlias:
+                attrs[key] = UnionOf(annotation)
             else:
                 if (
                     not type(annotation) == type
