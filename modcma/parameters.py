@@ -18,7 +18,6 @@ from .sampling import (
     Sobol, 
     Halton
 )
-from sklearn.svm import LinearSVC
 
 class Parameters(AnnotatedStruct):
     """AnnotatedStruct object for holding the parameters for the ModularCMAES.
@@ -290,8 +289,9 @@ class Parameters(AnnotatedStruct):
     sobol: TypeVar("Sobol") = None
     halton: TypeVar("Halton") = None
 
-    svc: LinearSVC = None
-    subpopulation_target: str = '1'
+    svm: TypeVar('SVC') = None
+    subpopulation_target: str = None
+    area_coefs: list = None
 
     __modules__ = (
         "active",

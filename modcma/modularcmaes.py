@@ -10,7 +10,7 @@ from .parameters import Parameters
 from .population import Population
 from .utils import timeit, ert
 
-from sklearn.svm import LinearSVC
+from sklearn.svm import SVC
 
 
 class ModularCMAES:
@@ -47,27 +47,46 @@ class ModularCMAES:
             else Parameters(*args, **kwargs)
         )
 
-    def sub_area_correction(self, x: np.ndarray):
+    def ortho_projection(self, point: np.ndarray):
+        centroid = self.parameters.m.reshape((point.shape))
+        coefs = self.parameters.area_coefs
+
+        intersections, distances = [], []
+        for coef_, intercept_ in coefs:
+            f = np.append(coef_, 0)
+            # solve for vector intercept
+            A = [f]
+            B = [intercept_]
+            t = centroid - point
+            for i in range(len(t)):
+                x = np.zeros((len(t)+1,))
+                x[i] = 1
+                x[-1] = t[i]
+                A.append(x)
+                B.append(point[i])
+            intersection = np.linalg.solve(A, B)[:-1]
+            intersections.append(intersection)
+            distances.append(np.linalg.norm(centroid - intersection))
+        j = np.argmin(distances)
+        plane = coefs[j][0]
+        vector = point - intersections[j]
+        # projection
+        pj = -np.dot(plane, vector) / np.dot(plane, plane)
+        pj_point = plane*pj + point
+        return pj_point
+
+    def sub_area_correction(self, x: np.ndarray, mode: str):
         X = x.T
-        Y = self.parameters.svc.predict(X)
-        I = [j for j in range(len(Y)) if Y[j] != self.parameters.subpopulation_target]
-        s = np.array(self.parameters.sigma)
-        # print(I)
-        for i in I:
-            target = Y[i]
-            repeats = 0
-            while target[0] != self.parameters.subpopulation_target:
-                if repeats == 100:
-                    x = self.parameters.m
-                    break
-                s = np.ones(1) * (s*.8)
-                z = np.hstack(tuple(islice(self.parameters.sampler, 1)))
-                y = np.dot(self.parameters.B, self.parameters.D * z)
-                x = self.parameters.m + (s * y)
-                target = self.parameters.svc.predict(x.T)
-                # print(target, self.parameters.subpopulation_target, repeats)
-                repeats += 1
-            X[i] = x.reshape((self.parameters.d, ))
+        if mode == 'svm':
+            if not isinstance(self.parameters.svm, SVC):
+                raise ValueError("Area bounding object is not set correctly for SVM.")
+            Y = self.parameters.svm.predict(X)
+            I = [j for j in range(len(Y)) if Y[j] != self.parameters.subpopulation_target]
+            for i in I:
+                X[i] = self.ortho_projection(X[i])
+        else:
+            raise ValueError("No correct area correction method selected.")
+        
         return X.T
 
     def mutate(self) -> None:
@@ -110,7 +129,7 @@ class ModularCMAES:
         x = self.parameters.m + (s * y)
 
         if self.parameters.initialization_correction:
-            x = self.sub_area_correction(x)
+            x = self.sub_area_correction(x, self.parameters.initialization_correction)
 
         x, n_out_of_bounds = correct_bounds(
             x, 
