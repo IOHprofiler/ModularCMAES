@@ -389,7 +389,7 @@ if __name__ == "__main__":
     if args.subpop_type == 1:
         # no subpopulations, hard-coded size (hard-coded for now)
         lambda_ = [100]
-        mu_ = [10] 
+        mu_ = [100] 
     elif args.subpop_type == 2:
         # no subpopulations, hard-coded size (hard-coded for now)
         lambda_ = [5, 5]
