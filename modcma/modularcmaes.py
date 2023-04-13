@@ -107,7 +107,6 @@ class ModularCMAES:
             (point, f"predicted: {label}, required: {self.parameters.subpopulation_target}"),
             (pj_point, f"fixed point"),
         ])
-        # exit(0)
         return pj_point
 
     def sub_area_correction(self, x: np.ndarray, mode: str):
