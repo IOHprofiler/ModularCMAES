@@ -12,6 +12,34 @@ from .utils import timeit, ert
 
 from sklearn.svm import SVC
 
+import matplotlib.pyplot as plt
+
+def plot_svm(svm, centroids=None, labels=None, points=None, show=True):
+    _, ax = plt.subplots()
+    if centroids is not None:
+        assert centroids.shape[1] == 2, "this only works for 2d"
+        for c, l, col in zip(centroids, labels, ("blue", "red")):
+            ax.scatter(*c, label=l, color=col)
+
+    w = svm.coef_[0]           
+    x = np.linspace(-5, 5)    
+    bound = -(w[0] / w[1]) * x - svm.intercept_[0] / w[1]
+
+    ax.plot(x, bound, label="bound")
+    ax.fill_between(x, np.ones(len(x))*-5, bound, interpolate=True, color='blue', alpha=.3)
+    ax.fill_between(x, np.ones(len(x))*5, bound, interpolate=True, color='red', alpha=.3)
+    if points:
+        for p, l in points:
+            ax.scatter(*p, label=l)
+
+    ax.grid()
+    ax.legend()
+    ax.set_xlim(-5, 5)
+    ax.set_ylim(-5, 5)
+    if show:
+        plt.show()
+    return ax
+
 
 class ModularCMAES:
     r"""The main class of the configurable CMA ES continous optimizer.
@@ -47,7 +75,7 @@ class ModularCMAES:
             else Parameters(*args, **kwargs)
         )
 
-    def ortho_projection(self, point: np.ndarray):
+    def ortho_projection(self, point: np.ndarray, label:str):
         centroid = self.parameters.m.reshape((point.shape))
         coefs = self.parameters.area_coefs
 
@@ -73,6 +101,12 @@ class ModularCMAES:
         # projection
         pj = -np.dot(plane, vector) / np.dot(plane, plane)
         pj_point = plane*pj + point
+        
+        plot_svm(self.parameters.svm, points=[
+            (centroid, f"centroid: {self.parameters.subpopulation_target}"),
+            (point, f"predicted: {label}, required: {self.parameters.subpopulation_target}"),
+            (pj_point, f"fixed point"),
+        ])
         return pj_point
 
     def sub_area_correction(self, x: np.ndarray, mode: str):
@@ -81,9 +115,10 @@ class ModularCMAES:
             if not isinstance(self.parameters.svm, SVC):
                 raise ValueError("Area bounding object is not set correctly for SVM.")
             Y = self.parameters.svm.predict(X)
+            
             I = [j for j in range(len(Y)) if Y[j] != self.parameters.subpopulation_target]
             for i in I:
-                X[i] = self.ortho_projection(X[i])
+                X[i] = self.ortho_projection(X[i], Y[i])
         else:
             raise ValueError("No correct area correction method selected.")
         
@@ -130,6 +165,7 @@ class ModularCMAES:
 
         if self.parameters.initialization_correction:
             x = self.sub_area_correction(x, self.parameters.initialization_correction)
+            # inverse such that y and z match the new x points             
 
         x, n_out_of_bounds = correct_bounds(
             x, 
