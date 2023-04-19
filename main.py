@@ -1,15 +1,15 @@
 import ioh
 from scipy.stats.qmc import scale, LatinHypercube as lhs, PoissonDisk as pds
-from sklearn.svm import LinearSVC, SVC
+from sklearn.svm import SVC
 from modcma import Parameters, Population, ModularCMAES
 from argparse import ArgumentParser
 import numpy as np
-from itertools import combinations 
+from itertools import combinations
 from typing import List
 
 
 def initialize_parameters(
-    problem: ioh.ProblemClass,
+    problem: ioh.ProblemType,
     budget: int,
     lambda_: int,
     mu_: int,
@@ -49,7 +49,6 @@ def initialize_parameters(
     CMAES_params = Parameters(
         d=problem.meta_data.n_variables,
         lambda_=lambda_,
-        # mu=mu_, # JACOB: removed this
         x0=x0,
         initialization_correction=initialization_correction,
         svm=svm,
@@ -89,7 +88,7 @@ def initialize_parameters(
 
 
 def initialize_centroids(
-    problem: ioh.ProblemClass, sub_pop: int, init_method: str
+    problem: ioh.ProblemType, sub_pop: int, init_method: str
 ) -> np.ndarray:
     if init_method == "uniform":
         return np.float64(
@@ -110,7 +109,7 @@ def initialize_centroids(
                 u_bounds=problem.bounds.ub,
             )
         )
-    elif init_method == "poisson":
+    elif init_method == "poisson":  # remove?
         return np.float64(
             scale(
                 pds(d=problem.meta_data.n_variables).random(sub_pop),
@@ -152,7 +151,7 @@ def initialize(
         fid=problem_id,
         instance=problem_instance,
         dimension=dimension,
-        problem_class=ioh.ProblemClass.BBOB,
+        problem_type=ioh.ProblemType.BBOB,
     )  # TODO replace dimension
     # print(problem)
 
@@ -199,7 +198,6 @@ def initialize(
     return run_cma(
         CMAES=cmaes, iterations=iterations, corr=svm, sharing_point=sharing_point
     )
-
 
 
 def run_cma(
@@ -272,7 +270,6 @@ def main(
     # TODO fix run algo
     # cmaes = run_cma(CMAES=cmaes, iterations=iterations, sharing_point=sharing_point)
 
-
     # display results
     for cma in cmaes:
         print(
@@ -292,7 +289,7 @@ def normal_cma_benchmark(
         fid=problem_id,
         instance=1,
         dimension=dimension,
-        problem_type=ioh.ProblemClass.BBOB,
+        problem_type=ioh.ProblemType.BBOB,
     )
 
     logger = ioh.logger.Analyzer(
@@ -315,7 +312,7 @@ def normal_cma_benchmark(
 
 if __name__ == "__main__":
     # TODO: seed
-    np.random.seed(2500)
+    np.random.seed(7)
     parser = ArgumentParser()
     parser.add_argument(
         "-pid",
@@ -385,19 +382,18 @@ if __name__ == "__main__":
 
     # TODO update lambda_ and mu_ arguments for subpopulation
 
-    
     if args.subpop_type == 1:
         # no subpopulations, hard-coded size (hard-coded for now)
         lambda_ = [100]
-        mu_ = [100] 
+        mu_ = [100]
     elif args.subpop_type == 2:
         # no subpopulations, hard-coded size (hard-coded for now)
-        lambda_ = [5, 5]
+        lambda_ = [50, 50]
         mu_ = [50, 50]
     elif args.subpop_type == 3:
         # multiple subpopulations, same sizes (hard-coded for now)
-        lambda_ = [20, 20, 20, 20, 20]
-        mu_ = [20, 20, 20, 20, 20]
+        lambda_ = [20, 20, 20, 20]
+        mu_ = [20, 20, 20, 20]
     elif args.subpop_type == 4:
         # multiple subpopulations, same sizes (hard-coded for now)
         lambda_ = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]

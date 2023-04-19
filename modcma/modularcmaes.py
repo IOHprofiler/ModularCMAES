@@ -40,6 +40,30 @@ def plot_svm(svm, centroids=None, labels=None, points=None, show=True):
         plt.show()
     return ax
 
+def plot_corrected(X: np.ndarray, centroid: np.ndarray, I: list, coefs: list):
+    if centroid is not None:
+        assert centroid.shape[0] == 2, "this only works for 2d"
+    
+    _, ax = plt.subplots(1, 1, figsize=(7, 7))
+    for coef, intercept in coefs:
+        a = -coef[0] / coef[1]
+        x = np.linspace(-6,6)
+        y = a*x - intercept / coef[1]
+        ax.plot(x, y)
+
+    ax.scatter(centroid[0], centroid[1], color='red')
+
+    in_bounds = np.delete(X, I, 1).T
+    ax.scatter(in_bounds[:,0], in_bounds[:,1])
+    out_bounds = np.take(X, I, 1).T
+    ax.scatter(out_bounds[:,0], out_bounds[:,1])
+
+    ax.grid()
+    ax.legend()
+    ax.set_xlim(-5, 5)
+    ax.set_ylim(-5, 5)
+    plt.show()
+
 
 class ModularCMAES:
     r"""The main class of the configurable CMA ES continous optimizer.
@@ -79,12 +103,12 @@ class ModularCMAES:
         centroid = self.parameters.m.reshape((point.shape))
         coefs = self.parameters.area_coefs
 
-        intersections, distances = [], []
+        intersections = []
         for coef_, intercept_ in coefs:
             f = np.append(coef_, 0)
             # solve for vector intercept
             A = [f]
-            B = [intercept_]
+            B = [-intercept_]
             t = centroid - point
             for i in range(len(t)):
                 x = np.zeros((len(t)+1,))
@@ -94,19 +118,23 @@ class ModularCMAES:
                 B.append(point[i])
             intersection = np.linalg.solve(A, B)[:-1]
             intersections.append(intersection)
-            distances.append(np.linalg.norm(centroid - intersection))
-        j = np.argmin(distances)
+        valids = []
+        for i, intersection in enumerate(intersections):
+            if abs(np.linalg.norm(centroid - point) - (np.linalg.norm(centroid - intersection) + np.linalg.norm(intersection - point))) < 1e-10:
+                valids.append(i)
+        distances = [np.linalg.norm(intersections[i] - centroid) for i in valids]
+        j = valids[np.argmin(distances)]
         plane = coefs[j][0]
         vector = point - intersections[j]
         # projection
         pj = -np.dot(plane, vector) / np.dot(plane, plane)
         pj_point = plane*pj + point
         
-        plot_svm(self.parameters.svm, points=[
-            (centroid, f"centroid: {self.parameters.subpopulation_target}"),
-            (point, f"predicted: {label}, required: {self.parameters.subpopulation_target}"),
-            (pj_point, f"fixed point"),
-        ])
+        # plot_svm(self.parameters.svm, points=[
+        #     (centroid, f"centroid: {self.parameters.subpopulation_target}"),
+        #     (point, f"predicted: {label}, required: {self.parameters.subpopulation_target}"),
+        #     (pj_point, f"fixed point"),
+        # ]) TODO REMOVE when done
         return pj_point
 
     def sub_area_correction(self, x: np.ndarray, mode: str):
@@ -117,11 +145,12 @@ class ModularCMAES:
             Y = self.parameters.svm.predict(X)
             
             I = [j for j in range(len(Y)) if Y[j] != self.parameters.subpopulation_target]
+            # plot_corrected(x, self.parameters.m, I, self.parameters.area_coefs) #TODO REMOVE when done
             for i in I:
                 X[i] = self.ortho_projection(X[i], Y[i])
         else:
             raise ValueError("No correct area correction method selected.")
-        
+        # plot_corrected(X.T, self.parameters.m, I, self.parameters.area_coefs) #TODO REMOVE when done
         return X.T
 
     def mutate(self) -> None:
