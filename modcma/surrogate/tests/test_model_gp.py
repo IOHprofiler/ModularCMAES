@@ -124,13 +124,14 @@ class Test_GaussianProcessBasicSelection(unittest.TestCase):
     def test_quadratic(self):
         data = np.random.rand(50, 1)
         target = data[:,0]**2
+        target -= np.mean(target)
 
         parameters = Parameters(1)
         parameters.surrogate_model_gp_noisy_samples = False
         model = GaussianProcessBasicSelection(parameters)
         model.fit(data, target)
 
-        self.assertIsInstance(model.best_model._kernel_obj, Quadratic)
+        self.assertIs(model.best_model.KERNEL_CLS, Quadratic)
 
     def test_linear(self):
         data = np.random.rand(50, 2)
@@ -141,10 +142,11 @@ class Test_GaussianProcessBasicSelection(unittest.TestCase):
         model = GaussianProcessBasicSelection(parameters)
         model.fit(data, target)
 
-        self.assertIsInstance(model.best_model._kernel_obj, Linear)
+        self.assertIs(model.best_model.KERNEL_CLS, Linear)
 
     def test_sin(self):
-        data = np.random.rand(272, 1) * 3.14 * 100
+        data = np.random.rand(75, 1) * 3.14 * 100
+        #data = np.random.rand(272, 1) * 3.14 * 100
 
         target = np.sin(data/4 + 0.14)
 
@@ -152,7 +154,7 @@ class Test_GaussianProcessBasicSelection(unittest.TestCase):
         model = GaussianProcessBasicSelection(parameters)
         model.fit(data, target)
 
-        self.assertIsInstance(model.best_model._kernel_obj, ExpSinSquared)
+        self.assertIs(model.best_model.KERNEL_CLS, ExpSinSquared)
 
     def test_generator(self):
         parameters = Parameters(1)
@@ -165,11 +167,12 @@ class Test_GaussianProcessBasicSelection(unittest.TestCase):
 
 class Test_GaussianProcessExtendedSelection(unittest.TestCase):
     def combination_number(self, a):
+        # combinations with replacement (n over 2)
         return math.factorial(a + 2 - 1) // math.factorial(2) // math.factorial(a - 1)
 
     def test_generator_additive(self):
         parameters = Parameters(1)
-        model = GaussianProcessBasicSelection(parameters)
+        model = GaussianProcessBasicAdditiveSelection(parameters)
         self.assertEqual(
             len(list(model._generate_kernel_space())),
             len(model._building_blocks) +
@@ -180,7 +183,7 @@ class Test_GaussianProcessExtendedSelection(unittest.TestCase):
 
     def test_generator_multiplicative(self):
         parameters = Parameters(1)
-        model = GaussianProcessBasicSelection(parameters)
+        model = GaussianProcessBasicMultiplicativeSelection(parameters)
         self.assertEqual(
             len(list(model._generate_kernel_space())),
             len(model._building_blocks) +
@@ -190,11 +193,11 @@ class Test_GaussianProcessExtendedSelection(unittest.TestCase):
 
     def test_generator_both(self):
         parameters = Parameters(1)
-        model = GaussianProcessBasicSelection(parameters)
+        model = GaussianProcessBasicBinarySelection(parameters)
         self.assertEqual(
             len(list(model._generate_kernel_space())),
             len(model._building_blocks) +
-            self.combination_number(len(model._building_blocks)) - 3
+            2*self.combination_number(len(model._building_blocks)) - 3
         )
 
 

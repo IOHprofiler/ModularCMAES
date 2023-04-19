@@ -132,8 +132,11 @@ class _ModelBuilding_Noiseless(_ModelBuildingBase):
                              X,
                              observation_index_points=None,
                              observations=None):
-        observation_index_points = observation_index_points or self.observation_index_points
-        observations = observations or self.observations
+        if observation_index_points is None:
+            assert(observations is None)
+
+            observation_index_points = self.observation_index_points
+            observations = self.observations
 
         return tfd.GaussianProcessRegressionModel(
             kernel=self.kernel.kernel(),
@@ -369,12 +372,14 @@ class _GaussianProcessModel:
     def df(self) -> int:
         return 0
 
+
 class GaussianProcess(_GaussianProcessModel, SurrogateModelBase):
     def __init__(self, parameters: Parameters):
         SurrogateModelBase.__init__(self, parameters)
         # loads the kernel form settings
         KERNEL_CLS = eval(self.parameters.surrogate_model_gp_kernel)
         _GaussianProcessModel.__init__(self, parameters, KERNEL_CLS)
+
 
 class _GaussianProcessModelMixtureBase:
     TRAIN_MAX_MODELS: Optional[int] = None
@@ -435,7 +440,7 @@ class _GaussianProcessModelMixtureBase:
         return self.best_model._predict_with_confidence(X)
 
 
-class GaussianProcessBasicSelection(SurrogateModelBase, _GaussianProcessModelMixtureBase):
+class GaussianProcessBasicSelection(_GaussianProcessModelMixtureBase, SurrogateModelBase):
     def __init__(self, parameters: Parameters):
         SurrogateModelBase.__init__(self, parameters)
         _GaussianProcessModelMixtureBase.__init__(self, parameters)
@@ -444,10 +449,10 @@ class GaussianProcessBasicSelection(SurrogateModelBase, _GaussianProcessModelMix
         return super().df
 
     def _fit(self, X: XType, F: YType, W: YType) -> None:
-        return super(_GaussianProcessModelMixtureBase)._fit(X, F, W)
+        return super()._fit(X, F, W)
 
     def _predict(self, X: XType) -> YType:
-        return super(_GaussianProcessModelMixtureBase)._predict(X, F, W)
+        return super(_GaussianProcessModelMixtureBase, self)._predict(X)
 
 class GaussianProcessBasicAdditiveSelection(GaussianProcessBasicSelection):
     def _generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
@@ -458,7 +463,7 @@ class GaussianProcessBasicAdditiveSelection(GaussianProcessBasicSelection):
             yield a + b
 
 
-class GaussianProcessBasicMultiplicativeSelection:
+class GaussianProcessBasicMultiplicativeSelection(GaussianProcessBasicSelection):
     def _generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
         yield from super()._generate_kernel_space()
         for (a, b) in itertools.combinations_with_replacement(self._building_blocks, 2):
@@ -467,7 +472,7 @@ class GaussianProcessBasicMultiplicativeSelection:
             yield a * b
 
 
-class GaussianProcessBasicBinarySelection:
+class GaussianProcessBasicBinarySelection(GaussianProcessBasicSelection):
     def _generate_kernel_space(self) -> Generator[Type[GP_kernel_concrete_base], None, None]:
         yield from super()._generate_kernel_space()
         for (a, b) in itertools.combinations_with_replacement(self._building_blocks, 2):
