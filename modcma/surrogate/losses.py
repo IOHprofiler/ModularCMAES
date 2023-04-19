@@ -309,6 +309,8 @@ class SRDE(Loss):
         if isinstance(mu, int):
             assert(mu > 0)
             self.mu = mu
+        else:
+            raise RuntimeError("Mu is not set yet")
 
     def __call__(self, predict, target, **kwargs):
         super().__call__(predict, target)
