@@ -74,6 +74,8 @@ class TestSurrogateData_V1(unittest.TestCase, NumpyUnitTest):
             self.assertEqual(10-i-1, len(self.A))
 
     def test_pushmany(self):
+        self.S = Parameters(5, surrogate_data_sorting='lq', surrogate_data_mahalanobis_space=False)
+        self.A = SurrogateData_V1(self.S)
         L = [random.randint(1, 10) for _ in range(10)]
         G = [(np.random.rand(length, 5), np.random.rand(length, 1)) for length in L]
         for (x,f) in G:
