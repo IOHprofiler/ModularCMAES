@@ -1,5 +1,5 @@
 import ioh
-from scipy.stats.qmc import scale, LatinHypercube as lhs, PoissonDisk as pds
+from scipy.stats.qmc import scale, LatinHypercube as lhs
 from sklearn.svm import SVC
 from modcma import Parameters, Population, ModularCMAES
 from argparse import ArgumentParser
@@ -104,14 +104,6 @@ def initialize_centroids(
         return np.float64(
             scale(
                 lhs(d=problem.meta_data.n_variables).random(sub_pop),
-                l_bounds=problem.bounds.lb,
-                u_bounds=problem.bounds.ub,
-            )
-        )
-    elif init_method == "poisson":  # remove?
-        return np.float64(
-            scale(
-                pds(d=problem.meta_data.n_variables).random(sub_pop),
                 l_bounds=problem.bounds.lb,
                 u_bounds=problem.bounds.ub,
             )
