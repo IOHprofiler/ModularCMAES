@@ -372,19 +372,15 @@ if __name__ == "__main__":
     if args.subpop_type == 1:
         # no subpopulations, hard-coded size (hard-coded for now)
         lambda_ = [100]
-        mu_ = [100]
     elif args.subpop_type == 2:
         # no subpopulations, hard-coded size (hard-coded for now)
         lambda_ = [50, 50]
-        mu_ = [50, 50]
     elif args.subpop_type == 3:
         # multiple subpopulations, same sizes (hard-coded for now)
-        lambda_ = [20, 20, 20, 20]
-        mu_ = [20, 20, 20, 20]
+        lambda_ = [20, 20, 20, 20, 20]
     elif args.subpop_type == 4:
         # multiple subpopulations, same sizes (hard-coded for now)
         lambda_ = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
-        mu_ = [10, 10, 10, 10, 10, 10, 10, 10, 10, 10]
 
     print("Subpopulation CMA-ES: start")
     main(
