@@ -1,9 +1,11 @@
 from modcma.surrogate.data import *
 
+from modcma.surrogate.tests.unittest_utils import NumpyUnitTest
+
 import unittest
 import random
 
-class TestSurrogateData_V1(unittest.TestCase):
+class TestSurrogateData_V1(unittest.TestCase, NumpyUnitTest):
     def assertEqual(self, first: Any, second: Any, msg: Any = ...) -> None:
         if isinstance(first, np.ndarray) and isinstance(second, np.ndarray):
             if first.shape == second.shape:
@@ -79,13 +81,13 @@ class TestSurrogateData_V1(unittest.TestCase):
         self.assertEqual(len(self.A), sum(L))
 
         target = np.concatenate([x for (x,f) in G], axis=0)
-        self.assertEqual(target, self.A.X)
+        self.assertArrayEqual(target, self.A.X)
 
         target = np.concatenate([f for (x,f) in G], axis=0)
         self.assertEqual(target, self.A.F)
 
     def test_sort(self):
-        self.S = Parameters(4, surrogate_data_sorting='lq')
+        self.S = Parameters(4, surrogate_data_sorting='lq', surrogate_data_mahalanobis_space=False)
         self.A = SurrogateData_V1(self.S)
         x = np.array([
             [1, 1, 3, 5],
@@ -108,8 +110,8 @@ class TestSurrogateData_V1(unittest.TestCase):
 
         for i in [0, 1]:
             self.A.sort(i)
-            self.assertEqual(self.A.X, x)
-            self.assertEqual(self.A.F, y)
+            self.assertArrayEqual(self.A.X, x)
+            self.assertArrayEqual(self.A.F, y)
 
         for i in range(2, 5+1):
             target = list(y[:-i]) + \
@@ -117,10 +119,10 @@ class TestSurrogateData_V1(unittest.TestCase):
             target = np.array(target)
 
             self.A.sort(i)
-            self.assertEqual(self.A.F, target)
+            self.assertArrayEqual(self.A.F, target)
 
-        self.assertEqual(self.A.F, np.array([[5, 4, 3, 2, 1.]]).T)
-        self.assertEqual(self.A.X, xok)
+        self.assertArrayEqual(self.A.F, np.array([[5, 4, 3, 2, 1.]]).T)
+        self.assertArrayEqual(self.A.X, xok)
 
     def test_max_size(self):
         S = Parameters(5)
@@ -176,7 +178,7 @@ class TestSurrogateData_V1(unittest.TestCase):
         self.assertEqual(A.W[-1], S.surrogate_data_max_weight)
 
     def test_prune(self):
-        S = Parameters(5)
+        S = Parameters(5, surrogate_data_mahalanobis_space=False)
 
         # FULL
         for size in [3, 4, 101, 200]:
@@ -192,10 +194,8 @@ class TestSurrogateData_V1(unittest.TestCase):
 
                 A.prune()
 
-                self.assertEqual(len(A.F), size)
-                self.assertEqual(len(A.X), size)
-                self.assertEqual(A.F, F[-size:])
-                self.assertEqual(A.X, X[-size:])
+                self.assertArrayEqual(A.F, F[-size:])
+                self.assertArrayEqual(A.X, X[-size:])
 
     @unittest.skip('TODO')
     def test_parameters(self):
