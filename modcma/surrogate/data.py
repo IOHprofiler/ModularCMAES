@@ -16,13 +16,15 @@ class SurrogateData_V1(metaclass=ABCMeta):
     def __init__(self, settings: Parameters):
         self.settings = settings
 
+        # (#Samples, Dimensions)
         self._X: Optional[XType] = None
+        # (#Samples, 1)
         self._F: Optional[YType] = None
 
     def push(self, x, f: Union[YType, float]):
         ''' push elements to the archive '''
-        x = np.atleast_2d(np.ravel(x))
-        f = np.atleast_2d(np.ravel(f))
+        x = np.array(x).reshape(1, -1)
+        f = np.array(f).reshape(-1,  1)
 
         if self._X is None or self._F is None:
             self._X, self._F = x, f
@@ -32,6 +34,10 @@ class SurrogateData_V1(metaclass=ABCMeta):
 
     def push_many(self, X, F):
         ''' same as push but with arrays '''
+        F = np.array(F).reshape(-1, 1)
+        assert(X.shape[1] == self.settings.d)
+        assert(X.shape[0] == F.shape[0])
+
         if self._X is None or self._F is None:
             self._X, self._F = X, F
         else:
@@ -149,7 +155,7 @@ class SurrogateData_V1(metaclass=ABCMeta):
 
         X = self._X[-self.model_size:]
         if self.settings.surrogate_data_mahalanobis_space:
-            X = self.settings.inv_root_C @ (X - self.settings.m.T)
+            X = (self.settings.inv_root_C @ (X.T - self.settings.m)).T
         return X
 
     @property

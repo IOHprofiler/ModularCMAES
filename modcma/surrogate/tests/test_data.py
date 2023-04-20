@@ -85,7 +85,7 @@ class TestSurrogateData_V1(unittest.TestCase):
         self.assertEqual(target, self.A.F)
 
     def test_sort(self):
-        self.S = Parameters(5, surrogate_data_sorting='lq')
+        self.S = Parameters(4, surrogate_data_sorting='lq')
         self.A = SurrogateData_V1(self.S)
         x = np.array([
             [1, 1, 3, 5],
@@ -201,3 +201,6 @@ class TestSurrogateData_V1(unittest.TestCase):
     def test_parameters(self):
         pass
 
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)
