@@ -14,6 +14,7 @@ from sklearn.svm import SVC
 
 import matplotlib.pyplot as plt
 
+
 def plot_svm(svm, centroids=None, labels=None, points=None, show=True):
     _, ax = plt.subplots()
     if centroids is not None:
@@ -103,32 +104,36 @@ class ModularCMAES:
         centroid = self.parameters.m.reshape((point.shape))
         coefs = self.parameters.area_coefs
 
-        intersections = []
-        for coef_, intercept_ in coefs:
-            f = np.append(coef_, 0)
-            # solve for vector intercept
-            A = [f]
-            B = [-intercept_]
-            t = centroid - point
-            for i in range(len(t)):
-                x = np.zeros((len(t)+1,))
-                x[i] = 1
-                x[-1] = t[i]
-                A.append(x)
-                B.append(point[i])
-            intersection = np.linalg.solve(A, B)[:-1]
-            intersections.append(intersection)
-        valids = []
-        for i, intersection in enumerate(intersections):
-            if abs(np.linalg.norm(centroid - point) - (np.linalg.norm(centroid - intersection) + np.linalg.norm(intersection - point))) < 1e-10:
-                valids.append(i)
-        distances = [np.linalg.norm(intersections[i] - centroid) for i in valids]
-        j = valids[np.argmin(distances)]
-        plane = coefs[j][0]
-        vector = point - intersections[j]
-        # projection
-        pj = -np.dot(plane, vector) / np.dot(plane, plane)
-        pj_point = plane*pj + point
+        try:
+            intersections = []
+            for coef_, intercept_ in coefs:
+                f = np.append(coef_, 0)
+                # solve for vector intercept
+                A = [f]
+                B = [-intercept_]
+                t = centroid - point
+                for i in range(len(t)):
+                    x = np.zeros((len(t)+1,))
+                    x[i] = 1
+                    x[-1] = t[i]
+                    A.append(x)
+                    B.append(point[i])
+                intersection = np.linalg.solve(A, B)[:-1]
+                intersections.append(intersection)
+            valids = []
+            for i, intersection in enumerate(intersections):
+                if abs(np.linalg.norm(centroid - point) - (np.linalg.norm(centroid - intersection) + np.linalg.norm(intersection - point))) < 1e-10:
+                    valids.append(i)
+            if len(valids) == 0: return centroid
+            distances = [np.linalg.norm(intersections[i] - centroid) for i in valids]
+            j = valids[np.argmin(distances)]
+            plane = coefs[j][0]
+            vector = point - intersections[j]
+            # projection
+            pj = -np.dot(plane, vector) / np.dot(plane, plane)
+            pj_point = plane*pj + point
+        except np.linalg.LinAlgError:
+            return centroid
         
         # plot_svm(self.parameters.svm, points=[
         #     (centroid, f"centroid: {self.parameters.subpopulation_target}"),

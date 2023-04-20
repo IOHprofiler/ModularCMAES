@@ -290,7 +290,7 @@ class Parameters(AnnotatedStruct):
     halton: TypeVar("Halton") = None
 
     svm: TypeVar('SVC') = None
-    subpopulation_target: str = None
+    subpopulation_target: int = None
     area_coefs: list = None
 
     __modules__ = (

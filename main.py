@@ -152,9 +152,8 @@ def initialize(
     svm = None
     labels = [None] * len(lambda_)
     if init_corr:
-        labels = [str(n) for n in range(1, len(x0) + 1)]
+        labels = list(range(len(x0)))
         svm = SVC(kernel="linear").fit(x0, labels)
-    print(svm, labels)
 
     x0 = x0.reshape((len(lambda_), problem.meta_data.n_variables, 1))
 
@@ -179,8 +178,8 @@ def initialize(
             bound_correction=bound_corr,
             initialization_correction=init_corr,
             svm=svm,
-            subpopulation_target=labels[i],
-            area_coefs=extract_svm_coefs(svm, labels, labels[i]),
+            subpopulation_target=i,
+            area_coefs=extract_svm_coefs(svm, labels, i),
         )
         cmaes.append(ModularCMAES(fitness_func=problem, parameters=params))
 
@@ -195,7 +194,6 @@ def run_cma(
     corr: SVC,
     sharing_point: int,
 ):
-    labels = [str(n) for n in range(1, len(lambda_) + 1)]
     break_conditions = [None] * len(lambda_)
 
     for _ in range(iterations):
@@ -203,7 +201,7 @@ def run_cma(
             if corr:
                 CMAES[i].parameters.svm = corr
                 CMAES[i].parameters.area_coefs = extract_svm_coefs(
-                    corr, labels, labels[i]
+                    corr, range(len(lambda_)), i
                 )
             break_conditions[i] = CMAES[i].step()
             # print(break_condition)
@@ -220,7 +218,7 @@ def run_cma(
                     for n in range(len(CMAES))
                 ]
             )
-            corr = SVC(kernel="linear").fit(centroids, labels)
+            corr = SVC(kernel="linear").fit(centroids, range(len(lambda_)))
     return CMAES
 
 
