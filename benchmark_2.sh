@@ -1,39 +1,16 @@
-# benchmarking initialization techniques
 echo 'BENCHMARK START'
-for i in {1,3,5}
+for i in {1..3}
 do
     echo iter $i
-    for j in {1..3}
+    for j in {3,4}
     do
-        echo iter iter $j
-        python main.py -pid 3 -iid $i -d 5 -pt 2 -n 'SP[20]-CMA'
-        python main.py -pid 3 -iid $i -d 20 -pt 2 -n 'SP[20]-CMA'
-        python main.py -pid 4 -iid $i -d 5 -pt 2 -n 'SP[20]-CMA'
-        python main.py -pid 4 -iid $i -d 20 -pt 2 -n 'SP[20]-CMA'
-        # python main.py -pid 3 -iid $i -d 5 -pt 3 -n 'SP[10]-CMA-UNI'
-        # python main.py -pid 3 -iid $i -d 20 -pt 3 -n 'SP[10]-CMA-UNI'
-        # python main.py -pid 4 -iid $i -d 5 -pt 3 -n 'SP[10]-CMA-UNI'
-        # python main.py -pid 4 -iid $i -d 20 -pt 3 -n 'SP[10]-CMA-UNI'
-
-
-        python main.py -pid 3 -iid $i -d 5 -pt 2 -n 'SP[20]-CMA-LHS' -s lhs
-        python main.py -pid 3 -iid $i -d 20 -pt 2 -n 'SP[20]-CMA-LHS' -s lhs
-        python main.py -pid 4 -iid $i -d 5 -pt 2 -n 'SP[20]-CMA-LHS' -s lhs
-        python main.py -pid 4 -iid $i -d 20 -pt 2 -n 'SP[20]-CMA-LHS' -s lhs
-        # python main.py -pid 3 -iid $i -d 5 -pt 3 -n 'SP[10]-CMA-LHS' -s lhs
-        # python main.py -pid 3 -iid $i -d 20 -pt 3 -n 'SP[10]-CMA-LHS' -s lhs
-        # python main.py -pid 4 -iid $i -d 5 -pt 3 -n 'SP[10]-CMA-LHS' -s lhs
-        # python main.py -pid 4 -iid $i -d 20 -pt 3 -n 'SP[10]-CMA-LHS' -s lhs
-
-
-        python main.py -pid 3 -iid $i -d 5 -pt 2 -n 'SP[20]-CMA-SOBOL' -s sobol
-        python main.py -pid 3 -iid $i -d 20 -pt 2 -n 'SP[20]-CMA-SOBOL' -s sobol
-        python main.py -pid 4 -iid $i -d 5 -pt 2 -n 'SP[20]-CMA-SOBOL' -s sobol
-        python main.py -pid 4 -iid $i -d 20 -pt 2 -n 'SP[20]-CMA-SOBOL' -s sobol
-        # python main.py -pid 3 -iid $i -d 5 -pt 3 -n 'SP[10]-CMA-SOBOL' -s sobol
-        # python main.py -pid 3 -iid $i -d 20 -pt 3 -n 'SP[10]-CMA-SOBOL' -s sobol
-        # python main.py -pid 4 -iid $i -d 5 -pt 3 -n 'SP[10]-CMA-SOBOL' -s sobol
-        # python main.py -pid 4 -iid $i -d 20 -pt 3 -n 'SP[10]-CMA-SOBOL' -s sobol
-    done    
+        for d in {5,20}
+        do
+            python main.py -pid $j -iid $i -d $d -pt 1 -n 'ModCMA'
+            python main.py -pid $j -iid $i -d $d -pt 2 -n 'SP[50]-CMA-SVM' -ic svm
+            python main.py -pid $j -iid $i -d $d -pt 3 -n 'SP[20]-CMA-SVM' -ic svm
+            python main.py -pid $j -iid $i -d $d -pt 4 -n 'SP[10]-CMA-SVM' -ic svm
+        done
+    done
 done
 echo 'BENCHMARK COMPLETE'
