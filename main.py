@@ -12,7 +12,6 @@ def initialize_parameters(
     problem: ioh.ProblemType,
     budget: int,
     lambda_: int,
-    mu_: int,
     n_generations: int = None,
     x0: np.ndarray = None,
     sigma0: float = 0.2,
@@ -139,7 +138,6 @@ def initialize(
     budget: int,
     iterations: int,
     lambda_: List[int],
-    mu_: List[int],
     bound_corr: str,
     init_method: str,
     sigma0: float,
@@ -184,7 +182,6 @@ def initialize(
             problem=problem,
             budget=budget,
             lambda_=lambda_[i],
-            mu_=mu_[i],
             x0=x0[i],
             sigma0=sigma0,
             bound_correction=bound_corr,
@@ -242,7 +239,6 @@ def main(
     iterations: int,
     budget: int,
     lambda_: int,
-    mu_: int,
     bound_corr: str,
     init_method: str,
     sigma0: float,
@@ -258,7 +254,6 @@ def main(
         budget=budget,
         iterations=iterations,
         lambda_=lambda_,
-        mu_=mu_,
         bound_corr=bound_corr,
         init_method=init_method,
         sigma0=sigma0,
@@ -301,7 +296,7 @@ def normal_cma_benchmark(
     problem.attach_logger(logger)
 
     params = initialize_parameters(
-        problem=problem, budget=budget, lambda_=lambda_, mu_=mu_
+        problem=problem, budget=budget, lambda_=lambda_
     )
 
     cmaes = ModularCMAES(fitness_func=problem, parameters=params)
@@ -407,7 +402,6 @@ if __name__ == "__main__":
         iterations=args.iterations,
         budget=int(args.budget * args.dimension),
         lambda_=lambda_,
-        mu_=mu_,
         init_method=args.init_method,
         sigma0=args.sigma0,
         bound_corr=args.bound_corr,
