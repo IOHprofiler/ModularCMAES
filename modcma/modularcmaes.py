@@ -22,13 +22,17 @@ def plot_svm(svm, centroids=None, labels=None, points=None, show=True):
         for c, l, col in zip(centroids, labels, ("blue", "red")):
             ax.scatter(*c, label=l, color=col)
 
-    w = svm.coef_[0]           
-    x = np.linspace(-5, 5)    
+    w = svm.coef_[0]
+    x = np.linspace(-5, 5)
     bound = -(w[0] / w[1]) * x - svm.intercept_[0] / w[1]
 
     ax.plot(x, bound, label="bound")
-    ax.fill_between(x, np.ones(len(x))*-5, bound, interpolate=True, color='blue', alpha=.3)
-    ax.fill_between(x, np.ones(len(x))*5, bound, interpolate=True, color='red', alpha=.3)
+    ax.fill_between(
+        x, np.ones(len(x)) * -5, bound, interpolate=True, color="blue", alpha=0.3
+    )
+    ax.fill_between(
+        x, np.ones(len(x)) * 5, bound, interpolate=True, color="red", alpha=0.3
+    )
     if points:
         for p, l in points:
             ax.scatter(*p, label=l)
@@ -44,26 +48,94 @@ def plot_svm(svm, centroids=None, labels=None, points=None, show=True):
 def plot_corrected(X: np.ndarray, centroid: np.ndarray, I: list, coefs: list):
     if centroid is not None:
         assert centroid.shape[0] == 2, "this only works for 2d"
-    
+
     _, ax = plt.subplots(1, 1, figsize=(7, 7))
     for coef, intercept in coefs:
         a = -coef[0] / coef[1]
-        x = np.linspace(-6,6)
-        y = a*x - intercept / coef[1]
+        x = np.linspace(-6, 6)
+        y = a * x - intercept / coef[1]
         ax.plot(x, y)
 
-    ax.scatter(centroid[0], centroid[1], color='red')
+    ax.scatter(centroid[0], centroid[1], color="red")
 
     in_bounds = np.delete(X, I, 1).T
-    ax.scatter(in_bounds[:,0], in_bounds[:,1])
+    ax.scatter(in_bounds[:, 0], in_bounds[:, 1])
     out_bounds = np.take(X, I, 1).T
-    ax.scatter(out_bounds[:,0], out_bounds[:,1])
+    ax.scatter(out_bounds[:, 0], out_bounds[:, 1])
 
     ax.grid()
     ax.legend()
     ax.set_xlim(-5, 5)
     ax.set_ylim(-5, 5)
     plt.show()
+
+def get_intersections(centroid: np.ndarray, coefs: list, point: np.ndarray):
+    intersections = []
+    for coef_, intercept_ in coefs:
+        A = [np.append(coef_, 0)]
+        B = [-intercept_]
+        t = centroid - point
+        for i in range(len(t)):
+            x = np.zeros((len(t) + 1))
+            x[i] = 1
+            x[-1] = t[i]
+            A.append(x)
+            B.append(point[i])
+        intersections.append(np.linalg.solve(A, B)[:-1])
+    on_segment = []
+    for i, intersection in enumerate(intersections):
+        if (
+            abs(np.linalg.norm(intersection - point)) > 1e-10
+            and abs(
+                np.linalg.norm(centroid - point)
+                - (
+                    np.linalg.norm(centroid - intersection)
+                    + np.linalg.norm(intersection - point)
+                )
+            )
+            < 1e-10
+        ):
+            on_segment.append(i)
+    return on_segment, intersections
+
+def closest_intersect(
+    centroid: np.ndarray, on_segment: list[int], intersections: list[np.ndarray]
+):
+    distances = [np.linalg.norm(intersections[i] - centroid) for i in on_segment]
+    return on_segment[np.argmin(distances)]
+
+def ortho_projection(
+    centroid: np.ndarray,
+    coefs: list,
+    point: np.ndarray,
+    predict: SVC.predict,
+    target: int,
+):
+    on_segment, intersections = get_intersections(
+        centroid=centroid, point=point, coefs=coefs
+    )
+    if len(on_segment) == 0:
+        return point
+    j = closest_intersect(
+        centroid=centroid, on_segment=on_segment, intersections=intersections
+    )
+    plane = coefs[j][0]
+    vector = point - intersections[j]
+    # projection
+    pj = -np.dot(plane, vector) / np.dot(plane, plane)
+    pj_point = plane * pj + point
+    if (
+        predict([pj_point])[0] != target
+        or len(get_intersections(centroid=centroid, point=pj_point, coefs=coefs)[0]) > 0
+    ):
+        return ortho_projection(
+            centroid=centroid,
+            coefs=coefs,
+            point=pj_point,
+            target=target,
+            predict=predict,
+        )
+    return pj_point
 
 
 class ModularCMAES:
@@ -100,7 +172,7 @@ class ModularCMAES:
             else Parameters(*args, **kwargs)
         )
 
-    def ortho_projection(self, point: np.ndarray, label:str):
+    def ortho_projection(self, point: np.ndarray, label: str):
         centroid = self.parameters.m.reshape((point.shape))
         coefs = self.parameters.area_coefs
 
@@ -113,7 +185,7 @@ class ModularCMAES:
                 B = [-intercept_]
                 t = centroid - point
                 for i in range(len(t)):
-                    x = np.zeros((len(t)+1,))
+                    x = np.zeros((len(t) + 1,))
                     x[i] = 1
                     x[-1] = t[i]
                     A.append(x)
@@ -122,19 +194,29 @@ class ModularCMAES:
                 intersections.append(intersection)
             valids = []
             for i, intersection in enumerate(intersections):
-                if abs(np.linalg.norm(centroid - point) - (np.linalg.norm(centroid - intersection) + np.linalg.norm(intersection - point))) < 1e-10:
+                if (
+                    abs(
+                        np.linalg.norm(centroid - point)
+                        - (
+                            np.linalg.norm(centroid - intersection)
+                            + np.linalg.norm(intersection - point)
+                        )
+                    )
+                    < 1e-10
+                ):
                     valids.append(i)
-            if len(valids) == 0: return centroid
+            if len(valids) == 0:
+                return centroid
             distances = [np.linalg.norm(intersections[i] - centroid) for i in valids]
             j = valids[np.argmin(distances)]
             plane = coefs[j][0]
             vector = point - intersections[j]
             # projection
             pj = -np.dot(plane, vector) / np.dot(plane, plane)
-            pj_point = plane*pj + point
+            pj_point = plane * pj + point
         except np.linalg.LinAlgError:
             return centroid
-        
+
         # plot_svm(self.parameters.svm, points=[
         #     (centroid, f"centroid: {self.parameters.subpopulation_target}"),
         #     (point, f"predicted: {label}, required: {self.parameters.subpopulation_target}"),
@@ -144,15 +226,24 @@ class ModularCMAES:
 
     def sub_area_correction(self, x: np.ndarray, mode: str):
         X = x.T
-        if mode == 'svm':
+        if mode == "svm":
             if not isinstance(self.parameters.svm, SVC):
                 raise ValueError("Area bounding object is not set correctly for SVM.")
             Y = self.parameters.svm.predict(X)
-            
-            I = [j for j in range(len(Y)) if Y[j] != self.parameters.subpopulation_target]
+
+            I = [
+                j for j in range(len(Y)) if Y[j] != self.parameters.subpopulation_target
+            ]
             # plot_corrected(x, self.parameters.m, I, self.parameters.area_coefs) #TODO REMOVE when done
             for i in I:
-                X[i] = self.ortho_projection(X[i], Y[i])
+                # X[i] = self.ortho_projection(X[i], Y[i])
+                X[i] = ortho_projection(
+                    centroid=self.parameters.m,
+                    coefs=self.parameters.area_coefs,
+                    point=X[i],
+                    target=self.parameters.subpopulation_target,
+                    predict=self.parameters.svm.predict,
+                )
         else:
             raise ValueError("No correct area correction method selected.")
         # plot_corrected(X.T, self.parameters.m, I, self.parameters.area_coefs) #TODO REMOVE when done
@@ -182,10 +273,12 @@ class ModularCMAES:
 
         n_offspring = int(self.parameters.lambda_ - (2 * perform_tpa))
 
-        if self.parameters.step_size_adaptation == 'lp-xnes' or self.parameters.sample_sigma:
+        if (
+            self.parameters.step_size_adaptation == "lp-xnes"
+            or self.parameters.sample_sigma
+        ):
             s = np.random.lognormal(
-                np.log(self.parameters.sigma),
-                self.parameters.beta, size=n_offspring
+                np.log(self.parameters.sigma), self.parameters.beta, size=n_offspring
             )
         else:
             s = np.ones(n_offspring) * self.parameters.sigma
@@ -199,19 +292,16 @@ class ModularCMAES:
 
         if self.parameters.initialization_correction:
             x = self.sub_area_correction(x, self.parameters.initialization_correction)
-            # inverse such that y and z match the new x points             
+            # inverse such that y and z match the new x points
 
         x, n_out_of_bounds = correct_bounds(
-            x, 
-            self.parameters.ub,
-            self.parameters.lb,
-            self.parameters.bound_correction
+            x, self.parameters.ub, self.parameters.lb, self.parameters.bound_correction
         )
         self.parameters.n_out_of_bounds += n_out_of_bounds
-        
+
         if not self.parameters.sequential and self.parameters.vectorized_fitness:
             f = self._fitness_func(x.T)
-            self.parameters.used_budget += len(x.T)       
+            self.parameters.used_budget += len(x.T)
         else:
             f = np.empty(n_offspring, object)
             for i in range(n_offspring):
@@ -585,13 +675,13 @@ def evaluate_bbob(
     evals, fopts = np.array([]), np.array([])
     if seed:
         np.random.seed(seed)
-    fitness_func = ioh.get_problem(
-        fid, dimension=dim, instance=instance
-    )
+    fitness_func = ioh.get_problem(fid, dimension=dim, instance=instance)
 
     if logging:
         data_location = data_folder if os.path.isdir(data_folder) else os.getcwd()
-        logger = ioh.logger.Analyzer(root=data_location, folder_name=f"{label}F{fid}_{dim}D")
+        logger = ioh.logger.Analyzer(
+            root=data_location, folder_name=f"{label}F{fid}_{dim}D"
+        )
         fitness_func.attach_logger(logger)
 
     print(
