@@ -155,6 +155,7 @@ class SurrogateData_V1(metaclass=ABCMeta):
 
         X = self._X[-self.model_size:]
         if self.settings.surrogate_data_mahalanobis_space:
+            # TODO: check/fix dimensions self.settings.inv_root_C @ (X - self.settings.m.T).T ???
             X = (self.settings.inv_root_C @ (X.T - self.settings.m)).T
         return X
 

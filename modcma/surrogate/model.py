@@ -18,6 +18,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 
 from modcma.parameters import Parameters
 from modcma.typing_utils import XType, YType
+from modcma.utils import normalize_string
 
 
 ####################
@@ -30,10 +31,6 @@ class PureQuadraticFeatures(TransformerMixin, BaseEstimator):
 
     def transform(self, X) -> npt.NDArray[np.float64]:
         return np.hstack((X, np.square(X)))
-
-
-def normalize_string(s: str):
-    return s.lower().replace(' ', '_')
 
 
 def normalize_X(X: XType, d):
@@ -59,9 +56,9 @@ class SurrogateModelBase(metaclass=ABCMeta):
         self.parameters = parameters
 
     def fit(self,
-            X: Union[XType, None],
-            F: Union[YType, None],
-            W: Union[YType, None] = None):
+            X: Optional[XType],
+            F: Optional[YType],
+            W: Optional[YType] = None):
         ''' fit the surrogate '''
         if X is None or F is None:
             self.fitted = False
@@ -133,14 +130,14 @@ class LQ_SurrogateModel(SurrogateModelBase):
 
         margin = self.parameters.surrogate_model_lq_margin
 
-        if N >= margin * ((D**2 + 3*D) / 2 + 1):
+        if N >= margin * ((D ** 2 + 3 * D) / 2 + 1):
             ppl = [('full-quadratic',
                     PolynomialFeatures(degree=2, include_bias=False))]
-            self._dof = (self.parameters.d**2 + 3*self.parameters.d + 2)//2
+            self._dof = (self.parameters.d ** 2 + 3 * self.parameters.d + 2) // 2
             self.i_model = 2
-        elif N >= margin * (2*D + 1):
+        elif N >= margin * (2 * D + 1):
             ppl = [('pure-quadratic', PureQuadraticFeatures())]
-            self._dof = 2*self.parameters.d + 1
+            self._dof = 2 * self.parameters.d + 1
             self.i_model = 1
         else:
             ppl = []
@@ -166,12 +163,7 @@ class LQ_SurrogateModel(SurrogateModelBase):
 
     @property
     def max_df(self) -> int:
-        return (self.parameters.d**2 + 3*self.parameters.d)//2 + 1
-
-
-
-
-
+        return (self.parameters.d ** 2 + 3 * self.parameters.d) // 2 + 1
 
 
 ####################
@@ -197,7 +189,7 @@ class Linear_SurrogateModel(SklearnSurrogateModelBase):
     def _fit(self, X: XType, F: YType, W: YType) -> None:
         self.model = Pipeline([
             ('linearregression', LinearRegression())
-         ]).fit(X, F, linearregression__sample_weight=W)
+        ]).fit(X, F, linearregression__sample_weight=W)
 
     @property
     def df(self) -> int:
@@ -216,7 +208,7 @@ class QuadraticPure_SurrogateModel(SklearnSurrogateModelBase):
 
     @property
     def df(self) -> int:
-        return 2*self.parameters.d + 1
+        return 2 * self.parameters.d + 1
 
 
 class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
@@ -233,7 +225,7 @@ class QuadraticInteraction_SurrogateModel(SklearnSurrogateModelBase):
 
     @property
     def df(self) -> int:
-        return (self.parameters.d*(self.parameters.d + 1) + 2)//2
+        return (self.parameters.d * (self.parameters.d + 1) + 2) // 2
 
 
 class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
@@ -249,20 +241,20 @@ class Quadratic_SurrogateModel(SklearnSurrogateModelBase):
 
     @property
     def df(self):
-        return (self.parameters.d + 2)*(self.parameters.d + 1) // 2
+        return (self.parameters.d + 2) * (self.parameters.d + 1) // 2
 
 
 def get_model(parameters: Parameters) -> SurrogateModelBase:
     to_find = normalize_string(parameters.surrogate_model)
-    clsmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
+    cls_members = inspect.getmembers(sys.modules[__name__], inspect.isclass)
 
-    for (modelname, model) in clsmembers:
+    for (model_name, model) in cls_members:
         if issubclass(model, SurrogateModelBase):
             model: Type[SurrogateModelBase]
             if model.name() == to_find:
                 return model(parameters)
     raise NotImplementedError(
-        f'Cannot find model with name "{parameters.surrogate_strategy}"')
+        f'Cannot find model with name "{parameters.surrogate_model}"')
 
 
 '''

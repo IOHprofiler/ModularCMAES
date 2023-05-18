@@ -44,11 +44,11 @@ class InstanceOf(Descriptor):
         if type(value) != type(None):
 
             if (
-                type(value) != self.dtype
-                and not (
+                    type(value) != self.dtype
+                    and not (
                     isinstance(value, np.generic) and type(value.item()) == self.dtype
-                )
-                and str(self.dtype)[1:] != value.__class__.__name__
+            )
+                    and str(self.dtype)[1:] != value.__class__.__name__
             ):
                 raise TypeError(
                     "{} should be {} got type {}: {}".format(
@@ -129,8 +129,8 @@ class AnnotatedStructMeta(type):
                 attrs[key] = AnyOf(annotation)
             else:
                 if (
-                    not type(annotation) == type
-                    and getmodule(type(annotation)) != typing
+                        not type(annotation) == type
+                        and getmodule(type(annotation)) != typing
                 ):
                     raise TypeError(
                         f"Detected wrong format for annotations of AnnotatedStruct.\n\t"
@@ -215,6 +215,7 @@ def timeit(func):
         a wrapped function
 
     """
+
     @wraps(func)
     def inner(*args, **kwargs):
         start = time()
@@ -255,3 +256,7 @@ def ert(evals, budget):
         return _ert, np.std(evals), n_succ
     except ZeroDivisionError:
         return float("inf"), np.nan, 0
+
+
+def normalize_string(s: str):
+    return s.lower().replace(' ', '_')

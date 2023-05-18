@@ -1,19 +1,20 @@
+from __future__ import annotations
 
 import math
-import numpy as np
-
 from abc import ABCMeta, abstractmethod
-from typing import Type, Optional, Union
+from typing import Union, TYPE_CHECKING
 
+import numpy as np
 from scipy.stats import kendalltau
 
 from modcma.parameters import Parameters
-
-from ..typing_utils import XType, YType, yType
+from modcma.utils import normalize_string
 from .data import SurrogateData_V1
 from .model import SurrogateModelBase, get_model
+from ..typing_utils import XType, YType, yType
 
-from ..modularcmaes import ModularCMAES
+if TYPE_CHECKING:
+    from ..modularcmaes import ModularCMAES
 
 
 class SurrogateStrategyBase(metaclass=ABCMeta):
@@ -40,7 +41,7 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
             return map(lambda s: s[len(name):],
                        filter(lambda s: s.startswith(name), iterable))
 
-        settings_for_this_strategy = filter_and_take(prefix,  all_settings)
+        settings_for_this_strategy = filter_and_take(prefix, all_settings)
 
         for name in settings_for_this_strategy:
             setattr(self, name, getattr(self.parameters, prefix + name))
@@ -57,6 +58,13 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
     def _train_model(self) -> None:
         X, F, W = self.data.X, self.data.F, self.data.W
         self._model.fit(X, F, W)
+
+    # TODO create Acquisition Function
+    def _get_criterion(self) -> None:
+        if not self._model.fitted:
+            self._train_model()
+        assert self._model.fitted is True
+        return self._model
 
     def fitness_func(self, x):
         ''' evaluate one sample using true objective function
@@ -79,13 +87,20 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
                 "Cannot find an implementation for \
                 'surrogate_strategy_sort_type'")
 
+    def shift_values_to_minimum(self, F_pred):
+        min_true = np.min(self.data.F)
+        min_pred = np.min(F_pred)
+        if min_pred < min_true:
+            return F_pred + (min_true - min_pred)
+        return F_pred
+
     @abstractmethod
     def __call__(self,
                  X: XType,
                  sort: Union[int, bool] = True,
                  prune: bool = False
                  ) -> YType:
-        ''' evaluates all samples using true objective function '''
+        """ Evaluates all samples using true objective function """
         F = np.empty(len(X), yType)
         for i in range(len(X)):
             F[i] = self.fitness_func(X[i])
@@ -100,6 +115,10 @@ class SurrogateStrategyBase(metaclass=ABCMeta):
             self.data.prune()
 
         return F
+
+    @classmethod
+    def name(cls) -> str:
+        return normalize_string(cls.StrategyName)
 
 
 class Unsure_Strategy(SurrogateStrategyBase):
@@ -134,13 +153,58 @@ class Random_Strategy(SurrogateStrategyBase):
         model = self._get_model()
         Xfalse = X[not_sample]
         Ffalse = model.predict(Xfalse)
-        self._clear_model()
 
         # putting it altogether
-        F = np.empty(shape=(len(X), 1), dtype=yType)
+        F = np.empty(shape=(len(X)), dtype=yType)
         F[sample] = Ftrue
         F[not_sample] = Ffalse
-        return F
+
+        shifted_F = self.shift_values_to_minimum(F)
+        return shifted_F
+
+
+class DoubleTrainedStrategy(SurrogateStrategyBase):
+    ''' Double Trained Strategy '''
+    StrategyName = 'DTS'
+
+    def __init__(self, modcma: ModularCMAES):
+        # TODO move to paramaters
+        self.min_samples_for_surrogate = 10
+
+        super().__init__(modcma)
+
+    def __call__(self, X: XType) -> YType:
+
+        if self.data.X is None or len(self.data.X) < self.min_samples_for_surrogate:
+            return super().__call__(X)
+
+        if np.random.rand() > 0.5:
+            return super().__call__(X)
+
+        # 1. predict y and var using current model
+        # 2. sort results by criterion C (eg PoI)
+        # 3. most n_orig uncertain (by criterion C) points are true-evaluated
+        # 4. retrain model with additional n_orig true-evaluated points
+        # 5. (pop_size - n_orig) predicted by retrained model
+
+        # 1. predict y and var using current model
+        self._clear_model()
+        model = self._get_model()
+        y, var = model.predict_with_confidence(X)
+
+        # 2. sort results by criterion C (eg PoI)
+        # 2.a calculate criterion C
+        self._get_criterion()
+        # TODO np.argsort
+
+        # surrogate
+        self._clear_model()
+        model = self._get_model()
+        Fsurrogate = model.predict(X)
+        self._clear_model()
+
+        shifted_F = self.shift_values_to_minimum(Fsurrogate)
+        return shifted_F
 
 
 class Kendall_Strategy(SurrogateStrategyBase):
@@ -203,7 +267,7 @@ class Kendall_Strategy(SurrogateStrategyBase):
     def _kendall_test(self) -> bool:
         n_for_tau = max(
             self.tau_training_size_minimum,
-            self.tau_training_size_relative*len(X))
+            self.tau_training_size_relative * len(self.data.X))
 
         if self.data.X is None or self.data.F is None:
             return False
@@ -258,14 +322,12 @@ class Kendall_Strategy(SurrogateStrategyBase):
 if __name__ == '__main__':
     import unittest
 
+
     class Test(unittest.TestCase):
         pass
 
+
     unittest.main()
-
-
-
-
 
 '''
 class SurrogateModelBase(metaclass=ABCMeta):

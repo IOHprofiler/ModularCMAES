@@ -313,14 +313,15 @@ class Parameters(AnnotatedStruct):
     surrogate_data_max_relative_size: int = None
 
     #       models are trained in mahalanobis space
-    surrogate_data_mahalanobis_space: bool = True
+    # TODO: fix mahalanobis transformation and enable
+    surrogate_data_mahalanobis_space: bool = False
 
 
     #########################################
     # surrogate - strategy
     # TODO: Kendall
-    surrogate_strategy: ('Unsure', 'Random', 'Kendall') = 'Unsure'
-    # TODO: Kendall 
+    surrogate_strategy: ('Unsure', 'Random', 'Kendall', 'DTS') = 'DTS'
+    # TODO: Kendall
     surrogate_strategy_sort_type: (None, 'all', 'evaluated') = None
 
     # >     [Unsure Strategy]
@@ -355,7 +356,7 @@ class Parameters(AnnotatedStruct):
     surrogate_model_lq_margin: float = 1.1
 
     # surrogate -  models
-    surrogate_model: ('Linear', 'Quadratic', 'QuadraticPure', 'QuadraticInteraction', 'LQ', 'GP') = 'Linear'
+    surrogate_model: ('Linear', 'Quadratic', 'QuadraticPure', 'QuadraticInteraction', 'LQ', 'GP') = 'Quadratic'
     surrogate_model_gp_kernel = 'Linear'
     surrogate_model_gp_noisy_samples: bool = True
 
@@ -838,7 +839,7 @@ class Parameters(AnnotatedStruct):
             The name of the file to save to.
 
         """
-        sampler = self.sampler 
+        sampler = self.sampler
         with open(filename, "wb") as f:
             self.sampler = None
             self.random_state = np.random.get_state()

@@ -1,17 +1,20 @@
 """Main implementation of Modular CMA-ES."""
+import inspect
 import os
+import sys
 from itertools import islice
-from typing import List, Callable
+from typing import List, Callable, Type
 
 import numpy as np
 
 from .parameters import Parameters
 from .population import Population
-from .utils import timeit, ert
+from .surrogate.strategy import SurrogateStrategyBase
+from .utils import timeit, ert, normalize_string
 
 
 class ModularCMAES:
-    r"""The main class of the configurable CMA ES continous optimizer.
+    r"""The main class of the configurable CMA ES continuous optimizer.
 
     Attributes
     ----------
@@ -34,7 +37,7 @@ class ModularCMAES:
     _fitness_func: Callable
 
     def __init__(
-        self, fitness_func: Callable, *args, parameters=None, **kwargs
+            self, fitness_func: Callable, *args, parameters=None, **kwargs
     ) -> None:
         """Set _fitness_func and forwards all other parameters to Parameters object."""
         self._fitness_func = fitness_func
@@ -43,6 +46,9 @@ class ModularCMAES:
             if isinstance(parameters, Parameters)
             else Parameters(*args, **kwargs)
         )
+        self.surrogate_strategy = None
+        if self.parameters.surrogate_strategy is not None:
+            self.surrogate_strategy = self.get_strategy()
 
     def mutate(self) -> None:
         """Apply mutation operation.
@@ -90,19 +96,23 @@ class ModularCMAES:
         )
         self.parameters.n_out_of_bounds += n_out_of_bounds
 
-        if not self.parameters.sequential and self.parameters.vectorized_fitness:
-            f = self._fitness_func(x.T)
-            self.parameters.used_budget += len(x.T)
+        if self.surrogate_strategy is not None:
+            f = self.surrogate_strategy(x.T)
+
         else:
-            f = np.empty(n_offspring, object)
-            for i in range(n_offspring):
-                f[i] = self.fitness_func(x[:, i])
-                if self.sequential_break_conditions(i, f[i]):
-                    f = f[:i]
-                    s = s[:i]
-                    x = x[:, :i]
-                    y = y[:, :i]
-                    break
+            if not self.parameters.sequential and self.parameters.vectorized_fitness:
+                f = self._fitness_func(x.T)
+                self.parameters.used_budget += len(x.T)
+            else:
+                f = np.empty(n_offspring, object)
+                for i in range(n_offspring):
+                    f[i] = self.fitness_func(x[:, i])
+                    if self.sequential_break_conditions(i, f[i]):
+                        f = f[:i]
+                        s = s[:i]
+                        x = x[:, :i]
+                        y = y[:, :i]
+                        break
 
         if perform_tpa:
             yt, xt, ft = tpa_mutation(self.fitness_func, self.parameters)
@@ -151,13 +161,13 @@ class ModularCMAES:
 
         if self.parameters.elitist and self.parameters.old_population:
             self.parameters.population += self.parameters.old_population[
-                : self.parameters.mu
-            ]
+                                          : self.parameters.mu
+                                          ]
         self.parameters.population.sort()
 
         self.parameters.population = self.parameters.population[
-            : self.parameters.lambda_
-        ]
+                                     : self.parameters.lambda_
+                                     ]
 
         if self.parameters.population.f[0] < self.parameters.fopt:
             self.parameters.fopt = self.parameters.population.f[0]
@@ -174,14 +184,14 @@ class ModularCMAES:
         """
         self.parameters.m_old = self.parameters.m.copy()
         self.parameters.m = self.parameters.m_old + (
-            1
-            * (
-                (
-                    self.parameters.population.x[:, : self.parameters.mu]
-                    - self.parameters.m_old
-                )
-                @ self.parameters.pweights
-            ).reshape(-1, 1)
+                1
+                * (
+                        (
+                                self.parameters.population.x[:, : self.parameters.mu]
+                                - self.parameters.m_old
+                        )
+                        @ self.parameters.pweights
+                ).reshape(-1, 1)
         )
 
     def step(self) -> bool:
@@ -220,9 +230,9 @@ class ModularCMAES:
         """
         if self.parameters.sequential:
             return (
-                f < self.parameters.fopt
-                and i >= self.parameters.seq_cutoff
-                and (self.parameters.mirrored != "mirrored pairwise" or i % 2 == 0)
+                    f < self.parameters.fopt
+                    and i >= self.parameters.seq_cutoff
+                    and (self.parameters.mirrored != "mirrored pairwise" or i % 2 == 0)
             )
         return False
 
@@ -272,6 +282,18 @@ class ModularCMAES:
         """
         self.parameters.used_budget += 1
         return self._fitness_func(x.flatten())
+
+    def get_strategy(self) -> SurrogateStrategyBase:
+        to_find = normalize_string(self.parameters.surrogate_strategy)
+        cls_members = inspect.getmembers(sys.modules["modcma.surrogate.strategy"], inspect.isclass)
+
+        for (strategy_name, strategy) in cls_members:
+            if issubclass(strategy, SurrogateStrategyBase):
+                strategy: Type[SurrogateStrategyBase]
+                if strategy.name() == to_find:
+                    return strategy(self)
+        raise NotImplementedError(
+            f'Cannot find strategy with name "{self.parameters.surrogate_strategy}"')
 
     def __repr__(self):
         """Representation of ModularCMA-ES."""
@@ -340,7 +362,7 @@ def scale_with_threshold(z: np.ndarray, threshold: float) -> np.ndarray:
 
 
 def correct_bounds(
-    x: np.ndarray, ub: np.ndarray, lb: np.ndarray, correction_method: str
+        x: np.ndarray, ub: np.ndarray, lb: np.ndarray, correction_method: str
 ) -> tuple[np.ndarray, np.ndarray]:
     """Bound correction function.
 
@@ -411,17 +433,17 @@ def correct_bounds(
 
 @timeit
 def evaluate_bbob(
-    fid,
-    dim,
-    iterations=50,
-    label="",
-    logging=False,
-    data_folder=None,
-    seed=42,
-    instance=1,
-    target_precision=1e-8,
-    return_optimizer=False,
-    **kwargs,
+        fid,
+        dim,
+        iterations=50,
+        label="",
+        logging=False,
+        data_folder=None,
+        seed=42,
+        instance=1,
+        target_precision=1e-8,
+        return_optimizer=False,
+        **kwargs,
 ):
     """Helper function to evaluate a ModularCMAES on the BBOB test suite.
 
