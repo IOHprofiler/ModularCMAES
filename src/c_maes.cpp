@@ -1,6 +1,5 @@
 #include "c_maes.hpp"
 
-
 void ModularCMAES::recombine()
 {
 	p->dynamic.m_old = p->dynamic.m;
@@ -33,7 +32,5 @@ bool ModularCMAES::break_conditions() const
 	const auto target_reached = p->stats.target >= p->stats.fopt;
 	const auto budget_used_up = p->stats.evaluations >= p->stats.budget;
 	const auto exceed_gens = p->stats.t >= p->stats.max_generations;
-
 	return exceed_gens or target_reached or budget_used_up;
 }
-

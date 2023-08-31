@@ -432,6 +432,8 @@ class Parameters(AnnotatedStruct):
         mueff_neg = self.nweights.sum() ** 2 / (self.nweights ** 2).sum()
 
         self.pweights = self.pweights / self.pweights.sum()
+        
+
         self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
         self.cmu = self.cmu or min(1 - self.c1, (2 * (
             (self.mueff - 2 + (1 / self.mueff))

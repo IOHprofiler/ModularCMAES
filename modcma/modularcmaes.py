@@ -78,6 +78,7 @@ class ModularCMAES:
             s = np.ones(n_offspring) * self.parameters.sigma
 
         z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
+        # breakpoint()
         if self.parameters.threshold_convergence:
             z = scale_with_threshold(z, self.parameters.threshold)
 
@@ -112,7 +113,10 @@ class ModularCMAES:
             f = np.r_[ft, f]
             s = np.r_[np.repeat(self.parameters.sigma, 2), s]
 
-        self.parameters.population = Population(x, y, f, s)
+        self.parameters.population = Population(x, y, z, f, s)
+
+        # print(self.parameters.population.f)
+        # breakpoint()
 
     def select(self) -> None:
         """Selection of best individuals in the population.
@@ -198,7 +202,9 @@ class ModularCMAES:
 
         """
         self.mutate()
+       
         self.select()
+
         self.recombine()
         self.parameters.adapt()
         return not any(self.break_conditions)
@@ -485,8 +491,8 @@ def evaluate_bbob(
         if idx > 0:
             fitness_func.reset()
         target = fitness_func.optimum.y + target_precision
-
-        optimizer = ModularCMAES(fitness_func, dim, target=target, **kwargs).run()
+        
+        optimizer = ModularCMAES(fitness_func, dim, x0 = np.zeros(dim), target=target, **kwargs).run()
         evals = np.append(evals, fitness_func.state.evaluations)
         fopts = np.append(fopts, fitness_func.state.current_best_internal.y)
 

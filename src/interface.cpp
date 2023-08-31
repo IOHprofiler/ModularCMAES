@@ -68,14 +68,19 @@ void define_options(py::module &main)
         .export_values();
 }
 
-class PySampler: public sampling::Sampler {
-public:
-    using Sampler::Sampler;
+struct PySampler: sampling::Sampler {
+    std::function<double()> func;
+
+    PySampler(size_t d, std::function<double()> f): Sampler::Sampler(d), func(f) {}
 
     Vector operator()() override {
-        PYBIND11_OVERRIDE_PURE_NAME(Vector, sampling::Sampler, "__call__", operator());
+        Vector res(d);
+        for (size_t j = 0; j < d; ++j)
+            res(j) = func();
+        return res;
     };
 };
+
 
 void define_samplers(py::module &main)
 {
@@ -85,10 +90,10 @@ void define_samplers(py::module &main)
 
     py::class_<Sampler, std::shared_ptr<Sampler>>(m, "Sampler")
         .def_readonly("d", &Sampler::d);
-
+        
     py::class_<PySampler, Sampler, std::shared_ptr<PySampler>>(m, "PySampler")
-        .def(py::init<size_t>(), py::arg("d"))
-        .def("__call__", &PySampler::operator());
+        .def(py::init<size_t, std::function<double()>>(), py::arg("d"), py::arg("function"))
+        .def("__call__", &PySampler::operator()); 
 
     py::class_<Gaussian, Sampler, std::shared_ptr<Gaussian>>(m, "Gaussian")
         .def(py::init<size_t>(), py::arg("d"))
@@ -496,6 +501,15 @@ void define_cmaes(py::module &m)
     py::class_<ModularCMAES>(m, "ModularCMAES")
         .def(py::init<std::shared_ptr<parameters::Parameters>>(), py::arg("parameters"))
         .def("recombine", &ModularCMAES::recombine)
+        .def("mutate", [](ModularCMAES& self, std::function<double(Vector)> objective) {
+            self.p->mutation->mutate(objective, self.p->pop.Z.cols(), *self.p);
+        })
+        .def("select", [](ModularCMAES& self){
+            self.p->selection->select(*self.p);
+        })
+        .def("adapt", [](ModularCMAES& self) {
+            self.p->adapt();
+        })
         .def("step", &ModularCMAES::step, py::arg("objective"))
         .def("__call__", &ModularCMAES::operator(), py::arg("objective"))
         .def("break_conditions", &ModularCMAES::break_conditions)

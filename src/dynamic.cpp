@@ -5,7 +5,8 @@ namespace parameters
     Dynamic::Dynamic(const size_t dim) : m(Vector::Random(dim) * 5), m_old(dim), dm(Vector::Zero(dim)), pc(Vector::Zero(dim)),
                                          ps(Vector::Zero(dim)), d(Vector::Ones(dim)),
                                          B(Matrix::Identity(dim, dim)), C(Matrix::Identity(dim, dim)),
-                                         inv_root_C(Matrix::Identity(dim, dim)), dd(static_cast<double>(dim)),
+                                         inv_root_C(Matrix::Identity(dim, dim)), 
+                                         dd(static_cast<double>(dim)),
                                          chiN(sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0))))
     {
     }

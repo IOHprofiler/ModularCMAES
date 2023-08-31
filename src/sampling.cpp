@@ -3,7 +3,7 @@
 
 namespace sampling
 {
-    [[nodiscard]] Vector Tester::operator()()
+    [[nodiscard]] Vector Tester::operator()() 
     {
         Vector x(d);
         ++i;
