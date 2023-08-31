@@ -86,6 +86,10 @@ void define_samplers(py::module &main)
     py::class_<Sampler, std::shared_ptr<Sampler>>(m, "Sampler")
         .def_readonly("d", &Sampler::d);
 
+    py::class_<PySampler, Sampler, std::shared_ptr<PySampler>>(m, "PySampler")
+        .def(py::init<size_t>(), py::arg("d"))
+        .def("__call__", &PySampler::operator());
+
     py::class_<Gaussian, Sampler, std::shared_ptr<Gaussian>>(m, "Gaussian")
         .def(py::init<size_t>(), py::arg("d"))
         .def("__call__", &Gaussian::operator());

@@ -64,6 +64,15 @@ namespace parameters
         dynamic.ps.setZero();
     }
 
+    bool Parameters::invalid_state() const {
+        const bool sigma_out_of_bounds = 1e-8 > mutation->sigma or mutation->sigma > 1e4;
+
+        if(sigma_out_of_bounds) {
+            std::cout << "sigma " << mutation->sigma << " restarting\n";
+        }
+        return sigma_out_of_bounds;
+    }
+
     void Parameters::adapt()
     {
 
@@ -72,13 +81,8 @@ namespace parameters
 
         dynamic.adapt_covariance_matrix(weights, modules, pop, mu);
         
-        if (!dynamic.perform_eigendecomposition(stats))
+        if (!dynamic.perform_eigendecomposition(stats) or invalid_state())
             perform_restart();
-        
-        if (1e-8 > mutation->sigma or mutation->sigma > 10){
-            std::cout << "sigma " << mutation->sigma << " restarting\n";
-            perform_restart();
-        }            
         
         old_pop = pop;
         restart->evaluate(*this);

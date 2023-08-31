@@ -1,11 +1,34 @@
 """Setup script."""
+# pylint: disable=protected-access
+
+import os
+import platform
+from glob import glob
 
 import setuptools
+from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-__version__ = "0.0.2.8.4"
+__version__ = "1.0.0"
+
+ext = Pybind11Extension(
+    "modcma.c_maes.cmaescpp", 
+    glob("src/*cpp"), 
+    include_dirs=[
+        "include",
+        "external"
+    ],
+    cxx_std=17
+)
+if platform.system() in ("Linux", "Darwin"):
+    os.environ["CC"] = "g++"
+    os.environ["CXX"] = "g++"
+    ext._add_cflags(["-O0"])
+else:
+    ext._add_cflags(["/O2"])
+
 
 setuptools.setup(
     name='modcma',
@@ -16,6 +39,8 @@ setuptools.setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     packages=setuptools.find_packages(),
+    cmdclass={"build_ext": build_ext},
+    ext_modules=[ext],
     install_requires=[
         'numpy',
         'scipy',

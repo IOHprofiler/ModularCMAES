@@ -90,7 +90,7 @@ class ModularCMAES:
             self.parameters.bound_correction
         )
         self.parameters.n_out_of_bounds += n_out_of_bounds
-        
+    
         if not self.parameters.sequential and self.parameters.vectorized_fitness:
             f = self._fitness_func(x.T)
             self.parameters.used_budget += len(x.T)       

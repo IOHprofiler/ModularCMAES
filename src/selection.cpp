@@ -30,7 +30,7 @@ namespace selection {
 	void Pairwise::operator()(parameters::Parameters& p) const {
 		assert(p.pop.f.size() % 2 == 0);
 		std::vector<size_t> idx(p.pop.f.size()/2);
-		for (size_t i = 0, j = 0; i < p.pop.f.size(); i += 2)
+		for (size_t i = 0, j = 0; i < static_cast<size_t>(p.pop.f.size()); i += 2)
 			idx[j++] = i + (1 * (p.pop.f(i) > p.pop.f(i + 1)));
 		
 		p.pop.keep_only(idx);

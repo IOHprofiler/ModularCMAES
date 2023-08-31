@@ -114,6 +114,8 @@ namespace parameters
         void adapt();
 
         void perform_restart(const std::optional<double> &sigma = std::nullopt);
+
+        bool invalid_state() const;
     };
 }
 
