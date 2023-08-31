@@ -390,10 +390,9 @@ class Parameters(AnnotatedStruct):
 
     def init_local_restart_parameters(self) -> None:
         """Initialization function for parameters for local restart strategies, i.e. IPOP.
-
         TODO: check if we can move this to separate object.
         """
-       
+          
         self.max_iter = 100 + 50 * (self.d + 3) ** 2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
@@ -475,7 +474,7 @@ class Parameters(AnnotatedStruct):
         if hasattr(self, "m") or self.x0 is None: 
             self.m = np.float64(np.random.uniform(self.lb, self.ub, (self.d, 1)))
         else:
-            self.m = np.float64(self.x0.copy())
+            self.m = np.float64(self.x0.copy().reshape(self.d, 1))
         self.m_old = np.empty((self.d, 1), dtype=np.float64)
         self.dm = np.zeros(self.d, dtype=np.float64)
         self.pc = np.zeros((self.d, 1), dtype=np.float64)
@@ -760,7 +759,7 @@ class Parameters(AnnotatedStruct):
 
     def record_statistics(self) -> None:
         """Method for recording metadata."""
-        # if self.local_restart or self.compute_termination_criteria:
+
         self.flat_fitnesses.append(
             self.population.f[0] == self.population.f[self.flat_fitness_index]
         )
