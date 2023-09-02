@@ -10,8 +10,8 @@ namespace bounds {
 		double diameter;
 		size_t n_out_of_bounds = 0;
 
-		BoundCorrection(const size_t dim) : 
-			lb(Vector::Ones(dim) * -5), ub(Vector::Ones(dim) * 5), db(ub - lb),
+		BoundCorrection(const size_t dim, const Vector& lb, const Vector& ub) : 
+			lb(lb), ub(ub), db(ub - lb),
 			diameter((ub - lb).norm()) {}
 
 		virtual void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m)  = 0;
@@ -43,7 +43,7 @@ namespace bounds {
 	struct COTN : BoundCorrection {
 		sampling::Gaussian sampler;
 
-		COTN(const size_t dim): BoundCorrection(dim), sampler(dim, rng::normal<double>(0, 1.0 / 3.)) {}
+		COTN(const size_t dim, const Vector& lb, const Vector& ub): BoundCorrection(dim, lb, ub), sampler(dim, rng::normal<double>(0, 1.0 / 3.)) {}
 
 		void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m) override {
 			n_out_of_bounds = 0;
@@ -86,7 +86,7 @@ namespace bounds {
 	struct UniformResample : BoundCorrection {
 		sampling::Random<std::uniform_real_distribution<>> sampler;
 
-		UniformResample(const size_t dim): BoundCorrection(dim), sampler(dim) {}
+		UniformResample(const size_t dim, const Vector& lb, const Vector& ub): BoundCorrection(dim, lb, ub), sampler(dim) {}
 
 		void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m)  override {
 			n_out_of_bounds = 0;
@@ -147,26 +147,26 @@ namespace bounds {
 		NONE, COUNT, MIRROR, COTN, UNIFORM_RESAMPLE, SATURATE, TOROIDAL
 	};
 
-	inline std::shared_ptr<BoundCorrection> get(const size_t dim, const CorrectionMethod& m) {
+	inline std::shared_ptr<BoundCorrection> get(const size_t dim, const CorrectionMethod& m, const Vector& lb, const Vector& ub) {
 		switch (m)
 		{
 	
 		case CorrectionMethod::COUNT:
-			return std::make_shared<CountOutOfBounds>(dim);
+			return std::make_shared<CountOutOfBounds>(dim, lb, ub);
 		case CorrectionMethod::MIRROR:
-			return std::make_shared<Mirror>(dim);
+			return std::make_shared<Mirror>(dim, lb, ub);
 		case CorrectionMethod::COTN:
-			return std::make_shared<COTN>(dim);
+			return std::make_shared<COTN>(dim, lb, ub);
 		case CorrectionMethod::UNIFORM_RESAMPLE:
-			return std::make_shared<UniformResample>(dim);
+			return std::make_shared<UniformResample>(dim, lb, ub);
 		case CorrectionMethod::SATURATE:
-			return std::make_shared<Saturate>(dim);
+			return std::make_shared<Saturate>(dim, lb, ub);
 		case CorrectionMethod::TOROIDAL:
-			return std::make_shared<Toroidal>(dim);
+			return std::make_shared<Toroidal>(dim, lb, ub);
 		
 		default:
 		case CorrectionMethod::NONE:
-			return std::make_shared<NoCorrection>(dim);
+			return std::make_shared<NoCorrection>(dim, lb, ub);
 		}
 	};
 }

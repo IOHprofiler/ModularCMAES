@@ -29,47 +29,108 @@ namespace restart
 		return v[from + (n / 2)];
 	}
 
-	void Restart::evaluate(parameters::Parameters &p)
+	void RestartCriteria::update(const parameters::Parameters &p)
 	{
-
-		flat_fitnesses(p.stats.t % p.dim) = p.pop.f(0) == p.pop.f(flat_fitness_index);
+		flat_fitnesses(p.stats.t % p.settings.dim) = p.pop.f(0) == p.pop.f(flat_fitness_index);
 		median_fitnesses.push_back(median(p.pop.f));
 		best_fitnesses.push_back(p.pop.f(0));
 
-		if (termination_criteria(p))
-		{
-			restart(p);
-			setup(p.dim, p.lambda, p.stats.t);
-		}
+		time_since_restart = p.stats.t - last_restart;
+		recent_improvement = ptp_tail(best_fitnesses, n_bin);
+		n_flat_fitness = static_cast<size_t>(flat_fitnesses.sum());
+
+		d_sigma = p.mutation->sigma / p.settings.sigma0;
+		tolx_condition = 10e-12 * p.settings.sigma0;
+		tolx_vector << p.dynamic.C.diagonal(), p.dynamic.pc.transpose();
+		tolx_vector *= d_sigma;
+
+		root_max_d = std::sqrt(p.dynamic.d.maxCoeff());
+		condition_c = pow(p.dynamic.d.maxCoeff(), 2.0) / pow(p.dynamic.d.minCoeff(), 2);
+
+		effect_coord = 0.2 * p.mutation->sigma * p.dynamic.C.diagonal().cwiseSqrt();
+
+		size_t _t = p.stats.t % p.settings.dim;
+		effect_axis = 0.1 * p.mutation->sigma * std::sqrt(p.dynamic.d(_t)) * p.dynamic.B.col(_t);
 	}
 
-	bool Restart::termination_criteria(const parameters::Parameters &p) const
+	bool RestartCriteria::exceeded_max_iter() const
 	{
-		const size_t time_since_restart = p.stats.t - last_restart;
+		return max_iter < time_since_restart;
+	}
+	bool RestartCriteria::no_improvement() const
+	{
+		return time_since_restart > n_bin and recent_improvement == 0;
+	}
+	bool RestartCriteria::flat_fitness() const
+	{
+		return time_since_restart > static_cast<size_t>(flat_fitnesses.size()) and n_flat_fitness > max_flat_fitness;
+	}
 
-		const bool exeeded_max_iter = max_iter < time_since_restart;
-		const bool no_improvement = time_since_restart > n_bin and ptp_tail(best_fitnesses, n_bin) == 0;
-		const bool flat_fitness = time_since_restart > p.dim and flat_fitnesses.sum() > static_cast<int>(p.dim) / 3;
+	bool RestartCriteria::tolx() const
+	{
+		return (tolx_vector.array() < tolx_condition).all();
+	}
 
+	bool RestartCriteria::tolupsigma() const
+	{
+		static double tolup_sigma = std::pow(10., 20.);
+		return d_sigma > tolup_sigma * root_max_d;
+	}
+
+	bool RestartCriteria::conditioncov() const
+	{
+		static double tol_condition_cov = pow(10., 14.);
+		return condition_c > tol_condition_cov;
+	}
+
+	bool RestartCriteria::noeffectaxis() const
+	{
+		return (effect_axis.array() == 0).all();
+	}
+	bool RestartCriteria::noeffectcoor() const
+	{
+		return (effect_coord.array() == 0).all();
+	}
+	bool RestartCriteria::stagnation() const
+	{
 		const size_t pt = static_cast<size_t>(0.3 * time_since_restart);
-		const bool stagnation = time_since_restart > n_stagnation and ((median(best_fitnesses, pt, time_since_restart) >= median(best_fitnesses, 0, pt)) and (median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt)));
+		return time_since_restart > n_stagnation and ((median(best_fitnesses, pt, time_since_restart) >= median(best_fitnesses, 0, pt)) and
+													  (median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt)));
+	}
+
+	bool RestartCriteria::operator()(const parameters::Parameters &p)
+	{
+		update(p);
 
 		// TODO: the more compilicated criteria
-		if (exeeded_max_iter or no_improvement or flat_fitness or stagnation)
+		if (exceeded_max_iter() or no_improvement() or flat_fitness() or tolx() or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor() or stagnation())
 		{
-			if (p.verbose)
+			if (p.settings.verbose)
 			{
 				std::cout << "restarting: " << p.stats.t << " (";
 				std::cout << time_since_restart;
-				std::cout << ") flat_fitness: " << flat_fitness;
-				std::cout << " exeeded_max_iter: " << exeeded_max_iter;
-				std::cout << " no_improvement: " << no_improvement;
-				std::cout << " stagnation: " << stagnation << std::endl;
+				std::cout << ") flat_fitness: " << flat_fitness();
+				std::cout << " exeeded_max_iter: " << exceeded_max_iter();
+				std::cout << " no_improvement: " << no_improvement();
+				std::cout << " tolx: " << tolx();
+				std::cout << " tolupsigma: " << tolupsigma();
+				std::cout << " conditioncov: " << conditioncov();
+				std::cout << " noeffectaxis: " << noeffectaxis();
+				std::cout << " noeffectcoor: " << noeffectcoor();
+				std::cout << " stagnation: " << stagnation() << std::endl;
 			}
 			return true;
 		}
-
 		return false;
+	}
+
+	void Strategy::evaluate(parameters::Parameters &p)
+	{
+		if (criteria(p))
+		{
+			restart(p);
+			criteria = RestartCriteria(p.settings.dim, p.lambda, p.stats.t);
+		}
 	}
 
 	void Restart::restart(parameters::Parameters &p)

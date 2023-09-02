@@ -5,6 +5,26 @@ import c_maes.cmaescpp.mutation
 import c_maes.cmaescpp.options
 import numpy
 
+class Settings:
+    budget: int
+    c1: Optional[float]
+    cc: Optional[float]
+    cmu: Optional[float]
+    cs: Optional[float]
+    dim: int
+    lambda0: int
+    lb: numpy.ndarray[numpy.float64[m,1]]
+    max_generations: int
+    modules: Modules
+    mu0: int
+    sigma0: float
+    target: float
+    ub: numpy.ndarray[numpy.float64[m,1]]
+    x0: Optional[numpy.ndarray[numpy.float64[m,1]]]
+    verbose: bool
+    def __init__(self, dim: int, modules: Modules, target: float = ..., max_generations: int = ..., budget: int = ..., sigma0: Optional[float] = ..., lambda0: Optional[int] = ..., mu0: Optional[int] = ..., x0: Optional[numpy.ndarray[numpy.float64[m,1]]] = ..., lb: Optional[numpy.ndarray[numpy.float64[m,1]]] = ..., ub: Optional[numpy.ndarray[numpy.float64[m,1]]] = ..., cs: Optional[float] = ..., cc: Optional[float] = ..., cmu: Optional[float] = ..., c1: Optional[float] = ..., a_tpa: Optional[float] = ..., b_tpa: Optional[float] = ...) -> None: ...
+
+
 class Dynamic:
     def __init__(self, dimension: int) -> None: ...
     def adapt_covariance_matrix(
@@ -63,13 +83,10 @@ class Modules:
     def __init__(self) -> None: ...
 
 class Stats:
-    budget: int
     evaluations: int
     fopt: float
-    max_generations: int
     t: int
-    target: float
-    xopt: numpy.ndarray[numpy.float64[m, 1]]
+    xopt: numpy.ndarray[numpy.float64[m,1]]
     def __init__(self) -> None: ...
 
 class Weights:

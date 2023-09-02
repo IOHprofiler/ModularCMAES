@@ -36,11 +36,11 @@ namespace mutation {
         double decay_factor = 0.995;
 
     public:
-        virtual void scale(Matrix& z, const parameters::Stats& s, const std::shared_ptr<bounds::BoundCorrection>& bounds);
+        virtual void scale(Matrix& z, const double diameter, const size_t budget, const size_t evaluations);
     };
 
     struct NoThresholdConvergence : ThresholdConvergence {
-        void scale(Matrix& z, const parameters::Stats& s, const std::shared_ptr<bounds::BoundCorrection>& bounds) override {}
+        void scale(Matrix& z,  const double diameter, const size_t budget, const size_t evaluations) override {}
     };
 
     class SequentialSelection {
@@ -88,7 +88,6 @@ namespace mutation {
         std::shared_ptr<SequentialSelection> sq;
         std::shared_ptr<SigmaSampler> ss;
         double cs;
-        double sigma0;
         double sigma;
         double s = 0;
 
@@ -98,7 +97,7 @@ namespace mutation {
                 const std::shared_ptr<SigmaSampler>& sigma_sampler,
                 const double cs, const double sigma0
             ): 
-            tc(threshold_covergence), sq(sequential_selection), ss(sigma_sampler), cs(cs), sigma0(sigma0), sigma(sigma0) {}
+            tc(threshold_covergence), sq(sequential_selection), ss(sigma_sampler), cs(cs), sigma(sigma0) {}
 
         virtual void mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters& p) = 0;
         
@@ -184,6 +183,6 @@ namespace mutation {
     };
 
     std::shared_ptr<Strategy> get(const parameters::Modules& m, const size_t mu,
-        const double mueff, const double d, const double sigma);
+        const double mueff, const double d, const double sigma, const std::optional<double> cs);
              
 }

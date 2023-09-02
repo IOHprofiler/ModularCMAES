@@ -68,19 +68,20 @@ void define_options(py::module &main)
         .export_values();
 }
 
-struct PySampler: sampling::Sampler {
+struct PySampler : sampling::Sampler
+{
     std::function<double()> func;
 
-    PySampler(size_t d, std::function<double()> f): Sampler::Sampler(d), func(f) {}
+    PySampler(size_t d, std::function<double()> f) : Sampler::Sampler(d), func(f) {}
 
-    Vector operator()() override {
+    Vector operator()() override
+    {
         Vector res(d);
         for (size_t j = 0; j < d; ++j)
             res(j) = func();
         return res;
     };
 };
-
 
 void define_samplers(py::module &main)
 {
@@ -90,10 +91,10 @@ void define_samplers(py::module &main)
 
     py::class_<Sampler, std::shared_ptr<Sampler>>(m, "Sampler")
         .def_readonly("d", &Sampler::d);
-        
+
     py::class_<PySampler, Sampler, std::shared_ptr<PySampler>>(m, "PySampler")
         .def(py::init<size_t, std::function<double()>>(), py::arg("d"), py::arg("function"))
-        .def("__call__", &PySampler::operator()); 
+        .def("__call__", &PySampler::operator());
 
     py::class_<Gaussian, Sampler, std::shared_ptr<Gaussian>>(m, "Gaussian")
         .def(py::init<size_t>(), py::arg("d"))
@@ -176,20 +177,30 @@ void define_parameters(py::module &main)
         .def_readwrite("ssa", &Modules::ssa)
         .def_readwrite("bound_correction", &Modules::bound_correction)
         .def_readwrite("restart_strategy", &Modules::restart_strategy);
+        // .def("__repr__", [](Modules &mod)
+        //      { return to_string(mod); });
 
     py::class_<Stats>(m, "Stats")
         .def(py::init<>())
         .def_readwrite("t", &Stats::t)
         .def_readwrite("evaluations", &Stats::evaluations)
-        .def_readwrite("target", &Stats::target)
-        .def_readwrite("max_generations", &Stats::max_generations)
-        .def_readwrite("budget", &Stats::budget)
         .def_readwrite("xopt", &Stats::xopt)
         .def_readwrite("fopt", &Stats::fopt);
+        // .def("__repr__", [](Stats &stats)
+        //      {
+        //     std::stringstream ss;
+        //     ss << std::boolalpha;
+        //     ss << "<Stats";
+        //     ss << " t: " << stats.t;
+        //     ss << " evaluations: " << stats.evaluations;
+        //     ss << " xopt: " << stats.xopt.transpose();
+        //     ss << " fopt: " << stats.fopt;
+        //     ss << ">";
+        //     return ss.str(); });
 
     py::class_<Weights>(m, "Weights")
         .def(
-            py::init<size_t, size_t, size_t, Modules>(),
+            py::init<size_t, size_t, size_t, Settings>(),
             py::arg("dimension"),
             py::arg("mu0"),
             py::arg("lambda0"),
@@ -202,9 +213,24 @@ void define_parameters(py::module &main)
         .def_readwrite("weights", &Weights::weights)
         .def_readwrite("positive", &Weights::positive)
         .def_readwrite("negative", &Weights::negative);
+        // .def("__repr__", [](Weights &weights)
+        //      {
+        //     std::stringstream ss;
+        //     ss << std::boolalpha;
+        //     ss << "<Weights";
+        //     ss << " mueff: " << weights.mueff;
+        //     ss << " mueff_neg: " << weights.mueff_neg;
+        //     ss << " c1: " << weights.c1;
+        //     ss << " cmu: " << weights.cmu;
+        //     ss << " cc: " << weights.cc;
+        //     ss << " weights: " << weights.weights.transpose();
+        //     ss << " positive: " << weights.positive.transpose();
+        //     ss << " negative: " << weights.negative.transpose();
+        //     ss << ">";
+        //     return ss.str(); });
 
     py::class_<Dynamic>(m, "Dynamic")
-        .def(py::init<size_t>(), py::arg("dimension"))
+        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
         .def_readwrite("m", &Dynamic::m)
         .def_readwrite("m_old", &Dynamic::m_old)
         .def_readwrite("dm", &Dynamic::dm)
@@ -228,16 +254,98 @@ void define_parameters(py::module &main)
              py::arg("population"),
              py::arg("mu"))
         .def("perform_eigendecomposition", &Dynamic::perform_eigendecomposition, py::arg("stats"));
+        // .def("__repr__", [](Dynamic &dyn)
+        //      {
+        //     std::stringstream ss;
+        //     ss << std::boolalpha;
+        //     ss << "<Dynamic";
+        //     ss << " m: " << dyn.m.transpose();
+        //     ss << " m_old: " << dyn.m_old.transpose();
+        //     ss << " dm: " << dyn.dm.transpose();
+        //     ss << " pc: " << dyn.pc.transpose();
+        //     ss << " ps: " << dyn.ps.transpose();
+        //     ss << " d: " << dyn.d.transpose();
+        //     ss << " B: " << dyn.B;
+        //     ss << " C: " << dyn.C;
+        //     ss << " inv_root_C: " << dyn.inv_root_C;
+        //     ss << " dd: " << dyn.dd;
+        //     ss << " chiN: " << dyn.chiN;
+        //     ss << " hs: " << dyn.hs;
+        //     ss << ">";
+        //     return ss.str(); });
+
+    py::class_<Settings, std::shared_ptr<Settings>>(m, "Settings")
+        .def(py::init<size_t, std::optional<Modules>, std::optional<double>, size_to, size_to, std::optional<double>,
+                      std::optional<size_t>, std::optional<size_t>, std::optional<Vector>,
+                      std::optional<Vector>, std::optional<Vector>,
+                      std::optional<double>, std::optional<double>, std::optional<double>,
+                      std::optional<double>, bool>(),
+             py::arg("dim"),
+             py::arg("modules") = std::nullopt,
+             py::arg("target") = std::nullopt,
+             py::arg("max_generations") = std::nullopt,
+             py::arg("budget") = std::nullopt,
+             py::arg("sigma0") = std::nullopt,
+             py::arg("lambda0") = std::nullopt,
+             py::arg("mu0") = std::nullopt,
+             py::arg("x0") = std::nullopt,
+             py::arg("lb") = std::nullopt,
+             py::arg("ub") = std::nullopt,
+             py::arg("cs") = std::nullopt,
+             py::arg("cc") = std::nullopt,
+             py::arg("cmu") = std::nullopt,
+             py::arg("c1") = std::nullopt,
+             py::arg("verbose") = false)
+        .def_readwrite("dim", &Settings::dim)
+        .def_readwrite("modules", &Settings::modules)
+        .def_readwrite("target", &Settings::target)
+        .def_readwrite("max_generations", &Settings::max_generations)
+        .def_readwrite("budget", &Settings::budget)
+        .def_readwrite("sigma0", &Settings::sigma0)
+        .def_readwrite("lambda0", &Settings::lambda0)
+        .def_readwrite("mu0", &Settings::mu0)
+        .def_readwrite("x0", &Settings::x0)
+        .def_readwrite("lb", &Settings::lb)
+        .def_readwrite("ub", &Settings::ub)
+        .def_readwrite("cs", &Settings::cs)
+        .def_readwrite("cc", &Settings::cc)
+        .def_readwrite("cmu", &Settings::cmu)
+        .def_readwrite("c1", &Settings::c1)
+        .def_readwrite("verbose", &Settings::verbose);
+        // .def("__repr__", [](Settings &settings)
+        //      {
+        //     std::stringstream ss;
+        //     ss << std::boolalpha;
+        //     ss << "<Settings";
+        //     ss << " dim: " << settings.dim;
+        //     ss << " modules: " << to_string(settings.modules);
+        //     ss << " target: " << to_string(settings.target);
+        //     ss << " max_generations: " << to_string(settings.max_generations);
+        //     ss << " budget: " << settings.budget;
+        //     ss << " sigma0: " << settings.sigma0;
+        //     ss << " lambda0: " << settings.lambda0;
+        //     ss << " mu0: " << settings.mu0;
+        //     ss << " x0: " << to_string(settings.x0);
+        //     ss << " lb: " << settings.lb.transpose();
+        //     ss << " ub: " << settings.ub.transpose();
+        //     ss << " cs: " << to_string(settings.cs);
+        //     ss << " cc: " << to_string(settings.cc);
+        //     ss << " cmu: " << to_string(settings.cmu);
+        //     ss << " c1: " << to_string(settings.c1);
+        //     ss << " verbose: " << settings.verbose;
+        //     ss << ">";
+        //     return ss.str(); });
+
+    ;
 
     py::class_<Parameters, std::shared_ptr<Parameters>>(main, "Parameters")
         .def(py::init<size_t>(), py::arg("dimension"))
-        .def(py::init<size_t, Modules>(), py::arg("dimension"), py::arg("modules"))
+        .def(py::init<Settings>(), py::arg("settings"))
         .def("adapt", &Parameters::adapt)
         .def("perform_restart", &Parameters::perform_restart, py::arg("sigma") = std::nullopt)
-        .def_readonly("dim", &Parameters::dim)
+        .def_readwrite("settings", &Parameters::settings)
         .def_readwrite("mu", &Parameters::mu)
         .def_readwrite("lamb", &Parameters::lambda)
-        .def_readwrite("modules", &Parameters::modules)
         .def_readwrite("dynamic", &Parameters::dynamic)
         .def_readwrite("stats", &Parameters::stats)
         .def_readwrite("weights", &Parameters::weights)
@@ -246,9 +354,8 @@ void define_parameters(py::module &main)
         .def_readwrite("sampler", &Parameters::sampler)
         .def_readwrite("mutation", &Parameters::mutation)
         .def_readwrite("selection", &Parameters::selection)
-        .def_readwrite("restart", &Parameters::restart)
-        .def_readwrite("bounds", &Parameters::bounds)
-        .def_readwrite("verbose", &Parameters::verbose);
+        // .def_readwrite("restart", &Parameters::restart)
+        .def_readwrite("bounds", &Parameters::bounds);
 }
 
 void define_bounds(py::module &main)
@@ -264,38 +371,38 @@ void define_bounds(py::module &main)
         .def_readonly("n_out_of_bounds", &BoundCorrection::n_out_of_bounds);
 
     py::class_<NoCorrection, BoundCorrection, std::shared_ptr<NoCorrection>>(m, "NoCorrection")
-        .def(py::init<size_t>(), py::arg("dimension"))
+        .def(py::init<size_t, Vector, Vector>(), py::arg("dimension"), py::arg("lb"), py::arg("ub"))
         .def("correct", &NoCorrection::correct,
              py::arg("X"), py::arg("Y"), py::arg("s"), py::arg("m"));
 
     py::class_<CountOutOfBounds, BoundCorrection, std::shared_ptr<CountOutOfBounds>>(m, "CountOutOfBounds")
-        .def(py::init<size_t>(), py::arg("dimension"))
+        .def(py::init<size_t, Vector, Vector>(), py::arg("dimension"), py::arg("lb"), py::arg("ub"))
         .def("correct", &CountOutOfBounds::correct,
              py::arg("X"), py::arg("Y"), py::arg("s"), py::arg("m"));
 
     py::class_<COTN, BoundCorrection, std::shared_ptr<COTN>>(m, "COTN")
-        .def(py::init<size_t>(), py::arg("dimension"))
+        .def(py::init<size_t, Vector, Vector>(), py::arg("dimension"), py::arg("lb"), py::arg("ub"))
         .def("correct", &COTN::correct,
              py::arg("X"), py::arg("Y"), py::arg("s"), py::arg("m"))
         .def_readonly("sampler", &COTN::sampler);
 
     py::class_<Mirror, BoundCorrection, std::shared_ptr<Mirror>>(m, "Mirror")
-        .def(py::init<size_t>(), py::arg("dimension"))
+        .def(py::init<size_t, Vector, Vector>(), py::arg("dimension"), py::arg("lb"), py::arg("ub"))
         .def("correct", &Mirror::correct,
              py::arg("X"), py::arg("Y"), py::arg("s"), py::arg("m"));
 
     py::class_<UniformResample, BoundCorrection, std::shared_ptr<UniformResample>>(m, "UniformResample")
-        .def(py::init<size_t>(), py::arg("dimension"))
+        .def(py::init<size_t, Vector, Vector>(), py::arg("dimension"), py::arg("lb"), py::arg("ub"))
         .def("correct", &UniformResample::correct,
              py::arg("X"), py::arg("Y"), py::arg("s"), py::arg("m"));
 
     py::class_<Saturate, BoundCorrection, std::shared_ptr<Saturate>>(m, "Saturate")
-        .def(py::init<size_t>(), py::arg("dimension"))
+        .def(py::init<size_t, Vector, Vector>(), py::arg("dimension"), py::arg("lb"), py::arg("ub"))
         .def("correct", &Saturate::correct,
              py::arg("X"), py::arg("Y"), py::arg("s"), py::arg("m"));
 
     py::class_<Toroidal, BoundCorrection, std::shared_ptr<Toroidal>>(m, "Toroidal")
-        .def(py::init<size_t>(), py::arg("dimension"))
+        .def(py::init<size_t, Vector, Vector>(), py::arg("dimension"), py::arg("lb"), py::arg("ub"))
         .def("correct", &Toroidal::correct,
              py::arg("X"), py::arg("Y"), py::arg("s"), py::arg("m"));
 }
@@ -307,7 +414,7 @@ void define_mutation(py::module &main)
 
     py::class_<ThresholdConvergence, std::shared_ptr<ThresholdConvergence>>(m, "ThresholdConvergence")
         .def(py::init<>())
-        .def("scale", &ThresholdConvergence::scale, py::arg("z"), py::arg("stats"), py::arg("bounds"));
+        .def("scale", &ThresholdConvergence::scale, py::arg("z"), py::arg("diameter"), py::arg("budget"), py::arg("evaluations"));
 
     py::class_<NoThresholdConvergence, ThresholdConvergence, std::shared_ptr<NoThresholdConvergence>>(m, "NoThresholdConvergence")
         .def(py::init<>());
@@ -349,7 +456,6 @@ void define_mutation(py::module &main)
         .def_readwrite("sequential_selection", &Strategy::sq)
         .def_readwrite("sigma_sampler", &Strategy::ss)
         .def_readwrite("cs", &Strategy::cs)
-        .def_readwrite("sigma0", &Strategy::sigma0)
         .def_readwrite("sigma", &Strategy::sigma)
         .def_readwrite("s", &Strategy::s);
 
@@ -423,7 +529,7 @@ void define_mutation(py::module &main)
              py::arg("sigma_sampler"),
              py::arg("cs"),
              py::arg("damps"),
-             py::arg("sigma0"));
+             py::arg("sigma0")); 
 
     py::class_<LPXNES, CSA, std::shared_ptr<LPXNES>>(m, "LPXNES")
         .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
@@ -458,42 +564,81 @@ void define_restart(py::module &main)
     auto m = main.def_submodule("restart");
     using namespace restart;
 
-    py::class_<Strategy, std::shared_ptr<Strategy>>(m, "Strategy");
+    // py::class_<RestartCriteria>(m, "RestartCriteria")
+    //     .def(py::init<double, double, size_t>(), py::arg("dimension"), py::arg("lambda"), py::arg("time"))
+    //     .def("exceeded_max_iter", &RestartCriteria::exceeded_max_iter)
+    //     .def("no_improvement", &RestartCriteria::no_improvement)
+    //     .def("flat_fitness", &RestartCriteria::flat_fitness)
+    //     .def("tolx", &RestartCriteria::tolx)
+    //     .def("tolupsigma", &RestartCriteria::tolupsigma)
+    //     .def("conditioncov", &RestartCriteria::conditioncov)
+    //     .def("noeffectaxis", &RestartCriteria::noeffectaxis)
+    //     .def("noeffectcoor", &RestartCriteria::noeffectcoor)
+    //     .def("stagnation", &RestartCriteria::stagnation)
+    //     .def_readonly("last_restart", &RestartCriteria::last_restart)
+    //     .def_readonly("max_iter", &RestartCriteria::max_iter)
+    //     .def_readonly("n_bin", &RestartCriteria::n_bin)
+    //     .def_readonly("n_stagnation", &RestartCriteria::n_stagnation)
+    //     .def_readonly("flat_fitness_index", &RestartCriteria::flat_fitness_index)
+    //     .def_readonly("flat_fitnesses", &RestartCriteria::flat_fitnesses)
+    //     .def_readonly("median_fitnesses", &RestartCriteria::median_fitnesses)
+    //     .def_readonly("best_fitnesses", &RestartCriteria::best_fitnesses)
+    //     .def_readonly("time_since_restart", &RestartCriteria::time_since_restart)
+    //     .def_readonly("recent_improvement", &RestartCriteria::recent_improvement)
+    //     .def_readonly("n_flat_fitness", &RestartCriteria::n_flat_fitness)
+    //     .def_readonly("d_sigma", &RestartCriteria::d_sigma)
+    //     .def_readonly("tolx_condition", &RestartCriteria::tolx_condition)
+    //     .def_readonly("tolx_vector", &RestartCriteria::tolx_vector)
+    //     .def_readonly("root_max_d", &RestartCriteria::root_max_d)
+    //     .def_readonly("condition_c", &RestartCriteria::condition_c)
+    //     .def_readonly("effect_coord", &RestartCriteria::effect_coord)
+    //     .def_readonly("effect_axis", &RestartCriteria::effect_axis)
+    //     .def("__call__", &RestartCriteria::operator(), py::arg("parameters"))
+    //     .def("__repr__", [](const RestartCriteria &res)
+    //          {
+    //         std::stringstream ss;
+    //         ss << std::boolalpha;
+    //         ss <<  "<RestartCriteria";
+    //         ss << " flat_fitness: " << res.flat_fitness();
+    //         ss << " exeeded_max_iter: " << res.exceeded_max_iter();
+    //         ss << " no_improvement: " << res.no_improvement();
+    //         ss << " tolx: " << res.tolx();
+    //         ss << " tolupsigma: " << res.tolupsigma();
+    //         ss << " conditioncov: " << res.conditioncov();
+    //         ss << " noeffectaxis: " << res.noeffectaxis();
+    //         ss << " noeffectcoor: " << res.noeffectcoor();
+    //         ss << " stagnation: " << res.stagnation() <<  ">";
+    //         return ss.str(); });
 
-    py::class_<None, Strategy, std::shared_ptr<None>>(m, "NoRestart")
-        .def(py::init<>())
-        .def("evaluate", &None::evaluate, py::arg("parameters"));
+    // py::class_<Strategy, std::shared_ptr<Strategy>>(m, "Strategy")
+    //     .def("evaluate", &Strategy::evaluate, py::arg("parameters"))
+    //     .def_readwrite("criteria", &Strategy::criteria);
 
-    py::class_<Restart, Strategy, std::shared_ptr<Restart>>(m, "Restart")
-        .def(py::init<size_t, double>(), py::arg("dimension"), py::arg("lamb"))
-        .def("evaluate", &Restart::evaluate, py::arg("parameters"))
-        .def("setup", &Restart::setup, py::arg("dimension"), py::arg("lamb"), py::arg("t"))
-        .def("termination_criteria", &Restart::termination_criteria, py::arg("parameters"))
-        .def("restart", &Restart::restart, py::arg("parameters"))
-        .def_readonly("last_restart", &Restart::last_restart)
-        .def_readonly("max_iter", &Restart::max_iter)
-        .def_readonly("n_bin", &Restart::n_bin)
-        .def_readonly("n_stagnation", &Restart::n_stagnation)
-        .def_readonly("flat_fitness_index", &Restart::flat_fitness_index)
-        .def_readonly("flat_fitnesses", &Restart::flat_fitnesses)
-        .def_readonly("median_fitnesses", &Restart::median_fitnesses)
-        .def_readonly("best_fitnesses", &Restart::best_fitnesses);
+    // py::class_<None, Strategy, std::shared_ptr<None>>(m, "NoRestart")
+    //     .def(py::init<double, double>(), py::arg("dimension"), py::arg("lamb"))
+    //     .def("restart", &None::restart, py::arg("parameters"));
 
-    py::class_<IPOP, Restart, std::shared_ptr<IPOP>>(m, "IPOP")
-        .def(py::init<size_t, double>(), py::arg("dimension"), py::arg("lamb"))
-        .def_readwrite("ipop_factor", &IPOP::ipop_factor);
+    // py::class_<Restart, Strategy, std::shared_ptr<Restart>>(m, "Restart")
+    //     .def(py::init<size_t, double>(), py::arg("dimension"), py::arg("lamb"))
+    //     .def("restart", &Restart::restart, py::arg("parameters"));
 
-    py::class_<BIPOP, Restart, std::shared_ptr<BIPOP>>(m, "BIPOP")
-        .def(py::init<size_t, double, double, size_t>(), py::arg("dimension"), py::arg("lamb"), py::arg("mu"), py::arg("budget"))
-        .def("large", &BIPOP::large)
-        .def_readwrite("mu_factor", &BIPOP::mu_factor)
-        .def_readwrite("lambda_init", &BIPOP::lambda_init)
-        .def_readwrite("budget", &BIPOP::budget)
-        .def_readwrite("lambda_large", &BIPOP::lambda_large)
-        .def_readwrite("lambda_small", &BIPOP::lambda_small)
-        .def_readwrite("budget_small", &BIPOP::budget_small)
-        .def_readwrite("budget_large", &BIPOP::budget_large)
-        .def_readonly("used_budget", &BIPOP::used_budget);
+    // py::class_<IPOP, Strategy, std::shared_ptr<IPOP>>(m, "IPOP")
+    //     .def(py::init<double, double>(), py::arg("dimension"), py::arg("lamb"))
+    //     .def("restart", &IPOP::restart, py::arg("parameters"))
+    //     .def_readwrite("ipop_factor", &IPOP::ipop_factor);
+
+    // py::class_<BIPOP, Strategy, std::shared_ptr<BIPOP>>(m, "BIPOP")
+    //     .def(py::init<size_t, double, double, size_t>(), py::arg("dimension"), py::arg("lamb"), py::arg("mu"), py::arg("budget"))
+    //     .def("restart", &BIPOP::restart, py::arg("parameters"))
+    //     .def("large", &BIPOP::large)
+    //     .def_readwrite("mu_factor", &BIPOP::mu_factor)
+    //     .def_readwrite("lambda_init", &BIPOP::lambda_init)
+    //     .def_readwrite("budget", &BIPOP::budget)
+    //     .def_readwrite("lambda_large", &BIPOP::lambda_large)
+    //     .def_readwrite("lambda_small", &BIPOP::lambda_small) 
+    //     .def_readwrite("budget_small", &BIPOP::budget_small)
+    //     .def_readwrite("budget_large", &BIPOP::budget_large) 
+    //     .def_readonly("used_budget", &BIPOP::used_budget);
 }
 
 void define_cmaes(py::module &m)
@@ -501,15 +646,12 @@ void define_cmaes(py::module &m)
     py::class_<ModularCMAES>(m, "ModularCMAES")
         .def(py::init<std::shared_ptr<parameters::Parameters>>(), py::arg("parameters"))
         .def("recombine", &ModularCMAES::recombine)
-        .def("mutate", [](ModularCMAES& self, std::function<double(Vector)> objective) {
-            self.p->mutation->mutate(objective, self.p->pop.Z.cols(), *self.p);
-        })
-        .def("select", [](ModularCMAES& self){
-            self.p->selection->select(*self.p);
-        })
-        .def("adapt", [](ModularCMAES& self) {
-            self.p->adapt();
-        })
+        .def("mutate", [](ModularCMAES &self, std::function<double(Vector)> objective)
+             { self.p->mutation->mutate(objective, self.p->pop.Z.cols(), *self.p); })
+        .def("select", [](ModularCMAES &self)
+             { self.p->selection->select(*self.p); })
+        .def("adapt", [](ModularCMAES &self)
+             { self.p->adapt(); })
         .def("step", &ModularCMAES::step, py::arg("objective"))
         .def("__call__", &ModularCMAES::operator(), py::arg("objective"))
         .def("break_conditions", &ModularCMAES::break_conditions)

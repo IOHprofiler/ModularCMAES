@@ -2,62 +2,56 @@
 
 namespace parameters
 {
-    Parameters::Parameters(const size_t dim, const Modules& m) : 
-        dim(dim), 
-        lambda(4 + std::floor(3 * std::log(dim))),
-        mu(lambda / 2),
-        modules(m), 
-        dynamic(dim),
-        weights(dim, mu, lambda, modules),
-        pop(dim, lambda),
-        old_pop(dim, lambda),        
-        sampler(sampling::get(dim, modules, lambda)),
-        mutation(mutation::get(modules,           
-            mu, weights.mueff,
-            static_cast<double>(dim),
-            2.0 // sigma
+    Parameters::Parameters(const Settings& settings) : 
+        lambda(settings.lambda0),
+        mu(settings.mu0),
+        settings(settings),
+        dynamic(settings.dim, settings.x0.value_or(Vector::Zero(settings.dim))),
+        weights(settings.dim, settings.mu0, settings.lambda0, settings),
+        pop(settings.dim, settings.lambda0),
+        old_pop(settings.dim, settings.lambda0),        
+        sampler(sampling::get(settings.dim, settings.modules, settings.lambda0)),
+        mutation(mutation::get(settings.modules,           
+            settings.mu0, weights.mueff,
+            static_cast<double>(settings.dim),
+            settings.sigma0,
+            settings.cs
         )),
-        selection(std::make_shared<selection::Strategy>(modules)),
-        restart(restart::get(modules.restart_strategy, 
-            static_cast<double>(dim), 
-            static_cast<double>(lambda), 
-            static_cast<double>(mu), 
-            stats.budget)
+        selection(std::make_shared<selection::Strategy>(settings.modules)), 
+        restart(restart::get(settings.modules.restart_strategy, 
+            static_cast<double>(settings.dim), 
+            static_cast<double>(settings.lambda0), 
+            static_cast<double>(settings.mu0), 
+            settings.budget)
         ),
-        bounds(bounds::get(dim, modules.bound_correction))
+        bounds(bounds::get(settings.dim, settings.modules.bound_correction, settings.lb, settings.ub))
     {
         // Ensure proper initialization of pop.s
         mutation->sample_sigma(pop);
-
-        if (modules.mirrored == sampling::Mirror::PAIRWISE and lambda % 2 != 0)
-            lambda++;
-
-        if (mu > lambda)
-            mu = lambda / 2;
-
     }
 
-    Parameters::Parameters(const size_t dim) : Parameters(dim, {}) {}
+    Parameters::Parameters(const size_t dim) : Parameters(Settings(dim,  {})) {}
         
     void Parameters::perform_restart(const std::optional<double>& sigma) {
-        weights = Weights(dim, mu, lambda, modules);
-        sampler = sampling::get(dim, modules, lambda);
+        weights = Weights(settings.dim, mu, lambda, settings);
+        sampler = sampling::get(settings.dim, settings.modules, lambda);
 
-        pop = Population(dim, lambda); 
-        old_pop = Population(dim, lambda);
+        pop = Population(settings.dim, lambda); 
+        old_pop = Population(settings.dim, lambda);
 
-        mutation = mutation::get(modules, mu, weights.mueff,
-            static_cast<double>(dim), 
-            sigma.value_or(mutation->sigma0)
+        mutation = mutation::get(settings.modules, mu, weights.mueff,
+            static_cast<double>(settings.dim), 
+            sigma.value_or(settings.sigma0),
+            settings.cs
         );
         
         mutation->sample_sigma(pop);
         
-        dynamic.B = Matrix::Identity(dim, dim);
-        dynamic.C = Matrix::Identity(dim, dim);
-        dynamic.inv_root_C = Matrix::Identity(dim, dim);
+        dynamic.B = Matrix::Identity(settings.dim, settings.dim);
+        dynamic.C = Matrix::Identity(settings.dim, settings.dim);
+        dynamic.inv_root_C = Matrix::Identity(settings.dim, settings.dim);
         dynamic.d.setOnes();
-        dynamic.m.setZero(); // = Vector::Random(dim) * 5;
+        dynamic.m = settings.x0.value_or(Vector::Zero(settings.dim));
         dynamic.m_old.setZero();
         dynamic.dm.setZero();
         dynamic.pc.setZero();
@@ -65,10 +59,10 @@ namespace parameters
     }
 
     bool Parameters::invalid_state() const {
-        const bool sigma_out_of_bounds = 1e-8 > mutation->sigma or mutation->sigma > 1e4;
+        const bool sigma_out_of_bounds = 1e-16 > mutation->sigma or mutation->sigma > 1e4;
 
-        if(sigma_out_of_bounds) {
-            std::cout << "sigma " << mutation->sigma << " restarting\n";
+        if(sigma_out_of_bounds && settings.verbose) {
+            std::cout << "sigma out of bounds: " << mutation->sigma << " restarting\n";
         }
         return sigma_out_of_bounds;
     }
@@ -79,9 +73,9 @@ namespace parameters
         dynamic.adapt_evolution_paths(weights, mutation, stats, lambda);
         mutation->adapt(weights, dynamic, pop, old_pop, stats, lambda);
 
-        dynamic.adapt_covariance_matrix(weights, modules, pop, mu);
+        dynamic.adapt_covariance_matrix(weights, settings.modules, pop, mu);
         
-        if (!dynamic.perform_eigendecomposition(stats) or invalid_state())
+        if (!dynamic.perform_eigendecomposition(settings) or invalid_state())
             perform_restart();
         
         old_pop = pop;

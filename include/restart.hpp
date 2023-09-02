@@ -2,27 +2,29 @@
 
 #include "common.hpp"
 
-namespace parameters {
+namespace parameters
+{
 	struct Parameters;
 }
 
-namespace restart {
-	enum class StrategyType {
-		NONE, RESTART, IPOP, BIPOP
-	};
-	 
-	struct Strategy {
-		virtual void evaluate(parameters::Parameters&) = 0;
-	};
-
-	struct None : Strategy {
-		void evaluate(parameters::Parameters&) override {}
+namespace restart
+{
+	enum class StrategyType
+	{
+		NONE,
+		RESTART,
+		IPOP,
+		BIPOP
 	};
 
-	struct Restart : Strategy {
+	class RestartCriteria
+	{
+		void update(const parameters::Parameters &p);
+
+	public:
 		size_t last_restart;
-
 		size_t max_iter;
+		size_t max_flat_fitness;
 		size_t n_bin;
 		size_t n_stagnation;
 		size_t flat_fitness_index;
@@ -31,42 +33,98 @@ namespace restart {
 		std::vector<double> median_fitnesses;
 		std::vector<double> best_fitnesses;
 
-		Restart(const double d, const double lambda) {
-			setup(d, lambda, 0);
-		}
+		size_t time_since_restart;
+		double recent_improvement;
+		size_t n_flat_fitness;
+		double d_sigma;
 
-		void setup(const double d, const double lambda, const size_t t) {
-			last_restart = t;
-			max_iter = static_cast<size_t>(100 + 50 * std::pow((d + 3), 2.0) / std::sqrt(lambda));
-			n_bin = 10 + static_cast<size_t>(std::ceil(30 * d / lambda));
-			n_stagnation = static_cast<size_t>(std::min(static_cast<int>(120 + (30 * d / lambda)), 20000));
-			flat_fitness_index = static_cast<size_t>(std::round(.1 + lambda / 4));
-			
-			// Stats
-			flat_fitnesses = Eigen::Array<int, Eigen::Dynamic, 1>::Constant(5, 0);
-			
-			median_fitnesses = std::vector<double>();
+		double tolx_condition;
+		Vector tolx_vector;
+
+		double root_max_d;
+		double condition_c;
+		Vector effect_coord;
+		Vector effect_axis;
+
+		RestartCriteria(const double d, const double lambda, const size_t t)
+			: last_restart(t),
+			  max_iter(static_cast<size_t>(100 + 50 * std::pow((d + 3), 2.0) / std::sqrt(lambda))),
+			  max_flat_fitness(static_cast<size_t>(std::ceil(d / 3))),
+			  n_bin(10 + static_cast<size_t>(std::ceil(30 * d / lambda))),
+			  n_stagnation(static_cast<size_t>(std::min(static_cast<int>(120 + (30 * d / lambda)), 20000))),
+			  flat_fitness_index(static_cast<size_t>(std::round(.1 + lambda / 4))),
+			  flat_fitnesses(Eigen::Array<int, Eigen::Dynamic, 1>::Constant(static_cast<size_t>(d), 0)),
+			  median_fitnesses{},
+			  best_fitnesses{},
+			  time_since_restart(0),
+			  recent_improvement(0.),
+			  n_flat_fitness(0),
+			  d_sigma(0.),
+			  tolx_condition(0.),
+			  tolx_vector{static_cast<size_t>(d * 2)},
+			  root_max_d(0.),
+			  condition_c(0.),
+			  effect_coord(static_cast<size_t>(d)),
+			  effect_axis(static_cast<size_t>(d))
+		{ 
 			median_fitnesses.reserve(max_iter);
-
-			best_fitnesses = std::vector<double>();
 			best_fitnesses.reserve(max_iter);
 		}
 
-		void evaluate(parameters::Parameters& p) override;
+		bool exceeded_max_iter() const;
 
-		bool termination_criteria(const parameters::Parameters&) const;
-		virtual void restart(parameters::Parameters&);
-		
+		bool no_improvement() const;
+
+		bool flat_fitness() const;
+
+		bool tolx() const;
+
+		bool tolupsigma() const;
+
+		bool conditioncov() const;
+
+		bool noeffectaxis() const;
+
+		bool noeffectcoor() const;
+
+		bool stagnation() const;
+
+		bool operator()(const parameters::Parameters &p);
 	};
 
-	struct IPOP : Restart {
-		using Restart::Restart;
+	struct Strategy
+	{
+		RestartCriteria criteria;
+
+		Strategy(const double d, const double lambda) : criteria(d, lambda, 0) {}
+		
+		void evaluate(parameters::Parameters &p);
+			
+		virtual void restart(parameters::Parameters &) = 0;
+	};
+
+	struct None : Strategy
+	{
+		using Strategy::Strategy;
+		void restart(parameters::Parameters &p) override {}
+	};
+
+	struct Restart : Strategy
+	{
+		using Strategy::Strategy;
+		void restart(parameters::Parameters &) override;
+	};
+
+	struct IPOP : Strategy
+	{
 		double ipop_factor = 2.0;
-		void restart(parameters::Parameters&) override;
+		using Strategy::Strategy;
+		void restart(parameters::Parameters &) override;
 	};
 
-	struct BIPOP : Restart {
-		
+	struct BIPOP : Strategy
+	{
+
 		size_t lambda_init;
 		double mu_factor;
 		size_t budget;
@@ -76,21 +134,21 @@ namespace restart {
 		size_t budget_small = 0;
 		size_t budget_large = 0;
 		size_t used_budget = 0;
-		
 
-		BIPOP(const double d, const double lambda, const double mu, const size_t budget): 
-			Restart(d, lambda), lambda_init(static_cast<size_t>(lambda)), mu_factor(mu / lambda), budget(budget)
+		BIPOP(const double d, const double lambda, const double mu, const size_t budget) : Strategy(d, lambda), lambda_init(static_cast<size_t>(lambda)), mu_factor(mu / lambda), budget(budget)
 		{
 		}
 
-		void restart(parameters::Parameters&) override;
+		void restart(parameters::Parameters &) override;
 
-		bool large() const {
+		bool large() const
+		{
 			return budget_large >= budget_small and budget_large > 0;
 		}
 	};
 
-	inline std::shared_ptr<Strategy> get(const StrategyType s, const double d, const double lambda, const double mu, const size_t budget) {
+	inline std::shared_ptr<Strategy> get(const StrategyType s, const double d, const double lambda, const double mu, const size_t budget)
+	{
 		switch (s)
 		{
 		case StrategyType::RESTART:
@@ -101,7 +159,7 @@ namespace restart {
 			return std::make_shared<BIPOP>(d, lambda, mu, budget);
 		default:
 		case StrategyType::NONE:
-			return std::make_shared<None>();
+			return std::make_shared<None>(d, lambda);
 		}
 	}
 }

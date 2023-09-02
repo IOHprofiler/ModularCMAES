@@ -2,7 +2,7 @@
 
 namespace parameters
 {
-    Dynamic::Dynamic(const size_t dim) : m(Vector::Random(dim) * 5), m_old(dim), dm(Vector::Zero(dim)), pc(Vector::Zero(dim)),
+    Dynamic::Dynamic(const size_t dim, const Vector& x0) : m(x0), m_old(dim), dm(Vector::Zero(dim)), pc(Vector::Zero(dim)),
                                          ps(Vector::Zero(dim)), d(Vector::Ones(dim)),
                                          B(Matrix::Identity(dim, dim)), C(Matrix::Identity(dim, dim)),
                                          inv_root_C(Matrix::Identity(dim, dim)), 
@@ -49,29 +49,29 @@ namespace parameters
             C.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().transpose();
     }
 
-    bool Dynamic::perform_eigendecomposition(const Stats &stats)
+    bool Dynamic::perform_eigendecomposition(const Settings &settings)
     {
         Eigen::SelfAdjointEigenSolver<Matrix> eigensolver(C);
         if (eigensolver.info() != Eigen::Success)
         {
-            // TODO: check why this sometimes happens on the first eval (sphere 60d)
-            std::cout << "eigensolver failed, we need to restart t(" << stats.t << ") reason:"
-                      << eigensolver.info() << std::endl;
+            if (settings.verbose){
+                // TODO: check why this sometimes happens on the first eval (sphere 60d)
+                std::cout << "Eigensolver failed, we need to restart reason:"
+                        << eigensolver.info() << std::endl;
+            }
             return false;
         }
         d = eigensolver.eigenvalues();
-        if (d.minCoeff() < 0.0) 
+       
+        if (d.minCoeff() < 0.0){
+            if (settings.verbose) {
+                std::cout << "Negative eigenvalues after decomposition, we need to restart.\n";
+            }
             return false;
+        }              
         
         d = d.cwiseSqrt();
         B = eigensolver.eigenvectors();
-
-        // TODO: Check how to adress this, sometimes the covariance matrix degenerates
-        // static double eps = 1e-24;
-        // d = d.unaryExpr([eps=eps](double v)
-        //                 { return std::isfinite(v) ? std::max(v, eps) : eps; });
-        // C = B * d.cwiseProduct(d).asDiagonal() * B.transpose();
-
         inv_root_C = (B * d.cwiseInverse().asDiagonal()) * B.transpose();
         return true;
     }

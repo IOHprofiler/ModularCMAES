@@ -3,12 +3,12 @@
 namespace parameters
 {
 
-    Weights::Weights(const size_t dim, const size_t mu, const size_t lambda, const Modules &m)
+    Weights::Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings)
         : weights(lambda), positive(mu), negative(lambda - mu)
     {
         const double d = static_cast<double>(dim);
         using namespace mutation;
-        switch (m.weights)
+        switch (settings.modules.weights)
         {
         case RecombinationWeights::EQUAL:
             weights_equal(mu);
@@ -25,11 +25,14 @@ namespace parameters
         mueff_neg = std::pow(negative.sum(), 2) / negative.dot(negative);
         positive /= positive.sum();
 
-        c1 = 2.0 / (pow(d + 1.3, 2) + mueff);
-        cmu = std::min(1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))));
-        cc = (4.0 + (mueff / d)) / (d + 4.0 + (2.0 * mueff / d));
-
-
+        c1 = settings.c1.value_or(2.0 / (pow(d + 1.3, 2) + mueff));
+        cmu = settings.cmu.value_or(
+            std::min(1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))))
+        );
+        cc = settings.cmu.value_or(
+            (4.0 + (mueff / d)) / (d + 4.0 + (2.0 * mueff / d))
+        );
+        
         const double amu_neg = 1.0 + (c1 / static_cast<double>(mu));
         const double amueff_neg = 1.0 + ((2.0 * mueff_neg) / (mueff + 2.0));
         const double aposdef_neg = (1.0 - c1 - cmu) / (d * cmu);

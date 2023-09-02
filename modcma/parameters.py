@@ -259,6 +259,7 @@ class Parameters(AnnotatedStruct):
     init_threshold: float = 0.1
     decay_factor: float = 0.995
     max_resamples: int = 1000
+
     active: bool = False
     elitist: bool = False
     sequential: bool = False
@@ -275,10 +276,12 @@ class Parameters(AnnotatedStruct):
     population: TypeVar("Population") = None
     old_population: TypeVar("Population") = None
     termination_criteria: dict = {}
+    
     ipop_factor: int = 2
     tolx: float = pow(10, -12)
     tolup_sigma: float = float(pow(10, 20))
     condition_cov: float = float(pow(10, 14))
+
     ps_factor: float = 1.0
     compute_termination_criteria: bool = False
     sample_sigma: bool = False  # TODO make this a module
@@ -432,7 +435,6 @@ class Parameters(AnnotatedStruct):
         mueff_neg = self.nweights.sum() ** 2 / (self.nweights ** 2).sum()
 
         self.pweights = self.pweights / self.pweights.sum()
-        
 
         self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
         self.cmu = self.cmu or min(1 - self.c1, (2 * (
@@ -586,7 +588,6 @@ class Parameters(AnnotatedStruct):
                     ), 2
                 )
             )
-
             rank_mu = self.cmu * (weights * self.population.y @ self.population.y.T)
         else:
             rank_mu = self.cmu * (

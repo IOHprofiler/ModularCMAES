@@ -5,12 +5,12 @@
 
 namespace mutation {
     
-    void ThresholdConvergence::scale(Matrix& z, const parameters::Stats& s, const std::shared_ptr<bounds::BoundCorrection>& bounds)
+    void ThresholdConvergence::scale(Matrix& z, const double diameter, const size_t budget, const size_t evaluations)
     {
-        const double t = init_threshold * bounds->diameter * pow(static_cast<double>(s.budget - s.evaluations) / static_cast<double>(s.budget), decay_factor);
+        const double t = init_threshold * diameter * pow(static_cast<double>(budget - evaluations) / static_cast<double>(budget), decay_factor);
         const auto norm = z.colwise().norm().array().replicate(z.cols() - 1, 1);
         z = (norm < t).select(z.array() * ((t + (t - norm)) / norm), z);
-    }
+    } 
 
     bool SequentialSelection::break_conditions(const size_t i, const double f, double fopt, const sampling::Mirror& m) {
         return (f < fopt) and (i >= seq_cutoff) and (m != sampling::Mirror::PAIRWISE or i % 2 == 0);
@@ -25,7 +25,7 @@ namespace mutation {
         for (size_t i = 0; i < n_offspring; ++i)
             p.pop.Z.col(i) = (*p.sampler)();
 
-        p.mutation->tc->scale(p.pop.Z, p.stats, p.bounds);
+        p.mutation->tc->scale(p.pop.Z, p.bounds->diameter, p.settings.budget, p.stats.evaluations);
 
         p.pop.Y = p.dynamic.B * (p.dynamic.d.asDiagonal() * p.pop.Z);
         p.pop.X = (p.pop.Y * p.pop.s.asDiagonal()).colwise() + p.dynamic.m;
@@ -37,7 +37,7 @@ namespace mutation {
         {
             p.pop.f(i) = objective(p.pop.X.col(i));
             p.stats.evaluations++;
-            sequential_break_conditions = sq->break_conditions(i, p.pop.f(i), p.stats.fopt, p.modules.mirrored);
+            sequential_break_conditions = sq->break_conditions(i, p.pop.f(i), p.stats.fopt, p.settings.modules.mirrored);
         }
     }
 
@@ -142,7 +142,8 @@ namespace mutation {
     }
 
 
-    std::shared_ptr<Strategy> get(const parameters::Modules& m, const size_t mu, const double mueff, const double d, const double sigma) {
+    std::shared_ptr<Strategy> get(const parameters::Modules& m, const size_t mu, const double mueff, 
+    const double d, const double sigma, const std::optional<double> cs0) {
 
         auto tc = m.threshold_convergence ? std::make_shared<ThresholdConvergence>()
             : std::make_shared<NoThresholdConvergence>();
@@ -154,7 +155,7 @@ namespace mutation {
             std::make_shared<SigmaSampler>(d)
             : std::make_shared<NoSigmaSampler>(d);
 
-        double cs = 0.3;
+        double cs = cs0.value_or(0.3);
         double damps = 0.0;
 
         switch (m.ssa)
@@ -164,20 +165,20 @@ namespace mutation {
         case StepSizeAdaptation::MSR:
             return std::make_shared<MSR>(tc, sq, ss, cs, damps, sigma);
         case StepSizeAdaptation::XNES:
-            cs = mueff / (2.0 * std::log(std::max(2., d)) * sqrt(d));
+            cs = cs0.value_or(mueff / (2.0 * std::log(std::max(2., d)) * sqrt(d)));
             return std::make_shared<XNES>(tc, sq, ss, cs, damps, sigma);
         case StepSizeAdaptation::MXNES:
-            cs = 1.;
+            cs = cs0.value_or(1.);
             return std::make_shared<MXNES>(tc, sq, ss, cs, damps, sigma);
         case StepSizeAdaptation::LPXNES:
-            cs = 9.0 * mueff / (10.0 * sqrt(d));
+            cs = cs0.value_or(9.0 * mueff / (10.0 * sqrt(d)));
             return std::make_shared<LPXNES>(tc, sq, ss, cs, damps, sigma);
         case StepSizeAdaptation::PSR:
-            cs = .9;
+            cs = cs0.value_or(.9);
             return std::make_shared<PSR>(tc, sq, ss, cs, 0., sigma);
         default:
         case StepSizeAdaptation::CSA:
-            cs = (mueff + 2.0) / (d + mueff + 5.0);
+            cs = cs0.value_or((mueff + 2.0) / (d + mueff + 5.0));
             damps = 1.0 + (2.0 * std::max(0.0, sqrt((mueff - 1.0) / (d + 1)) - 1) + cs);
             return std::make_shared<CSA>(tc, sq, ss, cs, damps, sigma);
         }
