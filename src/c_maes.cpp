@@ -31,5 +31,7 @@ bool ModularCMAES::break_conditions() const
 	const auto target_reached = p->settings.target and p->settings.target.value() >= p->stats.fopt;
 	const auto budget_used_up = p->stats.evaluations >= p->settings.budget;
 	const auto exceed_gens = p->settings.max_generations and p->stats.t >= p->settings.max_generations;
-	return exceed_gens or target_reached or budget_used_up;
+	const auto restart_strategy_criteria = p->settings.modules.restart_strategy == restart::StrategyType::STOP and
+		p->restart->criteria.any;
+	return exceed_gens or target_reached or budget_used_up or restart_strategy_criteria;
 }

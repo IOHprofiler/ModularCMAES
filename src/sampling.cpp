@@ -103,8 +103,6 @@ namespace sampling
         i8_sobol(static_cast<int>(d), &seed, res.data());
         for (size_t j = 0; j < d; ++j)
             res(j) = ppf(res(j));
-
-        seed += d;
         return res;
     }
 

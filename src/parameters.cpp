@@ -24,11 +24,9 @@ namespace parameters
             static_cast<double>(settings.mu0), 
             settings.budget)
         ),
-        bounds(bounds::get(settings.dim, settings.modules.bound_correction, settings.lb, settings.ub))
+        bounds(bounds::get(settings.modules.bound_correction, settings.lb, settings.ub))
     {
-        // Ensure proper initialization of pop.s
-        mutation->sample_sigma(pop);
-    }
+    } 
 
     Parameters::Parameters(const size_t dim) : Parameters(Settings(dim,  {})) {}
         
@@ -44,9 +42,6 @@ namespace parameters
             sigma.value_or(settings.sigma0),
             settings.cs
         );
-        
-        mutation->sample_sigma(pop);
-        
         dynamic.B = Matrix::Identity(settings.dim, settings.dim);
         dynamic.C = Matrix::Identity(settings.dim, settings.dim);
         dynamic.inv_root_C = Matrix::Identity(settings.dim, settings.dim);
@@ -56,6 +51,7 @@ namespace parameters
         dynamic.dm.setZero();
         dynamic.pc.setZero();
         dynamic.ps.setZero();
+        restart->criteria = restart::RestartCriteria(settings.dim, lambda, stats.t);
     }
 
     bool Parameters::invalid_state() const {

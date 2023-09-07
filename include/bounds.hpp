@@ -3,172 +3,107 @@
 #include "common.hpp"
 #include "sampling.hpp"
 
-namespace bounds {
-	
-	struct BoundCorrection {
+struct Population;
+
+namespace bounds
+{
+
+	struct BoundCorrection
+	{
 		Vector lb, ub, db;
 		double diameter;
 		size_t n_out_of_bounds = 0;
 
-		BoundCorrection(const size_t dim, const Vector& lb, const Vector& ub) : 
-			lb(lb), ub(ub), db(ub - lb),
-			diameter((ub - lb).norm()) {}
+		BoundCorrection(const Vector &lb, const Vector &ub) : lb(lb), ub(ub), db(ub - lb),
+															  diameter((ub - lb).norm()) {}
 
-		virtual void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m)  = 0;
-
+		virtual void correct(Population &pop, const Vector &m) = 0;
 	};
 
-	struct NoCorrection : BoundCorrection {
+	struct NoCorrection : BoundCorrection
+	{
 		using BoundCorrection::BoundCorrection;
 
-		void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m)  override {}
+		void correct(Population &pop, const Vector &m) override {}
 	};
 
-	struct CountOutOfBounds : BoundCorrection {
+	struct CountOutOfBounds : BoundCorrection
+	{
 		using BoundCorrection::BoundCorrection;
 
-		void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m)  override {
-			n_out_of_bounds = 0;
-			for (auto i = 0; i < X.cols(); ++i) {
-				const auto oob = X.col(i).array() < lb.array() || X.col(i).array() > ub.array();
-				n_out_of_bounds += oob.any();				
-			}
-		}
+		void correct(Population &pop, const Vector &m) override;
 	};
 
-	inline double modulo2(const int x) {
-		return static_cast<double>((2 + (x % 2)) % 2);
-	};
-
-	struct COTN : BoundCorrection {
+	struct COTN : BoundCorrection
+	{
 		sampling::Gaussian sampler;
 
-		COTN(const size_t dim, const Vector& lb, const Vector& ub): BoundCorrection(dim, lb, ub), sampler(dim, rng::normal<double>(0, 1.0 / 3.)) {}
+		COTN(Eigen::Ref<const Vector> lb, Eigen::Ref<const Vector> ub) : BoundCorrection(lb, ub), sampler(static_cast<size_t>(lb.size()), rng::normal<double>(0, 1.0 / 3.)) {}
 
-		void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m) override {
-			n_out_of_bounds = 0;
-			
-			for (auto i = 0; i < X.cols(); ++i) {
-				const auto oob = X.col(i).array() < lb.array() || X.col(i).array() > ub.array();
-				if (oob.any()) {
-					n_out_of_bounds++;
-					const Vector y = (oob).select((X.col(i) - lb).cwiseQuotient(db), X.col(i));
-					X.col(i) = (oob).select(
-						lb.array() + db.array() * ((y.array() > 0).cast<double>() - sampler().array().abs()).abs(), y
-					);
-					Y.col(i) = (X.col(i) - m) / s(i);
-				}				
-			}
-		}
+		void correct(Population &pop, const Vector &m) override;
 	};
 
-	struct Mirror : BoundCorrection {
+	struct Mirror : BoundCorrection
+	{
 		using BoundCorrection::BoundCorrection;
 
-		void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m)  override {
-			n_out_of_bounds = 0;
-
-			for (auto i = 0; i < X.cols(); ++i) {
-				const auto oob = X.col(i).array() < lb.array() || X.col(i).array() > ub.array();
-				if (oob.any()) {
-					n_out_of_bounds++;
-					const Vector y = (oob).select((X.col(i) - lb).cwiseQuotient(db), X.col(i));
-					X.col(i) = (oob).select(
-						lb.array() + db.array() * (y.array() - y.array().floor() - y.array().floor().unaryExpr(&modulo2)).abs(),
-						y
-					);
-					Y.col(i) = (X.col(i) - m) / s(i);
-				}
-			}
-		}
+		void correct(Population &pop, const Vector &m) override;
 	};
 
-	struct UniformResample : BoundCorrection {
+	struct UniformResample : BoundCorrection
+	{
 		sampling::Random<std::uniform_real_distribution<>> sampler;
 
-		UniformResample(const size_t dim, const Vector& lb, const Vector& ub): BoundCorrection(dim, lb, ub), sampler(dim) {}
+		UniformResample(Eigen::Ref<const Vector> lb, Eigen::Ref<const Vector> ub) : BoundCorrection(lb, ub), sampler(static_cast<size_t>(lb.size())) {}
 
-		void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m)  override {
-			n_out_of_bounds = 0;
-
-			for (auto i = 0; i < X.cols(); ++i) {
-				const auto oob = X.col(i).array() < lb.array() || X.col(i).array() > ub.array();
-				if (oob.any()) {
-					n_out_of_bounds++;
-					X.col(i) = (oob).select(lb + sampler().cwiseProduct(db), X.col(i));
-					Y.col(i) = (X.col(i) - m) / s(i);
-				}
-			}
-		}
+		void correct(Population &pop, const Vector &m) override;
 	};
 
-	struct Saturate : BoundCorrection {
+	struct Saturate : BoundCorrection
+	{
 		using BoundCorrection::BoundCorrection;
 
-		void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m)  override {
-			n_out_of_bounds = 0;
-
-			for (auto i = 0; i < X.cols(); ++i) {
-				const auto oob = X.col(i).array() < lb.array() || X.col(i).array() > ub.array();
-				if (oob.any()) {
-					n_out_of_bounds++;
-					const Vector y = (oob).select((X.col(i) - lb).cwiseQuotient(db), X.col(i));
-					X.col(i) = (oob).select(
-						lb.array() + db.array() * (y.array() > 0).cast<double>(), y
-					);
-					Y.col(i) = (X.col(i) - m) / s(i);
-				}
-			}
-		}
+		void correct(Population &pop, const Vector &m) override;
 	};
 
-	struct Toroidal : BoundCorrection {
+	struct Toroidal : BoundCorrection
+	{
 		using BoundCorrection::BoundCorrection;
 
-		void correct(Matrix& X, Matrix& Y, const Vector& s, const Vector& m)  override {
-			n_out_of_bounds = 0;
-
-			for (auto i = 0; i < X.cols(); ++i) {
-				const auto oob = X.col(i).array() < lb.array() || X.col(i).array() > ub.array();
-				if (oob.any()) {
-					n_out_of_bounds++;
-					const Vector y = (oob).select((X.col(i) - lb).cwiseQuotient(db), X.col(i));
-					X.col(i) = (oob).select(
-						lb.array() + db.array() * (y.array() - y.array().floor()).abs(), y
-					);
-					Y.col(i) = (X.col(i) - m) / s(i);
-				}
-			}
-		}
+		void correct(Population &pop, const Vector &m) override;
 	};
 
-
-	enum class CorrectionMethod {
-		NONE, COUNT, MIRROR, COTN, UNIFORM_RESAMPLE, SATURATE, TOROIDAL
+	enum class CorrectionMethod
+	{
+		NONE,
+		COUNT,
+		MIRROR,
+		COTN,
+		UNIFORM_RESAMPLE,
+		SATURATE,
+		TOROIDAL
 	};
 
-	inline std::shared_ptr<BoundCorrection> get(const size_t dim, const CorrectionMethod& m, const Vector& lb, const Vector& ub) {
+	inline std::shared_ptr<BoundCorrection> get(const CorrectionMethod &m, const Vector &lb, const Vector &ub)
+	{
 		switch (m)
 		{
-	
 		case CorrectionMethod::COUNT:
-			return std::make_shared<CountOutOfBounds>(dim, lb, ub);
+			return std::make_shared<CountOutOfBounds>(lb, ub);
 		case CorrectionMethod::MIRROR:
-			return std::make_shared<Mirror>(dim, lb, ub);
+			return std::make_shared<Mirror>(lb, ub);
 		case CorrectionMethod::COTN:
-			return std::make_shared<COTN>(dim, lb, ub);
+			return std::make_shared<COTN>(lb, ub);
 		case CorrectionMethod::UNIFORM_RESAMPLE:
-			return std::make_shared<UniformResample>(dim, lb, ub);
+			return std::make_shared<UniformResample>(lb, ub);
 		case CorrectionMethod::SATURATE:
-			return std::make_shared<Saturate>(dim, lb, ub);
+			return std::make_shared<Saturate>(lb, ub);
 		case CorrectionMethod::TOROIDAL:
-			return std::make_shared<Toroidal>(dim, lb, ub);
-		
+			return std::make_shared<Toroidal>(lb, ub);
+
 		default:
 		case CorrectionMethod::NONE:
-			return std::make_shared<NoCorrection>(dim, lb, ub);
+			return std::make_shared<NoCorrection>(lb, ub);
 		}
 	};
 }
-
-

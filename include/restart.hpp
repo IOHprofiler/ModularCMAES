@@ -12,6 +12,7 @@ namespace restart
 	enum class StrategyType
 	{
 		NONE,
+		STOP,
 		RESTART,
 		IPOP,
 		BIPOP
@@ -45,6 +46,8 @@ namespace restart
 		double condition_c;
 		Vector effect_coord;
 		Vector effect_axis;
+
+		bool any = false;
 
 		RestartCriteria(const double d, const double lambda, const size_t t)
 			: last_restart(t),
@@ -96,7 +99,7 @@ namespace restart
 	{
 		RestartCriteria criteria;
 
-		Strategy(const double d, const double lambda) : criteria(d, lambda, 0) {}
+		Strategy(const double d, const double lambda) : criteria{d, lambda, 0} {}
 		
 		void evaluate(parameters::Parameters &p);
 			
@@ -104,6 +107,12 @@ namespace restart
 	};
 
 	struct None : Strategy
+	{
+		using Strategy::Strategy;
+		void restart(parameters::Parameters &p) override {}
+	};
+
+	struct Stop : Strategy
 	{
 		using Strategy::Strategy;
 		void restart(parameters::Parameters &p) override {}
@@ -157,6 +166,8 @@ namespace restart
 			return std::make_shared<IPOP>(d, lambda);
 		case StrategyType::BIPOP:
 			return std::make_shared<BIPOP>(d, lambda, mu, budget);
+		case StrategyType::STOP:
+			return std::make_shared<Stop>(d, lambda);
 		default:
 		case StrategyType::NONE:
 			return std::make_shared<None>(d, lambda);

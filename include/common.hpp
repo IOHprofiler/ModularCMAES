@@ -118,7 +118,7 @@ namespace rng
 
     /**
      * @brief Box-Muller random normal number generator. Ensures similar numbers generated
-     * on different operating systems. Polar form is used here.
+     * on different operating systems.
      */
     template <typename T = double>
     struct normal
@@ -145,17 +145,13 @@ namespace rng
 
             if (generate)
             {
-                T u1 = 0.0, u2 = 0.0, s = 1.0;
-                do
-                {
-                    u1 = rng(gen);
-                    u2 = rng(gen);
-                    s = pow(u1, 2.) + pow(u2, 2.);
-                } while (s >= 1.0);
+                T u1 = std::abs(rng(gen));
+                T u2 = std::abs(rng(gen));
+                const T root_log_u1 = std::sqrt(-2.0 * std::log(u1));
+                const T two_pi_u2 = 2.0 * M_PI * u2;
+                r1 = (sigma * (root_log_u1 * std::sin(two_pi_u2))) + mu;
+                r2 = (sigma * (root_log_u1 * std::cos(two_pi_u2))) + mu;
 
-                const T root_2log_s = std::sqrt((-2.0 * std::log(s)) / s);
-                r1 = (sigma * (u1 * root_2log_s)) + mu;
-                r2 = (sigma * (u2 * root_2log_s)) + mu;
                 generate = false;
                 return r1;
             }
@@ -164,6 +160,7 @@ namespace rng
                 generate = true;
                 return r2;
             }
+            
         }
     };
 }

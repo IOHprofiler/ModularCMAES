@@ -23,7 +23,7 @@ struct Population
 
     void sort();
 
-    void operator+=(const Population other);
+    Population& operator+=(const Population& other);
 
     void resize_cols(const size_t size);
 

@@ -1,39 +1,44 @@
 #include "mutation.hpp"
-#include "parameters.hpp"
 #include "bounds.hpp"
+#include "parameters.hpp"
 
+namespace mutation
+{
 
-namespace mutation {
-    
-    void ThresholdConvergence::scale(Matrix& z, const double diameter, const size_t budget, const size_t evaluations)
+    void ThresholdConvergence::scale(Population &pop, const double diameter, const size_t budget, const size_t evaluations)
     {
         const double t = init_threshold * diameter * pow(static_cast<double>(budget - evaluations) / static_cast<double>(budget), decay_factor);
-        const auto norm = z.colwise().norm().array().replicate(z.cols() - 1, 1);
-        z = (norm < t).select(z.array() * ((t + (t - norm)) / norm), z);
-    } 
+        const auto norm = pop.Z.colwise().norm().array().replicate(pop.Z.rows(), 1);
+        pop.Z = (norm < t).select(pop.Z.array() * ((t + (t - norm)) / norm), pop.Z);
+    }
 
-    bool SequentialSelection::break_conditions(const size_t i, const double f, double fopt, const sampling::Mirror& m) {
+    bool SequentialSelection::break_conditions(const size_t i, const double f, double fopt, const sampling::Mirror &m)
+    {
         return (f < fopt) and (i >= seq_cutoff) and (m != sampling::Mirror::PAIRWISE or i % 2 == 0);
     }
 
-    void CSA::adapt_sigma(const parameters::Weights& w, parameters::Dynamic& dynamic, Population& pop,
-        const Population& old_pop, const parameters::Stats& stats, const size_t lambda) {
+    void CSA::adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
+                          const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+    {
         sigma *= std::exp((cs / damps) * ((dynamic.ps.norm() / dynamic.chiN) - 1));
     }
-    
-    void CSA::mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters& p) {
+
+    void CSA::mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters &p)
+    {
+        ss->sample(sigma, p.pop);
+
         for (size_t i = 0; i < n_offspring; ++i)
             p.pop.Z.col(i) = (*p.sampler)();
 
-        p.mutation->tc->scale(p.pop.Z, p.bounds->diameter, p.settings.budget, p.stats.evaluations);
+        p.mutation->tc->scale(p.pop, p.bounds->diameter, p.settings.budget, p.stats.evaluations);
 
         p.pop.Y = p.dynamic.B * (p.dynamic.d.asDiagonal() * p.pop.Z);
         p.pop.X = (p.pop.Y * p.pop.s.asDiagonal()).colwise() + p.dynamic.m;
 
-        p.bounds->correct(p.pop.X, p.pop.Y, p.pop.s, p.dynamic.m);
+        p.bounds->correct(p.pop, p.dynamic.m);
 
         bool sequential_break_conditions = false;
-        for (auto i = 0; i < p.pop.X.cols() and !sequential_break_conditions; ++i)
+        for (auto i = 0; i < n_offspring and !sequential_break_conditions; ++i)
         {
             p.pop.f(i) = objective(p.pop.X.col(i));
             p.stats.evaluations++;
@@ -41,7 +46,8 @@ namespace mutation {
         }
     }
 
-    void TPA::mutate(std::function<double(Vector)> objective, const size_t n_offspring_, parameters::Parameters& p) {
+    void TPA::mutate(std::function<double(Vector)> objective, const size_t n_offspring_, parameters::Parameters &p)
+    {
         const size_t n_offspring = n_offspring_ - 2;
 
         CSA::mutate(objective, n_offspring, p);
@@ -49,36 +55,38 @@ namespace mutation {
         p.pop.Y.col(n_offspring) = p.dynamic.dm;
         p.pop.Y.col(n_offspring + 1) = -p.dynamic.dm;
 
-        for (auto i = n_offspring; i < n_offspring + 2; i++) {
+        for (auto i = n_offspring; i < n_offspring + 2; i++)
+        {
             p.pop.X.col(i) = p.dynamic.m + (p.pop.s(i) * p.pop.Y.col(i));
-            
+
             // TODO: this only needs to happen for a single column
-            p.bounds->correct(p.pop.X, p.pop.Y, p.pop.s, p.dynamic.m);
-            
+            p.bounds->correct(p.pop, p.dynamic.m);
+
             p.pop.f(i) = objective(p.pop.X.col(i));
             p.stats.evaluations++;
         }
 
-        rank_tpa = p.pop.f(n_offspring + 1) < p.pop.f(n_offspring) ?
-            -a_tpa : a_tpa + b_tpa;
+        rank_tpa = p.pop.f(n_offspring + 1) < p.pop.f(n_offspring) ? -a_tpa : a_tpa + b_tpa;
     }
 
-    void TPA::adapt_sigma(const parameters::Weights& w, parameters::Dynamic& dynamic, Population& pop,
-        const Population& old_pop, const parameters::Stats& stats, const size_t lambda) {
+    void TPA::adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
+                          const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+    {
         s = ((1.0 - cs) * s) + (cs * rank_tpa);
         sigma *= std::exp(s);
     }
 
     //! Assumes the vector to be arready sorted
-    double median(const Vector& x)
+    double median(const Vector &x)
     {
         if (x.size() % 2 == 0)
             return (x(x.size() / 2) + x(x.size() / 2 - 1)) / 2.0;
         return x(x.size() / 2);
-    }   
+    }
 
-    void MSR::adapt_sigma(const parameters::Weights& w, parameters::Dynamic& dynamic, Population& pop,
-        const Population& old_pop, const parameters::Stats& stats, const size_t lamb) {
+    void MSR::adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
+                          const Population &old_pop, const parameters::Stats &stats, const size_t lamb)
+    {
         if (stats.t != 0)
         {
             const double lambda = static_cast<double>(lamb);
@@ -90,24 +98,27 @@ namespace mutation {
     }
 
     //! Returns the indices of the elements of query in database
-    Vector searchsorted(const Vector& query, const Vector& database) {
+    Vector searchsorted(const Vector &query, const Vector &database)
+    {
         Vector res(query.size());
         auto i = 0;
-      
-        for (const auto& xi : query) {
+
+        for (const auto &xi : query)
+        {
             auto it = std::find(std::begin(database), std::end(database), xi);
             res(i++) = static_cast<double>(std::distance(std::begin(database), it));
         }
         return res;
     }
 
-    void PSR::adapt_sigma(const parameters::Weights& w, parameters::Dynamic& dynamic, Population& pop,
-        const Population& old_pop, const parameters::Stats& stats, const size_t lambda) {
+    void PSR::adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
+                          const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+    {
 
         if (stats.t != 0)
         {
             const auto n = std::min(pop.n_finite(), old_pop.n_finite());
-            auto combined = Vector(n+n); 
+            auto combined = Vector(n + n);
             combined << pop.f.head(n), old_pop.f.head(n);
             const auto idx = utils::sort_indexes(combined);
             combined = combined(idx).eval();
@@ -121,39 +132,40 @@ namespace mutation {
         }
     }
 
-    void XNES::adapt_sigma(const parameters::Weights& w, parameters::Dynamic& dynamic, Population& pop,
-        const Population& old_pop, const parameters::Stats& stats, const size_t lambda) {
-        
+    void XNES::adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
+                           const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+    {
+
         const double z = ((dynamic.inv_root_C * pop.Y).colwise().norm().array().pow(2.) - dynamic.dd).matrix() * w.clipped();
         sigma *= std::exp((cs / std::sqrt(dynamic.dd)) * z);
     }
-    void MXNES::adapt_sigma(const parameters::Weights& w, parameters::Dynamic& dynamic, Population& pop,
-        const Population& old_pop, const parameters::Stats& stats, const size_t lambda) {
+    void MXNES::adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
+                            const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+    {
         if (stats.t != 0)
         {
             const auto z = (w.mueff * std::pow((dynamic.inv_root_C * dynamic.dm).norm(), 2)) - dynamic.dd;
             sigma *= std::exp((cs / dynamic.dd) * z);
         }
     }
-    void LPXNES::adapt_sigma(const parameters::Weights& w, parameters::Dynamic& dynamic, Population& pop,
-        const Population& old_pop, const parameters::Stats& stats, const size_t lambda) {
+    void LPXNES::adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
+                             const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+    {
         const auto z = std::exp(cs * pop.s.array().log().matrix().dot(w.clipped()));
         sigma = std::pow(sigma, 1.0 - cs) * z;
     }
 
-
-    std::shared_ptr<Strategy> get(const parameters::Modules& m, const size_t mu, const double mueff, 
-    const double d, const double sigma, const std::optional<double> cs0) {
+    std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const double mueff,
+                                  const double d, const double sigma, const std::optional<double> cs0)
+    {
 
         auto tc = m.threshold_convergence ? std::make_shared<ThresholdConvergence>()
-            : std::make_shared<NoThresholdConvergence>();
+                                          : std::make_shared<NoThresholdConvergence>();
 
-        auto sq = m.sequential_selection ? std::make_shared<SequentialSelection>(m.mirrored, mu) :
-            std::make_shared<NoSequentialSelection>(m.mirrored, mu);
+        auto sq = m.sequential_selection ? std::make_shared<SequentialSelection>(m.mirrored, mu) : std::make_shared<NoSequentialSelection>(m.mirrored, mu);
 
-        auto ss = (m.sample_sigma or m.ssa == StepSizeAdaptation::LPXNES) ?
-            std::make_shared<SigmaSampler>(d)
-            : std::make_shared<NoSigmaSampler>(d);
+        auto ss = (m.sample_sigma or m.ssa == StepSizeAdaptation::LPXNES) ? std::make_shared<SigmaSampler>(d)
+                                                                          : std::make_shared<NoSigmaSampler>(d);
 
         double cs = cs0.value_or(0.3);
         double damps = 0.0;
@@ -182,6 +194,6 @@ namespace mutation {
             damps = 1.0 + (2.0 * std::max(0.0, sqrt((mueff - 1.0) / (d + 1)) - 1) + cs);
             return std::make_shared<CSA>(tc, sq, ss, cs, damps, sigma);
         }
-}
-   
+    }
+
 }

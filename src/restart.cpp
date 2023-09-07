@@ -41,8 +41,9 @@ namespace restart
 
 		d_sigma = p.mutation->sigma / p.settings.sigma0;
 		tolx_condition = 10e-12 * p.settings.sigma0;
-		tolx_vector << p.dynamic.C.diagonal(), p.dynamic.pc.transpose();
-		tolx_vector *= d_sigma;
+
+		tolx_vector.head(p.settings.dim) = p.dynamic.C.diagonal() * d_sigma;
+		tolx_vector.tail(p.settings.dim) = p.dynamic.pc * d_sigma;
 
 		root_max_d = std::sqrt(p.dynamic.d.maxCoeff());
 		condition_c = pow(p.dynamic.d.maxCoeff(), 2.0) / pow(p.dynamic.d.minCoeff(), 2);
@@ -101,14 +102,13 @@ namespace restart
 	bool RestartCriteria::operator()(const parameters::Parameters &p)
 	{
 		update(p);
-
-		// TODO: the more compilicated criteria
-		if (exceeded_max_iter() or no_improvement() or flat_fitness() or tolx() or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor() or stagnation())
+		any = exceeded_max_iter() or no_improvement() or flat_fitness() or tolx() or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor() or stagnation();
+		if (any)
 		{
 			if (p.settings.verbose)
 			{
-				std::cout << "restarting: " << p.stats.t << " (";
-				std::cout << time_since_restart;
+				std::cout << "restart criteria: " << p.stats.t << " (";
+				std::cout << time_since_restart << std::boolalpha;
 				std::cout << ") flat_fitness: " << flat_fitness();
 				std::cout << " exeeded_max_iter: " << exceeded_max_iter();
 				std::cout << " no_improvement: " << no_improvement();
@@ -129,7 +129,6 @@ namespace restart
 		if (criteria(p))
 		{
 			restart(p);
-			criteria = RestartCriteria(p.settings.dim, p.lambda, p.stats.t);
 		}
 	}
 

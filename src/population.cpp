@@ -4,12 +4,13 @@ void Population::sort()
 {
     const auto idx = utils::sort_indexes(f);
     X = X(Eigen::all, idx).eval();
+    Z = Z(Eigen::all, idx).eval();
     Y = Y(Eigen::all, idx).eval();
     f = f(idx).eval();
     s = s(idx).eval();
 }
 
-void Population::operator+=(const Population other)
+Population& Population::operator+=(const Population& other)
 {
     utils::hstack(X, other.X);
     utils::hstack(Y, other.Y);
@@ -17,6 +18,7 @@ void Population::operator+=(const Population other)
     utils::concat(f, other.f);
     utils::concat(s, other.s);
     n += other.n;
+    return *this;
 }
 
 void Population::resize_cols(const size_t size)

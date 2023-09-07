@@ -269,6 +269,8 @@ namespace parameters
             return "RESTART";
         case restart::StrategyType::IPOP:
             return "IPOP";
+        case restart::StrategyType::STOP:
+            return "STOP";
         default:
         case restart::StrategyType::BIPOP:
             return "BIPOP";

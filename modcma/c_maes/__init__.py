@@ -5,7 +5,6 @@ from .cmaescpp import (
     selection,
     parameters,
     bounds,
-    mutation,
     restart,
     options,
     Population,
