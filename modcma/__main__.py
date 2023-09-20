@@ -33,4 +33,4 @@ for arg in args.pop("arguments") or []:
     # pylint: disable=exec-used
     exec(arg, None, args)
 
-evaluate_bbob(**args)
+evaluate_bbob(**args, mirrored="mirrored pairwise")

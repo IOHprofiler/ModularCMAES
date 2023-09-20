@@ -8,7 +8,7 @@ void ModularCMAES::recombine()
 
 bool ModularCMAES::step(std::function<double(Vector)> objective)
 {
-	p->mutation->mutate(objective, p->pop.Z.cols(), *p);
+	p->mutation->mutate(objective, p->lambda, *p);
 	p->selection->select(*p);
 	recombine();
 	p->adapt();
