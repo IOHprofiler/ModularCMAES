@@ -38,7 +38,7 @@ namespace mutation
         p.bounds->correct(p.pop, p.dynamic.m);
 
         bool sequential_break_conditions = false;
-        for (auto i = 0; i < n_offspring and !sequential_break_conditions; ++i)
+        for (size_t i = 0; i < n_offspring and !sequential_break_conditions; ++i)
         {
             p.pop.f(i) = objective(p.pop.X.col(i));
             p.stats.evaluations++;

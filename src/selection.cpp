@@ -15,7 +15,7 @@ namespace selection {
 	void Strategy::select(parameters::Parameters& p) const {
 		(*pairwise)(p);
 		
-		(*elitsm)(p);		
+		(*elitsm)(p);		 
 		
 		p.pop.sort();
 		p.pop.resize_cols(p.lambda);
@@ -29,7 +29,7 @@ namespace selection {
 
 	void Pairwise::operator()(parameters::Parameters& p) const {
 		assert(p.pop.f.size() % 2 == 0);
-		for (size_t i = 0, j = 0; i < static_cast<size_t>(p.pop.f.size()); i += 2){
+		for (size_t i = 0; i < static_cast<size_t>(p.pop.f.size()); i += 2){
 			size_t idx = i + (1 * (p.pop.f(i) < p.pop.f(i + 1)));
 			p.pop.f(idx) = std::numeric_limits<double>::infinity();
 		}

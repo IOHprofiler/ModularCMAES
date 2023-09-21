@@ -409,14 +409,14 @@ class Parameters(AnnotatedStruct):
         Examples are recombination weights and learning rates for the covariance
         matrix adapation.
         """
-        if self.weights_option == "equal":
+        if False and self.weights_option == "equal":
             ws = 1 / self.mu
             self.weights = np.append(
                 np.ones(self.mu) * ws, np.ones(self.lambda_ - self.mu) * ws * -1
             )
-        elif self.weights_option == "1/2^lambda":
+        elif True or self.weights_option == "1/2^lambda":
             base = np.float64(2)
-            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + ( # "self.mu /" should be "1 /"
+            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + ( 
                 (1 / (base ** self.mu)) / self.mu
             )
             n = self.lambda_ - self.mu
@@ -442,7 +442,7 @@ class Parameters(AnnotatedStruct):
             / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
         )))
 
-        amu_neg = 1 + (self.c1 / self.mu)
+        amu_neg = 1 + (self.c1 / self.mu) 
         amueff_neg = 1 + ((2 * mueff_neg) / (self.mueff + 2))
         aposdef_neg = (1 - self.c1 - self.cmu) / (self.d * self.cmu)
         self.nweights = (
@@ -453,7 +453,6 @@ class Parameters(AnnotatedStruct):
         self.cc = self.cc or (
             (4 + (self.mueff / self.d)) / (self.d + 4 + (2 * self.mueff / self.d))
         )
-
         self.cs = self.cs or {
             "csa": (self.mueff + 2) / (self.d + self.mueff + 5),
             "msr": .3,

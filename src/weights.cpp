@@ -38,7 +38,7 @@ namespace parameters
         const double aposdef_neg = (1.0 - c1 - cmu) / (d * cmu);
 
         const double neg_scaler = std::min(amu_neg, std::min(amueff_neg, aposdef_neg));
-        negative *= neg_scaler / negative.cwiseAbs().sum();
+        negative *= (neg_scaler / negative.cwiseAbs().sum());
         weights << positive, negative;
     }
 
@@ -69,8 +69,9 @@ namespace parameters
         for (auto i = 0; i < positive.size(); ++i)
             positive(i) = dmu / pow(2.0, static_cast<double>(i + 1)) + base;
 
-        for (auto i = 0; i < negative.size(); ++i)
-            negative(negative.size() - i) = 1.0 / pow(2.0, static_cast<double>(i + 1)) + base2;
+        for (auto i = 1; i < (negative.size() + 1); ++i)
+            negative(negative.size() - i) = (1.0 / pow(2.0, static_cast<double>(i)) + base2) * -1.0;
+
     }
 
 
