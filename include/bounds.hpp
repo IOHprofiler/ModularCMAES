@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "sampling.hpp"
+#include "modules.hpp"
 
 struct Population;
 
@@ -71,21 +72,11 @@ namespace bounds
 		using BoundCorrection::BoundCorrection;
 
 		void correct(Population &pop, const Vector &m) override;
-	};
+	};	
 
-	enum class CorrectionMethod
+	inline std::shared_ptr<BoundCorrection> get(const parameters::CorrectionMethod &m, const Vector &lb, const Vector &ub)
 	{
-		NONE,
-		COUNT,
-		MIRROR,
-		COTN,
-		UNIFORM_RESAMPLE,
-		SATURATE,
-		TOROIDAL
-	};
-
-	inline std::shared_ptr<BoundCorrection> get(const CorrectionMethod &m, const Vector &lb, const Vector &ub)
-	{
+		using namespace parameters;
 		switch (m)
 		{
 		case CorrectionMethod::COUNT:

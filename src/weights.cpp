@@ -1,4 +1,4 @@
-#include "parameters.hpp"
+#include "weights.hpp"
 
 namespace parameters
 {
@@ -7,11 +7,10 @@ namespace parameters
         : weights(lambda), positive(mu), negative(lambda - mu)
     {
         const double d = static_cast<double>(dim);
-        using namespace mutation;
         switch (settings.modules.weights)
         {
         case RecombinationWeights::EQUAL:
-            weights_equal(mu);
+            weights_equal(mu); 
             break;
         case RecombinationWeights::HALF_POWER_LAMBDA:
             weights_half_power_lambda(mu, lambda);

@@ -3,17 +3,19 @@
 #include "common.hpp"
 #include "population.hpp"
 #include "sampling.hpp"
+#include "modules.hpp"
 
 namespace parameters
 {
     struct Stats;
     struct Parameters;
     struct Weights;
-    struct Dynamic;
     struct Strategy;
     struct Modules;
 }
-
+namespace matrix_adaptation {
+    struct Adaptation;
+}
 namespace bounds
 {
     struct BoundCorrection;
@@ -21,17 +23,6 @@ namespace bounds
 
 namespace mutation
 {
-
-    enum class StepSizeAdaptation
-    {
-        CSA,
-        TPA,
-        MSR,
-        XNES,
-        MXNES,
-        LPXNES,
-        PSR
-    };
 
     struct ThresholdConvergence
     {
@@ -51,11 +42,11 @@ namespace mutation
         size_t seq_cutoff;
 
     public:
-        SequentialSelection(const sampling::Mirror &m, const size_t mu, const double seq_cutoff_factor = 1.0) : seq_cutoff_factor(m == sampling::Mirror::PAIRWISE ? std::max(2., seq_cutoff_factor) : seq_cutoff_factor),
+        SequentialSelection(const parameters::Mirror &m, const size_t mu, const double seq_cutoff_factor = 1.0) : seq_cutoff_factor(m == parameters::Mirror::PAIRWISE ? std::max(2., seq_cutoff_factor) : seq_cutoff_factor),
                                                                                                                 seq_cutoff(static_cast<size_t>(mu * seq_cutoff_factor))
         {
         }
-        virtual bool break_conditions(const size_t i, const double f, double fopt, const sampling::Mirror &m);
+        virtual bool break_conditions(const size_t i, const double f, double fopt, const parameters::Mirror &m);
     };
 
     struct NoSequentialSelection : SequentialSelection
@@ -63,7 +54,7 @@ namespace mutation
 
         using SequentialSelection::SequentialSelection;
 
-        bool break_conditions(const size_t i, const double f, double fopt, const sampling::Mirror &m) override { return false; }
+        bool break_conditions(const size_t i, const double f, double fopt, const parameters::Mirror &m) override { return false; }
     };
 
     struct SigmaSampler
@@ -106,9 +97,8 @@ namespace mutation
 
         virtual void mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters &p) = 0;
 
-        virtual void adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
-                                 const Population &old_pop, const parameters::Stats &stats, const size_t lambda) = 0;
-      
+        virtual void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+                           const Population &old_pop, const parameters::Stats &stats, const size_t lambda) = 0;
     };
 
     struct CSA : Strategy
@@ -122,8 +112,8 @@ namespace mutation
 
         void mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters &p) override;
 
-        void adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
-                         const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
+        void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+                   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
     };
 
     struct TPA : CSA
@@ -136,16 +126,16 @@ namespace mutation
 
         void mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters &p) override;
 
-        void adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
-                         const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
+        void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+                   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
     };
 
     struct MSR : CSA
     {
         using CSA::CSA;
 
-        void adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
-                         const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
+        void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+                   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
     };
 
     struct PSR : CSA
@@ -154,32 +144,32 @@ namespace mutation
 
         using CSA::CSA;
 
-        void adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
-                         const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
+        void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+                   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
     };
 
     struct XNES : CSA
     {
         using CSA::CSA;
 
-        void adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
-                         const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
+        void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+                   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
     };
 
     struct MXNES : CSA
     {
         using CSA::CSA;
 
-        void adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
-                         const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
+        void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+                   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
     };
 
     struct LPXNES : CSA
     {
         using CSA::CSA;
 
-        void adapt(const parameters::Weights &w, parameters::Dynamic &dynamic, Population &pop,
-                         const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
+        void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+                   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
     };
 
     std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu,

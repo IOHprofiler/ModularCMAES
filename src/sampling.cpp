@@ -109,6 +109,7 @@ namespace sampling
 
     std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules& modules, const size_t lambda)
     {
+        using namespace parameters; 
         std::shared_ptr<Sampler> sampler;
         switch (modules.sampler)
         {
@@ -129,7 +130,7 @@ namespace sampling
         auto not_mirrored = modules.mirrored == Mirror::NONE;
         if (modules.orthogonal)
         {
-            auto has_tpa = modules.ssa == mutation::StepSizeAdaptation::TPA;
+            auto has_tpa = modules.ssa == StepSizeAdaptation::TPA;
             auto n_samples = std::max(1, (static_cast<int>(lambda) / (2 - not_mirrored)) - (2 * has_tpa));
             sampler = std::make_shared<Orthogonal>(sampler, n_samples);
         }

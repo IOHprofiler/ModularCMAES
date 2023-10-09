@@ -1,17 +1,13 @@
-#include "parameters.hpp"
+#include "matrix_adaptation.hpp"
 
-namespace parameters
+namespace matrix_adaptation
 {
-    Dynamic::Dynamic(const size_t dim, const Vector& x0) : m(x0), m_old(dim), dm(Vector::Zero(dim)), pc(Vector::Zero(dim)),
-                                         ps(Vector::Zero(dim)), d(Vector::Ones(dim)),
-                                         B(Matrix::Identity(dim, dim)), C(Matrix::Identity(dim, dim)),
-                                         inv_root_C(Matrix::Identity(dim, dim)), 
-                                         dd(static_cast<double>(dim)),
-                                         chiN(sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0))))
-    {
+    using namespace parameters;
+    void Covariance::scale_mutation_steps(Population& pop) {
+        pop.Y = B * (d.asDiagonal() * pop.Z);
     }
-
-    void Dynamic::adapt_evolution_paths(const Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const Stats &stats, const size_t lambda)
+    
+    void Covariance::adapt_evolution_paths(const Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const Stats &stats, const size_t lambda) 
     {
         dm = (m - m_old) / mutation->sigma;
         ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * inv_root_C * dm);
@@ -23,7 +19,7 @@ namespace parameters
         pc = (1.0 - w.cc) * pc + (hs * sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
     }
 
-    void Dynamic::adapt_covariance_matrix(const Weights &w, const Modules &m, const Population &pop, const size_t mu)
+    void Covariance::adapt_covariance_matrix(const Weights &w, const Modules &m, const Population &pop, const size_t mu)
     {
         const auto rank_one = w.c1 * pc * pc.transpose();
         const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
@@ -49,7 +45,7 @@ namespace parameters
             C.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().transpose();
     }
 
-    bool Dynamic::perform_eigendecomposition(const Settings &settings)
+    bool Covariance::perform_eigendecomposition(const Settings &settings)
     {
         Eigen::SelfAdjointEigenSolver<Matrix> eigensolver(C);
         if (eigensolver.info() != Eigen::Success)

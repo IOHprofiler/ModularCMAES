@@ -12,7 +12,7 @@ namespace bounds
             n_out_of_bounds += oob.sum(); 
         }
     }
-
+    
     double modulo2(const int x)
     {
         return static_cast<double>((2 + (x % 2)) % 2);

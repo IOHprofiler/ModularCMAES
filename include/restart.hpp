@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.hpp"
+#include "modules.hpp"
 
 namespace parameters
 {
@@ -9,15 +10,6 @@ namespace parameters
 
 namespace restart
 {
-	enum class StrategyType
-	{
-		NONE,
-		STOP,
-		RESTART,
-		IPOP,
-		BIPOP
-	};
-
 	class RestartCriteria
 	{
 		void update(const parameters::Parameters &p);
@@ -156,20 +148,21 @@ namespace restart
 		}
 	};
 
-	inline std::shared_ptr<Strategy> get(const StrategyType s, const double d, const double lambda, const double mu, const size_t budget)
+	inline std::shared_ptr<Strategy> get(const parameters::RestartStrategyType s, const double d, const double lambda, const double mu, const size_t budget)
 	{
-		switch (s)
+		using namespace parameters;
+		switch (s) 
 		{
-		case StrategyType::RESTART:
+		case RestartStrategyType::RESTART:
 			return std::make_shared<Restart>(d, lambda);
-		case StrategyType::IPOP:
+		case RestartStrategyType::IPOP:
 			return std::make_shared<IPOP>(d, lambda);
-		case StrategyType::BIPOP:
+		case RestartStrategyType::BIPOP:
 			return std::make_shared<BIPOP>(d, lambda, mu, budget);
-		case StrategyType::STOP:
+		case RestartStrategyType::STOP:
 			return std::make_shared<Stop>(d, lambda);
 		default:
-		case StrategyType::NONE:
+		case RestartStrategyType::NONE:
 			return std::make_shared<None>(d, lambda);
 		}
 	}

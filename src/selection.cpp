@@ -4,7 +4,7 @@
 
 namespace selection {
 	Strategy::Strategy(const parameters::Modules& modules) : 
-		pairwise(modules.mirrored == sampling::Mirror::PAIRWISE ? 
+		pairwise(modules.mirrored == parameters::Mirror::PAIRWISE ? 
 			std::make_shared<Pairwise>() : 
 			std::make_shared<NoPairwise>()),
 		elitsm(modules.elitist ? 

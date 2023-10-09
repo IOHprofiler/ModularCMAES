@@ -7,6 +7,7 @@
 #include <pybind11/stl.h>
 
 #include "../include/c_maes.hpp"
+#include "to_string.hpp"
 #include "c_maes.hpp"
 
 namespace py = pybind11;
@@ -21,51 +22,51 @@ double random_double()
 void define_options(py::module &main)
 {
     auto m = main.def_submodule("options");
-
-    py::enum_<parameters::RecombinationWeights>(m, "RecombinationWeights")
+    using namespace parameters;
+    py::enum_<RecombinationWeights>(m, "RecombinationWeights")
         .value("DEFAULT", parameters::RecombinationWeights::DEFAULT)
         .value("EQUAL", parameters::RecombinationWeights::EQUAL)
         .value("HALF_POWER_LAMBDA", parameters::RecombinationWeights::HALF_POWER_LAMBDA)
         .export_values();
 
-    py::enum_<sampling::BaseSampler>(m, "BaseSampler")
-        .value("GAUSSIAN", sampling::BaseSampler::GAUSSIAN)
-        .value("SOBOL", sampling::BaseSampler::SOBOL)
-        .value("HALTON", sampling::BaseSampler::HALTON)
+    py::enum_<BaseSampler>(m, "BaseSampler")
+        .value("GAUSSIAN", BaseSampler::GAUSSIAN)
+        .value("SOBOL", BaseSampler::SOBOL)
+        .value("HALTON", BaseSampler::HALTON)
         .export_values();
 
-    py::enum_<sampling::Mirror>(m, "Mirror")
-        .value("NONE", sampling::Mirror::NONE)
-        .value("MIRRORED", sampling::Mirror::MIRRORED)
-        .value("PAIRWISE", sampling::Mirror::PAIRWISE)
+    py::enum_<Mirror>(m, "Mirror")
+        .value("NONE", Mirror::NONE)
+        .value("MIRRORED", Mirror::MIRRORED)
+        .value("PAIRWISE", Mirror::PAIRWISE)
         .export_values();
 
-    py::enum_<mutation::StepSizeAdaptation>(m, "StepSizeAdaptation")
-        .value("CSA", mutation::StepSizeAdaptation::CSA)
-        .value("TPA", mutation::StepSizeAdaptation::TPA)
-        .value("MSR", mutation::StepSizeAdaptation::MSR)
-        .value("XNES", mutation::StepSizeAdaptation::XNES)
-        .value("MXNES", mutation::StepSizeAdaptation::MXNES)
-        .value("LPXNES", mutation::StepSizeAdaptation::LPXNES)
-        .value("PSR", mutation::StepSizeAdaptation::PSR)
+    py::enum_<StepSizeAdaptation>(m, "StepSizeAdaptation")
+        .value("CSA", StepSizeAdaptation::CSA)
+        .value("TPA", StepSizeAdaptation::TPA)
+        .value("MSR", StepSizeAdaptation::MSR)
+        .value("XNES", StepSizeAdaptation::XNES)
+        .value("MXNES", StepSizeAdaptation::MXNES)
+        .value("LPXNES", StepSizeAdaptation::LPXNES)
+        .value("PSR", StepSizeAdaptation::PSR)
         .export_values();
 
-    py::enum_<bounds::CorrectionMethod>(m, "CorrectionMethod")
-        .value("NONE", bounds::CorrectionMethod::NONE)
-        .value("COUNT", bounds::CorrectionMethod::COUNT)
-        .value("MIRROR", bounds::CorrectionMethod::MIRROR)
-        .value("COTN", bounds::CorrectionMethod::COTN)
-        .value("UNIFORM_RESAMPLE", bounds::CorrectionMethod::UNIFORM_RESAMPLE)
-        .value("SATURATE", bounds::CorrectionMethod::SATURATE)
-        .value("TOROIDAL", bounds::CorrectionMethod::TOROIDAL)
+    py::enum_<CorrectionMethod>(m, "CorrectionMethod")
+        .value("NONE", CorrectionMethod::NONE)
+        .value("COUNT", CorrectionMethod::COUNT)
+        .value("MIRROR", CorrectionMethod::MIRROR)
+        .value("COTN", CorrectionMethod::COTN)
+        .value("UNIFORM_RESAMPLE", CorrectionMethod::UNIFORM_RESAMPLE)
+        .value("SATURATE", CorrectionMethod::SATURATE)
+        .value("TOROIDAL", CorrectionMethod::TOROIDAL)
         .export_values();
 
-    py::enum_<restart::StrategyType>(m, "RestartStrategy")
-        .value("NONE", restart::StrategyType::NONE)
-        .value("STOP", restart::StrategyType::STOP)
-        .value("RESTART", restart::StrategyType::RESTART)
-        .value("IPOP", restart::StrategyType::IPOP)
-        .value("BIPOP", restart::StrategyType::BIPOP)
+    py::enum_<RestartStrategyType>(m, "RestartStrategy")
+        .value("NONE", RestartStrategyType::NONE)
+        .value("STOP", RestartStrategyType::STOP)
+        .value("RESTART", RestartStrategyType::RESTART)
+        .value("IPOP", RestartStrategyType::IPOP)
+        .value("BIPOP", RestartStrategyType::BIPOP)
         .export_values();
 }
 
@@ -230,32 +231,33 @@ void define_parameters(py::module &main)
             ss << ">";
             return ss.str(); });
 
-    py::class_<Dynamic>(m, "Dynamic")
-        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
-        .def_readwrite("m", &Dynamic::m)
-        .def_readwrite("m_old", &Dynamic::m_old)
-        .def_readwrite("dm", &Dynamic::dm)
-        .def_readwrite("pc", &Dynamic::pc)
-        .def_readwrite("ps", &Dynamic::ps)
-        .def_readwrite("d", &Dynamic::d)
-        .def_readwrite("B", &Dynamic::B)
-        .def_readwrite("C", &Dynamic::C)
-        .def_readwrite("inv_root_C", &Dynamic::inv_root_C)
-        .def_readwrite("dd", &Dynamic::dd)
-        .def_readwrite("chiN", &Dynamic::chiN)
-        .def_readwrite("hs", &Dynamic::hs)
-        .def("adapt_evolution_paths", &Dynamic::adapt_evolution_paths,
-             py::arg("weights"),
-             py::arg("mutation"),
-             py::arg("stats"),
-             py::arg("lamb"))
-        .def("adapt_covariance_matrix", &Dynamic::adapt_covariance_matrix,
-             py::arg("weights"),
-             py::arg("modules"),
-             py::arg("population"),
-             py::arg("mu"))
-        .def("perform_eigendecomposition", &Dynamic::perform_eigendecomposition, py::arg("stats"))
-        .def("__repr__", [](Dynamic &dyn)
+    using namespace matrix_adaptation;
+    py::class_<Adaptation, std::shared_ptr<Adaptation>>(m, "Adaptation")
+        // .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
+        .def_readwrite("m", &Adaptation::m)
+        .def_readwrite("m_old", &Adaptation::m_old)
+        .def_readwrite("dm", &Adaptation::dm)
+        // .def_readwrite("pc", &Dynamic::pc)
+        .def_readwrite("ps", &Adaptation::ps)
+        // .def_readwrite("d", &Dynamic::d)
+        // .def_readwrite("B", &Dynamic::B)
+        // .def_readwrite("C", &Dynamic::C)
+        // .def_readwrite("inv_root_C", &Dynamic::inv_root_C)
+        .def_readwrite("dd", &Adaptation::dd)
+        .def_readwrite("chiN", &Adaptation::chiN)
+        // .def_readwrite("hs", &Dynamic::hs)
+        // .def("adapt_evolution_paths", &Dynamic::adapt_evolution_paths,
+        //      py::arg("weights"),
+        //      py::arg("mutation"),
+        //      py::arg("stats"),
+        //      py::arg("lamb"))
+        // .def("adapt_covariance_matrix", &Dynamic::adapt_covariance_matrix,
+        //      py::arg("weights"),
+        //      py::arg("modules"),
+        //      py::arg("population"),
+        //      py::arg("mu"))
+        // .def("perform_eigendecomposition", &Dynamic::perform_eigendecomposition, py::arg("stats"))
+        .def("__repr__", [](Adaptation &dyn)
              {
             std::stringstream ss;
             ss << std::boolalpha;
@@ -263,15 +265,15 @@ void define_parameters(py::module &main)
             ss << " m: " << dyn.m.transpose();
             ss << " m_old: " << dyn.m_old.transpose();
             ss << " dm: " << dyn.dm.transpose();
-            ss << " pc: " << dyn.pc.transpose();
+            // ss << " pc: " << dyn.pc.transpose();
             ss << " ps: " << dyn.ps.transpose();
-            ss << " d: " << dyn.d.transpose();
-            ss << " B: " << dyn.B;
-            ss << " C: " << dyn.C;
-            ss << " inv_root_C: " << dyn.inv_root_C;
+            // ss << " d: " << dyn.d.transpose();
+            // ss << " B: " << dyn.B;
+            // ss << " C: " << dyn.C;
+            // ss << " inv_root_C: " << dyn.inv_root_C;
             ss << " dd: " << dyn.dd;
             ss << " chiN: " << dyn.chiN;
-            ss << " hs: " << dyn.hs;
+            // ss << " hs: " << dyn.hs;
             ss << ">";
             return ss.str(); });
 
@@ -347,7 +349,7 @@ void define_parameters(py::module &main)
         .def_readwrite("settings", &Parameters::settings)
         .def_readwrite("mu", &Parameters::mu)
         .def_readwrite("lamb", &Parameters::lambda)
-        .def_readwrite("dynamic", &Parameters::dynamic)
+        .def_readwrite("adaptation", &Parameters::adaptation)
         .def_readwrite("stats", &Parameters::stats)
         .def_readwrite("weights", &Parameters::weights)
         .def_readwrite("pop", &Parameters::pop)
@@ -412,7 +414,7 @@ void define_mutation(py::module &main)
         .def(py::init<>());
 
     py::class_<SequentialSelection, std::shared_ptr<SequentialSelection>>(m, "SequentialSelection")
-        .def(py::init<sampling::Mirror, size_t, double>(),
+        .def(py::init<parameters::Mirror, size_t, double>(),
              py::arg("mirror"),
              py::arg("mu"),
              py::arg("seq_cuttoff_factor") = 1.0)
@@ -423,7 +425,7 @@ void define_mutation(py::module &main)
              py::arg("mirror"));
 
     py::class_<NoSequentialSelection, SequentialSelection, std::shared_ptr<NoSequentialSelection>>(m, "NoSequentialSelection")
-        .def(py::init<sampling::Mirror, size_t, double>(),
+        .def(py::init<parameters::Mirror, size_t, double>(),
              py::arg("mirror"),
              py::arg("mu"),
              py::arg("seq_cuttoff_factor") = 1.0);

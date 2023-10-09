@@ -1,5 +1,6 @@
 #include "restart.hpp"
 #include "parameters.hpp"
+#include "matrix_adaptation.hpp"
 
 #include <algorithm>
 
@@ -42,16 +43,23 @@ namespace restart
 		d_sigma = p.mutation->sigma / p.settings.sigma0;
 		tolx_condition = 10e-12 * p.settings.sigma0;
 
-		tolx_vector.head(p.settings.dim) = p.dynamic.C.diagonal() * d_sigma;
-		tolx_vector.tail(p.settings.dim) = p.dynamic.pc * d_sigma;
+		if (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptation::COVARIANCE){
+			using namespace matrix_adaptation;
+			std::shared_ptr<Covariance> dynamic = std::dynamic_pointer_cast<Covariance>(p.adaptation);
 
-		root_max_d = std::sqrt(p.dynamic.d.maxCoeff());
-		condition_c = pow(p.dynamic.d.maxCoeff(), 2.0) / pow(p.dynamic.d.minCoeff(), 2);
 
-		effect_coord = 0.2 * p.mutation->sigma * p.dynamic.C.diagonal().cwiseSqrt();
+			tolx_vector.head(p.settings.dim) = dynamic->C.diagonal() * d_sigma;
+			tolx_vector.tail(p.settings.dim) = dynamic->pc * d_sigma;
 
-		size_t _t = p.stats.t % p.settings.dim;
-		effect_axis = 0.1 * p.mutation->sigma * std::sqrt(p.dynamic.d(_t)) * p.dynamic.B.col(_t);
+			root_max_d = std::sqrt(dynamic->d.maxCoeff());
+			condition_c = pow(dynamic->d.maxCoeff(), 2.0) / pow(dynamic->d.minCoeff(), 2);
+
+			effect_coord = 0.2 * p.mutation->sigma * dynamic->C.diagonal().cwiseSqrt();
+
+			size_t _t = p.stats.t % p.settings.dim;
+			effect_axis = 0.1 * p.mutation->sigma * std::sqrt(dynamic->d(_t)) * dynamic->B.col(_t);
+		}
+
 	}
 
 	bool RestartCriteria::exceeded_max_iter() const

@@ -164,20 +164,7 @@ namespace sampling
         long long seed;
     };
 
-    enum class BaseSampler
-    {
-        GAUSSIAN,
-        SOBOL,
-        HALTON,
-        TESTER
-    };
 
-    enum class Mirror
-    {
-        NONE,
-        MIRRORED,
-        PAIRWISE
-    };
 
     std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules &mod, const size_t lambda);
 

@@ -6,10 +6,10 @@ namespace parameters
         lambda(settings.lambda0),
         mu(settings.mu0),
         settings(settings),
-        dynamic(settings.dim, settings.x0.value_or(Vector::Zero(settings.dim))),
         weights(settings.dim, settings.mu0, settings.lambda0, settings),
         pop(settings.dim, settings.lambda0),
         old_pop(settings.dim, settings.lambda0),        
+        adaptation(matrix_adaptation::get(settings.modules, settings.dim, settings.x0.value_or(Vector::Zero(settings.dim)))),
         sampler(sampling::get(settings.dim, settings.modules, settings.lambda0)),
         mutation(mutation::get(settings.modules,           
             settings.mu0, weights.mueff,
@@ -42,15 +42,7 @@ namespace parameters
             sigma.value_or(settings.sigma0),
             settings.cs
         );
-        dynamic.B = Matrix::Identity(settings.dim, settings.dim);
-        dynamic.C = Matrix::Identity(settings.dim, settings.dim);
-        dynamic.inv_root_C = Matrix::Identity(settings.dim, settings.dim);
-        dynamic.d.setOnes();
-        dynamic.m = settings.x0.value_or(Vector::Zero(settings.dim));
-        dynamic.m_old.setZero();
-        dynamic.dm.setZero();
-        dynamic.pc.setZero();
-        dynamic.ps.setZero();
+        adaptation->restart(settings);
         restart->criteria = restart::RestartCriteria(settings.dim, lambda, stats.t);
     }
 
@@ -66,12 +58,11 @@ namespace parameters
     void Parameters::adapt()
     {
 
-        dynamic.adapt_evolution_paths(weights, mutation, stats, lambda);
-        mutation->adapt(weights, dynamic, pop, old_pop, stats, lambda);
+        adaptation->adapt_evolution_paths(weights, mutation, stats, lambda);
+        mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
+        auto successfull_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings);
 
-        dynamic.adapt_covariance_matrix(weights, settings.modules, pop, mu);
-        
-        if (!dynamic.perform_eigendecomposition(settings) or invalid_state())
+        if (!successfull_adaptation or invalid_state())
             perform_restart();
         
         old_pop = pop;
