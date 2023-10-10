@@ -11,6 +11,7 @@ class Modules:
     elitist: bool
     mirrored: modcma.c_maes.cmaescpp.options.Mirror
     orthogonal: bool
+    matrix_adaptation: modcma.c_maes.cmaescpp.options.MatrixAdaptationType
     restart_strategy: modcma.c_maes.cmaescpp.options.RestartStrategy
     sample_sigma: bool
     sampler: modcma.c_maes.cmaescpp.options.BaseSampler
