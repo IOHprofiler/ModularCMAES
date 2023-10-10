@@ -3,11 +3,12 @@
 namespace matrix_adaptation
 {
     using namespace parameters;
-    void Covariance::scale_mutation_steps(Population& pop) {
+    void CovarianceAdaptation::scale_mutation_steps(Population &pop)
+    {
         pop.Y = B * (d.asDiagonal() * pop.Z);
     }
-    
-    void Covariance::adapt_evolution_paths(const Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const Stats &stats, const size_t lambda) 
+
+    void CovarianceAdaptation::adapt_evolution_paths(const Population &pop, const Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const Stats &stats, const size_t mu, const size_t lambda)
     {
         dm = (m - m_old) / mutation->sigma;
         ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * inv_root_C * dm);
@@ -19,7 +20,7 @@ namespace matrix_adaptation
         pc = (1.0 - w.cc) * pc + (hs * sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
     }
 
-    void Covariance::adapt_covariance_matrix(const Weights &w, const Modules &m, const Population &pop, const size_t mu)
+    void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w, const Modules &m, const Population &pop, const size_t mu)
     {
         const auto rank_one = w.c1 * pc * pc.transpose();
         const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
@@ -45,30 +46,94 @@ namespace matrix_adaptation
             C.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().transpose();
     }
 
-    bool Covariance::perform_eigendecomposition(const Settings &settings)
+    bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
     {
         Eigen::SelfAdjointEigenSolver<Matrix> eigensolver(C);
         if (eigensolver.info() != Eigen::Success)
         {
-            if (settings.verbose){
-                // TODO: check why this sometimes happens on the first eval (sphere 60d)
+            if (settings.verbose)
+            {
                 std::cout << "Eigensolver failed, we need to restart reason:"
-                        << eigensolver.info() << std::endl;
+                          << eigensolver.info() << std::endl;
             }
             return false;
         }
         d = eigensolver.eigenvalues();
-       
-        if (d.minCoeff() < 0.0){
-            if (settings.verbose) {
+
+        if (d.minCoeff() < 0.0)
+        {
+            if (settings.verbose)
+            {
                 std::cout << "Negative eigenvalues after decomposition, we need to restart.\n";
             }
             return false;
-        }              
-        
+        }
+
         d = d.cwiseSqrt();
         B = eigensolver.eigenvectors();
         inv_root_C = (B * d.cwiseInverse().asDiagonal()) * B.transpose();
         return true;
+    }
+
+    bool CovarianceAdaptation::adapt_matrix(const Weights &w, const Modules &m, const Population &pop, const size_t mu, const Settings &settings)
+    {
+        adapt_covariance_matrix(w, m, pop, mu);
+        return perform_eigendecomposition(settings);
+    }
+
+    void CovarianceAdaptation::restart(const Settings &settings)
+    {
+        B = Matrix::Identity(settings.dim, settings.dim);
+        C = Matrix::Identity(settings.dim, settings.dim);
+        inv_root_C = Matrix::Identity(settings.dim, settings.dim);
+        d.setOnes();
+        m = settings.x0.value_or(Vector::Zero(settings.dim));
+        m_old.setZero();
+        dm.setZero();
+        pc.setZero();
+        ps.setZero();
+    }
+
+    void MatrixAdaptation::adapt_evolution_paths(const Population &pop, const Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const Stats &stats, const size_t mu, const size_t lambda)
+    {
+        dm = (m - m_old) / mutation->sigma;
+
+        const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().matrix();
+        ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * dz);
+    }
+
+    bool MatrixAdaptation::adapt_matrix(const Weights &w, const Modules &m, const Population &pop, const size_t mu, const Settings &settings)
+    {
+        const auto old_M = (1 - 0.5 * w.c1 - 0.5 * w.cmu) * M;
+        const auto scaled_ps = (0.5 * w.c1) * (M * ps) * ps.transpose();
+
+        Matrix new_M;
+        if (m.active)
+        {
+            // TODO: Check if we can do this like this
+            const auto scaled_weights = (0.5 * w.cmu * w.weights.topRows(pop.Y.cols())).array().transpose();
+            new_M = (pop.Y.array().rowwise() * scaled_weights).matrix() * pop.Z.transpose();
+        }
+        else
+        {
+            const auto scaled_weights = (0.5 * w.cmu * w.positive).array().transpose();
+            new_M = (pop.Y.leftCols(mu).array().rowwise() * scaled_weights).matrix() * pop.Z.leftCols(mu).transpose();
+        }
+
+        M = old_M + scaled_ps + new_M;
+        return true;
+    }
+
+    void MatrixAdaptation::restart(const Settings &settings)
+    {
+        ps.setZero();
+        m = settings.x0.value_or(Vector::Zero(settings.dim));
+        m_old.setZero();
+        dm.setZero();
+    }
+
+    void MatrixAdaptation::scale_mutation_steps(Population &pop)
+    {
+        pop.Y = M * pop.Z;
     }
 }

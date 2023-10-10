@@ -107,6 +107,19 @@ namespace parameters
         }
     }
 
+    inline std::string to_string(const MatrixAdaptationType &s)
+    {
+        switch (s)
+        {
+        case MatrixAdaptationType::MATRIX:
+            return "MATRIX";
+        default:
+        case MatrixAdaptationType::COVARIANCE:
+            return "COVARIANCE";
+        }
+    }
+
+
     inline std::string to_string(const Modules &mod)
     {
         std::stringstream ss;
@@ -124,6 +137,7 @@ namespace parameters
         ss << " ssa: " << parameters::to_string(mod.ssa);
         ss << " bound_correction: " << parameters::to_string(mod.bound_correction);
         ss << " restart_strategy: " << parameters::to_string(mod.restart_strategy);
+        ss << " matrix_adaptation: " << parameters::to_string(mod.matrix_adaptation);
         ss << ">";
         return ss.str();
     }

@@ -43,9 +43,9 @@ namespace restart
 		d_sigma = p.mutation->sigma / p.settings.sigma0;
 		tolx_condition = 10e-12 * p.settings.sigma0;
 
-		if (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptation::COVARIANCE){
+		if (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE){
 			using namespace matrix_adaptation;
-			std::shared_ptr<Covariance> dynamic = std::dynamic_pointer_cast<Covariance>(p.adaptation);
+			std::shared_ptr<CovarianceAdaptation> dynamic = std::dynamic_pointer_cast<CovarianceAdaptation>(p.adaptation);
 
 
 			tolx_vector.head(p.settings.dim) = dynamic->C.diagonal() * d_sigma;
@@ -110,7 +110,8 @@ namespace restart
 	bool RestartCriteria::operator()(const parameters::Parameters &p)
 	{
 		update(p);
-		any = exceeded_max_iter() or no_improvement() or flat_fitness() or tolx() or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor() or stagnation();
+		any = exceeded_max_iter() or no_improvement() or flat_fitness() or stagnation();
+		any = any or (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE and (tolx() or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor()));
 		if (any)
 		{
 			if (p.settings.verbose)

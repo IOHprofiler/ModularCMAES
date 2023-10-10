@@ -1,7 +1,7 @@
 #include "mutation.hpp"
 #include "bounds.hpp"
-#include "parameters.hpp"
 #include "matrix_adaptation.hpp"
+#include "parameters.hpp"
 namespace mutation
 {
 
@@ -14,12 +14,12 @@ namespace mutation
 
     bool SequentialSelection::break_conditions(const size_t i, const double f, double fopt, const parameters::Mirror &m)
     {
-        
+
         return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 0);
     }
 
     void CSA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
-                          const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+                    const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
         sigma *= std::exp((cs / damps) * ((adaptation->ps.norm() / adaptation->chiN) - 1));
     }
@@ -33,10 +33,9 @@ namespace mutation
 
         p.mutation->tc->scale(p.pop, p.bounds->diameter, p.settings.budget, p.stats.evaluations);
 
-        
         // In theory this should be the only moving part
         p.adaptation->scale_mutation_steps(p.pop);
-        
+
         p.pop.X = (p.pop.Y * p.pop.s.asDiagonal()).colwise() + p.adaptation->m;
 
         p.bounds->correct(p.pop, p.adaptation->m);
@@ -56,6 +55,8 @@ namespace mutation
 
         CSA::mutate(objective, n_offspring, p);
 
+        // TODO: properly set pop.Z        
+
         p.pop.Y.col(n_offspring) = p.adaptation->dm;
         p.pop.Y.col(n_offspring + 1) = -p.adaptation->dm;
 
@@ -74,7 +75,7 @@ namespace mutation
     }
 
     void TPA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
-                          const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+                    const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
         s = ((1.0 - cs) * s) + (cs * rank_tpa);
         sigma *= std::exp(s);
@@ -89,7 +90,7 @@ namespace mutation
     }
 
     void MSR::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
-                          const Population &old_pop, const parameters::Stats &stats, const size_t lamb)
+                    const Population &old_pop, const parameters::Stats &stats, const size_t lamb)
     {
         if (stats.t != 0)
         {
@@ -116,7 +117,7 @@ namespace mutation
     }
 
     void PSR::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
-                          const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+                    const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
 
         if (stats.t != 0)
@@ -137,23 +138,27 @@ namespace mutation
     }
 
     void XNES::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
-                           const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+                     const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
 
-        // const double z = ((dynamic.inv_root_C * pop.Y).colwise().norm().array().pow(2.) - dynamic.dd).matrix() * w.clipped();
-        // sigma *= std::exp((cs / std::sqrt(dynamic.dd)) * z);
+        // const double z = ((std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(adaptation)->inv_root_C * pop.Y).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
+        const double z = ((pop.Z).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
+        sigma *= std::exp((cs / std::sqrt(adaptation->dd)) * z);
     }
     void MXNES::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
-                            const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+                      const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
         if (stats.t != 0)
         {
             // const auto z = (w.mueff * std::pow((dynamic.inv_root_C * dynamic.dm).norm(), 2)) - dynamic.dd;
-            // sigma *= std::exp((cs / dynamic.dd) * z);
+            const auto mu = pop.n - lambda;
+            const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().matrix();
+            const auto z = (w.mueff * std::pow(dz.norm(), 2)) - adaptation->dd;
+            sigma *= std::exp((cs / adaptation->dd) * z);
         }
     }
     void LPXNES::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
-                             const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+                       const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
         const auto z = std::exp(cs * pop.s.array().log().matrix().dot(w.clipped()));
         sigma = std::pow(sigma, 1.0 - cs) * z;

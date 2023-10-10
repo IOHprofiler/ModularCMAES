@@ -409,12 +409,12 @@ class Parameters(AnnotatedStruct):
         Examples are recombination weights and learning rates for the covariance
         matrix adapation.
         """
-        if False and self.weights_option == "equal":
+        if self.weights_option == "equal":
             ws = 1 / self.mu
             self.weights = np.append(
                 np.ones(self.mu) * ws, np.ones(self.lambda_ - self.mu) * ws * -1
             )
-        elif True or self.weights_option == "1/2^lambda":
+        elif self.weights_option == "1/2^lambda":
             base = np.float64(2)
             positive = self.mu / (base ** np.arange(1, self.mu + 1)) + ( 
                 (1 / (base ** self.mu)) / self.mu

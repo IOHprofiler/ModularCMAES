@@ -55,7 +55,7 @@ namespace parameters
         BIPOP
     };
 
-    enum class MatrixAdaptation {
+    enum class MatrixAdaptationType {
         COVARIANCE,
         MATRIX,
     };
@@ -74,6 +74,6 @@ namespace parameters
         StepSizeAdaptation ssa = StepSizeAdaptation::CSA;
         CorrectionMethod bound_correction = CorrectionMethod::NONE;
         RestartStrategyType restart_strategy = RestartStrategyType::NONE;
-        MatrixAdaptation matrix_adaptation = MatrixAdaptation::COVARIANCE;
+        MatrixAdaptationType matrix_adaptation = MatrixAdaptationType::COVARIANCE;
     };
 }

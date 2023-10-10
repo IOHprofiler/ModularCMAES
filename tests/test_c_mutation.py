@@ -55,11 +55,11 @@ class TestMutation(unittest.TestCase):
             cma.mutate(sum)
             cma.select()
             cma.recombine()
-            cma.p.dynamic.adapt_evolution_paths(
-                cma.p.weights, cma.p.mutation, cma.p.stats, cma.p.lamb
+            cma.p.adaptation.adapt_evolution_paths(
+                cma.p.pop, cma.p.weights, cma.p.mutation, cma.p.stats, cma.p.mu, cma.p.lamb
             )
             cma.p.mutation.adapt(
-                cma.p.weights, cma.p.dynamic, cma.p.pop, cma.p.old_pop, cma.p.stats, cma.p.lamb
+                cma.p.weights, cma.p.adaptation, cma.p.pop, cma.p.old_pop, cma.p.stats, cma.p.lamb
             )
         return cma
 
@@ -71,7 +71,7 @@ class TestMutation(unittest.TestCase):
             cma.p.settings.sigma0
             * np.exp(
                 (cma.p.mutation.cs / cma.p.mutation.damps)
-                * ((np.linalg.norm(cma.p.dynamic.ps) / cma.p.dynamic.chiN) - 1)
+                * ((np.linalg.norm(cma.p.adaptation.ps) / cma.p.adaptation.chiN) - 1)
             ),
         )
 
@@ -89,13 +89,14 @@ class TestMutation(unittest.TestCase):
     def test_adapt_mxnes(self):
         cma = self.get_cma(options.MXNES)
 
+
     def test_adapt_xnes(self):
         cma = self.get_cma(options.XNES)
 
         w = cma.p.weights.weights.clip(0)[: cma.p.pop.n]
         z = (
             np.power(
-                np.linalg.norm(cma.p.dynamic.inv_root_C.dot(cma.p.pop.Y), axis=0), 2
+                np.linalg.norm(cma.p.pop.Z, axis=0), 2
             )
             - cma.p.settings.dim
         )

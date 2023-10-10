@@ -2,13 +2,13 @@
 #include <pybind11/complex.h>
 #include <pybind11/eigen.h>
 #include <pybind11/functional.h>
-#include <pybind11/numpy.h> 
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #include "../include/c_maes.hpp"
-#include "to_string.hpp"
 #include "c_maes.hpp"
+#include "to_string.hpp"
 
 namespace py = pybind11;
 
@@ -68,7 +68,14 @@ void define_options(py::module &main)
         .value("IPOP", RestartStrategyType::IPOP)
         .value("BIPOP", RestartStrategyType::BIPOP)
         .export_values();
+
+    py::enum_<MatrixAdaptationType>(m, "MatrixAdaptationType")
+        .value("COVARIANCE", MatrixAdaptationType::COVARIANCE)
+        .value("MATRIX", MatrixAdaptationType::MATRIX)
+        .export_values();
+
 }
+
 
 struct PySampler : sampling::Sampler
 {
@@ -179,6 +186,7 @@ void define_parameters(py::module &main)
         .def_readwrite("ssa", &Modules::ssa)
         .def_readwrite("bound_correction", &Modules::bound_correction)
         .def_readwrite("restart_strategy", &Modules::restart_strategy)
+        .def_readwrite("matrix_adaptation", &Modules::matrix_adaptation)
         .def("__repr__", [](Modules &mod)
              { return to_string(mod); });
 
@@ -233,47 +241,90 @@ void define_parameters(py::module &main)
 
     using namespace matrix_adaptation;
     py::class_<Adaptation, std::shared_ptr<Adaptation>>(m, "Adaptation")
-        // .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
         .def_readwrite("m", &Adaptation::m)
         .def_readwrite("m_old", &Adaptation::m_old)
         .def_readwrite("dm", &Adaptation::dm)
-        // .def_readwrite("pc", &Dynamic::pc)
         .def_readwrite("ps", &Adaptation::ps)
-        // .def_readwrite("d", &Dynamic::d)
-        // .def_readwrite("B", &Dynamic::B)
-        // .def_readwrite("C", &Dynamic::C)
-        // .def_readwrite("inv_root_C", &Dynamic::inv_root_C)
         .def_readwrite("dd", &Adaptation::dd)
         .def_readwrite("chiN", &Adaptation::chiN)
-        // .def_readwrite("hs", &Dynamic::hs)
-        // .def("adapt_evolution_paths", &Dynamic::adapt_evolution_paths,
-        //      py::arg("weights"),
-        //      py::arg("mutation"),
-        //      py::arg("stats"),
-        //      py::arg("lamb"))
-        // .def("adapt_covariance_matrix", &Dynamic::adapt_covariance_matrix,
-        //      py::arg("weights"),
-        //      py::arg("modules"),
-        //      py::arg("population"),
-        //      py::arg("mu"))
-        // .def("perform_eigendecomposition", &Dynamic::perform_eigendecomposition, py::arg("stats"))
+        .def("adapt_evolution_paths", &Adaptation::adapt_evolution_paths,
+             py::arg("pop"),
+             py::arg("weights"),
+             py::arg("mutation"),
+             py::arg("stats"),
+             py::arg("mu"),
+             py::arg("lamb"))
+        .def("adapt_matrix", &Adaptation::adapt_matrix,
+             py::arg("weights"),
+             py::arg("modules"),
+             py::arg("population"),
+             py::arg("mu"),
+             py::arg("settings"))
+        .def("restart", &Adaptation::restart, py::arg("settings"))
+        .def("scale_mutation_steps", &Adaptation::scale_mutation_steps, py::arg("pop"))
         .def("__repr__", [](Adaptation &dyn)
              {
             std::stringstream ss;
             ss << std::boolalpha;
-            ss << "<Dynamic";
+            ss << "<Adaptation";
             ss << " m: " << dyn.m.transpose();
             ss << " m_old: " << dyn.m_old.transpose();
             ss << " dm: " << dyn.dm.transpose();
-            // ss << " pc: " << dyn.pc.transpose();
             ss << " ps: " << dyn.ps.transpose();
-            // ss << " d: " << dyn.d.transpose();
-            // ss << " B: " << dyn.B;
-            // ss << " C: " << dyn.C;
-            // ss << " inv_root_C: " << dyn.inv_root_C;
             ss << " dd: " << dyn.dd;
             ss << " chiN: " << dyn.chiN;
-            // ss << " hs: " << dyn.hs;
+            ss << ">";
+            return ss.str(); });
+
+    py::class_<CovarianceAdaptation, Adaptation, std::shared_ptr<CovarianceAdaptation>>(m, "CovarianceAdaptation")
+        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
+        .def_readwrite("pc", &CovarianceAdaptation::pc)
+        .def_readwrite("d", &CovarianceAdaptation::d)
+        .def_readwrite("B", &CovarianceAdaptation::B)
+        .def_readwrite("C", &CovarianceAdaptation::C)
+        .def_readwrite("inv_root_C", &CovarianceAdaptation::inv_root_C)
+        .def_readwrite("hs", &CovarianceAdaptation::hs)
+        .def("adapt_covariance_matrix", &CovarianceAdaptation::adapt_covariance_matrix,
+             py::arg("weights"),
+             py::arg("modules"),
+             py::arg("population"),
+             py::arg("mu"))
+        .def("perform_eigendecomposition", &CovarianceAdaptation::perform_eigendecomposition, py::arg("stats"))
+        .def("__repr__", [](CovarianceAdaptation &dyn)
+             {
+            std::stringstream ss;
+            ss << std::boolalpha;
+            ss << "<CovarianceAdaptation";
+            ss << " m: " << dyn.m.transpose();
+            ss << " m_old: " << dyn.m_old.transpose();
+            ss << " dm: " << dyn.dm.transpose();
+            ss << " pc: " << dyn.pc.transpose();
+            ss << " ps: " << dyn.ps.transpose();
+            ss << " d: " << dyn.d.transpose();
+            ss << " B: " << dyn.B;
+            ss << " C: " << dyn.C;
+            ss << " inv_root_C: " << dyn.inv_root_C;
+            ss << " dd: " << dyn.dd;
+            ss << " chiN: " << dyn.chiN;
+            ss << " hs: " << dyn.hs;
+            ss << ">";
+            return ss.str(); });
+
+    py::class_<MatrixAdaptation, Adaptation, std::shared_ptr<MatrixAdaptation>>(m, "MatrixAdaptation")
+        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
+        .def_readwrite("M", &MatrixAdaptation::M)
+        .def("__repr__", [](MatrixAdaptation &dyn)
+             {
+            std::stringstream ss;
+            ss << std::boolalpha;
+            ss << "<MatrixAdaptation";
+            ss << " m: " << dyn.m.transpose();
+            ss << " m_old: " << dyn.m_old.transpose();
+            ss << " dm: " << dyn.dm.transpose();
+            ss << " ps: " << dyn.ps.transpose();
+            ss << " M: " << dyn.M;
+            ss << " dd: " << dyn.dd;
+            ss << " chiN: " << dyn.chiN;
             ss << ">";
             return ss.str(); });
 
@@ -341,6 +392,7 @@ void define_parameters(py::module &main)
 
     ;
 
+    using AdaptationType = std::variant<std::shared_ptr<MatrixAdaptation>, std::shared_ptr<CovarianceAdaptation>>;
     py::class_<Parameters, std::shared_ptr<Parameters>>(main, "Parameters")
         .def(py::init<size_t>(), py::arg("dimension"))
         .def(py::init<Settings>(), py::arg("settings"))
@@ -349,7 +401,23 @@ void define_parameters(py::module &main)
         .def_readwrite("settings", &Parameters::settings)
         .def_readwrite("mu", &Parameters::mu)
         .def_readwrite("lamb", &Parameters::lambda)
-        .def_readwrite("adaptation", &Parameters::adaptation)
+        .def_property(
+            "adaptation",
+            [](Parameters &self) -> AdaptationType
+            {
+                switch (self.settings.modules.matrix_adaptation)
+                {
+                case MatrixAdaptationType::MATRIX:
+                    return std::dynamic_pointer_cast<MatrixAdaptation>(self.adaptation);
+                default:
+                case MatrixAdaptationType::COVARIANCE:
+                    return std::dynamic_pointer_cast<CovarianceAdaptation>(self.adaptation);
+                }
+            },
+            [](Parameters &self, std::shared_ptr<Adaptation> adaptation)
+            {
+                self.adaptation = adaptation;
+            })
         .def_readwrite("stats", &Parameters::stats)
         .def_readwrite("weights", &Parameters::weights)
         .def_readwrite("pop", &Parameters::pop)
@@ -373,15 +441,14 @@ void define_bounds(py::module &main)
         .def_readwrite("diameter", &BoundCorrection::diameter)
         .def_readonly("n_out_of_bounds", &BoundCorrection::n_out_of_bounds)
         .def("correct", &BoundCorrection::correct,
-            py::arg("population"), py::arg("m")
-        );
+             py::arg("population"), py::arg("m"));
 
     py::class_<NoCorrection, BoundCorrection, std::shared_ptr<NoCorrection>>(m, "NoCorrection")
         .def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
 
     py::class_<CountOutOfBounds, BoundCorrection, std::shared_ptr<CountOutOfBounds>>(m, "CountOutOfBounds")
         .def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
-        
+
     py::class_<COTN, BoundCorrection, std::shared_ptr<COTN>>(m, "COTN")
         .def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"))
         .def_readonly("sampler", &COTN::sampler);
@@ -467,7 +534,6 @@ void define_mutation(py::module &main)
             py::arg("objective"),
             py::arg("n_offspring"),
             py::arg("parameters"));
-      
 
     py::class_<TPA, CSA, std::shared_ptr<TPA>>(m, "TPA")
         .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
@@ -516,7 +582,7 @@ void define_mutation(py::module &main)
              py::arg("sigma_sampler"),
              py::arg("cs"),
              py::arg("damps"),
-             py::arg("sigma0")); 
+             py::arg("sigma0"));
 
     py::class_<LPXNES, CSA, std::shared_ptr<LPXNES>>(m, "LPXNES")
         .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
@@ -557,7 +623,7 @@ void define_restart(py::module &main)
         .def("exceeded_max_iter", &RestartCriteria::exceeded_max_iter)
         .def("no_improvement", &RestartCriteria::no_improvement)
         .def("flat_fitness", &RestartCriteria::flat_fitness)
-        .def("tolx", &RestartCriteria::tolx) 
+        .def("tolx", &RestartCriteria::tolx)
         .def("tolupsigma", &RestartCriteria::tolupsigma)
         .def("conditioncov", &RestartCriteria::conditioncov)
         .def("noeffectaxis", &RestartCriteria::noeffectaxis)
@@ -599,7 +665,7 @@ void define_restart(py::module &main)
             ss << " stagnation: " << res.stagnation() <<  ">";
             return ss.str(); });
 
-    py::class_<Strategy, std::shared_ptr<Strategy>>(m, "Strategy") 
+    py::class_<Strategy, std::shared_ptr<Strategy>>(m, "Strategy")
         .def("evaluate", &Strategy::evaluate, py::arg("parameters"))
         .def_readwrite("criteria", &Strategy::criteria);
 
@@ -628,9 +694,9 @@ void define_restart(py::module &main)
         .def_readwrite("lambda_init", &BIPOP::lambda_init)
         .def_readwrite("budget", &BIPOP::budget)
         .def_readwrite("lambda_large", &BIPOP::lambda_large)
-        .def_readwrite("lambda_small", &BIPOP::lambda_small) 
+        .def_readwrite("lambda_small", &BIPOP::lambda_small)
         .def_readwrite("budget_small", &BIPOP::budget_small)
-        .def_readwrite("budget_large", &BIPOP::budget_large) 
+        .def_readwrite("budget_large", &BIPOP::budget_large)
         .def_readonly("used_budget", &BIPOP::used_budget);
 }
 
@@ -640,7 +706,7 @@ void define_cmaes(py::module &m)
         .def(py::init<std::shared_ptr<parameters::Parameters>>(), py::arg("parameters"))
         .def("recombine", &ModularCMAES::recombine)
         .def("mutate", [](ModularCMAES &self, std::function<double(Vector)> objective)
-             { self.p->mutation->mutate(objective, self.p->pop.Z.cols(), *self.p); })
+             { self.p->mutation->mutate(objective, self.p->lambda, *self.p); })
         .def("select", [](ModularCMAES &self)
              { self.p->selection->select(*self.p); })
         .def("adapt", [](ModularCMAES &self)

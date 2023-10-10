@@ -58,7 +58,7 @@ namespace parameters
     void Parameters::adapt()
     {
 
-        adaptation->adapt_evolution_paths(weights, mutation, stats, lambda);
+        adaptation->adapt_evolution_paths(pop, weights, mutation, stats, mu, lambda);
         mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
         auto successfull_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings);
 

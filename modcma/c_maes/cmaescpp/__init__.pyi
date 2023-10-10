@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Union
 
 from typing import overload
 import numpy
@@ -25,7 +25,7 @@ class Population:
 
 class Parameters:
     bounds: Any
-    dynamic: parameters.Dynamic
+    adaptation: Union[parameters.MatrixAdaptation,parameters.CovarianceAdaptation]
     lamb: int
     mu: int
     mutation: mutation.Strategy

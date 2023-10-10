@@ -37,7 +37,7 @@ class TestSelection(unittest.TestCase):
         self.p.pop.f = -np.arange(4)
         selector.select(self.p)
 
-        self.assertTrue(np.all(self.p.pop.f == np.array([-3., -1.])))
+        self.assertTrue(np.all(self.p.pop.f == np.array([-3., -1., float("inf"), float("inf")])))
         self.assertEqual(self.p.stats.fopt, -3)
 
 

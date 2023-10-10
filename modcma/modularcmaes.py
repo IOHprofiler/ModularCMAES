@@ -78,7 +78,7 @@ class ModularCMAES:
             s = np.ones(n_offspring) * self.parameters.sigma
 
         z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
-        # breakpoint()
+
         if self.parameters.threshold_convergence:
             z = scale_with_threshold(z, self.parameters.threshold)
 
@@ -108,6 +108,8 @@ class ModularCMAES:
 
         if perform_tpa:
             yt, xt, ft = tpa_mutation(self.fitness_func, self.parameters)
+            zt = self.parameters.inv_root_C.dot(self.parameters.dm)
+            z = np.c_[zt, -zt, z]
             y = np.c_[yt, y]
             x = np.c_[xt, x]
             f = np.r_[ft, f]

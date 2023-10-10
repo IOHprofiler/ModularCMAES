@@ -102,7 +102,7 @@ class TestParameters(unittest.TestCase):
         x = self.p.m.reshape(-1, 1) * y
         f = np.array(list(map(sum, x)))
         self.p.used_budget += self.p.lambda_
-        self.p.population = Population(x, y, f)
+        self.p.population = Population(x, y, y, f)
         self.p.m_old = self.p.m.copy()
         self.p.m *= np.linalg.norm(y, axis=1).reshape(-1, 1)
         self.p.adapt()

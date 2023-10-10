@@ -151,7 +151,7 @@ namespace restart
 	inline std::shared_ptr<Strategy> get(const parameters::RestartStrategyType s, const double d, const double lambda, const double mu, const size_t budget)
 	{
 		using namespace parameters;
-		switch (s) 
+	switch (s) 
 		{
 		case RestartStrategyType::RESTART:
 			return std::make_shared<Restart>(d, lambda);
