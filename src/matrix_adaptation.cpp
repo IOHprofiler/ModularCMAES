@@ -3,15 +3,7 @@
 namespace matrix_adaptation
 {
     using namespace parameters;
-    void CovarianceAdaptation::scale_mutation_steps(Population &pop)
-    {
-        pop.Y = B * (d.asDiagonal() * pop.Z);
-    }
 
-    void CovarianceAdaptation::invert_mutation_steps(Population &pop, size_t n_offspring) {
-        // z = diag(1 / D) * (B^{-1} * pop.Y)
-        // y = (x - m) / sigma
-    }
 
     void CovarianceAdaptation::adapt_evolution_paths(const Population &pop, const Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const Stats &stats, const size_t mu, const size_t lambda)
     {
@@ -37,7 +29,7 @@ namespace matrix_adaptation
             auto weights = w.weights.topRows(pop.Y.cols());
             auto neg_scaler = dd / (inv_root_C * pop.Y).colwise().norm().array().pow(2).transpose();
             auto w2 = (weights.array() < 0).select(weights.array() * neg_scaler, weights);
-
+            
             rank_mu = w.cmu * ((pop.Y.array().rowwise() * w2.array().transpose()).matrix() * pop.Y.transpose());
         }
         else
@@ -97,6 +89,16 @@ namespace matrix_adaptation
         dm.setZero();
         pc.setZero();
         ps.setZero();
+    }
+
+    void CovarianceAdaptation::scale_mutation_steps(Population &pop)
+    {
+        pop.Y = B * (d.asDiagonal() * pop.Z);
+    }
+
+    void CovarianceAdaptation::invert_mutation_steps(Population &pop, size_t n_offspring) {
+        // z = diag(1 / D) * (B^{-1} * pop.Y)
+        // y = (x - m) / sigma
     }
 
     void MatrixAdaptation::adapt_evolution_paths(const Population &pop, const Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const Stats &stats, const size_t mu, const size_t lambda)

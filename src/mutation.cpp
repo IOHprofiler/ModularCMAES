@@ -51,37 +51,44 @@ namespace mutation
 
     void TPA::mutate(std::function<double(Vector)> objective, const size_t n_offspring_, parameters::Parameters &p)
     {
-        const size_t n_offspring = n_offspring_ - 2;
+        // const size_t n_offspring = n_offspring_ - 2;
 
-        CSA::mutate(objective, n_offspring, p);
+        CSA::mutate(objective, n_offspring_, p);
+
+
+        auto f_pos = objective(p.adaptation->m + (p.mutation->sigma * p.adaptation->dm));
+        auto f_neg = objective(p.adaptation->m + (p.mutation->sigma * -p.adaptation->dm));
+        p.stats.evaluations += 2;
+        this->rank_tpa = f_neg < f_pos ? -a_tpa : a_tpa + b_tpa;        
 
         // TODO: properly set pop.Z        
-        p.pop.Y.col(n_offspring) = p.adaptation->dm;
-        p.pop.Y.col(n_offspring + 1) = -p.adaptation->dm;
+        // p.pop.Y.col(n_offspring) = p.adaptation->dm;
+        // p.pop.Y.col(n_offspring + 1) = -p.adaptation->dm;
 
+        // for (auto i = n_offspring; i < n_offspring + 2; i++)
+        // {
+        //     p.pop.X.col(i) = p.adaptation->m + (p.pop.s(i) * p.pop.Y.col(i));
 
-        for (auto i = n_offspring; i < n_offspring + 2; i++)
-        {
-            p.pop.X.col(i) = p.adaptation->m + (p.pop.s(i) * p.pop.Y.col(i));
+        //     // TODO: this only needs to happen for a single column
+        //     p.bounds->correct(p.pop, p.adaptation->m);
 
-            // TODO: this only needs to happen for a single column
-            p.bounds->correct(p.pop, p.adaptation->m);
+        //     p.pop.f(i) = objective(p.pop.X.col(i));
+        //     p.stats.evaluations++;
+        // }
 
-            p.pop.f(i) = objective(p.pop.X.col(i));
-            p.stats.evaluations++;
-        }
-
-        rank_tpa = p.pop.f(n_offspring + 1) < p.pop.f(n_offspring) ? -a_tpa : a_tpa + b_tpa;
+        // rank_tpa = p.pop.f(n_offspring + 1) < p.pop.f(n_offspring) ? -a_tpa : a_tpa + b_tpa;
 
         // Ensure that these offspring never get selected for the update.
-        p.pop.f(n_offspring + 1) = std::numeric_limits<double>::infinity();
-        p.pop.f(n_offspring) = std::numeric_limits<double>::infinity();
+        // You need to remove them
+        // p.pop.resize_cols(n_offspring - 1);
+        // p.pop.f(n_offspring + 1) = std::numeric_limits<double>::infinity();
+        // p.pop.f(n_offspring) = std::numeric_limits<double>::infinity();
     }
 
     void TPA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                     const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
-        s = ((1.0 - cs) * s) + (cs * rank_tpa);
+        s = ((1.0 - cs) * s) + (cs * this->rank_tpa);
         sigma *= std::exp(s);
     }
 
