@@ -56,9 +56,9 @@ namespace mutation
         CSA::mutate(objective, n_offspring, p);
 
         // TODO: properly set pop.Z        
-
         p.pop.Y.col(n_offspring) = p.adaptation->dm;
         p.pop.Y.col(n_offspring + 1) = -p.adaptation->dm;
+
 
         for (auto i = n_offspring; i < n_offspring + 2; i++)
         {
@@ -72,6 +72,10 @@ namespace mutation
         }
 
         rank_tpa = p.pop.f(n_offspring + 1) < p.pop.f(n_offspring) ? -a_tpa : a_tpa + b_tpa;
+
+        // Ensure that these offspring never get selected for the update.
+        p.pop.f(n_offspring + 1) = std::numeric_limits<double>::infinity();
+        p.pop.f(n_offspring) = std::numeric_limits<double>::infinity();
     }
 
     void TPA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,

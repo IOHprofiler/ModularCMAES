@@ -24,6 +24,7 @@ namespace matrix_adaptation
         virtual bool adapt_matrix(const parameters::Weights &w, const parameters::Modules &m, const Population &pop, const size_t mu, const parameters::Settings &settings) = 0;
         virtual void restart(const parameters::Settings &settings) = 0;
         virtual void scale_mutation_steps(Population &pop) = 0;
+        virtual void invert_mutation_steps(Population &pop, size_t n_offspring) = 0;
     };
 
     struct CovarianceAdaptation : Adaptation
@@ -52,6 +53,8 @@ namespace matrix_adaptation
         bool adapt_matrix(const parameters::Weights &w, const parameters::Modules &m, const Population &pop, const size_t mu, const parameters::Settings &settings) override;
 
         void restart(const parameters::Settings &settings) override;
+
+        void invert_mutation_steps(Population &pop, size_t n_offspring) override;
     };
 
     struct MatrixAdaptation : Adaptation {
@@ -62,6 +65,7 @@ namespace matrix_adaptation
         bool adapt_matrix(const parameters::Weights &w, const parameters::Modules &m, const Population &pop, const size_t mu, const parameters::Settings &settings)  override;
         void restart(const parameters::Settings &settings)  override;
         void scale_mutation_steps(Population &pop)  override;
+        void invert_mutation_steps(Population &pop, size_t n_offspring) override;
     };
 
 
