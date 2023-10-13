@@ -191,6 +191,10 @@ class ModularCMAES:
             ).reshape(-1, 1)
         )
 
+    def adapt(self) -> None:
+        """Shorthand for self.parameters.adapt"""
+        self.parameters.adapt()
+        
     def step(self) -> bool:
         """The step method runs one iteration of the optimization process.
 
@@ -204,12 +208,11 @@ class ModularCMAES:
 
         """
         self.mutate()
-       
         self.select()
-
         self.recombine()
-        self.parameters.adapt()
+        self.adapt()
         return not any(self.break_conditions)
+    
 
     def sequential_break_conditions(self, i: int, f: float) -> bool:
         """Indicator whether there are any sequential break conditions.
@@ -516,16 +519,16 @@ def evaluate_bbob(
     return evals, fopts
 
 
-def fmin(func, dim, maxfun=None, **kwargs):
+def fmin(func: callable, x0: np.ndarray, budget: int=None, **kwargs):
     """Minimize a function using the modular CMA-ES.
 
     Parameters
     ----------
     func: callable
         The objective function to be minimized.
-    dim: int
+    x0: 
         The dimensionality of the problem
-    maxfun: int = None
+    budget: int = None
         Maximum number of function evaluations to make.
     **kwargs
         These are directly passed into the instance of ModularCMAES,
@@ -541,5 +544,7 @@ def fmin(func, dim, maxfun=None, **kwargs):
         The number of evaluations performed
 
     """
-    cma = ModularCMAES(func, dim, budget=maxfun, **kwargs).run()
+    x0 = np.asarray(x0)
+    dim = len(x0)
+    cma = ModularCMAES(func, dim, x0=x0, budget=budget, **kwargs).run()
     return cma.parameters.xopt, cma.parameters.fopt, cma.parameters.used_budget

@@ -267,7 +267,7 @@ class Parameters(AnnotatedStruct):
     bound_correction: (
         None, "saturate", "unif_resample", "COTN", "toroidal", "mirror") = None
     orthogonal: bool = False
-    local_restart: (None, "IPOP", "BIPOP") = None
+    local_restart: (None, "restart",  "IPOP", "BIPOP") = None
     base_sampler: ("gaussian", "sobol", "halton") = "gaussian"
     mirrored: (None, "mirrored", "mirrored pairwise") = None
     weights_option: ("default", "equal", "1/2^lambda") = "default"

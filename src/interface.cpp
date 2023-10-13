@@ -713,6 +713,7 @@ void define_cmaes(py::module &m)
              { self.p->adapt(); })
         .def("step", &ModularCMAES::step, py::arg("objective"))
         .def("__call__", &ModularCMAES::operator(), py::arg("objective"))
+        .def("run", &ModularCMAES::operator(), py::arg("objective"))
         .def("break_conditions", &ModularCMAES::break_conditions)
         .def_readonly("p", &ModularCMAES::p);
 }

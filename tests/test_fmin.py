@@ -9,14 +9,14 @@ class TestFmin(unittest.TestCase):
 
     def test_best_so_far_storage(self):
         """Test storage of best so far individual."""
-        c = modularcmaes.ModularCMAES(sum, 5)
+        c = modularcmaes.ModularCMAES(sum, [1, 1,1,1,1])
         c.step()
         self.assertEqual(len(c.parameters.xopt), 5)
         self.assertEqual(sum(c.parameters.xopt), c.parameters.fopt)
 
     def test_fmin(self):
         """Test a single run of the mechanism."""
-        xopt, fopt, evaluations = modularcmaes.fmin(sum, 5, target=0.0)
+        xopt, fopt, evaluations = modularcmaes.fmin(sum, [1, 1,1,1,1], target=0.0)
         self.assertEqual(sum(xopt), fopt)
         self.assertGreater(evaluations, 0)
         self.assertEqual(len(xopt), 5)
