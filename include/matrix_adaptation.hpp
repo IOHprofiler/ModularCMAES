@@ -1,10 +1,9 @@
 #pragma once
 
-#include "common.hpp"
-#include "modules.hpp"
+
+#include "settings.hpp"
 #include "mutation.hpp"
 #include "population.hpp"
-#include "settings.hpp"
 #include "stats.hpp"
 #include "weights.hpp"
 

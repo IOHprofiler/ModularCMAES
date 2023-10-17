@@ -32,7 +32,7 @@ This README provides a high level overview of the implemented modules, and provi
 
 ## Installation <a name="installation"></a>
 
-You can install the Modular CMA-ES package using `pip` for Python.
+You can install the Modular CMA-ES package using `pip`.
 
 ### Python Installation
 
@@ -71,7 +71,7 @@ If you want to work on a development version of the library, you should follow t
    python setup.py develop 
    ```
 
-4. Ensure all function work as expected by running the unittests:
+4. Ensure all functionality works as expected by running the unittests:
 
    ```bash
    python -m unittest discover   
@@ -248,7 +248,6 @@ modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.COVARIANCE
 # or for MA-ES
 modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.MATRIX
 ```
-
 
 ### Active Update <a name="active-update"></a>
 

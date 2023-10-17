@@ -1,5 +1,8 @@
 #pragma once
 
+#include "common.hpp"
+#include "modules.hpp"
+
 namespace parameters
 {
     struct Settings

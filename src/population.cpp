@@ -14,7 +14,7 @@ Population& Population::operator+=(const Population& other)
 {
     utils::hstack(X, other.X);
     utils::hstack(Y, other.Y);
-    utils::hstack(Z, other.Z);
+    utils::hstack(Z, other.Z); 
     utils::concat(f, other.f);
     utils::concat(s, other.s);
     n += other.n;
