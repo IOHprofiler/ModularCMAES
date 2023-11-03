@@ -56,8 +56,10 @@ namespace parameters
     };
 
     enum class MatrixAdaptationType {
+        NONE,
         COVARIANCE,
         MATRIX,
+        
     };
 
     struct Modules

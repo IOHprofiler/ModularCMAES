@@ -1,9 +1,8 @@
 #pragma once
 
-
-#include "settings.hpp"
 #include "mutation.hpp"
 #include "population.hpp"
+#include "settings.hpp"
 #include "stats.hpp"
 #include "weights.hpp"
 
@@ -26,6 +25,20 @@ namespace matrix_adaptation
         virtual void invert_mutation_steps(Population &pop, size_t n_offspring) = 0;
     };
 
+    struct None : Adaptation
+    {
+        None(const size_t dim, const Vector &x0) : Adaptation(dim, x0) {}
+        virtual bool adapt_matrix(const parameters::Weights &w, const parameters::Modules &m, const Population &pop, const size_t mu, const parameters::Settings &settings) override
+        {
+            return true;
+        }
+        virtual void adapt_evolution_paths(const Population &pop, const parameters::Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const parameters::Stats &stats, const size_t mu, const size_t lambda) override;
+        virtual void restart(const parameters::Settings &settings) override;
+        virtual void scale_mutation_steps(Population &pop) override;
+        virtual void invert_mutation_steps(Population &pop, size_t n_offspring) override {
+        }
+    };
+
     struct CovarianceAdaptation : Adaptation
     {
         Vector pc, d;
@@ -34,9 +47,9 @@ namespace matrix_adaptation
         bool hs = true;
 
         CovarianceAdaptation(const size_t dim, const Vector &x0) : Adaptation(dim, x0), pc(Vector::Zero(dim)),
-                                                         d(Vector::Ones(dim)),
-                                                         B(Matrix::Identity(dim, dim)), C(Matrix::Identity(dim, dim)),
-                                                         inv_root_C(Matrix::Identity(dim, dim))
+                                                                   d(Vector::Ones(dim)),
+                                                                   B(Matrix::Identity(dim, dim)), C(Matrix::Identity(dim, dim)),
+                                                                   inv_root_C(Matrix::Identity(dim, dim))
 
         {
         }
@@ -56,18 +69,17 @@ namespace matrix_adaptation
         void invert_mutation_steps(Population &pop, size_t n_offspring) override;
     };
 
-    struct MatrixAdaptation : Adaptation {
+    struct MatrixAdaptation : Adaptation
+    {
         Matrix M;
         MatrixAdaptation(const size_t dim, const Vector &x0) : Adaptation(dim, x0), M(Matrix::Identity(dim, dim)) {}
 
         void adapt_evolution_paths(const Population &pop, const parameters::Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const parameters::Stats &stats, const size_t mu, const size_t lambda) override;
-        bool adapt_matrix(const parameters::Weights &w, const parameters::Modules &m, const Population &pop, const size_t mu, const parameters::Settings &settings)  override;
-        void restart(const parameters::Settings &settings)  override;
-        void scale_mutation_steps(Population &pop)  override;
+        bool adapt_matrix(const parameters::Weights &w, const parameters::Modules &m, const Population &pop, const size_t mu, const parameters::Settings &settings) override;
+        void restart(const parameters::Settings &settings) override;
+        void scale_mutation_steps(Population &pop) override;
         void invert_mutation_steps(Population &pop, size_t n_offspring) override;
     };
-
-
 
     inline std::shared_ptr<Adaptation> get(const parameters::Modules &m, const size_t dim, const Vector &x0)
     {
@@ -76,6 +88,8 @@ namespace matrix_adaptation
         {
         case MatrixAdaptationType::MATRIX:
             return std::make_shared<MatrixAdaptation>(dim, x0);
+        case MatrixAdaptationType::NONE:
+            return std::make_shared<None>(dim, x0);
         default:
         case MatrixAdaptationType::COVARIANCE:
             return std::make_shared<CovarianceAdaptation>(dim, x0);

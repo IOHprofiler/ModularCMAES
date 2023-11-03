@@ -580,13 +580,6 @@ class Parameters(AnnotatedStruct):
         if self.active:
             weights = self.weights[::].copy()
             weights = weights[: self.population.y.shape[1]]
-            weights[weights < 0] = weights[weights < 0] * (
-                self.d / np.power(
-                    np.linalg.norm(
-                        self.inv_root_C @ self.population.y[:, weights < 0], axis=0
-                    ), 2
-                )
-            )
             rank_mu = self.cmu * (weights * self.population.y @ self.population.y.T)
         else:
             rank_mu = self.cmu * (

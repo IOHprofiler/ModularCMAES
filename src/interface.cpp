@@ -71,11 +71,10 @@ void define_options(py::module &main)
 
     py::enum_<MatrixAdaptationType>(m, "MatrixAdaptationType")
         .value("COVARIANCE", MatrixAdaptationType::COVARIANCE)
+        .value("NONE", MatrixAdaptationType::NONE)
         .value("MATRIX", MatrixAdaptationType::MATRIX)
         .export_values();
-
 }
-
 
 struct PySampler : sampling::Sampler
 {
@@ -167,79 +166,10 @@ void define_selection(py::module &main)
         .def_readwrite("elitsm", &Strategy::elitsm);
 }
 
-void define_parameters(py::module &main)
+void define_matrix_adaptation(py::module &main)
 {
-    auto m = main.def_submodule("parameters");
-    using namespace parameters;
-
-    py::class_<Modules>(m, "Modules")
-        .def(py::init<>())
-        .def_readwrite("elitist", &Modules::elitist)
-        .def_readwrite("active", &Modules::active)
-        .def_readwrite("orthogonal", &Modules::orthogonal)
-        .def_readwrite("sequential_selection", &Modules::sequential_selection)
-        .def_readwrite("threshold_convergence", &Modules::threshold_convergence)
-        .def_readwrite("sample_sigma", &Modules::sample_sigma)
-        .def_readwrite("weights", &Modules::weights)
-        .def_readwrite("sampler", &Modules::sampler)
-        .def_readwrite("mirrored", &Modules::mirrored)
-        .def_readwrite("ssa", &Modules::ssa)
-        .def_readwrite("bound_correction", &Modules::bound_correction)
-        .def_readwrite("restart_strategy", &Modules::restart_strategy)
-        .def_readwrite("matrix_adaptation", &Modules::matrix_adaptation)
-        .def("__repr__", [](Modules &mod)
-             { return to_string(mod); });
-
-    py::class_<Stats>(m, "Stats")
-        .def(py::init<>())
-        .def_readwrite("t", &Stats::t)
-        .def_readwrite("evaluations", &Stats::evaluations)
-        .def_readwrite("xopt", &Stats::xopt)
-        .def_readwrite("fopt", &Stats::fopt)
-        .def("__repr__", [](Stats &stats)
-             {
-            std::stringstream ss;
-            ss << std::boolalpha;
-            ss << "<Stats";
-            ss << " t: " << stats.t;
-            ss << " evaluations: " << stats.evaluations;
-            ss << " xopt: " << stats.xopt.transpose();
-            ss << " fopt: " << stats.fopt;
-            ss << ">";
-            return ss.str(); });
-
-    py::class_<Weights>(m, "Weights")
-        .def(
-            py::init<size_t, size_t, size_t, Settings>(),
-            py::arg("dimension"),
-            py::arg("mu0"),
-            py::arg("lambda0"),
-            py::arg("modules"))
-        .def_readwrite("mueff", &Weights::mueff)
-        .def_readwrite("mueff_neg", &Weights::mueff_neg)
-        .def_readwrite("c1", &Weights::c1)
-        .def_readwrite("cmu", &Weights::cmu)
-        .def_readwrite("cc", &Weights::cc)
-        .def_readwrite("weights", &Weights::weights)
-        .def_readwrite("positive", &Weights::positive)
-        .def_readwrite("negative", &Weights::negative)
-        .def("__repr__", [](Weights &weights)
-             {
-            std::stringstream ss;
-            ss << std::boolalpha;
-            ss << "<Weights";
-            ss << " mueff: " << weights.mueff;
-            ss << " mueff_neg: " << weights.mueff_neg;
-            ss << " c1: " << weights.c1;
-            ss << " cmu: " << weights.cmu;
-            ss << " cc: " << weights.cc;
-            ss << " weights: " << weights.weights.transpose();
-            ss << " positive: " << weights.positive.transpose();
-            ss << " negative: " << weights.negative.transpose();
-            ss << ">";
-            return ss.str(); });
-
     using namespace matrix_adaptation;
+    auto m = main.def_submodule("matrix_adaptation");
     py::class_<Adaptation, std::shared_ptr<Adaptation>>(m, "Adaptation")
         .def_readwrite("m", &Adaptation::m)
         .def_readwrite("m_old", &Adaptation::m_old)
@@ -328,6 +258,95 @@ void define_parameters(py::module &main)
             ss << ">";
             return ss.str(); });
 
+    py::class_<None, Adaptation, std::shared_ptr<None>>(m, "None")
+        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
+        .def("__repr__", [](None &dyn)
+             {
+            std::stringstream ss;
+            ss << std::boolalpha;
+            ss << "<MatrixAdaptation";
+            ss << " m: " << dyn.m.transpose();
+            ss << " m_old: " << dyn.m_old.transpose();
+            ss << " dm: " << dyn.dm.transpose();
+            ss << " ps: " << dyn.ps.transpose();
+            ss << " dd: " << dyn.dd;
+            ss << " chiN: " << dyn.chiN;
+            ss << ">";
+            return ss.str(); });
+}
+
+void define_parameters(py::module &main)
+{
+    auto m = main.def_submodule("parameters");
+    using namespace parameters;
+
+    py::class_<Modules>(m, "Modules")
+        .def(py::init<>())
+        .def_readwrite("elitist", &Modules::elitist)
+        .def_readwrite("active", &Modules::active)
+        .def_readwrite("orthogonal", &Modules::orthogonal)
+        .def_readwrite("sequential_selection", &Modules::sequential_selection)
+        .def_readwrite("threshold_convergence", &Modules::threshold_convergence)
+        .def_readwrite("sample_sigma", &Modules::sample_sigma)
+        .def_readwrite("weights", &Modules::weights)
+        .def_readwrite("sampler", &Modules::sampler)
+        .def_readwrite("mirrored", &Modules::mirrored)
+        .def_readwrite("ssa", &Modules::ssa)
+        .def_readwrite("bound_correction", &Modules::bound_correction)
+        .def_readwrite("restart_strategy", &Modules::restart_strategy)
+        .def_readwrite("matrix_adaptation", &Modules::matrix_adaptation)
+        .def("__repr__", [](Modules &mod)
+             { return to_string(mod); });
+
+    py::class_<Stats>(m, "Stats")
+        .def(py::init<>())
+        .def_readwrite("t", &Stats::t)
+        .def_readwrite("evaluations", &Stats::evaluations)
+        .def_readwrite("xopt", &Stats::xopt)
+        .def_readwrite("fopt", &Stats::fopt)
+        .def("__repr__", [](Stats &stats)
+             {
+            std::stringstream ss;
+            ss << std::boolalpha;
+            ss << "<Stats";
+            ss << " t: " << stats.t;
+            ss << " evaluations: " << stats.evaluations;
+            ss << " xopt: " << stats.xopt.transpose();
+            ss << " fopt: " << stats.fopt;
+            ss << ">";
+            return ss.str(); });
+
+    py::class_<Weights>(m, "Weights")
+        .def(
+            py::init<size_t, size_t, size_t, Settings>(),
+            py::arg("dimension"),
+            py::arg("mu0"),
+            py::arg("lambda0"),
+            py::arg("modules"))
+        .def_readwrite("mueff", &Weights::mueff)
+        .def_readwrite("mueff_neg", &Weights::mueff_neg)
+        .def_readwrite("c1", &Weights::c1)
+        .def_readwrite("cmu", &Weights::cmu)
+        .def_readwrite("cc", &Weights::cc)
+        .def_readwrite("weights", &Weights::weights)
+        .def_readwrite("positive", &Weights::positive)
+        .def_readwrite("negative", &Weights::negative)
+        .def("__repr__", [](Weights &weights)
+             {
+            std::stringstream ss;
+            ss << std::boolalpha;
+            ss << "<Weights";
+            ss << " mueff: " << weights.mueff;
+            ss << " mueff_neg: " << weights.mueff_neg;
+            ss << " c1: " << weights.c1;
+            ss << " cmu: " << weights.cmu;
+            ss << " cc: " << weights.cc;
+            ss << " weights: " << weights.weights.transpose();
+            ss << " positive: " << weights.positive.transpose();
+            ss << " negative: " << weights.negative.transpose();
+            ss << ">";
+            return ss.str(); });
+
     py::class_<Settings, std::shared_ptr<Settings>>(m, "Settings")
         .def(py::init<size_t, std::optional<Modules>, std::optional<double>, size_to, size_to, std::optional<double>,
                       std::optional<size_t>, std::optional<size_t>, std::optional<Vector>,
@@ -392,7 +411,11 @@ void define_parameters(py::module &main)
 
     ;
 
-    using AdaptationType = std::variant<std::shared_ptr<MatrixAdaptation>, std::shared_ptr<CovarianceAdaptation>>;
+    using AdaptationType = std::variant<
+        std::shared_ptr<matrix_adaptation::MatrixAdaptation>, 
+        std::shared_ptr<matrix_adaptation::CovarianceAdaptation>, 
+        std::shared_ptr<matrix_adaptation::None>
+    >;
     py::class_<Parameters, std::shared_ptr<Parameters>>(main, "Parameters")
         .def(py::init<size_t>(), py::arg("dimension"))
         .def(py::init<Settings>(), py::arg("settings"))
@@ -408,13 +431,15 @@ void define_parameters(py::module &main)
                 switch (self.settings.modules.matrix_adaptation)
                 {
                 case MatrixAdaptationType::MATRIX:
-                    return std::dynamic_pointer_cast<MatrixAdaptation>(self.adaptation);
+                    return std::dynamic_pointer_cast<matrix_adaptation::MatrixAdaptation>(self.adaptation);
+                case MatrixAdaptationType::NONE:
+                    return std::dynamic_pointer_cast<matrix_adaptation::None>(self.adaptation);
                 default:
                 case MatrixAdaptationType::COVARIANCE:
-                    return std::dynamic_pointer_cast<CovarianceAdaptation>(self.adaptation);
+                    return std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(self.adaptation);
                 }
             },
-            [](Parameters &self, std::shared_ptr<Adaptation> adaptation)
+            [](Parameters &self, std::shared_ptr<matrix_adaptation::Adaptation> adaptation)
             {
                 self.adaptation = adaptation;
             })
@@ -726,6 +751,7 @@ PYBIND11_MODULE(cmaescpp, m)
     define_samplers(m);
     define_mutation(m);
     define_restart(m);
+    define_matrix_adaptation(m);
     define_parameters(m);
     define_bounds(m);
     define_selection(m);

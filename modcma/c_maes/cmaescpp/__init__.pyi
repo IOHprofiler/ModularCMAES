@@ -2,7 +2,7 @@ from typing import Any, Callable, List, Optional, Union
 
 from typing import overload
 import numpy
-from . import parameters, sampling, mutation, restart
+from . import parameters, sampling, mutation, restart, matrix_adaptation
 
 class Population:
     X: numpy.ndarray

@@ -4,7 +4,6 @@ namespace matrix_adaptation
 {
     using namespace parameters;
 
-
     void CovarianceAdaptation::adapt_evolution_paths(const Population &pop, const Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const Stats &stats, const size_t mu, const size_t lambda)
     {
         dm = (m - m_old) / mutation->sigma;
@@ -27,10 +26,7 @@ namespace matrix_adaptation
         if (m.active)
         {
             auto weights = w.weights.topRows(pop.Y.cols());
-            auto neg_scaler = dd / (inv_root_C * pop.Y).colwise().norm().array().pow(2).transpose();
-            auto w2 = (weights.array() < 0).select(weights.array() * neg_scaler, weights);
-            
-            rank_mu = w.cmu * ((pop.Y.array().rowwise() * w2.array().transpose()).matrix() * pop.Y.transpose());
+            rank_mu = w.cmu * ((pop.Y.array().rowwise() * weights.array().transpose()).matrix() * pop.Y.transpose());
         }
         else
         {
@@ -96,7 +92,8 @@ namespace matrix_adaptation
         pop.Y = B * (d.asDiagonal() * pop.Z);
     }
 
-    void CovarianceAdaptation::invert_mutation_steps(Population &pop, size_t n_offspring) {
+    void CovarianceAdaptation::invert_mutation_steps(Population &pop, size_t n_offspring)
+    {
         // z = diag(1 / D) * (B^{-1} * pop.Y)
         // y = (x - m) / sigma
     }
@@ -143,9 +140,31 @@ namespace matrix_adaptation
     {
         pop.Y = M * pop.Z;
     }
-    
-    void MatrixAdaptation::invert_mutation_steps(Population &pop, size_t n_offspring) {
+
+    void MatrixAdaptation::invert_mutation_steps(Population &pop, size_t n_offspring)
+    {
         // z = M^{-1}y
         // y = (x - m) / sigma
+    }
+
+    void None::adapt_evolution_paths(const Population &pop, const parameters::Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const parameters::Stats &stats, const size_t mu, const size_t lambda)
+    {
+        dm = (m - m_old) / mutation->sigma;
+
+        const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().matrix();
+        ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * dz);
+    }
+
+    void None::restart(const parameters::Settings &settings)
+    {
+        ps.setZero();
+        m = settings.x0.value_or(Vector::Zero(settings.dim));
+        m_old.setZero();
+        dm.setZero();
+    }
+
+    void None::scale_mutation_steps(Population &pop)
+    {
+        pop.Y = pop.Z;
     }
 }
