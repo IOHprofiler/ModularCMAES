@@ -1,0 +1,6 @@
+graft include
+graft modcma
+graft external/Eigen
+
+global-exclude */__pycache__/*
+global-exclude *.pyc
