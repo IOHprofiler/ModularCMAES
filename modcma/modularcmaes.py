@@ -78,6 +78,7 @@ class ModularCMAES:
             s = np.ones(n_offspring) * self.parameters.sigma
 
         z = np.hstack(tuple(islice(self.parameters.sampler, n_offspring)))
+
         if self.parameters.threshold_convergence:
             z = scale_with_threshold(z, self.parameters.threshold)
 
@@ -90,7 +91,7 @@ class ModularCMAES:
             self.parameters.bound_correction
         )
         self.parameters.n_out_of_bounds += n_out_of_bounds
-        
+    
         if not self.parameters.sequential and self.parameters.vectorized_fitness:
             f = self._fitness_func(x.T)
             self.parameters.used_budget += len(x.T)       
@@ -107,12 +108,17 @@ class ModularCMAES:
 
         if perform_tpa:
             yt, xt, ft = tpa_mutation(self.fitness_func, self.parameters)
+            zt = self.parameters.inv_root_C.dot(self.parameters.dm)
+            z = np.c_[zt, -zt, z]
             y = np.c_[yt, y]
             x = np.c_[xt, x]
             f = np.r_[ft, f]
             s = np.r_[np.repeat(self.parameters.sigma, 2), s]
 
-        self.parameters.population = Population(x, y, f, s)
+        self.parameters.population = Population(x, y, z, f, s)
+
+        # print(self.parameters.population.f)
+        # breakpoint()
 
     def select(self) -> None:
         """Selection of best individuals in the population.
@@ -185,6 +191,10 @@ class ModularCMAES:
             ).reshape(-1, 1)
         )
 
+    def adapt(self) -> None:
+        """Shorthand for self.parameters.adapt"""
+        self.parameters.adapt()
+        
     def step(self) -> bool:
         """The step method runs one iteration of the optimization process.
 
@@ -200,8 +210,9 @@ class ModularCMAES:
         self.mutate()
         self.select()
         self.recombine()
-        self.parameters.adapt()
+        self.adapt()
         return not any(self.break_conditions)
+    
 
     def sequential_break_conditions(self, i: int, f: float) -> bool:
         """Indicator whether there are any sequential break conditions.
@@ -485,8 +496,8 @@ def evaluate_bbob(
         if idx > 0:
             fitness_func.reset()
         target = fitness_func.optimum.y + target_precision
-
-        optimizer = ModularCMAES(fitness_func, dim, target=target, **kwargs).run()
+        
+        optimizer = ModularCMAES(fitness_func, dim, x0 = np.zeros(dim), target=target, **kwargs).run()
         evals = np.append(evals, fitness_func.state.evaluations)
         fopts = np.append(fopts, fitness_func.state.current_best_internal.y)
 
@@ -508,16 +519,16 @@ def evaluate_bbob(
     return evals, fopts
 
 
-def fmin(func, dim, maxfun=None, **kwargs):
+def fmin(func: callable, x0: np.ndarray, budget: int=None, **kwargs):
     """Minimize a function using the modular CMA-ES.
 
     Parameters
     ----------
     func: callable
         The objective function to be minimized.
-    dim: int
+    x0: 
         The dimensionality of the problem
-    maxfun: int = None
+    budget: int = None
         Maximum number of function evaluations to make.
     **kwargs
         These are directly passed into the instance of ModularCMAES,
@@ -533,5 +544,7 @@ def fmin(func, dim, maxfun=None, **kwargs):
         The number of evaluations performed
 
     """
-    cma = ModularCMAES(func, dim, budget=maxfun, **kwargs).run()
+    x0 = np.asarray(x0)
+    dim = len(x0)
+    cma = ModularCMAES(func, dim, x0=x0, budget=budget, **kwargs).run()
     return cma.parameters.xopt, cma.parameters.fopt, cma.parameters.used_budget

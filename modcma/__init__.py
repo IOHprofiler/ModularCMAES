@@ -1,7 +1,5 @@
 """Entrypoint of Modular CMA-ES package."""
 
-from .asktellcmaes import AskTellCMAES
-from .modularcmaes import ModularCMAES, evaluate_bbob, fmin
 from .parameters import Parameters, BIPOPParameters
 from .population import Population
 from .sampling import (
@@ -14,6 +12,8 @@ from .sampling import (
     Sobol,
 )
 from .utils import timeit, ert
+from .asktellcmaes import AskTellCMAES
+from .modularcmaes import ModularCMAES, evaluate_bbob, fmin
 
 __all__ = (
     "AskTellCMAES",

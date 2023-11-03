@@ -246,7 +246,7 @@ class Parameters(AnnotatedStruct):
     n_generations: int = None
     lambda_: int = None
     mu: int = None
-    sigma0: float = 0.2
+    sigma0: float = 2.0
     a_tpa: float = 0.5
     b_tpa: float = 0.0
     cs: float = None
@@ -259,6 +259,7 @@ class Parameters(AnnotatedStruct):
     init_threshold: float = 0.1
     decay_factor: float = 0.995
     max_resamples: int = 1000
+
     active: bool = False
     elitist: bool = False
     sequential: bool = False
@@ -266,7 +267,7 @@ class Parameters(AnnotatedStruct):
     bound_correction: (
         None, "saturate", "unif_resample", "COTN", "toroidal", "mirror") = None
     orthogonal: bool = False
-    local_restart: (None, "IPOP", "BIPOP") = None
+    local_restart: (None, "restart",  "IPOP", "BIPOP") = None
     base_sampler: ("gaussian", "sobol", "halton") = "gaussian"
     mirrored: (None, "mirrored", "mirrored pairwise") = None
     weights_option: ("default", "equal", "1/2^lambda") = "default"
@@ -275,10 +276,12 @@ class Parameters(AnnotatedStruct):
     population: TypeVar("Population") = None
     old_population: TypeVar("Population") = None
     termination_criteria: dict = {}
+    
     ipop_factor: int = 2
     tolx: float = pow(10, -12)
     tolup_sigma: float = float(pow(10, 20))
     condition_cov: float = float(pow(10, 14))
+
     ps_factor: float = 1.0
     compute_termination_criteria: bool = False
     sample_sigma: bool = False  # TODO make this a module
@@ -390,10 +393,9 @@ class Parameters(AnnotatedStruct):
 
     def init_local_restart_parameters(self) -> None:
         """Initialization function for parameters for local restart strategies, i.e. IPOP.
-
         TODO: check if we can move this to separate object.
         """
-       
+          
         self.max_iter = 100 + 50 * (self.d + 3) ** 2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
@@ -414,7 +416,7 @@ class Parameters(AnnotatedStruct):
             )
         elif self.weights_option == "1/2^lambda":
             base = np.float64(2)
-            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + ( # "self.mu /" should be "1 /"
+            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + ( 
                 (1 / (base ** self.mu)) / self.mu
             )
             n = self.lambda_ - self.mu
@@ -433,13 +435,14 @@ class Parameters(AnnotatedStruct):
         mueff_neg = self.nweights.sum() ** 2 / (self.nweights ** 2).sum()
 
         self.pweights = self.pweights / self.pweights.sum()
+
         self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
         self.cmu = self.cmu or min(1 - self.c1, (2 * (
             (self.mueff - 2 + (1 / self.mueff))
             / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
         )))
 
-        amu_neg = 1 + (self.c1 / self.mu)
+        amu_neg = 1 + (self.c1 / self.mu) 
         amueff_neg = 1 + ((2 * mueff_neg) / (self.mueff + 2))
         aposdef_neg = (1 - self.c1 - self.cmu) / (self.d * self.cmu)
         self.nweights = (
@@ -450,7 +453,6 @@ class Parameters(AnnotatedStruct):
         self.cc = self.cc or (
             (4 + (self.mueff / self.d)) / (self.d + 4 + (2 * self.mueff / self.d))
         )
-
         self.cs = self.cs or {
             "csa": (self.mueff + 2) / (self.d + self.mueff + 5),
             "msr": .3,
@@ -471,11 +473,11 @@ class Parameters(AnnotatedStruct):
         Examples of such parameters are the Covariance matrix C and its 
         eigenvectors and the learning rate sigma.
         """
-        self.sigma = np.float64(self.sigma0) * (self.ub[0,0] - self.lb[0,0])
+        self.sigma = np.float64(self.sigma0)
         if hasattr(self, "m") or self.x0 is None: 
-            self.m = np.float64(np.random.uniform(self.lb, self.ub, (self.d, 1)))
+            self.m = (np.random.uniform(self.lb, self.ub, (self.d, 1))).astype(np.float64)
         else:
-            self.m = np.float64(self.x0.copy())
+            self.m = (self.x0.copy().reshape(self.d, 1)).astype(np.float64)
         self.m_old = np.empty((self.d, 1), dtype=np.float64)
         self.dm = np.zeros(self.d, dtype=np.float64)
         self.pc = np.zeros((self.d, 1), dtype=np.float64)
@@ -578,14 +580,6 @@ class Parameters(AnnotatedStruct):
         if self.active:
             weights = self.weights[::].copy()
             weights = weights[: self.population.y.shape[1]]
-            weights[weights < 0] = weights[weights < 0] * (
-                self.d / np.power(
-                    np.linalg.norm(
-                        self.inv_root_C @ self.population.y[:, weights < 0], axis=0
-                    ), 2
-                )
-            )
-
             rank_mu = self.cmu * (weights * self.population.y @ self.population.y.T)
         else:
             rank_mu = self.cmu * (
@@ -760,7 +754,7 @@ class Parameters(AnnotatedStruct):
 
     def record_statistics(self) -> None:
         """Method for recording metadata."""
-        # if self.local_restart or self.compute_termination_criteria:
+
         self.flat_fitnesses.append(
             self.population.f[0] == self.population.f[self.flat_fitness_index]
         )

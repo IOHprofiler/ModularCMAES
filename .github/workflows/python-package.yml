@@ -3,7 +3,7 @@
 
 name: Unittest
 
-on: [push, pull_request]
+on: [push]
 
 jobs:
   build:
@@ -11,8 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.8.x', '3.9.x', '3.10.x']
-
+        python-version: ['3.8.x', '3.9.x', '3.10.x', '3.11.x']
     steps:
     - uses: actions/checkout@v2
     - name: Set up Python ${{ matrix.python-version }}
@@ -24,6 +23,9 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install coverage
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
+    - name: Install
+      run : python -m pip install -e . -v
     - name: Test with coverage
       run: |
         coverage run -m unittest discover

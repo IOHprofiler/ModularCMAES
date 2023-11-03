@@ -77,7 +77,7 @@ def gaussian_sampling(d: int) -> Generator[np.ndarray, None, None]:
 
     """
     while True:
-        yield np.random.randn(d, 1)
+        yield np.random.normal(size=(d, 1))
 
 
 def sobol_sampling(sobol: Sobol) -> Generator[np.ndarray, None, None]:

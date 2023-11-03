@@ -28,7 +28,7 @@ class TestPopulation(unittest.TestCase):
         self.y = np.dot(self.B, self.D * self.z)
         self.x = self.xmean + (self._sigma * self.y)
         self.f = np.array([sum(i) for i in self.x.T])
-        self.pop = population.Population(self.x, self.y, self.f)
+        self.pop = population.Population(self.x, self.y, self.z, self.f)
 
     def correct_copy(self, instance, other):
         """Test copy behaviour."""
@@ -71,11 +71,11 @@ class TestPopulation(unittest.TestCase):
         """Test in 1d dimension."""
         self._dim = 1
         self.set_params()
-        population.Population(self.x.ravel(), self.y.ravel(), self.f)
+        population.Population(self.x.ravel(), self.y.ravel(), self.z.ravel(), self.f)
 
     def test_add(self):
         """Test addition.""" 
-        self.pop += population.Population(self.x, self.y, self.f)
+        self.pop += population.Population(self.x, self.y, self.y, self.f)
         self.assertEqual(
             self.pop.x.shape,
             (

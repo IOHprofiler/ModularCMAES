@@ -16,7 +16,10 @@ class TestFmin(unittest.TestCase):
 
     def test_fmin(self):
         """Test a single run of the mechanism."""
-        xopt, fopt, evaluations = modularcmaes.fmin(sum, 5, target=0.0)
+        xopt, fopt, evaluations = modularcmaes.fmin(sum, [1, 1,1,1,1], target=0.0)
         self.assertEqual(sum(xopt), fopt)
         self.assertGreater(evaluations, 0)
         self.assertEqual(len(xopt), 5)
+
+
+    

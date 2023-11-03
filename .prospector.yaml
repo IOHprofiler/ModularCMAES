@@ -3,7 +3,11 @@ strictness: high
 ignore-paths:
   - docs
   - venv
+  - modcma/c_maes/cmaescpp
   - x.py
+
+ignore-patterns:
+  - *.pyi
 
 pep257:
   run: true 

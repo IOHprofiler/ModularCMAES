@@ -199,6 +199,9 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
         current = getattr(self, name)
         if type(current) == type(None):
             setattr(self, name, default_value)
+        elif isinstance(default_value, np.ndarray):
+            setattr(self, name, current.reshape(default_value.shape))
+
 
 
 def timeit(func):
