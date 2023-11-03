@@ -100,11 +100,11 @@ class TestMutation(unittest.TestCase):
             )
             - cma.p.settings.dim
         )
-        self.assertEqual(
+        self.assertTrue(np.isclose(
             cma.p.mutation.sigma,
             cma.p.settings.sigma0
             * np.exp((cma.p.mutation.cs / np.sqrt(cma.p.settings.dim)) * (w * z).sum()),
-        )
+        ))
 
 
     def test_adapt_lpxnes(self):
