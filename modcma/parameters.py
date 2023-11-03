@@ -475,9 +475,9 @@ class Parameters(AnnotatedStruct):
         """
         self.sigma = np.float64(self.sigma0)
         if hasattr(self, "m") or self.x0 is None: 
-            self.m = np.float64(np.random.uniform(self.lb, self.ub, (self.d, 1)))
+            self.m = (np.random.uniform(self.lb, self.ub, (self.d, 1))).astype(np.float64)
         else:
-            self.m = np.float64(self.x0.copy().reshape(self.d, 1))
+            self.m = (self.x0.copy().reshape(self.d, 1)).astype(np.float64)
         self.m_old = np.empty((self.d, 1), dtype=np.float64)
         self.dm = np.zeros(self.d, dtype=np.float64)
         self.pc = np.zeros((self.d, 1), dtype=np.float64)
