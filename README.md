@@ -198,6 +198,7 @@ The CMA-ES Modular package provides various modules, grouped into 13 categories.
 | --------                                         | ------    | ------         | ----           |
 | [Matrix Adaptation](#matrix-adaptation)          | Covariance       | :green_circle: | :green_circle: |
 |                                                  |  Matrix          | :red_circle: | :green_circle: |
+|                                                  |  None            | :red_circle: | :green_circle: |
 | [Active Update](#active-update)   | Off/On       | :green_circle:   | :green_circle: |
 | [Elitism](#elitism)              | Off/On        | :green_circle:    | :green_circle: |
 | [Orthogonal Sampling](#orthogonal-sampling)      | Off/On    | :green_circle: | :green_circle: |
@@ -247,6 +248,8 @@ The ModularCMAES can be turned into an implementation of the (fast)-MA-ES algort
 modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.COVARIANCE
 # or for MA-ES
 modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.MATRIX
+# We can also only perform step-size-adaptation
+modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.NONE
 ```
 
 ### Active Update <a name="active-update"></a>

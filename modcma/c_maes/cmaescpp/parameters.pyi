@@ -1,7 +1,5 @@
 from typing import Optional
 
-import modcma.c_maes.cmaescpp
-import modcma.c_maes.cmaescpp.mutation
 import modcma.c_maes.cmaescpp.options
 import numpy
 
@@ -9,9 +7,9 @@ class Modules:
     active: bool
     bound_correction: modcma.c_maes.cmaescpp.options.CorrectionMethod
     elitist: bool
+    matrix_adaptation: modcma.c_maes.cmaescpp.options.MatrixAdaptationType
     mirrored: modcma.c_maes.cmaescpp.options.Mirror
     orthogonal: bool
-    matrix_adaptation: modcma.c_maes.cmaescpp.options.MatrixAdaptationType
     restart_strategy: modcma.c_maes.cmaescpp.options.RestartStrategy
     sample_sigma: bool
     sampler: modcma.c_maes.cmaescpp.options.BaseSampler
@@ -20,8 +18,6 @@ class Modules:
     threshold_convergence: bool
     weights: modcma.c_maes.cmaescpp.options.RecombinationWeights
     def __init__(self) -> None: ...
-
-
 
 class Settings:
     budget: int
@@ -77,4 +73,3 @@ class Weights:
     positive: numpy.ndarray
     weights: numpy.ndarray
     def __init__(self, dimension: int, mu0: int, lambda0: int, modules) -> None: ...
-

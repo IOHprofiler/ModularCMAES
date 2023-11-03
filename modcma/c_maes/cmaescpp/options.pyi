@@ -4,7 +4,6 @@ BIPOP: RestartStrategy
 COTN: CorrectionMethod
 COUNT: CorrectionMethod
 COVARIANCE: MatrixAdaptationType
-NONE: MatrixAdaptationType
 CSA: StepSizeAdaptation
 DEFAULT: RecombinationWeights
 EQUAL: RecombinationWeights
@@ -18,7 +17,7 @@ MIRROR: CorrectionMethod
 MIRRORED: Mirror
 MSR: StepSizeAdaptation
 MXNES: StepSizeAdaptation
-NONE: RestartStrategy
+NONE: MatrixAdaptationType
 PAIRWISE: Mirror
 PSR: StepSizeAdaptation
 RESTART: RestartStrategy

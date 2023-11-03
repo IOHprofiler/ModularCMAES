@@ -258,13 +258,13 @@ void define_matrix_adaptation(py::module &main)
             ss << ">";
             return ss.str(); });
 
-    py::class_<None, Adaptation, std::shared_ptr<None>>(m, "None")
+    py::class_<None, Adaptation, std::shared_ptr<None>>(m, "NoAdaptation")
         .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
         .def("__repr__", [](None &dyn)
              {
             std::stringstream ss;
             ss << std::boolalpha;
-            ss << "<MatrixAdaptation";
+            ss << "<NoAdaptation";
             ss << " m: " << dyn.m.transpose();
             ss << " m_old: " << dyn.m_old.transpose();
             ss << " dm: " << dyn.dm.transpose();
