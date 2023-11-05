@@ -11,7 +11,7 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 with open("README.md", "r", encoding="Latin-1") as fh:
     long_description = fh.read()
 
-__version__ = "1.0.0"
+__version__ = "1.0.2"
 
 ext = Pybind11Extension(
     "modcma.c_maes.cmaescpp",
