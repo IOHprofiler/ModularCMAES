@@ -130,7 +130,7 @@ namespace matrix_adaptation
 
     void MatrixAdaptation::restart(const Settings &settings)
     {
-        ps.setZero();
+        ps.setOnes();
         m = settings.x0.value_or(Vector::Zero(settings.dim));
         m_old.setZero();
         dm.setZero();

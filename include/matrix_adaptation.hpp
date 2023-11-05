@@ -72,7 +72,9 @@ namespace matrix_adaptation
     struct MatrixAdaptation : Adaptation
     {
         Matrix M;
-        MatrixAdaptation(const size_t dim, const Vector &x0) : Adaptation(dim, x0), M(Matrix::Identity(dim, dim)) {}
+        MatrixAdaptation(const size_t dim, const Vector &x0) : Adaptation(dim, x0), M(Matrix::Identity(dim, dim)) {
+            ps.setConstant(1); 
+        }
 
         void adapt_evolution_paths(const Population &pop, const parameters::Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const parameters::Stats &stats, const size_t mu, const size_t lambda) override;
         bool adapt_matrix(const parameters::Weights &w, const parameters::Modules &m, const Population &pop, const size_t mu, const parameters::Settings &settings) override;
