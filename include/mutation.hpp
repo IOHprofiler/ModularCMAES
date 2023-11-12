@@ -95,7 +95,8 @@ namespace mutation
             const std::shared_ptr<SigmaSampler> &sigma_sampler,
             const double cs, const double sigma0) : tc(threshold_covergence), sq(sequential_selection), ss(sigma_sampler), cs(cs), sigma(sigma0) {}
 
-        virtual void mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters &p) = 0;
+
+        virtual void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p) = 0;
 
         virtual void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                            const Population &old_pop, const parameters::Stats &stats, const size_t lambda) = 0;
@@ -110,7 +111,7 @@ namespace mutation
             const std::shared_ptr<SigmaSampler> &sigma_sampler,
             const double cs, const double damps, const double sigma0) : Strategy(threshold_covergence, sequential_selection, sigma_sampler, cs, sigma0), damps(damps) {}
 
-        void mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters &p) override;
+        void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p) override;
 
         void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                    const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
@@ -124,7 +125,7 @@ namespace mutation
         double b_tpa = 0.0;
         double rank_tpa = 0.0;
 
-        void mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters &p) override;
+        void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters &p) override;
 
         void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                    const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
@@ -141,6 +142,8 @@ namespace mutation
     struct PSR : CSA
     {
         double succes_ratio = .25;
+        
+        Vector combined;
 
         using CSA::CSA;
 

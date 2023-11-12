@@ -24,7 +24,7 @@ namespace mutation
         sigma *= std::exp((cs / damps) * ((adaptation->ps.norm() / adaptation->chiN) - 1));
     }
 
-    void CSA::mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters &p)
+    void CSA::mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p)
     {
         ss->sample(sigma, p.pop);
 
@@ -49,7 +49,7 @@ namespace mutation
         }
     }
 
-    void TPA::mutate(std::function<double(Vector)> objective, const size_t n_offspring_, parameters::Parameters &p)
+    void TPA::mutate(FunctionType& objective, const size_t n_offspring_, parameters::Parameters& p)
     {
         CSA::mutate(objective, n_offspring_, p);
 
@@ -108,15 +108,22 @@ namespace mutation
         if (stats.t != 0)
         {
             const auto n = std::min(pop.n_finite(), old_pop.n_finite());
-            auto combined = Vector(n + n);
-            combined << pop.f.head(n), old_pop.f.head(n);
+            if (n == 0)
+                return;
+
+            combined.conservativeResize(n + n);
+            combined.head(n) = pop.f.head(n);
+            combined.tail(n) = old_pop.f.head(n);
             const auto idx = utils::sort_indexes(combined);
-            combined = combined(idx).eval();
-
-            auto r = searchsorted(pop.f.head(n), combined);
-            auto r_old = searchsorted(old_pop.f.head(n), combined);
-            const auto z = (r_old - r).sum() / std::pow(n, 2) - succes_ratio;
-
+            
+            double delta_r = 0.0;
+            for (size_t i = 0; i < n; i++) {
+                double r = idx[i];
+                double r_old = idx[n + i];
+                delta_r += (r_old - r);
+            }
+            const auto z = delta_r / std::pow(n, 2) - succes_ratio;
+            
             s = (1.0 - cs) * s + (cs * z);
             sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
         }

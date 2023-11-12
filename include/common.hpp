@@ -25,6 +25,9 @@ using Array = Eigen::ArrayXd;
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);
 
+
+using FunctionType = std::function<double(const Vector&)>; 
+
 namespace utils
 {
     /**

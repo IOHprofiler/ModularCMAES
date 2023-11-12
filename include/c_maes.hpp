@@ -10,10 +10,10 @@ struct ModularCMAES
 
     void recombine();
 
-    bool step(std::function<double(Vector)> objective);
+    bool step(FunctionType& objective);
 
-    void operator()(std::function<double(Vector)> objective);
-
+    void operator()(FunctionType& objective);
+     
     bool break_conditions() const;
 };
 

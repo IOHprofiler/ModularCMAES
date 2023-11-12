@@ -9,8 +9,13 @@ namespace restart
 	//! max - min, for the last n elements of a vector
 	double ptp_tail(const std::vector<double> &v, const size_t n)
 	{
-		double min = *std::min_element(v.end() - n, v.end());
-		double max = *std::max_element(v.end() - n, v.end());
+        const auto na = std::min(v.size(), n);
+		if (na == 1) {
+            return v[0];
+		}
+		
+		double min = *std::min_element(v.end() - na, v.end());
+		double max = *std::max_element(v.end() - na, v.end());
 		return max - min;
 	}
 
