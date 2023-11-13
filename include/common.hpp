@@ -41,6 +41,8 @@ namespace utils
      */
     std::vector<size_t> sort_indexes(const Vector &v);
 
+    std::vector<size_t> sort_indexes(const std::vector<size_t>& v);
+
     /**
      * @brief Concat two matrices inplace, i.e. put Y in X (colwise)
      *

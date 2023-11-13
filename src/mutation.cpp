@@ -113,15 +113,16 @@ namespace mutation
             combined.head(n) = pop.f.head(n);
             combined.tail(n) = old_pop.f.head(n);
             const auto idx = utils::sort_indexes(combined);
+            const auto oidx = utils::sort_indexes(idx);
             
             double delta_r = 0.0;
             for (size_t i = 0; i < n; i++) {
-                double r = idx[i];
-                double r_old = idx[n + i];
+                double r = oidx[i];
+                double r_old = oidx[n + i];
                 delta_r += (r_old - r);
             }
+
             const auto z = delta_r / std::pow(n, 2) - succes_ratio;
-            
             s = (1.0 - cs) * s + (cs * z);
             sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
         }
