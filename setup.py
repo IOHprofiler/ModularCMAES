@@ -15,7 +15,7 @@ __version__ = "1.0.2"
 
 ext = Pybind11Extension(
     "modcma.c_maes.cmaescpp",
-    glob("src/*cpp"),
+    [x for x in glob("src/*cpp") if "main" not in x],
     include_dirs=["include", "external"],
     cxx_std=17,
 )
