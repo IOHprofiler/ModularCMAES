@@ -466,9 +466,9 @@ For the C++ version these should be passed via the `RestartStrategy` enum, which
 
 ```python
 ...
-modules.restart_strategy = c_maes.options.StepSizeAdaptation.NONE
+modules.restart_strategy = c_maes.options.RestartStrategy.NONE
 # or 
-modules.restart_strategy = c_maes.options.StepSizeAdaptation.IPOP
+modules.restart_strategy = c_maes.options.RestartStrategy.IPOP
 ```
 
 Note that the C++ version has an addtional option here, `STOP`, which forces the algortihm to stop whenever a restart condition is met (not to be confused with a break condition).

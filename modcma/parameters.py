@@ -559,7 +559,7 @@ class Parameters(AnnotatedStruct):
             combined = (self.population[:n] + self.old_population[:n]).sort()
             r = np.searchsorted(combined.f, self.population.f[:n])
             r_old = np.searchsorted(combined.f, self.old_population.f[:n])
-
+            
             zpsr = (r_old - r).sum() / pow(n, 2) - self.succes_ratio
             self.s = (1 - self.cs) * self.s + (self.cs * zpsr)
             self.sigma *= np.exp(self.s / self.ds)

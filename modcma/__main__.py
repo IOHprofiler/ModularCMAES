@@ -34,4 +34,4 @@ for arg in args.pop("arguments") or []:
     exec(arg, None, args)
 
 
-evaluate_bbob(**args, step_size_adaptation="tpa", active=True)
+evaluate_bbob(**args, active=True, step_size_adaptation="psr")

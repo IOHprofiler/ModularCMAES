@@ -31,6 +31,7 @@ namespace parameters
     Parameters::Parameters(const size_t dim) : Parameters(Settings(dim,  {})) {}
         
     void Parameters::perform_restart(const std::optional<double>& sigma) {
+        
         weights = Weights(settings.dim, mu, lambda, settings);
         sampler = sampling::get(settings.dim, settings.modules, lambda);
 

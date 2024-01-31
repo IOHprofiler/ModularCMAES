@@ -25,6 +25,9 @@ using Array = Eigen::ArrayXd;
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);
 
+
+using FunctionType = std::function<double(const Vector&)>; 
+
 namespace utils
 {
     /**
@@ -37,6 +40,8 @@ namespace utils
      * @return std::vector<size_t>
      */
     std::vector<size_t> sort_indexes(const Vector &v);
+
+    std::vector<size_t> sort_indexes(const std::vector<size_t>& v);
 
     /**
      * @brief Concat two matrices inplace, i.e. put Y in X (colwise)

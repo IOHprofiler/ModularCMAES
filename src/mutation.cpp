@@ -24,7 +24,7 @@ namespace mutation
         sigma *= std::exp((cs / damps) * ((adaptation->ps.norm() / adaptation->chiN) - 1));
     }
 
-    void CSA::mutate(std::function<double(Vector)> objective, const size_t n_offspring, parameters::Parameters &p)
+    void CSA::mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p)
     {
         ss->sample(sigma, p.pop);
 
@@ -49,7 +49,7 @@ namespace mutation
         }
     }
 
-    void TPA::mutate(std::function<double(Vector)> objective, const size_t n_offspring_, parameters::Parameters &p)
+    void TPA::mutate(FunctionType& objective, const size_t n_offspring_, parameters::Parameters& p)
     {
         CSA::mutate(objective, n_offspring_, p);
 
@@ -77,7 +77,8 @@ namespace mutation
     void MSR::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                     const Population &old_pop, const parameters::Stats &stats, const size_t lamb)
     {
-        if (stats.t != 0)
+        const auto n = std::min(pop.n_finite(), old_pop.n_finite());
+        if (n != 0)
         {
             const double lambda = static_cast<double>(lamb);
             const double k = (pop.f.array() < median(old_pop.f)).cast<double>().sum();
@@ -105,18 +106,23 @@ namespace mutation
                     const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
 
-        if (stats.t != 0)
+        const auto n = std::min(pop.n_finite(), old_pop.n_finite());
+        if (n != 0)
         {
-            const auto n = std::min(pop.n_finite(), old_pop.n_finite());
-            auto combined = Vector(n + n);
-            combined << pop.f.head(n), old_pop.f.head(n);
+            combined.conservativeResize(n + n);
+            combined.head(n) = pop.f.head(n);
+            combined.tail(n) = old_pop.f.head(n);
             const auto idx = utils::sort_indexes(combined);
-            combined = combined(idx).eval();
+            const auto oidx = utils::sort_indexes(idx);
+            
+            double delta_r = 0.0;
+            for (size_t i = 0; i < n; i++) {
+                double r = oidx[i];
+                double r_old = oidx[n + i];
+                delta_r += (r_old - r);
+            }
 
-            auto r = searchsorted(pop.f.head(n), combined);
-            auto r_old = searchsorted(old_pop.f.head(n), combined);
-            const auto z = (r_old - r).sum() / std::pow(n, 2) - succes_ratio;
-
+            const auto z = delta_r / std::pow(n, 2) - succes_ratio;
             s = (1.0 - cs) * s + (cs * z);
             sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
         }
@@ -126,15 +132,15 @@ namespace mutation
                      const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
 
-        // const double z = ((std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(adaptation)->inv_root_C * pop.Y).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
+        // const double z = ((std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(adaptation)->inv_root_C *  .Y).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
         const double z = ((pop.Z).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
         sigma *= std::exp((cs / std::sqrt(adaptation->dd)) * z);
     }
     void MXNES::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                       const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
     {
-        if (stats.t != 0)
-        {
+        const auto n = std::min(pop.n_finite(), old_pop.n_finite());
+        if (n != 0) {
             // const auto z = (w.mueff * std::pow((dynamic.inv_root_C * dynamic.dm).norm(), 2)) - dynamic.dd;
             const auto mu = pop.n - lambda;
             const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().matrix();
