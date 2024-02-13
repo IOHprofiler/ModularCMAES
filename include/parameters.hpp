@@ -10,8 +10,6 @@
 #include "selection.hpp"
 #include "weights.hpp"
 
-using size_to = std::optional<size_t>;
-
 namespace parameters
 {
     struct Parameters

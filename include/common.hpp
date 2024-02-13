@@ -21,6 +21,7 @@
 using Matrix = Eigen::MatrixXd;
 using Vector = Eigen::VectorXd;
 using Array = Eigen::ArrayXd;
+using size_to = std::optional<size_t>;
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);

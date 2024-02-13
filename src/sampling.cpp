@@ -42,7 +42,7 @@ namespace sampling
         return samples.col(current++);
     }
 
-    Halton::Halton(const size_t d, const size_t i) : Sampler(d), i(i)
+    Halton::Halton(const size_t d, const size_to i) : Sampler(d), seed(i.value_or( rng::random_integer(1, INT_MAX)))
     {
         primes = sieve(std::max(6, static_cast<int>(d)));
         while (primes.size() < d)
@@ -54,8 +54,8 @@ namespace sampling
     {
         Vector res(d);
         for (size_t j = 0; j < d; ++j)
-            res(j) = ppf(next(static_cast<int>(i), primes[j]));
-        i++;
+            res(j) = ppf(next(static_cast<int>(seed), primes[j]));
+        seed++;
         return res;
     }
 

@@ -117,7 +117,7 @@ void define_samplers(py::module &main)
         .def("__call__", &Sobol::operator());
 
     py::class_<Halton, Sampler, std::shared_ptr<Halton>>(m, "Halton")
-        .def(py::init<size_t, size_t>(), py::arg("d"), py::arg("i") = 1)
+        .def(py::init<size_t, size_to>(), py::arg("d"), py::arg("i") = std::nullopt)
         .def("__call__", &Halton::operator());
 
     py::class_<Mirrored, Sampler, std::shared_ptr<Mirrored>>(m, "Mirrored")

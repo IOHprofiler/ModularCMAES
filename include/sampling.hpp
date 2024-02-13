@@ -133,12 +133,12 @@ namespace sampling
      */
     struct Halton : Sampler
     {
-        Halton(const size_t d, const size_t i = 1);
+        Halton(const size_t d, const size_to i = std::nullopt);
 
         [[nodiscard]] Vector operator()() override;
 
     private:
-        size_t i;
+        size_t seed;
         std::vector<int> primes;
 
         static double next(int index, int base);

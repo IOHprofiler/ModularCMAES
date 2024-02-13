@@ -22,13 +22,17 @@ class TestSampling(unittest.TestCase):
         self.sampler_test(sampler,  1.107994899)
 
     def test_base_sampler_halton(self):
-        sampler = sampling.Halton(5)
+        sampler = sampling.Halton(5, 1)
         self.sampler_test(sampler, -3.675096792)
 
     def test_base_sampler_sobol(self):
         sampler = sampling.Sobol(5)
         self.sampler_test(sampler, -1.651717819)
 
+    def test_samplers_are_random(self):
+        for sampler in (sampling.Halton, sampling.Sobol):
+            samples = np.array([sampler(5)() for _ in range(5)])
+            self.assertGreater(abs(samples[0] - samples).sum(), 1e-10)
 
     def test_mirrored(self):
         sampler = sampling.Mirrored(sampling.Gaussian(5))
