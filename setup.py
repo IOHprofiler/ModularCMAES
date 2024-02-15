@@ -26,6 +26,10 @@ if platform.system() in ("Linux", "Darwin"):
     ext._add_cflags(flags)
     ext._add_ldflags(flags)
 
+if platform.system() == "Darwin":
+    flags += "-mmacosx-version-min=10.15"
+
+
 else:
     ext._add_cflags(["/O2"])
 
