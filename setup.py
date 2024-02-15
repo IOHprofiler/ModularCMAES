@@ -22,12 +22,12 @@ ext = Pybind11Extension(
 if platform.system() in ("Linux", "Darwin"):
     os.environ["CC"] = "g++"
     os.environ["CXX"] = "g++"
-    flags = "-O3", "-fno-math-errno", "-march=native", #"-fopenmp"
+    flags = ["-O3", "-fno-math-errno", "-march=native"] #"-fopenmp"
+    if platform.system() == "Darwin":
+        flags.append("-mmacosx-version-min=10.15")
+        
     ext._add_cflags(flags)
     ext._add_ldflags(flags)
-
-    if platform.system() == "Darwin":
-        flags += "-mmacosx-version-min=10.15"
 else:
     ext._add_cflags(["/O2"])
 
