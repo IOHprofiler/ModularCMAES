@@ -18,6 +18,7 @@ namespace matrix_adaptation
                                                          ps(ps), dd(static_cast<double>(dim)),
                                                          chiN(sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)))) {}
 
+        virtual ~Adaptation() = default;
         virtual void adapt_evolution_paths(const Population &pop, const parameters::Weights &w, const std::shared_ptr<mutation::Strategy> &mutation, const parameters::Stats &stats, const size_t mu, const size_t lambda) = 0;
         virtual bool adapt_matrix(const parameters::Weights &w, const parameters::Modules &m, const Population &pop, const size_t mu, const parameters::Settings &settings) = 0;
         virtual void restart(const parameters::Settings &settings) = 0;
