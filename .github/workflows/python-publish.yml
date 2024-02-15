@@ -36,7 +36,7 @@ jobs:
             TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
           run: |
             python setup.py bdist_wheel
-            twine upload -u $TWINE_USERNAME -p $TWINE_PASSWORD  --verbose  dist/*
+            twine upload   --verbose  dist/*
 
     publish-unix:
         runs-on: ubuntu-latest
@@ -61,7 +61,7 @@ jobs:
             TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
             TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
           run: |
-            twine upload -u $TWINE_USERNAME -p $TWINE_PASSWORD  --verbose dist/*-manylinux*.whl
+            twine upload   --verbose dist/*-manylinux*.whl
 
     publish-source:
         runs-on: ubuntu-latest
@@ -85,5 +85,5 @@ jobs:
             TWINE_PASSWORD: ${{ secrets.PYPI_PASSWORD }}
           run: |
             python setup.py sdist
-            twine upload -u $TWINE_USERNAME -p $TWINE_PASSWORD  --verbose  dist/*.tar.gz
+            twine upload   --verbose  dist/*.tar.gz
             
