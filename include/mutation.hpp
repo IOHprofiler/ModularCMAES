@@ -28,12 +28,15 @@ namespace mutation
     {
         double init_threshold = 0.1;
         double decay_factor = 0.995;
-        virtual void scale(Population &pop, const double diameter, const size_t budget, const size_t evaluations);
+        virtual Vector scale(const Vector &zi, const double diameter, const size_t budget, const size_t evaluations);
     };
 
     struct NoThresholdConvergence : ThresholdConvergence
     {
-        void scale(Population &pop, const double diameter, const size_t budget, const size_t evaluations) override {}
+        Vector scale(const Vector& zi, const double diameter, const size_t budget, const size_t evaluations) override
+        {
+            return zi;
+        }
     };
 
     class SequentialSelection
@@ -76,7 +79,7 @@ namespace mutation
 
         void sample(const double sigma, Population &pop) const override
         {
-            pop.s = pop.s.Constant(pop.s.size(), sigma);
+            pop.s.setConstant(sigma);
         }
     };
 

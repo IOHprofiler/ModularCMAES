@@ -6,11 +6,19 @@
 
 struct Population;
 
+namespace parameters
+{
+	struct Parameters;
+}
+
+
 namespace bounds
 {
+	using Mask = Eigen::Array<bool, Eigen::Dynamic, 1>;
 
 	struct BoundCorrection
 	{
+		virtual ~BoundCorrection() = default;
 		Vector lb, ub, db;
 		double diameter;
 		size_t n_out_of_bounds = 0;
@@ -18,65 +26,67 @@ namespace bounds
 		BoundCorrection(const Vector &lb, const Vector &ub) : lb(lb), ub(ub), db(ub - lb),
 															  diameter((ub - lb).norm()) {}
 
-		virtual void correct(Population &pop, const Vector &m) = 0;
+		void correct(const Eigen::Index i, parameters::Parameters& p);
+
+		virtual Vector correct_x(const Vector& xi, const Mask& oob) = 0;
+
+		[[nodiscard]] Mask is_out_of_bounds(const Vector& xi) const;
+
+		[[nodiscard]] Vector delta_out_of_bounds(const Vector& xi, const Mask& oob) const;
 
 		[[nodiscard]] bool any_out_of_bounds() const
 		{
 			return n_out_of_bounds > 0;
+		}		
+	};
+
+	struct NoCorrection final : BoundCorrection
+	{
+		using BoundCorrection::BoundCorrection;
+
+		Vector correct_x(const Vector& xi, const Mask& oob) override
+		{
+			return xi;
 		}
 	};
 
-	struct NoCorrection : BoundCorrection
-	{
-		using BoundCorrection::BoundCorrection;
-
-		void correct(Population &pop, const Vector &m) override {}
-	};
-
-	struct CountOutOfBounds : BoundCorrection
-	{
-		using BoundCorrection::BoundCorrection;
-
-		void correct(Population &pop, const Vector &m) override;
-	};
-
-	struct COTN : BoundCorrection
+	struct COTN final : BoundCorrection
 	{
 		sampling::Gaussian sampler;
 
 		COTN(Eigen::Ref<const Vector> lb, Eigen::Ref<const Vector> ub) : BoundCorrection(lb, ub), sampler(static_cast<size_t>(lb.size()), rng::normal<double>(0, 1.0 / 3.)) {}
 
-		void correct(Population &pop, const Vector &m) override;
+		Vector correct_x(const Vector& xi, const Mask& oob) override;
 	};
 
-	struct Mirror : BoundCorrection
+	struct Mirror final : BoundCorrection
 	{
 		using BoundCorrection::BoundCorrection;
 
-		void correct(Population &pop, const Vector &m) override;
+		Vector correct_x(const Vector& xi, const Mask& oob) override;
 	};
 
-	struct UniformResample : BoundCorrection
+	struct UniformResample final : BoundCorrection
 	{
 		sampling::Random<std::uniform_real_distribution<>> sampler;
 
 		UniformResample(Eigen::Ref<const Vector> lb, Eigen::Ref<const Vector> ub) : BoundCorrection(lb, ub), sampler(static_cast<size_t>(lb.size())) {}
 
-		void correct(Population &pop, const Vector &m) override;
+		Vector correct_x(const Vector& xi, const Mask& oob) override;
 	};
 
-	struct Saturate : BoundCorrection
+	struct Saturate final : BoundCorrection
 	{
 		using BoundCorrection::BoundCorrection;
 
-		void correct(Population &pop, const Vector &m) override;
+		Vector correct_x(const Vector& xi, const Mask& oob) override;
 	};
 
-	struct Toroidal : BoundCorrection
+	struct Toroidal final : BoundCorrection
 	{
 		using BoundCorrection::BoundCorrection;
 
-		void correct(Population &pop, const Vector &m) override;
+		Vector correct_x(const Vector& xi, const Mask& oob) override;
 	};	
 
 	inline std::shared_ptr<BoundCorrection> get(const parameters::CorrectionMethod &m, const Vector &lb, const Vector &ub)
@@ -84,8 +94,6 @@ namespace bounds
 		using namespace parameters;
 		switch (m)
 		{
-		case CorrectionMethod::COUNT:
-			return std::make_shared<CountOutOfBounds>(lb, ub);
 		case CorrectionMethod::MIRROR:
 			return std::make_shared<Mirror>(lb, ub);
 		case CorrectionMethod::COTN:

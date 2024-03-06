@@ -53,7 +53,6 @@ void define_options(py::module &main)
 
     py::enum_<CorrectionMethod>(m, "CorrectionMethod")
         .value("NONE", CorrectionMethod::NONE)
-        .value("COUNT", CorrectionMethod::COUNT)
         .value("MIRROR", CorrectionMethod::MIRROR)
         .value("COTN", CorrectionMethod::COTN)
         .value("UNIFORM_RESAMPLE", CorrectionMethod::UNIFORM_RESAMPLE)

@@ -7,27 +7,28 @@
 namespace restart
 {
 	//! max - min, for the last n elements of a vector
-	double ptp_tail(const std::vector<double> &v, const size_t n)
+	double ptp_tail(const std::vector<double>& v, const size_t n)
 	{
-        const auto na = std::min(v.size(), n);
-		if (na == 1) {
-            return v[0];
+		const auto na = std::min(v.size(), n);
+		if (na == 1)
+		{
+			return v[0];
 		}
-		
-		double min = *std::min_element(v.end() - na, v.end());
-		double max = *std::max_element(v.end() - na, v.end());
+
+		const double min = *std::min_element(v.end() - na, v.end());
+		const double max = *std::max_element(v.end() - na, v.end());
 		return max - min;
 	}
 
 	// TODO: this is duplicate code
-	double median(const Vector &x)
+	double median(const Vector& x)
 	{
 		if (x.size() % 2 == 0)
 			return (x(x.size() / 2) + x(x.size() / 2 - 1)) / 2.0;
 		return x(x.size() / 2);
 	}
 
-	double median(const std::vector<double> &v, const size_t from, const size_t to)
+	double median(const std::vector<double>& v, const size_t from, const size_t to)
 	{
 		const size_t n = to - from;
 		if (n % 2 == 0)
@@ -35,7 +36,7 @@ namespace restart
 		return v[from + (n / 2)];
 	}
 
-	void RestartCriteria::update(const parameters::Parameters &p)
+	void RestartCriteria::update(const parameters::Parameters& p)
 	{
 		flat_fitnesses(p.stats.t % p.settings.dim) = p.pop.f(0) == p.pop.f(flat_fitness_index);
 		median_fitnesses.push_back(median(p.pop.f));
@@ -48,9 +49,12 @@ namespace restart
 		d_sigma = p.mutation->sigma / p.settings.sigma0;
 		tolx_condition = 10e-12 * p.settings.sigma0;
 
-		if (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE){
+		if (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE ||
+			p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::SEPERABLE)
+		{
 			using namespace matrix_adaptation;
-			std::shared_ptr<CovarianceAdaptation> dynamic = std::dynamic_pointer_cast<CovarianceAdaptation>(p.adaptation);
+			const std::shared_ptr<CovarianceAdaptation> dynamic = std::dynamic_pointer_cast<CovarianceAdaptation>(
+				p.adaptation);
 
 
 			tolx_vector.head(p.settings.dim) = dynamic->C.diagonal() * d_sigma;
@@ -61,20 +65,21 @@ namespace restart
 
 			effect_coord = 0.2 * p.mutation->sigma * dynamic->C.diagonal().cwiseSqrt();
 
-			size_t _t = p.stats.t % p.settings.dim;
-			effect_axis = 0.1 * p.mutation->sigma * std::sqrt(dynamic->d(_t)) * dynamic->B.col(_t);
+			const Eigen::Index t = p.stats.t % p.settings.dim;
+			effect_axis = 0.1 * p.mutation->sigma * std::sqrt(dynamic->d(t)) * dynamic->B.col(t);
 		}
-
 	}
 
 	bool RestartCriteria::exceeded_max_iter() const
 	{
 		return max_iter < time_since_restart;
 	}
+
 	bool RestartCriteria::no_improvement() const
 	{
 		return time_since_restart > n_bin and recent_improvement == 0;
 	}
+
 	bool RestartCriteria::flat_fitness() const
 	{
 		return time_since_restart > static_cast<size_t>(flat_fitnesses.size()) and n_flat_fitness > max_flat_fitness;
@@ -101,22 +106,26 @@ namespace restart
 	{
 		return (effect_axis.array() == 0).all();
 	}
+
 	bool RestartCriteria::noeffectcoor() const
 	{
 		return (effect_coord.array() == 0).all();
 	}
+
 	bool RestartCriteria::stagnation() const
 	{
 		const size_t pt = static_cast<size_t>(0.3 * time_since_restart);
-		return time_since_restart > n_stagnation and ((median(best_fitnesses, pt, time_since_restart) >= median(best_fitnesses, 0, pt)) and
-													  (median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt)));
+		return time_since_restart > n_stagnation and ((median(best_fitnesses, pt, time_since_restart) >= median(
+				best_fitnesses, 0, pt)) and
+			(median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt)));
 	}
 
-	bool RestartCriteria::operator()(const parameters::Parameters &p)
+	bool RestartCriteria::operator()(const parameters::Parameters& p)
 	{
 		update(p);
 		any = exceeded_max_iter() or no_improvement() or flat_fitness() or stagnation();
-		any = any or (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE and (tolx() or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor()));
+		any = any or (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE and (tolx()
+			or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor()));
 		if (any)
 		{
 			if (p.settings.verbose)
@@ -131,14 +140,14 @@ namespace restart
 				std::cout << " conditioncov: " << conditioncov();
 				std::cout << " noeffectaxis: " << noeffectaxis();
 				std::cout << " noeffectcoor: " << noeffectcoor();
-				std::cout << " stagnation: " << stagnation() << std::endl;
+				std::cout << " stagnation: " << stagnation() << '\n';
 			}
 			return true;
 		}
 		return false;
 	}
 
-	void Strategy::evaluate(parameters::Parameters &p)
+	void Strategy::evaluate(parameters::Parameters& p)
 	{
 		if (criteria(p))
 		{
@@ -146,23 +155,23 @@ namespace restart
 		}
 	}
 
-	void Restart::restart(parameters::Parameters &p)
+	void Restart::restart(parameters::Parameters& p)
 	{
 		p.perform_restart();
 	}
 
-	void IPOP::restart(parameters::Parameters &p)
+	void IPOP::restart(parameters::Parameters& p)
 	{
-		// max_lambda_ = (self.d * self.lambda_) * *2
-		if (p.mu < 512)
+		const size_t max_lambda = static_cast<size_t>(std::pow(p.settings.dim * p.lambda, 2));
+		if (p.mu < max_lambda)
 		{
-			p.mu *= ipop_factor;
-			p.lambda *= ipop_factor;
+			p.mu *= static_cast<size_t>(ipop_factor);
+			p.lambda *= static_cast<size_t>(ipop_factor);
 		}
 		p.perform_restart();
 	}
 
-	void BIPOP::restart(parameters::Parameters &p)
+	void BIPOP::restart(parameters::Parameters& p)
 	{
 		static std::uniform_real_distribution<> dist;
 
@@ -188,7 +197,7 @@ namespace restart
 
 		lambda_small = static_cast<size_t>(std::floor(
 			static_cast<double>(lambda_init) * std::pow(.5 / static_cast<double>(lambda_large) / lambda_init,
-														std::pow(dist(rng::GENERATOR), 2))));
+			                                            std::pow(dist(rng::GENERATOR), 2))));
 
 		if (lambda_small % 2 != 0)
 			lambda_small++;

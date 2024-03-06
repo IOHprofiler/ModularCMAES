@@ -1,115 +1,74 @@
 #include "bounds.hpp"
 #include "population.hpp"
+#include "parameters.hpp"
+
+static double modulo2(const int x)
+{
+	return (2 + x % 2) % 2;
+}
 
 namespace bounds
 {
-    void CountOutOfBounds::correct(Population& pop, const Vector& m)
-    {
-        n_out_of_bounds = 0;
-        for (auto i = 0; i < pop.X.cols(); ++i)
-        {
-            const auto oob = pop.X.col(i).array() < lb.array() || pop.X.col(i).array() > ub.array();
-            n_out_of_bounds += oob.sum(); 
-        }
-    }
-    
-    double modulo2(const int x)
-    {
-        return static_cast<double>((2 + (x % 2)) % 2);
-    };
+	Mask BoundCorrection::is_out_of_bounds(const Vector& xi) const
+	{
+		return xi.array() < lb.array() || xi.array() > ub.array();
+	}
 
-    void COTN::correct(Population& pop, const Vector& m)
-    {
-        n_out_of_bounds = 0;
 
-        for (auto i = 0; i < pop.X.cols(); ++i)
-        {
-            const auto oob = pop.X.col(i).array() < lb.array() || pop.X.col(i).array() > ub.array();
-            if (oob.any())
-            {
-                n_out_of_bounds++;
-                const Vector y = (oob).select((pop.X.col(i) - lb).cwiseQuotient(db), pop.X.col(i));
-                pop.X.col(i) = (oob).select(
-                    lb.array() + db.array() * ((y.array() > 0).cast<double>() - sampler().array().abs()).abs(), y);
-                pop.Y.col(i) = (pop.X.col(i) - m) / pop.s(i);
-            }
-        }
-        
-    }
+	Vector BoundCorrection::delta_out_of_bounds(const Vector& xi, const Mask& oob) const
+	{
+		return 	(oob).select((xi - lb).cwiseQuotient(db), xi);;
+	}
 
-    void Mirror::correct(Population& pop, const Vector& m)
-    {
-        n_out_of_bounds = 0;
 
-        for (auto i = 0; i < pop.X.cols(); ++i)
-        {
-            const auto oob = pop.X.col(i).array() < lb.array() || pop.X.col(i).array() > ub.array();
-            if (oob.any())
-            {
-                n_out_of_bounds++;
-                const Vector y = (oob).select((pop.X.col(i) - lb).cwiseQuotient(db), pop.X.col(i));
-                pop.X.col(i) = (oob).select(
-                    lb.array() + db.array() * (y.array() - y.array().floor() - y.array().floor().unaryExpr(&modulo2)).abs(),
-                    y);
-                pop.Y.col(i) = (pop.X.col(i) - m) / pop.s(i);
-            }
-        }
-        
-    }
 
-    void UniformResample::correct(Population& pop, const Vector& m)
-    {
-        n_out_of_bounds = 0;
+	void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters& p)
+	{
+		const auto oob = is_out_of_bounds(p.pop.X.col(i));
+		if (oob.any())
+		{
+			n_out_of_bounds++;
+			p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob);
+			p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.mutation->sigma);
+			p.pop.Z.col(i) = p.adaptation->invert_y(p.pop.Y.col(i));
+		}
+	}
 
-        for (auto i = 0; i < pop.X.cols(); ++i)
-        {
-            const auto oob = pop.X.col(i).array() < lb.array() || pop.X.col(i).array() > ub.array();
-            if (oob.any())
-            {
-                n_out_of_bounds++;
-                pop.X.col(i) = (oob).select(lb + sampler().cwiseProduct(db), pop.X.col(i));
-                pop.Y.col(i) = (pop.X.col(i) - m) / pop.s(i);
-            }
-        }
-        
-    } 
 
-    void Saturate::correct(Population& pop, const Vector& m)
-    {
-        n_out_of_bounds = 0;
+	Vector COTN::correct_x(const Vector& xi, const Mask& oob)
+	{
+		const Vector y = delta_out_of_bounds(xi, oob);
+		return (oob).select(
+			lb.array() + db.array() * ((y.array() > 0).cast<double>() - sampler().array().abs()).abs(), y);
+	}
 
-        for (auto i = 0; i < pop.X.cols(); ++i)
-        {
-            const auto oob = pop.X.col(i).array() < lb.array() || pop.X.col(i).array() > ub.array();
-            if (oob.any())
-            {
-                n_out_of_bounds++;
-                const Vector y = (oob).select((pop.X.col(i) - lb).cwiseQuotient(db), pop.X.col(i));
-                pop.X.col(i) = (oob).select(
-                    lb.array() + db.array() * (y.array() > 0).cast<double>(), y);
-                pop.Y.col(i) = (pop.X.col(i) - m) / pop.s(i);
-            }
-        }
-        
-    }
 
-    void Toroidal::correct(Population& pop, const Vector& m)
-    {
-        n_out_of_bounds = 0;
+	Vector Mirror::correct_x(const Vector& xi, const Mask& oob)
+	{
+		const Vector y = delta_out_of_bounds(xi, oob);
+		return (oob).select(
+			lb.array() + db.array() * (y.array() - y.array().floor() - y.array().floor().unaryExpr(&modulo2)).
+			abs(),
+			y);
+	}
 
-        for (auto i = 0; i < pop.X.cols(); ++i)
-        {
-            const auto oob = pop.X.col(i).array() < lb.array() || pop.X.col(i).array() > ub.array();
-            if (oob.any())
-            {
-                n_out_of_bounds++;
-                const Vector y = (oob).select((pop.X.col(i) - lb).cwiseQuotient(db), pop.X.col(i));
-                pop.X.col(i) = (oob).select(
-                    lb.array() + db.array() * (y.array() - y.array().floor()).abs(), y);
-                pop.Y.col(i) = (pop.X.col(i) - m) / pop.s(i);
-            }
-        }
-        
-    }
 
+	Vector UniformResample::correct_x(const Vector& xi, const Mask& oob)
+	{
+		return (oob).select(lb + sampler().cwiseProduct(db), xi);
+	}
+
+	Vector Saturate::correct_x(const Vector& xi, const Mask& oob)
+	{
+		const Vector y = delta_out_of_bounds(xi, oob);
+		return (oob).select(
+			lb.array() + db.array() * (y.array() > 0).cast<double>(), y);
+	}
+
+	Vector Toroidal::correct_x(const Vector& xi, const Mask& oob)
+	{
+		const Vector y = delta_out_of_bounds(xi, oob);
+		return (oob).select(
+			lb.array() + db.array() * (y.array() - y.array().floor()).abs(), y);
+	}
 }

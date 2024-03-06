@@ -9,6 +9,7 @@
 #include "stats.hpp"
 #include "selection.hpp"
 #include "weights.hpp"
+#include "repelling.hpp"
 
 namespace parameters
 {
@@ -30,6 +31,7 @@ namespace parameters
         std::shared_ptr<selection::Strategy> selection;
         std::shared_ptr<restart::Strategy> restart;
         std::shared_ptr<bounds::BoundCorrection> bounds;
+        std::shared_ptr<repelling::Repelling> repelling;
 
         Parameters(const size_t dim);
         Parameters(const Settings &settings);

@@ -4,6 +4,11 @@ namespace matrix_adaptation
 {
 	using namespace parameters;
 
+	Vector Adaptation::invert_x(const Vector& xi, const double sigma)
+	{
+		return (xi - m) / sigma;
+	}
+
 	void CovarianceAdaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
 	                                                 const std::shared_ptr<mutation::Strategy>& mutation,
 	                                                 const Stats& stats, const size_t mu, const size_t lambda)
@@ -24,7 +29,7 @@ namespace matrix_adaptation
 	{
 		const auto rank_one = w.c1 * pc * pc.transpose();
 		const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
-		const auto old_C = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * w.positive.sum())) * C;
+		const auto old_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * w.positive.sum())) * C;
 
 		Matrix rank_mu;
 		if (m.active)
@@ -38,7 +43,7 @@ namespace matrix_adaptation
 				leftCols(mu).transpose());
 		}
 
-		C = old_C + rank_one + rank_mu;
+		C = old_c + rank_one + rank_mu;
 
 		C = C.triangularView<Eigen::Upper>().toDenseMatrix() +
 			C.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().transpose();
@@ -46,17 +51,17 @@ namespace matrix_adaptation
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
 	{
-		Eigen::SelfAdjointEigenSolver<Matrix> eigensolver(C);
-		if (eigensolver.info() != Eigen::Success)
+		const Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(C);
+		if (eigen_solver.info() != Eigen::Success)
 		{
 			if (settings.verbose)
 			{
 				std::cout << "Eigenvalue solver failed, we need to restart reason:"
-					<< eigensolver.info() << std::endl;
+					<< eigen_solver.info() << '\n';
 			}
 			return false;
 		}
-		d = eigensolver.eigenvalues();
+		d = eigen_solver.eigenvalues();
 
 		if (d.minCoeff() < 0.0)
 		{
@@ -68,7 +73,7 @@ namespace matrix_adaptation
 		}
 
 		d = d.cwiseSqrt();
-		B = eigensolver.eigenvectors();
+		B = eigen_solver.eigenvectors();
 		inv_root_C = (B * d.cwiseInverse().asDiagonal()) * B.transpose();
 		return true;
 	}
@@ -93,17 +98,15 @@ namespace matrix_adaptation
 		ps.setZero();
 	}
 
-	void CovarianceAdaptation::scale_mutation_steps(Population& pop)
+	Vector CovarianceAdaptation::compute_y(const Vector& zi)
 	{
-		pop.Y = B * (d.asDiagonal() * pop.Z);
+		return B * (d.asDiagonal() * zi);
 	}
 
-	void CovarianceAdaptation::invert_mutation_steps(Population& pop)
+	Vector CovarianceAdaptation::invert_y(const Vector& yi) 
 	{
-		pop.Y = (pop.X.colwise() - m) * pop.s.cwiseInverse().asDiagonal();
-		pop.Z = d.cwiseInverse().asDiagonal() * (B.transpose() * pop.Y);
+		return d.cwiseInverse().asDiagonal() * (B.transpose() * yi);
 	}
-
 
 	bool SeperableAdaptation::perform_eigendecomposition(const Settings& settings)
 	{
@@ -159,17 +162,18 @@ namespace matrix_adaptation
 		m = settings.x0.value_or(Vector::Zero(settings.dim));
 		m_old.setZero();
 		dm.setZero();
+		M = Matrix::Identity(settings.dim, settings.dim);
+		M_inv = Matrix::Identity(settings.dim, settings.dim);
 	}
 
-	void MatrixAdaptation::scale_mutation_steps(Population& pop)
+	Vector MatrixAdaptation::compute_y(const Vector& zi)
 	{
-		pop.Y = M * pop.Z;
+		return M * zi;
 	}
 
-	void MatrixAdaptation::invert_mutation_steps(Population& pop)
+	Vector MatrixAdaptation::invert_y(const Vector& yi)
 	{
-		pop.Y = (pop.X.colwise() - m) * pop.s.cwiseInverse().asDiagonal();
-		pop.Z = M_inv * pop.Y;
+		return M_inv * yi;
 	}
 
 
@@ -192,13 +196,17 @@ namespace matrix_adaptation
 		dm.setZero();
 	}
 
-	void None::scale_mutation_steps(Population& pop)
+	Vector None::compute_y(const Vector& zi)
 	{
-		pop.Y = pop.Z;
+		return zi;
 	}
 
-	void None::invert_mutation_steps(Population& pop)
+
+	Vector None::invert_y(const Vector& yi)
 	{
-		pop.Z = pop.Y = (pop.X.colwise() - m) * pop.s.cwiseInverse().asDiagonal();
+		return yi;
 	}
+
+
+
 }

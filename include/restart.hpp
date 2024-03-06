@@ -87,11 +87,12 @@ namespace restart
 		bool operator()(const parameters::Parameters &p);
 	};
 
+
 	struct Strategy
 	{
 		RestartCriteria criteria;
 
-		Strategy(const double d, const double lambda) : criteria{d, lambda, 0} {}
+		Strategy(const double d, const double lambda) : criteria{ d, lambda, 0 } {}
 		
 		void evaluate(parameters::Parameters &p);
 			

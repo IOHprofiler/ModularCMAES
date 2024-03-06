@@ -15,7 +15,7 @@ add_subdirectory(${PROJECT_SOURCE_DIR}/../IOHexperimenter ${CMAKE_CURRENT_BINARY
 
 target_include_directories(main PUBLIC 
 	${PROJECT_SOURCE_DIR}/include 
-	${PROJECT_SOURCE_DIR}/external
+	${PROJECT_SOURCE_DIR}/external 
 	${PROJECT_SOURCE_DIR}/../IOHexperimenter/include
 )
 

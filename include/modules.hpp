@@ -38,7 +38,6 @@ namespace parameters
     enum class CorrectionMethod
     {
         NONE,
-        COUNT,
         MIRROR,
         COTN,
         UNIFORM_RESAMPLE,
@@ -70,6 +69,7 @@ namespace parameters
         bool sequential_selection = false;
         bool threshold_convergence = false;
         bool sample_sigma = false;
+        bool repelling_restart = false;
         RecombinationWeights weights = RecombinationWeights::DEFAULT;
         BaseSampler sampler = BaseSampler::GAUSSIAN;
         Mirror mirrored = Mirror::NONE;
