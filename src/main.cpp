@@ -6,25 +6,20 @@ struct Function {
     size_t evals = 0;
     double operator()(const Vector& x)
     {
-        double res = x.dot(x);
+        const double res = x.dot(x);
         evals++;
         return res;
     }
 };
 
 
-
-
 template <typename Callable>
 void call(Callable& o)
 {
-    static_assert(std::is_invocable_r<double, Callable, Vector>::value, "Incorrect objective function type");
-    double result = o(Vector::Ones(10));
+    static_assert(std::is_invocable_r_v<double, Callable, Vector>, "Incorrect objective function type");
+    const double result = o(Vector::Ones(10));
     std::cout << result;
 }
- 
-
-
 
 int main() {
     using namespace std::placeholders;
@@ -35,10 +30,12 @@ int main() {
 
 
 
-    size_t dim = 40;
+    const size_t dim = 2;
     parameters::Settings s(dim);
-    s.budget = 10'000 * dim;
-    s.modules.ssa = parameters::StepSizeAdaptation::PSR;
+    s.budget = 10'00 * dim;
+    s.modules.elitist = true;
+    s.modules.matrix_adaptation = parameters::MatrixAdaptationType::MATRIX;
+
     auto p = std::make_shared<parameters::Parameters>(s);
     
     Function f;
@@ -56,6 +53,6 @@ int main() {
     std::cout << ms_int.count() << "ms\n";
     std::cout << "completed\n";
     std::cout << p->stats.evaluations << ", " << f.evals << std::endl;
+    std::cout << p->stats.fopt << std::endl;
     std::cin.get();
-
 }

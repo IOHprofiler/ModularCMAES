@@ -59,7 +59,7 @@ namespace parameters
         NONE,
         COVARIANCE,
         MATRIX,
-        
+        SEPERABLE        
     };
 
     struct Modules

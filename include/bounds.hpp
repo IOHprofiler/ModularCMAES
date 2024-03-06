@@ -19,6 +19,11 @@ namespace bounds
 															  diameter((ub - lb).norm()) {}
 
 		virtual void correct(Population &pop, const Vector &m) = 0;
+
+		[[nodiscard]] bool any_out_of_bounds() const
+		{
+			return n_out_of_bounds > 0;
+		}
 	};
 
 	struct NoCorrection : BoundCorrection

@@ -73,6 +73,7 @@ void define_options(py::module &main)
         .value("COVARIANCE", MatrixAdaptationType::COVARIANCE)
         .value("NONE", MatrixAdaptationType::NONE)
         .value("MATRIX", MatrixAdaptationType::MATRIX)
+        .value("SEPERABLE", MatrixAdaptationType::SEPERABLE)
         .export_values();
 }
 
@@ -192,6 +193,7 @@ void define_matrix_adaptation(py::module &main)
              py::arg("settings"))
         .def("restart", &Adaptation::restart, py::arg("settings"))
         .def("scale_mutation_steps", &Adaptation::scale_mutation_steps, py::arg("pop"))
+        .def("invert_mutation_steps", &Adaptation::invert_mutation_steps, py::arg("pop"))
         .def("__repr__", [](Adaptation &dyn)
              {
             std::stringstream ss;
@@ -239,6 +241,28 @@ void define_matrix_adaptation(py::module &main)
             ss << " hs: " << dyn.hs;
             ss << ">";
             return ss.str(); });
+
+    py::class_<SeperableAdaptation, Adaptation, std::shared_ptr<SeperableAdaptation>>(m, "SeperableAdaptation")
+        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
+        .def("__repr__", [](SeperableAdaptation& dyn)
+            {
+                std::stringstream ss;
+                ss << std::boolalpha;
+                ss << "<SeperableAdaptation";
+                ss << " m: " << dyn.m.transpose();
+                ss << " m_old: " << dyn.m_old.transpose();
+                ss << " dm: " << dyn.dm.transpose();
+                ss << " pc: " << dyn.pc.transpose();
+                ss << " ps: " << dyn.ps.transpose();
+                ss << " d: " << dyn.d.transpose();
+                ss << " B: " << dyn.B;
+                ss << " C: " << dyn.C;
+                ss << " inv_root_C: " << dyn.inv_root_C;
+                ss << " dd: " << dyn.dd;
+                ss << " chiN: " << dyn.chiN;
+                ss << " hs: " << dyn.hs;
+                ss << ">";
+                return ss.str(); });
 
     py::class_<MatrixAdaptation, Adaptation, std::shared_ptr<MatrixAdaptation>>(m, "MatrixAdaptation")
         .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
@@ -414,6 +438,7 @@ void define_parameters(py::module &main)
     using AdaptationType = std::variant<
         std::shared_ptr<matrix_adaptation::MatrixAdaptation>, 
         std::shared_ptr<matrix_adaptation::CovarianceAdaptation>, 
+        std::shared_ptr<matrix_adaptation::SeperableAdaptation>,
         std::shared_ptr<matrix_adaptation::None>
     >;
     py::class_<Parameters, std::shared_ptr<Parameters>>(main, "Parameters")
@@ -434,6 +459,8 @@ void define_parameters(py::module &main)
                     return std::dynamic_pointer_cast<matrix_adaptation::MatrixAdaptation>(self.adaptation);
                 case MatrixAdaptationType::NONE:
                     return std::dynamic_pointer_cast<matrix_adaptation::None>(self.adaptation);
+                case MatrixAdaptationType::SEPERABLE:
+                    return std::dynamic_pointer_cast<matrix_adaptation::SeperableAdaptation>(self.adaptation);
                 default:
                 case MatrixAdaptationType::COVARIANCE:
                     return std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(self.adaptation);

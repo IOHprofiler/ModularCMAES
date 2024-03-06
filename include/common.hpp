@@ -12,7 +12,8 @@
 #include <optional>
 
 #define _USE_MATH_DEFINES
-#include <math.h>
+#include <cmath>
+#include <corecrt_math_defines.h>
 
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>

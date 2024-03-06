@@ -2,6 +2,8 @@
 #include "bounds.hpp"
 #include "matrix_adaptation.hpp"
 #include "parameters.hpp"
+
+
 namespace mutation
 {
 
@@ -39,6 +41,9 @@ namespace mutation
         p.pop.X = (p.pop.Y * p.pop.s.asDiagonal()).colwise() + p.adaptation->m;
 
         p.bounds->correct(p.pop, p.adaptation->m);
+
+        if (p.bounds->any_out_of_bounds())
+			p.adaptation->invert_mutation_steps(p.pop);
 
         bool sequential_break_conditions = false;
         for (size_t i = 0; i < n_offspring and !sequential_break_conditions; ++i)

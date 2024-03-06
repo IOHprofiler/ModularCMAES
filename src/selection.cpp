@@ -38,6 +38,7 @@ namespace selection {
 	void Elitsm::operator()(parameters::Parameters& p) const {
 		if (p.stats.t != 0) {
 			p.old_pop.resize_cols(k);
+			p.adaptation->invert_mutation_steps(p.old_pop);
 			p.pop += p.old_pop;
 		}
 	}		

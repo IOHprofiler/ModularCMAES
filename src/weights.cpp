@@ -25,12 +25,16 @@ namespace parameters
         positive /= positive.sum();
 
         c1 = settings.c1.value_or(2.0 / (pow(d + 1.3, 2) + mueff));
-        cmu = settings.cmu.value_or(
-            std::min(1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))))
-        );
+
+        double cmu_default = std::min(1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))));
+        if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPERABLE)
+            cmu_default *= ((d + 2.0) / 3.0);
+
+        cmu = settings.cmu.value_or(cmu_default);
         cc = settings.cmu.value_or(
             (4.0 + (mueff / d)) / (d + 4.0 + (2.0 * mueff / d))
         );
+
         
         const double amu_neg = 1.0 + (c1 / static_cast<double>(mu));
         const double amueff_neg = 1.0 + ((2.0 * mueff_neg) / (mueff + 2.0));
