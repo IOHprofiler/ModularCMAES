@@ -62,6 +62,7 @@ namespace matrix_adaptation
 			return false;
 		}
 		d = eigen_solver.eigenvalues();
+		B = eigen_solver.eigenvectors();
 
 		if (d.minCoeff() < 0.0)
 		{
@@ -71,9 +72,8 @@ namespace matrix_adaptation
 			}
 			return false;
 		}
-
+		inv_C = ((B * d.cwiseInverse().asDiagonal()) * B.transpose());
 		d = d.cwiseSqrt();
-		B = eigen_solver.eigenvectors();
 		inv_root_C = (B * d.cwiseInverse().asDiagonal()) * B.transpose();
 		return true;
 	}
@@ -90,6 +90,7 @@ namespace matrix_adaptation
 		B = Matrix::Identity(settings.dim, settings.dim);
 		C = Matrix::Identity(settings.dim, settings.dim);
 		inv_root_C = Matrix::Identity(settings.dim, settings.dim);
+		inv_C = Matrix::Identity(settings.dim, settings.dim);
 		d.setOnes();
 		m = settings.x0.value_or(Vector::Zero(settings.dim));
 		m_old.setZero();

@@ -50,9 +50,10 @@ namespace parameters
 		adaptation->restart(settings);
 
 		restart->criteria = restart::RestartCriteria(settings.dim, lambda, stats.t);
-
+		repelling->update_archive(*this);
 		stats.solutions.push_back(stats.current_best);
 		stats.current_best = {};
+		
 	}
 
 	bool Parameters::invalid_state() const

@@ -11,15 +11,15 @@ list(FILTER  SRC_FILES  EXCLUDE REGEX ".*interface.cpp$")
 
 add_executable(main ${SRC_FILES})
 
-add_subdirectory(${PROJECT_SOURCE_DIR}/../IOHexperimenter ${CMAKE_CURRENT_BINARY_DIR}/ioh)
+#add_subdirectory(${PROJECT_SOURCE_DIR}/../IOHexperimenter ${CMAKE_CURRENT_BINARY_DIR}/ioh)
 
 target_include_directories(main PUBLIC 
 	${PROJECT_SOURCE_DIR}/include 
 	${PROJECT_SOURCE_DIR}/external 
-	${PROJECT_SOURCE_DIR}/../IOHexperimenter/include
+#	${PROJECT_SOURCE_DIR}/../IOHexperimenter/include
 )
 
-target_link_libraries(main PUBLIC ioh)
+#target_link_libraries(main PUBLIC ioh)
 
 if (MSVC)
   target_compile_options(main PRIVATE /bigobj)

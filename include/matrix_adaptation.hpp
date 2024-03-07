@@ -32,10 +32,9 @@ namespace matrix_adaptation
 
 		virtual Vector compute_y(const Vector&) = 0;
 
-		virtual Vector invert_x(const Vector&, const double sigma);
+		virtual Vector invert_x(const Vector&, double sigma);
 
 		virtual Vector invert_y(const Vector&) = 0;
-
 	};
 
 	struct None final : Adaptation
@@ -66,6 +65,8 @@ namespace matrix_adaptation
 		Vector pc, d;
 		Matrix B, C;
 		Matrix inv_root_C;
+		Matrix inv_C;
+
 		bool hs = true;
 
 		CovarianceAdaptation(const size_t dim, const Vector& x0) : Adaptation(dim, x0, Vector::Zero(dim)),
@@ -73,7 +74,8 @@ namespace matrix_adaptation
 		                                                           d(Vector::Ones(dim)),
 		                                                           B(Matrix::Identity(dim, dim)),
 		                                                           C(Matrix::Identity(dim, dim)),
-		                                                           inv_root_C(Matrix::Identity(dim, dim))
+		                                                           inv_root_C(Matrix::Identity(dim, dim)),
+		                                                           inv_C(Matrix::Identity(dim, dim))
 
 		{
 		}

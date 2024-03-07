@@ -21,6 +21,8 @@ namespace selection
 		p.pop.sort();
 		p.pop.resize_cols(p.lambda);
 
+		p.stats.current_avg = p.pop.f.array().mean();
+
 		if (p.pop.f(0) < p.stats.current_best.y)
 		{
 			p.stats.current_best = Solution(
@@ -31,6 +33,7 @@ namespace selection
 			if (p.stats.current_best < p.stats.global_best)
 				p.stats.global_best = p.stats.current_best;
 		}
+
 	}
 
 	void Pairwise::operator()(parameters::Parameters& p) const

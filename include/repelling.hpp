@@ -8,15 +8,66 @@ namespace parameters
 	struct Parameters;
 }
 
-namespace repelling {
+namespace repelling
+{
+	namespace distance
+	{
+		double euclidian(const Vector& u, const Vector& v);
+		double mahanolobis(const Vector& u, const Vector& v);
+	}
 
-	struct Repelling {
-		virtual ~Repelling() = default;
-		virtual void operator()(parameters::Parameters& p);
+	struct TabooPoint
+	{
+		Solution solution;
+		double delta;
+		double shrinkage;
+
+		TabooPoint(const Solution& s, const double delta) : solution(s),
+			delta(delta), shrinkage(std::pow(0.99, 1. / static_cast<double>(s.x.size()))) {}
+
+		/**
+		 * \brief Rejection rule for a taboo point for a given xi
+		 * \param xi the sampled solution
+		 * \param p parameters
+		 * \param attempts determines the amount of shrinkage applied; delta = pow(shrinkage, attempts) * delta
+		 * \return 
+		 */
+		bool rejects(const Vector& xi, const parameters::Parameters& p, const int attempts) const;
 	};
 
-	struct NoRepelling final : Repelling {
-		void operator()(parameters::Parameters& p) override {}
+	struct Repelling
+	{
+		std::vector<TabooPoint> archive;
+		int attempts = 0;
+
+		virtual ~Repelling() = default;
+
+		/**
+		 * \brief Application of the rejection rule for a sampled solution
+		 * xi to all the points in the current archive
+		 * \param xi 
+		 * \param p
+		 * \return 
+		 */
+		virtual bool is_rejected(const Vector& xi, parameters::Parameters& p);
+
+		/**
+		 * \brief Update the archive of points
+		 * \param p 
+		 */
+		virtual void update_archive(parameters::Parameters& p);
+	};
+
+	struct NoRepelling final : Repelling
+	{
+		bool is_rejected(const Vector& xi, parameters::Parameters& p)  override
+		{
+			return false;
+		}
+
+		void update_archive(parameters::Parameters& p) override
+		{
+		}
 	};
 
 

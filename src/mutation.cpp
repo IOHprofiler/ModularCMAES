@@ -34,16 +34,22 @@ namespace mutation
 		ss->sample(sigma, p.pop);
 
 		bool sequential_break_conditions = false;
+
 		p.bounds->n_out_of_bounds = 0;
+		p.repelling->attempts = 0;
+
 		for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
 		{
-			p.pop.Z.col(i) = p.mutation->tc->scale((*p.sampler)(), p.bounds->diameter, p.settings.budget, p.stats.evaluations);
+			do
+			{
+				p.pop.Z.col(i) = p.mutation->tc->scale((*p.sampler)(), p.bounds->diameter, p.settings.budget, p.stats.evaluations);
 
-			p.pop.Y.col(i) = p.adaptation->compute_y(p.pop.Z.col(i));
+				p.pop.Y.col(i) = p.adaptation->compute_y(p.pop.Z.col(i));
 
-			p.pop.X.col(i) = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
+				p.pop.X.col(i) = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
 
-			p.bounds->correct(i, p);
+				p.bounds->correct(i, p);
+			} while (p.repelling->is_rejected(p.pop.X.col(i), p));
 
 			if (!sequential_break_conditions)
 			{

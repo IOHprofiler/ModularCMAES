@@ -10,7 +10,7 @@ struct Function
 	{
 		evals++;
 		const auto x_shift = (x.array() - 1.).matrix();
-		return functions::sphere(x_shift);
+		return functions::rastrigin(x_shift);
 	}
 };
 
@@ -43,11 +43,11 @@ int main()
 	parameters::Settings s(dim);
 	s.budget = 10'00 * dim;
 	s.modules.elitist = true;
-	s.modules.matrix_adaptation = parameters::MatrixAdaptationType::SEPERABLE;
+	s.modules.matrix_adaptation = parameters::MatrixAdaptationType::COVARIANCE;
 	s.modules.restart_strategy = parameters::RestartStrategyType::RESTART;
-	s.modules.repelling_restart = true;
-	s.modules.threshold_convergence = true;
-	s.modules.bound_correction = parameters::CorrectionMethod::COTN;
+	s.modules.repelling_restart = false;
+	s.modules.threshold_convergence = false;
+	s.modules.bound_correction = parameters::CorrectionMethod::NONE;
 
 	auto p = std::make_shared<parameters::Parameters>(s);
 	Function f;
