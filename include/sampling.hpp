@@ -2,24 +2,7 @@
 
 #include "common.hpp"
 
-/**
- * @brief Percent point function (inverse of cdf) of a standard normal distribution.
- *
- * see: ndtri.cpp
- * @param x lower tail of the probabilty
- * @return double quantile corresponding to the lower tail probability q
- */
-double ppf(const double x);
 
-/**
- * @brief Generate a sobol sequence using 8 byte integer numbers.
- * see: sobol.cpp
- *
- * @param dim_num  The dimension of the generated vector
- * @param seed The current seed of the sobol sequence
- * @param quasi the vector of random numbers in which to place the output
- */
-void i8_sobol(int dim_num, long long int *seed, double quasi[]);
 
 namespace parameters
 {

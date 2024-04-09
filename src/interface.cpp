@@ -6,7 +6,6 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
-#include "../include/c_maes.hpp"
 #include "c_maes.hpp"
 #include "to_string.hpp"
 
@@ -74,6 +73,13 @@ void define_options(py::module &main)
         .value("MATRIX", MatrixAdaptationType::MATRIX)
         .value("SEPERABLE", MatrixAdaptationType::SEPERABLE)
         .export_values();
+
+    py::enum_<CenterPlacement>(m, "CenterPlacement")
+        .value("X0", CenterPlacement::X0)
+        .value("ZERO", CenterPlacement::ZERO)
+        .value("UNIFORM", CenterPlacement::UNIFORM)
+        .value("REPELLING", CenterPlacement::REPELLING)
+        .export_values();
 }
 
 struct PySampler : sampling::Sampler
@@ -133,6 +139,9 @@ void define_samplers(py::module &main)
 void define_utils(py::module &main)
 {
     auto m = main.def_submodule("utils");
+    m.def("cdf", &cdf, py::arg("x"));
+    m.def("ppf", &ppf, py::arg("x"));
+    m.def("i8_sobol", &i8_sobol, py::arg("dim_num"), py::arg("seed"), py::arg("quasi"));
     m.def("compute_ert", &utils::compute_ert, py::arg("running_times"), py::arg("budget"));
     m.def("set_seed", &rng::set_seed, py::arg("seed"), "Set the random seed");
     m.def("random_uniform", &random_double<rng::uniform<double>>, "Generate a uniform random number in [-1, 1]");
@@ -166,6 +175,62 @@ void define_selection(py::module &main)
         .def_readwrite("elitsm", &Strategy::elitsm);
 }
 
+void define_center_placement(py::module &main)
+{
+    auto m = main.def_submodule("center");
+    using namespace center;
+    py::class_<Placement, std::shared_ptr<Placement>>(m, "Placement")
+        .def("__call__", &Placement::operator(), py::arg("parameters"));
+
+    py::class_<X0, Placement, std::shared_ptr<X0>>(m, "X0")
+        .def(py::init<>());
+
+    py::class_<Uniform, Placement, std::shared_ptr<Uniform>>(m, "Uniform")
+        .def(py::init<>());
+
+    py::class_<Zero, Placement, std::shared_ptr<Zero>>(m, "Zero")
+        .def(py::init<>());
+
+    py::class_<Repelling, Placement, std::shared_ptr<Repelling>>(m, "Repelling")
+        .def(py::init<>());
+}
+
+void define_repelling(py::module &main)
+{
+    using namespace repelling;
+    auto m = main.def_submodule("repelling");
+
+    py::class_<TabooPoint>(m, "TabooPoint")
+        .def(py::init<Solution, double, Matrix, Matrix>(), py::arg("solution"), py::arg("radius"), py::arg("C"), py::arg("C_inv"))
+        .def("rejects", &TabooPoint::rejects, py::arg("xi"), py::arg("p"), py::arg("attempts"))
+        .def("shares_basin", &TabooPoint::shares_basin, py::arg("xi"), py::arg("p"))
+        .def("calculate_criticality", &TabooPoint::calculate_criticality, py::arg("p"))
+        .def_readwrite("radius", &TabooPoint::radius)
+        .def_readwrite("n_rep", &TabooPoint::n_rep)
+        .def_readwrite("C", &TabooPoint::C)
+        .def_readwrite("C_inv", &TabooPoint::C_inv)
+        .def_readwrite("solution", &TabooPoint::solution)
+        .def_readwrite("shrinkage", &TabooPoint::shrinkage)
+        .def_readwrite("criticality", &TabooPoint::criticality);
+
+    py::class_<Repelling, std::shared_ptr<Repelling>>(m, "Repelling")
+        .def(py::init<>())
+        .def("is_rejected", &Repelling::is_rejected, py::arg("xi"), py::arg("p"))
+        .def("update_archive", &Repelling::update_archive, py::arg("p"))
+        .def("prepare_sampling", &Repelling::prepare_sampling, py::arg("p"))
+        .def_readwrite("C", &Repelling::C)
+        .def_readwrite("C_inv", &Repelling::C_inv)
+        .def_readwrite("archive", &Repelling::archive)
+        .def_readwrite("coverage", &Repelling::coverage)
+        .def_readwrite("attempts", &Repelling::attempts);
+
+    py::class_<NoRepelling, Repelling, std::shared_ptr<NoRepelling>>(m, "NoRepelling")
+        .def(py::init<>());
+
+    m.def("euclidian", &distance::euclidian, py::arg("u"), py::arg("v"));
+    m.def("mahanolobis", &distance::mahanolobis, py::arg("u"), py::arg("v"), py::arg("C_inv"));
+}
+
 void define_matrix_adaptation(py::module &main)
 {
     using namespace matrix_adaptation;
@@ -191,8 +256,9 @@ void define_matrix_adaptation(py::module &main)
              py::arg("mu"),
              py::arg("settings"))
         .def("restart", &Adaptation::restart, py::arg("settings"))
-        .def("scale_mutation_steps", &Adaptation::scale_mutation_steps, py::arg("pop"))
-        .def("invert_mutation_steps", &Adaptation::invert_mutation_steps, py::arg("pop"))
+        .def("compute_y", &Adaptation::compute_y, py::arg("zi"))
+        .def("invert_x", &Adaptation::invert_x, py::arg("xi"), py::arg("sigma"))
+        .def("invert_y", &Adaptation::invert_y, py::arg("yi"))
         .def("__repr__", [](Adaptation &dyn)
              {
             std::stringstream ss;
@@ -214,6 +280,7 @@ void define_matrix_adaptation(py::module &main)
         .def_readwrite("B", &CovarianceAdaptation::B)
         .def_readwrite("C", &CovarianceAdaptation::C)
         .def_readwrite("inv_root_C", &CovarianceAdaptation::inv_root_C)
+        .def_readwrite("inv_C", &CovarianceAdaptation::inv_C)
         .def_readwrite("hs", &CovarianceAdaptation::hs)
         .def("adapt_covariance_matrix", &CovarianceAdaptation::adapt_covariance_matrix,
              py::arg("weights"),
@@ -241,10 +308,10 @@ void define_matrix_adaptation(py::module &main)
             ss << ">";
             return ss.str(); });
 
-    py::class_<SeperableAdaptation, Adaptation, std::shared_ptr<SeperableAdaptation>>(m, "SeperableAdaptation")
+    py::class_<SeperableAdaptation, CovarianceAdaptation, std::shared_ptr<SeperableAdaptation>>(m, "SeperableAdaptation")
         .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
-        .def("__repr__", [](SeperableAdaptation& dyn)
-            {
+        .def("__repr__", [](SeperableAdaptation &dyn)
+             {
                 std::stringstream ss;
                 ss << std::boolalpha;
                 ss << "<SeperableAdaptation";
@@ -266,6 +333,7 @@ void define_matrix_adaptation(py::module &main)
     py::class_<MatrixAdaptation, Adaptation, std::shared_ptr<MatrixAdaptation>>(m, "MatrixAdaptation")
         .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
         .def_readwrite("M", &MatrixAdaptation::M)
+        .def_readwrite("M_inv", &MatrixAdaptation::M_inv)
         .def("__repr__", [](MatrixAdaptation &dyn)
              {
             std::stringstream ss;
@@ -317,16 +385,28 @@ void define_parameters(py::module &main)
         .def_readwrite("ssa", &Modules::ssa)
         .def_readwrite("bound_correction", &Modules::bound_correction)
         .def_readwrite("restart_strategy", &Modules::restart_strategy)
+        .def_readwrite("repelling_restart", &Modules::repelling_restart)
         .def_readwrite("matrix_adaptation", &Modules::matrix_adaptation)
+        .def_readwrite("center_placement", &Modules::center_placement)
         .def("__repr__", [](Modules &mod)
              { return to_string(mod); });
+
+    py::class_<Solution>(m, "Solution")
+        .def(py::init<>())
+        .def_readwrite("x", &Solution::x)
+        .def_readwrite("y", &Solution::y)
+        .def_readwrite("t", &Solution::t)
+        .def_readwrite("e", &Solution::e)
+        .def("__repr__", &Solution::repr);
 
     py::class_<Stats>(m, "Stats")
         .def(py::init<>())
         .def_readwrite("t", &Stats::t)
         .def_readwrite("evaluations", &Stats::evaluations)
-        .def_readwrite("xopt", &Stats::xopt)
-        .def_readwrite("fopt", &Stats::fopt)
+        .def_readwrite("current_avg", &Stats::current_avg)
+        .def_readwrite("solutions", &Stats::solutions)
+        .def_readwrite("current_best", &Stats::current_best)
+        .def_readwrite("global_best", &Stats::global_best)
         .def("__repr__", [](Stats &stats)
              {
             std::stringstream ss;
@@ -334,8 +414,7 @@ void define_parameters(py::module &main)
             ss << "<Stats";
             ss << " t: " << stats.t;
             ss << " evaluations: " << stats.evaluations;
-            ss << " xopt: " << stats.xopt.transpose();
-            ss << " fopt: " << stats.fopt;
+            ss << " best: " << stats.global_best;
             ss << ">";
             return ss.str(); });
 
@@ -408,6 +487,7 @@ void define_parameters(py::module &main)
         .def_readwrite("cmu", &Settings::cmu)
         .def_readwrite("c1", &Settings::c1)
         .def_readwrite("verbose", &Settings::verbose)
+        .def_readwrite("volume", &Settings::volume)
         .def("__repr__", [](Settings &settings)
              {
             std::stringstream ss;
@@ -435,11 +515,11 @@ void define_parameters(py::module &main)
     ;
 
     using AdaptationType = std::variant<
-        std::shared_ptr<matrix_adaptation::MatrixAdaptation>, 
-        std::shared_ptr<matrix_adaptation::CovarianceAdaptation>, 
+        std::shared_ptr<matrix_adaptation::MatrixAdaptation>,
+        std::shared_ptr<matrix_adaptation::CovarianceAdaptation>,
         std::shared_ptr<matrix_adaptation::SeperableAdaptation>,
-        std::shared_ptr<matrix_adaptation::None>
-    >;
+        std::shared_ptr<matrix_adaptation::None>>;
+
     py::class_<Parameters, std::shared_ptr<Parameters>>(main, "Parameters")
         .def(py::init<size_t>(), py::arg("dimension"))
         .def(py::init<Settings>(), py::arg("settings"))
@@ -477,7 +557,9 @@ void define_parameters(py::module &main)
         .def_readwrite("mutation", &Parameters::mutation)
         .def_readwrite("selection", &Parameters::selection)
         .def_readwrite("restart", &Parameters::restart)
-        .def_readwrite("bounds", &Parameters::bounds);
+        .def_readwrite("repelling", &Parameters::repelling)
+        .def_readwrite("bounds", &Parameters::bounds)
+        .def_readwrite("center_placement", &Parameters::center_placement);
 }
 
 void define_bounds(py::module &main)
@@ -495,9 +577,6 @@ void define_bounds(py::module &main)
              py::arg("population"), py::arg("m"));
 
     py::class_<NoCorrection, BoundCorrection, std::shared_ptr<NoCorrection>>(m, "NoCorrection")
-        .def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
-
-    py::class_<CountOutOfBounds, BoundCorrection, std::shared_ptr<CountOutOfBounds>>(m, "CountOutOfBounds")
         .def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
 
     py::class_<COTN, BoundCorrection, std::shared_ptr<COTN>>(m, "COTN")
@@ -664,6 +743,45 @@ void define_population(py::module &main)
         .def_readwrite("n", &Population::n);
 }
 
+class constants_w
+{
+};
+
+void define_constants(py::module &m)
+{
+    py::class_<constants_w>(m, "constants")
+        .def_property_static(
+            "tolup_sigma",
+            [](py::object)
+            { return constants::tolup_sigma; },
+            [](py::object, double a)
+            { constants::tolup_sigma = a; })
+        .def_property_static(
+            "tol_condition_cov",
+            [](py::object)
+            { return constants::tol_condition_cov; },
+            [](py::object, double a)
+            { constants::tol_condition_cov = a; })
+        .def_property_static(
+            "tol_min_sigma",
+            [](py::object)
+            { return constants::tol_min_sigma; },
+            [](py::object, double a)
+            { constants::tol_min_sigma = a; })
+        .def_property_static(
+            "stagnation_quantile",
+            [](py::object)
+            { return constants::stagnation_quantile; },
+            [](py::object, double a)
+            { constants::stagnation_quantile = a; })
+        .def_property_static(
+            "sigma_threshold",
+            [](py::object)
+            { return constants::sigma_threshold; },
+            [](py::object, double a)
+            { constants::sigma_threshold = a; });
+}
+
 void define_restart(py::module &main)
 {
     auto m = main.def_submodule("restart");
@@ -756,7 +874,7 @@ void define_cmaes(py::module &m)
     py::class_<ModularCMAES>(m, "ModularCMAES")
         .def(py::init<std::shared_ptr<parameters::Parameters>>(), py::arg("parameters"))
         .def("recombine", &ModularCMAES::recombine)
-        .def("mutate", [](ModularCMAES &self, FunctionType& objective)
+        .def("mutate", [](ModularCMAES &self, FunctionType &objective)
              { self.p->mutation->mutate(objective, self.p->lambda, *self.p); })
         .def("select", [](ModularCMAES &self)
              { self.p->selection->select(*self.p); })
@@ -771,6 +889,7 @@ void define_cmaes(py::module &m)
 
 PYBIND11_MODULE(cmaescpp, m)
 {
+    define_constants(m);
     define_options(m);
     define_utils(m);
     define_population(m);
@@ -778,6 +897,8 @@ PYBIND11_MODULE(cmaescpp, m)
     define_mutation(m);
     define_restart(m);
     define_matrix_adaptation(m);
+    define_center_placement(m);
+    define_repelling(m);
     define_parameters(m);
     define_bounds(m);
     define_selection(m);

@@ -84,6 +84,8 @@ namespace restart
 
 		bool stagnation() const;
 
+		bool min_sigma() const;
+
 		bool operator()(const parameters::Parameters &p);
 	};
 

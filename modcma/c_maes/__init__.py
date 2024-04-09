@@ -1,4 +1,5 @@
 from .cmaescpp import (
+    constants,
     utils, 
     sampling,
     mutation,
@@ -7,6 +8,8 @@ from .cmaescpp import (
     bounds,
     restart,
     options,
+    repelling,
+
     Population,
     Parameters,
     ModularCMAES

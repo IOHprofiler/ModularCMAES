@@ -2,7 +2,13 @@ from typing import Any, Callable, List, Optional, Union
 
 from typing import overload
 import numpy
-from . import matrix_adaptation, sampling, parameters
+from . import matrix_adaptation, sampling, parameters, mutation, restart, repelling
+
+class Solution:
+    x: numpy.ndarray
+    y: float
+    t: int
+    e: int
 
 class ModularCMAES:
     def __init__(self, parameters: Parameters) -> None: ...
@@ -30,6 +36,7 @@ class Parameters:
     old_pop: Population
     pop: Population
     restart: restart.Strategy
+    repelling: repelling.Repelling
     sampler: sampling.Sampler
     selection: Any
     settings: parameters.Settings

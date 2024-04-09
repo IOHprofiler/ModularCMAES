@@ -13,7 +13,10 @@
 
 #define _USE_MATH_DEFINES
 #include <cmath>
+
+#ifdef _MSC_VER
 #include <corecrt_math_defines.h>
+#endif
 
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
@@ -25,13 +28,50 @@ using Array = Eigen::ArrayXd;
 using size_to = std::optional<size_t>;
 
 template <typename T>
-std::ostream& operator<<(std::ostream& os, const std::vector<T>& x);
+std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);
 
-using FunctionType = std::function<double(const Vector&)>;
+using FunctionType = std::function<double(const Vector &)>;
+
+namespace constants
+{
+	extern double tolup_sigma;
+	extern double tol_condition_cov;
+	extern double tol_min_sigma;
+	extern double stagnation_quantile;
+	extern double sigma_threshold;
+}
+
+/**
+ * @brief Cdf of a standard normal distribution.
+ *
+ * see: ndtr_ndtri.cpp
+ * @param x lower tail of the probabilty
+ * @return double quantile corresponding to the lower tail probability q
+ */
+double cdf(const double x);
+
+/**
+ * @brief Percent point function (inverse of cdf) of a standard normal distribution.
+ *
+ * see: ndtri.cpp
+ * @param x lower tail of the probabilty
+ * @return double quantile corresponding to the lower tail probability q
+ */
+double ppf(const double x);
+
+/**
+ * @brief Generate a sobol sequence using 8 byte integer numbers.
+ * see: sobol.cpp
+ *
+ * @param dim_num  The dimension of the generated vector
+ * @param seed The current seed of the sobol sequence
+ * @param quasi the vector of random numbers in which to place the output
+ */
+void i8_sobol(int dim_num, long long int *seed, double quasi[]);
 
 struct Solution
 {
-	//! Value
+	//! Coordinates
 	Vector x;
 	//! Function value
 	double y;
@@ -40,33 +80,33 @@ struct Solution
 	//! Evaluations
 	size_t e;
 
-	Solution(const Vector& x, const double y, const size_t t = 0, const size_t e = 0): x(x), y(y), t(t), e(e)
+	Solution(const Vector &x, const double y, const size_t t = 0, const size_t e = 0) : x(x), y(y), t(t), e(e)
 	{
 	}
 
-	Solution(): Solution({}, std::numeric_limits<double>::infinity()) {}
+	Solution() : Solution({}, std::numeric_limits<double>::infinity()) {}
 
 	[[nodiscard]] size_t n() const
 	{
 		return x.size();
 	}
 
-	bool operator<(const Solution& other) const
+	bool operator<(const Solution &other) const
 	{
 		return y < other.y;
 	}
 
-	bool operator>(const Solution& other) const
+	bool operator>(const Solution &other) const
 	{
 		return y > other.y;
 	}
 
-	bool operator<=(const Solution& other) const
+	bool operator<=(const Solution &other) const
 	{
 		return y <= other.y;
 	}
 
-	bool operator>=(const Solution& other) const
+	bool operator>=(const Solution &other) const
 	{
 		return y >= other.y;
 	}
@@ -79,7 +119,7 @@ struct Solution
 	}
 };
 
-inline std::ostream& operator<<(std::ostream& os, const Solution& s)
+inline std::ostream &operator<<(std::ostream &os, const Solution &s)
 {
 	return os << s.repr();
 }
@@ -95,9 +135,9 @@ namespace utils
 	 * @param v
 	 * @return std::vector<size_t>
 	 */
-	std::vector<size_t> sort_indexes(const Vector& v);
+	std::vector<size_t> sort_indexes(const Vector &v);
 
-	std::vector<size_t> sort_indexes(const std::vector<size_t>& v);
+	std::vector<size_t> sort_indexes(const std::vector<size_t> &v);
 
 	/**
 	 * @brief Concat two matrices inplace, i.e. put Y in X (colwise)
@@ -105,7 +145,7 @@ namespace utils
 	 * @param X target matrix
 	 * @param Y source matrix
 	 */
-	void hstack(Matrix& X, const Matrix& Y);
+	void hstack(Matrix &X, const Matrix &Y);
 
 	/**
 	 * @brief Concat two matrices inplace, i.e. put Y in X (rowwise)
@@ -113,7 +153,7 @@ namespace utils
 	 * @param X target matrix
 	 * @param Y source matrix
 	 */
-	void vstack(Matrix& X, const Matrix& Y);
+	void vstack(Matrix &X, const Matrix &Y);
 
 	/**
 	 * @brief Concat two vectors
@@ -121,16 +161,16 @@ namespace utils
 	 * @param x target vector
 	 * @param y source vector
 	 */
-	void concat(Vector& x, const Vector& y);
+	void concat(Vector &x, const Vector &y);
 
 	/**
 	 * @brief Compute the expected running time (ERT) of a set of runs
-	 * 
+	 *
 	 * @param running_times the vector of measured running times
 	 * @param budget the maximum budget allocated to each run
 	 * @return std::pair<double, size_t> (ERT, number of successfull runs)
 	 */
-	std::pair<double, size_t> compute_ert(const std::vector<size_t>& running_times, size_t budget);
+	std::pair<double, size_t> compute_ert(const std::vector<size_t> &running_times, size_t budget);
 }
 
 namespace rng
@@ -171,7 +211,7 @@ namespace rng
 		 * @return T the random number
 		 */
 		template <typename G>
-		T operator()(G& gen)
+		T operator()(G &gen)
 		{
 			return static_cast<T>(2.0 * gen() - gen.min()) / gen.max() - gen.min() - 1;
 		}
@@ -187,11 +227,11 @@ namespace rng
 		T mu;
 		T sigma;
 
-		normal(const T mu, const T sigma): mu(mu), sigma(sigma)
+		normal(const T mu, const T sigma) : mu(mu), sigma(sigma)
 		{
 		}
 
-		normal(): normal(0.0, 1.0)
+		normal() : normal(0.0, 1.0)
 		{
 		}
 
@@ -203,7 +243,7 @@ namespace rng
 		 * @return T the random number
 		 */
 		template <typename G>
-		T operator()(G& gen)
+		T operator()(G &gen)
 		{
 			static uniform<double> rng;
 			static T r1, r2;
@@ -229,6 +269,6 @@ namespace rng
 
 namespace functions
 {
-	double sphere(const Vector& x);
-	double rastrigin(const Vector& x);
+	double sphere(const Vector &x);
+	double rastrigin(const Vector &x);
 }

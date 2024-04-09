@@ -26,6 +26,7 @@ namespace parameters
         std::optional<double> cmu;
         std::optional<double> c1;
         bool verbose;
+        double volume;
 
         Settings(size_t dim,
                  std::optional<Modules> mod = std::nullopt,
@@ -57,7 +58,8 @@ namespace parameters
                                          cc(cc),
                                          cmu(cmu),
                                          c1(c1),
-                                         verbose(verbose)
+                                         verbose(verbose),
+                                         volume(0.0)
         {
             if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
                 lambda0++;
@@ -66,6 +68,7 @@ namespace parameters
             {
                 mu0 = lambda0 / 2;
             }
+            volume = (this->ub - this->lb).prod();
         }
     };
 

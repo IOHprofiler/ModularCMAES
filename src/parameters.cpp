@@ -26,7 +26,8 @@ namespace parameters
 		                     settings.budget)
 		),
 		bounds(bounds::get(settings.modules.bound_correction, settings.lb, settings.ub)),
-		repelling(repelling::get(settings.modules))
+		repelling(repelling::get(settings.modules)),
+		center_placement(center::get(settings.modules.center_placement))
 	{
 	}
 
@@ -36,6 +37,9 @@ namespace parameters
 
 	void Parameters::perform_restart(const std::optional<double>& sigma)
 	{
+		stats.solutions.push_back(stats.current_best);
+		repelling->update_archive(*this);
+		
 		weights = Weights(settings.dim, mu, lambda, settings);
 		sampler = sampling::get(settings.dim, settings.modules, lambda);
 
@@ -48,12 +52,9 @@ namespace parameters
 		                         settings.cs
 		);
 		adaptation->restart(settings);
-
+		(*center_placement)(*this);
 		restart->criteria = restart::RestartCriteria(settings.dim, lambda, stats.t);
-		repelling->update_archive(*this);
-		stats.solutions.push_back(stats.current_best);
-		stats.current_best = {};
-		
+		stats.current_best = {};		
 	}
 
 	bool Parameters::invalid_state() const

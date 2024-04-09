@@ -7,7 +7,7 @@
 namespace restart
 {
 	//! max - min, for the last n elements of a vector
-	double ptp_tail(const std::vector<double>& v, const size_t n)
+	double ptp_tail(const std::vector<double> &v, const size_t n)
 	{
 		const auto na = std::min(v.size(), n);
 		if (na == 1)
@@ -21,14 +21,14 @@ namespace restart
 	}
 
 	// TODO: this is duplicate code
-	double median(const Vector& x)
+	double median(const Vector &x)
 	{
 		if (x.size() % 2 == 0)
 			return (x(x.size() / 2) + x(x.size() / 2 - 1)) / 2.0;
 		return x(x.size() / 2);
 	}
 
-	double median(const std::vector<double>& v, const size_t from, const size_t to)
+	double median(const std::vector<double> &v, const size_t from, const size_t to)
 	{
 		const size_t n = to - from;
 		if (n % 2 == 0)
@@ -36,7 +36,7 @@ namespace restart
 		return v[from + (n / 2)];
 	}
 
-	void RestartCriteria::update(const parameters::Parameters& p)
+	void RestartCriteria::update(const parameters::Parameters &p)
 	{
 		flat_fitnesses(p.stats.t % p.settings.dim) = p.pop.f(0) == p.pop.f(flat_fitness_index);
 		median_fitnesses.push_back(median(p.pop.f));
@@ -55,7 +55,6 @@ namespace restart
 			using namespace matrix_adaptation;
 			const std::shared_ptr<CovarianceAdaptation> dynamic = std::dynamic_pointer_cast<CovarianceAdaptation>(
 				p.adaptation);
-
 
 			tolx_vector.head(p.settings.dim) = dynamic->C.diagonal() * d_sigma;
 			tolx_vector.tail(p.settings.dim) = dynamic->pc * d_sigma;
@@ -92,14 +91,12 @@ namespace restart
 
 	bool RestartCriteria::tolupsigma() const
 	{
-		static double tolup_sigma = std::pow(10., 20.);
-		return d_sigma > tolup_sigma * root_max_d;
+		return d_sigma > constants::tolup_sigma * root_max_d;
 	}
 
 	bool RestartCriteria::conditioncov() const
 	{
-		static double tol_condition_cov = pow(10., 14.);
-		return condition_c > tol_condition_cov;
+		return condition_c > constants::tol_condition_cov;
 	}
 
 	bool RestartCriteria::noeffectaxis() const
@@ -112,20 +109,24 @@ namespace restart
 		return (effect_coord.array() == 0).all();
 	}
 
-	bool RestartCriteria::stagnation() const
+	bool RestartCriteria::min_sigma() const
 	{
-		const size_t pt = static_cast<size_t>(0.3 * time_since_restart);
-		return time_since_restart > n_stagnation and ((median(best_fitnesses, pt, time_since_restart) >= median(
-				best_fitnesses, 0, pt)) and
-			(median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt)));
+		return d_sigma < constants::tol_min_sigma;
 	}
 
-	bool RestartCriteria::operator()(const parameters::Parameters& p)
+	bool RestartCriteria::stagnation() const
+	{
+		const size_t pt = static_cast<size_t>(constants::stagnation_quantile * time_since_restart);
+		return time_since_restart > n_stagnation and ((median(best_fitnesses, pt, time_since_restart) >= median(
+																											 best_fitnesses, 0, pt)) and
+													  (median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt)));
+	}
+
+	bool RestartCriteria::operator()(const parameters::Parameters &p)
 	{
 		update(p);
-		any = exceeded_max_iter() or no_improvement() or flat_fitness() or stagnation();
-		any = any or (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE and (tolx()
-			or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor()));
+		any = exceeded_max_iter() or no_improvement() or flat_fitness() or stagnation() or min_sigma();
+		any = any or (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE and (tolx() or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor()));
 		if (any)
 		{
 			if (p.settings.verbose)
@@ -147,7 +148,7 @@ namespace restart
 		return false;
 	}
 
-	void Strategy::evaluate(parameters::Parameters& p)
+	void Strategy::evaluate(parameters::Parameters &p)
 	{
 		if (criteria(p))
 		{
@@ -155,12 +156,12 @@ namespace restart
 		}
 	}
 
-	void Restart::restart(parameters::Parameters& p)
+	void Restart::restart(parameters::Parameters &p)
 	{
 		p.perform_restart();
 	}
 
-	void IPOP::restart(parameters::Parameters& p)
+	void IPOP::restart(parameters::Parameters &p)
 	{
 		const size_t max_lambda = static_cast<size_t>(std::pow(p.settings.dim * p.lambda, 2));
 		if (p.mu < max_lambda)
@@ -171,7 +172,7 @@ namespace restart
 		p.perform_restart();
 	}
 
-	void BIPOP::restart(parameters::Parameters& p)
+	void BIPOP::restart(parameters::Parameters &p)
 	{
 		static std::uniform_real_distribution<> dist;
 
@@ -197,7 +198,7 @@ namespace restart
 
 		lambda_small = static_cast<size_t>(std::floor(
 			static_cast<double>(lambda_init) * std::pow(.5 / static_cast<double>(lambda_large) / lambda_init,
-			                                            std::pow(dist(rng::GENERATOR), 2))));
+														std::pow(dist(rng::GENERATOR), 2))));
 
 		if (lambda_small % 2 != 0)
 			lambda_small++;

@@ -74,8 +74,6 @@ namespace parameters
         {
         case CorrectionMethod::NONE:
             return "NONE";
-        case CorrectionMethod::COUNT:
-            return "COUNT";
         case CorrectionMethod::MIRROR:
             return "MIRROR";
         case CorrectionMethod::COTN:

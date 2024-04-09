@@ -8,6 +8,16 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& x)
 	return os;
 }
 
+
+namespace constants
+{
+	double tolup_sigma = std::pow(10., 20.);
+	double tol_condition_cov = pow(10., 14.);
+	double tol_min_sigma = 1e-8;
+	double stagnation_quantile = 0.3;
+	double sigma_threshold = 1e-4;
+}
+
 namespace utils
 {
 	std::vector<size_t> sort_indexes(const Vector& v)
@@ -79,6 +89,7 @@ namespace rng
 	{
 		SEED = seed;
 		GENERATOR.seed(seed);
+		srand(seed);
 	}
 
 	int random_integer(int l, int h)

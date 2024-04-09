@@ -11,6 +11,7 @@ class Modules:
     mirrored: modcma.c_maes.cmaescpp.options.Mirror
     orthogonal: bool
     restart_strategy: modcma.c_maes.cmaescpp.options.RestartStrategy
+    repelling_restart: bool
     sample_sigma: bool
     sampler: modcma.c_maes.cmaescpp.options.BaseSampler
     sequential_selection: bool

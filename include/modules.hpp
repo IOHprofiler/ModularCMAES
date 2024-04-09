@@ -61,6 +61,13 @@ namespace parameters
         SEPERABLE        
     };
 
+    enum class CenterPlacement {
+        X0,
+        ZERO,
+        UNIFORM,
+        REPELLING
+    };
+
     struct Modules
     {
         bool elitist = false;
@@ -77,5 +84,6 @@ namespace parameters
         CorrectionMethod bound_correction = CorrectionMethod::NONE;
         RestartStrategyType restart_strategy = RestartStrategyType::NONE;
         MatrixAdaptationType matrix_adaptation = MatrixAdaptationType::COVARIANCE;
+        CenterPlacement center_placement = CenterPlacement::X0;
     };
 }
