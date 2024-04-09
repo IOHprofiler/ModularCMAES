@@ -2,32 +2,31 @@
 
 namespace parameters
 {
-	Parameters::Parameters(const Settings& settings) :
-		lambda(settings.lambda0),
-		mu(settings.mu0),
-		settings(settings),
-		weights(settings.dim, settings.mu0, settings.lambda0, settings),
-		pop(settings.dim, settings.lambda0),
-		old_pop(settings.dim, settings.lambda0),
-		adaptation(matrix_adaptation::get(settings.modules, settings.dim,
-		                                  settings.x0.value_or(Vector::Zero(settings.dim)))),
-		sampler(sampling::get(settings.dim, settings.modules, settings.lambda0)),
-		mutation(mutation::get(settings.modules,
-		                       settings.mu0, weights.mueff,
-		                       static_cast<double>(settings.dim),
-		                       settings.sigma0,
-		                       settings.cs
-		)),
-		selection(std::make_shared<selection::Strategy>(settings.modules)),
-		restart(restart::get(settings.modules.restart_strategy,
-		                     static_cast<double>(settings.dim),
-		                     static_cast<double>(settings.lambda0),
-		                     static_cast<double>(settings.mu0),
-		                     settings.budget)
-		),
-		bounds(bounds::get(settings.modules.bound_correction, settings.lb, settings.ub)),
-		repelling(repelling::get(settings.modules)),
-		center_placement(center::get(settings.modules.center_placement))
+	Parameters::Parameters(const Settings &settings) : lambda(settings.lambda0),
+													   mu(settings.mu0),
+													   settings(settings),
+													   weights(settings.dim, settings.mu0, settings.lambda0, settings),
+													   pop(settings.dim, settings.lambda0),
+													   old_pop(settings.dim, settings.lambda0),
+													   adaptation(matrix_adaptation::get(settings.modules, settings.dim,
+																						 settings.x0.value_or(Vector::Zero(settings.dim)))),
+													   sampler(sampling::get(settings.dim, settings.modules, settings.lambda0)),
+													   mutation(mutation::get(settings.modules,
+																			  settings.mu0, weights.mueff,
+																			  static_cast<double>(settings.dim),
+																			  settings.sigma0,
+																			  settings.cs)),
+													   selection(std::make_shared<selection::Strategy>(settings.modules)),
+													   restart(restart::get(
+																			settings.modules.restart_strategy,
+																			settings.sigma0, 
+																			static_cast<double>(settings.dim),
+																			static_cast<double>(settings.lambda0),
+																			static_cast<double>(settings.mu0),
+																			settings.budget)),
+													   bounds(bounds::get(settings.modules.bound_correction, settings.lb, settings.ub)),
+													   repelling(repelling::get(settings.modules)),
+													   center_placement(center::get(settings.modules.center_placement))
 	{
 	}
 
@@ -35,11 +34,11 @@ namespace parameters
 	{
 	}
 
-	void Parameters::perform_restart(const std::optional<double>& sigma)
+	void Parameters::perform_restart(const std::optional<double> &sigma)
 	{
 		stats.solutions.push_back(stats.current_best);
 		repelling->update_archive(*this);
-		
+
 		weights = Weights(settings.dim, mu, lambda, settings);
 		sampler = sampling::get(settings.dim, settings.modules, lambda);
 
@@ -47,14 +46,13 @@ namespace parameters
 		old_pop = Population(settings.dim, lambda);
 
 		mutation = mutation::get(settings.modules, mu, weights.mueff,
-		                         static_cast<double>(settings.dim),
-		                         sigma.value_or(settings.sigma0),
-		                         settings.cs
-		);
+								 static_cast<double>(settings.dim),
+								 sigma.value_or(settings.sigma0),
+								 settings.cs);
 		adaptation->restart(settings);
 		(*center_placement)(*this);
-		restart->criteria = restart::RestartCriteria(settings.dim, lambda, stats.t);
-		stats.current_best = {};		
+		restart->criteria = restart::RestartCriteria(sigma.value_or(settings.sigma0), settings.dim, lambda, stats.t);
+		stats.current_best = {};
 	}
 
 	bool Parameters::invalid_state() const
@@ -84,11 +82,11 @@ namespace parameters
 	}
 }
 
-std::ostream& operator<<(std::ostream& os, const parameters::Stats& s)
+std::ostream &operator<<(std::ostream &os, const parameters::Stats &s)
 {
 	return os
-		<< "Stats"
-		<< " g=" << s.t
-		<< " evals=" << s.evaluations
-		<< " best=" << s.global_best;
+		   << "Stats"
+		   << " g=" << s.t
+		   << " evals=" << s.evaluations
+		   << " best=" << s.global_best;
 }

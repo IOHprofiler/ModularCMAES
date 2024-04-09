@@ -37,6 +37,7 @@ namespace repelling
 
 	bool TabooPoint::shares_basin(const Vector &xi, const parameters::Parameters &p) const
 	{
+		
 		if (distance::euclidian(xi, solution.x) < 0.01)
 			return true;
 		return false;

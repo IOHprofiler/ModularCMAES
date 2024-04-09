@@ -788,7 +788,7 @@ void define_restart(py::module &main)
     using namespace restart;
 
     py::class_<RestartCriteria>(m, "RestartCriteria")
-        .def(py::init<double, double, size_t>(), py::arg("dimension"), py::arg("lamb"), py::arg("time"))
+        .def(py::init<double, double, double, size_t>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"), py::arg("time"))
         .def("exceeded_max_iter", &RestartCriteria::exceeded_max_iter)
         .def("no_improvement", &RestartCriteria::no_improvement)
         .def("flat_fitness", &RestartCriteria::flat_fitness)
@@ -798,6 +798,7 @@ void define_restart(py::module &main)
         .def("noeffectaxis", &RestartCriteria::noeffectaxis)
         .def("noeffectcoor", &RestartCriteria::noeffectcoor)
         .def("stagnation", &RestartCriteria::stagnation)
+        .def_readonly("sigma0", &RestartCriteria::sigma0)
         .def_readonly("last_restart", &RestartCriteria::last_restart)
         .def_readonly("max_iter", &RestartCriteria::max_iter)
         .def_readonly("n_bin", &RestartCriteria::n_bin)
@@ -839,24 +840,24 @@ void define_restart(py::module &main)
         .def_readwrite("criteria", &Strategy::criteria);
 
     py::class_<None, Strategy, std::shared_ptr<None>>(m, "NoRestart")
-        .def(py::init<double, double>(), py::arg("dimension"), py::arg("lamb"))
+        .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
         .def("restart", &None::restart, py::arg("parameters"));
 
     py::class_<Stop, Strategy, std::shared_ptr<Stop>>(m, "Stop")
-        .def(py::init<double, double>(), py::arg("dimension"), py::arg("lamb"))
+        .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
         .def("restart", &Stop::restart, py::arg("parameters"));
 
     py::class_<Restart, Strategy, std::shared_ptr<Restart>>(m, "Restart")
-        .def(py::init<size_t, double>(), py::arg("dimension"), py::arg("lamb"))
+        .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
         .def("restart", &Restart::restart, py::arg("parameters"));
 
     py::class_<IPOP, Strategy, std::shared_ptr<IPOP>>(m, "IPOP")
-        .def(py::init<double, double>(), py::arg("dimension"), py::arg("lamb"))
+        .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
         .def("restart", &IPOP::restart, py::arg("parameters"))
         .def_readwrite("ipop_factor", &IPOP::ipop_factor);
 
     py::class_<BIPOP, Strategy, std::shared_ptr<BIPOP>>(m, "BIPOP")
-        .def(py::init<size_t, double, double, size_t>(), py::arg("dimension"), py::arg("lamb"), py::arg("mu"), py::arg("budget"))
+        .def(py::init<double, double, double, double, size_t>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"), py::arg("mu"), py::arg("budget"))
         .def("restart", &BIPOP::restart, py::arg("parameters"))
         .def("large", &BIPOP::large)
         .def_readwrite("mu_factor", &BIPOP::mu_factor)

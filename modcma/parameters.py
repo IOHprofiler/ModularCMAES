@@ -897,7 +897,8 @@ class BIPOPParameters(AnnotatedStruct):
     @property
     def sigma(self) -> float:
         """Return value for sigma, based on which regime is active."""
-        return 2 if self.large else 2e-2 * np.random.uniform()
+        return 2 if self.large else 2 * pow(10, -2 * np.random.uniform())
+    
 
     @property
     def mu(self) -> int:

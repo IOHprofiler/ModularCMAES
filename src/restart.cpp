@@ -46,8 +46,8 @@ namespace restart
 		recent_improvement = ptp_tail(best_fitnesses, n_bin);
 		n_flat_fitness = static_cast<size_t>(flat_fitnesses.sum());
 
-		d_sigma = p.mutation->sigma / p.settings.sigma0;
-		tolx_condition = 10e-12 * p.settings.sigma0;
+		d_sigma = p.mutation->sigma / sigma0;
+		tolx_condition = 10e-12 * sigma0;
 
 		if (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE ||
 			p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::SEPERABLE)
@@ -205,6 +205,6 @@ namespace restart
 
 		p.lambda = std::max(size_t{2}, large() ? lambda_large : lambda_small);
 		p.mu = std::max(1.0, p.lambda * mu_factor);
-		p.perform_restart(large() ? 2. : 2e-2 * dist(rng::GENERATOR));
+		p.perform_restart(large() ? p.settings.sigma0 : p.settings.sigma0 * std::pow(10, -2 * dist(rng::GENERATOR)));
 	}
 }

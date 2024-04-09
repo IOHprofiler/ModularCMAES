@@ -15,6 +15,7 @@ namespace restart
 		void update(const parameters::Parameters &p);
 
 	public:
+		double sigma0;
 		size_t last_restart;
 		size_t max_iter;
 		size_t max_flat_fitness;
@@ -41,8 +42,9 @@ namespace restart
 
 		bool any = false;
 
-		RestartCriteria(const double d, const double lambda, const size_t t)
-			: last_restart(t),
+		RestartCriteria(const double sigma0, const double d, const double lambda, const size_t t)
+			: sigma0(sigma0),
+			  last_restart(t),
 			  max_iter(static_cast<size_t>(100 + 50 * std::pow((d + 3), 2.0) / std::sqrt(lambda))),
 			  max_flat_fitness(static_cast<size_t>(std::ceil(d / 3))),
 			  n_bin(10 + static_cast<size_t>(std::ceil(30 * d / lambda))),
@@ -61,7 +63,7 @@ namespace restart
 			  condition_c(0.),
 			  effect_coord(static_cast<size_t>(d)),
 			  effect_axis(static_cast<size_t>(d))
-		{ 
+		{
 			median_fitnesses.reserve(max_iter);
 			best_fitnesses.reserve(max_iter);
 		}
@@ -89,15 +91,14 @@ namespace restart
 		bool operator()(const parameters::Parameters &p);
 	};
 
-
 	struct Strategy
 	{
 		RestartCriteria criteria;
 
-		Strategy(const double d, const double lambda) : criteria{ d, lambda, 0 } {}
-		
+		Strategy(const double sigma0, const double d, const double lambda) : criteria{sigma0, d, lambda, 0} {}
+
 		void evaluate(parameters::Parameters &p);
-			
+
 		virtual void restart(parameters::Parameters &) = 0;
 	};
 
@@ -139,7 +140,8 @@ namespace restart
 		size_t budget_large = 0;
 		size_t used_budget = 0;
 
-		BIPOP(const double d, const double lambda, const double mu, const size_t budget) : Strategy(d, lambda), lambda_init(static_cast<size_t>(lambda)), mu_factor(mu / lambda), budget(budget)
+		BIPOP(
+			const double sigma0, const double d, const double lambda, const double mu, const size_t budget) : Strategy(sigma0, d, lambda), lambda_init(static_cast<size_t>(lambda)), mu_factor(mu / lambda), budget(budget)
 		{
 		}
 
@@ -151,22 +153,22 @@ namespace restart
 		}
 	};
 
-	inline std::shared_ptr<Strategy> get(const parameters::RestartStrategyType s, const double d, const double lambda, const double mu, const size_t budget)
+	inline std::shared_ptr<Strategy> get(const parameters::RestartStrategyType s, const double sigma0, const double d, const double lambda, const double mu, const size_t budget)
 	{
 		using namespace parameters;
-	switch (s) 
+		switch (s)
 		{
 		case RestartStrategyType::RESTART:
-			return std::make_shared<Restart>(d, lambda);
+			return std::make_shared<Restart>(sigma0, d, lambda);
 		case RestartStrategyType::IPOP:
-			return std::make_shared<IPOP>(d, lambda);
+			return std::make_shared<IPOP>(sigma0, d, lambda);
 		case RestartStrategyType::BIPOP:
-			return std::make_shared<BIPOP>(d, lambda, mu, budget);
+			return std::make_shared<BIPOP>(sigma0, d, lambda, mu, budget);
 		case RestartStrategyType::STOP:
-			return std::make_shared<Stop>(d, lambda);
+			return std::make_shared<Stop>(sigma0, d, lambda);
 		default:
 		case RestartStrategyType::NONE:
-			return std::make_shared<None>(d, lambda);
+			return std::make_shared<None>(sigma0, d, lambda);
 		}
 	}
 }

@@ -17,6 +17,13 @@ namespace repelling
 		double mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv);
 	}
 
+	bool hill_valley_test(
+		const Vector &u, 
+		const Vector &v, 
+		parameters::Parameters &p, 
+		const size_t n_evals
+	);
+
 	struct TabooPoint
 	{
 		Solution solution;
@@ -91,9 +98,9 @@ namespace repelling
 			return false;
 		}
 
-		// void update_archive(parameters::Parameters &p) override
-		// {
-		// }
+		void update_archive(parameters::Parameters &p) override
+		{
+		}
 
 		void prepare_sampling(const parameters::Parameters &p) override
 		{
