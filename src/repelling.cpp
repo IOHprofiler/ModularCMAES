@@ -20,6 +20,24 @@ namespace repelling
 			const auto delta = u - v;
 			return std::sqrt(delta.transpose() * C_inv * delta);
 		}
+
+		//! Returns true when u belongs to the same niche as v
+		bool hill_valley_test(
+			const Solution &u,
+			const Solution &v,
+			FunctionType &f,
+			const size_t n_evals) 
+		{
+			const double max_f = std::max(u.y, v.y);
+			for (size_t k = 1; k < n_evals + 1; k++)
+			{
+				const double a = static_cast<double>(k) / (static_cast<double>(n_evals) + 1.0);
+				const Vector x = v.x + a * (u.x - v.x);
+				if (max_f < f(x))
+					return false;
+			}
+			return true;
+		}
 	}
 
 

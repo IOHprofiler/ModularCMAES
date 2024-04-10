@@ -228,7 +228,9 @@ void define_repelling(py::module &main)
         .def(py::init<>());
 
     m.def("euclidian", &distance::euclidian, py::arg("u"), py::arg("v"));
+    m.def("manhattan", &distance::manhattan, py::arg("u"), py::arg("v"));
     m.def("mahanolobis", &distance::mahanolobis, py::arg("u"), py::arg("v"), py::arg("C_inv"));
+    m.def("hill_valley_test", &distance::hill_valley_test, py::arg("u"), py::arg("v"), py::arg("f"), py::arg("n_evals"));
 }
 
 void define_matrix_adaptation(py::module &main)
@@ -660,8 +662,7 @@ void define_mutation(py::module &main)
             py::arg("sigma0"))
         .def_readwrite("damps", &CSA::damps)
         .def(
-            "mutate", &CSA::mutate,
-            py::arg("objective"),
+            "mutate", &CSA::mutate, py::arg("objective"),            
             py::arg("n_offspring"),
             py::arg("parameters"));
 
@@ -875,8 +876,9 @@ void define_cmaes(py::module &m)
     py::class_<ModularCMAES>(m, "ModularCMAES")
         .def(py::init<std::shared_ptr<parameters::Parameters>>(), py::arg("parameters"))
         .def("recombine", &ModularCMAES::recombine)
-        .def("mutate", [](ModularCMAES &self, FunctionType &objective)
-             { self.p->mutation->mutate(objective, self.p->lambda, *self.p); })
+        .def("mutate", [](ModularCMAES &self, FunctionType& f)
+             { self.p->mutation->mutate(f, self.p->lambda, *self.p); },
+             py::arg("objective"))
         .def("select", [](ModularCMAES &self)
              { self.p->selection->select(*self.p); })
         .def("adapt", [](ModularCMAES &self)
@@ -887,6 +889,7 @@ void define_cmaes(py::module &m)
         .def("break_conditions", &ModularCMAES::break_conditions)
         .def_readonly("p", &ModularCMAES::p);
 }
+
 
 PYBIND11_MODULE(cmaescpp, m)
 {

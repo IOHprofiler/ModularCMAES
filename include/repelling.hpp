@@ -15,14 +15,12 @@ namespace repelling
 		double manhattan(const Vector &u, const Vector &v);
 		double euclidian(const Vector &u, const Vector &v);
 		double mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv);
+		bool hill_valley_test(
+			const Solution &u,
+			const Solution &v,
+			FunctionType &f,
+			const size_t n_evals);
 	}
-
-	bool hill_valley_test(
-		const Vector &u, 
-		const Vector &v, 
-		parameters::Parameters &p, 
-		const size_t n_evals
-	);
 
 	struct TabooPoint
 	{

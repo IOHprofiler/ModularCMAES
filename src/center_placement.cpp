@@ -28,7 +28,7 @@ namespace center
         {
             if (n_points % 2 == 0)
             {
-                for (size_t i = 0; i < p.adaptation->m.size(); i++)
+                for (Eigen::Index i = 0; i < p.adaptation->m.size(); i++)
                 {
                     for (const auto &point : p.repelling->archive)
                         p.adaptation->m(i) += point.solution.x(i);
