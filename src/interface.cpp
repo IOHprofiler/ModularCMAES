@@ -203,7 +203,7 @@ void define_repelling(py::module &main)
     py::class_<TabooPoint>(m, "TabooPoint")
         .def(py::init<Solution, double, Matrix, Matrix>(), py::arg("solution"), py::arg("radius"), py::arg("C"), py::arg("C_inv"))
         .def("rejects", &TabooPoint::rejects, py::arg("xi"), py::arg("p"), py::arg("attempts"))
-        .def("shares_basin", &TabooPoint::shares_basin, py::arg("xi"), py::arg("p"))
+        .def("shares_basin", &TabooPoint::shares_basin, py::arg("objective"), py::arg("xi"), py::arg("p"))
         .def("calculate_criticality", &TabooPoint::calculate_criticality, py::arg("p"))
         .def_readwrite("radius", &TabooPoint::radius)
         .def_readwrite("n_rep", &TabooPoint::n_rep)
@@ -216,7 +216,7 @@ void define_repelling(py::module &main)
     py::class_<Repelling, std::shared_ptr<Repelling>>(m, "Repelling")
         .def(py::init<>())
         .def("is_rejected", &Repelling::is_rejected, py::arg("xi"), py::arg("p"))
-        .def("update_archive", &Repelling::update_archive, py::arg("p"))
+        .def("update_archive", &Repelling::update_archive, py::arg("objective"), py::arg("p"))
         .def("prepare_sampling", &Repelling::prepare_sampling, py::arg("p"))
         .def_readwrite("C", &Repelling::C)
         .def_readwrite("C_inv", &Repelling::C_inv)
@@ -230,7 +230,8 @@ void define_repelling(py::module &main)
     m.def("euclidian", &distance::euclidian, py::arg("u"), py::arg("v"));
     m.def("manhattan", &distance::manhattan, py::arg("u"), py::arg("v"));
     m.def("mahanolobis", &distance::mahanolobis, py::arg("u"), py::arg("v"), py::arg("C_inv"));
-    m.def("hill_valley_test", &distance::hill_valley_test, py::arg("u"), py::arg("v"), py::arg("f"), py::arg("n_evals"));
+    m.def("hill_valley_test", &distance::hill_valley_test, 
+        py::arg("u"), py::arg("v"), py::arg("f"), py::arg("n_evals"));
 }
 
 void define_matrix_adaptation(py::module &main)
@@ -407,6 +408,7 @@ void define_parameters(py::module &main)
         .def_readwrite("evaluations", &Stats::evaluations)
         .def_readwrite("current_avg", &Stats::current_avg)
         .def_readwrite("solutions", &Stats::solutions)
+        .def_readwrite("centers", &Stats::centers)
         .def_readwrite("current_best", &Stats::current_best)
         .def_readwrite("global_best", &Stats::global_best)
         .def("__repr__", [](Stats &stats)
@@ -525,8 +527,9 @@ void define_parameters(py::module &main)
     py::class_<Parameters, std::shared_ptr<Parameters>>(main, "Parameters")
         .def(py::init<size_t>(), py::arg("dimension"))
         .def(py::init<Settings>(), py::arg("settings"))
-        .def("adapt", &Parameters::adapt)
-        .def("perform_restart", &Parameters::perform_restart, py::arg("sigma") = std::nullopt)
+        .def("adapt", &Parameters::adapt, py::arg("objective"))
+        .def("perform_restart", &Parameters::perform_restart, py::arg("objective"),
+        py::arg("sigma") = std::nullopt)
         .def_readwrite("settings", &Parameters::settings)
         .def_readwrite("mu", &Parameters::mu)
         .def_readwrite("lamb", &Parameters::lambda)
@@ -662,7 +665,7 @@ void define_mutation(py::module &main)
             py::arg("sigma0"))
         .def_readwrite("damps", &CSA::damps)
         .def(
-            "mutate", &CSA::mutate, py::arg("objective"),            
+            "mutate", &CSA::mutate, py::arg("objective"),
             py::arg("n_offspring"),
             py::arg("parameters"));
 
@@ -837,29 +840,29 @@ void define_restart(py::module &main)
             return ss.str(); });
 
     py::class_<Strategy, std::shared_ptr<Strategy>>(m, "Strategy")
-        .def("evaluate", &Strategy::evaluate, py::arg("parameters"))
+        .def("evaluate", &Strategy::evaluate, py::arg("objective"), py::arg("parameters"))
         .def_readwrite("criteria", &Strategy::criteria);
 
     py::class_<None, Strategy, std::shared_ptr<None>>(m, "NoRestart")
         .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &None::restart, py::arg("parameters"));
+        .def("restart", &None::restart, py::arg("objective"), py::arg("parameters"));
 
     py::class_<Stop, Strategy, std::shared_ptr<Stop>>(m, "Stop")
         .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &Stop::restart, py::arg("parameters"));
+        .def("restart", &Stop::restart, py::arg("objective"),py::arg("parameters"));
 
     py::class_<Restart, Strategy, std::shared_ptr<Restart>>(m, "Restart")
         .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &Restart::restart, py::arg("parameters"));
+        .def("restart", &Restart::restart, py::arg("objective"),py::arg("parameters"));
 
     py::class_<IPOP, Strategy, std::shared_ptr<IPOP>>(m, "IPOP")
         .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &IPOP::restart, py::arg("parameters"))
+        .def("restart", &IPOP::restart, py::arg("objective"), py::arg("parameters"))
         .def_readwrite("ipop_factor", &IPOP::ipop_factor);
 
     py::class_<BIPOP, Strategy, std::shared_ptr<BIPOP>>(m, "BIPOP")
         .def(py::init<double, double, double, double, size_t>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"), py::arg("mu"), py::arg("budget"))
-        .def("restart", &BIPOP::restart, py::arg("parameters"))
+        .def("restart", &BIPOP::restart, py::arg("objective"),py::arg("parameters"))
         .def("large", &BIPOP::large)
         .def_readwrite("mu_factor", &BIPOP::mu_factor)
         .def_readwrite("lambda_init", &BIPOP::lambda_init)
@@ -876,20 +879,22 @@ void define_cmaes(py::module &m)
     py::class_<ModularCMAES>(m, "ModularCMAES")
         .def(py::init<std::shared_ptr<parameters::Parameters>>(), py::arg("parameters"))
         .def("recombine", &ModularCMAES::recombine)
-        .def("mutate", [](ModularCMAES &self, FunctionType& f)
-             { self.p->mutation->mutate(f, self.p->lambda, *self.p); },
-             py::arg("objective"))
+        .def(
+            "mutate", [](ModularCMAES &self, FunctionType &f)
+            { self.p->mutation->mutate(f, self.p->lambda, *self.p); },
+            py::arg("objective"))
         .def("select", [](ModularCMAES &self)
              { self.p->selection->select(*self.p); })
-        .def("adapt", [](ModularCMAES &self)
-             { self.p->adapt(); })
+        .def(
+            "adapt", [](ModularCMAES &self, FunctionType &f)
+            { self.p->adapt(f); },
+            py::arg("objective"))
         .def("step", &ModularCMAES::step, py::arg("objective"))
         .def("__call__", &ModularCMAES::operator(), py::arg("objective"))
         .def("run", &ModularCMAES::operator(), py::arg("objective"))
         .def("break_conditions", &ModularCMAES::break_conditions)
         .def_readonly("p", &ModularCMAES::p);
 }
-
 
 PYBIND11_MODULE(cmaescpp, m)
 {

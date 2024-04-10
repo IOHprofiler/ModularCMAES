@@ -22,18 +22,7 @@ namespace selection
 		p.pop.resize_cols(p.lambda);
 
 		p.stats.current_avg = p.pop.f.array().mean();
-
-		if (p.pop.f(0) < p.stats.current_best.y)
-		{
-			p.stats.current_best = Solution(
-				Vector(p.pop.X(Eigen::all, 0)),
-				p.pop.f(0), p.stats.t, p.stats.evaluations
-			);
-
-			if (p.stats.current_best < p.stats.global_best)
-				p.stats.global_best = p.stats.current_best;
-		}
-
+		p.stats.update_best(p.pop.X(Eigen::all, 0), p.pop.f(0));
 	}
 
 	void Pairwise::operator()(parameters::Parameters& p) const

@@ -97,34 +97,34 @@ namespace restart
 
 		Strategy(const double sigma0, const double d, const double lambda) : criteria{sigma0, d, lambda, 0} {}
 
-		void evaluate(parameters::Parameters &p);
+		void evaluate(FunctionType& objective, parameters::Parameters &p);
 
-		virtual void restart(parameters::Parameters &) = 0;
+		virtual void restart(FunctionType& objective, parameters::Parameters &) = 0;
 	};
 
 	struct None : Strategy
 	{
 		using Strategy::Strategy;
-		void restart(parameters::Parameters &p) override {}
+		void restart(FunctionType& objective, parameters::Parameters &p) override {}
 	};
 
 	struct Stop : Strategy
 	{
 		using Strategy::Strategy;
-		void restart(parameters::Parameters &p) override {}
+		void restart(FunctionType& objective, parameters::Parameters &p) override {}
 	};
 
 	struct Restart : Strategy
 	{
 		using Strategy::Strategy;
-		void restart(parameters::Parameters &) override;
+		void restart(FunctionType& objective, parameters::Parameters &) override;
 	};
 
 	struct IPOP : Strategy
 	{
 		double ipop_factor = 2.0;
 		using Strategy::Strategy;
-		void restart(parameters::Parameters &) override;
+		void restart(FunctionType& objective, parameters::Parameters &) override;
 	};
 
 	struct BIPOP : Strategy
@@ -145,7 +145,7 @@ namespace restart
 		{
 		}
 
-		void restart(parameters::Parameters &) override;
+		void restart(FunctionType& objective, parameters::Parameters &) override;
 
 		bool large() const
 		{

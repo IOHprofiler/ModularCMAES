@@ -38,9 +38,9 @@ namespace parameters
         Parameters(const size_t dim);
         Parameters(const Settings &settings);
 
-        void adapt();
+        void adapt(FunctionType& objective);
 
-        void perform_restart(const std::optional<double> &sigma = std::nullopt);
+        void perform_restart(FunctionType& objective, const std::optional<double> &sigma = std::nullopt);
 
         bool invalid_state() const;
     };

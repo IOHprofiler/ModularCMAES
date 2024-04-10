@@ -13,7 +13,7 @@ bool ModularCMAES::step(FunctionType& objective) const
 	p->selection->select(*p);
 
 	recombine();
-	p->adapt();
+	p->adapt(objective);
 	if (p->stats.t % (p->settings.dim * 2) == 0 and p->settings.verbose)
 		std::cout << p->stats << " (mu, lambda, sigma): " << p->mu
 			<< ", " << p->lambda << ", " << p->mutation->sigma << '\n';

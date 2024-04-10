@@ -148,20 +148,20 @@ namespace restart
 		return false;
 	}
 
-	void Strategy::evaluate(parameters::Parameters &p)
+	void Strategy::evaluate(FunctionType &objective, parameters::Parameters &p)
 	{
 		if (criteria(p))
 		{
-			restart(p);
+			restart(objective, p);
 		}
 	}
 
-	void Restart::restart(parameters::Parameters &p)
+	void Restart::restart(FunctionType &objective, parameters::Parameters &p)
 	{
-		p.perform_restart();
+		p.perform_restart(objective);
 	}
 
-	void IPOP::restart(parameters::Parameters &p)
+	void IPOP::restart(FunctionType &objective, parameters::Parameters &p)
 	{
 		const size_t max_lambda = static_cast<size_t>(std::pow(p.settings.dim * p.lambda, 2));
 		if (p.mu < max_lambda)
@@ -169,10 +169,10 @@ namespace restart
 			p.mu *= static_cast<size_t>(ipop_factor);
 			p.lambda *= static_cast<size_t>(ipop_factor);
 		}
-		p.perform_restart();
+		p.perform_restart(objective);
 	}
 
-	void BIPOP::restart(parameters::Parameters &p)
+	void BIPOP::restart(FunctionType &objective, parameters::Parameters &p)
 	{
 		static std::uniform_real_distribution<> dist;
 
@@ -205,6 +205,7 @@ namespace restart
 
 		p.lambda = std::max(size_t{2}, large() ? lambda_large : lambda_small);
 		p.mu = std::max(1.0, p.lambda * mu_factor);
-		p.perform_restart(large() ? p.settings.sigma0 : p.settings.sigma0 * std::pow(10, -2 * dist(rng::GENERATOR)));
+		p.perform_restart(objective,
+						  large() ? p.settings.sigma0 : p.settings.sigma0 * std::pow(10, -2 * dist(rng::GENERATOR)));
 	}
 }

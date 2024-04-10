@@ -18,12 +18,12 @@ namespace parameters
 																			  settings.cs)),
 													   selection(std::make_shared<selection::Strategy>(settings.modules)),
 													   restart(restart::get(
-																			settings.modules.restart_strategy,
-																			settings.sigma0, 
-																			static_cast<double>(settings.dim),
-																			static_cast<double>(settings.lambda0),
-																			static_cast<double>(settings.mu0),
-																			settings.budget)),
+														   settings.modules.restart_strategy,
+														   settings.sigma0,
+														   static_cast<double>(settings.dim),
+														   static_cast<double>(settings.lambda0),
+														   static_cast<double>(settings.mu0),
+														   settings.budget)),
 													   bounds(bounds::get(settings.modules.bound_correction, settings.lb, settings.ub)),
 													   repelling(repelling::get(settings.modules)),
 													   center_placement(center::get(settings.modules.center_placement))
@@ -34,10 +34,18 @@ namespace parameters
 	{
 	}
 
-	void Parameters::perform_restart(const std::optional<double> &sigma)
+	void Parameters::perform_restart(FunctionType &objective, const std::optional<double> &sigma)
 	{
 		stats.solutions.push_back(stats.current_best);
-		repelling->update_archive(*this);
+		
+		stats.evaluations++;
+		stats.centers.emplace_back(
+			adaptation->m, objective(adaptation->m), 
+			stats.t, stats.evaluations
+		);
+		stats.update_best(stats.centers.back().x, stats.centers.back().y);
+
+		repelling->update_archive(objective, *this);
 
 		weights = Weights(settings.dim, mu, lambda, settings);
 		sampler = sampling::get(settings.dim, settings.modules, lambda);
@@ -66,18 +74,17 @@ namespace parameters
 		return sigma_out_of_bounds;
 	}
 
-	void Parameters::adapt()
+	void Parameters::adapt(FunctionType &objective)
 	{
 		adaptation->adapt_evolution_paths(pop, weights, mutation, stats, mu, lambda);
 		mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
 
 		auto successfull_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings);
 		if (!successfull_adaptation or invalid_state())
-			perform_restart();
+			perform_restart(objective);
 
 		old_pop = pop;
-		restart->evaluate(*this);
-
+		restart->evaluate(objective, *this);
 		stats.t++;
 	}
 }

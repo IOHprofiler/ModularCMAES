@@ -5,11 +5,11 @@ namespace repelling
 {
 	namespace distance
 	{
-		double manhattan(const Vector &u, const Vector &v) 
+		double manhattan(const Vector &u, const Vector &v)
 		{
 			return (u - v).cwiseAbs().sum();
 		}
-		
+
 		double euclidian(const Vector &u, const Vector &v)
 		{
 			return (u - v).norm();
@@ -21,25 +21,47 @@ namespace repelling
 			return std::sqrt(delta.transpose() * C_inv * delta);
 		}
 
-		//! Returns true when u belongs to the same niche as v
-		bool hill_valley_test(
+		//! Returns true when u belongs to the same basin as v
+		bool hill_valley_test_p(
 			const Solution &u,
 			const Solution &v,
 			FunctionType &f,
-			const size_t n_evals) 
+			const size_t n_evals,
+			parameters::Parameters &p)
 		{
 			const double max_f = std::max(u.y, v.y);
 			for (size_t k = 1; k < n_evals + 1; k++)
 			{
 				const double a = static_cast<double>(k) / (static_cast<double>(n_evals) + 1.0);
 				const Vector x = v.x + a * (u.x - v.x);
-				if (max_f < f(x))
+				const double y = f(x);
+				p.stats.evaluations++;
+				if (max_f < y)
+					return false;
+				p.stats.update_best(x, y);
+			}
+			return true;
+		}
+
+		bool hill_valley_test(
+			const Solution &u,
+			const Solution &v,
+			FunctionType &f,
+			const size_t n_evals
+			)
+		{
+			const double max_f = std::max(u.y, v.y);
+			for (size_t k = 1; k < n_evals + 1; k++)
+			{
+				const double a = static_cast<double>(k) / (static_cast<double>(n_evals) + 1.0);
+				const Vector x = v.x + a * (u.x - v.x);
+				const double y = f(x);
+				if (max_f < y)
 					return false;
 			}
 			return true;
 		}
 	}
-
 
 	bool TabooPoint::rejects(const Vector &xi, const parameters::Parameters &p, const int attempts) const
 	{
@@ -53,12 +75,9 @@ namespace repelling
 		return false;
 	}
 
-	bool TabooPoint::shares_basin(const Vector &xi, const parameters::Parameters &p) const
+	bool TabooPoint::shares_basin(FunctionType &objective, const Solution &sol, parameters::Parameters &p) const
 	{
-		
-		if (distance::euclidian(xi, solution.x) < 0.01)
-			return true;
-		return false;
+		return distance::hill_valley_test_p(sol, solution, objective, 10, p);
 	}
 
 	void TabooPoint::calculate_criticality(const parameters::Parameters &p)
@@ -69,7 +88,6 @@ namespace repelling
 		const auto l = delta_m - radius;
 		criticality = cdf(u) - cdf(l);
 	}
-	
 
 	void Repelling::prepare_sampling(const parameters::Parameters &p)
 	{
@@ -81,41 +99,36 @@ namespace repelling
 				  { return a.criticality > b.criticality; });
 
 		//! If it is not intialized
-		if (C.cols() != p.settings.dim) 
+		if (C.cols() != p.settings.dim)
 		{
 			C = Matrix::Identity(p.settings.dim, p.settings.dim);
 			C_inv = Matrix::Identity(p.settings.dim, p.settings.dim);
 		}
-		
+
 		if (!(p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::NONE ||
 			  p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::MATRIX))
 		{
 			using namespace matrix_adaptation;
 			const auto dynamic = std::dynamic_pointer_cast<CovarianceAdaptation>(p.adaptation);
-			
+
 			const double d_sigma = p.mutation->sigma / p.settings.sigma0;
-			if (d_sigma > constants::sigma_threshold) 
+			if (d_sigma > constants::sigma_threshold)
 			{
 				C = dynamic->C / dynamic->C.maxCoeff();
 				C_inv = dynamic->inv_C / dynamic->inv_C.maxCoeff();
 			}
-		} 
+		}
 	}
 
-	void Repelling::update_archive(parameters::Parameters &p)
+	void Repelling::update_archive(FunctionType &objective, parameters::Parameters &p)
 	{
-		const auto candidate_point = Solution(
-			p.adaptation->m,
-			p.stats.current_avg,
-			p.stats.t,
-			p.stats.evaluations);
+		const auto candidate_point = p.stats.centers.back();
 
 		bool accept_candidate = true;
 
-		double n_restarts = 0;
 		for (auto &point : archive)
 		{
-			if (point.shares_basin(candidate_point.x, p))
+			if (point.shares_basin(objective, candidate_point, p))
 			{
 				point.n_rep++;
 				accept_candidate = false;
@@ -125,16 +138,12 @@ namespace repelling
 					point.solution = candidate_point;
 				}
 			}
-			n_restarts += point.n_rep;
 		}
 
 		if (accept_candidate)
-		{
 			archive.emplace_back(candidate_point, 1.0, C, C_inv);
-			n_restarts += 1;
-		}
 
-		const double volume_per_n = p.settings.volume / (p.settings.sigma0 * coverage * n_restarts);
+		const double volume_per_n = p.settings.volume / (p.settings.sigma0 * coverage * p.stats.solutions.size());
 		const double n = p.adaptation->dd;
 		const double gamma_f = std::pow(std::tgamma(n / 2.0 + 1.0), 1.0 / n) / std::sqrt(M_PI);
 		for (auto &point : archive)

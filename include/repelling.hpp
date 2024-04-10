@@ -15,11 +15,19 @@ namespace repelling
 		double manhattan(const Vector &u, const Vector &v);
 		double euclidian(const Vector &u, const Vector &v);
 		double mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv);
+
 		bool hill_valley_test(
 			const Solution &u,
 			const Solution &v,
 			FunctionType &f,
 			const size_t n_evals);
+
+		bool hill_valley_test_p(
+			const Solution &u,
+			const Solution &v,
+			FunctionType &f,
+			const size_t n_evals,
+			parameters::Parameters &p);
 	}
 
 	struct TabooPoint
@@ -52,7 +60,7 @@ namespace repelling
 		 */
 		bool rejects(const Vector &xi, const parameters::Parameters &p, const int attempts) const;
 
-		bool shares_basin(const Vector &xi, const parameters::Parameters &p) const;
+		bool shares_basin(FunctionType &objective, const Solution &sol, parameters::Parameters &p) const;
 
 		void calculate_criticality(const parameters::Parameters &p);
 	};
@@ -80,7 +88,7 @@ namespace repelling
 		 * \brief Update the archive of points
 		 * \param p
 		 */
-		virtual void update_archive(parameters::Parameters &p);
+		virtual void update_archive(FunctionType &objective, parameters::Parameters &p);
 
 		/**
 		 * \brief Hook before sampling starts
@@ -96,7 +104,7 @@ namespace repelling
 			return false;
 		}
 
-		void update_archive(parameters::Parameters &p) override
+		void update_archive(FunctionType &objective, parameters::Parameters &p) override
 		{
 		}
 
