@@ -2,7 +2,8 @@
 
 import unittest
 import numpy as np
-from modcma.c_maes import bounds, Population
+from modcma.c_maes import bounds, Population, Parameters, parameters
+
 
 
 class TestBounds(unittest.TestCase):
@@ -15,49 +16,38 @@ class TestBounds(unittest.TestCase):
         bounds.Toroidal,
         bounds.UniformResample,
     )
-    __do_nothing = (bounds.CountOutOfBounds, bounds.NoCorrection, )
-
+    __do_nothing = (bounds.NoCorrection, )
 
     def setUp(self):
-        self.lb =  np.zeros(2)
-        self.ub =  np.ones(2) * 2
-        
-        self.pop = Population(2, 2)
-        self.pop.s = np.ones(2) * 1
-        self.m = np.ones(2) * 0.1
-        Z = np.ones((2, 2)) * 1.5
+        self.lb, self.ub = np.zeros(2), np.ones(2) * 2
+        self.par = Parameters(parameters.Settings(2, lambda0=2, lb=self.lb, ub=self.ub))
+        self.par.pop.s = np.ones(2) * 2
+        self.par.adaptation.m = np.ones(2) * 0.1
+        Z = np.ones((2, 2)) * 0.9
         Z[0, 0] *= 2
-        self.pop.Z = Z
-        self.pop.Y = self.pop.Z.copy()
-        self.pop.X = self.m + (self.pop.s * self.pop.Y)
+        self.par.pop.Z = Z
+        self.par.pop.Y = self.par.pop.Z.copy()
+        self.par.pop.X = self.par.adaptation.m + (self.par.pop.s * self.par.pop.Y)
 
     def test_bound_fixers(self):
         for boundcntrl in self.__bound_fixers:
             method = boundcntrl(self.lb, self.ub)
-            method.correct(self.pop, self.m)
+            method.correct(1, self.par)
+            self.assertEqual(method.n_out_of_bounds, 0)
+            method.correct(0, self.par)
             self.assertEqual(method.n_out_of_bounds, 1)
-            self.assertTrue(np.all(self.pop.X <= 2))
-            self.assertTrue(np.all(self.pop.Y.ravel()[1:] == 1.5))
-            self.assertTrue(np.all(self.pop.X.ravel()[1:] == 1.6))
+            self.assertTrue(np.all(self.par.pop.X <= 2))
+            self.assertTrue(np.all(np.isclose(self.par.pop.Y.ravel()[1:], 0.9)))
+            self.assertTrue(np.all(np.isclose(self.par.pop.X.ravel()[1:], 1.9)))
             self.setUp()
 
     def test_do_nothing(self):
         method = bounds.NoCorrection(self.lb, self.ub)
-        method.correct(self.pop, self.m)
-
-        self.assertEqual(method.n_out_of_bounds, 0)
-        self.assertFalse(np.all(self.pop.X <= 2))
-        self.assertTrue(np.all(self.pop.Y.ravel()[1:] == 1.5))
-        self.assertTrue(np.all(self.pop.X.ravel()[1:] == 1.6))
-
-    def test_do_count(self):
-        method = bounds.CountOutOfBounds(self.lb, self.ub)
-        method.correct(self.pop, self.m)
-
+        method.correct(0, self.par)
         self.assertEqual(method.n_out_of_bounds, 1)
-        self.assertFalse(np.all(self.pop.X <= 2))
-        self.assertTrue(np.all(self.pop.Y.ravel()[1:] == 1.5))
-        self.assertTrue(np.all(self.pop.X.ravel()[1:] == 1.6))
+        self.assertFalse(np.all(self.par.pop.X <= 2))
+        self.assertTrue(np.all(np.isclose(self.par.pop.Y.ravel()[1:], 0.9)))
+        self.assertTrue(np.all(np.isclose(self.par.pop.X.ravel()[1:], 1.9)))
 
 
 if __name__ == "__main__":

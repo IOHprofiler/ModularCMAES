@@ -188,13 +188,45 @@ namespace rng
 	 */
 	void set_seed(int seed);
 	/**
-	 * @brief random integer generator using global GENERATOR
+	 * @brief random integer generator using global GENERATOR in the half open interval [l, h)
 	 *
 	 * @param l lower bound
 	 * @param h upper bound
 	 * @return int a random integer
 	 */
-	int random_integer(int l, int h);
+	int random_integer(const int l, const int h);
+
+	/**
+	 * @brief a shuffler that generates a random permutation of a
+	 * sequence of integers from start to stop using an lcg.
+	 */
+	struct Shuffler
+	{
+		size_t start;
+		size_t stop;
+		size_t n;
+		size_t seed;
+		size_t offset;
+		size_t multiplier;
+		size_t modulus;
+		size_t found;
+
+		Shuffler(const size_t start, const size_t stop) : start(start),
+														  stop(stop),
+														  n(stop - start),
+														  seed(static_cast<size_t>(random_integer(0, (stop - start)))),
+														  offset(static_cast<size_t>(random_integer(0, (stop - start)) * 2 + 1)),
+														  multiplier(4 * ((stop - start) / 4) + 1),
+														  modulus(static_cast<size_t>(pow(2, std::ceil(std::log2(stop - start))))),
+														  found(0)
+		{
+		}
+
+		Shuffler(const size_t stop) : Shuffler(0, stop) {}
+
+		void advance();
+		size_t next();
+	};
 
 	/**
 	 * @brief distribution which in compbination with mt19997 produces the same

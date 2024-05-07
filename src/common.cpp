@@ -92,10 +92,24 @@ namespace rng
 		srand(seed);
 	}
 
-	int random_integer(int l, int h)
+	int random_integer(const int l, const int h)
 	{
-		std::uniform_int_distribution<> distrib(l, h);
+		std::uniform_int_distribution<> distrib(l, std::max(l, h - 1));
 		return distrib(GENERATOR);
+	}
+
+	void Shuffler::advance() 
+	{
+		do {
+			seed = (seed * multiplier + offset) % modulus;
+		} while (seed > n);
+	}
+	size_t Shuffler::next() 
+	{
+		if (found > 0)
+			advance();
+		found++;
+		return start + seed;
 	}
 }
 

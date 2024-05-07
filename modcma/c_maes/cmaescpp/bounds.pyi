@@ -19,9 +19,6 @@ class COTN(BoundCorrection):
     @property
     def sampler(self) -> modcma.c_maes.cmaescpp.sampling.Gaussian: ...
 
-class CountOutOfBounds(BoundCorrection):
-    def __init__(self, lb: numpy.ndarray, ub: numpy.ndarray) -> None: ...
-
 class Mirror(BoundCorrection):
     def __init__(self, lb: numpy.ndarray, ub: numpy.ndarray) -> None: ...
 
