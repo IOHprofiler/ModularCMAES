@@ -1,5 +1,7 @@
+#define _USE_MATH_DEFINES
 #include <cmath>
 #include <limits>
+
 /*                                                  adopted from:  ndtri.c
  *
  *     Inverse of Normal distribution function
@@ -150,7 +152,7 @@ static double polevl(double x, const double coef[], int N)
 	return (ans);
 }
 
-double p1evl(double x, const double coef[], int N)
+static double p1evl(double x, const double coef[], int N)
 {
 	double ans;
 	const double* p;
@@ -169,7 +171,7 @@ double p1evl(double x, const double coef[], int N)
 	return (ans);
 }
 
-double ndtri(double y0)
+static double ndtri(double y0)
 {
 	double x, y, z, y2, x0, x1;
 	int code;
@@ -417,7 +419,7 @@ static double U[] = {
 #define UTHRESH 37.519379347
 #define MAXLOG 7.09782712893383996843E2
 
-double ndtr(double a)
+static double ndtr(double a)
 {
     double x, y, z;
 
@@ -440,8 +442,7 @@ double ndtr(double a)
     return y;
 }
 
-
-double erfc(double a)
+static double erfc(double a)
 {
     double p, q, x, y, z;
 
@@ -494,9 +495,7 @@ under:
     }
 }
 
-
-
-double erf(double x)
+static double erf(double x)
 {
     double y, z;
 
