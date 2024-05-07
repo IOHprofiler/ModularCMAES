@@ -430,10 +430,10 @@ static double ndtr(double a)
     z = fabs(x);
 
     if (z < M_SQRT1_2) {
-        y = 0.5 + 0.5 * erf(x);
+        y = 0.5 + 0.5 * ndtri_erf(x);
     }
     else {
-        y = 0.5 * erfc(z);
+        y = 0.5 * ndtri_erfc(z);
         if (x > 0) {
             y = 1.0 - y;
         }
@@ -442,7 +442,7 @@ static double ndtr(double a)
     return y;
 }
 
-static double erfc(double a)
+static double ndtri_erfc(double a)
 {
     double p, q, x, y, z;
 
@@ -457,7 +457,7 @@ static double erfc(double a)
     }
 
     if (x < 1.0) {
-        return 1.0 - erf(a);
+        return 1.0 - ndtri_erf(a);
     }
 
     z = -a * a;
@@ -495,7 +495,7 @@ under:
     }
 }
 
-static double erf(double x)
+static double ndtri_erf(double x)
 {
     double y, z;
 
@@ -503,11 +503,11 @@ static double erf(double x)
 		return std::numeric_limits<double>::signaling_NaN();
 
     if (x < 0.0) {
-        return -erf(-x);
+        return -ndtri_erf(-x);
     }
 
     if (fabs(x) > 1.0) {
-        return (1.0 - erfc(x));
+        return (1.0 - ndtri_erfc(x));
     }
     z = x * x;
 
