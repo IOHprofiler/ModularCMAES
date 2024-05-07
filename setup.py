@@ -45,7 +45,11 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     cmdclass={"build_ext": build_ext},
     ext_modules=[ext],
-    install_requires=["numpy", "scipy", "ioh"],
+    install_requires=[
+        "numpy", 
+        "scipy", 
+        "ioh>=0.3.12,!=0.3.15"
+    ],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
