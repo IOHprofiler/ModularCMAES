@@ -419,29 +419,7 @@ static double U[] = {
 #define UTHRESH 37.519379347
 #define MAXLOG 7.09782712893383996843E2
 
-static double ndtr(double a)
-{
-    double x, y, z;
-
-	if (std::isnan(a))
-		return std::numeric_limits<double>::signaling_NaN();
-
-    x = a * M_SQRT1_2;
-    z = fabs(x);
-
-    if (z < M_SQRT1_2) {
-        y = 0.5 + 0.5 * ndtri_erf(x);
-    }
-    else {
-        y = 0.5 * ndtri_erfc(z);
-        if (x > 0) {
-            y = 1.0 - y;
-        }
-    }
-
-    return y;
-}
-
+static double ndtri_erf(double x);
 static double ndtri_erfc(double a)
 {
     double p, q, x, y, z;
@@ -512,6 +490,29 @@ static double ndtri_erf(double x)
     z = x * x;
 
     y = x * polevl(z, T, 4) / p1evl(z, U, 5);
+    return y;
+}
+
+static double ndtr(double a)
+{
+    double x, y, z;
+
+	if (std::isnan(a))
+		return std::numeric_limits<double>::signaling_NaN();
+
+    x = a * M_SQRT1_2;
+    z = fabs(x);
+
+    if (z < M_SQRT1_2) {
+        y = 0.5 + 0.5 * ndtri_erf(x);
+    }
+    else {
+        y = 0.5 * ndtri_erfc(z);
+        if (x > 0) {
+            y = 1.0 - y;
+        }
+    }
+
     return y;
 }
 
