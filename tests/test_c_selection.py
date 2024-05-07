@@ -17,7 +17,7 @@ class TestSelection(unittest.TestCase):
         self.p.pop.f = -np.arange(4)
         selector.select(self.p)
         self.assertTrue(np.all(self.p.pop.f == -np.arange(4)[::-1]))
-        self.assertEqual(self.p.stats.fopt, -3)
+        self.assertEqual(self.p.stats.global_best.y, -3)
 
     def test_elitsm(self):
         self.p.settings.modules.elitist = True
@@ -27,7 +27,7 @@ class TestSelection(unittest.TestCase):
         self.p.old_pop.f = -np.arange(1, 5)
 
         selector.select(self.p)
-        self.assertEqual(self.p.stats.fopt, -4)
+        self.assertEqual(self.p.stats.global_best.y, -4)
         self.assertTrue(np.all(self.p.pop.f == np.array([-4., -3., -3., -2.])))
 
     def test_pairwise(self):
@@ -38,7 +38,7 @@ class TestSelection(unittest.TestCase):
         selector.select(self.p)
 
         self.assertTrue(np.all(self.p.pop.f == np.array([-3., -1., float("inf"), float("inf")])))
-        self.assertEqual(self.p.stats.fopt, -3)
+        self.assertEqual(self.p.stats.global_best.y, -3)
 
 
 if __name__ == "__main__":

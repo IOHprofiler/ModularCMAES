@@ -20,8 +20,6 @@ namespace bounds
 		return 	(oob).select((xi - lb).cwiseQuotient(db), xi);;
 	}
 
-
-
 	void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters& p)
 	{
 		const auto oob = is_out_of_bounds(p.pop.X.col(i));

@@ -2,8 +2,6 @@
 
 #include "common.hpp"
 
-
-
 namespace parameters
 {
     struct Modules;
@@ -21,6 +19,10 @@ namespace sampling
         Sampler(const size_t d) : d(d) {}
         [[nodiscard]] virtual Vector operator()() = 0;
         size_t d;
+
+        virtual void reset(const parameters::Modules &, const size_t)
+        {
+        }
     };
 
     /**
@@ -76,6 +78,12 @@ namespace sampling
 
         [[nodiscard]] Vector operator()() override;
 
+        void reset(const parameters::Modules& m, const size_t l) override
+        {
+            sampler->reset(m, l);
+            mirror = false;
+        }
+
     private:
         std::shared_ptr<Sampler> sampler;
         Vector previous;
@@ -101,6 +109,10 @@ namespace sampling
 
         [[nodiscard]] Vector operator()() override;
 
+        void reset(const parameters::Modules& mod, const size_t lambda) override;
+
+        static size_t get_n_samples(const parameters::Modules &modules, const size_t lambda);
+
     private:
         std::shared_ptr<Sampler> sampler;
         size_t n;
@@ -116,12 +128,13 @@ namespace sampling
      */
     struct Halton : Sampler
     {
-        Halton(const size_t d, const size_to i = std::nullopt);
+        Halton(const size_t d, const size_t budget);
 
         [[nodiscard]] Vector operator()() override;
 
     private:
-        size_t seed;
+        rng::Shuffler shuffler;
+
         std::vector<int> primes;
 
         static double next(int index, int base);
@@ -137,18 +150,17 @@ namespace sampling
      */
     struct Sobol : Sampler
     {
-        Sobol(const size_t d) : Sampler(d), seed(rng::random_integer(2, std::max(3, static_cast<int>(d * d))))
+        Sobol(const size_t d, const size_t budget) : Sampler(d), shuffler(budget)
         {
         }
 
         [[nodiscard]] Vector operator()() override;
 
     private:
+        rng::Shuffler shuffler;
         long long seed;
     };
 
-
-
-    std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules &mod, const size_t lambda);
+    std::shared_ptr<Sampler> get(const size_t dim, const size_t budget, const parameters::Modules &mod, const size_t lambda);
 
 }

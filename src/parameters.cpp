@@ -10,7 +10,7 @@ namespace parameters
 													   old_pop(settings.dim, settings.lambda0),
 													   adaptation(matrix_adaptation::get(settings.modules, settings.dim,
 																						 settings.x0.value_or(Vector::Zero(settings.dim)))),
-													   sampler(sampling::get(settings.dim, settings.modules, settings.lambda0)),
+													   sampler(sampling::get(settings.dim, settings.budget, settings.modules, settings.lambda0)),
 													   mutation(mutation::get(settings.modules,
 																			  settings.mu0, weights.mueff,
 																			  static_cast<double>(settings.dim),
@@ -48,7 +48,7 @@ namespace parameters
 		repelling->update_archive(objective, *this);
 
 		weights = Weights(settings.dim, mu, lambda, settings);
-		sampler = sampling::get(settings.dim, settings.modules, lambda);
+		sampler->reset(settings.modules, lambda);
 
 		pop = Population(settings.dim, lambda);
 		old_pop = Population(settings.dim, lambda);

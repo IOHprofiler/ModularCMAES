@@ -104,7 +104,8 @@ void define_samplers(py::module &main)
     auto m = main.def_submodule("sampling");
 
     py::class_<Sampler, std::shared_ptr<Sampler>>(m, "Sampler")
-        .def_readonly("d", &Sampler::d);
+        .def_readonly("d", &Sampler::d)
+        .def("reset", &Sampler::reset);
 
     py::class_<PySampler, Sampler, std::shared_ptr<PySampler>>(m, "PySampler")
         .def(py::init<size_t, std::function<double()>>(), py::arg("d"), py::arg("function"))
@@ -119,11 +120,11 @@ void define_samplers(py::module &main)
         .def("__call__", &Uniform::operator());
 
     py::class_<Sobol, Sampler, std::shared_ptr<Sobol>>(m, "Sobol")
-        .def(py::init<size_t>(), py::arg("d"))
+        .def(py::init<size_t, size_t>(), py::arg("d"), py::arg("budget"))
         .def("__call__", &Sobol::operator());
 
     py::class_<Halton, Sampler, std::shared_ptr<Halton>>(m, "Halton")
-        .def(py::init<size_t, size_to>(), py::arg("d"), py::arg("i") = std::nullopt)
+        .def(py::init<size_t, size_t>(), py::arg("d"), py::arg("budget"))
         .def("__call__", &Halton::operator());
 
     py::class_<Mirrored, Sampler, std::shared_ptr<Mirrored>>(m, "Mirrored")
@@ -146,6 +147,20 @@ void define_utils(py::module &main)
     m.def("set_seed", &rng::set_seed, py::arg("seed"), "Set the random seed");
     m.def("random_uniform", &random_double<rng::uniform<double>>, "Generate a uniform random number in [-1, 1]");
     m.def("random_normal", &random_double<rng::normal<double>>, "Generate a standard normal random number");
+
+    py::class_<rng::Shuffler>(m, "Shuffler")
+        .def(py::init<size_t, size_t>(), py::arg("start"), py::arg("stop"))
+        .def(py::init<size_t>(), py::arg("stop"))
+        .def("next", &rng::Shuffler::next)
+        .def_readwrite("start", &rng::Shuffler::start)
+		.def_readwrite("stop", &rng::Shuffler::stop)
+		.def_readwrite("n", &rng::Shuffler::n)
+		.def_readwrite("seed", &rng::Shuffler::seed)
+		.def_readwrite("offset", &rng::Shuffler::offset)
+		.def_readwrite("multiplier", &rng::Shuffler::multiplier)
+		.def_readwrite("modulus", &rng::Shuffler::modulus)
+		.def_readwrite("found", &rng::Shuffler::found)
+        ;
 }
 
 void define_selection(py::module &main)

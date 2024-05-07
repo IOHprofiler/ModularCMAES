@@ -30,7 +30,7 @@ class TestMutation(unittest.TestCase):
     def test_threshold_convergence(self):
         tc = mutation.ThresholdConvergence()
         notc = mutation.NoThresholdConvergence()
-        notc.scale(self.pop, 10, 100, 2)
+        notc.scale(self.pop.Z[0], 10, 100, 2)
         self.assertTrue(np.all(self.pop.Z == 0.5))
 
         budget = 100
@@ -39,8 +39,10 @@ class TestMutation(unittest.TestCase):
 
         t = tc.init_threshold * diam * pow((budget - evals) / budget, tc.decay_factor)
         norm = np.linalg.norm(self.pop.Z, axis=0)
-        tc.scale(self.pop, diam, budget, evals)
-
+        Z = np.ones((2, 2))
+        Z[0] = tc.scale(self.pop.Z[0], diam, budget, evals)
+        Z[1] = tc.scale(self.pop.Z[1], diam, budget, evals)
+        self.pop.Z = Z
         self.assertTrue(np.all(self.pop.Z == 0.5 * ((t + (t - norm)) / norm)))
         self.assertTrue(np.all(self.pop.Z == scale_with_threshold(np.ones(2) * .5, t)))
 

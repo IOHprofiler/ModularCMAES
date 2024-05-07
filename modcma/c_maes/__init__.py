@@ -9,7 +9,6 @@ from .cmaescpp import (
     restart,
     options,
     repelling,
-
     Population,
     Parameters,
     ModularCMAES

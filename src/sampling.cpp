@@ -11,7 +11,6 @@ namespace sampling
 		return x;
 	};
 
-
 	[[nodiscard]] Vector Mirrored::operator()()
 	{
 		if (!mirror)
@@ -42,7 +41,25 @@ namespace sampling
 		return samples.col(current++);
 	}
 
-	Halton::Halton(const size_t d, const size_to i) : Sampler(d), seed(i.value_or(rng::random_integer(1, INT_MAX)))
+	size_t Orthogonal::get_n_samples(const parameters::Modules &modules, const size_t lambda)
+	{
+		using namespace parameters;
+		auto not_mirrored = modules.mirrored == Mirror::NONE;
+		auto has_tpa = modules.ssa == StepSizeAdaptation::TPA;
+		return std::max(1, (static_cast<int>(lambda) / (2 - not_mirrored)) - (2 * has_tpa));
+	}
+
+	void Orthogonal::reset(const parameters::Modules &mod, const size_t lambda)
+	{
+		sampler->reset(mod, lambda);
+		n = std::max(d, Orthogonal::get_n_samples(mod, lambda));
+		qr = Eigen::HouseholderQR<Matrix>(n, d);
+		samples = Matrix(d, n);
+		I = Matrix::Identity(n, d);
+		current = 0;
+	}
+
+	Halton::Halton(const size_t d, const size_t budget) : Sampler(d), shuffler(budget)
 	{
 		primes = sieve(std::max(6, static_cast<int>(d)));
 		while (primes.size() < d)
@@ -54,8 +71,7 @@ namespace sampling
 	{
 		Vector res(d);
 		for (size_t j = 0; j < d; ++j)
-			res(j) = ppf(next(static_cast<int>(seed), primes[j]));
-		seed++;
+			res(j) = ppf(next(static_cast<int>(shuffler.next()), primes[j]));
 		return res;
 	}
 
@@ -100,14 +116,14 @@ namespace sampling
 	[[nodiscard]] Vector Sobol::operator()()
 	{
 		Vector res(d);
+		seed = static_cast<int>(shuffler.next());
 		i8_sobol(static_cast<int>(d), &seed, res.data());
 		for (size_t j = 0; j < d; ++j)
 			res(j) = ppf(res(j));
 		return res;
 	}
 
-
-	std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules& modules, const size_t lambda)
+	std::shared_ptr<Sampler> get(const size_t dim, const size_t budget, const parameters::Modules &modules, const size_t lambda)
 	{
 		using namespace parameters;
 		std::shared_ptr<Sampler> sampler;
@@ -117,24 +133,21 @@ namespace sampling
 			sampler = std::make_shared<Gaussian>(dim);
 			break;
 		case BaseSampler::SOBOL:
-			sampler = std::make_shared<Sobol>(dim);
+			sampler = std::make_shared<Sobol>(dim, budget);
 			break;
 		case BaseSampler::HALTON:
-			sampler = std::make_shared<Halton>(dim);
+			sampler = std::make_shared<Halton>(dim, budget);
 			break;
 		case BaseSampler::TESTER:
 			sampler = std::make_shared<Tester>(dim);
 			break;
 		}
 
-		auto not_mirrored = modules.mirrored == Mirror::NONE;
 		if (modules.orthogonal)
 		{
-			auto has_tpa = modules.ssa == StepSizeAdaptation::TPA;
-			auto n_samples = std::max(1, (static_cast<int>(lambda) / (2 - not_mirrored)) - (2 * has_tpa));
-			sampler = std::make_shared<Orthogonal>(sampler, n_samples);
+			sampler = std::make_shared<Orthogonal>(sampler, Orthogonal::get_n_samples(modules, lambda));
 		}
-		if (not not_mirrored)
+		if (not(modules.mirrored == Mirror::NONE))
 			sampler = std::make_shared<Mirrored>(sampler);
 		return sampler;
 	}
