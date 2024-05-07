@@ -8,7 +8,8 @@ namespace mutation
 	Vector ThresholdConvergence::scale(const Vector &zi, const double diameter, const size_t budget,
 									   const size_t evaluations)
 	{
-		const double t = init_threshold * diameter * pow(static_cast<double>(budget - evaluations) / static_cast<double>(budget), decay_factor);
+		const double t = init_threshold * diameter * pow(
+			static_cast<double>(budget - evaluations) / static_cast<double>(budget), decay_factor);
 
 		if (const auto norm = zi.norm(); norm < t)
 			return zi.array() * ((t + (t - norm)) / norm);
