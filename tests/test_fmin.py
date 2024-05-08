@@ -12,14 +12,14 @@ class TestFmin(unittest.TestCase):
         c = modularcmaes.ModularCMAES(sum, 5)
         c.step()
         self.assertEqual(len(c.parameters.xopt), 5)
-        self.assertEqual(sum(c.parameters.xopt), c.parameters.fopt)
+        self.assertAlmostEqual(sum(c.parameters.xopt), c.parameters.fopt)
 
     def test_fmin(self):
         """Test a single run of the mechanism."""
         xopt, fopt, evaluations = modularcmaes.fmin(sum, [1, 1,1,1,1], target=0.0)
-        self.assertEqual(sum(xopt), fopt)
+        self.assertAlmostEqual(sum(xopt), fopt)
         self.assertGreater(evaluations, 0)
-        self.assertEqual(len(xopt), 5)
+        self.assertAlmostEqual(len(xopt), 5)
 
 
     

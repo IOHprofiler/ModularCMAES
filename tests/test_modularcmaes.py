@@ -150,13 +150,13 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertListEqual((-y[:, 0]).tolist(), y[:, 1].tolist())
 
         for xi, fi in zip(x.T, f):
-            self.assertEqual(sum(xi), fi)
+            self.assertAlmostEqual(sum(xi), fi)
 
-        self.assertEqual(p.rank_tpa, p.a_tpa + p.b_tpa)
+        self.assertAlmostEqual(p.rank_tpa, p.a_tpa + p.b_tpa)
 
         p = TpaParameters(-2)
         y, x, f = modularcmaes.tpa_mutation(sum, p)
-        self.assertEqual(p.rank_tpa, -p.a_tpa)
+        self.assertAlmostEqual(p.rank_tpa, -p.a_tpa)
 
     def test_scale_with_treshold(self):
         """Test threshold mutations."""

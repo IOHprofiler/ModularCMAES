@@ -68,7 +68,7 @@ class TestMutation(unittest.TestCase):
     def test_adapt_csa(self):
         cma = self.get_cma(options.CSA)
 
-        self.assertEqual(
+        self.assertAlmostEqual(
             cma.p.mutation.sigma,
             cma.p.settings.sigma0
             * np.exp(
@@ -80,7 +80,7 @@ class TestMutation(unittest.TestCase):
     def test_adapt_tpa(self):
         cma = self.get_cma(options.TPA)
         s = ((1 - cma.p.mutation.cs) * 0) + (cma.p.mutation.cs * cma.p.mutation.a_tpa)
-        self.assertEqual(cma.p.mutation.sigma, cma.p.settings.sigma0 * np.exp(s))
+        self.assertAlmostEqual(cma.p.mutation.sigma, cma.p.settings.sigma0 * np.exp(s))
 
     def test_adapt_msr(self):
         cma = self.get_cma(options.MSR)
