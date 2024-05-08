@@ -7,7 +7,9 @@ struct ModularCMAES
     std::shared_ptr<parameters::Parameters> p;
 
     ModularCMAES(const std::shared_ptr<parameters::Parameters> p) : p(p) {}
-
+    ModularCMAES(const size_t dim) : ModularCMAES(std::make_shared<parameters::Parameters>(dim)) {}
+    ModularCMAES(const parameters::Settings &settings) : ModularCMAES(std::make_shared<parameters::Parameters>(settings)) {}
+    
     void recombine() const;
 
     bool step(FunctionType& objective) const;

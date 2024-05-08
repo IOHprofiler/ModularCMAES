@@ -893,6 +893,8 @@ void define_cmaes(py::module &m)
 {
     py::class_<ModularCMAES>(m, "ModularCMAES")
         .def(py::init<std::shared_ptr<parameters::Parameters>>(), py::arg("parameters"))
+        .def(py::init<size_t>(), py::arg("dimension"))
+        .def(py::init<parameters::Settings>(), py::arg("settings"))
         .def("recombine", &ModularCMAES::recombine)
         .def(
             "mutate", [](ModularCMAES &self, FunctionType &f)
