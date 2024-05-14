@@ -48,8 +48,8 @@ int main()
 	rng::set_seed(42);
 	const size_t dim = 2;
 
-	// constants::shuffle_cache_max_doubles = 0;
-	// constants::shuffle_cache_min_samples = 2;
+	constants::shuffle_cache_max_doubles = 0;
+	constants::shuffle_cache_min_samples = 6;
 
 	parameters::Settings settings(dim);
 	settings.modules.sampler = parameters::BaseSampler::SOBOL;
@@ -58,8 +58,10 @@ int main()
 	const auto sampler = std::dynamic_pointer_cast<sampling::Sobol>(p.sampler);
 	std::cout << sampler->cache.n_samples << std::endl;
 
-	std::cout << sampler->operator()() << std::endl;
-	std::cout << sampler->operator()() << std::endl;
-	std::cout << sampler->operator()() << std::endl;
-	std::cout << sampler->operator()() << std::endl;
+	for(size_t j =0; j < 3; j++)
+	{
+		for (size_t i = 0; i < constants::shuffle_cache_min_samples; i++)
+			std::cout << sampler->operator()().transpose() << std::endl;
+		std::cout << std::endl;
+	}
 }

@@ -104,7 +104,7 @@ namespace rng
 	{
 		do {
 			seed = (seed * multiplier + offset) % modulus;
-		} while (seed > n);
+		} while (seed >= n);
 	}
 
 	size_t Shuffler::next()
@@ -139,10 +139,6 @@ namespace rng
 	{
 		return get_index(shuffler.next());
 	}
-
-
-
-
 }
 
 namespace functions
