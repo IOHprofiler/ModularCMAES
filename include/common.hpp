@@ -39,6 +39,8 @@ namespace constants
 	extern double tol_min_sigma;
 	extern double stagnation_quantile;
 	extern double sigma_threshold;
+	extern size_t shuffle_cache_max_doubles;
+	extern size_t shuffle_cache_min_samples;
 }
 
 /**
@@ -171,6 +173,20 @@ namespace utils
 	 * @return std::pair<double, size_t> (ERT, number of successfull runs)
 	 */
 	std::pair<double, size_t> compute_ert(const std::vector<size_t> &running_times, size_t budget);
+
+	/**
+	 * \brief calculate the nearest power of two
+	 * \tparam T numeric type
+	 * \param value the number to get the nearest power of two
+	 * \return the nearest power of two
+	 */
+	template<typename T>
+	T nearest_power_of_2(const T value)
+	{
+		const double val = static_cast<double>(value);
+		return static_cast<T>(pow(2.0, std::floor(std::log2(val))));
+	}
+
 }
 
 namespace rng
@@ -196,6 +212,8 @@ namespace rng
 	 */
 	int random_integer(const int l, const int h);
 
+	
+
 	/**
 	 * @brief a shuffler that generates a random permutation of a
 	 * sequence of integers from start to stop using an lcg.
@@ -214,8 +232,8 @@ namespace rng
 		Shuffler(const size_t start, const size_t stop) : start(start),
 														  stop(stop),
 														  n(stop - start),
-														  seed(static_cast<size_t>(random_integer(0, (stop - start)))),
-														  offset(static_cast<size_t>(random_integer(0, (stop - start)) * 2 + 1)),
+														  seed(static_cast<size_t>(random_integer(0, static_cast<int>(stop - start)))),
+														  offset(static_cast<size_t>(random_integer(0, static_cast<int>(stop - start)) * 2 + 1)),
 														  multiplier(4 * ((stop - start) / 4) + 1),
 														  modulus(static_cast<size_t>(pow(2, std::ceil(std::log2(stop - start))))),
 														  found(0)
@@ -228,8 +246,26 @@ namespace rng
 		size_t next();
 	};
 
+
+	struct CachedShuffleSequence
+	{
+		size_t dim;
+		size_t n_samples;
+
+		std::vector<double> cache;
+		Shuffler shuffler;
+
+		CachedShuffleSequence(const size_t d);
+
+		void fill(const std::vector<double>& c);
+
+		Vector get_index(const size_t idx);
+
+		Vector next();
+	};
+
 	/**
-	 * @brief distribution which in compbination with mt19997 produces the same
+	 * @brief distribution which in combination with mt19997 produces the same
 	 * random numbers for gcc and msvc
 	 */
 	template <typename T = double>

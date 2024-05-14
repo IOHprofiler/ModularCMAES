@@ -92,11 +92,11 @@ namespace sampling
 
     /**
      * @brief Orthogonal sampler.
-     * This function orthogonalizes <n_samples>, and succesively yields each
+     * This function orthogonalizes <n_samples>, and successively yields each
      * of them. It uses HouseHolderQR decomposition in order to compute
-     * the orthonomalization.
+     * the orthonormalization.
      *
-     * Note: result for this thing is not precisly the same as python version
+     * Note: result for this thing is not precisely the same as python version
      *
      */
     struct Orthogonal : Sampler
@@ -122,7 +122,9 @@ namespace sampling
         size_t current = 0;
     };
 
-    /**
+
+
+	/**
      * @brief Generator yielding samples from a Halton sequence.
      *
      */
@@ -150,15 +152,11 @@ namespace sampling
      */
     struct Sobol : Sampler
     {
-        Sobol(const size_t d, const size_t budget) : Sampler(d), shuffler(budget)
-        {
-        }
+        Sobol(const size_t dim);
 
         [[nodiscard]] Vector operator()() override;
 
-    private:
-        rng::Shuffler shuffler;
-        long long seed;
+        rng::CachedShuffleSequence cache;
     };
 
     std::shared_ptr<Sampler> get(const size_t dim, const size_t budget, const parameters::Modules &mod, const size_t lambda);

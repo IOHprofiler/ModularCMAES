@@ -33,7 +33,7 @@ namespace sampling
 			for (size_t i = 0; i < n; ++i)
 				samples.col(i) = (*sampler)();
 
-			auto norm = samples.colwise().norm().asDiagonal();
+			const auto norm = samples.colwise().norm().asDiagonal();
 
 			qr.compute(samples.transpose());
 			samples = ((qr.householderQ() * I).transpose() * norm);
@@ -44,8 +44,8 @@ namespace sampling
 	size_t Orthogonal::get_n_samples(const parameters::Modules &modules, const size_t lambda)
 	{
 		using namespace parameters;
-		auto not_mirrored = modules.mirrored == Mirror::NONE;
-		auto has_tpa = modules.ssa == StepSizeAdaptation::TPA;
+		const auto not_mirrored = modules.mirrored == Mirror::NONE;
+		const auto has_tpa = modules.ssa == StepSizeAdaptation::TPA;
 		return std::max(1, (static_cast<int>(lambda) / (2 - not_mirrored)) - (2 * has_tpa));
 	}
 
@@ -59,7 +59,7 @@ namespace sampling
 		current = 0;
 	}
 
-	Halton::Halton(const size_t d, const size_t budget) : Sampler(d), shuffler(budget)
+	Halton::Halton(const size_t d, const size_t budget) : Sampler(d), shuffler(utils::nearest_power_of_2(budget))
 	{
 		primes = sieve(std::max(6, static_cast<int>(d)));
 		while (primes.size() < d)
@@ -113,12 +113,17 @@ namespace sampling
 		return primes;
 	}
 
+	Sobol::Sobol(const size_t dim) : Sampler(dim), cache(dim)
+	{
+		long long seed = 2;
+		for (size_t i = 0; i < cache.n_samples; i++)
+			i8_sobol(static_cast<int>(d), &seed, cache.cache.data() + i * d);
+	}
+
 	[[nodiscard]] Vector Sobol::operator()()
 	{
-		Vector res(d);
-		seed = static_cast<int>(shuffler.next());
-		i8_sobol(static_cast<int>(d), &seed, res.data());
-		for (size_t j = 0; j < d; ++j)
+		Vector res = cache.next();
+		for (Eigen::Index j = 0; j < static_cast<Eigen::Index>(d); ++j)
 			res(j) = ppf(res(j));
 		return res;
 	}
@@ -133,7 +138,7 @@ namespace sampling
 			sampler = std::make_shared<Gaussian>(dim);
 			break;
 		case BaseSampler::SOBOL:
-			sampler = std::make_shared<Sobol>(dim, budget);
+			sampler = std::make_shared<Sobol>(dim);
 			break;
 		case BaseSampler::HALTON:
 			sampler = std::make_shared<Halton>(dim, budget);

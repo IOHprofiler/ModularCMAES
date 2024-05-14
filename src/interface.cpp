@@ -120,7 +120,8 @@ void define_samplers(py::module &main)
         .def("__call__", &Uniform::operator());
 
     py::class_<Sobol, Sampler, std::shared_ptr<Sobol>>(m, "Sobol")
-        .def(py::init<size_t, size_t>(), py::arg("d"), py::arg("budget"))
+        .def(py::init<size_t>(), py::arg("d"))
+        .def("cache", &Sobol::cache)
         .def("__call__", &Sobol::operator());
 
     py::class_<Halton, Sampler, std::shared_ptr<Halton>>(m, "Halton")
@@ -161,6 +162,14 @@ void define_utils(py::module &main)
 		.def_readwrite("modulus", &rng::Shuffler::modulus)
 		.def_readwrite("found", &rng::Shuffler::found)
         ;
+
+    py::class_<rng::CachedShuffleSequence>(m, "CachedShuffleSequence")
+        .def(py::init<size_t>(), py::arg("dim"))
+        .def("fill", &rng::CachedShuffleSequence::fill)
+        .def("get_index", &rng::CachedShuffleSequence::get_index, py::arg("index"))
+        .def("next", &rng::CachedShuffleSequence::next);
+
+      
 }
 
 void define_selection(py::module &main)
@@ -798,7 +807,20 @@ void define_constants(py::module &m)
             [](py::object)
             { return constants::sigma_threshold; },
             [](py::object, double a)
-            { constants::sigma_threshold = a; });
+            { constants::sigma_threshold = a; })
+        .def_property_static(
+            "shuffle_cache_max_doubles",
+            [](py::object)
+            { return constants::shuffle_cache_max_doubles; },
+            [](py::object, size_t a)
+            { constants::shuffle_cache_max_doubles = a; })
+        .def_property_static(
+            "shuffle_cache_min_samples",
+            [](py::object)
+            { return constants::shuffle_cache_min_samples; },
+            [](py::object, size_t a)
+            { constants::shuffle_cache_min_samples = a; })
+        ;
 }
 
 void define_restart(py::module &main)

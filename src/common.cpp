@@ -16,6 +16,8 @@ namespace constants
 	double tol_min_sigma = 1e-8;
 	double stagnation_quantile = 0.3;
 	double sigma_threshold = 1e-4;
+	size_t shuffle_cache_max_doubles = 2'000'000;
+	size_t shuffle_cache_min_samples = 128;
 }
 
 namespace utils
@@ -26,10 +28,10 @@ namespace utils
 		std::iota(idx.begin(), idx.end(), 0);
 
 		std::stable_sort(idx.begin(), idx.end(),
-		                 [&v](size_t i1, size_t i2)
-		                 {
-			                 return v[i1] < v[i2];
-		                 });
+			[&v](size_t i1, size_t i2)
+			{
+				return v[i1] < v[i2];
+			});
 
 		return idx;
 	}
@@ -40,10 +42,10 @@ namespace utils
 		std::iota(idx.begin(), idx.end(), 0);
 
 		std::stable_sort(idx.begin(), idx.end(),
-		                 [&v](size_t i1, size_t i2)
-		                 {
-			                 return v[i1] < v[i2];
-		                 });
+			[&v](size_t i1, size_t i2)
+			{
+				return v[i1] < v[i2];
+			});
 
 		return idx;
 	}
@@ -68,15 +70,15 @@ namespace utils
 
 	std::pair<double, size_t> compute_ert(const std::vector<size_t>& running_times, const size_t budget)
 	{
-		size_t successfull_runs = 0, total_rt = 0;
+		size_t successful_runs = 0, total_rt = 0;
 
 		for (const auto& rt : running_times)
 		{
 			if (rt < budget)
-				successfull_runs++;
+				successful_runs++;
 			total_rt += rt;
 		}
-		return {static_cast<double>(total_rt) / successfull_runs, successfull_runs};
+		return { static_cast<double>(total_rt) / successful_runs, successful_runs };
 	}
 }
 
@@ -98,19 +100,49 @@ namespace rng
 		return distrib(GENERATOR);
 	}
 
-	void Shuffler::advance() 
+	void Shuffler::advance()
 	{
 		do {
 			seed = (seed * multiplier + offset) % modulus;
 		} while (seed > n);
 	}
-	size_t Shuffler::next() 
+
+	size_t Shuffler::next()
 	{
 		if (found > 0)
 			advance();
 		found++;
 		return start + seed;
 	}
+
+
+	CachedShuffleSequence::CachedShuffleSequence(const size_t d) :
+		dim(d),
+		n_samples(std::max(constants::shuffle_cache_min_samples, utils::nearest_power_of_2(constants::shuffle_cache_max_doubles / d))),
+		cache(n_samples * d, 0.0),
+		shuffler(n_samples)
+	{
+	}
+
+	void CachedShuffleSequence::fill(const std::vector<double>& c)
+	{
+		std::copy(c.begin(), c.end(), cache.begin());
+	}
+
+
+	Vector CachedShuffleSequence::get_index(const size_t idx)
+	{
+		return Eigen::Map<Vector>(cache.data() + (idx * dim), static_cast<Eigen::Index>(dim));
+	}
+
+	Vector CachedShuffleSequence::next()
+	{
+		return get_index(shuffler.next());
+	}
+
+
+
+
 }
 
 namespace functions
