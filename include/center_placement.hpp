@@ -30,10 +30,6 @@ namespace center
         void operator()(parameters::Parameters &p) override;
     };
 
-    struct Repelling : Placement
-    {
-        void operator()(parameters::Parameters &p) override;
-    };
 
     inline std::shared_ptr<Placement> get(const parameters::CenterPlacement &p)
     {
@@ -41,8 +37,6 @@ namespace center
         using namespace parameters;
         switch (p)
         {
-        case CenterPlacement::REPELLING:
-            return std::make_shared<Repelling>();
         case CenterPlacement::UNIFORM:
             return std::make_shared<Uniform>();
         case CenterPlacement::ZERO:

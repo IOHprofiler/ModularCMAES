@@ -39,8 +39,9 @@ namespace constants
 	extern double tol_min_sigma;
 	extern double stagnation_quantile;
 	extern double sigma_threshold;
-	extern size_t shuffle_cache_max_doubles;
-	extern size_t shuffle_cache_min_samples;
+	extern size_t cache_max_doubles;
+	extern size_t cache_min_samples;
+	extern bool cache_samples;
 }
 
 /**
@@ -212,8 +213,6 @@ namespace rng
 	 */
 	int random_integer(const int l, const int h);
 
-	
-
 	/**
 	 * @brief a shuffler that generates a random permutation of a
 	 * sequence of integers from start to stop using an lcg.
@@ -258,6 +257,8 @@ namespace rng
 		CachedShuffleSequence(const size_t d);
 
 		void fill(const std::vector<double>& c);
+
+		void transform(const std::function<double(double)>& f);
 
 		Vector get_index(const size_t idx);
 

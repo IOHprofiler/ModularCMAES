@@ -65,7 +65,6 @@ namespace parameters
         X0,
         ZERO,
         UNIFORM,
-        REPELLING
     };
 
     struct Modules

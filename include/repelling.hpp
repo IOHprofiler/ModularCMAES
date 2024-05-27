@@ -37,19 +37,20 @@ namespace repelling
 		double shrinkage;
 		int n_rep;
 		double criticality;
-		Matrix C;
-		Matrix C_inv;
+		// Matrix C;
+		// Matrix C_inv;
 
 		TabooPoint(
 			const Solution &s,
-			const double radius,
-			const Matrix &C, const Matrix &C_inv) : solution(s),
+			const double radius/*,
+			const Matrix& C, const Matrix& C_inv*/ ) : solution(s),
 													radius(radius),
 													shrinkage(std::pow(0.99, 1. / static_cast<double>(s.x.size()))),
 													n_rep(1),
-													criticality(0.0),
+													criticality(0.0) {}
+			/*,
 													C(C),
-													C_inv(C_inv) {}
+													C_inv(C_inv) {}*/
 
 		/**
 		 * \brief Rejection rule for a taboo point for a given xi
@@ -70,8 +71,8 @@ namespace repelling
 		std::vector<TabooPoint> archive;
 		int attempts = 0;
 		double coverage = 20.0;
-		Matrix C;
-		Matrix C_inv;
+		// Matrix C;
+		// Matrix C_inv;
 
 		virtual ~Repelling() = default;
 

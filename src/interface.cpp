@@ -132,6 +132,13 @@ void define_samplers(py::module &main)
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
         .def("__call__", &Mirrored::operator());
 
+    py::class_<CachedSampler, Sampler, std::shared_ptr<Mirrored>>(m, "CachedSampler")
+        .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def("__call__", &CachedSampler::operator())
+        .def_readonly("index", &CachedSampler::index)
+        .def_readonly("max_items", &CachedSampler::max_items)
+        .def_readonly("cache", &CachedSampler::cache);
+
     py::class_<Orthogonal, Sampler, std::shared_ptr<Orthogonal>>(m, "Orthogonal")
         .def(py::init<const std::shared_ptr<Sampler>, size_t>(),
              py::arg("sampler"), py::arg("n_samples"))

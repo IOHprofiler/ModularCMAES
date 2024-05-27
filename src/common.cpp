@@ -16,8 +16,9 @@ namespace constants
 	double tol_min_sigma = 1e-8;
 	double stagnation_quantile = 0.3;
 	double sigma_threshold = 1e-4;
-	size_t shuffle_cache_max_doubles = 2'000'000;
-	size_t shuffle_cache_min_samples = 128;
+	size_t cache_max_doubles = 2'000'000;
+	size_t cache_min_samples = 128;
+	bool cache_samples = false;
 }
 
 namespace utils
@@ -115,10 +116,9 @@ namespace rng
 		return start + seed;
 	}
 
-
 	CachedShuffleSequence::CachedShuffleSequence(const size_t d) :
 		dim(d),
-		n_samples(std::max(constants::shuffle_cache_min_samples, utils::nearest_power_of_2(constants::shuffle_cache_max_doubles / d))),
+		n_samples(std::max(constants::cache_min_samples, utils::nearest_power_of_2(constants::cache_max_doubles / d))),
 		cache(n_samples * d, 0.0),
 		shuffler(n_samples)
 	{
@@ -129,6 +129,10 @@ namespace rng
 		std::copy(c.begin(), c.end(), cache.begin());
 	}
 
+	void CachedShuffleSequence::transform(const std::function<double(double)>& f)
+	{
+		for (double& i : cache) i = f(i);
+	}
 
 	Vector CachedShuffleSequence::get_index(const size_t idx)
 	{

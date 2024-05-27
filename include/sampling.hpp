@@ -121,8 +121,7 @@ namespace sampling
         Matrix I;
         size_t current = 0;
     };
-
-
+   
 
 	/**
      * @brief Generator yielding samples from a Halton sequence.
@@ -130,35 +129,73 @@ namespace sampling
      */
     struct Halton : Sampler
     {
-        Halton(const size_t d, const size_t budget);
+        Halton(const size_t d, const bool scramble = true);
 
         [[nodiscard]] Vector operator()() override;
 
     private:
-        rng::Shuffler shuffler;
+        int index_;
+        bool scramble_;
+    	std::vector<int> primes_;
+        std::vector<std::vector<std::vector<int>>> permutations_;
 
-        std::vector<int> primes;
+        static double next(int index, const int base);
 
-        static double next(int index, int base);
-
-        static std::pair<int, int> divmod(const double top, const double bottom);
+        static double next(int index, const int base, const std::vector<std::vector<int>>& permutations);
 
         static std::vector<int> sieve(const int n);
+
+        static std::vector<std::vector<std::vector<int>>> get_permutations(const std::vector<int>& primes);
+
+        static std::vector<int> n_primes(const size_t d);
+      
     };
 
+   
     /**
      * @brief Generator yielding samples from a Sobol sequence.
      *
      */
     struct Sobol : Sampler
     {
+        rng::CachedShuffleSequence cache;
+     
         Sobol(const size_t dim);
 
-        [[nodiscard]] Vector operator()() override;
-
-        rng::CachedShuffleSequence cache;
+        [[nodiscard]] Vector operator()() override { return cache.next(); }
     };
 
-    std::shared_ptr<Sampler> get(const size_t dim, const size_t budget, const parameters::Modules &mod, const size_t lambda);
+
+    /**
+     * \brief A sampler that cycles through a number of points in a cache
+     */
+    struct CachedSampler: Sampler
+    {
+        std::shared_ptr<Sampler> sampler;
+        std::vector<Vector> cache;
+        size_t index;
+        size_t n_samples;
+        
+        CachedSampler(const std::shared_ptr<Sampler> sampler): 
+            Sampler(sampler->d), 
+            sampler(sampler),
+            cache(),
+            index(0),
+            n_samples(std::max(constants::cache_min_samples, utils::nearest_power_of_2(constants::cache_max_doubles / sampler->d)))
+        { 
+            cache.reserve(n_samples);
+        }
+
+        [[nodiscard]] Vector operator()() override { 
+            Vector sample;
+            if (index < n_samples)
+                cache.emplace_back(sampler->operator()());
+            
+            return cache[index++ % n_samples];
+        }
+    };
+
+
+    std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules &mod, const size_t lambda);
 
 }
