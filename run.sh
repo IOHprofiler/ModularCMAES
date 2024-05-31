@@ -1,7 +1,7 @@
 
 for sampler in 0 1 2;
 do 
-    for cache_size in 0 16 32 64 128;
+    for cache_size in 0 16 32 64 128 256;
     do
         python run.py --logged --sampler=$sampler --cache_size=$cache_size "$@" &
     done
