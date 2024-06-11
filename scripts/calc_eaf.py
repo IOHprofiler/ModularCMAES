@@ -42,7 +42,7 @@ def get_eaf_table(fname, tgt):
     dt['sampler'] = version.split("-")[2]
     dt['orthogonal'] = 'orthogonal' in version
     dt['mirrored'] = 'mirror' in version
-    dt['cache_size'] = int(version.split("cache-")[-1]) if "cache" in version else 0
+    dt['cache_size'] = int(version.split("cache-")[-1].split('-')[0]) if "cache" in version else 0
     
     max_budget = BUDGET * dim
     budget_eaf = []
@@ -70,7 +70,7 @@ def get_eaf_table(fname, tgt):
 
 
 def find_files(src):
-    files_orig = glob.glob(f"{src}/*cache-256/*/IOHprofiler_f*.dat")
+    files_orig = glob.glob(f"{src}/*-1/*/IOHprofiler_f*.dat")
     return files_orig
 
 if __name__ == '__main__':
