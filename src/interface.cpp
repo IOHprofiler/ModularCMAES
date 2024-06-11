@@ -78,7 +78,6 @@ void define_options(py::module &main)
         .value("X0", CenterPlacement::X0)
         .value("ZERO", CenterPlacement::ZERO)
         .value("UNIFORM", CenterPlacement::UNIFORM)
-        .value("REPELLING", CenterPlacement::REPELLING)
         .export_values();
 }
 
@@ -121,7 +120,7 @@ void define_samplers(py::module &main)
 
     py::class_<Sobol, Sampler, std::shared_ptr<Sobol>>(m, "Sobol")
         .def(py::init<size_t>(), py::arg("d"))
-        .def("cache", &Sobol::cache)
+        .def_readonly("cache", &Sobol::cache)
         .def("__call__", &Sobol::operator());
 
     py::class_<Halton, Sampler, std::shared_ptr<Halton>>(m, "Halton")
@@ -132,11 +131,11 @@ void define_samplers(py::module &main)
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
         .def("__call__", &Mirrored::operator());
 
-    py::class_<CachedSampler, Sampler, std::shared_ptr<Mirrored>>(m, "CachedSampler")
+    py::class_<CachedSampler, Sampler, std::shared_ptr<CachedSampler>>(m, "CachedSampler")
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
         .def("__call__", &CachedSampler::operator())
         .def_readonly("index", &CachedSampler::index)
-        .def_readonly("max_items", &CachedSampler::max_items)
+        .def_readonly("n_samples", &CachedSampler::n_samples)
         .def_readonly("cache", &CachedSampler::cache);
 
     py::class_<Orthogonal, Sampler, std::shared_ptr<Orthogonal>>(m, "Orthogonal")
@@ -175,8 +174,6 @@ void define_utils(py::module &main)
         .def("fill", &rng::CachedShuffleSequence::fill)
         .def("get_index", &rng::CachedShuffleSequence::get_index, py::arg("index"))
         .def("next", &rng::CachedShuffleSequence::next);
-
-      
 }
 
 void define_selection(py::module &main)
@@ -221,9 +218,6 @@ void define_center_placement(py::module &main)
 
     py::class_<Zero, Placement, std::shared_ptr<Zero>>(m, "Zero")
         .def(py::init<>());
-
-    py::class_<Repelling, Placement, std::shared_ptr<Repelling>>(m, "Repelling")
-        .def(py::init<>());
 }
 
 void define_repelling(py::module &main)
@@ -232,14 +226,12 @@ void define_repelling(py::module &main)
     auto m = main.def_submodule("repelling");
 
     py::class_<TabooPoint>(m, "TabooPoint")
-        .def(py::init<Solution, double, Matrix, Matrix>(), py::arg("solution"), py::arg("radius"), py::arg("C"), py::arg("C_inv"))
+        .def(py::init<Solution, double>(), py::arg("solution"), py::arg("radius"))
         .def("rejects", &TabooPoint::rejects, py::arg("xi"), py::arg("p"), py::arg("attempts"))
         .def("shares_basin", &TabooPoint::shares_basin, py::arg("objective"), py::arg("xi"), py::arg("p"))
         .def("calculate_criticality", &TabooPoint::calculate_criticality, py::arg("p"))
         .def_readwrite("radius", &TabooPoint::radius)
         .def_readwrite("n_rep", &TabooPoint::n_rep)
-        .def_readwrite("C", &TabooPoint::C)
-        .def_readwrite("C_inv", &TabooPoint::C_inv)
         .def_readwrite("solution", &TabooPoint::solution)
         .def_readwrite("shrinkage", &TabooPoint::shrinkage)
         .def_readwrite("criticality", &TabooPoint::criticality);
@@ -249,8 +241,6 @@ void define_repelling(py::module &main)
         .def("is_rejected", &Repelling::is_rejected, py::arg("xi"), py::arg("p"))
         .def("update_archive", &Repelling::update_archive, py::arg("objective"), py::arg("p"))
         .def("prepare_sampling", &Repelling::prepare_sampling, py::arg("p"))
-        .def_readwrite("C", &Repelling::C)
-        .def_readwrite("C_inv", &Repelling::C_inv)
         .def_readwrite("archive", &Repelling::archive)
         .def_readwrite("coverage", &Repelling::coverage)
         .def_readwrite("attempts", &Repelling::attempts);
@@ -276,6 +266,7 @@ void define_matrix_adaptation(py::module &main)
         .def_readwrite("ps", &Adaptation::ps)
         .def_readwrite("dd", &Adaptation::dd)
         .def_readwrite("chiN", &Adaptation::chiN)
+        .def_readwrite("inv_C", &CovarianceAdaptation::inv_C)
         .def("adapt_evolution_paths", &Adaptation::adapt_evolution_paths,
              py::arg("pop"),
              py::arg("weights"),
@@ -314,7 +305,6 @@ void define_matrix_adaptation(py::module &main)
         .def_readwrite("B", &CovarianceAdaptation::B)
         .def_readwrite("C", &CovarianceAdaptation::C)
         .def_readwrite("inv_root_C", &CovarianceAdaptation::inv_root_C)
-        .def_readwrite("inv_C", &CovarianceAdaptation::inv_C)
         .def_readwrite("hs", &CovarianceAdaptation::hs)
         .def("adapt_covariance_matrix", &CovarianceAdaptation::adapt_covariance_matrix,
              py::arg("weights"),
@@ -816,17 +806,23 @@ void define_constants(py::module &m)
             [](py::object, double a)
             { constants::sigma_threshold = a; })
         .def_property_static(
-            "shuffle_cache_max_doubles",
+            "cache_max_doubles",
             [](py::object)
-            { return constants::shuffle_cache_max_doubles; },
+            { return constants::cache_max_doubles; },
             [](py::object, size_t a)
-            { constants::shuffle_cache_max_doubles = a; })
+            { constants::cache_max_doubles = a; })
         .def_property_static(
-            "shuffle_cache_min_samples",
+            "cache_min_samples",
             [](py::object)
-            { return constants::shuffle_cache_min_samples; },
+            { return constants::cache_min_samples; },
             [](py::object, size_t a)
-            { constants::shuffle_cache_min_samples = a; })
+            { constants::cache_min_samples = a; })
+        .def_property_static(
+            "cache_samples",
+            [](py::object)
+            { return constants::cache_samples; },
+            [](py::object, bool a)
+            { constants::cache_samples = a; })
         ;
 }
 
