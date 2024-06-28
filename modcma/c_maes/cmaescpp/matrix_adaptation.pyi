@@ -6,9 +6,11 @@ class Adaptation:
     chiN: float
     dd: float
     dm: numpy.ndarray
+    inv_C: numpy.ndarray
     m: numpy.ndarray
     m_old: numpy.ndarray
     ps: numpy.ndarray
+
     def __init__(self, *args, **kwargs) -> None: ...
     def adapt_evolution_paths(
         self,
@@ -29,7 +31,7 @@ class Adaptation:
     ) -> bool: ...
     def restart(self, settings) -> None: ...
     def compute_y(self, zi: numpy.ndarray) -> numpy.ndarray: ...
-    def invert_x(self, xi: numpy.ndarray, sigma:float) -> numpy.ndarray: ...
+    def invert_x(self, xi: numpy.ndarray, sigma: float) -> numpy.ndarray: ...
     def invert_y(self, yi: numpy.ndarray) -> numpy.ndarray: ...
 
 class CovarianceAdaptation(Adaptation):
@@ -38,7 +40,6 @@ class CovarianceAdaptation(Adaptation):
     d: numpy.ndarray
     hs: bool
     inv_root_C: numpy.ndarray
-    inv_C: numpy.ndarray
     pc: numpy.ndarray
     def __init__(self, dimension: int, x0: numpy.ndarray) -> None: ...
     def adapt_covariance_matrix(
@@ -46,12 +47,12 @@ class CovarianceAdaptation(Adaptation):
     ) -> None: ...
     def perform_eigendecomposition(self, stats) -> bool: ...
 
-class SeperableAdaptation(CovarianceAdaptation):
-    ...
-
 class MatrixAdaptation(Adaptation):
     M: numpy.ndarray
     M_inv: numpy.ndarray
+    def __init__(self, dimension: int, x0: numpy.ndarray) -> None: ...
+
+class SeperableAdaptation(CovarianceAdaptation):
     def __init__(self, dimension: int, x0: numpy.ndarray) -> None: ...
 
 class NoAdaptation(Adaptation):

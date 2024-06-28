@@ -124,7 +124,7 @@ void define_samplers(py::module &main)
         .def("__call__", &Sobol::operator());
 
     py::class_<Halton, Sampler, std::shared_ptr<Halton>>(m, "Halton")
-        .def(py::init<size_t, size_t>(), py::arg("d"), py::arg("budget"))
+        .def(py::init<size_t, bool>(), py::arg("d"), py::arg("scrambled") = true)
         .def("__call__", &Halton::operator());
 
     py::class_<Mirrored, Sampler, std::shared_ptr<Mirrored>>(m, "Mirrored")
@@ -133,6 +133,7 @@ void define_samplers(py::module &main)
 
     py::class_<CachedSampler, Sampler, std::shared_ptr<CachedSampler>>(m, "CachedSampler")
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def(py::init<std::vector<Vector>, bool>(), py::arg("cache"), py::arg("transform_ppf") = false)
         .def("__call__", &CachedSampler::operator())
         .def_readonly("index", &CachedSampler::index)
         .def_readonly("n_samples", &CachedSampler::n_samples)
