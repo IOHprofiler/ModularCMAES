@@ -159,7 +159,7 @@ namespace sampling
 		return primes;
 	}
 
-
+	
 	Sobol::Sobol(const size_t dim) : Sampler(dim), cache(dim)
 	{
 		long long seed = 2;

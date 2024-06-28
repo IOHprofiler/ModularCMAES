@@ -186,6 +186,20 @@ namespace sampling
             cache.reserve(n_samples);
         }
 
+        CachedSampler(const std::vector<Vector>& cache, const bool transform_ppf = false)
+            : Sampler(cache[0].size()),
+              sampler(std::make_shared<Tester>(cache[0].size())),
+              cache(cache),
+              index(cache.size()),
+              n_samples(cache.size())
+        {
+            if (transform_ppf)
+                for (auto& sample: this->cache)
+                    for (auto& si: sample)
+                        si = ppf(si);
+        }
+
+
         [[nodiscard]] Vector operator()() override { 
             Vector sample;
             if (index < n_samples)

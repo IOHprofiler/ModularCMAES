@@ -1,17 +1,16 @@
-from typing import Optional
-
 import modcma.c_maes.cmaescpp.options
 import numpy
 
 class Modules:
     active: bool
     bound_correction: modcma.c_maes.cmaescpp.options.CorrectionMethod
+    center_placement: modcma.c_maes.cmaescpp.options.CenterPlacement
     elitist: bool
     matrix_adaptation: modcma.c_maes.cmaescpp.options.MatrixAdaptationType
     mirrored: modcma.c_maes.cmaescpp.options.Mirror
     orthogonal: bool
-    restart_strategy: modcma.c_maes.cmaescpp.options.RestartStrategy
     repelling_restart: bool
+    restart_strategy: modcma.c_maes.cmaescpp.options.RestartStrategy
     sample_sigma: bool
     sampler: modcma.c_maes.cmaescpp.options.BaseSampler
     sequential_selection: bool
@@ -22,46 +21,57 @@ class Modules:
 
 class Settings:
     budget: int
-    c1: Optional[float]
-    cc: Optional[float]
-    cmu: Optional[float]
-    cs: Optional[float]
+    c1: float | None
+    cc: float | None
+    cmu: float | None
+    cs: float | None
     dim: int
     lambda0: int
     lb: numpy.ndarray
-    max_generations: Optional[int]
+    max_generations: int | None
     modules: Modules
     mu0: int
     sigma0: float
-    target: Optional[float]
+    target: float | None
     ub: numpy.ndarray
     verbose: bool
-    x0: Optional[numpy.ndarray]
+    volume: float
+    x0: numpy.ndarray | None
     def __init__(
         self,
         dim: int,
-        modules: Optional[Modules] = ...,
-        target: Optional[float] = ...,
-        max_generations: Optional[int] = ...,
-        budget: Optional[int] = ...,
-        sigma0: Optional[float] = ...,
-        lambda0: Optional[int] = ...,
-        mu0: Optional[int] = ...,
-        x0: Optional[numpy.ndarray] = ...,
-        lb: Optional[numpy.ndarray] = ...,
-        ub: Optional[numpy.ndarray] = ...,
-        cs: Optional[float] = ...,
-        cc: Optional[float] = ...,
-        cmu: Optional[float] = ...,
-        c1: Optional[float] = ...,
+        modules: Modules | None = ...,
+        target: float | None = ...,
+        max_generations: int | None = ...,
+        budget: int | None = ...,
+        sigma0: float | None = ...,
+        lambda0: int | None = ...,
+        mu0: int | None = ...,
+        x0: numpy.ndarray | None = ...,
+        lb: numpy.ndarray | None = ...,
+        ub: numpy.ndarray | None = ...,
+        cs: float | None = ...,
+        cc: float | None = ...,
+        cmu: float | None = ...,
+        c1: float | None = ...,
         verbose: bool = ...,
     ) -> None: ...
 
-class Stats:
-    evaluations: int
-    fopt: float
+class Solution:
+    e: int
     t: int
-    xopt: numpy.ndarray
+    x: numpy.ndarray
+    y: float
+    def __init__(self) -> None: ...
+
+class Stats:
+    centers: list[Solution]
+    current_avg: float
+    current_best: Solution
+    evaluations: int
+    global_best: Solution
+    solutions: list[Solution]
+    t: int
     def __init__(self) -> None: ...
 
 class Weights:

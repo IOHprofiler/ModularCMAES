@@ -133,6 +133,7 @@ void define_samplers(py::module &main)
 
     py::class_<CachedSampler, Sampler, std::shared_ptr<CachedSampler>>(m, "CachedSampler")
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def(py::init<std::vector<Vector>>(), py::arg("cache"))
         .def("__call__", &CachedSampler::operator())
         .def_readonly("index", &CachedSampler::index)
         .def_readonly("n_samples", &CachedSampler::n_samples)

@@ -40,6 +40,9 @@ class TestSampling(unittest.TestCase):
         sample2 = sampler()
         self.assertTrue(np.all(sample == -sample2))
 
+    # def test_cached_sampler(self):
+    #     sampelr = sampling.
+
 
 if __name__ == "__main__":
     unittest.main()
