@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from modcma.c_maes import sampling, utils
+from modcma.c_maes import sampling, utils, ModularCMAES, Settings
 
 
 class TestSampling(unittest.TestCase):
@@ -53,13 +53,17 @@ class TestSampling(unittest.TestCase):
         points = [[0.1, .1], [.2, .2]]
         sampler = sampling.CachedSampler(points, True)
         self.assertAlmostEqual(sum(sampler()), -2.5631031)
+        self.assertAlmostEqual(sum(sampler()), -1.6832425)
+        
+        cma = ModularCMAES(Settings(2, lambda0=2))
+        cma.p.sampler = sampler
+        cma.step(sum)
+        z_sum = cma.p.pop.Z.sum(axis=0)
+        self.assertAlmostEqual(z_sum[0], -2.5631031)
+        self.assertAlmostEqual(z_sum[1], -1.6832425)
+        
+        
         
         
 if __name__ == "__main__":
     unittest.main()
-
-
-    '''
-        16, 17, 18, 23, 
-        
-    '''

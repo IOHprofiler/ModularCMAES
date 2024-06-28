@@ -13,3 +13,5 @@ from .cmaescpp import (
     Parameters,
     ModularCMAES
 )
+
+from .cmaescpp.parameters import Settings
