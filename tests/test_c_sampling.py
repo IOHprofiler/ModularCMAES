@@ -60,8 +60,7 @@ class TestSampling(unittest.TestCase):
         cma.step(sum)
         z_sum = cma.p.pop.Z.sum(axis=0)
         self.assertAlmostEqual(z_sum[0], -2.5631031)
-        self.assertAlmostEqual(z_sum[1], -1.6832425)
-        
+        self.assertAlmostEqual(z_sum[1], -1.6832425)       
         
         
         
