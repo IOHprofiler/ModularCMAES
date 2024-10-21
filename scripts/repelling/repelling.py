@@ -140,9 +140,9 @@ def plot(
     if len(global_best):
         ax.scatter(
             *global_best,
-            color=main_color,
+            color='blue',
             label=f"global best {global_best_y: .2f}",
-            marker="D",
+            marker="*",
         )
 
     ax.scatter(X[0, :], X[1, :], color=main_color, alpha=0.5)
@@ -160,7 +160,8 @@ def plot(
             tabu_point.solution.x,
             *(2 * sigma * tabu_point.radius * np.diag(Ct)),
             angle=theta_t,
-            facecolor="none",
+            facecolor="grey",
+            alpha=.5,
             edgecolor="black",
             label=f"taboo point {t} radius: {tabu_point.radius: .2f} n_rep: {tabu_point.n_rep} y: {tabu_point.solution.y: .2f}",
             linewidth=2,
@@ -178,6 +179,14 @@ def plot(
             linestyle="dashed",
             zorder=0,
         )
+        
+        if t != len(cma.p.repelling.archive):
+            ax.scatter(
+            *tabu_point.solution.x, 
+                marker='p',
+                color='black',            
+            )
+
 
         if np.isnan(tabu_point.radius):
             m = len(cma.p.repelling.archive)
@@ -190,12 +199,14 @@ def plot(
 
     # print(cma.p.stats)
     plt.grid()
-    plt.legend(loc="upper left")
+    # plt.legend(loc="upper left")
     plt.xlim(lb, ub)
     plt.ylim(lb, ub)
     plt.draw()
     plt.pause(0.01)
-
+    
+    if len(cma.p.repelling.archive) > 2:
+        input()
 
 def hill_valley(u: Solution, v: Solution, f, n_evals: int):
     max_f = max(u.y, v.y)
@@ -293,7 +304,7 @@ def himmelblau_exp():
         print(
             "final target: ", final_target, "used budget: ", problem.state.evaluations
         )
-        plt.figure(figsize=(6, 5))
+        plt.figure(figsize=(4, 5))
         plot_contour(X, Y, Z, colorbar=False)
         basins = []
 
@@ -581,107 +592,6 @@ def collect(
             erts.append(ert)
             # print()
     return erts
-
-# def collect(
-#     fid=21,
-#     dim=2,
-#     rep=True,
-#     n_instances=10,
-#     logged=True,
-#     coverage=5,
-#     budget_f=10_000,
-#     verbose=True,
-#     n_runs=10,
-#     elitist=True,
-# ):
-#     if dim == 0:
-#         dims = range(2, 10)
-#     else:
-#         dims = (dim,)
-
-#     if fid == 0:
-#         fids = list(range(1, 25))
-#     else:
-#         fids = (fid,)
-
-#     algorithm_name = "CMA-ES"
-#     if rep:
-#         algorithm_name += f"-rep-{coverage}-c{coverage}"
-#     if elitist:
-#         algorithm_name += "-elitist"
-
-#     if logged:
-#         logger = ioh.logger.Analyzer(
-#             root="data", algorithm_name=algorithm_name, folder_name=algorithm_name
-#         )
-
-#     modules = c_cmaes.parameters.Modules()
-#     modules.restart_strategy = c_cmaes.options.RESTART
-#     modules.center_placement = c_cmaes.options.UNIFORM
-#     modules.bound_correction = c_cmaes.options.SATURATE
-#     modules.repelling_restart = rep
-#     modules.elitist = elitist
-#     c_cmaes.constants.repelling_current_cov = True
-#     # c_cmaes.constants.sigma_threshold = .25
-#     # c_cmaes.constants.tol_min_sigma = .01
-
-#     data = []
-#     for fid in fids:
-        
-#         print(fid, end=": ")
-#         for dim in dims:
-#             print(dim, end=", ")
-#             sys.stdout.flush()
-#             for instance in range(1, n_instances + 1):
-#                 problem = ioh.get_problem(fid, instance, dim)
-#                 if logged:
-#                     problem.attach_logger(logger)
-
-#                 for run in range(n_runs):
-#                     c_cmaes.utils.set_seed(42 * run)
-
-#                     settings = c_cmaes.parameters.Settings(
-#                         dim,
-#                         modules,
-#                         sigma0=2.0,
-#                         budget=dim * budget_f,
-#                         target=problem.optimum.y + 1e-8,
-#                     )
-
-#                     parameters = c_cmaes.Parameters(settings)
-#                     parameters.repelling.coverage = coverage
-#                     cma = c_cmaes.ModularCMAES(parameters)
-
-#                     cma.run(problem)
-
-#                     final_target = problem.state.current_best.y - problem.optimum.y
-
-#                     potential, n_duplicate_runs = calculate_potential(
-#                         cma.p.stats.centers,
-#                         ioh.get_problem(fid, instance, dim),
-#                     )
-#                     data.append(
-#                         (
-#                             fid,
-#                             instance,
-#                             dim,
-#                             42 * run,
-#                             cma.p.stats.evaluations,
-#                             final_target,
-#                             final_target < 1e-8,
-#                             len(cma.p.stats.centers),
-#                             n_duplicate_runs,
-#                             potential,
-#                         )
-#                     )
-#                     problem.reset()
-#         print()
-            
-
-#     df = pd.DataFrame(data, columns="fid, instance, dim, seed, evaluations, final_target, target_reached, n_runs, n_duplicate_runs, potential".split(", "))
-#     df.to_pickle(f"data/{algorithm_name}.pkl")
-
-#     return np.mean(df.evaluations), np.mean(df.final_target)
 
 
 if __name__ == "__main__":

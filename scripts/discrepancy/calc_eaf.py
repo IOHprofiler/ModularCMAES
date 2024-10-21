@@ -9,7 +9,7 @@ from multiprocessing import Pool
 import numpy as np
 import pandas as pd
 
-ROOT = os.path.realpath(os.path.dirname(os.path.dirname(__file__)))
+ROOT = os.path.realpath(os.path.dirname(os.path.dirname(os.path.dirname(__file__))))
 DATA_PATH = os.path.join(ROOT, "data") 
 N_CPU = 8
 EAF_MIN_LOG_TGT = -8
@@ -70,8 +70,8 @@ def get_eaf_table(fname, tgt):
 
 
 def find_files(src):
-    files_orig = glob.glob(f"{src}/*-1/*/IOHprofiler_f*.dat")
-    return files_orig
+    files = glob.glob(f"{src}/*OPT-cache-64*/*/IOHprofiler_f*5.dat")
+    return files
 
 if __name__ == '__main__':
     parser = ArgumentParser()
@@ -89,7 +89,6 @@ if __name__ == '__main__':
     #     os.remove(f"{tgt}/eaf.db")
         
     files = find_files(src)
-    
     auc_func = partial(get_eaf_table, tgt=tgt)
     results = run_parallel_function(auc_func, files)
         

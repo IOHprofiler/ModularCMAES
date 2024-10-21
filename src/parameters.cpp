@@ -38,11 +38,13 @@ namespace parameters
 	{
 		stats.solutions.push_back(stats.current_best);
 
+		// requires objective
 		stats.evaluations++;
 		stats.centers.emplace_back(adaptation->m, objective(adaptation->m), stats.t, stats.evaluations);
 		stats.update_best(stats.centers.back().x, stats.centers.back().y);
 		repelling->update_archive(objective, *this);
 
+		// requires objective
 		weights = Weights(settings.dim, mu, lambda, settings);
 		sampler->reset(settings.modules, lambda);
 

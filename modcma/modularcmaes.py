@@ -117,8 +117,6 @@ class ModularCMAES:
 
         self.parameters.population = Population(x, y, z, f, s)
 
-        # print(self.parameters.population.f)
-        # breakpoint()
 
     def select(self) -> None:
         """Selection of best individuals in the population.

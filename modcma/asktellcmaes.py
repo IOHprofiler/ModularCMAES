@@ -152,9 +152,9 @@ class AskTellCMAES(ModularCMAES):
             if self.parameters.population.f[index] == None: # noqa
                 self.parameters.population.f[index] = fi
                 break
-        else:
-            warnings.warn("Repeated call to tell with same xi", UserWarning)
-            self.parameters.population.f[index] = fi
+            else:
+                warnings.warn("Repeated call to tell with same xi", UserWarning)
+                self.parameters.population.f[index] = fi
 
         self.parameters.used_budget += 1
         if len(self.ask_queue) == 0 and (self.parameters.population.f != None).all(): # noqa

@@ -66,3 +66,4 @@ class TestSampling(unittest.TestCase):
         
 if __name__ == "__main__":
     unittest.main()
+    #  python  scripts/discrepancy/run_opt_p_sets.py data/pointsets/OptFib_2_16.txt --fid=1 /

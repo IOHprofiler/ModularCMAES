@@ -15,3 +15,5 @@ from .cmaescpp import (
 )
 
 from .cmaescpp.parameters import Settings
+from .asktellcmaes import AskTellCMAES    
+    
