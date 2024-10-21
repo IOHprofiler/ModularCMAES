@@ -184,7 +184,7 @@ while not cma.break_conditions():
    cma.mutate(func)
    cma.select()
    cma.recombine()
-   cma.adapt()
+   cma.adapt(func)
 ```
 
 ## Modules <a name="modules"></a>
