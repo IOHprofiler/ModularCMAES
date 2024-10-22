@@ -148,25 +148,10 @@ namespace restart
 		return false;
 	}
 
-	bool Strategy::evaluate(parameters::Parameters &p)
-	{
-		if (criteria(p))
-		{
-			update_parameters(p);
-			return true;
-		}
-		return false;
-	}
 
 	double Strategy::get_sigma0(const parameters::Parameters& p)
 	{
 		return p.settings.sigma0;
-	}
-
-
-	void Restart::update_parameters(parameters::Parameters &p)
-	{
-		// Nothing to be done
 	}
 
 	void IPOP::update_parameters(parameters::Parameters &p)

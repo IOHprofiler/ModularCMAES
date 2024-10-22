@@ -97,9 +97,7 @@ namespace restart
 
 		Strategy(const double sigma0, const double d, const double lambda) : criteria{sigma0, d, lambda, 0} {}
 
-		bool evaluate(parameters::Parameters &p);
-
-		virtual void update_parameters(parameters::Parameters &) = 0;
+		virtual void update_parameters(parameters::Parameters &) {}
 
 		virtual double get_sigma0(const parameters::Parameters& p);
 	};
@@ -107,19 +105,16 @@ namespace restart
 	struct None : Strategy
 	{
 		using Strategy::Strategy;
-		void update_parameters(parameters::Parameters &p) override {}
 	};
 
 	struct Stop : Strategy
 	{
 		using Strategy::Strategy;
-		void update_parameters(parameters::Parameters &p) override {}
 	};
 
 	struct Restart : Strategy
 	{
 		using Strategy::Strategy;
-		void update_parameters(parameters::Parameters &) override;
 	};
 
 	struct IPOP : Strategy

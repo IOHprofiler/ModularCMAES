@@ -36,6 +36,8 @@ namespace parameters
 
 	void Parameters::perform_restart(FunctionType &objective, const std::optional<double> &sigma)
 	{
+		restart->update_parameters(*this);
+
 		stats.solutions.push_back(stats.current_best);
 
 		// requires objective
@@ -79,8 +81,8 @@ namespace parameters
 		mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
 
 		const auto successful_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings);
-		const auto should_restart = restart->evaluate(*this);
-		if (!successful_adaptation or invalid_state() or should_restart)
+		const auto should_restart = restart->criteria(*this);
+		if (!successful_adaptation or invalid_state() or should_restart){}
 			perform_restart(objective, restart->get_sigma0(*this));
 
 		old_pop = pop;
