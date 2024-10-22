@@ -42,6 +42,7 @@ namespace parameters
 		stats.evaluations++;
 		stats.centers.emplace_back(adaptation->m, objective(adaptation->m), stats.t, stats.evaluations);
 		stats.update_best(stats.centers.back().x, stats.centers.back().y);
+
 		repelling->update_archive(objective, *this);
 
 		// requires objective
@@ -77,12 +78,12 @@ namespace parameters
 		adaptation->adapt_evolution_paths(pop, weights, mutation, stats, mu, lambda);
 		mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
 
-		auto successfull_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings);
-		if (!successfull_adaptation or invalid_state())
-			perform_restart(objective);
+		const auto successful_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings);
+		const auto should_restart = restart->evaluate(*this);
+		if (!successful_adaptation or invalid_state() or should_restart)
+			perform_restart(objective, restart->get_sigma0(*this));
 
 		old_pop = pop;
-		restart->evaluate(objective, *this);
 		stats.t++;
 	}
 }

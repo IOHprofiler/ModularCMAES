@@ -45,23 +45,25 @@ struct Timer
 
 int main()
 {
-	rng::set_seed(42);
-	const size_t dim = 2;
-
-	constants::cache_max_doubles = 0;
-	constants::cache_min_samples = 6;
-	constants::cache_samples = true;
-
+	rng::set_seed(43);
+	const auto dim = 2;
 	parameters::Settings settings(dim);
+	//settings.target = 1e-8;
 	settings.modules.sampler = parameters::BaseSampler::GAUSSIAN;
 	settings.modules.mirrored = parameters::Mirror::NONE;
 	settings.modules.orthogonal = true;
-	parameters::Parameters p(settings);
+	settings.modules.restart_strategy = parameters::RestartStrategyType::RESTART;
+	settings.modules.repelling_restart = true;
+	settings.verbose = true;
 
-	for(size_t j = 0; j < 3; j++)
-	{
-		for (size_t i = 0; i < constants::cache_min_samples; i++)
-			std::cout << p.sampler->operator()().transpose() << std::endl;
-		std::cout << std::endl;
-	}
+	const ModularCMAES cma (settings);
+	Function f;
+	cma(static_cast<FunctionType>(f));
+
+
+	for (const auto& p: cma.p->repelling->archive)
+		std::cout << p.solution << std::endl;
+
+
+
 }

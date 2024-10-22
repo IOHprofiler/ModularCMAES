@@ -137,6 +137,7 @@ namespace repelling
 				{
 					point.solution = candidate_point;
 				}
+				//break;// only if we are a saddle point we can share a basin with multiple?
 			}
 		}
 

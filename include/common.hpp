@@ -48,7 +48,7 @@ namespace constants
  * @brief Cdf of a standard normal distribution.
  *
  * see: ndtr_ndtri.cpp
- * @param x lower tail of the probabilty
+ * @param x lower tail of the probability
  * @return double quantile corresponding to the lower tail probability q
  */
 double cdf(const double x);
@@ -57,7 +57,7 @@ double cdf(const double x);
  * @brief Percent point function (inverse of cdf) of a standard normal distribution.
  *
  * see: ndtri.cpp
- * @param x lower tail of the probabilty
+ * @param x lower tail of the probability
  * @return double quantile corresponding to the lower tail probability q
  */
 double ppf(const double x);

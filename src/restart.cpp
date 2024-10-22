@@ -131,7 +131,7 @@ namespace restart
 		{
 			if (p.settings.verbose)
 			{
-				std::cout << "restart criteria: " << p.stats.t << " (";
+				std::cout << "update_parameters criteria: " << p.stats.t << " (";
 				std::cout << time_since_restart << std::boolalpha;
 				std::cout << ") flat_fitness: " << flat_fitness();
 				std::cout << " exeeded_max_iter: " << exceeded_max_iter();
@@ -148,20 +148,28 @@ namespace restart
 		return false;
 	}
 
-	void Strategy::evaluate(FunctionType &objective, parameters::Parameters &p)
+	bool Strategy::evaluate(parameters::Parameters &p)
 	{
 		if (criteria(p))
 		{
-			restart(objective, p);
+			update_parameters(p);
+			return true;
 		}
+		return false;
 	}
 
-	void Restart::restart(FunctionType &objective, parameters::Parameters &p)
+	double Strategy::get_sigma0(const parameters::Parameters& p)
 	{
-		p.perform_restart(objective);
+		return p.settings.sigma0;
 	}
 
-	void IPOP::restart(FunctionType &objective, parameters::Parameters &p)
+
+	void Restart::update_parameters(parameters::Parameters &p)
+	{
+		// Nothing to be done
+	}
+
+	void IPOP::update_parameters(parameters::Parameters &p)
 	{
 		const size_t max_lambda = static_cast<size_t>(std::pow(p.settings.dim * p.lambda, 2));
 		if (p.mu < max_lambda)
@@ -169,10 +177,9 @@ namespace restart
 			p.mu *= static_cast<size_t>(ipop_factor);
 			p.lambda *= static_cast<size_t>(ipop_factor);
 		}
-		p.perform_restart(objective);
 	}
 
-	void BIPOP::restart(FunctionType &objective, parameters::Parameters &p)
+	void BIPOP::update_parameters(parameters::Parameters &p)
 	{
 		static std::uniform_real_distribution<> dist;
 
@@ -205,7 +212,11 @@ namespace restart
 
 		p.lambda = std::max(size_t{2}, large() ? lambda_large : lambda_small);
 		p.mu = std::max(1.0, p.lambda * mu_factor);
-		p.perform_restart(objective,
-						  large() ? p.settings.sigma0 : p.settings.sigma0 * std::pow(10, -2 * dist(rng::GENERATOR)));
+	}
+
+	double BIPOP::get_sigma0(const parameters::Parameters& p)
+	{
+		static std::uniform_real_distribution<> dist;
+		return large() ? p.settings.sigma0 : p.settings.sigma0 * std::pow(10, -2 * dist(rng::GENERATOR));
 	}
 }

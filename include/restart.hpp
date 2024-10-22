@@ -97,34 +97,36 @@ namespace restart
 
 		Strategy(const double sigma0, const double d, const double lambda) : criteria{sigma0, d, lambda, 0} {}
 
-		void evaluate(FunctionType& objective, parameters::Parameters &p);
+		bool evaluate(parameters::Parameters &p);
 
-		virtual void restart(FunctionType& objective, parameters::Parameters &) = 0;
+		virtual void update_parameters(parameters::Parameters &) = 0;
+
+		virtual double get_sigma0(const parameters::Parameters& p);
 	};
 
 	struct None : Strategy
 	{
 		using Strategy::Strategy;
-		void restart(FunctionType& objective, parameters::Parameters &p) override {}
+		void update_parameters(parameters::Parameters &p) override {}
 	};
 
 	struct Stop : Strategy
 	{
 		using Strategy::Strategy;
-		void restart(FunctionType& objective, parameters::Parameters &p) override {}
+		void update_parameters(parameters::Parameters &p) override {}
 	};
 
 	struct Restart : Strategy
 	{
 		using Strategy::Strategy;
-		void restart(FunctionType& objective, parameters::Parameters &) override;
+		void update_parameters(parameters::Parameters &) override;
 	};
 
 	struct IPOP : Strategy
 	{
 		double ipop_factor = 2.0;
 		using Strategy::Strategy;
-		void restart(FunctionType& objective, parameters::Parameters &) override;
+		void update_parameters(parameters::Parameters &) override;
 	};
 
 	struct BIPOP : Strategy
@@ -145,12 +147,14 @@ namespace restart
 		{
 		}
 
-		void restart(FunctionType& objective, parameters::Parameters &) override;
+		void update_parameters(parameters::Parameters &) override;
 
 		bool large() const
 		{
 			return budget_large >= budget_small and budget_large > 0;
 		}
+
+		double get_sigma0(const parameters::Parameters& p) override;
 	};
 
 	inline std::shared_ptr<Strategy> get(const parameters::RestartStrategyType s, const double sigma0, const double d, const double lambda, const double mu, const size_t budget)

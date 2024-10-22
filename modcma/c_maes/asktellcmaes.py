@@ -101,6 +101,7 @@ class AskTellCMAES:
         if self.is_ask_queue_empty and not np.isnan(f_copy).any():
             self.cma.select()
             self.cma.recombine()
+            
             self.cma.adapt(self.register_individual) # this needs 
             self.cma.mutate(self.register_individual)
             
