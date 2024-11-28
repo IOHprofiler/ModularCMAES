@@ -19,6 +19,9 @@ namespace constants
 	size_t cache_max_doubles = 2'000'000;
 	size_t cache_min_samples = 128;
 	bool cache_samples = false;
+	double hill_valley_eps = 1e-8;
+	bool do_hill_valley = false;
+	extern double repelling_coverage = 20;
 }
 
 namespace utils

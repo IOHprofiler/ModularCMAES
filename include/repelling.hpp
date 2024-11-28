@@ -66,11 +66,23 @@ namespace repelling
 		void calculate_criticality(const parameters::Parameters &p);
 	};
 
+
+	struct CheckingStatus {
+		const Solution& candidate;
+		size_t current_point;
+
+		size_t n_evals_hv;
+		bool accept;
+		Solution current_test_point;
+		double max_f;
+
+		CheckingStatus(const Solution& s): candidate(s), current_point(0), n_evals_hv(1), accept(true){}
+	};
+
 	struct Repelling
 	{
 		std::vector<TabooPoint> archive;
 		int attempts = 0;
-		double coverage = 20.0;
 		// Matrix C;
 		// Matrix C_inv;
 
@@ -95,6 +107,12 @@ namespace repelling
 		 * \brief Hook before sampling starts
 		 */
 		virtual void prepare_sampling(const parameters::Parameters &p);
+
+		//! Method to recompute the volume of each repelling region
+		void redistribute_volume(const parameters::Parameters& p);
+
+		//! 
+		bool check_candidate_lazily(CheckingStatus& cs);
 	};
 
 	struct NoRepelling final : Repelling

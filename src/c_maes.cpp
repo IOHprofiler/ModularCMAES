@@ -13,7 +13,12 @@ bool ModularCMAES::step(FunctionType& objective) const
 	p->selection->select(*p);
 
 	recombine();
-	p->adapt(objective);
+	const auto should_restart = p->adapt();
+	if (should_restart)
+	{
+		p->finalize_restart(objective);
+		p->perform_restart();
+	}
 	/*if (p->stats.t % (p->settings.dim * 2) == 0 and p->settings.verbose)
 		std::cout << p->stats << " (mu, lambda, sigma): " << p->mu
 			<< ", " << p->lambda << ", " << p->mutation->sigma << '\n';*/

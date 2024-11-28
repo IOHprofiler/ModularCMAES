@@ -5,17 +5,17 @@ namespace repelling
 {
 	namespace distance
 	{
-		double manhattan(const Vector &u, const Vector &v)
+		double manhattan(const Vector& u, const Vector& v)
 		{
 			return (u - v).cwiseAbs().sum();
 		}
 
-		double euclidian(const Vector &u, const Vector &v)
+		double euclidian(const Vector& u, const Vector& v)
 		{
 			return (u - v).norm();
 		}
 
-		double mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv)
+		double mahanolobis(const Vector& u, const Vector& v, const Matrix& C_inv)
 		{
 			const auto delta = u - v;
 			return std::sqrt(delta.transpose() * C_inv * delta);
@@ -23,12 +23,18 @@ namespace repelling
 
 		//! Returns true when u belongs to the same basin as v
 		bool hill_valley_test_p(
-			const Solution &u,
-			const Solution &v,
-			FunctionType &f,
+			const Solution& u,
+			const Solution& v,
+			FunctionType& f,
 			const size_t n_evals,
-			parameters::Parameters &p)
+			parameters::Parameters& p)
 		{
+			/*if (manhattan(u.x, v.x) < constants::hill_valley_eps)
+				return true;
+
+			if (!constants::do_hill_valley)
+				return false;*/
+
 			const double max_f = std::max(u.y, v.y);
 			for (size_t k = 1; k < n_evals + 1; k++)
 			{
@@ -44,12 +50,15 @@ namespace repelling
 		}
 
 		bool hill_valley_test(
-			const Solution &u,
-			const Solution &v,
-			FunctionType &f,
+			const Solution& u,
+			const Solution& v,
+			FunctionType& f,
 			const size_t n_evals
-			)
+		)
 		{
+			if (manhattan(u.x, v.x) < constants::hill_valley_eps)
+				return true;
+
 			const double max_f = std::max(u.y, v.y);
 			for (size_t k = 1; k < n_evals + 1; k++)
 			{
@@ -63,10 +72,11 @@ namespace repelling
 		}
 	}
 
-	bool TabooPoint::rejects(const Vector &xi, const parameters::Parameters &p, const int attempts) const
+	bool TabooPoint::rejects(const Vector& xi, const parameters::Parameters& p, const int attempts) const
 	{
 		const double rejection_radius = std::pow(shrinkage, attempts) * radius;
 		const double delta_xi = distance::mahanolobis(xi, solution.x, p.adaptation->inv_C) / p.mutation->sigma;
+		//const double delta_xi = distance::manhattan(xi, solution.x);
 
 		if (delta_xi < rejection_radius)
 			return true;
@@ -74,12 +84,12 @@ namespace repelling
 		return false;
 	}
 
-	bool TabooPoint::shares_basin(FunctionType &objective, const Solution &sol, parameters::Parameters &p) const
+	bool TabooPoint::shares_basin(FunctionType& objective, const Solution& sol, parameters::Parameters& p) const
 	{
 		return distance::hill_valley_test_p(sol, solution, objective, 10, p);
 	}
 
-	void TabooPoint::calculate_criticality(const parameters::Parameters &p)
+	void TabooPoint::calculate_criticality(const parameters::Parameters& p)
 	{
 		const double delta_m = distance::mahanolobis(p.adaptation->m, solution.x, p.adaptation->inv_C) / p.mutation->sigma;
 		const auto u = delta_m + radius;
@@ -87,14 +97,14 @@ namespace repelling
 		criticality = cdf(u) - cdf(l);
 	}
 
-	void Repelling::prepare_sampling(const parameters::Parameters &p)
+	void Repelling::prepare_sampling(const parameters::Parameters& p)
 	{
 		attempts = 0;
-		for (auto &point : archive)
+		for (auto& point : archive)
 			point.calculate_criticality(p);
 
-		std::sort(archive.begin(), archive.end(), [](const TabooPoint &a, const TabooPoint &b)
-				  { return a.criticality > b.criticality; });
+		std::sort(archive.begin(), archive.end(), [](const TabooPoint& a, const TabooPoint& b)
+			{ return a.criticality > b.criticality; });
 
 		//! If it is not intialized
 		/*
@@ -120,43 +130,114 @@ namespace repelling
 		*/
 	}
 
-	void Repelling::update_archive(FunctionType &objective, parameters::Parameters &p)
+	bool Repelling::check_candidate_lazily(CheckingStatus& cs)
 	{
-		const auto candidate_point = p.stats.centers.back();
+		static int n_evals_hv = 10;
 
-		bool accept_candidate = true;
-
-		for (auto &point : archive)
+		if (std::isfinite(cs.current_test_point.y))
 		{
-			if (point.shares_basin(objective, candidate_point, p))
+			cs.n_evals_hv++;
+			
+			if (cs.max_f < cs.current_test_point.y)
 			{
-				point.n_rep++;
-				accept_candidate = false;
-
-				if (point.solution > candidate_point)
+				// there is a hill, we do not share a basin and can go to next point
+				cs.current_point++;
+				cs.n_evals_hv = 1;
+			}
+			else if (cs.n_evals_hv > n_evals_hv)
+			{
+				// if we reach the maximum number of points, there is no hill (so we share a basin)
+				// Because we share a basin, we cannot accept the current point
+				cs.accept = false;
+				
+				// We update the archived point
+				archive[cs.current_point].n_rep++;
+				if (archive[cs.current_point].solution > cs.candidate)
 				{
-					point.solution = candidate_point;
+					archive[cs.current_point].solution = cs.candidate;
 				}
-				//break;// only if we are a saddle point we can share a basin with multiple?
+				// We can stop now entirely.	
+				return false;
 			}
 		}
 
-		if (accept_candidate)
-			archive.emplace_back(candidate_point, 1.0);// , C, C_inv);
+		if (cs.current_point >= archive.size())
+			return false;
 
-		const double volume_per_n = p.settings.volume / (p.settings.sigma0 * coverage * p.stats.solutions.size());
+		const auto& taboo_point = archive[cs.current_point];
+		cs.max_f = std::max(cs.candidate.y, taboo_point.solution.y);
+
+		const double a = static_cast<double>(cs.n_evals_hv) / (static_cast<double>(n_evals_hv) + 1.0);
+
+		cs.current_test_point.x = taboo_point.solution.x + a * (cs.candidate.x - taboo_point.solution.x);
+		return true;
+	}
+
+	void Repelling::update_archive(FunctionType& objective, parameters::Parameters& p)
+	{
+		const auto candidate_point = p.stats.centers.back();
+
+		std::cout << "\nn_evals (before): " << p.stats.evaluations << std::endl;
+
+		if (true) 
+		{
+			CheckingStatus cs{ candidate_point };
+			while (check_candidate_lazily(cs))
+			{
+				cs.current_test_point.y = objective(cs.current_test_point.x);
+				p.stats.evaluations++;
+				p.stats.update_best(cs.current_test_point.x, cs.current_test_point.y);
+			}
+			if (cs.accept)
+				archive.emplace_back(candidate_point, 1.0);// , C, C_inv);
+
+		} 
+		else
+		{
+			bool accept_candidate = true;
+			for (auto& point : archive)
+			{
+				if (point.shares_basin(objective, candidate_point, p))
+				{
+					point.n_rep++;
+					accept_candidate = false;
+					if (point.solution > candidate_point)
+					{
+						point.solution = candidate_point;
+					}
+					//break;// only if we are a saddle point we can share a basin with multiple?
+				}
+			}
+			if (accept_candidate)
+				archive.emplace_back(candidate_point, 1.0);// , C, C_inv);
+		}
+
+
+		std::cout << "n_evals (after): " << p.stats.evaluations << std::endl;
+		std::cout << "size of archive: " << archive.size() << std::endl;
+		for (const auto& p : archive)
+			std::cout << p.n_rep << ", " << p.radius << ", " << p.criticality << ", " << p.solution << std::endl;
+
+		redistribute_volume(p);
+	}
+
+
+
+
+	void Repelling::redistribute_volume(const parameters::Parameters& p) {
+		const double volume_per_n = p.settings.volume / (p.settings.sigma0 * constants::repelling_coverage * p.stats.centers.size());
 		const double n = p.adaptation->dd;
 		const double gamma_f = std::pow(std::tgamma(n / 2.0 + 1.0), 1.0 / n) / std::sqrt(M_PI);
-		for (auto &point : archive)
+		for (auto& point : archive)
 			point.radius = std::pow(volume_per_n * point.n_rep, 1.0 / n) * gamma_f;
 	}
 
-	bool Repelling::is_rejected(const Vector &xi, parameters::Parameters &p)
+	bool Repelling::is_rejected(const Vector& xi, parameters::Parameters& p)
 	{
 		static constexpr double criticality_threshold = 0.01;
 		if (!archive.empty())
 		{
-			for (const auto &point : archive)
+			for (const auto& point : archive)
 			{
 				// This assumes archive is sorted by criticality
 				if (point.criticality < criticality_threshold)

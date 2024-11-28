@@ -34,14 +34,28 @@ using FunctionType = std::function<double(const Vector &)>;
 
 namespace constants
 {
+	//! Restart criteria
 	extern double tolup_sigma;
+	//! Restart criteria
 	extern double tol_condition_cov;
+	//! Restart criteria
 	extern double tol_min_sigma;
+	//! Restart criteria
 	extern double stagnation_quantile;
+	//! Restart criteria
 	extern double sigma_threshold;
+	//! Pseudorandom sampling
 	extern size_t cache_max_doubles;
+	//! Pseudorandom sampling
 	extern size_t cache_min_samples;
+	//! Pseudorandom sampling
 	extern bool cache_samples;
+	//! Repelling (Only do hill-valley check when the points are closer than this value (manhattan)
+	extern double hill_valley_eps;
+	//! Repelling: wheter to do hill-valley
+	extern bool do_hill_valley;
+	//! The total amount of coverage
+	extern double repelling_coverage;
 }
 
 /**

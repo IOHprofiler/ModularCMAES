@@ -43,27 +43,59 @@ struct Timer
 };
 
 
-int main()
+parameters::Stats do_single_run(const int seed, const int dim, const bool verbose = false)
 {
-	rng::set_seed(43);
-	const auto dim = 2;
+	rng::set_seed(seed);
 	parameters::Settings settings(dim);
-	//settings.target = 1e-8;
+	
+	settings.target = 1e-8;
 	settings.modules.sampler = parameters::BaseSampler::GAUSSIAN;
 	settings.modules.mirrored = parameters::Mirror::NONE;
 	settings.modules.orthogonal = true;
 	settings.modules.restart_strategy = parameters::RestartStrategyType::RESTART;
+	settings.modules.matrix_adaptation = parameters::MatrixAdaptationType::SEPERABLE;
 	settings.modules.repelling_restart = true;
-	settings.verbose = true;
+	settings.verbose = false;
 
 	const ModularCMAES cma (settings);
 	Function f;
 	cma(static_cast<FunctionType>(f));
 
-
-	for (const auto& p: cma.p->repelling->archive)
-		std::cout << p.solution << std::endl;
-
-
-
+	if (verbose) 
+	{
+		std::cout << cma.p->stats << std::endl;
+		std::cout << "size of archive: " << cma.p->repelling->archive.size() << std::endl;
+ 		for (const auto& p: cma.p->repelling->archive)
+			std::cout << p.solution << std::endl;
+	}
+	return cma.p->stats;
 }
+
+
+int main()
+{
+	constants::do_hill_valley = true;
+	constants::repelling_coverage = 200.0;
+
+	const int dim = 20;
+	const double tgt = 1e-8;
+	const int n_runs = 1;
+	const bool verbose = false;
+	int n_suc = 0;
+	int n_evals = 0;
+
+	for (size_t i = 1; i < n_runs + 1; i++) {
+		auto stats = do_single_run(43 + i * 10, dim, verbose);
+		//std::cout << stats << std::endl;
+		const bool success = stats.global_best.y < tgt;
+		n_suc += success;
+		n_evals += stats.evaluations;
+	}
+
+	std::cout << "ERT: ";
+	if (n_suc == 0)
+		std::cout << "inf\n";
+	else
+		std::cout << n_evals / n_suc << "\n";
+
+}		

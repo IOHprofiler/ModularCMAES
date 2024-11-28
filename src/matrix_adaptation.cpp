@@ -72,8 +72,8 @@ namespace matrix_adaptation
 			}
 			return false;
 		}
-		inv_C = ((B * d.cwiseInverse().asDiagonal()) * B.transpose());
 		d = d.cwiseSqrt();
+		inv_C = ((B * d.cwiseInverse().asDiagonal()) * B.transpose());
 		inv_root_C = (B * d.cwiseInverse().asDiagonal()) * B.transpose();
 		return true;
 	}
