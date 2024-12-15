@@ -26,8 +26,8 @@ namespace parameters
         Population pop;
         Population old_pop;
 
-        std::shared_ptr<matrix_adaptation::Adaptation> adaptation;
         std::shared_ptr<sampling::Sampler> sampler;
+        std::shared_ptr<matrix_adaptation::Adaptation> adaptation;
         std::shared_ptr<mutation::Strategy> mutation;
         std::shared_ptr<selection::Strategy> selection;
         std::shared_ptr<restart::Strategy> restart;

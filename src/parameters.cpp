@@ -8,14 +8,16 @@ namespace parameters
 													   weights(settings.dim, settings.mu0, settings.lambda0, settings),
 													   pop(settings.dim, settings.lambda0),
 													   old_pop(settings.dim, settings.lambda0),
-													   adaptation(matrix_adaptation::get(settings.modules, settings.dim,
-																						 settings.x0.value_or(Vector::Zero(settings.dim)))),
 													   sampler(sampling::get(settings.dim, settings.modules, settings.lambda0)),
+													   adaptation(matrix_adaptation::get(settings.modules, settings.dim,
+																						 settings.x0.value_or(Vector::Zero(settings.dim)),
+																						 sampler->expected_length())),
 													   mutation(mutation::get(settings.modules,
 																			  settings.mu0, weights.mueff,
 																			  static_cast<double>(settings.dim),
 																			  settings.sigma0,
-																			  settings.cs)),
+																			  settings.cs,
+																			  sampler->expected_length())),
 													   selection(std::make_shared<selection::Strategy>(settings.modules)),
 													   restart(restart::get(
 														   settings.modules.restart_strategy,
@@ -52,7 +54,7 @@ namespace parameters
 		mutation = mutation::get(settings.modules, mu, weights.mueff,
 								 static_cast<double>(settings.dim),
 								 sigma.value_or(settings.sigma0),
-								 settings.cs);
+								 settings.cs, sampler->expected_length());
 		adaptation->restart(settings);
 		(*center_placement)(*this);
 		restart->criteria = restart::RestartCriteria(sigma.value_or(settings.sigma0), settings.dim, lambda, stats.t);

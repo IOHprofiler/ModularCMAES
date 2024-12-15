@@ -13,7 +13,8 @@ namespace parameters
     struct Strategy;
     struct Modules;
 }
-namespace matrix_adaptation {
+namespace matrix_adaptation
+{
     struct Adaptation;
 }
 namespace bounds
@@ -33,7 +34,7 @@ namespace mutation
 
     struct NoThresholdConvergence : ThresholdConvergence
     {
-        Vector scale(const Vector& zi, const double diameter, const size_t budget, const size_t evaluations) override
+        Vector scale(const Vector &zi, const double diameter, const size_t budget, const size_t evaluations) override
         {
             return zi;
         }
@@ -46,7 +47,7 @@ namespace mutation
 
     public:
         SequentialSelection(const parameters::Mirror &m, const size_t mu, const double seq_cutoff_factor = 1.0) : seq_cutoff_factor(m == parameters::Mirror::PAIRWISE ? std::max(2., seq_cutoff_factor) : seq_cutoff_factor),
-                                                                                                                seq_cutoff(static_cast<size_t>(mu * seq_cutoff_factor))
+                                                                                                                  seq_cutoff(static_cast<size_t>(mu * seq_cutoff_factor))
         {
         }
         virtual bool break_conditions(const size_t i, const double f, double fopt, const parameters::Mirror &m);
@@ -98,8 +99,7 @@ namespace mutation
             const std::shared_ptr<SigmaSampler> &sigma_sampler,
             const double cs, const double sigma0) : tc(threshold_covergence), sq(sequential_selection), ss(sigma_sampler), cs(cs), sigma(sigma0) {}
 
-
-        virtual void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p) = 0;
+        virtual void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p) = 0;
 
         virtual void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                            const Population &old_pop, const parameters::Stats &stats, const size_t lambda) = 0;
@@ -108,13 +108,14 @@ namespace mutation
     struct CSA : Strategy
     {
         double damps;
+        double expected_length_z;
 
         CSA(const std::shared_ptr<ThresholdConvergence> &threshold_covergence,
             const std::shared_ptr<SequentialSelection> &sequential_selection,
             const std::shared_ptr<SigmaSampler> &sigma_sampler,
-            const double cs, const double damps, const double sigma0) : Strategy(threshold_covergence, sequential_selection, sigma_sampler, cs, sigma0), damps(damps) {}
+            const double cs, const double damps, const double sigma0, const double expected_z) : Strategy(threshold_covergence, sequential_selection, sigma_sampler, cs, sigma0), damps(damps), expected_length_z(expected_z) {}
 
-        void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p) override;
+        void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p) override;
 
         void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                    const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
@@ -128,7 +129,7 @@ namespace mutation
         double b_tpa = 0.0;
         double rank_tpa = 0.0;
 
-        void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters &p) override;
+        void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p) override;
 
         void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                    const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
@@ -145,7 +146,7 @@ namespace mutation
     struct PSR : CSA
     {
         double succes_ratio = .25;
-        
+
         Vector combined;
 
         using CSA::CSA;
@@ -179,6 +180,6 @@ namespace mutation
     };
 
     std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu,
-                                  const double mueff, const double d, const double sigma, const std::optional<double> cs);
+                                  const double mueff, const double d, const double sigma, const std::optional<double> cs, const double expected_z);
 
 }

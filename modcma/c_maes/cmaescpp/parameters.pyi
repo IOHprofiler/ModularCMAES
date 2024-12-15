@@ -17,6 +17,7 @@ class Modules:
     ssa: modcma.c_maes.cmaescpp.options.StepSizeAdaptation
     threshold_convergence: bool
     weights: modcma.c_maes.cmaescpp.options.RecombinationWeights
+    sample_transformation: modcma.c_maes.cmaescpp.options.SampleTranformerType
     def __init__(self) -> None: ...
 
 class Settings:

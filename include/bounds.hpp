@@ -68,7 +68,7 @@ namespace bounds
 
 	struct UniformResample final : BoundCorrection
 	{
-		sampling::Random<std::uniform_real_distribution<>> sampler;
+		sampling::Uniform sampler;
 
 		UniformResample(Eigen::Ref<const Vector> lb, Eigen::Ref<const Vector> ub) : BoundCorrection(lb, ub), sampler(static_cast<size_t>(lb.size())) {}
 

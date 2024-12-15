@@ -23,9 +23,13 @@ namespace mutation
 
 	void CSA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
 					Population &pop,
-					const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+					const Population &old_pop, const parameters::Stats &stats, const size_t lambda
+				)
+
 	{
-		sigma *= std::exp((cs / damps) * ((adaptation->ps.norm() / adaptation->chiN) - 1));
+		sigma *= std::exp((cs / damps) * (
+			(adaptation->ps.norm() / expected_length_z) - 1)
+		);
 	}
 
 	void CSA::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
@@ -169,7 +173,9 @@ namespace mutation
 	}
 
 	std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const double mueff,
-								  const double d, const double sigma, const std::optional<double> cs0)
+								  const double d, const double sigma, const std::optional<double> cs0,
+								  const double expected_z
+								  )
 	{
 		using namespace parameters;
 		auto tc = m.threshold_convergence
@@ -186,30 +192,30 @@ namespace mutation
 
 		double cs = cs0.value_or(0.3);
 		double damps = 0.0;
-
+		
 		switch (m.ssa)
 		{
 		case StepSizeAdaptation::TPA:
-			return std::make_shared<TPA>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<TPA>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::MSR:
-			return std::make_shared<MSR>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<MSR>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::XNES:
 			cs = cs0.value_or(mueff / (2.0 * std::log(std::max(2., d)) * sqrt(d)));
-			return std::make_shared<XNES>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<XNES>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::MXNES:
 			cs = cs0.value_or(1.);
-			return std::make_shared<MXNES>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<MXNES>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::LPXNES:
 			cs = cs0.value_or(9.0 * mueff / (10.0 * sqrt(d)));
-			return std::make_shared<LPXNES>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<LPXNES>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::PSR:
 			cs = cs0.value_or(.9);
-			return std::make_shared<PSR>(tc, sq, ss, cs, 0., sigma);
+			return std::make_shared<PSR>(tc, sq, ss, cs, 0., sigma, expected_z);
 		default:
 		case StepSizeAdaptation::CSA:
 			cs = cs0.value_or((mueff + 2.0) / (d + mueff + 5.0));
 			damps = 1.0 + (2.0 * std::max(0.0, sqrt((mueff - 1.0) / (d + 1)) - 1) + cs);
-			return std::make_shared<CSA>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<CSA>(tc, sq, ss, cs, damps, sigma, expected_z);
 		}
 	}
 }

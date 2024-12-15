@@ -23,8 +23,8 @@ namespace parameters
     {
         switch (s)
         {
-        case BaseSampler::GAUSSIAN:
-            return "GAUSSIAN";
+        case BaseSampler::UNIFORM:
+            return "UNIFORM";
         case BaseSampler::SOBOL:
             return "SOBOL";
         case BaseSampler::HALTON:

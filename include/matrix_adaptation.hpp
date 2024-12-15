@@ -12,14 +12,13 @@ namespace matrix_adaptation
 	{
 		Vector m, m_old, dm, ps;
 		double dd;
-		double chiN;
+		double expected_length_z;
 		Matrix inv_C;
 
-		Adaptation(const size_t dim, const Vector& x0, const Vector& ps) :
+		Adaptation(const size_t dim, const Vector& x0, const Vector& ps, const double expected_length_z) :
 			m(x0), m_old(dim), dm(Vector::Zero(dim)),
 			ps(ps), dd(static_cast<double>(dim)),
-			chiN(sqrt(dd)* (1.0 - 1.0 / (4.0 * dd) + 1.0
-				/ (21.0 * pow(dd, 2.0)))),
+			expected_length_z(expected_length_z),
 			inv_C(Matrix::Identity(dim, dim))
 		{
 		}
@@ -43,7 +42,7 @@ namespace matrix_adaptation
 
 	struct None final : Adaptation
 	{
-		None(const size_t dim, const Vector& x0) : Adaptation(dim, x0, Vector::Ones(dim))
+		None(const size_t dim, const Vector& x0, const double expected_length_z) : Adaptation(dim, x0, Vector::Ones(dim), expected_length_z)
 		{
 		}
 
@@ -72,7 +71,7 @@ namespace matrix_adaptation
 
 		bool hs = true;
 
-		CovarianceAdaptation(const size_t dim, const Vector& x0) : Adaptation(dim, x0, Vector::Zero(dim)),
+		CovarianceAdaptation(const size_t dim, const Vector& x0, const double expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
 			pc(Vector::Zero(dim)),
 			d(Vector::Ones(dim)),
 			B(Matrix::Identity(dim, dim)),
@@ -112,7 +111,7 @@ namespace matrix_adaptation
 		Matrix M;
 		Matrix M_inv;
 
-		MatrixAdaptation(const size_t dim, const Vector& x0) : Adaptation(dim, x0, Vector::Ones(dim)),
+		MatrixAdaptation(const size_t dim, const Vector& x0, const double expected_length_z) : Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
 			M(Matrix::Identity(dim, dim)),
 			M_inv(Matrix::Identity(dim, dim))
 		{
@@ -132,20 +131,20 @@ namespace matrix_adaptation
 		Vector invert_y(const Vector&) override;
 	};
 
-	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0)
+	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0, const double expected_z)
 	{
 		using namespace parameters;
 		switch (m.matrix_adaptation)
 		{
 		case MatrixAdaptationType::MATRIX:
-			return std::make_shared<MatrixAdaptation>(dim, x0);
+			return std::make_shared<MatrixAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::NONE:
-			return std::make_shared<None>(dim, x0);
+			return std::make_shared<None>(dim, x0, expected_z);
 		case MatrixAdaptationType::SEPERABLE:
-			return std::make_shared<SeperableAdaptation>(dim, x0);
+			return std::make_shared<SeperableAdaptation>(dim, x0, expected_z);
 		default:
 		case MatrixAdaptationType::COVARIANCE:
-			return std::make_shared<CovarianceAdaptation>(dim, x0);
+			return std::make_shared<CovarianceAdaptation>(dim, x0, expected_z);
 		}
 	}
 } // namespace parameters

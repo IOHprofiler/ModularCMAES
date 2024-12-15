@@ -29,9 +29,19 @@ void define_options(py::module &main)
         .export_values();
 
     py::enum_<BaseSampler>(m, "BaseSampler")
-        .value("GAUSSIAN", BaseSampler::GAUSSIAN)
+        .value("UNIFORM", BaseSampler::UNIFORM)
         .value("SOBOL", BaseSampler::SOBOL)
         .value("HALTON", BaseSampler::HALTON)
+        .export_values();
+
+    py::enum_<SampleTranformerType>(m, "SampleTranformerType")
+        .value("NONE", SampleTranformerType::NONE)
+        .value("GAUSSIAN", SampleTranformerType::GAUSSIAN)
+        .value("SCALED_UNIFORM", SampleTranformerType::SCALED_UNIFORM)
+        .value("LAPLACE", SampleTranformerType::LAPLACE)
+        .value("LOGISTIC", SampleTranformerType::LOGISTIC)
+        .value("CAUCHY", SampleTranformerType::CAUCHY)
+        .value("DOUBLE_WEIBULL", SampleTranformerType::DOUBLE_WEIBULL)
         .export_values();
 
     py::enum_<Mirror>(m, "Mirror")
@@ -104,7 +114,8 @@ void define_samplers(py::module &main)
 
     py::class_<Sampler, std::shared_ptr<Sampler>>(m, "Sampler")
         .def_readonly("d", &Sampler::d)
-        .def("reset", &Sampler::reset);
+        .def("reset", &Sampler::reset)
+        .def("expected_length",  &Sampler::expected_length);
 
     py::class_<PySampler, Sampler, std::shared_ptr<PySampler>>(m, "PySampler")
         .def(py::init<size_t, std::function<double()>>(), py::arg("d"), py::arg("function"))
@@ -143,6 +154,46 @@ void define_samplers(py::module &main)
         .def(py::init<const std::shared_ptr<Sampler>, size_t>(),
              py::arg("sampler"), py::arg("n_samples"))
         .def("__call__", &Orthogonal::operator());
+
+    py::class_<SampleTransformer, Sampler, std::shared_ptr<SampleTransformer>>(m, "SampleTransformer")
+        .def("raw", &SampleTransformer::raw);
+
+    py::class_<GaussianTransformer, SampleTransformer, std::shared_ptr<GaussianTransformer>>(m, "GaussianTransformer")
+        .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def("transform", &GaussianTransformer::transform)
+        .def("__call__", &GaussianTransformer::operator())
+        .def("expected_length",  &GaussianTransformer::expected_length);
+
+    py::class_<UniformScaler, SampleTransformer, std::shared_ptr<UniformScaler>>(m, "UniformScaler")
+        .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def("transform", &UniformScaler::transform)
+        .def("__call__", &UniformScaler::operator())
+        .def("expected_length",  &UniformScaler::expected_length);
+
+    py::class_<LaplaceTransformer, SampleTransformer, std::shared_ptr<LaplaceTransformer>>(m, "LaplaceTransformer")
+        .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def("transform", &LaplaceTransformer::transform)
+        .def("__call__", &LaplaceTransformer::operator())
+        .def("expected_length",  &LaplaceTransformer::expected_length);
+    
+    py::class_<LogisticTransformer, SampleTransformer, std::shared_ptr<LogisticTransformer>>(m, "LogisticTransformer")
+        .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def("transform", &LogisticTransformer::transform)
+        .def("__call__", &LogisticTransformer::operator())
+        .def("expected_length",  &LogisticTransformer::expected_length);
+
+    py::class_<CauchyTransformer, SampleTransformer, std::shared_ptr<CauchyTransformer>>(m, "CauchyTransformer")
+        .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def("transform", &CauchyTransformer::transform)
+        .def("__call__", &CauchyTransformer::operator())
+        .def("expected_length",  &CauchyTransformer::expected_length);
+
+    py::class_<DoubleWeibullTransformer, SampleTransformer, std::shared_ptr<DoubleWeibullTransformer>>(m, "DoubleWeibullTransformer")
+        .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def("transform", &DoubleWeibullTransformer::transform)
+        .def("__call__", &DoubleWeibullTransformer::operator())
+        .def("expected_length",  &DoubleWeibullTransformer::expected_length);
+    
 }
 
 void define_utils(py::module &main)
@@ -153,7 +204,7 @@ void define_utils(py::module &main)
     m.def("i8_sobol", &i8_sobol, py::arg("dim_num"), py::arg("seed"), py::arg("quasi"));
     m.def("compute_ert", &utils::compute_ert, py::arg("running_times"), py::arg("budget"));
     m.def("set_seed", &rng::set_seed, py::arg("seed"), "Set the random seed");
-    m.def("random_uniform", &random_double<rng::uniform<double>>, "Generate a uniform random number in [-1, 1]");
+    m.def("random_uniform", &random_double<rng::uniform<double>>, "Generate a uniform random number in [0, 1]");
     m.def("random_normal", &random_double<rng::normal<double>>, "Generate a standard normal random number");
 
     py::class_<rng::Shuffler>(m, "Shuffler")
@@ -161,14 +212,13 @@ void define_utils(py::module &main)
         .def(py::init<size_t>(), py::arg("stop"))
         .def("next", &rng::Shuffler::next)
         .def_readwrite("start", &rng::Shuffler::start)
-		.def_readwrite("stop", &rng::Shuffler::stop)
-		.def_readwrite("n", &rng::Shuffler::n)
-		.def_readwrite("seed", &rng::Shuffler::seed)
-		.def_readwrite("offset", &rng::Shuffler::offset)
-		.def_readwrite("multiplier", &rng::Shuffler::multiplier)
-		.def_readwrite("modulus", &rng::Shuffler::modulus)
-		.def_readwrite("found", &rng::Shuffler::found)
-        ;
+        .def_readwrite("stop", &rng::Shuffler::stop)
+        .def_readwrite("n", &rng::Shuffler::n)
+        .def_readwrite("seed", &rng::Shuffler::seed)
+        .def_readwrite("offset", &rng::Shuffler::offset)
+        .def_readwrite("multiplier", &rng::Shuffler::multiplier)
+        .def_readwrite("modulus", &rng::Shuffler::modulus)
+        .def_readwrite("found", &rng::Shuffler::found);
 
     py::class_<rng::CachedShuffleSequence>(m, "CachedShuffleSequence")
         .def(py::init<size_t>(), py::arg("dim"))
@@ -252,8 +302,8 @@ void define_repelling(py::module &main)
     m.def("euclidian", &distance::euclidian, py::arg("u"), py::arg("v"));
     m.def("manhattan", &distance::manhattan, py::arg("u"), py::arg("v"));
     m.def("mahanolobis", &distance::mahanolobis, py::arg("u"), py::arg("v"), py::arg("C_inv"));
-    m.def("hill_valley_test", &distance::hill_valley_test, 
-        py::arg("u"), py::arg("v"), py::arg("f"), py::arg("n_evals"));
+    m.def("hill_valley_test", &distance::hill_valley_test,
+          py::arg("u"), py::arg("v"), py::arg("f"), py::arg("n_evals"));
 }
 
 void define_matrix_adaptation(py::module &main)
@@ -266,7 +316,7 @@ void define_matrix_adaptation(py::module &main)
         .def_readwrite("dm", &Adaptation::dm)
         .def_readwrite("ps", &Adaptation::ps)
         .def_readwrite("dd", &Adaptation::dd)
-        .def_readwrite("chiN", &Adaptation::chiN)
+        .def_readwrite("expected_length_z", &Adaptation::expected_length_z)
         .def_readwrite("inv_C", &CovarianceAdaptation::inv_C)
         .def("adapt_evolution_paths", &Adaptation::adapt_evolution_paths,
              py::arg("pop"),
@@ -295,12 +345,12 @@ void define_matrix_adaptation(py::module &main)
             ss << " dm: " << dyn.dm.transpose();
             ss << " ps: " << dyn.ps.transpose();
             ss << " dd: " << dyn.dd;
-            ss << " chiN: " << dyn.chiN;
+            ss << " expected_length_z: " << dyn.expected_length_z;
             ss << ">";
             return ss.str(); });
 
     py::class_<CovarianceAdaptation, Adaptation, std::shared_ptr<CovarianceAdaptation>>(m, "CovarianceAdaptation")
-        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
+        .def(py::init<size_t, Vector, double>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
         .def_readwrite("pc", &CovarianceAdaptation::pc)
         .def_readwrite("d", &CovarianceAdaptation::d)
         .def_readwrite("B", &CovarianceAdaptation::B)
@@ -328,13 +378,13 @@ void define_matrix_adaptation(py::module &main)
             ss << " C: " << dyn.C;
             ss << " inv_root_C: " << dyn.inv_root_C;
             ss << " dd: " << dyn.dd;
-            ss << " chiN: " << dyn.chiN;
+            ss << " expected_length_z: " << dyn.expected_length_z;
             ss << " hs: " << dyn.hs;
             ss << ">";
             return ss.str(); });
 
     py::class_<SeperableAdaptation, CovarianceAdaptation, std::shared_ptr<SeperableAdaptation>>(m, "SeperableAdaptation")
-        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
+        .def(py::init<size_t, Vector, double>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
         .def("__repr__", [](SeperableAdaptation &dyn)
              {
                 std::stringstream ss;
@@ -350,13 +400,13 @@ void define_matrix_adaptation(py::module &main)
                 ss << " C: " << dyn.C;
                 ss << " inv_root_C: " << dyn.inv_root_C;
                 ss << " dd: " << dyn.dd;
-                ss << " chiN: " << dyn.chiN;
+                ss << " expected_length_z: " << dyn.expected_length_z;
                 ss << " hs: " << dyn.hs;
                 ss << ">";
                 return ss.str(); });
 
     py::class_<MatrixAdaptation, Adaptation, std::shared_ptr<MatrixAdaptation>>(m, "MatrixAdaptation")
-        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
+        .def(py::init<size_t, Vector, double>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
         .def_readwrite("M", &MatrixAdaptation::M)
         .def_readwrite("M_inv", &MatrixAdaptation::M_inv)
         .def("__repr__", [](MatrixAdaptation &dyn)
@@ -370,12 +420,12 @@ void define_matrix_adaptation(py::module &main)
             ss << " ps: " << dyn.ps.transpose();
             ss << " M: " << dyn.M;
             ss << " dd: " << dyn.dd;
-            ss << " chiN: " << dyn.chiN;
+            ss << " expected_length_z: " << dyn.expected_length_z;
             ss << ">";
             return ss.str(); });
 
     py::class_<None, Adaptation, std::shared_ptr<None>>(m, "NoAdaptation")
-        .def(py::init<size_t, Vector>(), py::arg("dimension"), py::arg("x0"))
+        .def(py::init<size_t, Vector, double>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
         .def("__repr__", [](None &dyn)
              {
             std::stringstream ss;
@@ -386,7 +436,7 @@ void define_matrix_adaptation(py::module &main)
             ss << " dm: " << dyn.dm.transpose();
             ss << " ps: " << dyn.ps.transpose();
             ss << " dd: " << dyn.dd;
-            ss << " chiN: " << dyn.chiN;
+            ss << " expected_length_z: " << dyn.expected_length_z;
             ss << ">";
             return ss.str(); });
 }
@@ -413,6 +463,7 @@ void define_parameters(py::module &main)
         .def_readwrite("repelling_restart", &Modules::repelling_restart)
         .def_readwrite("matrix_adaptation", &Modules::matrix_adaptation)
         .def_readwrite("center_placement", &Modules::center_placement)
+        .def_readwrite("sample_transformation", &Modules::sample_transformation)
         .def("__repr__", [](Modules &mod)
              { return to_string(mod); });
 
@@ -551,7 +602,7 @@ void define_parameters(py::module &main)
         .def(py::init<Settings>(), py::arg("settings"))
         .def("adapt", &Parameters::adapt, py::arg("objective"))
         .def("perform_restart", &Parameters::perform_restart, py::arg("objective"),
-        py::arg("sigma") = std::nullopt)
+             py::arg("sigma") = std::nullopt)
         .def_readwrite("settings", &Parameters::settings)
         .def_readwrite("mu", &Parameters::mu)
         .def_readwrite("lamb", &Parameters::lambda)
@@ -678,76 +729,91 @@ void define_mutation(py::module &main)
 
     py::class_<CSA, Strategy, std::shared_ptr<CSA>>(m, "CSA")
         .def(
-            py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
+            py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
             py::arg("threshold_convergence"),
             py::arg("sequential_selection"),
             py::arg("sigma_sampler"),
             py::arg("cs"),
             py::arg("damps"),
-            py::arg("sigma0"))
+            py::arg("sigma0"),
+            py::arg("expected_length_z")
+            )
         .def_readwrite("damps", &CSA::damps)
+        .def_readwrite("expected_length_z", &CSA::expected_length_z)
         .def(
             "mutate", &CSA::mutate, py::arg("objective"),
             py::arg("n_offspring"),
             py::arg("parameters"));
 
     py::class_<TPA, CSA, std::shared_ptr<TPA>>(m, "TPA")
-        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
+        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
              py::arg("threshold_convergence"),
              py::arg("sequential_selection"),
              py::arg("sigma_sampler"),
              py::arg("cs"),
              py::arg("damps"),
-             py::arg("sigma0"))
+             py::arg("sigma0"),
+             py::arg("expected_length_z")             
+             )
         .def_readwrite("a_tpa", &TPA::a_tpa)
         .def_readwrite("b_tpa", &TPA::b_tpa)
         .def_readwrite("rank_tpa", &TPA::rank_tpa);
 
     py::class_<MSR, CSA, std::shared_ptr<MSR>>(m, "MSR")
-        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
+        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>,std::shared_ptr<SigmaSampler>, double, double, double, double>(),
              py::arg("threshold_convergence"),
              py::arg("sequential_selection"),
              py::arg("sigma_sampler"),
              py::arg("cs"),
              py::arg("damps"),
-             py::arg("sigma0"));
+             py::arg("sigma0"),
+             py::arg("expected_length_z")             
+             );
 
     py::class_<PSR, CSA, std::shared_ptr<PSR>>(m, "PSR")
-        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
+        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
              py::arg("threshold_convergence"),
              py::arg("sequential_selection"),
              py::arg("sigma_sampler"),
              py::arg("cs"),
              py::arg("damps"),
-             py::arg("sigma0"))
+             py::arg("sigma0"),
+             py::arg("expected_length_z")
+             )
         .def_readwrite("success_ratio", &PSR::succes_ratio);
 
     py::class_<XNES, CSA, std::shared_ptr<XNES>>(m, "XNES")
-        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
+        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
              py::arg("threshold_convergence"),
              py::arg("sequential_selection"),
              py::arg("sigma_sampler"),
              py::arg("cs"),
              py::arg("damps"),
-             py::arg("sigma0"));
+             py::arg("sigma0"),
+             py::arg("expected_length_z")
+             );
 
     py::class_<MXNES, CSA, std::shared_ptr<MXNES>>(m, "MXNES")
-        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
+        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
              py::arg("threshold_convergence"),
              py::arg("sequential_selection"),
              py::arg("sigma_sampler"),
              py::arg("cs"),
              py::arg("damps"),
-             py::arg("sigma0"));
+             py::arg("sigma0"),
+             py::arg("expected_length_z")             
+             );
 
     py::class_<LPXNES, CSA, std::shared_ptr<LPXNES>>(m, "LPXNES")
-        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double>(),
+        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
              py::arg("threshold_convergence"),
              py::arg("sequential_selection"),
              py::arg("sigma_sampler"),
              py::arg("cs"),
              py::arg("damps"),
-             py::arg("sigma0"));
+             py::arg("sigma0"),
+             py::arg("expected_length_z")             
+             );
 }
 
 void define_population(py::module &main)
@@ -823,8 +889,7 @@ void define_constants(py::module &m)
             [](py::object)
             { return constants::cache_samples; },
             [](py::object, bool a)
-            { constants::cache_samples = a; })
-        ;
+            { constants::cache_samples = a; });
 }
 
 void define_restart(py::module &main)
@@ -890,11 +955,11 @@ void define_restart(py::module &main)
 
     py::class_<Stop, Strategy, std::shared_ptr<Stop>>(m, "Stop")
         .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &Stop::restart, py::arg("objective"),py::arg("parameters"));
+        .def("restart", &Stop::restart, py::arg("objective"), py::arg("parameters"));
 
     py::class_<Restart, Strategy, std::shared_ptr<Restart>>(m, "Restart")
         .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &Restart::restart, py::arg("objective"),py::arg("parameters"));
+        .def("restart", &Restart::restart, py::arg("objective"), py::arg("parameters"));
 
     py::class_<IPOP, Strategy, std::shared_ptr<IPOP>>(m, "IPOP")
         .def(py::init<double, double, double>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
@@ -903,7 +968,7 @@ void define_restart(py::module &main)
 
     py::class_<BIPOP, Strategy, std::shared_ptr<BIPOP>>(m, "BIPOP")
         .def(py::init<double, double, double, double, size_t>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"), py::arg("mu"), py::arg("budget"))
-        .def("restart", &BIPOP::restart, py::arg("objective"),py::arg("parameters"))
+        .def("restart", &BIPOP::restart, py::arg("objective"), py::arg("parameters"))
         .def("large", &BIPOP::large)
         .def_readwrite("mu_factor", &BIPOP::mu_factor)
         .def_readwrite("lambda_init", &BIPOP::lambda_init)

@@ -23,6 +23,11 @@ namespace sampling
         virtual void reset(const parameters::Modules &, const size_t)
         {
         }
+
+        virtual double expected_length()
+        {
+            return std::sqrt(static_cast<double>(d));
+        }
     };
 
     /**
@@ -61,7 +66,7 @@ namespace sampling
         Distribution dist;
     };
 
-    //! Gaussian distribution sampler
+    // //! Gaussian distribution sampler
     using Gaussian = Random<rng::normal<double>>;
 
     //! Uniform distribution sampler
@@ -78,7 +83,7 @@ namespace sampling
 
         [[nodiscard]] Vector operator()() override;
 
-        void reset(const parameters::Modules& m, const size_t l) override
+        void reset(const parameters::Modules &m, const size_t l) override
         {
             sampler->reset(m, l);
             mirror = false;
@@ -109,7 +114,7 @@ namespace sampling
 
         [[nodiscard]] Vector operator()() override;
 
-        void reset(const parameters::Modules& mod, const size_t lambda) override;
+        void reset(const parameters::Modules &mod, const size_t lambda) override;
 
         static size_t get_n_samples(const parameters::Modules &modules, const size_t lambda);
 
@@ -121,9 +126,8 @@ namespace sampling
         Matrix I;
         size_t current = 0;
     };
-   
 
-	/**
+    /**
      * @brief Generator yielding samples from a Halton sequence.
      *
      */
@@ -136,22 +140,20 @@ namespace sampling
     private:
         int index_;
         bool scramble_;
-    	std::vector<int> primes_;
+        std::vector<int> primes_;
         std::vector<std::vector<std::vector<int>>> permutations_;
 
         static double next(int index, const int base);
 
-        static double next(int index, const int base, const std::vector<std::vector<int>>& permutations);
+        static double next(int index, const int base, const std::vector<std::vector<int>> &permutations);
 
         static std::vector<int> sieve(const int n);
 
-        static std::vector<std::vector<std::vector<int>>> get_permutations(const std::vector<int>& primes);
+        static std::vector<std::vector<std::vector<int>>> get_permutations(const std::vector<int> &primes);
 
         static std::vector<int> n_primes(const size_t d);
-      
     };
 
-   
     /**
      * @brief Generator yielding samples from a Sobol sequence.
      *
@@ -159,34 +161,32 @@ namespace sampling
     struct Sobol : Sampler
     {
         rng::CachedShuffleSequence cache;
-     
+
         Sobol(const size_t dim);
 
         [[nodiscard]] Vector operator()() override { return cache.next(); }
     };
 
-
     /**
      * \brief A sampler that cycles through a number of points in a cache
      */
-    struct CachedSampler: Sampler
+    struct CachedSampler : Sampler
     {
         std::shared_ptr<Sampler> sampler;
         std::vector<Vector> cache;
         size_t index;
         size_t n_samples;
-        
-        CachedSampler(const std::shared_ptr<Sampler> sampler): 
-            Sampler(sampler->d), 
-            sampler(sampler),
-            cache(),
-            index(0),
-            n_samples(std::max(constants::cache_min_samples, utils::nearest_power_of_2(constants::cache_max_doubles / sampler->d)))
-        { 
+
+        CachedSampler(const std::shared_ptr<Sampler> sampler) : Sampler(sampler->d),
+                                                                sampler(sampler),
+                                                                cache(),
+                                                                index(0),
+                                                                n_samples(std::max(constants::cache_min_samples, utils::nearest_power_of_2(constants::cache_max_doubles / sampler->d)))
+        {
             cache.reserve(n_samples);
         }
 
-        CachedSampler(const std::vector<Vector>& cache, const bool transform_ppf = false)
+        CachedSampler(const std::vector<Vector> &cache, const bool transform_ppf = false)
             : Sampler(cache[0].size()),
               sampler(std::make_shared<Tester>(cache[0].size())),
               cache(cache),
@@ -194,21 +194,147 @@ namespace sampling
               n_samples(cache.size())
         {
             if (transform_ppf)
-                for (auto& sample: this->cache)
-                    for (auto& si: sample)
+                for (auto &sample : this->cache)
+                    for (auto &si : sample)
                         si = ppf(si);
         }
 
-
-        [[nodiscard]] Vector operator()() override { 
+        [[nodiscard]] Vector operator()() override
+        {
             Vector sample;
             if (index < n_samples)
                 cache.emplace_back(sampler->operator()());
-            
+
             return cache[index++ % n_samples];
         }
     };
 
+    /***
+     * \brief Abstract class for sample transformation methods
+     */
+    struct SampleTransformer : Sampler
+    {
+
+        SampleTransformer(const std::shared_ptr<Sampler> sampler) : Sampler(sampler->d), sampler(sampler) {}
+        /**
+         * Should be overwritten, transforms U(0,1) indep samples into something else
+         */
+        [[nodiscard]] virtual Vector transform(Vector x) = 0;
+
+        [[nodiscard]] virtual Vector operator()() override
+        {
+            return transform((*sampler)());
+        }
+
+        void reset(const parameters::Modules &m, const size_t l) override
+        {
+            sampler->reset(m, l);
+        }
+
+        [[nodiscard]] Vector raw()
+        {
+            return (*sampler)();
+        }
+
+    protected:
+        std::shared_ptr<Sampler> sampler;
+    };
+
+    //! Adds ppf to transform into gaussian
+    struct GaussianTransformer : SampleTransformer
+    {
+        GaussianTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
+
+        double expected_length() override
+        {
+            const double dd = static_cast<double>(this->sampler->d);
+            return sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)));
+        }
+
+        [[nodiscard]] virtual Vector transform(Vector x) override
+        {
+            for (auto &xi : x)
+                xi = ppf(xi);
+            return x;
+        }
+    };
+
+    struct UniformScaler : SampleTransformer
+    {
+        static inline double scale = std::sqrt(3.0);
+
+        UniformScaler(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
+
+        [[nodiscard]] virtual Vector transform(Vector x) override
+        {
+            for (auto &xi : x)
+                xi = -scale + (2.0 * scale) * xi;
+            return x;
+        }
+    };
+
+    struct LaplaceTransformer : SampleTransformer
+    {
+        static inline double b = std::sqrt(0.5);
+        
+        LaplaceTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
+
+        [[nodiscard]] virtual Vector transform(Vector x) override
+        {
+            for (auto &xi : x)
+            {
+                if (xi < 0.5)
+                    xi = b * std::log(2.0 * xi);
+                else
+                    xi = -b * std::log(2.0 * (1.0 - xi));
+                
+            }
+            return x;
+        }
+    };
+
+    struct LogisticTransformer : SampleTransformer
+    {
+        static inline double s = std::sqrt(3.0) / M_PI;
+        
+        LogisticTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
+
+        [[nodiscard]] virtual Vector transform(Vector x) override
+        {
+            for (auto &xi : x)
+                xi = s * std::log(xi  / (1 - xi));
+            return x;
+        }
+    };
+
+    struct CauchyTransformer : SampleTransformer
+    {
+        static inline double gamma = 1.0;
+
+        CauchyTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
+
+        [[nodiscard]] virtual Vector transform(Vector x) override
+        {
+            for (auto &xi : x)
+                xi = gamma * std::tan(M_PI * (xi - 0.5));
+            return x;
+        }
+    };
+
+    struct DoubleWeibullTransformer : SampleTransformer
+    {
+        DoubleWeibullTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
+
+        [[nodiscard]] virtual Vector transform(Vector x) override
+        {
+            for (auto &xi : x)
+                if (xi < 0.5)
+                    xi = -std::sqrt(-std::log(2.0 * xi));
+                else
+                    xi = std::sqrt(-std::log(2.0 * (1.0 - xi)));
+            return x;
+        }
+    };
 
     std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules &mod, const size_t lambda);
 

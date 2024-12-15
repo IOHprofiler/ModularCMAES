@@ -41,7 +41,7 @@ namespace sampling
 		return samples.col(current++);
 	}
 
-	size_t Orthogonal::get_n_samples(const parameters::Modules& modules, const size_t lambda)
+	size_t Orthogonal::get_n_samples(const parameters::Modules &modules, const size_t lambda)
 	{
 		using namespace parameters;
 		const auto not_mirrored = modules.mirrored == Mirror::NONE;
@@ -49,7 +49,7 @@ namespace sampling
 		return std::max(1, (static_cast<int>(lambda) / (2 - not_mirrored)) - (2 * has_tpa));
 	}
 
-	void Orthogonal::reset(const parameters::Modules& mod, const size_t lambda)
+	void Orthogonal::reset(const parameters::Modules &mod, const size_t lambda)
 	{
 		sampler->reset(mod, lambda);
 		n = std::max(d, Orthogonal::get_n_samples(mod, lambda));
@@ -59,12 +59,11 @@ namespace sampling
 		current = 0;
 	}
 
-	Halton::Halton(const size_t d, const bool scramble) :
-		Sampler(d),
-		index_(6),
-		scramble_(scramble),
-		primes_(n_primes(d)),
-		permutations_(d)
+	Halton::Halton(const size_t d, const bool scramble) : Sampler(d),
+														  index_(6),
+														  scramble_(scramble),
+														  primes_(n_primes(d)),
+														  permutations_(d)
 	{
 		if (scramble_)
 			permutations_ = get_permutations(primes_);
@@ -80,7 +79,7 @@ namespace sampling
 		else
 			for (size_t j = 0; j < d; ++j)
 				res(j) = ppf(next(index_, primes_[j]));
-		
+
 		index_++;
 		return res;
 	}
@@ -95,13 +94,12 @@ namespace sampling
 			f = f / static_cast<double>(base);
 		}
 		return result;
-
 	}
 
-	double Halton::next(int index, const int base, const std::vector<std::vector<int>>& permutations)
+	double Halton::next(int index, const int base, const std::vector<std::vector<int>> &permutations)
 	{
 		double result = 0.0, f = 1.0 / base;
-		for (const auto& permutation : permutations)
+		for (const auto &permutation : permutations)
 		{
 			const double remainder = permutation[index % base];
 			result += remainder * f;
@@ -130,7 +128,7 @@ namespace sampling
 		return primes;
 	}
 
-	std::vector<std::vector<std::vector<int>>> Halton::get_permutations(const std::vector<int>& primes)
+	std::vector<std::vector<std::vector<int>>> Halton::get_permutations(const std::vector<int> &primes)
 	{
 		std::vector<std::vector<std::vector<int>>> permutations(primes.size());
 		for (size_t i = 0; i < primes.size(); i++)
@@ -159,7 +157,6 @@ namespace sampling
 		return primes;
 	}
 
-	
 	Sobol::Sobol(const size_t dim) : Sampler(dim), cache(dim)
 	{
 		long long seed = 2;
@@ -168,16 +165,14 @@ namespace sampling
 		cache.transform(ppf);
 	}
 
-	
-
-	std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules& modules, const size_t lambda)
+	std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules &modules, const size_t lambda)
 	{
 		using namespace parameters;
 		std::shared_ptr<Sampler> sampler;
 		switch (modules.sampler)
 		{
-		case BaseSampler::GAUSSIAN:
-			sampler = std::make_shared<Gaussian>(dim);
+		case BaseSampler::UNIFORM:
+			sampler = std::make_shared<Uniform>(dim);
 			break;
 		case BaseSampler::SOBOL:
 			sampler = std::make_shared<Sobol>(dim);
@@ -187,6 +182,30 @@ namespace sampling
 			break;
 		case BaseSampler::TESTER:
 			sampler = std::make_shared<Tester>(dim);
+			break;
+		}
+
+		switch (modules.sample_transformation)
+		{
+		case SampleTranformerType::GAUSSIAN:
+			sampler = std::make_shared<GaussianTransformer>(sampler);
+			break;
+		case SampleTranformerType::SCALED_UNIFORM:
+			sampler = std::make_shared<UniformScaler>(sampler);
+			break;
+		case SampleTranformerType::LAPLACE:
+			sampler = std::make_shared<LaplaceTransformer>(sampler);
+			break;
+		case SampleTranformerType::LOGISTIC:
+			sampler = std::make_shared<LogisticTransformer>(sampler);
+			break;
+		case SampleTranformerType::CAUCHY:
+			sampler = std::make_shared<CauchyTransformer>(sampler);
+			break;
+		case SampleTranformerType::DOUBLE_WEIBULL:
+			sampler = std::make_shared<DoubleWeibullTransformer>(sampler);
+			break;
+		case SampleTranformerType::NONE:
 			break;
 		}
 
