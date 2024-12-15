@@ -8,6 +8,7 @@
 
 #include "c_maes.hpp"
 #include "to_string.hpp"
+#include "es.hpp"
 
 namespace py = pybind11;
 
@@ -115,7 +116,7 @@ void define_samplers(py::module &main)
     py::class_<Sampler, std::shared_ptr<Sampler>>(m, "Sampler")
         .def_readonly("d", &Sampler::d)
         .def("reset", &Sampler::reset)
-        .def("expected_length",  &Sampler::expected_length);
+        .def("expected_length", &Sampler::expected_length);
 
     py::class_<PySampler, Sampler, std::shared_ptr<PySampler>>(m, "PySampler")
         .def(py::init<size_t, std::function<double()>>(), py::arg("d"), py::arg("function"))
@@ -162,38 +163,37 @@ void define_samplers(py::module &main)
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
         .def("transform", &GaussianTransformer::transform)
         .def("__call__", &GaussianTransformer::operator())
-        .def("expected_length",  &GaussianTransformer::expected_length);
+        .def("expected_length", &GaussianTransformer::expected_length);
 
     py::class_<UniformScaler, SampleTransformer, std::shared_ptr<UniformScaler>>(m, "UniformScaler")
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
         .def("transform", &UniformScaler::transform)
         .def("__call__", &UniformScaler::operator())
-        .def("expected_length",  &UniformScaler::expected_length);
+        .def("expected_length", &UniformScaler::expected_length);
 
     py::class_<LaplaceTransformer, SampleTransformer, std::shared_ptr<LaplaceTransformer>>(m, "LaplaceTransformer")
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
         .def("transform", &LaplaceTransformer::transform)
         .def("__call__", &LaplaceTransformer::operator())
-        .def("expected_length",  &LaplaceTransformer::expected_length);
-    
+        .def("expected_length", &LaplaceTransformer::expected_length);
+
     py::class_<LogisticTransformer, SampleTransformer, std::shared_ptr<LogisticTransformer>>(m, "LogisticTransformer")
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
         .def("transform", &LogisticTransformer::transform)
         .def("__call__", &LogisticTransformer::operator())
-        .def("expected_length",  &LogisticTransformer::expected_length);
+        .def("expected_length", &LogisticTransformer::expected_length);
 
     py::class_<CauchyTransformer, SampleTransformer, std::shared_ptr<CauchyTransformer>>(m, "CauchyTransformer")
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
         .def("transform", &CauchyTransformer::transform)
         .def("__call__", &CauchyTransformer::operator())
-        .def("expected_length",  &CauchyTransformer::expected_length);
+        .def("expected_length", &CauchyTransformer::expected_length);
 
     py::class_<DoubleWeibullTransformer, SampleTransformer, std::shared_ptr<DoubleWeibullTransformer>>(m, "DoubleWeibullTransformer")
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
         .def("transform", &DoubleWeibullTransformer::transform)
         .def("__call__", &DoubleWeibullTransformer::operator())
-        .def("expected_length",  &DoubleWeibullTransformer::expected_length);
-    
+        .def("expected_length", &DoubleWeibullTransformer::expected_length);
 }
 
 void define_utils(py::module &main)
@@ -736,8 +736,7 @@ void define_mutation(py::module &main)
             py::arg("cs"),
             py::arg("damps"),
             py::arg("sigma0"),
-            py::arg("expected_length_z")
-            )
+            py::arg("expected_length_z"))
         .def_readwrite("damps", &CSA::damps)
         .def_readwrite("expected_length_z", &CSA::expected_length_z)
         .def(
@@ -753,22 +752,20 @@ void define_mutation(py::module &main)
              py::arg("cs"),
              py::arg("damps"),
              py::arg("sigma0"),
-             py::arg("expected_length_z")             
-             )
+             py::arg("expected_length_z"))
         .def_readwrite("a_tpa", &TPA::a_tpa)
         .def_readwrite("b_tpa", &TPA::b_tpa)
         .def_readwrite("rank_tpa", &TPA::rank_tpa);
 
     py::class_<MSR, CSA, std::shared_ptr<MSR>>(m, "MSR")
-        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>,std::shared_ptr<SigmaSampler>, double, double, double, double>(),
+        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
              py::arg("threshold_convergence"),
              py::arg("sequential_selection"),
              py::arg("sigma_sampler"),
              py::arg("cs"),
              py::arg("damps"),
              py::arg("sigma0"),
-             py::arg("expected_length_z")             
-             );
+             py::arg("expected_length_z"));
 
     py::class_<PSR, CSA, std::shared_ptr<PSR>>(m, "PSR")
         .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
@@ -778,8 +775,7 @@ void define_mutation(py::module &main)
              py::arg("cs"),
              py::arg("damps"),
              py::arg("sigma0"),
-             py::arg("expected_length_z")
-             )
+             py::arg("expected_length_z"))
         .def_readwrite("success_ratio", &PSR::succes_ratio);
 
     py::class_<XNES, CSA, std::shared_ptr<XNES>>(m, "XNES")
@@ -790,8 +786,7 @@ void define_mutation(py::module &main)
              py::arg("cs"),
              py::arg("damps"),
              py::arg("sigma0"),
-             py::arg("expected_length_z")
-             );
+             py::arg("expected_length_z"));
 
     py::class_<MXNES, CSA, std::shared_ptr<MXNES>>(m, "MXNES")
         .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
@@ -801,8 +796,7 @@ void define_mutation(py::module &main)
              py::arg("cs"),
              py::arg("damps"),
              py::arg("sigma0"),
-             py::arg("expected_length_z")             
-             );
+             py::arg("expected_length_z"));
 
     py::class_<LPXNES, CSA, std::shared_ptr<LPXNES>>(m, "LPXNES")
         .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
@@ -812,8 +806,7 @@ void define_mutation(py::module &main)
              py::arg("cs"),
              py::arg("damps"),
              py::arg("sigma0"),
-             py::arg("expected_length_z")             
-             );
+             py::arg("expected_length_z"));
 }
 
 void define_population(py::module &main)
@@ -1004,6 +997,80 @@ void define_cmaes(py::module &m)
         .def_readonly("p", &ModularCMAES::p);
 }
 
+void define_es(py::module &main)
+{
+    auto m = main.def_submodule("es");
+    parameters::Modules default_modules;
+    using namespace es;
+    py::class_<OnePlusOneES, std::shared_ptr<OnePlusOneES>>(m, "OnePlusOneES")
+        .def(
+            py::init<
+                size_t,
+                Vector,
+                double,
+                double,
+                size_t,
+                double,
+                parameters::Modules>(),
+            py::arg("d"),
+            py::arg("x0"),
+            py::arg("f0"),
+            py::arg("sigma0") = 1.0,
+            py::arg("budget") = 10'000,
+            py::arg("target") = 1e-8,
+            py::arg("modules") = default_modules)
+        .def("__call__", &OnePlusOneES::operator())
+        .def("step", &OnePlusOneES::step)
+        .def_readwrite("d", &OnePlusOneES::d)
+        .def_readwrite("sigma", &OnePlusOneES::sigma)
+        .def_readwrite("decay", &OnePlusOneES::decay)
+        .def_readwrite("x", &OnePlusOneES::x)
+        .def_readwrite("f", &OnePlusOneES::f)
+        .def_readwrite("t", &OnePlusOneES::t)
+        .def_readwrite("budget", &OnePlusOneES::budget)
+        .def_readwrite("target", &OnePlusOneES::target)
+        .def_readwrite("sampler", &OnePlusOneES::sampler);
+
+    py::class_<MuCommaLambdaES, std::shared_ptr<MuCommaLambdaES>>(m, "MuCommaLambdaES")
+        .def(
+            py::init<
+                size_t,
+                Vector,
+                size_t,
+                double,
+                parameters::Modules>(),
+            py::arg("d"),
+            py::arg("x0"),
+            py::arg("budget") = 10'000,
+            py::arg("target") = 1e-8,
+            py::arg("modules") = default_modules)
+        .def("__call__", &MuCommaLambdaES::operator())
+        .def("step", &MuCommaLambdaES::step)
+        .def_readwrite("d", &MuCommaLambdaES::d)
+        .def_readwrite("lamb", &MuCommaLambdaES::lambda)
+        .def_readwrite("mu", &MuCommaLambdaES::mu)
+
+        .def_readwrite("sigma", &MuCommaLambdaES::sigma)
+        .def_readwrite("m", &MuCommaLambdaES::m)
+        
+        .def_readwrite("X", &MuCommaLambdaES::X)
+        .def_readwrite("S", &MuCommaLambdaES::S)
+        .def_readwrite("f", &MuCommaLambdaES::f)
+
+        .def_readwrite("tau", &MuCommaLambdaES::tau)
+        .def_readwrite("tau_i", &MuCommaLambdaES::tau_i)
+        .def_readwrite("mu_inv", &MuCommaLambdaES::mu_inv)
+
+        .def_readwrite("f_min", &MuCommaLambdaES::f_min)
+        .def_readwrite("x_min", &MuCommaLambdaES::x_min)
+        .def_readwrite("t", &MuCommaLambdaES::t)
+        .def_readwrite("e", &MuCommaLambdaES::e)
+        .def_readwrite("budget", &MuCommaLambdaES::budget)
+        .def_readwrite("target", &MuCommaLambdaES::target)
+        .def_readwrite("sampler", &MuCommaLambdaES::sampler)
+        .def_readwrite("sigma_sampler", &MuCommaLambdaES::sigma_sampler);
+}
+
 PYBIND11_MODULE(cmaescpp, m)
 {
     define_constants(m);
@@ -1020,4 +1087,5 @@ PYBIND11_MODULE(cmaescpp, m)
     define_bounds(m);
     define_selection(m);
     define_cmaes(m);
+    define_es(m);
 }
