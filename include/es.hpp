@@ -2,6 +2,7 @@
 
 #include "sampling.hpp"
 #include "stats.hpp"
+#include "modules.hpp"
 
 namespace es
 {
@@ -16,11 +17,15 @@ namespace es
             const double target,
             const parameters::Modules &modules)
             : d(d), sigma(sigma0), decay(1.0 / std::sqrt(static_cast<double>(d) + 1)),
-              x(x0), f(f0), t(0), budget(budget), target(target),
+              x(x0), f(f0), t(1), budget(budget), target(target),
+              rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
+              lb(Vector::Ones(d) * -5.0),
+              ub(Vector::Ones(d) * 5.0),
               sampler(sampling::get(d, modules, 1))
         {
         }
 
+        Vector sample();
         void step(FunctionType &objective);
         void operator()(FunctionType &objective);
 
@@ -32,6 +37,9 @@ namespace es
         size_t t;
         size_t budget;
         double target;
+        bool rejection_sampling;
+        Vector lb;
+        Vector ub;
 
         std::shared_ptr<sampling::Sampler> sampler;
     };
@@ -42,23 +50,28 @@ namespace es
         MuCommaLambdaES(
             const size_t d,
             const Vector &x0,
+            const double sigma0, 
             const size_t budget,
             const double target,
             const parameters::Modules &modules)
             : d(d), lambda(d * 5), mu(std::floor(lambda / 4)),
               tau(1.0 / std::sqrt(static_cast<double>(d))),
               tau_i(1.0 / pow(static_cast<double>(d), .25)), mu_inv(1.0 / mu),
-              m(x0), sigma(Vector::Ones(d)),
+              m(x0), sigma(sigma0 * Vector::Ones(d)),
               f(Vector::Constant(lambda, std::numeric_limits<double>::infinity())),
               X(d, lambda), S(d, lambda),
               f_min(std::numeric_limits<double>::infinity()),
               x_min(Vector::Constant(d, std::numeric_limits<double>::signaling_NaN())),
               t(0), e(0), budget(budget), target(target),
               sampler(sampling::get(d, modules, lambda)),
-              sigma_sampler(std::make_shared<sampling::Gaussian>(d))
+              sigma_sampler(std::make_shared<sampling::Gaussian>(d)),
+              rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
+              lb(Vector::Ones(d) * -5.0),
+              ub(Vector::Ones(d) * 5.0)
         {
         }
 
+        Vector sample(const Vector si);
         void step(FunctionType &objective);
         void operator()(FunctionType &objective);
 
@@ -84,5 +97,9 @@ namespace es
 
         std::shared_ptr<sampling::Sampler> sampler;
         std::shared_ptr<sampling::Sampler> sigma_sampler;
+
+        bool rejection_sampling;
+        Vector lb;
+        Vector ub;
     };
 }

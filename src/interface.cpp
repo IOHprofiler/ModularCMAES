@@ -68,6 +68,7 @@ void define_options(py::module &main)
         .value("UNIFORM_RESAMPLE", CorrectionMethod::UNIFORM_RESAMPLE)
         .value("SATURATE", CorrectionMethod::SATURATE)
         .value("TOROIDAL", CorrectionMethod::TOROIDAL)
+        .value("RESAMPLE", CorrectionMethod::RESAMPLE)
         .export_values();
 
     py::enum_<RestartStrategyType>(m, "RestartStrategy")
@@ -158,6 +159,12 @@ void define_samplers(py::module &main)
 
     py::class_<SampleTransformer, Sampler, std::shared_ptr<SampleTransformer>>(m, "SampleTransformer")
         .def("raw", &SampleTransformer::raw);
+
+    py::class_<IdentityTransformer, SampleTransformer, std::shared_ptr<IdentityTransformer>>(m, "IdentityTransformer")
+        .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
+        .def("transform", &IdentityTransformer::transform)
+        .def("__call__", &IdentityTransformer::operator())
+        .def("expected_length", &IdentityTransformer::expected_length);
 
     py::class_<GaussianTransformer, SampleTransformer, std::shared_ptr<GaussianTransformer>>(m, "GaussianTransformer")
         .def(py::init<const std::shared_ptr<Sampler>>(), py::arg("sampler"))
@@ -654,6 +661,9 @@ void define_bounds(py::module &main)
         .def("correct", &BoundCorrection::correct,
              py::arg("population"), py::arg("m"));
 
+    py::class_<Resample, BoundCorrection, std::shared_ptr<Resample>>(m, "Resample")
+        .def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
+    
     py::class_<NoCorrection, BoundCorrection, std::shared_ptr<NoCorrection>>(m, "NoCorrection")
         .def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
 
@@ -1021,6 +1031,7 @@ void define_es(py::module &main)
             py::arg("modules") = default_modules)
         .def("__call__", &OnePlusOneES::operator())
         .def("step", &OnePlusOneES::step)
+        .def("sample", &OnePlusOneES::sample)
         .def_readwrite("d", &OnePlusOneES::d)
         .def_readwrite("sigma", &OnePlusOneES::sigma)
         .def_readwrite("decay", &OnePlusOneES::decay)
@@ -1029,30 +1040,36 @@ void define_es(py::module &main)
         .def_readwrite("t", &OnePlusOneES::t)
         .def_readwrite("budget", &OnePlusOneES::budget)
         .def_readwrite("target", &OnePlusOneES::target)
-        .def_readwrite("sampler", &OnePlusOneES::sampler);
+        .def_readwrite("sampler", &OnePlusOneES::sampler)
+        .def_readwrite("rejection_sampling", &OnePlusOneES::rejection_sampling)
+        .def_readwrite("lb", &OnePlusOneES::lb)
+        .def_readwrite("ub", &OnePlusOneES::ub);
 
     py::class_<MuCommaLambdaES, std::shared_ptr<MuCommaLambdaES>>(m, "MuCommaLambdaES")
         .def(
             py::init<
                 size_t,
                 Vector,
+                double,
                 size_t,
                 double,
                 parameters::Modules>(),
             py::arg("d"),
             py::arg("x0"),
+            py::arg("sigma0") = 1.0,
             py::arg("budget") = 10'000,
             py::arg("target") = 1e-8,
             py::arg("modules") = default_modules)
         .def("__call__", &MuCommaLambdaES::operator())
         .def("step", &MuCommaLambdaES::step)
+        .def("sample", &MuCommaLambdaES::sample)
         .def_readwrite("d", &MuCommaLambdaES::d)
         .def_readwrite("lamb", &MuCommaLambdaES::lambda)
         .def_readwrite("mu", &MuCommaLambdaES::mu)
 
         .def_readwrite("sigma", &MuCommaLambdaES::sigma)
         .def_readwrite("m", &MuCommaLambdaES::m)
-        
+
         .def_readwrite("X", &MuCommaLambdaES::X)
         .def_readwrite("S", &MuCommaLambdaES::S)
         .def_readwrite("f", &MuCommaLambdaES::f)
@@ -1068,7 +1085,10 @@ void define_es(py::module &main)
         .def_readwrite("budget", &MuCommaLambdaES::budget)
         .def_readwrite("target", &MuCommaLambdaES::target)
         .def_readwrite("sampler", &MuCommaLambdaES::sampler)
-        .def_readwrite("sigma_sampler", &MuCommaLambdaES::sigma_sampler);
+        .def_readwrite("sigma_sampler", &MuCommaLambdaES::sigma_sampler)
+        .def_readwrite("rejection_sampling", &MuCommaLambdaES::rejection_sampling)
+        .def_readwrite("lb", &MuCommaLambdaES::lb)
+        .def_readwrite("ub", &MuCommaLambdaES::ub);
 }
 
 PYBIND11_MODULE(cmaescpp, m)

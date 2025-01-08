@@ -53,7 +53,8 @@ namespace parameters
         COTN,
         UNIFORM_RESAMPLE,
         SATURATE,
-        TOROIDAL
+        TOROIDAL, 
+        RESAMPLE
     };
 
     enum class RestartStrategyType

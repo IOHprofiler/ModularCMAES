@@ -75,10 +75,10 @@ namespace sampling
 
 		if (scramble_)
 			for (size_t j = 0; j < d; ++j)
-				res(j) = ppf(next(index_, primes_[j], permutations_[j]));
+				res(j) = next(index_, primes_[j], permutations_[j]);
 		else
 			for (size_t j = 0; j < d; ++j)
-				res(j) = ppf(next(index_, primes_[j]));
+				res(j) = next(index_, primes_[j]);
 
 		index_++;
 		return res;
@@ -162,7 +162,7 @@ namespace sampling
 		long long seed = 2;
 		for (size_t i = 0; i < cache.n_samples; i++)
 			i8_sobol(static_cast<int>(d), &seed, cache.cache.data() + i * d);
-		cache.transform(ppf);
+		// cache.transform(ppf);
 	}
 
 	std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules &modules, const size_t lambda)
@@ -206,6 +206,7 @@ namespace sampling
 			sampler = std::make_shared<DoubleWeibullTransformer>(sampler);
 			break;
 		case SampleTranformerType::NONE:
+			sampler = std::make_shared<IdentityTransformer>(sampler);
 			break;
 		}
 

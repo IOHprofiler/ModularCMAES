@@ -1,36 +1,36 @@
 from typing import ClassVar
 
-BIPOP: RestartStrategy
-COTN: CorrectionMethod
-COVARIANCE: MatrixAdaptationType
-CSA: StepSizeAdaptation
-DEFAULT: RecombinationWeights
-EQUAL: RecombinationWeights
-UNIFORM: BaseSampler
-HALF_POWER_LAMBDA: RecombinationWeights
-HALTON: BaseSampler
-IPOP: RestartStrategy
-LPXNES: StepSizeAdaptation
-MATRIX: MatrixAdaptationType
-MIRROR: CorrectionMethod
-MIRRORED: Mirror
-MSR: StepSizeAdaptation
-MXNES: StepSizeAdaptation
-NONE: MatrixAdaptationType
-PAIRWISE: Mirror
-PSR: StepSizeAdaptation
-RESTART: RestartStrategy
-SATURATE: CorrectionMethod
-SEPERABLE: MatrixAdaptationType
-SOBOL: BaseSampler
-STOP: RestartStrategy
-TOROIDAL: CorrectionMethod
-TPA: StepSizeAdaptation
-UNIFORM: CenterPlacement
-UNIFORM_RESAMPLE: CorrectionMethod
-X0: CenterPlacement
-XNES: StepSizeAdaptation
-ZERO: CenterPlacement
+# BIPOP: RestartStrategy
+# COTN: CorrectionMethod
+# COVARIANCE: MatrixAdaptationType
+# CSA: StepSizeAdaptation
+# DEFAULT: RecombinationWeights
+# EQUAL: RecombinationWeights
+# UNIFORM: BaseSampler
+# HALF_POWER_LAMBDA: RecombinationWeights
+# HALTON: BaseSampler
+# IPOP: RestartStrategy
+# LPXNES: StepSizeAdaptation
+# MATRIX: MatrixAdaptationType
+# MIRROR: CorrectionMethod
+# MIRRORED: Mirror
+# MSR: StepSizeAdaptation
+# MXNES: StepSizeAdaptation
+# NONE: MatrixAdaptationType
+# PAIRWISE: Mirror
+# PSR: StepSizeAdaptation
+# RESTART: RestartStrategy
+# SATURATE: CorrectionMethod
+# SEPERABLE: MatrixAdaptationType
+# SOBOL: BaseSampler
+# STOP: RestartStrategy
+# TOROIDAL: CorrectionMethod
+# TPA: StepSizeAdaptation
+# UNIFORM: CenterPlacement
+# UNIFORM_RESAMPLE: CorrectionMethod
+# X0: CenterPlacement
+# XNES: StepSizeAdaptation
+# ZERO: CenterPlacement
 
 class BaseSampler:
     __members__: ClassVar[dict] = ...  # read-only
@@ -55,6 +55,11 @@ class SampleTranformerType:
     NONE: ClassVar[SampleTranformerType] = ...
     GAUSSIAN: ClassVar[SampleTranformerType] = ...
     SCALED_UNIFORM: ClassVar[SampleTranformerType] = ...
+    LAPLACE: ClassVar[SampleTranformerType] = ...
+    LOGISTIC: ClassVar[SampleTranformerType] = ...
+    CAUCHY: ClassVar[SampleTranformerType] = ...
+    DOUBLE_WEIBULL:  ClassVar[SampleTranformerType] = ...
+    
     __entries: ClassVar[dict] = ...
     def __init__(self, value: int) -> None: ...
     def __eq__(self, other: object) -> bool: ...
@@ -92,6 +97,7 @@ class CorrectionMethod:
     SATURATE: ClassVar[CorrectionMethod] = ...
     TOROIDAL: ClassVar[CorrectionMethod] = ...
     UNIFORM_RESAMPLE: ClassVar[CorrectionMethod] = ...
+    RESAMPLE: ClassVar[CorrectionMethod] = ...
     __entries: ClassVar[dict] = ...
     def __init__(self, value: int) -> None: ...
     def __eq__(self, other: object) -> bool: ...

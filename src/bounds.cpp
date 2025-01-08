@@ -9,15 +9,26 @@ static double modulo2(const int x)
 
 namespace bounds
 {
-	Mask BoundCorrection::is_out_of_bounds(const Vector& xi) const
+	
+	Mask is_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub) 
 	{
 		return xi.array() < lb.array() || xi.array() > ub.array();
 	}
 
+	bool any_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub)
+	{
+		return bounds::is_out_of_bounds(xi, lb, ub).any();
+	}
+
+	
+	Mask BoundCorrection::is_out_of_bounds(const Vector& xi) const
+	{
+		return bounds::is_out_of_bounds(xi, lb, ub);
+	}
 
 	Vector BoundCorrection::delta_out_of_bounds(const Vector& xi, const Mask& oob) const
 	{
-		return 	(oob).select((xi - lb).cwiseQuotient(db), xi);;
+		return (oob).select((xi - lb).cwiseQuotient(db), xi);;
 	}
 
 	void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters& p)
@@ -31,7 +42,6 @@ namespace bounds
 			p.pop.Z.col(i) = p.adaptation->invert_y(p.pop.Y.col(i));
 		}
 	}
-
 
 	Vector COTN::correct_x(const Vector& xi, const Mask& oob)
 	{

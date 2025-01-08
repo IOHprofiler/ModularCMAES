@@ -1,11 +1,23 @@
 #include "es.hpp"
+#include "bounds.hpp"
 
 namespace es
 {
+
+    Vector OnePlusOneES::sample()
+    {
+        Vector x1;
+        do
+        {
+            const Vector z = (*sampler)();
+            x1 = x + sigma * z;
+        } while (rejection_sampling && bounds::any_out_of_bounds(x1, lb, ub));
+        return x1;
+    }
+
     void OnePlusOneES::step(FunctionType &objective)
     {
-        const auto z = (*sampler)();
-        const auto x1 = x + sigma * z;
+        const auto x1 = sample();
         const auto f1 = objective(x1);
         const bool has_improved = f1 < f;
         sigma *= pow(std::exp(static_cast<double>(has_improved) - 0.2), decay);
@@ -22,6 +34,17 @@ namespace es
             step(objective);
     }
 
+    Vector MuCommaLambdaES::sample(const Vector si)
+    {
+        Vector x;
+        do
+        {
+            const Vector z = (*sampler)();
+            x = m.array() + (si.array() * z.array());
+        } while (rejection_sampling && bounds::any_out_of_bounds(x, lb, ub));
+        return x;
+    }
+
     void MuCommaLambdaES::step(FunctionType &objective)
     {
         static sampling::Gaussian g_sigma_sampler(1);
@@ -30,9 +53,8 @@ namespace es
         {
             const double psi_k = std::exp(tau * g_sigma_sampler()[0]);
             const Vector psi_kv = (tau_i * (*sigma_sampler)()).array().exp().matrix();
-            S.col(i) = sigma * psi_kv * psi_k;
-            const Vector z = (*sampler)();
-            X.col(i) = m + S.col(i) * z;
+            S.col(i) = sigma.array() * psi_kv.array() * psi_k;
+            X.col(i) = sample(S.col(i));
             f(i) = objective(X.col(i));
             e++;
         }

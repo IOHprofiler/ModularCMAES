@@ -240,6 +240,17 @@ namespace sampling
         std::shared_ptr<Sampler> sampler;
     };
 
+    struct IdentityTransformer: SampleTransformer
+    {
+        IdentityTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
+        
+        [[nodiscard]] virtual Vector transform(Vector x)
+        {
+            return x;
+        }
+    };
+
+
     //! Adds ppf to transform into gaussian
     struct GaussianTransformer : SampleTransformer
     {
@@ -335,6 +346,8 @@ namespace sampling
             return x;
         }
     };
+
+
 
     std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules &mod, const size_t lambda);
 

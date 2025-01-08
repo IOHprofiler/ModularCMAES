@@ -8,8 +8,7 @@ namespace mutation
 	Vector ThresholdConvergence::scale(const Vector &zi, const double diameter, const size_t budget,
 									   const size_t evaluations)
 	{
-		const double t = init_threshold * diameter * pow(
-			static_cast<double>(budget - evaluations) / static_cast<double>(budget), decay_factor);
+		const double t = init_threshold * diameter * pow(static_cast<double>(budget - evaluations) / static_cast<double>(budget), decay_factor);
 
 		if (const auto norm = zi.norm(); norm < t)
 			return zi.array() * ((t + (t - norm)) / norm);
@@ -23,13 +22,10 @@ namespace mutation
 
 	void CSA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
 					Population &pop,
-					const Population &old_pop, const parameters::Stats &stats, const size_t lambda
-				)
+					const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
 
 	{
-		sigma *= std::exp((cs / damps) * (
-			(adaptation->ps.norm() / expected_length_z) - 1)
-		);
+		sigma *= std::exp((cs / damps) * ((adaptation->ps.norm() / expected_length_z) - 1));
 	}
 
 	void CSA::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
@@ -49,7 +45,9 @@ namespace mutation
 				p.pop.X.col(i) = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
 
 				p.bounds->correct(i, p);
-			} while (p.repelling->is_rejected(p.pop.X.col(i), p));
+			} while (
+				p.repelling->is_rejected(p.pop.X.col(i), p) ||
+				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE && p.bounds->is_out_of_bounds(p.pop.X.col(i)).any()));
 
 			p.pop.f(i) = objective(p.pop.X.col(i));
 			p.stats.evaluations++;
@@ -174,8 +172,7 @@ namespace mutation
 
 	std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const double mueff,
 								  const double d, const double sigma, const std::optional<double> cs0,
-								  const double expected_z
-								  )
+								  const double expected_z)
 	{
 		using namespace parameters;
 		auto tc = m.threshold_convergence
@@ -192,7 +189,7 @@ namespace mutation
 
 		double cs = cs0.value_or(0.3);
 		double damps = 0.0;
-		
+
 		switch (m.ssa)
 		{
 		case StepSizeAdaptation::TPA:

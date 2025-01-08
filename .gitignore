@@ -109,3 +109,7 @@ x.py
 run.py
 install
 .vs/
+
+scripts/distributions/*pdf
+scripts/distributions/*png
+scripts/distributions/*pkl
