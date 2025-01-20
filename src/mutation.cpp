@@ -36,6 +36,7 @@ namespace mutation
 
 		for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
 		{
+			size_t n_rej = 0;
 			do
 			{
 				p.pop.Z.col(i) = p.mutation->tc->scale((*p.sampler)(), p.bounds->diameter, p.settings.budget, p.stats.evaluations);
@@ -46,8 +47,7 @@ namespace mutation
 
 				p.bounds->correct(i, p);
 			} while (
-				p.repelling->is_rejected(p.pop.X.col(i), p) ||
-				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE && p.bounds->is_out_of_bounds(p.pop.X.col(i)).any()));
+				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE && n_rej++ < 5*p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X.col(i)).any()) || p.repelling->is_rejected(p.pop.X.col(i), p));
 
 			p.pop.f(i) = objective(p.pop.X.col(i));
 			p.stats.evaluations++;

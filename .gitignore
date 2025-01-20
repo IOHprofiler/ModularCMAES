@@ -113,3 +113,6 @@ install
 scripts/distributions/*pdf
 scripts/distributions/*png
 scripts/distributions/*pkl
+scripts/distributions/figures
+
+data_old

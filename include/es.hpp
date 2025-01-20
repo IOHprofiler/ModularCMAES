@@ -2,7 +2,7 @@
 
 #include "sampling.hpp"
 #include "stats.hpp"
-#include "modules.hpp"
+#include "bounds.hpp"
 
 namespace es
 {
@@ -19,9 +19,8 @@ namespace es
             : d(d), sigma(sigma0), decay(1.0 / std::sqrt(static_cast<double>(d) + 1)),
               x(x0), f(f0), t(1), budget(budget), target(target),
               rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
-              lb(Vector::Ones(d) * -5.0),
-              ub(Vector::Ones(d) * 5.0),
-              sampler(sampling::get(d, modules, 1))
+              sampler(sampling::get(d, modules, 1)),
+              corrector(bounds::get(modules.bound_correction, Vector::Ones(d) * -5.0, Vector::Ones(d) * 5.0))
         {
         }
 
@@ -38,10 +37,9 @@ namespace es
         size_t budget;
         double target;
         bool rejection_sampling;
-        Vector lb;
-        Vector ub;
 
         std::shared_ptr<sampling::Sampler> sampler;
+        std::shared_ptr<bounds::BoundCorrection> corrector;
     };
 
     struct MuCommaLambdaES
@@ -66,8 +64,7 @@ namespace es
               sampler(sampling::get(d, modules, lambda)),
               sigma_sampler(std::make_shared<sampling::Gaussian>(d)),
               rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
-              lb(Vector::Ones(d) * -5.0),
-              ub(Vector::Ones(d) * 5.0)
+              corrector(bounds::get(modules.bound_correction, Vector::Ones(d) * -5.0, Vector::Ones(d) * 5.0))
         {
         }
 
@@ -99,7 +96,6 @@ namespace es
         std::shared_ptr<sampling::Sampler> sigma_sampler;
 
         bool rejection_sampling;
-        Vector lb;
-        Vector ub;
+        std::shared_ptr<bounds::BoundCorrection> corrector;
     };
 }

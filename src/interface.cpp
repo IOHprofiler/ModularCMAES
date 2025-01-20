@@ -1042,8 +1042,8 @@ void define_es(py::module &main)
         .def_readwrite("target", &OnePlusOneES::target)
         .def_readwrite("sampler", &OnePlusOneES::sampler)
         .def_readwrite("rejection_sampling", &OnePlusOneES::rejection_sampling)
-        .def_readwrite("lb", &OnePlusOneES::lb)
-        .def_readwrite("ub", &OnePlusOneES::ub);
+        .def_readwrite("corrector", &OnePlusOneES::corrector)
+        ;
 
     py::class_<MuCommaLambdaES, std::shared_ptr<MuCommaLambdaES>>(m, "MuCommaLambdaES")
         .def(
@@ -1087,8 +1087,8 @@ void define_es(py::module &main)
         .def_readwrite("sampler", &MuCommaLambdaES::sampler)
         .def_readwrite("sigma_sampler", &MuCommaLambdaES::sigma_sampler)
         .def_readwrite("rejection_sampling", &MuCommaLambdaES::rejection_sampling)
-        .def_readwrite("lb", &MuCommaLambdaES::lb)
-        .def_readwrite("ub", &MuCommaLambdaES::ub);
+        .def_readwrite("corrector", &MuCommaLambdaES::corrector)
+     ;
 }
 
 PYBIND11_MODULE(cmaescpp, m)
