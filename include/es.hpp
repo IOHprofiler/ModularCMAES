@@ -53,8 +53,9 @@ namespace es
             const double target,
             const parameters::Modules &modules)
             : d(d), lambda(d * 5), mu(std::floor(lambda / 4)),
-              tau(1.0 / std::sqrt(static_cast<double>(d))),
-              tau_i(1.0 / pow(static_cast<double>(d), .25)), mu_inv(1.0 / mu),
+              tau(1.0 / std::sqrt(static_cast<double>(d))), // v1 ->
+              tau_i(1.0 / pow(static_cast<double>(d), .25)), 
+              mu_inv(1.0 / mu),
               m(x0), sigma(sigma0 * Vector::Ones(d)),
               f(Vector::Constant(lambda, std::numeric_limits<double>::infinity())),
               X(d, lambda), S(d, lambda),
@@ -66,6 +67,8 @@ namespace es
               rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
               corrector(bounds::get(modules.bound_correction, Vector::Ones(d) * -5.0, Vector::Ones(d) * 5.0))
         {
+            // tau = 1.0 / sampler->expected_length();
+            // tau_i = 1.0 / std::sqrt(sampler->expected_length());
         }
 
         Vector sample(const Vector si);
