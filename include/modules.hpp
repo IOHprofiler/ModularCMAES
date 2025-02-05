@@ -11,10 +11,21 @@ namespace parameters
 
     enum class BaseSampler
     {
-        GAUSSIAN,
+        UNIFORM,
         SOBOL,
         HALTON,
         TESTER
+    };
+
+    enum class SampleTranformerType
+    {
+        NONE,
+        GAUSSIAN,
+        SCALED_UNIFORM,
+        LAPLACE,
+        LOGISTIC,
+        CAUCHY,
+        DOUBLE_WEIBULL
     };
 
     enum class Mirror
@@ -42,7 +53,8 @@ namespace parameters
         COTN,
         UNIFORM_RESAMPLE,
         SATURATE,
-        TOROIDAL
+        TOROIDAL, 
+        RESAMPLE
     };
 
     enum class RestartStrategyType
@@ -54,14 +66,16 @@ namespace parameters
         BIPOP
     };
 
-    enum class MatrixAdaptationType {
+    enum class MatrixAdaptationType
+    {
         NONE,
         COVARIANCE,
         MATRIX,
-        SEPERABLE        
+        SEPERABLE
     };
 
-    enum class CenterPlacement {
+    enum class CenterPlacement
+    {
         X0,
         ZERO,
         UNIFORM,
@@ -77,12 +91,13 @@ namespace parameters
         bool sample_sigma = false;
         bool repelling_restart = false;
         RecombinationWeights weights = RecombinationWeights::DEFAULT;
-        BaseSampler sampler = BaseSampler::GAUSSIAN;
+        BaseSampler sampler = BaseSampler::UNIFORM;
         Mirror mirrored = Mirror::NONE;
         StepSizeAdaptation ssa = StepSizeAdaptation::CSA;
         CorrectionMethod bound_correction = CorrectionMethod::NONE;
         RestartStrategyType restart_strategy = RestartStrategyType::NONE;
         MatrixAdaptationType matrix_adaptation = MatrixAdaptationType::COVARIANCE;
         CenterPlacement center_placement = CenterPlacement::X0;
+        SampleTranformerType sample_transformation = SampleTranformerType::GAUSSIAN;
     };
 }

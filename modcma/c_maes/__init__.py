@@ -11,7 +11,8 @@ from .cmaescpp import (
     repelling,
     Population,
     Parameters,
-    ModularCMAES
+    ModularCMAES,
+    es
 )
 
 from .cmaescpp.parameters import Settings

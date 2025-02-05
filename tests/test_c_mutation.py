@@ -73,7 +73,7 @@ class TestMutation(unittest.TestCase):
             cma.p.settings.sigma0
             * np.exp(
                 (cma.p.mutation.cs / cma.p.mutation.damps)
-                * ((np.linalg.norm(cma.p.adaptation.ps) / cma.p.adaptation.chiN) - 1)
+                * ((np.linalg.norm(cma.p.adaptation.ps) / cma.p.sampler.expected_length()) - 1)
             ),
         )
 

@@ -53,7 +53,7 @@ int main()
 	constants::cache_samples = true;
 
 	parameters::Settings settings(dim);
-	settings.modules.sampler = parameters::BaseSampler::GAUSSIAN;
+	settings.modules.sampler = parameters::BaseSampler::UNIFORM;
 	settings.modules.mirrored = parameters::Mirror::NONE;
 	settings.modules.orthogonal = true;
 	parameters::Parameters p(settings);

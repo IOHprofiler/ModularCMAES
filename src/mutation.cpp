@@ -8,8 +8,7 @@ namespace mutation
 	Vector ThresholdConvergence::scale(const Vector &zi, const double diameter, const size_t budget,
 									   const size_t evaluations)
 	{
-		const double t = init_threshold * diameter * pow(
-			static_cast<double>(budget - evaluations) / static_cast<double>(budget), decay_factor);
+		const double t = init_threshold * diameter * pow(static_cast<double>(budget - evaluations) / static_cast<double>(budget), decay_factor);
 
 		if (const auto norm = zi.norm(); norm < t)
 			return zi.array() * ((t + (t - norm)) / norm);
@@ -24,8 +23,9 @@ namespace mutation
 	void CSA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
 					Population &pop,
 					const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+
 	{
-		sigma *= std::exp((cs / damps) * ((adaptation->ps.norm() / adaptation->chiN) - 1));
+		sigma *= std::exp((cs / damps) * ((adaptation->ps.norm() / expected_length_z) - 1));
 	}
 
 	void CSA::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
@@ -36,6 +36,7 @@ namespace mutation
 
 		for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
 		{
+			size_t n_rej = 0;
 			do
 			{
 				p.pop.Z.col(i) = p.mutation->tc->scale((*p.sampler)(), p.bounds->diameter, p.settings.budget, p.stats.evaluations);
@@ -45,7 +46,8 @@ namespace mutation
 				p.pop.X.col(i) = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
 
 				p.bounds->correct(i, p);
-			} while (p.repelling->is_rejected(p.pop.X.col(i), p));
+			} while (
+				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE && n_rej++ < 5*p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X.col(i)).any()) || p.repelling->is_rejected(p.pop.X.col(i), p));
 
 			p.pop.f(i) = objective(p.pop.X.col(i));
 			p.stats.evaluations++;
@@ -169,7 +171,8 @@ namespace mutation
 	}
 
 	std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const double mueff,
-								  const double d, const double sigma, const std::optional<double> cs0)
+								  const double d, const double sigma, const std::optional<double> cs0,
+								  const double expected_z)
 	{
 		using namespace parameters;
 		auto tc = m.threshold_convergence
@@ -190,26 +193,26 @@ namespace mutation
 		switch (m.ssa)
 		{
 		case StepSizeAdaptation::TPA:
-			return std::make_shared<TPA>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<TPA>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::MSR:
-			return std::make_shared<MSR>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<MSR>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::XNES:
 			cs = cs0.value_or(mueff / (2.0 * std::log(std::max(2., d)) * sqrt(d)));
-			return std::make_shared<XNES>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<XNES>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::MXNES:
 			cs = cs0.value_or(1.);
-			return std::make_shared<MXNES>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<MXNES>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::LPXNES:
 			cs = cs0.value_or(9.0 * mueff / (10.0 * sqrt(d)));
-			return std::make_shared<LPXNES>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<LPXNES>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::PSR:
 			cs = cs0.value_or(.9);
-			return std::make_shared<PSR>(tc, sq, ss, cs, 0., sigma);
+			return std::make_shared<PSR>(tc, sq, ss, cs, 0., sigma, expected_z);
 		default:
 		case StepSizeAdaptation::CSA:
 			cs = cs0.value_or((mueff + 2.0) / (d + mueff + 5.0));
 			damps = 1.0 + (2.0 * std::max(0.0, sqrt((mueff - 1.0) / (d + 1)) - 1) + cs);
-			return std::make_shared<CSA>(tc, sq, ss, cs, damps, sigma);
+			return std::make_shared<CSA>(tc, sq, ss, cs, damps, sigma, expected_z);
 		}
 	}
 }

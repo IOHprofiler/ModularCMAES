@@ -273,7 +273,7 @@ namespace rng
 	struct uniform
 	{
 		/**
-		 * @brief Generate a random uniform number in the closed interval [-1, 1]
+		 * @brief Generate a random uniform number in the closed interval [0, 1]
 		 *
 		 * @tparam G the type of the generator
 		 * @param gen the generator instance
@@ -282,7 +282,7 @@ namespace rng
 		template <typename G>
 		T operator()(G &gen)
 		{
-			return static_cast<T>(2.0 * gen() - gen.min()) / gen.max() - gen.min() - 1;
+			return static_cast<T>(gen() - gen.min()) / gen.max() - gen.min();
 		}
 	};
 
@@ -320,8 +320,8 @@ namespace rng
 
 			if (generate)
 			{
-				T u1 = std::abs(rng(gen));
-				T u2 = std::abs(rng(gen));
+				T u1 = rng(gen);
+				T u2 = rng(gen);
 				const T root_log_u1 = std::sqrt(-2.0 * std::log(u1));
 				const T two_pi_u2 = 2.0 * M_PI * u2;
 				r1 = (sigma * (root_log_u1 * std::sin(two_pi_u2))) + mu;

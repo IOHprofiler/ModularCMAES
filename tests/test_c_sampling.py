@@ -19,15 +19,15 @@ class TestSampling(unittest.TestCase):
 
     def test_base_sampler_gauss(self):
         sampler = sampling.Gaussian(5)
-        self.sampler_test(sampler, 1.107994899)
+        self.sampler_test(sampler, -1.88320896)
 
     def test_base_sampler_halton(self):
         sampler = sampling.Halton(5)
-        self.sampler_test(sampler, -0.3516482)
+        self.sampler_test(sampler, 2.373425998)
 
     def test_base_sampler_sobol(self):
         sampler = sampling.Sobol(5)
-        self.sampler_test(sampler, -0.5787853)
+        self.sampler_test(sampler, 2.2788658)
 
     def test_samplers_are_random(self):
         for sampler in (sampling.Halton, sampling.Sobol):

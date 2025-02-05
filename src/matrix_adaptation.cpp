@@ -18,7 +18,7 @@ namespace matrix_adaptation
 
 		const double actual_ps_length = ps.norm() / sqrt(
 			1.0 - pow(1.0 - mutation->cs, 2.0 * (stats.evaluations / lambda)));
-		const double expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * chiN;
+		const double expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
 
 		hs = actual_ps_length < expected_ps_length;
 		pc = (1.0 - w.cc) * pc + (hs * sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
