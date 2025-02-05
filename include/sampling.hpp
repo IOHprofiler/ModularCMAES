@@ -333,7 +333,6 @@ namespace sampling
             // Empirically approximated median
             const double median_z = dd * (1.0 + 0.18 * std::tanh(dd / 4.07));
             return median_z;
-            // return SampleTransformer::expected_length();
         }
 
         [[nodiscard]] virtual Vector transform(Vector x) override
