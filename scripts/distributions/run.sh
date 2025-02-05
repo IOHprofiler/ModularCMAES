@@ -16,10 +16,8 @@ python run.py --sampler 2 --base_sampler=1 --logged&
 
 for i in {1..6}; 
 do 
-    python run.py --sampler $i --logged --alg 1 &
-    python run.py --sampler $i --logged --alg 2 & 
-    python run.py --sampler $i --logged --alg 3 &
-    python run.py --sampler $i --logged --alg 4 &
-    python run.py --sampler $i --logged --alg 5 &
-    python run.py --sampler $i --logged --alg 6 & 
+    for j in {1..6}; 
+    do 
+        python run.py --sampler $i --logged --alg &j &
+    done
 done 
