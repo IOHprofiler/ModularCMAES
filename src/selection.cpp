@@ -23,6 +23,7 @@ namespace selection
 
 		p.stats.current_avg = p.pop.f.array().mean();
 		p.stats.update_best(p.pop.X(Eigen::all, 0), p.pop.f(0));
+
 	}
 
 	void Pairwise::operator()(parameters::Parameters& p) const

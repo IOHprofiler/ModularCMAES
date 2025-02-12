@@ -340,4 +340,5 @@ namespace functions
 {
 	double sphere(const Vector &x);
 	double rastrigin(const Vector &x);
+	double ellipse(const Vector& x);
 }

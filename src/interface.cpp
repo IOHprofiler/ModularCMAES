@@ -59,6 +59,7 @@ void define_options(py::module &main)
         .value("MXNES", StepSizeAdaptation::MXNES)
         .value("LPXNES", StepSizeAdaptation::LPXNES)
         .value("PSR", StepSizeAdaptation::PSR)
+        .value("SR", StepSizeAdaptation::PSR)
         .export_values();
 
     py::enum_<CorrectionMethod>(m, "CorrectionMethod")
@@ -325,6 +326,14 @@ void define_matrix_adaptation(py::module &main)
         .def_readwrite("dd", &Adaptation::dd)
         .def_readwrite("expected_length_z", &Adaptation::expected_length_z)
         .def_readwrite("inv_C", &CovarianceAdaptation::inv_C)
+        .def("adapt", &Adaptation::adapt,
+            py::arg("weights"),
+            py::arg("modules"),
+            py::arg("population"),
+            py::arg("mu"),
+            py::arg("settings"),
+            py::arg("stats")
+        )
         .def("adapt_evolution_paths", &Adaptation::adapt_evolution_paths,
              py::arg("pop"),
              py::arg("weights"),
@@ -491,14 +500,16 @@ void define_parameters(py::module &main)
         .def_readwrite("centers", &Stats::centers)
         .def_readwrite("current_best", &Stats::current_best)
         .def_readwrite("global_best", &Stats::global_best)
+        .def_readwrite("has_improved", &Stats::has_improved)
         .def("__repr__", [](Stats &stats)
              {
             std::stringstream ss;
             ss << std::boolalpha;
             ss << "<Stats";
             ss << " t: " << stats.t;
-            ss << " evaluations: " << stats.evaluations;
+            ss << " e: " << stats.evaluations;
             ss << " best: " << stats.global_best;
+            ss << " improved: " << stats.has_improved;
             ss << ">";
             return ss.str(); });
 
@@ -555,8 +566,8 @@ void define_parameters(py::module &main)
              py::arg("cmu") = std::nullopt,
              py::arg("c1") = std::nullopt,
              py::arg("verbose") = false)
-        .def_readwrite("dim", &Settings::dim)
-        .def_readwrite("modules", &Settings::modules)
+        .def_readonly("dim", &Settings::dim)
+        .def_readonly("modules", &Settings::modules)
         .def_readwrite("target", &Settings::target)
         .def_readwrite("max_generations", &Settings::max_generations)
         .def_readwrite("budget", &Settings::budget)
@@ -571,7 +582,7 @@ void define_parameters(py::module &main)
         .def_readwrite("cmu", &Settings::cmu)
         .def_readwrite("c1", &Settings::c1)
         .def_readwrite("verbose", &Settings::verbose)
-        .def_readwrite("volume", &Settings::volume)
+        .def_readonly("volume", &Settings::volume)
         .def("__repr__", [](Settings &settings)
              {
             std::stringstream ss;
@@ -817,6 +828,20 @@ void define_mutation(py::module &main)
              py::arg("damps"),
              py::arg("sigma0"),
              py::arg("expected_length_z"));
+
+
+    py::class_<SR, CSA, std::shared_ptr<PSR>>(m, "SR")
+        .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
+            py::arg("threshold_convergence"),
+            py::arg("sequential_selection"),
+            py::arg("sigma_sampler"),
+            py::arg("cs"),
+            py::arg("damps"),
+            py::arg("sigma0"),
+            py::arg("expected_length_z"))
+        .def_readwrite("success_ratio", &SR::succes_ratio)
+        .def_readwrite("tgt_success_ratio", &SR::tgt_success_ratio)
+        .def_readwrite("max_success_ratio", &SR::max_success_ratio);
 }
 
 void define_population(py::module &main)

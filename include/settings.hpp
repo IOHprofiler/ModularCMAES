@@ -68,6 +68,18 @@ namespace parameters
             {
                 mu0 = lambda0 / 2;
             }
+
+            if (lambda0 == 1)
+            {
+                mu0 = 1;
+                modules.elitist = true;
+                modules.active = false;
+                modules.weights = RecombinationWeights::EQUAL;
+                modules.ssa = StepSizeAdaptation::SR;
+
+                if (modules.restart_strategy == RestartStrategyType::BIPOP || modules.restart_strategy == RestartStrategyType::IPOP)
+                    modules.restart_strategy = RestartStrategyType::RESTART;
+            }
             volume = (this->ub - this->lb).prod();
         }
     };

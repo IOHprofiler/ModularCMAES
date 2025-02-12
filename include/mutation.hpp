@@ -145,7 +145,7 @@ namespace mutation
 
     struct PSR : CSA
     {
-        double succes_ratio = .25;
+        double success_ratio = .25;
 
         Vector combined;
 
@@ -178,6 +178,21 @@ namespace mutation
         void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
                    const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
     };
+
+
+    struct SR : CSA
+    {
+
+        double success_ratio = 2.0 / 11.0;
+        constexpr static double tgt_success_ratio = 2.0 / 11.0;
+        constexpr static double max_success_ratio = 0.44;
+
+    	using CSA::CSA;
+
+        void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
+            const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+    };
+    
 
     std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu,
                                   const double mueff, const double d, const double sigma, const std::optional<double> cs, const double expected_z);

@@ -43,6 +43,7 @@ namespace parameters
 		stats.evaluations++;
 		stats.centers.emplace_back(adaptation->m, objective(adaptation->m), stats.t, stats.evaluations);
 		stats.update_best(stats.centers.back().x, stats.centers.back().y);
+		stats.has_improved = false;
 		repelling->update_archive(objective, *this);
 
 		weights = Weights(settings.dim, mu, lambda, settings);
@@ -77,7 +78,8 @@ namespace parameters
 		adaptation->adapt_evolution_paths(pop, weights, mutation, stats, mu, lambda);
 		mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
 
-		auto successfull_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings);
+		auto successfull_adaptation = adaptation->adapt(weights, settings.modules, pop, mu, settings, stats);
+
 		if (!successfull_adaptation or invalid_state())
 			perform_restart(objective);
 
@@ -91,7 +93,9 @@ std::ostream &operator<<(std::ostream &os, const parameters::Stats &s)
 {
 	return os
 		   << "Stats"
-		   << " g=" << s.t
-		   << " evals=" << s.evaluations
-		   << " best=" << s.global_best;
+		   << " t=" << s.t
+		   << " e=" << s.evaluations
+		   << " best=" << s.global_best
+	       << " improved=" << std::boolalpha << s.has_improved
+	;
 }

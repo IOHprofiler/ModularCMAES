@@ -23,6 +23,14 @@ namespace matrix_adaptation
 		{
 		}
 
+		bool adapt(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
+			size_t mu, const parameters::Settings& settings, const parameters::Stats& stats)
+		{
+			if (settings.lambda0 == 1 && !stats.has_improved)
+				return true;
+			return adapt_matrix(w, m, pop, mu, settings);
+		}
+
 		virtual void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
 			const std::shared_ptr<mutation::Strategy>& mutation,
 			const parameters::Stats& stats, size_t mu, size_t lambda) = 0;
@@ -105,6 +113,7 @@ namespace matrix_adaptation
 
 		bool perform_eigendecomposition(const parameters::Settings& settings) override;
 	};
+
 
 	struct MatrixAdaptation final : Adaptation
 	{

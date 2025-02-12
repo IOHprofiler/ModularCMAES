@@ -132,7 +132,7 @@ namespace mutation
 				delta_r += (r_old - r);
 			}
 
-			const auto z = delta_r / std::pow(n, 2) - succes_ratio;
+			const auto z = delta_r / std::pow(n, 2) - success_ratio;
 			s = (1.0 - cs) * s + (cs * z);
 			sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
 		}
@@ -169,6 +169,15 @@ namespace mutation
 		const auto z = std::exp(cs * pop.s.array().log().matrix().dot(w.clipped()));
 		sigma = std::pow(sigma, 1.0 - cs) * z;
 	}
+
+	void SR::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
+	{
+		success_ratio = (1 - cs) * success_ratio + (cs * stats.has_improved);
+		sigma *= std::exp((1 / damps) * ((success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
+	}
+
 
 	std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const double mueff,
 								  const double d, const double sigma, const std::optional<double> cs0,
@@ -207,7 +216,11 @@ namespace mutation
 			return std::make_shared<LPXNES>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::PSR:
 			cs = cs0.value_or(.9);
-			return std::make_shared<PSR>(tc, sq, ss, cs, 0., sigma, expected_z);
+			return std::make_shared<PSR>(tc, sq, ss, cs, damps, sigma, expected_z);
+		case StepSizeAdaptation::SR:
+			cs = cs0.value_or(1.0 / 12.0);
+			damps = 1.0 + (d / 2.0);
+			return std::make_shared<SR>(tc, sq, ss, cs, damps, sigma, expected_z);
 		default:
 		case StepSizeAdaptation::CSA:
 			cs = cs0.value_or((mueff + 2.0) / (d + mueff + 5.0));

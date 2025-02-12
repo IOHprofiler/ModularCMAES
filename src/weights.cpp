@@ -27,9 +27,14 @@ namespace parameters
 
 		double cmu_default = std::min(
 			1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))));
+
 		if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPERABLE)
 			cmu_default *= ((d + 2.0) / 3.0);
 
+		if (settings.lambda0 == 1)
+		{
+			cmu_default = 2 / (pow(d, 2) + 6.0);
+		}
 		cmu = settings.cmu.value_or(cmu_default);
 		cc = settings.cmu.value_or(
 			(4.0 + (mueff / d)) / (d + 4.0 + (2.0 * mueff / d))
@@ -41,6 +46,7 @@ namespace parameters
 		const double aposdef_neg = (1.0 - c1 - cmu) / (d * cmu);
 
 		const double neg_scaler = std::min(amu_neg, std::min(amueff_neg, aposdef_neg));
+
 		negative *= (neg_scaler / negative.cwiseAbs().sum());
 		weights << positive, negative;
 	}

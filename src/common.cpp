@@ -119,7 +119,7 @@ namespace rng
 	CachedShuffleSequence::CachedShuffleSequence(const size_t d) :
 		dim(d),
 		n_samples(std::max(constants::cache_min_samples, utils::nearest_power_of_2(constants::cache_max_doubles / d))),
-		cache(n_samples * d, 0.0),
+		cache(n_samples* d, 0.0),
 		shuffler(n_samples)
 	{
 	}
@@ -163,5 +163,13 @@ namespace functions
 		for (auto& xi : x)
 			res += xi * xi - a * std::cos(pi2 * xi);
 		return a * static_cast<double>(x.size()) + res;
+	}
+
+	double ellipse(const Vector& x)
+	{
+		double res = 0;
+		for (auto i = 0; i < x.size(); ++i)
+			res += pow(1.0e6, static_cast<double>(i) / (static_cast<double>(x.size()) - 1)) * x(i) * x(i);
+		return res;
 	}
 }

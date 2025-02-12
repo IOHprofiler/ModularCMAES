@@ -41,12 +41,16 @@ namespace matrix_adaptation
 		{
 			rank_mu = w.cmu * ((pop.Y.leftCols(mu).array().rowwise() * w.positive.array().transpose()).matrix() * pop.Y.
 				leftCols(mu).transpose());
+
 		}
 
+		//std::cout << C << std::endl;
 		C = old_c + rank_one + rank_mu;
 
 		C = C.triangularView<Eigen::Upper>().toDenseMatrix() +
 			C.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().transpose();
+
+		//std::cout << C << std::endl;
 	}
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
