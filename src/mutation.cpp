@@ -174,8 +174,7 @@ namespace mutation
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		success_ratio = (1 - cs) * success_ratio + (cs * stats.has_improved);
-		sigma *= std::exp((1 / damps) * ((success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
+		sigma *= std::exp((1 / damps) * ((stats.success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
 	}
 
 

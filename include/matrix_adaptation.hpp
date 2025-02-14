@@ -23,20 +23,12 @@ namespace matrix_adaptation
 		{
 		}
 
-		bool adapt(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
-			size_t mu, const parameters::Settings& settings, const parameters::Stats& stats)
-		{
-			if (settings.lambda0 == 1 && !stats.has_improved)
-				return true;
-			return adapt_matrix(w, m, pop, mu, settings);
-		}
-
 		virtual void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
 			const std::shared_ptr<mutation::Strategy>& mutation,
 			const parameters::Stats& stats, size_t mu, size_t lambda) = 0;
 
 		virtual bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
-			size_t mu, const parameters::Settings& settings) = 0;
+			size_t mu, const parameters::Settings& settings, const parameters::Stats& stats) = 0;
 
 		virtual void restart(const parameters::Settings& settings) = 0;
 
@@ -55,7 +47,7 @@ namespace matrix_adaptation
 		}
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
-			const size_t mu, const parameters::Settings& settings) override
+			const size_t mu, const parameters::Settings& settings, const parameters::Stats& stats) override
 		{
 			return true;
 		}
@@ -88,17 +80,17 @@ namespace matrix_adaptation
 		{
 		}
 
+		void adapt_covariance_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
+			size_t mu);
+
 		virtual bool perform_eigendecomposition(const parameters::Settings& settings);
 
 		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
 			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
-		void adapt_covariance_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
-			size_t mu);
-
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
-			const parameters::Settings& settings) override;
+			const parameters::Settings& settings, const parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings) override;
 
@@ -112,6 +104,22 @@ namespace matrix_adaptation
 		using CovarianceAdaptation::CovarianceAdaptation;
 
 		bool perform_eigendecomposition(const parameters::Settings& settings) override;
+	};
+
+
+	struct OnePlusOneAdaptation: CovarianceAdaptation
+	{
+		constexpr static double max_success_ratio = 0.44;
+
+		using CovarianceAdaptation::CovarianceAdaptation;
+
+		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
+			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+			size_t mu, size_t lambda) override;
+
+		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+			const parameters::Settings& settings, const parameters::Stats& stats) override;
+
 	};
 
 
@@ -131,7 +139,7 @@ namespace matrix_adaptation
 			size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
-			const parameters::Settings& settings) override;
+			const parameters::Settings& settings, const parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings) override;
 
@@ -151,6 +159,8 @@ namespace matrix_adaptation
 			return std::make_shared<None>(dim, x0, expected_z);
 		case MatrixAdaptationType::SEPERABLE:
 			return std::make_shared<SeperableAdaptation>(dim, x0, expected_z);
+		case MatrixAdaptationType::ONEPLUSONE:
+			return std::make_shared<OnePlusOneAdaptation>(dim, x0, expected_z);
 		default:
 		case MatrixAdaptationType::COVARIANCE:
 			return std::make_shared<CovarianceAdaptation>(dim, x0, expected_z);

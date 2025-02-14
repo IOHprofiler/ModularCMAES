@@ -15,6 +15,8 @@ namespace parameters
 		Solution current_best = {};
 		Solution global_best = {};
 		bool has_improved = false;
+		double success_ratio = 2.0 / 11.0;
+		double cs = 1.0 / 12.0;
 
 		void update_best(const Vector &x, const double y)
 		{
@@ -28,6 +30,7 @@ namespace parameters
 
 				has_improved = true;
 			}
+			success_ratio = (1 - cs) * success_ratio + (cs * has_improved);
 
 		}
 	};

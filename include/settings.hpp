@@ -76,6 +76,9 @@ namespace parameters
                 modules.active = false;
                 modules.weights = RecombinationWeights::EQUAL;
                 modules.ssa = StepSizeAdaptation::SR;
+                modules.matrix_adaptation = MatrixAdaptationType::ONEPLUSONE;
+                cc = 2.0 / (static_cast<double>(dim) + 2.0);
+                c1 = 2.0 / (pow(static_cast<double>(dim),2) + 6.0);
 
                 if (modules.restart_strategy == RestartStrategyType::BIPOP || modules.restart_strategy == RestartStrategyType::IPOP)
                     modules.restart_strategy = RestartStrategyType::RESTART;

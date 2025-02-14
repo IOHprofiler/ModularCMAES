@@ -72,7 +72,8 @@ namespace parameters
         NONE,
         COVARIANCE,
         MATRIX,
-        SEPERABLE
+        SEPERABLE,
+        ONEPLUSONE
     };
 
     enum class CenterPlacement

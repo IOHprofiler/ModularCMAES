@@ -182,11 +182,8 @@ namespace mutation
 
     struct SR : CSA
     {
-
-        double success_ratio = 2.0 / 11.0;
-        constexpr static double tgt_success_ratio = 2.0 / 11.0;
-        constexpr static double max_success_ratio = 0.44;
-
+    	constexpr static double tgt_success_ratio = 2.0 / 11.0;
+      
     	using CSA::CSA;
 
         void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,

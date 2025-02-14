@@ -78,7 +78,7 @@ namespace parameters
 		adaptation->adapt_evolution_paths(pop, weights, mutation, stats, mu, lambda);
 		mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
 
-		auto successfull_adaptation = adaptation->adapt(weights, settings.modules, pop, mu, settings, stats);
+		auto successfull_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings, stats);
 
 		if (!successfull_adaptation or invalid_state())
 			perform_restart(objective);
