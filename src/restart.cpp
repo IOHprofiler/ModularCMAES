@@ -125,8 +125,16 @@ namespace restart
 	bool RestartCriteria::operator()(const parameters::Parameters &p)
 	{
 		update(p);
-		any = exceeded_max_iter() or no_improvement() or flat_fitness() or stagnation() or min_sigma();
-		any = any or (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE and (tolx() or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor()));
+		any = exceeded_max_iter() or no_improvement() or stagnation() or min_sigma();
+		if (p.settings.lambda0 > 1)
+		{
+			any = any or flat_fitness();
+		}
+		if (p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE)
+		{
+			any = any or tolx() or tolupsigma() or conditioncov() or noeffectaxis() or noeffectcoor();
+		}
+
 		if (any)
 		{
 			if (p.settings.verbose)
@@ -141,6 +149,7 @@ namespace restart
 				std::cout << " conditioncov: " << conditioncov();
 				std::cout << " noeffectaxis: " << noeffectaxis();
 				std::cout << " noeffectcoor: " << noeffectcoor();
+				std::cout << " min_sigma: " << min_sigma();
 				std::cout << " stagnation: " << stagnation() << '\n';
 			}
 			return true;
