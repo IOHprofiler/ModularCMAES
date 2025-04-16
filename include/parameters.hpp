@@ -40,7 +40,7 @@ namespace parameters
 
         void adapt(FunctionType& objective);
 
-        void perform_restart(FunctionType& objective, const std::optional<double> &sigma = std::nullopt);
+        void perform_restart(FunctionType& objective, const std::optional<Float> &sigma = std::nullopt);
 
         bool invalid_state() const;
     };

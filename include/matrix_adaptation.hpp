@@ -11,13 +11,13 @@ namespace matrix_adaptation
 	struct Adaptation
 	{
 		Vector m, m_old, dm, ps;
-		double dd;
-		double expected_length_z;
+		Float dd;
+		Float expected_length_z;
 		Matrix inv_C;
 
-		Adaptation(const size_t dim, const Vector& x0, const Vector& ps, const double expected_length_z) :
+		Adaptation(const size_t dim, const Vector& x0, const Vector& ps, const Float expected_length_z) :
 			m(x0), m_old(dim), dm(Vector::Zero(dim)),
-			ps(ps), dd(static_cast<double>(dim)),
+			ps(ps), dd(static_cast<Float>(dim)),
 			expected_length_z(expected_length_z),
 			inv_C(Matrix::Identity(dim, dim))
 		{
@@ -34,7 +34,7 @@ namespace matrix_adaptation
 
 		virtual Vector compute_y(const Vector&) = 0;
 
-		virtual Vector invert_x(const Vector&, double sigma);
+		virtual Vector invert_x(const Vector&, Float sigma);
 
 		virtual Vector invert_y(const Vector&) = 0;
 
@@ -42,7 +42,7 @@ namespace matrix_adaptation
 
 	struct None final : Adaptation
 	{
-		None(const size_t dim, const Vector& x0, const double expected_length_z) : Adaptation(dim, x0, Vector::Ones(dim), expected_length_z)
+		None(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Ones(dim), expected_length_z)
 		{
 		}
 
@@ -71,7 +71,7 @@ namespace matrix_adaptation
 
 		bool hs = true;
 
-		CovarianceAdaptation(const size_t dim, const Vector& x0, const double expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
+		CovarianceAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
 			pc(Vector::Zero(dim)),
 			d(Vector::Ones(dim)),
 			B(Matrix::Identity(dim, dim)),
@@ -109,7 +109,7 @@ namespace matrix_adaptation
 
 	struct OnePlusOneAdaptation: CovarianceAdaptation
 	{
-		constexpr static double max_success_ratio = 0.44;
+		constexpr static Float max_success_ratio = 0.44;
 
 		using CovarianceAdaptation::CovarianceAdaptation;
 
@@ -128,7 +128,7 @@ namespace matrix_adaptation
 		Matrix M;
 		Matrix M_inv;
 
-		MatrixAdaptation(const size_t dim, const Vector& x0, const double expected_length_z) : Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
+		MatrixAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
 			M(Matrix::Identity(dim, dim)),
 			M_inv(Matrix::Identity(dim, dim))
 		{
@@ -148,7 +148,7 @@ namespace matrix_adaptation
 		Vector invert_y(const Vector&) override;
 	};
 
-	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0, const double expected_z)
+	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0, const Float expected_z)
 	{
 		using namespace parameters;
 		switch (m.matrix_adaptation)

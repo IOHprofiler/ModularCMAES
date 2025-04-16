@@ -5,17 +5,17 @@ namespace repelling
 {
 	namespace distance
 	{
-		double manhattan(const Vector &u, const Vector &v)
+		Float manhattan(const Vector &u, const Vector &v)
 		{
 			return (u - v).cwiseAbs().sum();
 		}
 
-		double euclidian(const Vector &u, const Vector &v)
+		Float euclidian(const Vector &u, const Vector &v)
 		{
 			return (u - v).norm();
 		}
 
-		double mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv)
+		Float mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv)
 		{
 			const auto delta = u - v;
 			return std::sqrt(delta.transpose() * C_inv * delta);
@@ -29,12 +29,12 @@ namespace repelling
 			const size_t n_evals,
 			parameters::Parameters &p)
 		{
-			const double max_f = std::max(u.y, v.y);
+			const Float max_f = std::max(u.y, v.y);
 			for (size_t k = 1; k < n_evals + 1; k++)
 			{
-				const double a = static_cast<double>(k) / (static_cast<double>(n_evals) + 1.0);
+				const Float a = static_cast<Float>(k) / (static_cast<Float>(n_evals) + 1.0);
 				const Vector x = v.x + a * (u.x - v.x);
-				const double y = f(x);
+				const Float y = f(x);
 				p.stats.evaluations++;
 				if (max_f < y)
 					return false;
@@ -50,12 +50,12 @@ namespace repelling
 			const size_t n_evals
 			)
 		{
-			const double max_f = std::max(u.y, v.y);
+			const Float max_f = std::max(u.y, v.y);
 			for (size_t k = 1; k < n_evals + 1; k++)
 			{
-				const double a = static_cast<double>(k) / (static_cast<double>(n_evals) + 1.0);
+				const Float a = static_cast<Float>(k) / (static_cast<Float>(n_evals) + 1.0);
 				const Vector x = v.x + a * (u.x - v.x);
-				const double y = f(x);
+				const Float y = f(x);
 				if (max_f < y)
 					return false;
 			}
@@ -65,8 +65,8 @@ namespace repelling
 
 	bool TabooPoint::rejects(const Vector &xi, const parameters::Parameters &p, const int attempts) const
 	{
-		const double rejection_radius = std::pow(shrinkage, attempts) * radius;
-		const double delta_xi = distance::mahanolobis(xi, solution.x, p.adaptation->inv_C) / p.mutation->sigma;
+		const Float rejection_radius = std::pow(shrinkage, attempts) * radius;
+		const Float delta_xi = distance::mahanolobis(xi, solution.x, p.adaptation->inv_C) / p.mutation->sigma;
 
 		if (delta_xi < rejection_radius)
 			return true;
@@ -81,7 +81,7 @@ namespace repelling
 
 	void TabooPoint::calculate_criticality(const parameters::Parameters &p)
 	{
-		const double delta_m = distance::mahanolobis(p.adaptation->m, solution.x, p.adaptation->inv_C) / p.mutation->sigma;
+		const Float delta_m = distance::mahanolobis(p.adaptation->m, solution.x, p.adaptation->inv_C) / p.mutation->sigma;
 		const auto u = delta_m + radius;
 		const auto l = delta_m - radius;
 		criticality = cdf(u) - cdf(l);
@@ -110,7 +110,7 @@ namespace repelling
 			using namespace matrix_adaptation;
 			const auto dynamic = std::dynamic_pointer_cast<CovarianceAdaptation>(p.adaptation);
 
-			const double d_sigma = p.mutation->sigma / p.settings.sigma0;
+			const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
 			if (d_sigma > constants::sigma_threshold)
 			{
 				C = dynamic->C / dynamic->C.maxCoeff();
@@ -143,16 +143,16 @@ namespace repelling
 		if (accept_candidate)
 			archive.emplace_back(candidate_point, 1.0);// , C, C_inv);
 
-		const double volume_per_n = p.settings.volume / (p.settings.sigma0 * coverage * p.stats.solutions.size());
-		const double n = p.adaptation->dd;
-		const double gamma_f = std::pow(std::tgamma(n / 2.0 + 1.0), 1.0 / n) / std::sqrt(M_PI);
+		const Float volume_per_n = p.settings.volume / (p.settings.sigma0 * coverage * p.stats.solutions.size());
+		const Float n = p.adaptation->dd;
+		const Float gamma_f = std::pow(std::tgamma(n / 2.0 + 1.0), 1.0 / n) / std::sqrt(M_PI);
 		for (auto &point : archive)
 			point.radius = std::pow(volume_per_n * point.n_rep, 1.0 / n) * gamma_f;
 	}
 
 	bool Repelling::is_rejected(const Vector &xi, parameters::Parameters &p)
 	{
-		static constexpr double criticality_threshold = 0.01;
+		static constexpr Float criticality_threshold = 0.01;
 		if (!archive.empty())
 		{
 			for (const auto &point : archive)

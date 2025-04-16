@@ -7,7 +7,7 @@
 namespace restart
 {
 	//! max - min, for the last n elements of a vector
-	double ptp_tail(const std::vector<double> &v, const size_t n)
+	Float ptp_tail(const std::vector<Float> &v, const size_t n)
 	{
 		const auto na = std::min(v.size(), n);
 		if (na == 1)
@@ -15,20 +15,20 @@ namespace restart
 			return v[0];
 		}
 
-		const double min = *std::min_element(v.end() - na, v.end());
-		const double max = *std::max_element(v.end() - na, v.end());
+		const Float min = *std::min_element(v.end() - na, v.end());
+		const Float max = *std::max_element(v.end() - na, v.end());
 		return max - min;
 	}
 
 	// TODO: this is duplicate code
-	double median(const Vector &x)
+	Float median(const Vector &x)
 	{
 		if (x.size() % 2 == 0)
 			return (x(x.size() / 2) + x(x.size() / 2 - 1)) / 2.0;
 		return x(x.size() / 2);
 	}
 
-	double median(const std::vector<double> &v, const size_t from, const size_t to)
+	Float median(const std::vector<Float> &v, const size_t from, const size_t to)
 	{
 		const size_t n = to - from;
 		if (n % 2 == 0)
@@ -206,14 +206,14 @@ namespace restart
 		}
 
 		lambda_small = static_cast<size_t>(std::floor(
-			static_cast<double>(lambda_init) * std::pow(.5 / static_cast<double>(lambda_large) / lambda_init,
+			static_cast<Float>(lambda_init) * std::pow(.5 / static_cast<Float>(lambda_large) / lambda_init,
 														std::pow(dist(rng::GENERATOR), 2))));
 
 		if (lambda_small % 2 != 0)
 			lambda_small++;
 
 		p.lambda = std::max(size_t{2}, large() ? lambda_large : lambda_small);
-		p.mu = std::max(1.0, p.lambda * mu_factor);
+		p.mu = std::max(Float{1.0}, p.lambda * mu_factor);
 		p.perform_restart(objective,
 						  large() ? p.settings.sigma0 : p.settings.sigma0 * std::pow(10, -2 * dist(rng::GENERATOR)));
 	}

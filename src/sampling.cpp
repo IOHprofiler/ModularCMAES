@@ -7,7 +7,7 @@ namespace sampling
 	{
 		Vector x(d);
 		++i;
-		x.array() = static_cast<double>(i);
+		x.array() = static_cast<Float>(i);
 		return x;
 	};
 
@@ -84,27 +84,27 @@ namespace sampling
 		return res;
 	}
 
-	double Halton::next(int index, const int base)
+	Float Halton::next(int index, const int base)
 	{
-		double result = 0.0, f = 1.0 / base;
+		Float result = 0.0, f = 1.0 / base;
 		while (index > 0)
 		{
-			result += static_cast<double>(index % base) * f;
+			result += static_cast<Float>(index % base) * f;
 			index = index / base;
-			f = f / static_cast<double>(base);
+			f = f / static_cast<Float>(base);
 		}
 		return result;
 	}
 
-	double Halton::next(int index, const int base, const std::vector<std::vector<int>> &permutations)
+	Float Halton::next(int index, const int base, const std::vector<std::vector<int>> &permutations)
 	{
-		double result = 0.0, f = 1.0 / base;
+		Float result = 0.0, f = 1.0 / base;
 		for (const auto &permutation : permutations)
 		{
-			const double remainder = permutation[index % base];
+			const Float remainder = permutation[index % base];
 			result += remainder * f;
-			index = static_cast<int>(std::floor(index / static_cast<double>(base)));
-			f = f / static_cast<double>(base);
+			index = static_cast<int>(std::floor(index / static_cast<Float>(base)));
+			f = f / static_cast<Float>(base);
 		}
 		return result;
 	}

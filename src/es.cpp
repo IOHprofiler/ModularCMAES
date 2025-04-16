@@ -26,7 +26,7 @@ namespace es
         const auto x1 = sample();
         const auto f1 = objective(x1);
         const bool has_improved = f1 < f;
-        sigma *= pow(std::exp(static_cast<double>(has_improved) - 0.2), decay);
+        sigma *= pow(std::exp(static_cast<Float>(has_improved) - 0.2), decay);
         if (has_improved)
         {
             x = x1;
@@ -63,7 +63,7 @@ namespace es
 
         for (size_t i = 0; i < lambda; i++)
         {
-            const double psi_k = std::exp(tau * g_sigma_sampler()[0]);
+            const Float psi_k = std::exp(tau * g_sigma_sampler()[0]);
             const Vector psi_kv = (tau_i * (*sigma_sampler)()).array().exp().matrix();
             S.col(i) = sigma.array() * psi_kv.array() * psi_k;
             X.col(i) = sample(S.col(i));

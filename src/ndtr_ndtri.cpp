@@ -1,6 +1,7 @@
 #define _USE_MATH_DEFINES
 #include <cmath>
 #include <limits>
+#include "common.hpp"
 
 /*                                                  adopted from:  ndtri.c
  *
@@ -10,7 +11,7 @@
  *
  * SYNOPSIS:
  *
- * double x, y, ndtri();
+ * Float x, y, ndtri();
  *
  * x = ndtri( y );
  *
@@ -55,10 +56,10 @@
 */
 
 /* sqrt(2pi) */
-static double s2pi = 2.50662827463100050242E0;
+static Float s2pi = 2.50662827463100050242E0;
 
 /* approximation for 0 <= |y - 0.5| <= 3/8 */
-static double P0[5] = {
+static Float P0[5] = {
 	-5.99633501014107895267E1,
 	9.80010754185999661536E1,
 	-5.66762857469070293439E1,
@@ -66,7 +67,7 @@ static double P0[5] = {
 	-1.23916583867381258016E0,
 };
 
-static double Q0[8] = {
+static Float Q0[8] = {
 	/* 1.00000000000000000000E0, */
 	1.95448858338141759834E0,
 	4.67627912898881538453E0,
@@ -81,7 +82,7 @@ static double Q0[8] = {
 /* Approximation for interval z = sqrt(-2 log y ) between 2 and 8
  * i.e., y between exp(-2) = .135 and exp(-32) = 1.27e-14.
  */
-static double P1[9] = {
+static Float P1[9] = {
 	4.05544892305962419923E0,
 	3.15251094599893866154E1,
 	5.71628192246421288162E1,
@@ -93,7 +94,7 @@ static double P1[9] = {
 	-8.57456785154685413611E-4,
 };
 
-static double Q1[8] = {
+static Float Q1[8] = {
 	/*  1.00000000000000000000E0, */
 	1.57799883256466749731E1,
 	4.53907635128879210584E1,
@@ -109,7 +110,7 @@ static double Q1[8] = {
  * i.e., y between exp(-32) = 1.27e-14 and exp(-2048) = 3.67e-890.
  */
 
-static double P2[9] = {
+static Float P2[9] = {
 	3.23774891776946035970E0,
 	6.91522889068984211695E0,
 	3.93881025292474443415E0,
@@ -121,7 +122,7 @@ static double P2[9] = {
 	6.23974539184983293730E-9,
 };
 
-static double Q2[8] = {
+static Float Q2[8] = {
 	/*  1.00000000000000000000E0, */
 	6.02427039364742014255E0,
 	3.67983563856160859403E0,
@@ -133,11 +134,11 @@ static double Q2[8] = {
 	6.79019408009981274425E-9,
 };
 
-static double polevl(double x, const double coef[], int N)
+static Float polevl(Float x, const Float coef[], int N)
 {
-	double ans;
+	Float ans;
 	int i;
-	const double* p;
+	const Float* p;
 
 	p = coef;
 	ans = *p++;
@@ -152,10 +153,10 @@ static double polevl(double x, const double coef[], int N)
 	return (ans);
 }
 
-static double p1evl(double x, const double coef[], int N)
+static Float p1evl(Float x, const Float coef[], int N)
 {
-	double ans;
-	const double* p;
+	Float ans;
+	const Float* p;
 	int i;
 
 	p = coef;
@@ -171,22 +172,22 @@ static double p1evl(double x, const double coef[], int N)
 	return (ans);
 }
 
-static double ndtri(double y0)
+static Float ndtri(Float y0)
 {
-	double x, y, z, y2, x0, x1;
+	Float x, y, z, y2, x0, x1;
 	int code;
 
 	if (y0 == 0.0)
 	{
-		return -std::numeric_limits<double>::infinity();
+		return -std::numeric_limits<Float>::infinity();
 	}
 	if (y0 == 1.0)
 	{
-		return std::numeric_limits<double>::infinity();
+		return std::numeric_limits<Float>::infinity();
 	}
 	if (y0 < 0.0 || y0 > 1.0)
 	{
-		return std::numeric_limits<double>::signaling_NaN();
+		return std::numeric_limits<Float>::signaling_NaN();
 	}
 	code = 1;
 	y = y0;
@@ -221,7 +222,7 @@ static double ndtri(double y0)
 }
 
 
-double ppf(const double x) { return ndtri(x); }
+Float ppf(const Float x) { return ndtri(x); }
 
 /*
                                                     Adopted from ndtr.c
@@ -232,7 +233,7 @@ double ppf(const double x) { return ndtri(x); }
  *
  * SYNOPSIS:
  *
- * double x, y, ndtr();
+ * Float x, y, ndtr();
  *
  * y = ndtr( x );
  *
@@ -279,7 +280,7 @@ double ppf(const double x) { return ndtri(x); }
  *
  * SYNOPSIS:
  *
- * double x, y, erf();
+ * Float x, y, erf();
  *
  * y = erf( x );
  *
@@ -317,7 +318,7 @@ double ppf(const double x) { return ndtri(x); }
  *
  * SYNOPSIS:
  *
- * double x, y, erfc();
+ * Float x, y, erfc();
  *
  * y = erfc( x );
  *
@@ -356,7 +357,7 @@ double ppf(const double x) { return ndtri(x); }
  * Direct inquiries to 30 Frost Street, Cambridge, MA 02140
  */
 
-static double P[] = {
+static Float P[] = {
     2.46196981473530512524E-10,
     5.64189564831068821977E-1,
     7.46321056442269912687E0,
@@ -368,7 +369,7 @@ static double P[] = {
     5.57535335369399327526E2
 };
 
-static double Q[] = {
+static Float Q[] = {
     /* 1.00000000000000000000E0, */
     1.32281951154744992508E1,
     8.67072140885989742329E1,
@@ -380,7 +381,7 @@ static double Q[] = {
     5.57535340817727675546E2
 };
 
-static double R[] = {
+static Float R[] = {
     5.64189583547755073984E-1,
     1.27536670759978104416E0,
     5.01905042251180477414E0,
@@ -389,7 +390,7 @@ static double R[] = {
     2.97886665372100240670E0
 };
 
-static double S[] = {
+static Float S[] = {
     /* 1.00000000000000000000E0, */
     2.26052863220117276590E0,
     9.39603524938001434673E0,
@@ -399,7 +400,7 @@ static double S[] = {
     3.36907645100081516050E0
 };
 
-static double T[] = {
+static Float T[] = {
     9.60497373987051638749E0,
     9.00260197203842689217E1,
     2.23200534594684319226E3,
@@ -407,7 +408,7 @@ static double T[] = {
     5.55923013010394962768E4
 };
 
-static double U[] = {
+static Float U[] = {
     /* 1.00000000000000000000E0, */
     3.35617141647503099647E1,
     5.21357949780152679795E2,
@@ -419,13 +420,13 @@ static double U[] = {
 #define UTHRESH 37.519379347
 #define MAXLOG 7.09782712893383996843E2
 
-static double ndtri_erf(double x);
-static double ndtri_erfc(double a)
+static Float ndtri_erf(Float x);
+static Float ndtri_erfc(Float a)
 {
-    double p, q, x, y, z;
+    Float p, q, x, y, z;
 
     if (std::isnan(a))
-		return std::numeric_limits<double>::signaling_NaN();
+		return std::numeric_limits<Float>::signaling_NaN();
 
     if (a < 0.0) {
         x = -a;
@@ -473,12 +474,12 @@ under:
     }
 }
 
-static double ndtri_erf(double x)
+static Float ndtri_erf(Float x)
 {
-    double y, z;
+    Float y, z;
 
     if (std::isnan(x))
-		return std::numeric_limits<double>::signaling_NaN();
+		return std::numeric_limits<Float>::signaling_NaN();
 
     if (x < 0.0) {
         return -ndtri_erf(-x);
@@ -493,12 +494,12 @@ static double ndtri_erf(double x)
     return y;
 }
 
-static double ndtr(double a)
+static Float ndtr(Float a)
 {
-    double x, y, z;
+    Float x, y, z;
 
 	if (std::isnan(a))
-		return std::numeric_limits<double>::signaling_NaN();
+		return std::numeric_limits<Float>::signaling_NaN();
 
     x = a * M_SQRT1_2;
     z = fabs(x);
@@ -516,4 +517,4 @@ static double ndtr(double a)
     return y;
 }
 
-double cdf(const double x) { return ndtr(x); }
+Float cdf(const Float x) { return ndtr(x); }

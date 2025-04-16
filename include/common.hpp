@@ -31,20 +31,20 @@ using size_to = std::optional<size_t>;
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);
 
-using FunctionType = std::function<double(const Vector &)>;
+using FunctionType = std::function<Float(const Vector &)>;
 
 namespace constants
 {
-	extern double tolup_sigma;
-	extern double tol_condition_cov;
-	extern double tol_min_sigma;
-	extern double stagnation_quantile;
-	extern double sigma_threshold;
+	extern Float tolup_sigma;
+	extern Float tol_condition_cov;
+	extern Float tol_min_sigma;
+	extern Float stagnation_quantile;
+	extern Float sigma_threshold;
 	extern size_t cache_max_doubles;
 	extern size_t cache_min_samples;
 	extern bool cache_samples;
-	extern double lb_sigma;
-	extern double ub_sigma; 
+	extern Float lb_sigma;
+	extern Float ub_sigma; 
 	extern bool clip_sigma; 
 }
 
@@ -53,18 +53,18 @@ namespace constants
  *
  * see: ndtr_ndtri.cpp
  * @param x lower tail of the probabilty
- * @return double quantile corresponding to the lower tail probability q
+ * @return Float quantile corresponding to the lower tail probability q
  */
-double cdf(const double x);
+Float cdf(const Float x);
 
 /**
  * @brief Percent point function (inverse of cdf) of a standard normal distribution.
  *
  * see: ndtri.cpp
  * @param x lower tail of the probabilty
- * @return double quantile corresponding to the lower tail probability q
+ * @return Float quantile corresponding to the lower tail probability q
  */
-double ppf(const double x);
+Float ppf(const Float x);
 
 /**
  * @brief Generate a sobol sequence using 8 byte integer numbers.
@@ -74,24 +74,24 @@ double ppf(const double x);
  * @param seed The current seed of the sobol sequence
  * @param quasi the vector of random numbers in which to place the output
  */
-void i8_sobol(int dim_num, long long int *seed, double quasi[]);
+void i8_sobol(int dim_num, long long int *seed, Float quasi[]);
 
 struct Solution
 {
 	//! Coordinates
 	Vector x;
 	//! Function value
-	double y;
+	Float y;
 	//! Generation
 	size_t t;
 	//! Evaluations
 	size_t e;
 
-	Solution(const Vector &x, const double y, const size_t t = 0, const size_t e = 0) : x(x), y(y), t(t), e(e)
+	Solution(const Vector &x, const Float y, const size_t t = 0, const size_t e = 0) : x(x), y(y), t(t), e(e)
 	{
 	}
 
-	Solution() : Solution({}, std::numeric_limits<double>::infinity()) {}
+	Solution() : Solution({}, std::numeric_limits<Float>::infinity()) {}
 
 	[[nodiscard]] size_t n() const
 	{
@@ -175,9 +175,9 @@ namespace utils
 	 *
 	 * @param running_times the vector of measured running times
 	 * @param budget the maximum budget allocated to each run
-	 * @return std::pair<double, size_t> (ERT, number of successfull runs)
+	 * @return std::pair<Float, size_t> (ERT, number of successfull runs)
 	 */
-	std::pair<double, size_t> compute_ert(const std::vector<size_t> &running_times, size_t budget);
+	std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, size_t budget);
 
 	/**
 	 * \brief calculate the nearest power of two
@@ -188,7 +188,7 @@ namespace utils
 	template<typename T>
 	T nearest_power_of_2(const T value)
 	{
-		const double val = static_cast<double>(value);
+		const Float val = static_cast<Float>(value);
 		return static_cast<T>(pow(2.0, std::floor(std::log2(val))));
 	}
 
@@ -255,14 +255,14 @@ namespace rng
 		size_t dim;
 		size_t n_samples;
 
-		std::vector<double> cache;
+		std::vector<Float> cache;
 		Shuffler shuffler;
 
 		CachedShuffleSequence(const size_t d);
 
-		void fill(const std::vector<double>& c);
+		void fill(const std::vector<Float>& c);
 
-		void transform(const std::function<double(double)>& f);
+		void transform(const std::function<Float(Float)>& f);
 
 		Vector get_index(const size_t idx);
 
@@ -273,7 +273,7 @@ namespace rng
 	 * @brief distribution which in combination with mt19997 produces the same
 	 * random numbers for gcc and msvc
 	 */
-	template <typename T = double>
+	template <typename T = Float>
 	struct uniform
 	{
 		/**
@@ -294,7 +294,7 @@ namespace rng
 	 * @brief Box-Muller random normal number generator. Ensures similar numbers generated
 	 * on different operating systems.
 	 */
-	template <typename T = double>
+	template <typename T = Float>
 	struct normal
 	{
 		T mu;
@@ -318,7 +318,7 @@ namespace rng
 		template <typename G>
 		T operator()(G &gen)
 		{
-			static uniform<double> rng;
+			static uniform<Float> rng;
 			static T r1, r2;
 			static bool generate = true;
 
@@ -342,7 +342,7 @@ namespace rng
 
 namespace functions
 {
-	double sphere(const Vector &x);
-	double rastrigin(const Vector &x);
-	double ellipse(const Vector& x);
+	Float sphere(const Vector &x);
+	Float rastrigin(const Vector &x);
+	Float ellipse(const Vector& x);
 }

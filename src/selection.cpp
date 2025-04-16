@@ -32,7 +32,7 @@ namespace selection
 		for (size_t i = 0; i < static_cast<size_t>(p.pop.f.size()); i += 2)
 		{
 			Eigen::Index idx = i + (1 * (p.pop.f(i) < p.pop.f(i + 1)));
-			p.pop.f(idx) = std::numeric_limits<double>::infinity();
+			p.pop.f(idx) = std::numeric_limits<Float>::infinity();
 		}
 	}
 

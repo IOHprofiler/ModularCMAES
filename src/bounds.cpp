@@ -2,7 +2,7 @@
 #include "population.hpp"
 #include "parameters.hpp"
 
-static double modulo2(const int x)
+static Float modulo2(const int x)
 {
 	return (2 + x % 2) % 2;
 }

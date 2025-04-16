@@ -14,7 +14,7 @@ namespace parameters
 																						 sampler->expected_length())),
 													   mutation(mutation::get(settings.modules,
 																			  settings.mu0, weights.mueff,
-																			  static_cast<double>(settings.dim),
+																			  static_cast<Float>(settings.dim),
 																			  settings.sigma0,
 																			  settings.cs,
 																			  sampler->expected_length())),
@@ -22,9 +22,9 @@ namespace parameters
 													   restart(restart::get(
 														   settings.modules.restart_strategy,
 														   settings.sigma0,
-														   static_cast<double>(settings.dim),
-														   static_cast<double>(settings.lambda0),
-														   static_cast<double>(settings.mu0),
+														   static_cast<Float>(settings.dim),
+														   static_cast<Float>(settings.lambda0),
+														   static_cast<Float>(settings.mu0),
 														   settings.budget)),
 													   bounds(bounds::get(settings.modules.bound_correction, settings.lb, settings.ub)),
 													   repelling(repelling::get(settings.modules)),
@@ -36,7 +36,7 @@ namespace parameters
 	{
 	}
 
-	void Parameters::perform_restart(FunctionType &objective, const std::optional<double> &sigma)
+	void Parameters::perform_restart(FunctionType &objective, const std::optional<Float> &sigma)
 	{
 		stats.solutions.push_back(stats.current_best);
 
@@ -53,7 +53,7 @@ namespace parameters
 		old_pop = Population(settings.dim, lambda);
 
 		mutation = mutation::get(settings.modules, mu, weights.mueff,
-								 static_cast<double>(settings.dim),
+								 static_cast<Float>(settings.dim),
 								 sigma.value_or(settings.sigma0),
 								 settings.cs, sampler->expected_length());
 		adaptation->restart(settings);

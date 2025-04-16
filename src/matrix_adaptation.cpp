@@ -4,7 +4,7 @@ namespace matrix_adaptation
 {
 	using namespace parameters;
 
-	Vector Adaptation::invert_x(const Vector& xi, const double sigma)
+	Vector Adaptation::invert_x(const Vector& xi, const Float sigma)
 	{
 		return (xi - m) / sigma;
 	}
@@ -16,9 +16,9 @@ namespace matrix_adaptation
 		dm = (m - m_old) / mutation->sigma;
 		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * inv_root_C * dm);
 
-		const double actual_ps_length = ps.norm() / sqrt(
+		const Float actual_ps_length = ps.norm() / sqrt(
 			1.0 - pow(1.0 - mutation->cs, 2.0 * (stats.evaluations / lambda)));
-		const double expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
+		const Float expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
 
 		hs = actual_ps_length < expected_ps_length;
 		pc = (1.0 - w.cc) * pc + (hs * sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;

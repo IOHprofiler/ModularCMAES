@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include "common.hpp"
 
 
 using namespace std;
@@ -87,7 +88,7 @@ int i8_bit_lo0(long long int n)
 
 //****************************************************************************80
 
-void i8_sobol(int dim_num, long long int* seed, double quasi[])
+void i8_sobol(int dim_num, long long int* seed, Float quasi[])
 
 //****************************************************************************80
 //
@@ -169,7 +170,7 @@ void i8_sobol(int dim_num, long long int* seed, double quasi[])
 //    If SEED is less than 0 on input, it is treated as though it were 0.
 //    An input value of 0 requests the first (0-th) element of the sequence.
 //
-//    Output, double QUASI[DIM_NUM], the next quasirandom vector.
+//    Output, Float QUASI[DIM_NUM], the next quasirandom vector.
 //
 {
 #define DIM_MAX 40
@@ -312,7 +313,7 @@ void i8_sobol(int dim_num, long long int* seed, double quasi[])
 		16209, 16215, 16225, 16259, 16265, 16273, 16299, 16309, 16355, 16375,
 		16381
 	};
-	static double recipd;
+	static Float recipd;
 	static long long int seed_save = -1;
 	long long int seed_temp;
 	static long long int v[DIM_MAX2][LOG_MAX];
@@ -13668,7 +13669,7 @@ void i8_sobol(int dim_num, long long int* seed, double quasi[])
 		//
 		//  RECIPD is 1/(common denominator of the elements in V).
 		//
-		recipd = 1.0E+00 / static_cast<double>(2 * l);
+		recipd = 1.0E+00 / static_cast<Float>(2 * l);
 	}
 
 	if (*seed < 0)
@@ -13740,7 +13741,7 @@ void i8_sobol(int dim_num, long long int* seed, double quasi[])
 	//
 	for (i = 0; i < dim_num; i++)
 	{
-		quasi[i] = static_cast<double>(lastq[i]) * recipd;
+		quasi[i] = static_cast<Float>(lastq[i]) * recipd;
 
 		lastq[i] = (lastq[i] ^ v[i][l - 1]);
 	}

@@ -12,9 +12,9 @@ namespace repelling
 {
 	namespace distance
 	{
-		double manhattan(const Vector &u, const Vector &v);
-		double euclidian(const Vector &u, const Vector &v);
-		double mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv);
+		Float manhattan(const Vector &u, const Vector &v);
+		Float euclidian(const Vector &u, const Vector &v);
+		Float mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv);
 
 		bool hill_valley_test(
 			const Solution &u,
@@ -33,19 +33,19 @@ namespace repelling
 	struct TabooPoint
 	{
 		Solution solution;
-		double radius;
-		double shrinkage;
+		Float radius;
+		Float shrinkage;
 		int n_rep;
-		double criticality;
+		Float criticality;
 		// Matrix C;
 		// Matrix C_inv;
 
 		TabooPoint(
 			const Solution &s,
-			const double radius/*,
+			const Float radius/*,
 			const Matrix& C, const Matrix& C_inv*/ ) : solution(s),
 													radius(radius),
-													shrinkage(std::pow(0.99, 1. / static_cast<double>(s.x.size()))),
+													shrinkage(std::pow(0.99, 1. / static_cast<Float>(s.x.size()))),
 													n_rep(1),
 													criticality(0.0) {}
 			/*,
@@ -70,7 +70,7 @@ namespace repelling
 	{
 		std::vector<TabooPoint> archive;
 		int attempts = 0;
-		double coverage = 20.0;
+		Float coverage = 20.0;
 		// Matrix C;
 		// Matrix C_inv;
 

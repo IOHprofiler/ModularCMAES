@@ -11,16 +11,16 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& x)
 
 namespace constants
 {
-	double tolup_sigma = std::pow(10., 20.);
-	double tol_condition_cov = pow(10., 14.);
-	double tol_min_sigma = 1e-8;
-	double stagnation_quantile = 0.3;
-	double sigma_threshold = 1e-4;
+	Float tolup_sigma = std::pow(10., 20.);
+	Float tol_condition_cov = pow(10., 14.);
+	Float tol_min_sigma = 1e-8;
+	Float stagnation_quantile = 0.3;
+	Float sigma_threshold = 1e-4;
 	size_t cache_max_doubles = 2'000'000;
 	size_t cache_min_samples = 128;
 	bool cache_samples = false;
-	double lb_sigma = 1e-20;
-	double ub_sigma = 1e4;
+	Float lb_sigma = 1e-20;
+	Float ub_sigma = 1e4;
 	bool clip_sigma = false; 
 }
 
@@ -72,7 +72,7 @@ namespace utils
 		x.bottomRows(y.rows()) = y;
 	}
 
-	std::pair<double, size_t> compute_ert(const std::vector<size_t>& running_times, const size_t budget)
+	std::pair<Float, size_t> compute_ert(const std::vector<size_t>& running_times, const size_t budget)
 	{
 		size_t successful_runs = 0, total_rt = 0;
 
@@ -82,7 +82,7 @@ namespace utils
 				successful_runs++;
 			total_rt += rt;
 		}
-		return { static_cast<double>(total_rt) / successful_runs, successful_runs };
+		return { static_cast<Float>(total_rt) / successful_runs, successful_runs };
 	}
 }
 
@@ -127,14 +127,14 @@ namespace rng
 	{
 	}
 
-	void CachedShuffleSequence::fill(const std::vector<double>& c)
+	void CachedShuffleSequence::fill(const std::vector<Float>& c)
 	{
 		std::copy(c.begin(), c.end(), cache.begin());
 	}
 
-	void CachedShuffleSequence::transform(const std::function<double(double)>& f)
+	void CachedShuffleSequence::transform(const std::function<Float(Float)>& f)
 	{
-		for (double& i : cache) i = f(i);
+		for (Float& i : cache) i = f(i);
 	}
 
 	Vector CachedShuffleSequence::get_index(const size_t idx)
@@ -150,29 +150,29 @@ namespace rng
 
 namespace functions
 {
-	double sphere(const Vector& x)
+	Float sphere(const Vector& x)
 	{
-		double res = 0;
+		Float res = 0;
 		for (auto& xi : x)
 			res += xi * xi;
 		return res;
 	}
 
-	double rastrigin(const Vector& x)
+	Float rastrigin(const Vector& x)
 	{
-		constexpr double a = 10.;
-		constexpr double pi2 = 2. * M_PI;
-		double res = 0;
+		constexpr Float a = 10.;
+		constexpr Float pi2 = 2. * M_PI;
+		Float res = 0;
 		for (auto& xi : x)
 			res += xi * xi - a * std::cos(pi2 * xi);
-		return a * static_cast<double>(x.size()) + res;
+		return a * static_cast<Float>(x.size()) + res;
 	}
 
-	double ellipse(const Vector& x)
+	Float ellipse(const Vector& x)
 	{
-		double res = 0;
+		Float res = 0;
 		for (auto i = 0; i < x.size(); ++i)
-			res += pow(1.0e6, static_cast<double>(i) / (static_cast<double>(x.size()) - 1)) * x(i) * x(i);
+			res += pow(1.0e6, static_cast<Float>(i) / (static_cast<Float>(x.size()) - 1)) * x(i) * x(i);
 		return res;
 	}
 }
