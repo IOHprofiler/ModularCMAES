@@ -11,7 +11,7 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 with open("README.md", "r", encoding="Latin-1") as fh:
     long_description = fh.read()
 
-__version__ = "1.0.9"
+__version__ = "1.0.11"
 
 ext = Pybind11Extension(
     "modcma.c_maes.cmaescpp",
@@ -22,7 +22,7 @@ ext = Pybind11Extension(
 if platform.system() in ("Linux", "Darwin"):
     os.environ["CC"] = "g++"
     os.environ["CXX"] = "g++"
-    flags = ["-O0", "-fno-math-errno", ] #"-fopenmp"
+    flags = ["-O3", "-fno-math-errno", ] #"-fopenmp"
     if platform.system() == "Darwin":
         flags.append("-mmacosx-version-min=10.15")
     else:
