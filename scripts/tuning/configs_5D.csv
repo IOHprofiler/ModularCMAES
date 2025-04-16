@@ -1,0 +1,26 @@
+active,base_sampler,bound_correction,c1,cc,cmu,covariance,cs,elitist,lambda_,local_restart,mirrored,mu,orthogonal,repelling_restart,sample_transform,sequential,sigma0,step_size_adaptation,threshold,weights_option,cost,ID
+False,halton,nan,0.0472923041594,0.4501995579928,0.0381691607039,matrix,0.3,False,8,nan,nan,4,False,False,Gaussian,False,2.0,csa,False,default,0.23072416856579162,Tuned_all
+True,gaussian,saturate,0.0602261078193,0.5152524693584,0.0188482027799,seperable,0.3739356561314,False,8,nan,mirrored,4,True,False,Gaussian,False,1.9168514957093,tpa,True,default,0.0038852933962963284,Tuned_1
+False,gaussian,nan,0.1323954459854,0.3696241468748,0.1258493563493,seperable,0.5125284726358,True,8,IPOP,mirrored,4,False,False,Gaussian,True,1.4892500344972,csa,True,1/2^lambda,0.011735063379111052,Tuned_2
+False,halton,nan,0.0618900198619,0.3698805773131,0.0332699899498,seperable,0.6055090035002,False,8,IPOP,nan,2,False,False,Cauchy,True,2.1256668346403,psr,True,equal,0.3231514234813744,Tuned_3
+True,halton,saturate,0.0350230237649,0.4287546550927,0.0841698455219,none,0.3315884503737,False,8,Restart,mirrored,2,False,False,Cauchy,False,2.3399222020998,msr,False,1/2^lambda,0.8248251543095403,Tuned_4
+False,halton,nan,0.0272119380135,0.5597047929677,0.087032771378,none,0.0627508881583,True,4,BIPOP,mirrored pairwise,3,False,True,Cauchy,False,2.9645338734043,msr,True,1/2^lambda,0.00033794970461995005,Tuned_5
+False,halton,nan,0.0125422579332,0.3328915456418,0.0429201831899,matrix,0.304310627617,False,4,nan,nan,2,False,False,Gaussian,False,2.0038684232606,csa,False,default,0.010613751310208648,Tuned_6
+False,halton,nan,0.0706060884303,0.2549458405389,0.0883655711342,covariance,0.1911881141067,False,6,IPOP,nan,4,False,False,Gaussian,True,2.8520502266883,psr,True,1/2^lambda,0.010313563993529505,Tuned_7
+False,halton,nan,0.0431996587725,0.4825873164861,0.1520205047444,matrix,0.2632714736449,False,8,Restart,nan,4,False,False,dWeibull,True,2.4338627009564,csa,False,default,0.02059403422173301,Tuned_8
+True,halton,nan,0.019490662133,0.4261284016636,0.0722543042888,matrix,0.4098276499762,False,8,BIPOP,nan,4,False,False,Gaussian,False,2.0013041955823,csa,False,1/2^lambda,0.018609337305382414,Tuned_9
+True,halton,nan,0.0515278595668,0.4953797190545,0.1787936819416,covariance,0.1350160249424,True,4,Restart,mirrored,4,True,True,Uniform,True,2.0379725651838,csa,True,equal,0.012659240680765757,Tuned_10
+False,sobol,nan,0.0579943471591,0.517001591773,0.1876422045107,covariance,0.3271838273351,False,8,nan,mirrored,4,True,True,Gaussian,False,1.7100162657821,tpa,True,1/2^lambda,0.01852820377253186,Tuned_11
+False,halton,saturate,0.0472923041594,0.4501995579928,0.0381691607039,matrix,0.3228529779288,False,8,nan,mirrored,4,True,False,Uniform,False,1.9024450936833,csa,False,default,0.04868039507003074,Tuned_12
+True,halton,nan,0.0530864178511,0.5153189296939,0.086532121524,matrix,0.3005058575411,False,8,Restart,nan,4,False,False,Uniform,True,2.4196823673111,csa,True,default,0.01626048396569105,Tuned_13
+True,halton,saturate,0.0678043448642,0.5630567317444,0.0511261934912,matrix,0.4949421419031,False,8,BIPOP,nan,4,False,True,Uniform,True,1.9266102194221,csa,False,1/2^lambda,0.008045487340065754,Tuned_14
+False,halton,nan,0.0113193077067,0.3258617492251,0.1769437509818,covariance,0.2537805761026,False,8,IPOP,nan,4,False,False,Gaussian,False,2.58638939678,tpa,True,default,0.2282957948235452,Tuned_15
+True,gaussian,saturate,0.0167290971488,0.5107277279517,0.0457970313432,covariance,0.0031405314776,False,8,Restart,mirrored,4,False,True,Gaussian,False,2.0829071932019,csa,True,1/2^lambda,0.047863963842368844,Tuned_16
+False,halton,saturate,0.0244278910024,0.3578845241254,0.1104672749083,matrix,0.1977855293092,False,8,IPOP,mirrored,4,False,False,Gaussian,True,2.4376260515431,csa,False,default,0.03331348278133368,Tuned_17
+False,halton,nan,0.0543156649232,0.4277141852678,0.0602910697384,covariance,0.3232576816184,False,30,IPOP,nan,2,False,False,Uniform,True,2.24514212427,csa,True,1/2^lambda,0.0710955226661138,Tuned_18
+False,gaussian,saturate,0.0441023816706,0.3124738274912,0.1927317163771,covariance,0.1688648811462,False,4,BIPOP,mirrored,2,True,False,dWeibull,True,1.2247475600804,csa,True,default,0.5824581133910607,Tuned_19
+False,halton,saturate,0.0587908886104,0.4105341025084,0.1133805131855,matrix,0.3365203511465,False,95,IPOP,nan,5,False,False,Uniform,True,3.9412056987613,csa,True,1/2^lambda,0.4434087170501218,Tuned_20
+False,sobol,nan,0.0191112514771,0.4856136891235,0.1973140898492,matrix,0.2555728510274,True,8,Restart,mirrored pairwise,4,False,False,Uniform,False,2.2773769243626,csa,False,1/2^lambda,0.054287629019282316,Tuned_21
+False,halton,nan,0.0413519544164,0.5227676007188,0.0524489233304,covariance,0.2560851012886,True,4,Restart,nan,2,False,True,Gaussian,True,2.3137587535039,csa,True,1/2^lambda,0.05380937913990174,Tuned_22
+False,sobol,saturate,0.0197338712663,0.340854511931,0.0983250339249,covariance,0.4497382026108,False,8,nan,mirrored,2,True,True,Uniform,True,1.4621156394004,msr,True,default,0.08050969804937903,Tuned_23
+False,gaussian,saturate,0.1130417033554,0.4388276946983,0.0641249928239,covariance,0.076824844091,False,43,BIPOP,mirrored,8,False,True,dWeibull,False,2.1785121561072,csa,True,default,0.8042503124927785,Tuned_24

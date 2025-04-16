@@ -22,7 +22,7 @@ namespace bounds
 	{
 		virtual ~BoundCorrection() = default;
 		Vector lb, ub, db;
-		double diameter;
+		Float diameter;
 		size_t n_out_of_bounds = 0;
 
 		BoundCorrection(const Vector &lb, const Vector &ub) : lb(lb), ub(ub), db(ub - lb),
@@ -61,7 +61,7 @@ namespace bounds
 	{
 		sampling::Gaussian sampler;
 
-		COTN(Eigen::Ref<const Vector> lb, Eigen::Ref<const Vector> ub) : BoundCorrection(lb, ub), sampler(static_cast<size_t>(lb.size()), rng::normal<double>(0, 1.0 / 3.)) {}
+		COTN(Eigen::Ref<const Vector> lb, Eigen::Ref<const Vector> ub) : BoundCorrection(lb, ub), sampler(static_cast<size_t>(lb.size()), rng::normal<Float>(0, 1.0 / 3.)) {}
 
 		Vector correct_x(const Vector &xi, const Mask &oob) override;
 	};

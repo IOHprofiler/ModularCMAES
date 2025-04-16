@@ -15,7 +15,7 @@ namespace restart
 		void update(const parameters::Parameters &p);
 
 	public:
-		double sigma0;
+		Float sigma0;
 		size_t last_restart;
 		size_t max_iter;
 		size_t max_flat_fitness;
@@ -24,25 +24,25 @@ namespace restart
 		size_t flat_fitness_index;
 
 		Eigen::Array<int, Eigen::Dynamic, 1> flat_fitnesses;
-		std::vector<double> median_fitnesses;
-		std::vector<double> best_fitnesses;
+		std::vector<Float> median_fitnesses;
+		std::vector<Float> best_fitnesses;
 
 		size_t time_since_restart;
-		double recent_improvement;
+		Float recent_improvement;
 		size_t n_flat_fitness;
-		double d_sigma;
+		Float d_sigma;
 
-		double tolx_condition;
+		Float tolx_condition;
 		Vector tolx_vector;
 
-		double root_max_d;
-		double condition_c;
+		Float root_max_d;
+		Float condition_c;
 		Vector effect_coord;
 		Vector effect_axis;
 
 		bool any = false;
 
-		RestartCriteria(const double sigma0, const double d, const double lambda, const size_t t)
+		RestartCriteria(const Float sigma0, const Float d, const Float lambda, const size_t t)
 			: sigma0(sigma0),
 			  last_restart(t),
 			  max_iter(static_cast<size_t>(100 + 50 * std::pow((d + 3), 2.0) / std::sqrt(lambda))),
@@ -95,7 +95,7 @@ namespace restart
 	{
 		RestartCriteria criteria;
 
-		Strategy(const double sigma0, const double d, const double lambda) : criteria{sigma0, d, lambda, 0} {}
+		Strategy(const Float sigma0, const Float d, const Float lambda) : criteria{sigma0, d, lambda, 0} {}
 
 		void evaluate(FunctionType& objective, parameters::Parameters &p);
 
@@ -122,7 +122,7 @@ namespace restart
 
 	struct IPOP : Strategy
 	{
-		double ipop_factor = 2.0;
+		Float ipop_factor = 2.0;
 		using Strategy::Strategy;
 		void restart(FunctionType& objective, parameters::Parameters &) override;
 	};
@@ -131,7 +131,7 @@ namespace restart
 	{
 
 		size_t lambda_init;
-		double mu_factor;
+		Float mu_factor;
 		size_t budget;
 
 		size_t lambda_large = 0;
@@ -141,7 +141,7 @@ namespace restart
 		size_t used_budget = 0;
 
 		BIPOP(
-			const double sigma0, const double d, const double lambda, const double mu, const size_t budget) : Strategy(sigma0, d, lambda), lambda_init(static_cast<size_t>(lambda)), mu_factor(mu / lambda), budget(budget)
+			const Float sigma0, const Float d, const Float lambda, const Float mu, const size_t budget) : Strategy(sigma0, d, lambda), lambda_init(static_cast<size_t>(lambda)), mu_factor(mu / lambda), budget(budget)
 		{
 		}
 
@@ -153,7 +153,7 @@ namespace restart
 		}
 	};
 
-	inline std::shared_ptr<Strategy> get(const parameters::RestartStrategyType s, const double sigma0, const double d, const double lambda, const double mu, const size_t budget)
+	inline std::shared_ptr<Strategy> get(const parameters::RestartStrategyType s, const Float sigma0, const Float d, const Float lambda, const Float mu, const size_t budget)
 	{
 		using namespace parameters;
 		switch (s)

@@ -43,7 +43,8 @@ namespace parameters
         XNES,
         MXNES,
         LPXNES,
-        PSR
+        PSR,
+        SR
     };
 
     enum class CorrectionMethod
@@ -71,7 +72,8 @@ namespace parameters
         NONE,
         COVARIANCE,
         MATRIX,
-        SEPERABLE
+        SEPERABLE,
+        ONEPLUSONE
     };
 
     enum class CenterPlacement

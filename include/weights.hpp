@@ -11,8 +11,8 @@ namespace parameters
         Vector positive;
         Vector negative;
 
-        double mueff, mueff_neg;
-        double c1, cmu, cc;
+        Float mueff, mueff_neg;
+        Float c1, cmu, cc;
 
         Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings);
 

@@ -11,12 +11,12 @@ namespace es
         OnePlusOneES(
             const size_t d,
             const Vector &x0,
-            const double f0,
-            const double sigma0,
+            const Float f0,
+            const Float sigma0,
             const size_t budget,
-            const double target,
+            const Float target,
             const parameters::Modules &modules)
-            : d(d), sigma(sigma0), decay(1.0 / std::sqrt(static_cast<double>(d) + 1)),
+            : d(d), sigma(sigma0), decay(1.0 / std::sqrt(static_cast<Float>(d) + 1)),
               x(x0), f(f0), t(1), budget(budget), target(target),
               rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
               sampler(sampling::get(d, modules, 1)),
@@ -29,13 +29,13 @@ namespace es
         void operator()(FunctionType &objective);
 
         size_t d;
-        double sigma;
-        double decay;
+        Float sigma;
+        Float decay;
         Vector x;
-        double f;
+        Float f;
         size_t t;
         size_t budget;
-        double target;
+        Float target;
         bool rejection_sampling;
 
         std::shared_ptr<sampling::Sampler> sampler;
@@ -48,19 +48,19 @@ namespace es
         MuCommaLambdaES(
             const size_t d,
             const Vector &x0,
-            const double sigma0, 
+            const Float sigma0, 
             const size_t budget,
-            const double target,
+            const Float target,
             const parameters::Modules &modules)
             : d(d), lambda(d * 5), mu(std::floor(lambda / 4)),
-              tau(1.0 / std::sqrt(static_cast<double>(d))), // v1 ->
-              tau_i(1.0 / pow(static_cast<double>(d), .25)), 
+              tau(1.0 / std::sqrt(static_cast<Float>(d))), // v1 ->
+              tau_i(1.0 / pow(static_cast<Float>(d), .25)), 
               mu_inv(1.0 / mu),
               m(x0), sigma(sigma0 * Vector::Ones(d)),
-              f(Vector::Constant(lambda, std::numeric_limits<double>::infinity())),
+              f(Vector::Constant(lambda, std::numeric_limits<Float>::infinity())),
               X(d, lambda), S(d, lambda),
-              f_min(std::numeric_limits<double>::infinity()),
-              x_min(Vector::Constant(d, std::numeric_limits<double>::signaling_NaN())),
+              f_min(std::numeric_limits<Float>::infinity()),
+              x_min(Vector::Constant(d, std::numeric_limits<Float>::signaling_NaN())),
               t(0), e(0), budget(budget), target(target),
               sampler(sampling::get(d, modules, lambda)),
               sigma_sampler(std::make_shared<sampling::Gaussian>(d)),
@@ -78,9 +78,9 @@ namespace es
         size_t d;
         size_t lambda;
         size_t mu;
-        double tau;
-        double tau_i;
-        double mu_inv;
+        Float tau;
+        Float tau_i;
+        Float mu_inv;
 
         Vector m;
         Vector sigma;
@@ -88,12 +88,12 @@ namespace es
         Matrix X;
         Matrix S;
 
-        double f_min;
+        Float f_min;
         Vector x_min;
         size_t t;
         size_t e;
         size_t budget;
-        double target;
+        Float target;
 
         std::shared_ptr<sampling::Sampler> sampler;
         std::shared_ptr<sampling::Sampler> sigma_sampler;

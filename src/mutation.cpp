@@ -5,17 +5,17 @@
 
 namespace mutation
 {
-	Vector ThresholdConvergence::scale(const Vector &zi, const double diameter, const size_t budget,
+	Vector ThresholdConvergence::scale(const Vector &zi, const Float diameter, const size_t budget,
 									   const size_t evaluations)
 	{
-		const double t = init_threshold * diameter * pow(static_cast<double>(budget - evaluations) / static_cast<double>(budget), decay_factor);
+		const Float t = init_threshold * diameter * pow(static_cast<Float>(budget - evaluations) / static_cast<Float>(budget), decay_factor);
 
 		if (const auto norm = zi.norm(); norm < t)
 			return zi.array() * ((t + (t - norm)) / norm);
 		return zi;
 	}
 
-	bool SequentialSelection::break_conditions(const size_t i, const double f, double fopt, const parameters::Mirror &m)
+	bool SequentialSelection::break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror &m)
 	{
 		return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 0);
 	}
@@ -75,7 +75,7 @@ namespace mutation
 	}
 
 	//! Assumes the vector to be arready sorted
-	double median(const Vector &x)
+	Float median(const Vector &x)
 	{
 		if (x.size() % 2 == 0)
 			return (x(x.size() / 2) + x(x.size() / 2 - 1)) / 2.0;
@@ -89,8 +89,8 @@ namespace mutation
 		const auto n = std::min(pop.n_finite(), old_pop.n_finite());
 		if (n != 0)
 		{
-			const double lambda = static_cast<double>(lamb);
-			const double k = (pop.f.array() < median(old_pop.f)).cast<double>().sum();
+			const Float lambda = static_cast<Float>(lamb);
+			const Float k = (pop.f.array() < median(old_pop.f)).cast<Float>().sum();
 			const auto z = (2.0 / lambda) * (k - ((lambda + 1.0) / 2.0));
 			s = ((1.0 - cs) * s) + (cs * z);
 			sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
@@ -106,7 +106,7 @@ namespace mutation
 		for (const auto &xi : query)
 		{
 			auto it = std::find(std::begin(database), std::end(database), xi);
-			res(i++) = static_cast<double>(std::distance(std::begin(database), it));
+			res(i++) = static_cast<Float>(std::distance(std::begin(database), it));
 		}
 		return res;
 	}
@@ -124,15 +124,15 @@ namespace mutation
 			const auto idx = utils::sort_indexes(combined);
 			const auto oidx = utils::sort_indexes(idx);
 
-			double delta_r = 0.0;
+			Float delta_r = 0.0;
 			for (size_t i = 0; i < n; i++)
 			{
-				double r = oidx[i];
-				double r_old = oidx[n + i];
+				Float r = oidx[i];
+				Float r_old = oidx[n + i];
 				delta_r += (r_old - r);
 			}
 
-			const auto z = delta_r / std::pow(n, 2) - succes_ratio;
+			const auto z = delta_r / std::pow(n, 2) - success_ratio;
 			s = (1.0 - cs) * s + (cs * z);
 			sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
 		}
@@ -142,8 +142,8 @@ namespace mutation
 					 Population &pop,
 					 const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
 	{
-		// const double z = ((std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(adaptation)->inv_root_C *  .Y).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
-		const double z = ((pop.Z).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
+		// const Float z = ((std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(adaptation)->inv_root_C *  .Y).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
+		const Float z = ((pop.Z).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
 		sigma *= std::exp((cs / std::sqrt(adaptation->dd)) * z);
 	}
 
@@ -170,9 +170,17 @@ namespace mutation
 		sigma = std::pow(sigma, 1.0 - cs) * z;
 	}
 
-	std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const double mueff,
-								  const double d, const double sigma, const std::optional<double> cs0,
-								  const double expected_z)
+	void SR::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
+	{
+		sigma *= std::exp((1 / damps) * ((stats.success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
+	}
+
+
+	std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const Float mueff,
+								  const Float d, const Float sigma, const std::optional<Float> cs0,
+								  const Float expected_z)
 	{
 		using namespace parameters;
 		auto tc = m.threshold_convergence
@@ -187,8 +195,8 @@ namespace mutation
 					  ? std::make_shared<SigmaSampler>(d)
 					  : std::make_shared<NoSigmaSampler>(d);
 
-		double cs = cs0.value_or(0.3);
-		double damps = 0.0;
+		Float cs = cs0.value_or(0.3);
+		Float damps = 0.0;
 
 		switch (m.ssa)
 		{
@@ -197,7 +205,7 @@ namespace mutation
 		case StepSizeAdaptation::MSR:
 			return std::make_shared<MSR>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::XNES:
-			cs = cs0.value_or(mueff / (2.0 * std::log(std::max(2., d)) * sqrt(d)));
+			cs = cs0.value_or(mueff / (2.0 * std::log(std::max(Float{2.}, d)) * sqrt(d)));
 			return std::make_shared<XNES>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::MXNES:
 			cs = cs0.value_or(1.);
@@ -207,7 +215,11 @@ namespace mutation
 			return std::make_shared<LPXNES>(tc, sq, ss, cs, damps, sigma, expected_z);
 		case StepSizeAdaptation::PSR:
 			cs = cs0.value_or(.9);
-			return std::make_shared<PSR>(tc, sq, ss, cs, 0., sigma, expected_z);
+			return std::make_shared<PSR>(tc, sq, ss, cs, damps, sigma, expected_z);
+		case StepSizeAdaptation::SR:
+			cs = cs0.value_or(1.0 / 12.0);
+			damps = 1.0 + (d / 2.0);
+			return std::make_shared<SR>(tc, sq, ss, cs, damps, sigma, expected_z);
 		default:
 		case StepSizeAdaptation::CSA:
 			cs = cs0.value_or((mueff + 2.0) / (d + mueff + 5.0));

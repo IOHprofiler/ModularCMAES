@@ -10,39 +10,39 @@ namespace parameters
         size_t dim;
         Modules modules;
 
-        std::optional<double> target;
+        std::optional<Float> target;
         std::optional<size_t> max_generations;
         size_t budget;
 
-        double sigma0;
+        Float sigma0;
         size_t lambda0;
         size_t mu0;
 
         std::optional<Vector> x0;
         Vector lb;
         Vector ub;
-        std::optional<double> cs;
-        std::optional<double> cc;
-        std::optional<double> cmu;
-        std::optional<double> c1;
+        std::optional<Float> cs;
+        std::optional<Float> cc;
+        std::optional<Float> cmu;
+        std::optional<Float> c1;
         bool verbose;
-        double volume;
+        Float volume;
 
         Settings(size_t dim,
                  std::optional<Modules> mod = std::nullopt,
-                 std::optional<double> target = std::nullopt,
+                 std::optional<Float> target = std::nullopt,
                  std::optional<size_t> max_generations = std::nullopt,
                  std::optional<size_t> budget = std::nullopt,
-                 std::optional<double> sigma = std::nullopt,
+                 std::optional<Float> sigma = std::nullopt,
                  std::optional<size_t> lambda = std::nullopt,
                  std::optional<size_t> mu = std::nullopt,
                  std::optional<Vector> x0 = std::nullopt,
                  std::optional<Vector> lb = std::nullopt,
                  std::optional<Vector> ub = std::nullopt,
-                 std::optional<double> cs = std::nullopt,
-                 std::optional<double> cc = std::nullopt,
-                 std::optional<double> cmu = std::nullopt,
-                 std::optional<double> c1 = std::nullopt,
+                 std::optional<Float> cs = std::nullopt,
+                 std::optional<Float> cc = std::nullopt,
+                 std::optional<Float> cmu = std::nullopt,
+                 std::optional<Float> c1 = std::nullopt,
                  bool verbose = false) : dim(dim),
                                          modules(mod.value_or(Modules())),
                                          target(target),
@@ -67,6 +67,21 @@ namespace parameters
             if (mu0 > lambda0)
             {
                 mu0 = lambda0 / 2;
+            }
+
+            if (lambda0 == 1)
+            {
+                mu0 = 1;
+                modules.elitist = true;
+                modules.active = false;
+                modules.weights = RecombinationWeights::EQUAL;
+                modules.ssa = StepSizeAdaptation::SR;
+                modules.matrix_adaptation = MatrixAdaptationType::ONEPLUSONE;
+                cc = 2.0 / (static_cast<Float>(dim) + 2.0);
+                c1 = 2.0 / (pow(static_cast<Float>(dim),2) + 6.0);
+
+                if (modules.restart_strategy == RestartStrategyType::BIPOP || modules.restart_strategy == RestartStrategyType::IPOP)
+                    modules.restart_strategy = RestartStrategyType::RESTART;
             }
             volume = (this->ub - this->lb).prod();
         }

@@ -44,7 +44,7 @@ void Population::keep_only(const std::vector<size_t>& idx)
 
 size_t Population::n_finite() const
 {
-	return (f.array() != std::numeric_limits<double>::infinity()).cast<size_t>().sum();
+	return (f.array() != std::numeric_limits<Float>::infinity()).cast<size_t>().sum();
 }
 
 std::ostream& operator<<(std::ostream& os, const Population& p)

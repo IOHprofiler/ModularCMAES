@@ -8,15 +8,16 @@ using std::chrono::duration;
 using std::chrono::milliseconds;
 
 
+
 struct Function
 {
 	size_t evals = 0;
 
-	double operator()(const Vector& x)
+	Float operator()(const Vector& x)
 	{
 		evals++;
 		const auto x_shift = (x.array() - 1.).matrix();
-		return functions::rastrigin(x_shift);
+		return functions::ellipse(x_shift);
 	}
 };
 
@@ -24,8 +25,8 @@ struct Function
 template <typename Callable>
 void call(Callable& o)
 {
-	static_assert(std::is_invocable_r_v<double, Callable, Vector>, "Incorrect objective function type");
-	const double result = o(Vector::Ones(10));
+	static_assert(std::is_invocable_r_v<Float, Callable, Vector>, "Incorrect objective function type");
+	const Float result = o(Vector::Ones(10));
 	std::cout << result;
 }
 
@@ -38,7 +39,7 @@ struct Timer
 	{
 		const auto t2 = high_resolution_clock::now();
 		const auto ms_int = duration_cast<milliseconds>(t2 - t1);
-		std::cout << "Time elapsed: " << static_cast<double>(ms_int.count()) / 1000.0 << "s\n";
+		std::cout << "Time elapsed: " << static_cast<Float>(ms_int.count()) / 1000.0 << "s\n";
 	}
 };
 
@@ -46,22 +47,23 @@ struct Timer
 int main()
 {
 	rng::set_seed(42);
-	const size_t dim = 2;
+	const size_t dim = 10;
+	parameters::Modules m;
+	parameters::Settings settings(dim, m, 1e-8, std::nullopt, 1000 * dim, 2.0, 1);
+	auto p = std::make_shared<parameters::Parameters>(settings);
 
-	constants::cache_max_doubles = 0;
-	constants::cache_min_samples = 6;
-	constants::cache_samples = true;
+	auto cma = ModularCMAES(p);
 
-	parameters::Settings settings(dim);
-	settings.modules.sampler = parameters::BaseSampler::UNIFORM;
-	settings.modules.mirrored = parameters::Mirror::NONE;
-	settings.modules.orthogonal = true;
-	parameters::Parameters p(settings);
+	FunctionType f = Function();
 
-	for(size_t j = 0; j < 3; j++)
+	while (cma.step(f))
 	{
-		for (size_t i = 0; i < constants::cache_min_samples; i++)
-			std::cout << p.sampler->operator()().transpose() << std::endl;
-		std::cout << std::endl;
+		//std::cout << cma.p->stats << std::endl;
+		//std::cout << cma.p->mutation->sigma << std::endl;
+		//auto sr = std::dynamic_pointer_cast<mutation::SR>(cma.p->mutation);
+		//std::cout << "p_succ: " << sr->success_ratio << ", " << sr->max_success_ratio << std::endl;
 	}
+	std::cout << cma.p->stats << std::endl;
+
+
 }

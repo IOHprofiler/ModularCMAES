@@ -4,28 +4,28 @@ namespace matrix_adaptation
 {
 	using namespace parameters;
 
-	Vector Adaptation::invert_x(const Vector& xi, const double sigma)
+	Vector Adaptation::invert_x(const Vector& xi, const Float sigma)
 	{
 		return (xi - m) / sigma;
 	}
 
 	void CovarianceAdaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
-	                                                 const std::shared_ptr<mutation::Strategy>& mutation,
-	                                                 const Stats& stats, const size_t mu, const size_t lambda)
+		const std::shared_ptr<mutation::Strategy>& mutation,
+		const Stats& stats, const size_t mu, const size_t lambda)
 	{
 		dm = (m - m_old) / mutation->sigma;
 		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * inv_root_C * dm);
 
-		const double actual_ps_length = ps.norm() / sqrt(
+		const Float actual_ps_length = ps.norm() / sqrt(
 			1.0 - pow(1.0 - mutation->cs, 2.0 * (stats.evaluations / lambda)));
-		const double expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
+		const Float expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
 
 		hs = actual_ps_length < expected_ps_length;
 		pc = (1.0 - w.cc) * pc + (hs * sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
 	}
 
 	void CovarianceAdaptation::adapt_covariance_matrix(const Weights& w, const Modules& m, const Population& pop,
-	                                                   const size_t mu)
+		const size_t mu)
 	{
 		const auto rank_one = w.c1 * pc * pc.transpose();
 		const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
@@ -41,12 +41,16 @@ namespace matrix_adaptation
 		{
 			rank_mu = w.cmu * ((pop.Y.leftCols(mu).array().rowwise() * w.positive.array().transpose()).matrix() * pop.Y.
 				leftCols(mu).transpose());
+
 		}
 
+		//std::cout << C << std::endl;
 		C = old_c + rank_one + rank_mu;
 
 		C = C.triangularView<Eigen::Upper>().toDenseMatrix() +
 			C.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().transpose();
+
+		//std::cout << C << std::endl;
 	}
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
@@ -79,7 +83,7 @@ namespace matrix_adaptation
 	}
 
 	bool CovarianceAdaptation::adapt_matrix(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
-	                                        const Settings& settings)
+		const Settings& settings, const parameters::Stats& stats)
 	{
 		adapt_covariance_matrix(w, m, pop, mu);
 		return perform_eigendecomposition(settings);
@@ -104,7 +108,7 @@ namespace matrix_adaptation
 		return B * (d.asDiagonal() * zi);
 	}
 
-	Vector CovarianceAdaptation::invert_y(const Vector& yi) 
+	Vector CovarianceAdaptation::invert_y(const Vector& yi)
 	{
 		return d.cwiseInverse().asDiagonal() * (B.transpose() * yi);
 	}
@@ -114,6 +118,34 @@ namespace matrix_adaptation
 		d = C.diagonal().cwiseSqrt();
 		return d.minCoeff() > 0.0;
 	}
+
+
+	void OnePlusOneAdaptation::adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
+		const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+		size_t mu, size_t lambda)
+	{
+		dm = (m - m_old) / mutation->sigma;
+		if (!stats.has_improved)
+			return;
+
+		if (stats.success_ratio < max_success_ratio)
+			pc = ((1.0 - w.cc) * pc) + (std::sqrt(w.cc * (2.0 - w.cc)) * pop.Y.col(0));
+		else
+			pc = (1.0 - w.cc) * pc;
+	}
+
+	bool OnePlusOneAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		const parameters::Settings& settings, const parameters::Stats& stats)
+	{
+		if (!stats.has_improved)
+		{
+			return true;
+		}
+		return CovarianceAdaptation::adapt_matrix(w, m, pop, mu, settings, stats);
+	}
+
+
+
 
 	void MatrixAdaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
 	                                             const std::shared_ptr<mutation::Strategy>& mutation,
@@ -127,7 +159,7 @@ namespace matrix_adaptation
 	}
 
 	bool MatrixAdaptation::adapt_matrix(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
-	                                    const Settings& settings)
+	                                    const Settings& settings, const parameters::Stats& stats)
 	{
 		const auto old_m = (1. - (0.5 * w.c1) - (0.5 * w.cmu)) * M;
 		const auto scaled_ps = (0.5 * w.c1) * (M * ps) * ps.transpose();
@@ -207,7 +239,4 @@ namespace matrix_adaptation
 	{
 		return yi;
 	}
-
-
-
 }

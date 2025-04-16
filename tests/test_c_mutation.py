@@ -43,8 +43,9 @@ class TestMutation(unittest.TestCase):
         Z[0] = tc.scale(self.pop.Z[0], diam, budget, evals)
         Z[1] = tc.scale(self.pop.Z[1], diam, budget, evals)
         self.pop.Z = Z
-        self.assertTrue(np.all(self.pop.Z == 0.5 * ((t + (t - norm)) / norm)))
-        self.assertTrue(np.all(self.pop.Z == scale_with_threshold(np.ones(2) * .5, t)))
+        expected_z = 0.5 * ((t + (t - norm)) / norm)
+        self.assertTrue(np.isclose(self.pop.Z, expected_z).all())
+        self.assertTrue(np.isclose(self.pop.Z, scale_with_threshold(np.ones(2) * .5, t)).all())
 
     def get_cma(self, ssa, adapt_sigma=True):
         modules = parameters.Modules()
