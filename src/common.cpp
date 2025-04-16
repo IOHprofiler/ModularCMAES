@@ -11,9 +11,9 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& x)
 
 namespace constants
 {
-	Float tolup_sigma = std::pow(10., 20.);
+	Float max_dsigma = std::pow(10., 20.);
+	Float min_dsigma = 1e-8;
 	Float tol_condition_cov = pow(10., 14.);
-	Float tol_min_sigma = 1e-8;
 	Float stagnation_quantile = 0.3;
 	Float sigma_threshold = 1e-4;
 	size_t cache_max_doubles = 2'000'000;

@@ -636,7 +636,8 @@ void define_parameters(py::module &main)
     py::class_<Parameters, std::shared_ptr<Parameters>>(main, "Parameters")
         .def(py::init<size_t>(), py::arg("dimension"))
         .def(py::init<Settings>(), py::arg("settings"))
-        .def("adapt", &Parameters::adapt, py::arg("objective"))
+        .def("adapt", &Parameters::adapt)
+        .def("start", &Parameters::start, py::arg("objective"))
         .def("perform_restart", &Parameters::perform_restart, py::arg("objective"),
              py::arg("sigma") = std::nullopt)
         .def_readwrite("settings", &Parameters::settings)
@@ -665,6 +666,7 @@ void define_parameters(py::module &main)
             {
                 self.adaptation = adaptation;
             })
+        .def_readwrite("criteria", &Parameters::criteria)
         .def_readwrite("stats", &Parameters::stats)
         .def_readwrite("weights", &Parameters::weights)
         .def_readwrite("pop", &Parameters::pop)
@@ -672,7 +674,7 @@ void define_parameters(py::module &main)
         .def_readwrite("sampler", &Parameters::sampler)
         .def_readwrite("mutation", &Parameters::mutation)
         .def_readwrite("selection", &Parameters::selection)
-        .def_readwrite("restart", &Parameters::restart)
+        .def_readwrite("restart_strategy", &Parameters::restart_strategy)
         .def_readwrite("repelling", &Parameters::repelling)
         .def_readwrite("bounds", &Parameters::bounds)
         .def_readwrite("center_placement", &Parameters::center_placement);
@@ -889,23 +891,23 @@ void define_constants(py::module &m)
 {
     py::class_<constants_w>(m, "constants")
         .def_property_static(
-            "tolup_sigma",
+            "max_dsigma",
             [](py::object)
-            { return constants::tolup_sigma; },
+            { return constants::max_dsigma; },
             [](py::object, Float a)
-            { constants::tolup_sigma = a; })
+            { constants::max_dsigma = a; })
+        .def_property_static(
+            "min_dsigma",
+            [](py::object)
+            { return constants::min_dsigma; },
+            [](py::object, Float a)
+            { constants::min_dsigma = a; })
         .def_property_static(
             "tol_condition_cov",
             [](py::object)
             { return constants::tol_condition_cov; },
             [](py::object, Float a)
             { constants::tol_condition_cov = a; })
-        .def_property_static(
-            "tol_min_sigma",
-            [](py::object)
-            { return constants::tol_min_sigma; },
-            [](py::object, Float a)
-            { constants::tol_min_sigma = a; })
         .def_property_static(
             "stagnation_quantile",
             [](py::object)
@@ -954,87 +956,93 @@ void define_constants(py::module &m)
             [](py::object)
             { return constants::ub_sigma; },
             [](py::object, Float a)
-            { constants::ub_sigma = a; })
-        ;
+            { constants::ub_sigma = a; });
 }
 
-void define_restart(py::module &main)
+void define_restart_criteria(py::module &main)
 {
     auto m = main.def_submodule("restart");
     using namespace restart;
 
-    py::class_<RestartCriteria>(m, "RestartCriteria")
-        .def(py::init<Float, Float, Float, size_t>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"), py::arg("time"))
-        .def("exceeded_max_iter", &RestartCriteria::exceeded_max_iter)
-        .def("no_improvement", &RestartCriteria::no_improvement)
-        .def("flat_fitness", &RestartCriteria::flat_fitness)
-        .def("tolx", &RestartCriteria::tolx)
-        .def("tolupsigma", &RestartCriteria::tolupsigma)
-        .def("conditioncov", &RestartCriteria::conditioncov)
-        .def("noeffectaxis", &RestartCriteria::noeffectaxis)
-        .def("noeffectcoor", &RestartCriteria::noeffectcoor)
-        .def("stagnation", &RestartCriteria::stagnation)
-        .def_readonly("sigma0", &RestartCriteria::sigma0)
-        .def_readonly("last_restart", &RestartCriteria::last_restart)
-        .def_readonly("max_iter", &RestartCriteria::max_iter)
-        .def_readonly("n_bin", &RestartCriteria::n_bin)
-        .def_readonly("n_stagnation", &RestartCriteria::n_stagnation)
-        .def_readonly("flat_fitness_index", &RestartCriteria::flat_fitness_index)
-        .def_readonly("flat_fitnesses", &RestartCriteria::flat_fitnesses)
-        .def_readonly("median_fitnesses", &RestartCriteria::median_fitnesses)
-        .def_readonly("best_fitnesses", &RestartCriteria::best_fitnesses)
-        .def_readonly("time_since_restart", &RestartCriteria::time_since_restart)
-        .def_readonly("recent_improvement", &RestartCriteria::recent_improvement)
-        .def_readonly("n_flat_fitness", &RestartCriteria::n_flat_fitness)
-        .def_readonly("d_sigma", &RestartCriteria::d_sigma)
-        .def_readonly("tolx_condition", &RestartCriteria::tolx_condition)
-        .def_readonly("tolx_vector", &RestartCriteria::tolx_vector)
-        .def_readonly("root_max_d", &RestartCriteria::root_max_d)
-        .def_readonly("condition_c", &RestartCriteria::condition_c)
-        .def_readonly("effect_coord", &RestartCriteria::effect_coord)
-        .def_readonly("effect_axis", &RestartCriteria::effect_axis)
-        .def_readonly("any", &RestartCriteria::any)
-        .def("__call__", &RestartCriteria::operator(), py::arg("parameters"))
-        .def("__repr__", [](const RestartCriteria &res)
-             {
-            std::stringstream ss;
-            ss << std::boolalpha;
-            ss <<  "<RestartCriteria";
-            ss << " flat_fitness: " << res.flat_fitness();
-            ss << " exeeded_max_iter: " << res.exceeded_max_iter();
-            ss << " no_improvement: " << res.no_improvement();
-            ss << " tolx: " << res.tolx();
-            ss << " tolupsigma: " << res.tolupsigma();
-            ss << " conditioncov: " << res.conditioncov();
-            ss << " noeffectaxis: " << res.noeffectaxis();
-            ss << " noeffectcoor: " << res.noeffectcoor();
-            ss << " stagnation: " << res.stagnation() <<  ">";
-            return ss.str(); });
+    py::class_<Criterion, std::shared_ptr<Criterion>>(m, "Criterion")
+        .def("reset", &Criterion::reset, py::arg("parameters"))
+        .def("update", &Criterion::update, py::arg("parameters"))
+        .def_readwrite("met", &Criterion::met)
+        .def_readwrite("name", &Criterion::name)
+        .def_readwrite("last_restart", &Criterion::last_restart)
+        .def("__repr__", [](Criterion &self)
+             { return "<" + self.name + " met: " + std::to_string(self.met) + ">"; });
+
+    py::class_<ExceededMaxIter, Criterion, std::shared_ptr<ExceededMaxIter>>(m, "ExceededMaxIter")
+        .def(py::init<>())
+        .def_readwrite("max_iter", &ExceededMaxIter::max_iter);
+
+    py::class_<NoImprovement, Criterion, std::shared_ptr<NoImprovement>>(m, "NoImprovement")
+        .def(py::init<>())
+        .def_readwrite("n_bin", &NoImprovement::n_bin)
+        .def_readwrite("best_fitnesses", &NoImprovement::best_fitnesses);
+
+    py::class_<SigmaOutOfBounds, Criterion, std::shared_ptr<SigmaOutOfBounds>>(m, "SigmaOutOfBounds")
+        .def(py::init<>());
+
+    py::class_<UnableToAdapt, Criterion, std::shared_ptr<UnableToAdapt>>(m, "UnableToAdapt")
+        .def(py::init<>());
+
+    py::class_<FlatFitness, Criterion, std::shared_ptr<FlatFitness>>(m, "FlatFitness")
+        .def(py::init<>())
+        .def_readwrite("max_flat_fitness", &FlatFitness::max_flat_fitness)
+        .def_readwrite("flat_fitness_index", &FlatFitness::flat_fitness_index)
+        .def_readwrite("flat_fitnesses", &FlatFitness::flat_fitnesses);
+
+    py::class_<TolX, Criterion, std::shared_ptr<TolX>>(m, "TolX")
+        .def(py::init<>())
+        .def_readwrite("tolx_vector", &TolX::tolx_vector);
+
+    py::class_<MaxDSigma, Criterion, std::shared_ptr<MaxDSigma>>(m, "MaxDSigma")
+        .def(py::init<>());
+
+    py::class_<MinDSigma, Criterion, std::shared_ptr<MinDSigma>>(m, "MinDSigma")
+        .def(py::init<>());
+
+    py::class_<ConditionC, Criterion, std::shared_ptr<ConditionC>>(m, "ConditionC")
+        .def(py::init<>());
+
+    py::class_<NoEffectAxis, Criterion, std::shared_ptr<NoEffectAxis>>(m, "NoEffectAxis")
+        .def(py::init<>());
+
+    py::class_<NoEffectCoord, Criterion, std::shared_ptr<NoEffectCoord>>(m, "NoEffectCoord")
+        .def(py::init<>());
+
+    py::class_<Stagnation, Criterion, std::shared_ptr<Stagnation>>(m, "Stagnation")
+        .def(py::init<>())
+        .def_readwrite("n_stagnation", &Stagnation::n_stagnation)
+        .def_readwrite("median_fitnesses", &Stagnation::median_fitnesses)
+        .def_readwrite("best_fitnesses", &Stagnation::best_fitnesses);
+
+    py::class_<Criteria>(m, "Criteria")
+        .def_readwrite("items", &Criteria::items)
+        .def("reset", &Criteria::reset, py::arg("parameters"))
+        .def("update", &Criteria::update, py::arg("parameters"))
+        .def_readonly("any", &Criteria::any);
+}
+
+void define_restart_strategy(py::module &main)
+{
+    auto m = main.def_submodule("restart");
+    using namespace restart;
 
     py::class_<Strategy, std::shared_ptr<Strategy>>(m, "Strategy")
-        .def("evaluate", &Strategy::evaluate, py::arg("objective"), py::arg("parameters"))
-        .def_readwrite("criteria", &Strategy::criteria);
-
-    py::class_<None, Strategy, std::shared_ptr<None>>(m, "NoRestart")
-        .def(py::init<Float, Float, Float>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &None::restart, py::arg("objective"), py::arg("parameters"));
-
-    py::class_<Stop, Strategy, std::shared_ptr<Stop>>(m, "Stop")
-        .def(py::init<Float, Float, Float>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &Stop::restart, py::arg("objective"), py::arg("parameters"));
-
-    py::class_<Restart, Strategy, std::shared_ptr<Restart>>(m, "Restart")
-        .def(py::init<Float, Float, Float>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &Restart::restart, py::arg("objective"), py::arg("parameters"));
+        // .def("evaluate", &Strategy::evaluate, py::arg("objective"), py::arg("parameters"))
+        // .def_readwrite("criteria", &Strategy::criteria)
+        .def("update", &Strategy::update, py::arg("parameters"));
+    ;
 
     py::class_<IPOP, Strategy, std::shared_ptr<IPOP>>(m, "IPOP")
-        .def(py::init<Float, Float, Float>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
-        .def("restart", &IPOP::restart, py::arg("objective"), py::arg("parameters"))
+        // .def(py::init<Float, Float, Float>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"))
         .def_readwrite("ipop_factor", &IPOP::ipop_factor);
 
     py::class_<BIPOP, Strategy, std::shared_ptr<BIPOP>>(m, "BIPOP")
-        .def(py::init<Float, Float, Float, Float, size_t>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"), py::arg("mu"), py::arg("budget"))
-        .def("restart", &BIPOP::restart, py::arg("objective"), py::arg("parameters"))
+        // .def(py::init<Float, Float, Float, Float, size_t>(), py::arg("sigma"), py::arg("dimension"), py::arg("lamb"), py::arg("mu"), py::arg("budget"))
         .def("large", &BIPOP::large)
         .def_readwrite("mu_factor", &BIPOP::mu_factor)
         .def_readwrite("lambda_init", &BIPOP::lambda_init)
@@ -1053,16 +1061,9 @@ void define_cmaes(py::module &m)
         .def(py::init<size_t>(), py::arg("dimension"))
         .def(py::init<parameters::Settings>(), py::arg("settings"))
         .def("recombine", &ModularCMAES::recombine)
-        .def(
-            "mutate", [](ModularCMAES &self, FunctionType &f)
-            { self.p->mutation->mutate(f, self.p->lambda, *self.p); },
-            py::arg("objective"))
-        .def("select", [](ModularCMAES &self)
-             { self.p->selection->select(*self.p); })
-        .def(
-            "adapt", [](ModularCMAES &self, FunctionType &f)
-            { self.p->adapt(f); },
-            py::arg("objective"))
+        .def("mutate", &ModularCMAES::mutate, py::arg("objective"))
+        .def("select", &ModularCMAES::select)
+        .def("adapt", &ModularCMAES::adapt)
         .def("step", &ModularCMAES::step, py::arg("objective"))
         .def("__call__", &ModularCMAES::operator(), py::arg("objective"))
         .def("run", &ModularCMAES::operator(), py::arg("objective"))
@@ -1160,7 +1161,8 @@ PYBIND11_MODULE(cmaescpp, m)
     define_population(m);
     define_samplers(m);
     define_mutation(m);
-    define_restart(m);
+    define_restart_criteria(m);
+    define_restart_strategy(m);
     define_matrix_adaptation(m);
     define_center_placement(m);
     define_repelling(m);

@@ -1,14 +1,21 @@
 from typing import Any, Callable, List, Optional, Union, overload, ClassVar
 
 import numpy
-from . import matrix_adaptation, sampling, parameters, mutation, restart, repelling, center
+from . import (
+    matrix_adaptation,
+    sampling,
+    parameters,
+    mutation,
+    restart,
+    repelling,
+    center,
+)
 
 class Solution:
     x: numpy.ndarray
     y: float
     t: int
     e: int
-    
 
 class constants:
     cache_max_doubles: ClassVar[int] = ...
@@ -20,7 +27,6 @@ class constants:
     tol_min_sigma: ClassVar[float] = ...
     tolup_sigma: ClassVar[float] = ...
     def __init__(self, *args, **kwargs) -> None: ...
-
 
 class ModularCMAES:
     @overload
@@ -39,35 +45,6 @@ class ModularCMAES:
     def __call__(self, objective: Callable[[numpy.ndarray], float]) -> None: ...
     @property
     def p(self) -> Parameters: ...
-
-class Parameters:
-    adaptation: Union[
-        matrix_adaptation.MatrixAdaptation,
-        matrix_adaptation.CovarianceAdaptation,
-        matrix_adaptation.NoAdaptation,
-        matrix_adaptation.SeperableAdaptation 
-    ]
-    bounds: Any
-    center_placement: center.Placement  
-    lamb: int
-    mu: int
-    mutation: mutation.Strategy
-    old_pop: Population
-    pop: Population
-    repelling: repelling.Repelling
-    restart: restart.Strategy
-    sampler: sampling.Sampler
-    selection: Any
-    settings: parameters.Settings
-    stats: parameters.Stats
-    weights: parameters.Weights
-    
-    @overload
-    def __init__(self, dimension: int) -> None: ...
-    @overload
-    def __init__(self, settings: parameters.Settings) -> None: ...
-    def adapt(self, objective: Callable[[numpy.ndarray], float]) -> None: ...
-    def perform_restart(self, objective: Callable[[numpy.ndarray], float], sigma: Optional[float] = ...) -> None: ...
 
 class Population:
     X: numpy.ndarray
@@ -91,6 +68,57 @@ class Population:
     def keep_only(self, idx: List[int]) -> None: ...
     def resize_cols(self, size: int) -> None: ...
     def sort(self) -> None: ...
-    def __add__(self, other: Population) -> Population: ...
+    def __add__(self, other: "Population") -> "Population": ...
     @property
     def n_finite(self) -> int: ...
+
+class Parameters:
+    adaptation: (
+        matrix_adaptation.MatrixAdaptation
+        | matrix_adaptation.CovarianceAdaptation
+        | matrix_adaptation.SeperableAdaptation
+        | matrix_adaptation.OnePlusOneAdaptation
+        | matrix_adaptation.NoAdaptation
+    )
+    bounds: Any
+    center_placement: center.Placement
+    criteria: restart.Criteria
+    lamb: int
+    mu: int
+    mutation: mutation.Strategy
+    old_pop: Population
+    pop: Population
+    repelling: repelling.Repelling
+    restart_strategy: restart.Strategy
+    sampler: sampling.Sampler
+    selection: Any
+    settings: parameters.Settings
+    stats: parameters.Stats
+    weights: parameters.Weights
+    @overload
+    def __init__(self, dimension: int) -> None: ...
+    @overload
+    def __init__(self, settings: parameters.Settings) -> None: ...
+    def adapt(self) -> None: ...
+    def perform_restart(
+        self,
+        objective: Callable[[numpy.ndarray[numpy.float64[m, 1]]], float],
+        sigma: float | None = ...,
+    ) -> None: ...
+    def start(
+        self, objective: Callable[[numpy.ndarray[numpy.float64[m, 1]]], float]
+    ) -> None: ...
+
+class constants:
+    cache_max_doubles: ClassVar[int] = ...
+    cache_min_samples: ClassVar[int] = ...
+    cache_samples: ClassVar[bool] = ...
+    clip_sigma: ClassVar[bool] = ...
+    lb_sigma: ClassVar[float] = ...
+    max_dsigma: ClassVar[float] = ...
+    min_dsigma: ClassVar[float] = ...
+    sigma_threshold: ClassVar[float] = ...
+    stagnation_quantile: ClassVar[float] = ...
+    tol_condition_cov: ClassVar[float] = ...
+    ub_sigma: ClassVar[float] = ...
+    def __init__(self, *args, **kwargs) -> None: ...

@@ -7,16 +7,31 @@ void ModularCMAES::recombine() const
 		positive);
 }
 
+void ModularCMAES::mutate(FunctionType &objective) const
+{
+	p->start(objective);
+	p->mutation->mutate(objective, p->lambda, *p);
+}
+
+void ModularCMAES::select() const 
+{
+	p->selection->select(*p);
+}
+
+void ModularCMAES::adapt() const 
+{
+	p->adapt();
+}
+
 bool ModularCMAES::step(FunctionType& objective) const
 {
-	p->mutation->mutate(objective, p->lambda, *p);
-	p->selection->select(*p);
-
+	mutate(objective);
+	select();
 	recombine();
-	p->adapt(objective);
-	if (p->stats.t % (p->settings.dim * 2) == 0 and p->settings.verbose)
-		std::cout << p->stats << " (mu, lambda, sigma): " << p->mu
-			<< ", " << p->lambda << ", " << p->mutation->sigma << '\n';
+	adapt();
+	// if (p->stats.t % (p->settings.dim * 2) == 0 and p->settings.verbose)
+	// 	std::cout << p->stats << " (mu, lambda, sigma): " << p->mu
+	// 		<< ", " << p->lambda << ", " << p->mutation->sigma << '\n';
 	return !break_conditions();
 }
 
@@ -24,8 +39,8 @@ void ModularCMAES::operator()(FunctionType& objective) const
 {
 	while (step(objective));
 
-	if (p->settings.verbose)
-		std::cout << p->stats << '\n';
+	// if (p->settings.verbose)
+	// 	std::cout << p->stats << '\n';
 }
 
 bool ModularCMAES::break_conditions() const
@@ -34,6 +49,6 @@ bool ModularCMAES::break_conditions() const
 	const auto budget_used_up = p->stats.evaluations >= p->settings.budget;
 	const auto exceed_gens = p->settings.max_generations and p->stats.t >= p->settings.max_generations;
 	const auto restart_strategy_criteria = p->settings.modules.restart_strategy == parameters::RestartStrategyType::STOP
-		and p->restart->criteria.any;
+		and p->criteria.any;
 	return exceed_gens or target_reached or budget_used_up or restart_strategy_criteria;
 }

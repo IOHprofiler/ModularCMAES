@@ -29,7 +29,7 @@ class TestMutation(unittest.TestCase):
         new_M = ((0.5 * cma.p.weights.cmu * cma.p.weights.positive) * cma.p.pop.Y[:, :cma.p.mu]).dot(cma.p.pop.Z[:, :cma.p.mu].T)
         M = old_M + scaled_ps + new_M
 
-        cma.adapt(sum)
+        cma.adapt()
         self.assertTrue(np.all(np.isclose(cma.p.adaptation.M, M)))
           
 

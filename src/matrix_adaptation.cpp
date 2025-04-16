@@ -43,14 +43,10 @@ namespace matrix_adaptation
 				leftCols(mu).transpose());
 
 		}
-
-		//std::cout << C << std::endl;
 		C = old_c + rank_one + rank_mu;
 
 		C = C.triangularView<Eigen::Upper>().toDenseMatrix() +
 			C.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().transpose();
-
-		//std::cout << C << std::endl;
 	}
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)

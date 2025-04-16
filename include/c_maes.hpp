@@ -12,6 +12,12 @@ struct ModularCMAES
     
     void recombine() const;
 
+    void select() const;
+
+    void adapt() const;
+
+    void mutate(FunctionType &objective) const;
+
     bool step(FunctionType& objective) const;
 
     void operator()(FunctionType& objective) const;

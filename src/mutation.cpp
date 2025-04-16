@@ -33,22 +33,18 @@ namespace mutation
 		ss->sample(sigma, p.pop);
 		p.bounds->n_out_of_bounds = 0;
 		p.repelling->prepare_sampling(p);
-
 		for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
 		{
 			size_t n_rej = 0;
 			do
 			{
 				p.pop.Z.col(i) = p.mutation->tc->scale((*p.sampler)(), p.bounds->diameter, p.settings.budget, p.stats.evaluations);
-
 				p.pop.Y.col(i) = p.adaptation->compute_y(p.pop.Z.col(i));
-
 				p.pop.X.col(i) = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
-
 				p.bounds->correct(i, p);
 			} while (
 				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE && n_rej++ < 5*p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X.col(i)).any()) || p.repelling->is_rejected(p.pop.X.col(i), p));
-
+			
 			p.pop.f(i) = objective(p.pop.X.col(i));
 			p.stats.evaluations++;
 			if (sq->break_conditions(i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored))
@@ -183,6 +179,7 @@ namespace mutation
 								  const Float expected_z)
 	{
 		using namespace parameters;
+
 		auto tc = m.threshold_convergence
 					  ? std::make_shared<ThresholdConvergence>()
 					  : std::make_shared<NoThresholdConvergence>();
