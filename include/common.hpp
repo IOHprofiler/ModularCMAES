@@ -22,7 +22,7 @@
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 
-using Float = long double;
+using Float = double;
 using Matrix = Eigen::Matrix<Float, -1, -1>;
 using Vector = Eigen::Matrix<Float, -1, 1>;
 using Array = Eigen::Array<Float, -1, 1>;
@@ -35,9 +35,9 @@ using FunctionType = std::function<Float(const Vector &)>;
 
 namespace constants
 {
-	extern Float tolup_sigma;
+	extern Float max_dsigma;
+	extern Float min_dsigma;
 	extern Float tol_condition_cov;
-	extern Float tol_min_sigma;
 	extern Float stagnation_quantile;
 	extern Float sigma_threshold;
 	extern size_t cache_max_doubles;

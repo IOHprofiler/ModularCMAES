@@ -71,7 +71,9 @@ class Stats:
     current_best: Solution
     evaluations: int
     global_best: Solution
+    has_improved: bool
     solutions: list[Solution]
+    success_ratio: float
     t: int
     def __init__(self) -> None: ...
 
