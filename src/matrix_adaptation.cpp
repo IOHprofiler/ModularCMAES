@@ -239,7 +239,4 @@ namespace matrix_adaptation
 	{
 		return yi;
 	}
-
-
-
 }

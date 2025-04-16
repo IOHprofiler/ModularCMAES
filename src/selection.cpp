@@ -43,7 +43,7 @@ namespace selection
 			p.old_pop.resize_cols(k);
 			for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(p.old_pop.n); i++)
 			{
-				p.old_pop.Y.col(i) = p.adaptation->invert_x(p.old_pop.X.col(i), p.mutation->sigma);
+				p.old_pop.Y.col(i) = p.adaptation->invert_x(p.old_pop.X.col(i), p.old_pop.s(i));
 				p.old_pop.Z.col(i) = p.adaptation->invert_y(p.old_pop.Y.col(i));
 			}
 			p.pop += p.old_pop;

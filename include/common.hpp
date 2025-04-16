@@ -22,9 +22,10 @@
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
 
-using Matrix = Eigen::MatrixXd;
-using Vector = Eigen::VectorXd;
-using Array = Eigen::ArrayXd;
+using Float = long double;
+using Matrix = Eigen::Matrix<Float, -1, -1>;
+using Vector = Eigen::Matrix<Float, -1, 1>;
+using Array = Eigen::Array<Float, -1, 1>;
 using size_to = std::optional<size_t>;
 
 template <typename T>
@@ -42,6 +43,9 @@ namespace constants
 	extern size_t cache_max_doubles;
 	extern size_t cache_min_samples;
 	extern bool cache_samples;
+	extern double lb_sigma;
+	extern double ub_sigma; 
+	extern bool clip_sigma; 
 }
 
 /**

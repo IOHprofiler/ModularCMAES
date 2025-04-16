@@ -19,6 +19,9 @@ namespace constants
 	size_t cache_max_doubles = 2'000'000;
 	size_t cache_min_samples = 128;
 	bool cache_samples = false;
+	double lb_sigma = 1e-20;
+	double ub_sigma = 1e4;
+	bool clip_sigma = false; 
 }
 
 namespace utils

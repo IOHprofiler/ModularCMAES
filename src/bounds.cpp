@@ -38,7 +38,7 @@ namespace bounds
 		{
 			n_out_of_bounds++;
 			p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob);
-			p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.mutation->sigma);
+			p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.pop.s(i));
 			p.pop.Z.col(i) = p.adaptation->invert_y(p.pop.Y.col(i));
 		}
 	}
@@ -47,7 +47,7 @@ namespace bounds
 	{
 		const Vector y = delta_out_of_bounds(xi, oob);
 		return (oob).select(
-			lb.array() + db.array() * ((y.array() > 0).cast<double>() - sampler().array().abs()).abs(), y);
+			lb.array() + db.array() * ((y.array() > 0).cast<Float>() - sampler().array().abs()).abs(), y);
 	}
 
 
@@ -70,7 +70,7 @@ namespace bounds
 	{
 		const Vector y = delta_out_of_bounds(xi, oob);
 		return (oob).select(
-			lb.array() + db.array() * (y.array() > 0).cast<double>(), y);
+			lb.array() + db.array() * (y.array() > 0).cast<Float>(), y);
 	}
 
 	Vector Toroidal::correct_x(const Vector& xi, const Mask& oob)

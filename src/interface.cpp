@@ -340,8 +340,7 @@ void define_matrix_adaptation(py::module &main)
              py::arg("population"),
              py::arg("mu"),
              py::arg("settings"),
-             py::arg("stats")
-        )
+             py::arg("stats"))
         .def("restart", &Adaptation::restart, py::arg("settings"))
         .def("compute_y", &Adaptation::compute_y, py::arg("zi"))
         .def("invert_x", &Adaptation::invert_x, py::arg("xi"), py::arg("sigma"))
@@ -416,7 +415,7 @@ void define_matrix_adaptation(py::module &main)
                 ss << ">";
                 return ss.str(); });
 
-     py::class_<OnePlusOneAdaptation, CovarianceAdaptation, std::shared_ptr<OnePlusOneAdaptation>>(m, "OnePlusOneAdaptation")
+    py::class_<OnePlusOneAdaptation, CovarianceAdaptation, std::shared_ptr<OnePlusOneAdaptation>>(m, "OnePlusOneAdaptation")
         .def(py::init<size_t, Vector, double>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
         .def("__repr__", [](SeperableAdaptation &dyn)
              {
@@ -695,7 +694,7 @@ void define_bounds(py::module &main)
 
     py::class_<Resample, BoundCorrection, std::shared_ptr<Resample>>(m, "Resample")
         .def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
-    
+
     py::class_<NoCorrection, BoundCorrection, std::shared_ptr<NoCorrection>>(m, "NoCorrection")
         .def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
 
@@ -850,18 +849,17 @@ void define_mutation(py::module &main)
              py::arg("sigma0"),
              py::arg("expected_length_z"));
 
-
     py::class_<SR, CSA, std::shared_ptr<SR>>(m, "SR")
         .def(py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, double, double, double, double>(),
-            py::arg("threshold_convergence"),
-            py::arg("sequential_selection"),
-            py::arg("sigma_sampler"),
-            py::arg("cs"),
-            py::arg("damps"),
-            py::arg("sigma0"),
-            py::arg("expected_length_z"))
+             py::arg("threshold_convergence"),
+             py::arg("sequential_selection"),
+             py::arg("sigma_sampler"),
+             py::arg("cs"),
+             py::arg("damps"),
+             py::arg("sigma0"),
+             py::arg("expected_length_z"))
         // .def_staticreadwrite("tgt_success_ratio", &SR::tgt_success_ratio)
-    ;
+        ;
 }
 
 void define_population(py::module &main)
@@ -937,7 +935,27 @@ void define_constants(py::module &m)
             [](py::object)
             { return constants::cache_samples; },
             [](py::object, bool a)
-            { constants::cache_samples = a; });
+            { constants::cache_samples = a; })
+        .def_property_static(
+            "clip_sigma",
+            [](py::object)
+            { return constants::clip_sigma; },
+            [](py::object, bool a)
+            { constants::clip_sigma = a; })
+        .def_property_static(
+            "lb_sigma",
+            [](py::object)
+            { return constants::lb_sigma; },
+            [](py::object, double a)
+            { constants::lb_sigma = a; })
+
+        .def_property_static(
+            "ub_sigma",
+            [](py::object)
+            { return constants::ub_sigma; },
+            [](py::object, double a)
+            { constants::ub_sigma = a; })
+        ;
 }
 
 void define_restart(py::module &main)
@@ -1087,8 +1105,7 @@ void define_es(py::module &main)
         .def_readwrite("target", &OnePlusOneES::target)
         .def_readwrite("sampler", &OnePlusOneES::sampler)
         .def_readwrite("rejection_sampling", &OnePlusOneES::rejection_sampling)
-        .def_readwrite("corrector", &OnePlusOneES::corrector)
-        ;
+        .def_readwrite("corrector", &OnePlusOneES::corrector);
 
     py::class_<MuCommaLambdaES, std::shared_ptr<MuCommaLambdaES>>(m, "MuCommaLambdaES")
         .def(
@@ -1132,8 +1149,7 @@ void define_es(py::module &main)
         .def_readwrite("sampler", &MuCommaLambdaES::sampler)
         .def_readwrite("sigma_sampler", &MuCommaLambdaES::sigma_sampler)
         .def_readwrite("rejection_sampling", &MuCommaLambdaES::rejection_sampling)
-        .def_readwrite("corrector", &MuCommaLambdaES::corrector)
-     ;
+        .def_readwrite("corrector", &MuCommaLambdaES::corrector);
 }
 
 PYBIND11_MODULE(cmaescpp, m)

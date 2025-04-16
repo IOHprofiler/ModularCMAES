@@ -64,7 +64,10 @@ namespace parameters
 
 	bool Parameters::invalid_state() const
 	{
-		const bool sigma_out_of_bounds = 1e-16 > mutation->sigma or mutation->sigma > 1e4;
+		if (constants::clip_sigma)
+			mutation->sigma = std::min(std::max(mutation->sigma, constants::lb_sigma), constants::ub_sigma);
+		
+		const bool sigma_out_of_bounds = constants::lb_sigma > mutation->sigma or mutation->sigma > constants::ub_sigma;
 
 		if (sigma_out_of_bounds && settings.verbose)
 		{
