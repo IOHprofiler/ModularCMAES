@@ -35,16 +35,9 @@ using FunctionType = std::function<Float(const Vector &)>;
 
 namespace constants
 {
-	extern Float max_dsigma;
-	extern Float min_dsigma;
-	extern Float tol_condition_cov;
-	extern Float stagnation_quantile;
-	extern Float sigma_threshold;
 	extern size_t cache_max_doubles;
 	extern size_t cache_min_samples;
 	extern bool cache_samples;
-	extern Float lb_sigma;
-	extern Float ub_sigma; 
 	extern bool clip_sigma; 
 }
 

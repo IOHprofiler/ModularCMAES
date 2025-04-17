@@ -890,36 +890,7 @@ class constants_w
 void define_constants(py::module &m)
 {
     py::class_<constants_w>(m, "constants")
-        .def_property_static(
-            "max_dsigma",
-            [](py::object)
-            { return constants::max_dsigma; },
-            [](py::object, Float a)
-            { constants::max_dsigma = a; })
-        .def_property_static(
-            "min_dsigma",
-            [](py::object)
-            { return constants::min_dsigma; },
-            [](py::object, Float a)
-            { constants::min_dsigma = a; })
-        .def_property_static(
-            "tol_condition_cov",
-            [](py::object)
-            { return constants::tol_condition_cov; },
-            [](py::object, Float a)
-            { constants::tol_condition_cov = a; })
-        .def_property_static(
-            "stagnation_quantile",
-            [](py::object)
-            { return constants::stagnation_quantile; },
-            [](py::object, Float a)
-            { constants::stagnation_quantile = a; })
-        .def_property_static(
-            "sigma_threshold",
-            [](py::object)
-            { return constants::sigma_threshold; },
-            [](py::object, Float a)
-            { constants::sigma_threshold = a; })
+      
         .def_property_static(
             "cache_max_doubles",
             [](py::object)
@@ -944,34 +915,40 @@ void define_constants(py::module &m)
             { return constants::clip_sigma; },
             [](py::object, bool a)
             { constants::clip_sigma = a; })
-        .def_property_static(
-            "lb_sigma",
-            [](py::object)
-            { return constants::lb_sigma; },
-            [](py::object, Float a)
-            { constants::lb_sigma = a; })
-
-        .def_property_static(
-            "ub_sigma",
-            [](py::object)
-            { return constants::ub_sigma; },
-            [](py::object, Float a)
-            { constants::ub_sigma = a; });
+       ;
 }
+
+struct PyCriterion: restart::Criterion 
+{
+    PyCriterion(const std::string& name): restart::Criterion(name) {}
+
+    void update(const parameters::Parameters &p) override 
+    {
+        PYBIND11_OVERRIDE_PURE(void, restart::Criterion, update, p);
+    }
+
+    void on_reset(const parameters::Parameters &p) override 
+    {
+        PYBIND11_OVERRIDE(void, restart::Criterion, on_reset, p);
+    }
+};
 
 void define_restart_criteria(py::module &main)
 {
     auto m = main.def_submodule("restart");
     using namespace restart;
 
-    py::class_<Criterion, std::shared_ptr<Criterion>>(m, "Criterion")
-        .def("reset", &Criterion::reset, py::arg("parameters"))
+    py::class_<Criterion, PyCriterion, std::shared_ptr<Criterion>>(m, "Criterion")
+        .def(py::init<std::string>(), py::arg("name"))
+        .def("on_reset", &Criterion::on_reset, py::arg("parameters"))
         .def("update", &Criterion::update, py::arg("parameters"))
+        .def("reset", &Criterion::reset, py::arg("parameters"))
         .def_readwrite("met", &Criterion::met)
         .def_readwrite("name", &Criterion::name)
         .def_readwrite("last_restart", &Criterion::last_restart)
         .def("__repr__", [](Criterion &self)
-             { return "<" + self.name + " met: " + std::to_string(self.met) + ">"; });
+            { return "<" + self.name + " met: " + std::to_string(self.met) + ">"; });
+    ;
 
     py::class_<ExceededMaxIter, Criterion, std::shared_ptr<ExceededMaxIter>>(m, "ExceededMaxIter")
         .def(py::init<>())
@@ -982,8 +959,13 @@ void define_restart_criteria(py::module &main)
         .def_readwrite("n_bin", &NoImprovement::n_bin)
         .def_readwrite("best_fitnesses", &NoImprovement::best_fitnesses);
 
-    py::class_<SigmaOutOfBounds, Criterion, std::shared_ptr<SigmaOutOfBounds>>(m, "SigmaOutOfBounds")
-        .def(py::init<>());
+    py::class_<MaxSigma, Criterion, std::shared_ptr<MaxSigma>>(m, "MaxSigma")
+        .def(py::init<>())
+        .def_readwrite_static("tolerance", &MaxSigma::tolerance);
+
+    py::class_<MinSigma, Criterion, std::shared_ptr<MinSigma>>(m, "MinSigma")
+        .def(py::init<>())
+        .def_readwrite_static("tolerance", &MinSigma::tolerance);
 
     py::class_<UnableToAdapt, Criterion, std::shared_ptr<UnableToAdapt>>(m, "UnableToAdapt")
         .def(py::init<>());
@@ -996,34 +978,44 @@ void define_restart_criteria(py::module &main)
 
     py::class_<TolX, Criterion, std::shared_ptr<TolX>>(m, "TolX")
         .def(py::init<>())
-        .def_readwrite("tolx_vector", &TolX::tolx_vector);
+        .def_readwrite("tolx_vector", &TolX::tolx_vector)
+        .def_readwrite_static("tolerance", &TolX::tolerance)
+        ;
 
     py::class_<MaxDSigma, Criterion, std::shared_ptr<MaxDSigma>>(m, "MaxDSigma")
-        .def(py::init<>());
+        .def(py::init<>())
+        .def_readwrite_static("tolerance", &MaxDSigma::tolerance);
 
     py::class_<MinDSigma, Criterion, std::shared_ptr<MinDSigma>>(m, "MinDSigma")
-        .def(py::init<>());
+        .def(py::init<>())
+        .def_readwrite_static("tolerance", &MinDSigma::tolerance);
 
     py::class_<ConditionC, Criterion, std::shared_ptr<ConditionC>>(m, "ConditionC")
-        .def(py::init<>());
+        .def(py::init<>())
+        .def_readwrite_static("tolerance", &ConditionC::tolerance);
 
     py::class_<NoEffectAxis, Criterion, std::shared_ptr<NoEffectAxis>>(m, "NoEffectAxis")
-        .def(py::init<>());
+        .def(py::init<>())
+        .def_readwrite_static("tolerance", &NoEffectAxis::tolerance)
+        ;
 
     py::class_<NoEffectCoord, Criterion, std::shared_ptr<NoEffectCoord>>(m, "NoEffectCoord")
-        .def(py::init<>());
+        .def(py::init<>())
+        .def_readwrite_static("tolerance", &NoEffectCoord::tolerance);
 
     py::class_<Stagnation, Criterion, std::shared_ptr<Stagnation>>(m, "Stagnation")
         .def(py::init<>())
         .def_readwrite("n_stagnation", &Stagnation::n_stagnation)
         .def_readwrite("median_fitnesses", &Stagnation::median_fitnesses)
-        .def_readwrite("best_fitnesses", &Stagnation::best_fitnesses);
+        .def_readwrite("best_fitnesses", &Stagnation::best_fitnesses)
+        .def_readwrite_static("tolerance", &Stagnation::tolerance);
 
     py::class_<Criteria>(m, "Criteria")
         .def_readwrite("items", &Criteria::items)
         .def("reset", &Criteria::reset, py::arg("parameters"))
         .def("update", &Criteria::update, py::arg("parameters"))
         .def_readonly("any", &Criteria::any);
+
 }
 
 void define_restart_strategy(py::module &main)

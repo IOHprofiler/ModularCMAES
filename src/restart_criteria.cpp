@@ -68,9 +68,14 @@ namespace restart
         met = time_since_restart > n_bin and recent_improvement == 0;
     }
 
-    void SigmaOutOfBounds::update(const parameters::Parameters &p)
+    void MaxSigma::update(const parameters::Parameters& p)
     {
-        met = constants::lb_sigma > p.mutation->sigma or p.mutation->sigma > constants::ub_sigma;
+        met = p.mutation->sigma > tolerance;
+    }
+
+    void MinSigma::update(const parameters::Parameters& p)
+    {
+        met = p.mutation->sigma < tolerance;
     }
 
     void UnableToAdapt::update(const parameters::Parameters &p)
@@ -99,7 +104,7 @@ namespace restart
         if (const auto dynamic = std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
         {
             const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
-            const Float tolx_condition = 10e-12 * p.settings.sigma0;
+            const Float tolx_condition = tolerance * p.settings.sigma0;
             tolx_vector.head(p.settings.dim) = dynamic->C.diagonal() * d_sigma;
             tolx_vector.tail(p.settings.dim) = dynamic->pc * d_sigma;
             met = (tolx_vector.array() < tolx_condition).all();
@@ -119,7 +124,7 @@ namespace restart
         {
             root_max_d = std::sqrt(dynamic->d.maxCoeff());
         }
-        met = d_sigma > constants::max_dsigma * root_max_d;
+        met = d_sigma > (tolerance * root_max_d);
     }
 
     void MinDSigma::update(const parameters::Parameters &p)
@@ -131,7 +136,7 @@ namespace restart
         {
             root_min_d = std::sqrt(dynamic->d.minCoeff());
         }
-        met = d_sigma < constants::min_dsigma * root_min_d;
+        met = d_sigma < (tolerance * root_min_d);
     }
 
     void ConditionC::update(const parameters::Parameters &p)
@@ -139,7 +144,7 @@ namespace restart
         if (const auto dynamic = std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
         {
             const Float condition_c = pow(dynamic->d.maxCoeff(), 2.0) / pow(dynamic->d.minCoeff(), 2);
-            met = condition_c > constants::tol_condition_cov;
+            met = condition_c > tolerance;
         }
     }
 
@@ -149,7 +154,7 @@ namespace restart
         {
             const Eigen::Index t = p.stats.t % p.settings.dim;
             const auto effect_axis = 0.1 * p.mutation->sigma * std::sqrt(dynamic->d(t)) * dynamic->B.col(t);
-            met = (effect_axis.array() == 0).all();
+            met = (effect_axis.array() < tolerance).all();
         }
     }
 
@@ -158,14 +163,14 @@ namespace restart
         if (const auto dynamic = std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
         {
             const auto effect_coord = 0.2 * p.mutation->sigma * dynamic->C.diagonal().cwiseSqrt();
-            met = (effect_coord.array() == 0).all();
+            met = (effect_coord.array() < tolerance).all();
         }
     }
 
     void Stagnation::update(const parameters::Parameters &p)
     {
         const size_t time_since_restart = p.stats.t - last_restart;
-        const size_t pt = static_cast<size_t>(constants::stagnation_quantile * time_since_restart);
+        const size_t pt = static_cast<size_t>(tolerance * time_since_restart);
         median_fitnesses.push_back(median(p.pop.f));
         best_fitnesses.push_back(p.pop.f(0));
 
@@ -192,7 +197,8 @@ namespace restart
         
         if (modules.restart_strategy >= parameters::RestartStrategyType::RESTART)
         {
-            criteria.push_back(std::make_shared<restart::SigmaOutOfBounds>());
+            criteria.push_back(std::make_shared<restart::MinSigma>());
+            criteria.push_back(std::make_shared<restart::MaxSigma>());
             criteria.push_back(std::make_shared<restart::ExceededMaxIter>());
             criteria.push_back(std::make_shared<restart::NoImprovement>());
             criteria.push_back(std::make_shared<restart::FlatFitness>());

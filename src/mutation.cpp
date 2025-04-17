@@ -220,7 +220,7 @@ namespace mutation
 		default:
 		case StepSizeAdaptation::CSA:
 			cs = cs0.value_or((mueff + 2.0) / (d + mueff + 5.0));
-			damps = 1.0 + (2.0 * std::max(0.0, sqrt((mueff - 1.0) / (d + 1)) - 1) + cs);
+			damps = 1.0 + (2.0 * std::max(Float{0.0}, sqrt((mueff - 1.0) / (d + 1)) - 1) + cs);
 			return std::make_shared<CSA>(tc, sq, ss, cs, damps, sigma, expected_z);
 		}
 	}

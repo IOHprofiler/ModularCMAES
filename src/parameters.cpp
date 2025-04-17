@@ -69,7 +69,7 @@ namespace parameters
 		mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
 
 		if (constants::clip_sigma)
-			mutation->sigma = std::min(std::max(mutation->sigma, constants::lb_sigma), constants::ub_sigma);
+			mutation->sigma = std::min(std::max(mutation->sigma, restart::MinSigma::tolerance), restart::MaxSigma::tolerance);
 
 		successfull_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings, stats);
 

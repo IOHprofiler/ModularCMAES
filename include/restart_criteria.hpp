@@ -17,6 +17,8 @@ namespace restart
 
         Criterion(const std::string& name): met(false), name(name) {}
 
+        virtual ~Criterion() = default;
+
         void reset(const parameters::Parameters &p); 
 
         virtual void update(const parameters::Parameters &p) = 0;
@@ -69,9 +71,17 @@ namespace restart
         void on_reset(const parameters::Parameters &p) override;
     };
 
-    struct SigmaOutOfBounds: Criterion 
+    struct MaxSigma: Criterion 
     {
-        SigmaOutOfBounds(): Criterion("SigmaOutOfBounds"){}
+        static inline Float tolerance = 1e4;
+        MaxSigma(): Criterion("MaxSigma"){}
+        void update(const parameters::Parameters &p) override;
+    };
+
+    struct MinSigma: Criterion 
+    {
+        static inline Float tolerance = 1e-20;
+        MinSigma(): Criterion("MinSigma"){}
         void update(const parameters::Parameters &p) override;
     };
 
@@ -94,6 +104,7 @@ namespace restart
 
     struct TolX: Criterion 
     {
+        static inline Float tolerance = 10e-12;
         Vector tolx_vector;
         TolX(): Criterion("TolX"){}
         void update(const parameters::Parameters &p) override;
@@ -103,12 +114,14 @@ namespace restart
 
     struct MaxDSigma: Criterion 
     {
+        static inline Float tolerance = std::pow(10., 20.);
         MaxDSigma(): Criterion("MaxDSigma"){}
         void update(const parameters::Parameters &p) override;
     };
 
     struct MinDSigma: Criterion 
     {
+        static inline Float tolerance = 1e-8;
         MinDSigma(): Criterion("MinDSigma"){}
         void update(const parameters::Parameters &p) override;
     };
@@ -116,24 +129,29 @@ namespace restart
 
     struct ConditionC: Criterion 
     {
+        static inline Float tolerance = std::pow(10., 14.);
         ConditionC(): Criterion("ConditionC"){}
         void update(const parameters::Parameters &p) override;
     };
 
     struct NoEffectAxis: Criterion 
     {
+        static inline Float tolerance = 0.;
         NoEffectAxis(): Criterion("NoEffectAxis"){}
         void update(const parameters::Parameters &p) override;
     };
 
     struct NoEffectCoord: Criterion 
     {
+        static inline Float tolerance = 0.;
         NoEffectCoord(): Criterion("NoEffectCoord"){}
         void update(const parameters::Parameters &p) override;
     };
 
     struct Stagnation: Criterion 
     {
+        static inline Float tolerance = 0.3;
+        
         size_t n_stagnation;
         std::vector<Float> median_fitnesses;
 		std::vector<Float> best_fitnesses;
