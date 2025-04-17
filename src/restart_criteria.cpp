@@ -68,12 +68,12 @@ namespace restart
         met = time_since_restart > n_bin and recent_improvement == 0;
     }
 
-    void MaxSigma::update(const parameters::Parameters& p)
+    void MaxSigma::update(const parameters::Parameters &p)
     {
         met = p.mutation->sigma > tolerance;
     }
 
-    void MinSigma::update(const parameters::Parameters& p)
+    void MinSigma::update(const parameters::Parameters &p)
     {
         met = p.mutation->sigma < tolerance;
     }
@@ -191,10 +191,9 @@ namespace restart
 
     Criteria Criteria::get(const parameters::Modules modules)
     {
-        vCriteria criteria {
-            std::make_shared<restart::UnableToAdapt>()
-        };
-        
+        vCriteria criteria{
+            std::make_shared<restart::UnableToAdapt>()};
+
         if (modules.restart_strategy >= parameters::RestartStrategyType::RESTART)
         {
             criteria.push_back(std::make_shared<restart::MinSigma>());
@@ -205,15 +204,15 @@ namespace restart
             criteria.push_back(std::make_shared<restart::Stagnation>());
             criteria.push_back(std::make_shared<restart::MinDSigma>());
             criteria.push_back(std::make_shared<restart::MaxDSigma>());
-        }
 
-        if (modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE ||
-			modules.matrix_adaptation == parameters::MatrixAdaptationType::SEPERABLE)
-        {
-            criteria.push_back(std::make_shared<restart::TolX>());
-            criteria.push_back(std::make_shared<restart::ConditionC>());
-            criteria.push_back(std::make_shared<restart::NoEffectAxis>());
-            criteria.push_back(std::make_shared<restart::NoEffectCoord>());
+            if (modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE ||
+                modules.matrix_adaptation == parameters::MatrixAdaptationType::SEPERABLE)
+            {
+                criteria.push_back(std::make_shared<restart::TolX>());
+                criteria.push_back(std::make_shared<restart::ConditionC>());
+                criteria.push_back(std::make_shared<restart::NoEffectAxis>());
+                criteria.push_back(std::make_shared<restart::NoEffectCoord>());
+            }
         }
         return Criteria(criteria);
     }

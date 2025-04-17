@@ -5,7 +5,9 @@ namespace center
 {
     void X0::operator()(parameters::Parameters &p)
     {
-        p.adaptation->m = p.settings.x0.value_or(Vector::Zero(p.settings.dim));
+        const auto default_x0 = (p.settings.lb + p.settings.ub) / 2.0;
+
+        p.adaptation->m = p.settings.x0.value_or(default_x0);
     }
 
     void Uniform::operator()(parameters::Parameters &p)

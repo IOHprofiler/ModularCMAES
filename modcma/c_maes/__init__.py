@@ -12,6 +12,7 @@ from .cmaescpp import (
     Population,
     Parameters,
     ModularCMAES,
+    center,
     es
 )
 
