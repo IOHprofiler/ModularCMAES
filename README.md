@@ -379,11 +379,27 @@ For C++, the `BaseSampler` enum should be provided to the `sampler` member of th
 
 ```python
 ...
-modules.sampler = c_maes.options.BaseSampler.GAUSSIAN
+modules.sampler = c_maes.options.BaseSampler.UNIFORM
 # or
 modules.sampler = c_maes.options.BaseSampler.SOBOL
 # or
 modules.sampler = c_maes.options.BaseSampler.HALTON
+```
+
+Here, this works slightly different. The base sampler only defined the method for generating uniform sampling in a $[0,1)^d$ hyperbox. In order to define that a, for example, Gaussian distribution (this is default) should be used when running the algorithm, we need to specify the `sample_transformation` type:
+
+```python
+modules.sample_transformation = c_maes.options.SampleTranformerType.GAUSSIAN
+# or 
+modules.sample_transformation = c_maes.options.SampleTranformerType.SCALED_UNIFORM
+# or 
+modules.sample_transformation = c_maes.options.SampleTranformerType.LAPLACE
+# or 
+modules.sample_transformation = c_maes.options.SampleTranformerType.LOGISTIC
+# or 
+modules.sample_transformation = c_maes.options.SampleTranformerType.CAUCHY
+# or 
+modules.sample_transformation = c_maes.options.SampleTranformerType.DOUBLE_WEIBULL
 ```
 
 ### Recombination Weights <a name="recombination-weights"></a>
@@ -478,7 +494,27 @@ modules.restart_strategy = c_maes.options.RestartStrategy.NONE
 modules.restart_strategy = c_maes.options.RestartStrategy.IPOP
 ```
 
-Note that the C++ version has an addtional option here, `STOP`, which forces the algortihm to stop whenever a restart condition is met (not to be confused with a break condition).
+Note that the C++ version has an addtional option here, `STOP`, which forces the algortihm to stop whenever a restart condition is met (not to be confused with a break condition). The C++ version also offers fine control over when a restart happens. The `Parameters` object has an `criteria` member, of which the `items` member defines a list of `Criterion` objects, which are triggers for when a restart should happen. This list can be freely changed, and default items can be deleted and modified if desired. For example, `cma.p.criteria.items = []`, clears this list entirely, and no restarts will happen. Several of the currently defined `Criterion` object can also be modified, often this can be controlled by setting the `tolerance` parameter. For example, for the `MinSigma` criterion, you can set `c_maes.restart.MinSigma.tolerance = 1` to ensure a parameter value of sigma below 1 triggers a restart. Note that this is a static varaible, so modifying it in this fashion sets this for all instances of `c_maes.restart.MinSigma`. Alternatively, it is possible to define a custom `Criterion` like so:
+
+```python
+class MyCriterion(modcma.restart.Criterion):
+    def __init__(self):
+        super().__init__("MyCriterionName")
+    
+    def on_reset(self, par: modcma.Parameters):
+        """Called when a restart happens (also at the start)"""
+    
+    def update(self, par: modcma.Parameters):
+        """Called after each iteration, needs to modify self.met"""
+        self.met = True
+
+# Python needs a reference to this object, 
+# so you CANNOT create it in place, i.e. 
+# cma.p.criteria.items = [MyCriterion()] 
+# will produce an error
+c = MyCriterion() 
+cma.p.criteria.items = [c]
+```
 
 ### Bound correction
 
