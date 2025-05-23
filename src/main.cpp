@@ -71,6 +71,7 @@ int main()
 		//std::cout << "p_succ: " << sr->success_ratio << ", " << sr->max_success_ratio << std::endl;
 	}
 	std::cout << cma.p->stats.evaluations << std::endl;
-
-
+	std::cout << cma.p->stats.t << std::endl;
+	std::cout << cma.p->stats.n_updates << std::endl;
+	std::cout << cma.p->stats << std::endl;
 }

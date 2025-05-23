@@ -13,13 +13,11 @@ namespace matrix_adaptation
 		Vector m, m_old, dm, ps;
 		Float dd;
 		Float expected_length_z;
-		Matrix inv_C;
 
 		Adaptation(const size_t dim, const Vector& x0, const Vector& ps, const Float expected_length_z) :
 			m(x0), m_old(dim), dm(Vector::Zero(dim)),
 			ps(ps), dd(static_cast<Float>(dim)),
-			expected_length_z(expected_length_z),
-			inv_C(Matrix::Identity(dim, dim))
+			expected_length_z(expected_length_z)
 		{
 		}
 
@@ -28,7 +26,7 @@ namespace matrix_adaptation
 			const parameters::Stats& stats, size_t mu, size_t lambda) = 0;
 
 		virtual bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
-			size_t mu, const parameters::Settings& settings, const parameters::Stats& stats) = 0;
+			size_t mu, const parameters::Settings& settings, parameters::Stats& stats) = 0;
 
 		virtual void restart(const parameters::Settings& settings) = 0;
 
@@ -47,7 +45,7 @@ namespace matrix_adaptation
 		}
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
-			const size_t mu, const parameters::Settings& settings, const parameters::Stats& stats) override
+			const size_t mu, const parameters::Settings& settings, parameters::Stats& stats) override
 		{
 			return true;
 		}
@@ -70,6 +68,7 @@ namespace matrix_adaptation
 		Matrix inv_root_C;
 
 		bool hs = true;
+	
 
 		CovarianceAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
 			pc(Vector::Zero(dim)),
@@ -90,7 +89,7 @@ namespace matrix_adaptation
 			size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
-			const parameters::Settings& settings, const parameters::Stats& stats) override;
+			const parameters::Settings& settings, parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings) override;
 
@@ -107,8 +106,6 @@ namespace matrix_adaptation
 	};
 
 
-
-
 	struct OnePlusOneAdaptation: CovarianceAdaptation
 	{
 		constexpr static Float max_success_ratio = 0.44;
@@ -120,7 +117,7 @@ namespace matrix_adaptation
 			size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
-			const parameters::Settings& settings, const parameters::Stats& stats) override;
+			const parameters::Settings& settings, parameters::Stats& stats) override;
 
 	};
 
@@ -141,7 +138,7 @@ namespace matrix_adaptation
 			size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
-			const parameters::Settings& settings, const parameters::Stats& stats) override;
+			const parameters::Settings& settings, parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings) override;
 

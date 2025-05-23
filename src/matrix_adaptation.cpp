@@ -18,6 +18,7 @@ namespace matrix_adaptation
 
 		const Float actual_ps_length = ps.norm() / sqrt(
 			1.0 - pow(1.0 - mutation->cs, 2.0 * (stats.evaluations / lambda)));
+
 		const Float expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
 
 		hs = actual_ps_length < expected_ps_length;
@@ -31,22 +32,18 @@ namespace matrix_adaptation
 		const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
 		const auto old_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * w.positive.sum())) * C;
 
-		Matrix rank_mu;
 		if (m.active)
 		{
 			auto weights = w.weights.topRows(pop.Y.cols());
-			rank_mu = w.cmu * ((pop.Y.array().rowwise() * weights.array().transpose()).matrix() * pop.Y.transpose());
+			C = old_c + rank_one + w.cmu * ((pop.Y.array().rowwise() * weights.array().transpose()).matrix() * pop.Y.transpose());
 		}
 		else
 		{
-			rank_mu = w.cmu * ((pop.Y.leftCols(mu).array().rowwise() * w.positive.array().transpose()).matrix() * pop.Y.
-				leftCols(mu).transpose());
+			C = old_c + rank_one + (w.cmu * ((pop.Y.leftCols(mu).array().rowwise() * w.positive.array().transpose()).matrix() * pop.Y.
+				leftCols(mu).transpose()));
 
 		}
-		C = old_c + rank_one + rank_mu;
-
-		C = C.triangularView<Eigen::Upper>().toDenseMatrix() +
-			C.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().transpose();
+		C = 0.5 * (C + C.transpose().eval());
 	}
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
@@ -72,17 +69,26 @@ namespace matrix_adaptation
 			}
 			return false;
 		}
-		inv_C = ((B * d.cwiseInverse().asDiagonal()) * B.transpose());
+
+
 		d = d.cwiseSqrt();
-		inv_root_C = (B * d.cwiseInverse().asDiagonal()) * B.transpose();
+		inv_root_C = B * d.cwiseInverse().asDiagonal() * B.transpose();
 		return true;
 	}
 
 	bool CovarianceAdaptation::adapt_matrix(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
-		const Settings& settings, const parameters::Stats& stats)
+		const Settings& settings, parameters::Stats& stats)
 	{
-		adapt_covariance_matrix(w, m, pop, mu);
-		return perform_eigendecomposition(settings);
+
+		if (static_cast<Float>(stats.t) >= static_cast<Float>(stats.last_update) + w.lazy_update_interval)
+		{
+			stats.last_update = stats.t;
+			stats.n_updates++;
+			adapt_covariance_matrix(w, m, pop, mu);
+			return perform_eigendecomposition(settings);
+		}
+		return true;
+	
 	}
 
 	void CovarianceAdaptation::restart(const Settings& settings)
@@ -90,7 +96,6 @@ namespace matrix_adaptation
 		B = Matrix::Identity(settings.dim, settings.dim);
 		C = Matrix::Identity(settings.dim, settings.dim);
 		inv_root_C = Matrix::Identity(settings.dim, settings.dim);
-		inv_C = Matrix::Identity(settings.dim, settings.dim);
 		d.setOnes();
 		m = settings.x0.value_or(Vector::Zero(settings.dim));
 		m_old.setZero();
@@ -101,12 +106,12 @@ namespace matrix_adaptation
 
 	Vector CovarianceAdaptation::compute_y(const Vector& zi)
 	{
-		return B * (d.asDiagonal() * zi);
+		return B * d.cwiseProduct(zi);
 	}
 
 	Vector CovarianceAdaptation::invert_y(const Vector& yi)
 	{
-		return d.cwiseInverse().asDiagonal() * (B.transpose() * yi);
+		return (B.transpose() * yi).cwiseQuotient(d);
 	}
 
 	bool SeperableAdaptation::perform_eigendecomposition(const Settings& settings)
@@ -131,7 +136,7 @@ namespace matrix_adaptation
 	}
 
 	bool OnePlusOneAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
-		const parameters::Settings& settings, const parameters::Stats& stats)
+		const parameters::Settings& settings, parameters::Stats& stats)
 	{
 		if (!stats.has_improved)
 		{
@@ -139,7 +144,6 @@ namespace matrix_adaptation
 		}
 		return CovarianceAdaptation::adapt_matrix(w, m, pop, mu, settings, stats);
 	}
-
 
 
 
@@ -155,7 +159,7 @@ namespace matrix_adaptation
 	}
 
 	bool MatrixAdaptation::adapt_matrix(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
-	                                    const Settings& settings, const parameters::Stats& stats)
+	                                    const Settings& settings, parameters::Stats& stats)
 	{
 		const auto old_m = (1. - (0.5 * w.c1) - (0.5 * w.cmu)) * M;
 		const auto scaled_ps = (0.5 * w.c1) * (M * ps) * ps.transpose();
@@ -163,25 +167,21 @@ namespace matrix_adaptation
 		const auto old_m_inv = (1. + (0.5 * w.c1) + (0.5 * w.cmu)) * M_inv;
 		const auto scaled_inv_ps = (0.5 * w.c1) * ps * (ps.transpose() * M);
 
-		Matrix new_m, new_m_inv;
 		if (m.active)
 		{
-			// TODO: Check if we can do this like this
 			const auto scaled_weights = ((0.5 * w.cmu) * w.weights.topRows(pop.Y.cols())).array().transpose();
 			const auto scaled_y = (pop.Y.array().rowwise() * scaled_weights).matrix();
-			new_m = scaled_y * pop.Z.transpose();
-			new_m_inv = scaled_y * (pop.Z.transpose() * M_inv);
+
+			M = old_m + scaled_ps + scaled_y * pop.Z.transpose();
+			M_inv = old_m_inv - scaled_inv_ps - scaled_y * (pop.Z.transpose() * M_inv);
 		}
 		else
 		{
 			const auto scaled_weights = ((0.5 * w.cmu) * w.positive).array().transpose();
 			const auto scaled_y = (pop.Y.leftCols(mu).array().rowwise() * scaled_weights).matrix();
-			new_m = scaled_y * pop.Z.leftCols(mu).transpose();
-			new_m_inv = scaled_y * (pop.Z.leftCols(mu).transpose() * M_inv);
+			M = old_m + scaled_ps + scaled_y * pop.Z.leftCols(mu).transpose();
+			M_inv = old_m_inv - scaled_inv_ps - scaled_y * (pop.Z.leftCols(mu).transpose() * M_inv);
 		}
-
-		M = old_m + scaled_ps + new_m;
-		M_inv = old_m_inv - scaled_inv_ps - new_m_inv;
 		return true;
 	}
 

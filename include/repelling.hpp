@@ -72,7 +72,7 @@ namespace repelling
 		int attempts = 0;
 		Float coverage = 20.0;
 		// Matrix C;
-		// Matrix C_inv;
+		Matrix C_inv;
 
 		virtual ~Repelling() = default;
 

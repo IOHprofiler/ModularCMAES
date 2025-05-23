@@ -17,6 +17,8 @@ namespace parameters
 		bool has_improved = false;
 		Float success_ratio = 2.0 / 11.0;
 		Float cs = 1.0 / 12.0;
+		size_t last_update = 0;
+		size_t n_updates = 0;
 
 		void update_best(const Vector &x, const Float y)
 		{

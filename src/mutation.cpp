@@ -38,9 +38,9 @@ namespace mutation
 			size_t n_rej = 0;
 			do
 			{
-				p.pop.Z.col(i) = p.mutation->tc->scale((*p.sampler)(), p.bounds->diameter, p.settings.budget, p.stats.evaluations);
-				p.pop.Y.col(i) = p.adaptation->compute_y(p.pop.Z.col(i));
-				p.pop.X.col(i) = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
+				p.pop.Z.col(i).noalias() = p.mutation->tc->scale((*p.sampler)(), p.bounds->diameter, p.settings.budget, p.stats.evaluations);
+				p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));
+				p.pop.X.col(i).noalias() = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
 				p.bounds->correct(i, p);
 			} while (
 				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE && n_rej++ < 5*p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X.col(i)).any()) || p.repelling->is_rejected(p.pop.X.col(i), p));

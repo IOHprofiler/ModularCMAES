@@ -303,7 +303,8 @@ void define_repelling(py::module &main)
         .def("prepare_sampling", &Repelling::prepare_sampling, py::arg("p"))
         .def_readwrite("archive", &Repelling::archive)
         .def_readwrite("coverage", &Repelling::coverage)
-        .def_readwrite("attempts", &Repelling::attempts);
+        .def_readwrite("attempts", &Repelling::attempts)
+        .def_readwrite("C_inv", &Repelling::C_inv);
 
     py::class_<NoRepelling, Repelling, std::shared_ptr<NoRepelling>>(m, "NoRepelling")
         .def(py::init<>());
@@ -326,7 +327,6 @@ void define_matrix_adaptation(py::module &main)
         .def_readwrite("ps", &Adaptation::ps)
         .def_readwrite("dd", &Adaptation::dd)
         .def_readwrite("expected_length_z", &Adaptation::expected_length_z)
-        .def_readwrite("inv_C", &CovarianceAdaptation::inv_C)
         .def("adapt_evolution_paths", &Adaptation::adapt_evolution_paths,
              py::arg("pop"),
              py::arg("weights"),
@@ -518,6 +518,8 @@ void define_parameters(py::module &main)
         .def_readwrite("global_best", &Stats::global_best)
         .def_readwrite("has_improved", &Stats::has_improved)
         .def_readwrite("success_ratio", &Stats::success_ratio)
+        .def_readwrite("last_update", &Stats::last_update)
+        .def_readwrite("n_updates",  &Stats::n_updates)
         .def("__repr__", [](Stats &stats)
              {
             std::stringstream ss;

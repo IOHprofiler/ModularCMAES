@@ -13,6 +13,8 @@ namespace parameters
 
         Float mueff, mueff_neg;
         Float c1, cmu, cc;
+        Float lazy_update_interval;
+        Float sigma_path_scale;
 
         Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings);
 
