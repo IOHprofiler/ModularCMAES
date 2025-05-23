@@ -107,6 +107,8 @@ namespace matrix_adaptation
 	};
 
 
+
+
 	struct OnePlusOneAdaptation: CovarianceAdaptation
 	{
 		constexpr static Float max_success_ratio = 0.44;

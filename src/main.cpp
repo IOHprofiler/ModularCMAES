@@ -47,15 +47,22 @@ struct Timer
 int main()
 {
 	rng::set_seed(42);
-	const size_t dim = 10;
+	const size_t dim = 100;
+	const size_t budget = dim * 1000;
+
 	parameters::Modules m;
-	parameters::Settings settings(dim, m, 1e-8, std::nullopt, 1000 * dim, 2.0, 1);
+	//m.matrix_adaptation = parameters::MatrixAdaptationType::MATRIX;
+	m.sample_transformation = parameters::SampleTranformerType::SCALED_UNIFORM;
+	m.bound_correction = parameters::CorrectionMethod::NONE;
+
+	parameters::Settings settings(dim, m, -std::numeric_limits<double>::infinity(), 
+		std::nullopt, budget, 2.0);
 	auto p = std::make_shared<parameters::Parameters>(settings);
 
 	auto cma = ModularCMAES(p);
 
+	Timer t;
 	FunctionType f = Function();
-
 	while (cma.step(f))
 	{
 		//std::cout << cma.p->stats << std::endl;
@@ -63,7 +70,7 @@ int main()
 		//auto sr = std::dynamic_pointer_cast<mutation::SR>(cma.p->mutation);
 		//std::cout << "p_succ: " << sr->success_ratio << ", " << sr->max_success_ratio << std::endl;
 	}
-	std::cout << cma.p->stats << std::endl;
+	std::cout << cma.p->stats.evaluations << std::endl;
 
 
 }
