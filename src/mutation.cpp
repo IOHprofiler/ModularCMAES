@@ -33,6 +33,7 @@ namespace mutation
 		ss->sample(sigma, p.pop);
 		p.bounds->n_out_of_bounds = 0;
 		p.repelling->prepare_sampling(p);
+		
 		for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
 		{
 			size_t n_rej = 0;

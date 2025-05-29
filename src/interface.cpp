@@ -294,7 +294,11 @@ void define_repelling(py::module &main)
         .def_readwrite("n_rep", &TabooPoint::n_rep)
         .def_readwrite("solution", &TabooPoint::solution)
         .def_readwrite("shrinkage", &TabooPoint::shrinkage)
-        .def_readwrite("criticality", &TabooPoint::criticality);
+        .def_readwrite("criticality", &TabooPoint::criticality)
+        .def("__repr__",  [](TabooPoint &tb) {
+            return "<TabooPoint nc:" + std::to_string(tb.n_rep) + 
+                    "y: " + std::to_string(tb.solution.y) + ">";
+        });
 
     py::class_<Repelling, std::shared_ptr<Repelling>>(m, "Repelling")
         .def(py::init<>())
@@ -1016,7 +1020,7 @@ void define_restart_criteria(py::module &main)
         .def_readwrite("items", &Criteria::items)
         .def("reset", &Criteria::reset, py::arg("parameters"))
         .def("update", &Criteria::update, py::arg("parameters"))
-        .def_readonly("any", &Criteria::any);
+        .def("any", &Criteria::any);
 
 }
 

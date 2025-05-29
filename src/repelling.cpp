@@ -143,11 +143,12 @@ namespace repelling
 		if (accept_candidate)
 			archive.emplace_back(candidate_point, 1.0);// , C, C_inv);
 
+		
 		const Float volume_per_n = p.settings.volume / (p.settings.sigma0 * coverage * p.stats.solutions.size());
 		const Float n = p.adaptation->dd;
 		const Float gamma_f = std::pow(std::tgamma(n / 2.0 + 1.0), 1.0 / n) / std::sqrt(M_PI);
 		for (auto &point : archive)
-			point.radius = std::pow(volume_per_n * point.n_rep, 1.0 / n) * gamma_f;
+			point.radius = (std::pow(volume_per_n * point.n_rep, 1.0 / n) * gamma_f) / std::sqrt(n);
 	}
 
 	bool Repelling::is_rejected(const Vector &xi, parameters::Parameters &p)
@@ -168,7 +169,6 @@ namespace repelling
 				}
 			}
 		}
-
 		return false;
 	}
 }

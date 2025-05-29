@@ -32,7 +32,7 @@ void call(Callable& o)
 
 struct Timer
 {
-	std::chrono::time_point<std::chrono::steady_clock> t1;
+	std::chrono::time_point<std::chrono::high_resolution_clock> t1;
 	Timer() : t1(high_resolution_clock::now()) {}
 
 	~Timer()
@@ -44,34 +44,34 @@ struct Timer
 };
 
 
-int main()
-{
-	rng::set_seed(42);
-	const size_t dim = 100;
-	const size_t budget = dim * 1000;
+// int main()
+// {
+// 	rng::set_seed(42);
+// 	const size_t dim = 100;
+// 	const size_t budget = dim * 1000;
 
-	parameters::Modules m;
-	//m.matrix_adaptation = parameters::MatrixAdaptationType::MATRIX;
-	m.sample_transformation = parameters::SampleTranformerType::SCALED_UNIFORM;
-	m.bound_correction = parameters::CorrectionMethod::NONE;
+// 	parameters::Modules m;
+// 	//m.matrix_adaptation = parameters::MatrixAdaptationType::MATRIX;
+// 	m.sample_transformation = parameters::SampleTranformerType::SCALED_UNIFORM;
+// 	m.bound_correction = parameters::CorrectionMethod::NONE;
 
-	parameters::Settings settings(dim, m, -std::numeric_limits<double>::infinity(), 
-		std::nullopt, budget, 2.0);
-	auto p = std::make_shared<parameters::Parameters>(settings);
+// 	parameters::Settings settings(dim, m, -std::numeric_limits<double>::infinity(), 
+// 		std::nullopt, budget, 2.0);
+// 	auto p = std::make_shared<parameters::Parameters>(settings);
 
-	auto cma = ModularCMAES(p);
+// 	auto cma = ModularCMAES(p);
 
-	Timer t;
-	FunctionType f = Function();
-	while (cma.step(f))
-	{
-		//std::cout << cma.p->stats << std::endl;
-		//std::cout << cma.p->mutation->sigma << std::endl;
-		//auto sr = std::dynamic_pointer_cast<mutation::SR>(cma.p->mutation);
-		//std::cout << "p_succ: " << sr->success_ratio << ", " << sr->max_success_ratio << std::endl;
-	}
-	std::cout << cma.p->stats.evaluations << std::endl;
-	std::cout << cma.p->stats.t << std::endl;
-	std::cout << cma.p->stats.n_updates << std::endl;
-	std::cout << cma.p->stats << std::endl;
-}
+// 	Timer t;
+// 	FunctionType f = Function();
+// 	while (cma.step(f))
+// 	{
+// 		//std::cout << cma.p->stats << std::endl;
+// 		//std::cout << cma.p->mutation->sigma << std::endl;
+// 		//auto sr = std::dynamic_pointer_cast<mutation::SR>(cma.p->mutation);
+// 		//std::cout << "p_succ: " << sr->success_ratio << ", " << sr->max_success_ratio << std::endl;
+// 	}
+// 	std::cout << cma.p->stats.evaluations << std::endl;
+// 	std::cout << cma.p->stats.t << std::endl;
+// 	std::cout << cma.p->stats.n_updates << std::endl;
+// 	std::cout << cma.p->stats << std::endl;
+// }

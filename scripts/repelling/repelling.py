@@ -13,6 +13,7 @@ import math
 import pandas as pd
 import modcma.c_maes as c_cmaes
 from modcma.c_maes.cmaescpp.parameters import Solution
+from scipy.spatial.distance import mahalanobis
 
 
 base_dir = os.path.realpath(os.path.dirname(__file__))
@@ -148,13 +149,11 @@ def plot(
     ax.scatter(X[0, :], X[1, :], color=main_color, alpha=0.5)
 
     for t, tabu_point in enumerate(cma.p.repelling.archive, 1):
-        if c_cmaes.constants.repelling_current_cov:
-            Ct = C
-        else:
-            Ct = tabu_point.C
+        Ct = C
 
         theta_t = np.degrees(np.arctan2(Ct[1, 0], Ct[0, 0]))
-
+        
+        
         # print(theta_t, np.degrees(np.arctan2(tabu_point.C[1, 0],  tabu_point.C[0, 0])))
         current = Ellipse(
             tabu_point.solution.x,
@@ -416,7 +415,71 @@ def calc_taboo_potential(fid=3, instance=6, dim=2, n_trials=1):
         problem.reset()
 
 
-def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = True):
+class CloseToTaboo(c_cmaes.restart.Criterion):
+    
+    def __init__(self):
+        super().__init__("CloseToTaboo")
+    
+    def update(self, par: c_cmaes.Parameters):
+        self.met = False
+        if len(par.repelling.archive) != 0:
+            d_sigma = par.mutation.sigma / par.settings.sigma0 
+            somewhat_converged = d_sigma < 1e-1
+            
+            if somewhat_converged:           
+                for p in par.repelling.archive:
+                    distance = mahalanobis(par.adaptation.m, p.solution.x, par.repelling.C_inv)
+                    threshold = 1 / np.sqrt(par.settings.dim)
+                    if distance < threshold:
+                        print("close to taboo", distance, threshold)
+                        self.met = True
+
+                        
+    def on_update(self,  par: c_cmaes.Parameters):
+        self.met = False
+        
+class TooMuchRepelling(c_cmaes.restart.Criterion):
+    
+    def __init__(self):
+        super().__init__("TooMuchRepelling")
+        self.decay = 0
+        self.alpha = 0.9
+    
+    def update(self, par: c_cmaes.Parameters):
+        self.met = False
+        self.decay = (1 - self.alpha) * self.decay + (self.alpha * par.repelling.attempts)
+        if self.decay > (2 * par.lamb):
+            self.met = True
+                        
+    def on_update(self,  par: c_cmaes.Parameters):
+        self.met = False
+        self.decay = 0
+        
+class ConvergingToBadBasin(c_cmaes.restart.Criterion):
+    
+    def __init__(self):
+        super().__init__("ConvergingToBadBasin")
+    
+    def update(self, par: c_cmaes.Parameters):
+        self.met = False
+        if len(par.repelling.archive) != 0:
+            d_sigma = par.mutation.sigma / par.settings.sigma0 
+            somewhat_converged = d_sigma < 1e-1
+            
+            if somewhat_converged:           
+                function_values = np.array([p.solution.y for p in par.repelling.archive])
+                threshold_value = np.median(function_values)
+                if threshold_value < par.pop.f.min():
+                    print("Bad basin", threshold_value, "vs", par.pop.f.min())
+                    self.met = True
+                        
+    def on_update(self,  par: c_cmaes.Parameters):
+        self.met = False
+      
+        
+        
+
+def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = False):
     lb = -5
     ub = 5
 
@@ -434,7 +497,6 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = T
     # c_cmaes.constants.sigma_threshold = 0.25
     # c_cmaes.constants.tol_min_sigma = 0.01
 
-    c_cmaes.constants.repelling_current_cov = True
     modules = c_cmaes.parameters.Modules()
     modules.restart_strategy = c_cmaes.options.RESTART
     modules.bound_correction = c_cmaes.options.SATURATE
@@ -447,36 +509,56 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = T
         sigma0=2.0,
         budget=10_000 * dim,
         target=problem.optimum.y + 1e-8,
+        lb=np.ones(dim) * -5,
+        ub=np.ones(dim) * 5,
     )
     parameters = c_cmaes.Parameters(settings)
     parameters.repelling.coverage = coverage
     cma = c_cmaes.ModularCMAES(parameters)
+    
+    c1 = CloseToTaboo()
+    c2 = TooMuchRepelling()
+    c3 = ConvergingToBadBasin()
+    cma.p.criteria.items = cma.p.criteria.items + [c1, c2, c3]
 
     archive_size = 0
     while not cma.break_conditions():
+        # if any(x.met for x in cma.p.criteria.items):
+        #     breakpoint()
+        
+        # print("before start", cma.p.criteria.items)
+        # print(cma.p.repelling.archive)
+        # print(cma.p.stats.solutions)        
+        cma.p.start(problem)
+        # print()
+        # print("after start", cma.p.criteria.items)
+        # print(cma.p.repelling.archive)
+        # print(cma.p.stats.solutions)
         cma.mutate(problem)
+        # print()
+        # print("after mutate", cma.p.criteria.items)
+        # print(cma.p.repelling.archive)
+        # print(cma.p.stats.solutions)
+        
         if dim == 2:
             plot(cma, X, Y, Z, lb, ub, problem)
-            if save_frames:
-                plt.savefig(os.path.join(
-                    base_dir,
-                    f"figures/interactive/f{fid}i{instance}r{rep}{cma.p.stats.t:03d}.png"
-                ))
-
-        if len(cma.p.repelling.archive) != archive_size:
-            archive_size = len(cma.p.repelling.archive)
-            for p in cma.p.repelling.archive:
-                print(f"({p.radius:.2e}, {p.criticality: .2e})", end=", ")
-            print()
+            
+        # if len(cma.p.repelling.archive) != archive_size:
+        #     archive_size = len(cma.p.repelling.archive)
+        #     for p in cma.p.repelling.archive:
+        #         print(f"({p.radius:.2e}, {p.criticality: .2e})", end=", ")
+        #     print()
 
             # breakpoint()
             # time.sleep(1)
 
         cma.select()
         cma.recombine()
-        cma.adapt(problem)
+        cma.adapt()
+        
+        
     print(problem.optimum)
-    print(cma.p.stats.solutions)
+    print(len(cma.p.stats.solutions))
     # breakpoint()
     final_target = problem.state.current_best.y - problem.optimum.y
     print("final target: ", final_target, "used budget: ", problem.state.evaluations)

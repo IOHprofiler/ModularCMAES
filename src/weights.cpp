@@ -51,7 +51,6 @@ namespace parameters
 		weights << positive, negative;
 
 		lazy_update_interval = 1.0 / (c1 + cmu + 1e-23) / d / 10.0;
-		std::cout << lazy_update_interval << std::endl;
 	}
 
 	void Weights::weights_default(const size_t lambda)

@@ -80,7 +80,7 @@ namespace parameters
 	void Parameters::start(FunctionType &objective)
 	{
 		old_pop = pop;
-		if (criteria.any)
+		if (criteria.any())
 		{
 			const auto sig = restart_strategy->update(*this);
 			perform_restart(objective, sig);

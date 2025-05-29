@@ -154,7 +154,7 @@ namespace restart
         {
             const Eigen::Index t = p.stats.t % p.settings.dim;
             const auto effect_axis = 0.1 * p.mutation->sigma * std::sqrt(dynamic->d(t)) * dynamic->B.col(t);
-            met = (effect_axis.array() < tolerance).all();
+            met = (effect_axis.array().abs() < tolerance).all();
         }
     }
 
@@ -163,7 +163,7 @@ namespace restart
         if (const auto dynamic = std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
         {
             const auto effect_coord = 0.2 * p.mutation->sigma * dynamic->C.diagonal().cwiseSqrt();
-            met = (effect_coord.array() < tolerance).all();
+            met = (effect_coord.array().abs() < tolerance).all();
         }
     }
 
