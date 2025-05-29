@@ -33,7 +33,7 @@ namespace sampling
     /**
      * @brief Testing sampler, simple incrementing generator.
      */
-    struct Tester : Sampler
+    struct Tester : Sampler 
     {
         Tester(const size_t d) : Sampler(d) {}
 
