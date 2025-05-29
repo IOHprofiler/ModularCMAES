@@ -39,6 +39,7 @@ namespace constants
 	extern size_t cache_min_samples;
 	extern bool cache_samples;
 	extern bool clip_sigma; 
+	extern bool calc_eigv;
 }
 
 /**
@@ -338,4 +339,6 @@ namespace functions
 	Float sphere(const Vector &x);
 	Float rastrigin(const Vector &x);
 	Float ellipse(const Vector& x);
+	Float rosenbrock(const Vector& x);
+	Matrix random_rotation_matrix(int n, int seed);
 }

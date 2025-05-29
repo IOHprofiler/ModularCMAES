@@ -8,16 +8,21 @@ using std::chrono::duration;
 using std::chrono::milliseconds;
 
 
-
-struct Function
+struct Ellipse
 {
 	size_t evals = 0;
+	Matrix R;
+
+	Ellipse(const int dim, const bool rotated = false) :
+		R{ rotated ? functions::random_rotation_matrix(dim, 1): Matrix::Identity(dim, dim) }
+	{
+	}
 
 	Float operator()(const Vector& x)
 	{
 		evals++;
-		const auto x_shift = (x.array() - 1.).matrix();
-		return functions::ellipse(x_shift);
+		const auto x_shift = R * (x.array() - 1.).matrix();
+		return functions::rosenbrock(x_shift);
 	}
 };
 
@@ -44,34 +49,53 @@ struct Timer
 };
 
 
-// int main()
-// {
-// 	rng::set_seed(42);
-// 	const size_t dim = 100;
-// 	const size_t budget = dim * 1000;
+int main()
+{
+	rng::set_seed(42);
+	const size_t dim = 100;
+	const size_t budget = dim * 10000;
+	const bool rotated = true;
 
-// 	parameters::Modules m;
-// 	//m.matrix_adaptation = parameters::MatrixAdaptationType::MATRIX;
-// 	m.sample_transformation = parameters::SampleTranformerType::SCALED_UNIFORM;
-// 	m.bound_correction = parameters::CorrectionMethod::NONE;
+	parameters::Modules m;
+	//m.matrix_adaptation = parameters::MatrixAdaptationType::MATRIX;
+	//m.sample_transformation = parameters::SampleTranformerType::SCALED_UNIFORM;
+	m.bound_correction = parameters::CorrectionMethod::NONE;
 
-// 	parameters::Settings settings(dim, m, -std::numeric_limits<double>::infinity(), 
-// 		std::nullopt, budget, 2.0);
-// 	auto p = std::make_shared<parameters::Parameters>(settings);
+	parameters::Settings settings(dim, m, -std::numeric_limits<double>::infinity(),
+		std::nullopt, budget, 2.0);
+	auto p = std::make_shared<parameters::Parameters>(settings);
+	auto cma = ModularCMAES(p);
 
-// 	auto cma = ModularCMAES(p);
+	Timer t;
+	FunctionType f = Ellipse(dim, rotated);
+	while (cma.step(f))
+	{
+		//std::cout << cma.p->stats << std::endl;
+		//std::cout << cma.p->mutation->sigma << std::endl;
+		//auto sr = std::dynamic_pointer_cast<mutation::SR>(cma.p->mutation);
+		//std::cout << "p_succ: " << sr->success_ratio << ", " << sr->max_success_ratio << std::endl;
 
-// 	Timer t;
-// 	FunctionType f = Function();
-// 	while (cma.step(f))
-// 	{
-// 		//std::cout << cma.p->stats << std::endl;
-// 		//std::cout << cma.p->mutation->sigma << std::endl;
-// 		//auto sr = std::dynamic_pointer_cast<mutation::SR>(cma.p->mutation);
-// 		//std::cout << "p_succ: " << sr->success_ratio << ", " << sr->max_success_ratio << std::endl;
-// 	}
-// 	std::cout << cma.p->stats.evaluations << std::endl;
-// 	std::cout << cma.p->stats.t << std::endl;
-// 	std::cout << cma.p->stats.n_updates << std::endl;
-// 	std::cout << cma.p->stats << std::endl;
-// }
+		//if (cma.p->stats.current_best.y < 1e-8)
+		//	break;
+		
+		// No rotation
+		// e:    Stats t=549 e=5490
+		// no-e: Stats t=594 e=5940
+		// Rotation
+		// e: Stats t = 559 e = 5590
+		// no-e: Stats t=549 e=5490
+
+		// Rosen
+		// no rotation
+		// e: Stats t = 617 e = 6170
+		// noe: Stats t=625 e=6250 
+		// rotation: 
+		// e: Stats t=618 e=6180 
+		// no-e Stats t=568 e=5680 
+		// 
+	}
+	std::cout << cma.p->stats.evaluations << std::endl;
+	std::cout << cma.p->stats.t << std::endl;
+	std::cout << cma.p->stats.n_updates << std::endl;
+	std::cout << cma.p->stats << std::endl;
+}

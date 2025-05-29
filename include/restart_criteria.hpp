@@ -16,7 +16,7 @@ namespace restart
         std::string name;
         size_t last_restart;
 
-        Criterion(const std::string &name) : met(false), name(name) {}
+        Criterion(const std::string &name) : met(false), name(name), last_restart(0) {}
 
         virtual ~Criterion() = default;
 

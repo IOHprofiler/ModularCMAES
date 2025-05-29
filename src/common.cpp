@@ -14,7 +14,8 @@ namespace constants
 	size_t cache_max_doubles = 2'000'000;
 	size_t cache_min_samples = 128;
 	bool cache_samples = false;
-	bool clip_sigma = false; 
+	bool clip_sigma = false;
+	bool calc_eigv = true;
 }
 
 namespace utils
@@ -168,4 +169,36 @@ namespace functions
 			res += pow(1.0e6, static_cast<Float>(i) / (static_cast<Float>(x.size()) - 1)) * x(i) * x(i);
 		return res;
 	}
+
+	Float rosenbrock(const Vector& x) {
+		Float sum = 0.0;
+		for (auto i = 0; i < x.size() - 1; ++i) {
+			Float xi = x[i];
+			Float xi1 = x[i + 1];
+			Float term1 = 100.0 * std::pow(xi1 - xi * xi, 2);
+			Float term2 = std::pow(1.0 - xi, 2);
+			sum += term1 + term2;
+		}
+		return sum;
+	}
+
+	Matrix random_rotation_matrix(int n, int seed) {
+		std::mt19937 gen(seed);
+		std::normal_distribution<> d(0, 1);
+
+		Matrix A(n, n);
+		for (int i = 0; i < n; ++i)
+			for (int j = 0; j < n; ++j)
+				A(i, j) = d(gen);
+
+		Eigen::HouseholderQR<Matrix> qr(A);
+		Matrix Q = qr.householderQ();
+
+		if (Q.determinant() < 0) {
+			Q.col(0) *= -1;
+		}
+
+		return Q;
+	}
+
 }

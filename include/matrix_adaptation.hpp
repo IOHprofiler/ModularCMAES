@@ -10,7 +10,7 @@ namespace matrix_adaptation
 {
 	struct Adaptation
 	{
-		Vector m, m_old, dm, ps;
+		Vector m, m_old, dm, ps, dz;
 		Float dd;
 		Float expected_length_z;
 
@@ -21,7 +21,11 @@ namespace matrix_adaptation
 		{
 		}
 
-		virtual void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
+		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
+			const std::shared_ptr<mutation::Strategy>& mutation,
+			const parameters::Stats& stats, size_t mu, size_t lambda);
+
+		virtual void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const std::shared_ptr<mutation::Strategy>& mutation,
 			const parameters::Stats& stats, size_t mu, size_t lambda) = 0;
 
@@ -50,7 +54,7 @@ namespace matrix_adaptation
 			return true;
 		}
 
-		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
+		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
@@ -65,16 +69,17 @@ namespace matrix_adaptation
 	{
 		Vector pc, d;
 		Matrix B, C;
-		Matrix inv_root_C;
-
+		Matrix A;     
+		Matrix inv_root_C; 
 		bool hs = true;
-	
+
 
 		CovarianceAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
 			pc(Vector::Zero(dim)),
 			d(Vector::Ones(dim)),
 			B(Matrix::Identity(dim, dim)),
 			C(Matrix::Identity(dim, dim)),
+			A(Matrix::Identity(dim, dim)),
 			inv_root_C(Matrix::Identity(dim, dim))
 		{
 		}
@@ -84,7 +89,7 @@ namespace matrix_adaptation
 
 		virtual bool perform_eigendecomposition(const parameters::Settings& settings);
 
-		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
+		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
@@ -112,7 +117,7 @@ namespace matrix_adaptation
 
 		using CovarianceAdaptation::CovarianceAdaptation;
 
-		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
+		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
@@ -133,7 +138,7 @@ namespace matrix_adaptation
 		{
 		}
 
-		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
+		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 

@@ -9,12 +9,23 @@ namespace matrix_adaptation
 		return (xi - m) / sigma;
 	}
 
-	void CovarianceAdaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
+	void Adaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
 		const std::shared_ptr<mutation::Strategy>& mutation,
 		const Stats& stats, const size_t mu, const size_t lambda)
 	{
 		dm = (m - m_old) / mutation->sigma;
-		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * inv_root_C * dm);
+		dz = pop.Z.leftCols(mu) * w.positive.head(mu);
+		adapt_evolution_paths_inner(pop, w, mutation, stats, mu, lambda);
+	}
+
+
+	void CovarianceAdaptation::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
+		const std::shared_ptr<mutation::Strategy>& mutation,
+		const Stats& stats, const size_t mu, const size_t lambda)
+	{
+		const auto& expr = constants::calc_eigv ? inv_root_C * dm : dz;
+		
+		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * expr);
 
 		const Float actual_ps_length = ps.norm() / sqrt(
 			1.0 - pow(1.0 - mutation->cs, 2.0 * (stats.evaluations / lambda)));
@@ -48,6 +59,23 @@ namespace matrix_adaptation
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
 	{
+		if (!constants::calc_eigv) 
+		{
+			const Eigen::LLT<Matrix> chol(C);
+			if (chol.info() != Eigen::Success)
+			{
+				if (settings.verbose)
+				{
+					std::cout << "Cholesky solver failed, we need to restart reason:"
+						<< chol.info() << '\n';
+				}
+				return false;
+			}
+
+			A = chol.matrixL();
+			return true;
+		}		
+		
 		const Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(C);
 		if (eigen_solver.info() != Eigen::Success)
 		{
@@ -71,8 +99,9 @@ namespace matrix_adaptation
 		}
 
 
-		d = d.cwiseSqrt();
-		inv_root_C = B * d.cwiseInverse().asDiagonal() * B.transpose();
+		d.noalias() = d.cwiseSqrt();
+		inv_root_C.noalias() = eigen_solver.operatorInverseSqrt();
+		A.noalias() = B * d.asDiagonal();
 		return true;
 	}
 
@@ -95,6 +124,7 @@ namespace matrix_adaptation
 	{
 		B = Matrix::Identity(settings.dim, settings.dim);
 		C = Matrix::Identity(settings.dim, settings.dim);
+		A = Matrix::Identity(settings.dim, settings.dim);
 		inv_root_C = Matrix::Identity(settings.dim, settings.dim);
 		d.setOnes();
 		m = settings.x0.value_or(Vector::Zero(settings.dim));
@@ -106,11 +136,14 @@ namespace matrix_adaptation
 
 	Vector CovarianceAdaptation::compute_y(const Vector& zi)
 	{
-		return B * d.cwiseProduct(zi);
+		return A * zi;
 	}
 
 	Vector CovarianceAdaptation::invert_y(const Vector& yi)
 	{
+		if (!constants::calc_eigv)
+			return A.triangularView<Eigen::Lower>().solve(yi);
+		
 		return (B.transpose() * yi).cwiseQuotient(d);
 	}
 
@@ -121,11 +154,10 @@ namespace matrix_adaptation
 	}
 
 
-	void OnePlusOneAdaptation::adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
+	void OnePlusOneAdaptation::adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 		const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
 		size_t mu, size_t lambda)
 	{
-		dm = (m - m_old) / mutation->sigma;
 		if (!stats.has_improved)
 			return;
 
@@ -147,14 +179,10 @@ namespace matrix_adaptation
 
 
 
-	void MatrixAdaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
+	void MatrixAdaptation::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
 	                                             const std::shared_ptr<mutation::Strategy>& mutation,
 	                                             const Stats& stats, const size_t mu, const size_t lambda)
 	{
-		dm = (m - m_old) / mutation->sigma;
-
-		const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().
-			matrix();
 		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * dz);
 	}
 
@@ -206,14 +234,10 @@ namespace matrix_adaptation
 	}
 
 
-	void None::adapt_evolution_paths(const Population& pop, const Weights& w,
+	void None::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
 	                                 const std::shared_ptr<mutation::Strategy>& mutation, const
 	                                 Stats& stats, const size_t mu, const size_t lambda)
 	{
-		dm = (m - m_old) / mutation->sigma;
-
-		const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().
-			matrix();
 		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * dz);
 	}
 
