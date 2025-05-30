@@ -47,11 +47,12 @@ def run_fcmaes(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
         
     # ret = retry.minimize(f, bounds.T, optimizer=optimizer.Cma_cpp(n_evaluations))
     assert f.state.evaluations >= n_evaluations
+    print(f.state.current_best_internal.y)
 
 
 @timeit
 def run_modma(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
-    modcma.constants.calc_eigv = True
+    modcma.constants.calc_eigv = False
     modules = modcma.parameters.Modules()
     # modules.sample_transformation = modcma.options.SCALED_UNIFORM
     modules.matrix_adaptation = modcma.options.COVARIANCE
@@ -74,7 +75,7 @@ def run_modma(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
     while cma.step(f):
         pass          
     # cma.run(f)
-    print(cma.p.stats.t, cma.p.stats.n_updates)
+    print(cma.p.stats.t, cma.p.stats.n_updates, f.state.current_best_internal.y)
     assert f.state.evaluations >= n_evaluations
     return cma
 
@@ -100,8 +101,8 @@ def run_modma(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
 
 
 if __name__ == "__main__":
-    n_iters = 3
-    n_evals = 1_000
+    n_iters = 2
+    n_evals = 2_000
     fid = 12
     dimensions = [100]
     names, functions = zip(
