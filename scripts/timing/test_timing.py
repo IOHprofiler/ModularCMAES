@@ -79,31 +79,31 @@ def run_modma(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
     return cma
 
 
-@timeit
-def run_pycma(f: ioh.ProblemType, dim: int, n_evaluations: int, x0: np.ndarray):
-    options = pycma.CMAOptions()
-    options['CMA_active'] = False
-    # options['maxfevals'] = n_evaluations
-    options["verbose"] = -1
-    options["CMA_diagonal"] = False
-    # pprint(options)
+# @timeit
+# def run_pycma(f: ioh.ProblemType, dim: int, n_evaluations: int, x0: np.ndarray):
+#     options = pycma.CMAOptions()
+#     options['CMA_active'] = False
+#     # options['maxfevals'] = n_evaluations
+#     options["verbose"] = -1
+#     options["CMA_diagonal"] = False
+#     # pprint(options)
 
-    cma = pycma.CMAEvolutionStrategy(x0, 2.0, options=options)
+#     cma = pycma.CMAEvolutionStrategy(x0, 2.0, options=options)
 
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        while f.state.evaluations < n_evaluations:
-            X, y = cma.ask_and_eval(f)
-            cma.tell(X, y)
-            # cma.disp()
-    assert f.state.evaluations >= n_evaluations
+#     with warnings.catch_warnings():
+#         warnings.simplefilter("ignore")
+#         while f.state.evaluations < n_evaluations:
+#             X, y = cma.ask_and_eval(f)
+#             cma.tell(X, y)
+#             # cma.disp()
+#     assert f.state.evaluations >= n_evaluations
 
 
 if __name__ == "__main__":
-    n_iters = 1
+    n_iters = 3
     n_evals = 1_000
     fid = 12
-    dimensions = [50]
+    dimensions = [100]
     names, functions = zip(
         *[
             (name, obj)

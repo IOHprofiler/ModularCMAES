@@ -13,31 +13,36 @@ with open("README.md", "r", encoding="Latin-1") as fh:
 
 __version__ = "1.0.13"
 
+if platform.system() in ("Linux", "Darwin"):
+    os.environ["CC"] = "g++"
+    os.environ["CXX"] = "g++"
+    c_flags = [
+        "-O3", 
+        "-fno-math-errno",
+        "-funroll-loops", 
+        "-ftree-vectorize",
+    ]
+    l_flags = [
+        "-flto",
+    ]
+    if platform.system() == "Darwin":
+        c_flags.append("-mmacosx-version-min=10.15")
+    else:
+        c_flags.extend([
+            "-march=native",
+            "-mtune=native",
+        ])
+else:
+    c_flags = ["/O2"]
+
 ext = Pybind11Extension(
     "modcma.c_maes.cmaescpp",
     [x for x in glob("src/*cpp") if "main" not in x],
     include_dirs=["include", "external"],
     cxx_std=17,
+    extra_link_args=l_flags,
+    extra_compile_args=c_flags
 )
-if platform.system() in ("Linux", "Darwin"):
-    os.environ["CC"] = "clang"
-    os.environ["CXX"] = "clang"
-    flags = [
-        "-O3", 
-        # "-fno-math-errno", "-msse2", "-mavx", "-mfma", "-mtune=native",
-        # "-march=native", "-ffast-math", "-flto", "-funroll-loops", "-ftree-vectorize"
-    ]
-
-    if platform.system() == "Darwin":
-        flags.append("-mmacosx-version-min=10.15")
-    # else:
-    #     flags.append("-march=native")
-
-    ext._add_cflags(flags)
-    ext._add_ldflags(flags)
-else:
-    ext._add_cflags(["/O2"])
-
 
 setuptools.setup(
     name="modcma",
