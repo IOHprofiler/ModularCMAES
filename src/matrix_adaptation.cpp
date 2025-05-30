@@ -131,7 +131,7 @@ namespace matrix_adaptation
 		m_old.setZero();
 		dm.setZero();
 		pc.setZero();
-		ps.setZero();
+		ps.setZero(); 
 	}
 
 	Vector CovarianceAdaptation::compute_y(const Vector& zi)
