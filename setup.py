@@ -20,14 +20,18 @@ ext = Pybind11Extension(
     cxx_std=17,
 )
 if platform.system() in ("Linux", "Darwin"):
-    os.environ["CC"] = "g++"
-    os.environ["CXX"] = "g++"
-    flags = ["-O3", "-fno-math-errno", "-msse2", "-mavx", "-mfma", "-mtune=native"]
+    os.environ["CC"] = "clang"
+    os.environ["CXX"] = "clang"
+    flags = [
+        "-O3", 
+        # "-fno-math-errno", "-msse2", "-mavx", "-mfma", "-mtune=native",
+        # "-march=native", "-ffast-math", "-flto", "-funroll-loops", "-ftree-vectorize"
+    ]
 
     if platform.system() == "Darwin":
         flags.append("-mmacosx-version-min=10.15")
-    else:
-        flags.append("-march=native")
+    # else:
+    #     flags.append("-march=native")
 
     ext._add_cflags(flags)
     ext._add_ldflags(flags)

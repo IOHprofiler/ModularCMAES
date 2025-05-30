@@ -36,11 +36,12 @@ def timeit(f):
 @timeit
 def run_fcmaes(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
     
+    lamb = 4 + np.floor(3 * np.log(dim)).astype(int)
     bounds = np.array([f.bounds.lb, f.bounds.ub])
     res = optimizer.cmaescpp.minimize(
         f, x0=x0, max_evaluations=n_evaluations,
         stop_hist=0, accuracy=1e-10, stop_fitness=-700,
-        popsize=4
+        popsize=lamb, workers=1, delayed_update=False
     )
     
         
@@ -50,10 +51,18 @@ def run_fcmaes(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
 
 @timeit
 def run_modma(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
+    modcma.constants.calc_eigv = True
     modules = modcma.parameters.Modules()
-    modules.sample_transformation = modcma.options.SCALED_UNIFORM
+    # modules.sample_transformation = modcma.options.SCALED_UNIFORM
     modules.matrix_adaptation = modcma.options.COVARIANCE
-    settings = modcma.Settings(dim, budget=n_evaluations, x0=x0, modules=modules, verbose=True)
+    settings = modcma.Settings(dim, 
+                               budget=n_evaluations, 
+                               x0=x0,
+                               modules=modules,
+                               lb=f.bounds.lb,
+                               ub=f.bounds.ub, 
+                               verbose=True
+                            )
     
     cma = modcma.ModularCMAES(settings)
     
@@ -61,8 +70,10 @@ def run_modma(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
     maxp = 1/(10 * dim * (cma.p.weights.c1 +cma.p.weights.cmu))
     # print(dim, max(1, maxp), maxp)
     # breakpoint()
-          
-    cma.run(f)
+
+    while cma.step(f):
+        pass          
+    # cma.run(f)
     print(cma.p.stats.t, cma.p.stats.n_updates)
     assert f.state.evaluations >= n_evaluations
     return cma
@@ -92,7 +103,7 @@ if __name__ == "__main__":
     n_iters = 1
     n_evals = 1_000
     fid = 12
-    dimensions = [100]
+    dimensions = [50]
     names, functions = zip(
         *[
             (name, obj)

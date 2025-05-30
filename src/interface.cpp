@@ -898,7 +898,6 @@ class constants_w
 void define_constants(py::module &m)
 {
     py::class_<constants_w>(m, "constants")
-      
         .def_property_static(
             "cache_max_doubles",
             [](py::object)
@@ -923,6 +922,12 @@ void define_constants(py::module &m)
             { return constants::clip_sigma; },
             [](py::object, bool a)
             { constants::clip_sigma = a; })
+        .def_property_static(
+            "calc_eigv",
+            [](py::object)
+            { return constants::calc_eigv; },
+            [](py::object, bool a)
+            { constants::calc_eigv = a; })
        ;
 }
 
