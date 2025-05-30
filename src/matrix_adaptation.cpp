@@ -122,16 +122,13 @@ namespace matrix_adaptation
 
 	void CovarianceAdaptation::restart(const Settings& settings)
 	{
+		Adaptation::restart(settings);
 		B = Matrix::Identity(settings.dim, settings.dim);
 		C = Matrix::Identity(settings.dim, settings.dim);
 		A = Matrix::Identity(settings.dim, settings.dim);
 		inv_root_C = Matrix::Identity(settings.dim, settings.dim);
 		d.setOnes();
-		m = settings.x0.value_or(Vector::Zero(settings.dim));
-		m_old.setZero();
-		dm.setZero();
 		pc.setZero();
-		ps.setZero(); 
 	}
 
 	Vector CovarianceAdaptation::compute_y(const Vector& zi)
@@ -141,8 +138,9 @@ namespace matrix_adaptation
 
 	Vector CovarianceAdaptation::invert_y(const Vector& yi)
 	{
-		if (!constants::calc_eigv)
+		if (!constants::calc_eigv) {
 			return A.triangularView<Eigen::Lower>().solve(yi);
+		}
 		
 		return (B.transpose() * yi).cwiseQuotient(d);
 	}
@@ -174,6 +172,9 @@ namespace matrix_adaptation
 		{
 			return true;
 		}
+
+		stats.last_update = stats.t;
+		stats.n_updates++;
 		return CovarianceAdaptation::adapt_matrix(w, m, pop, mu, settings, stats);
 	}
 
@@ -189,6 +190,9 @@ namespace matrix_adaptation
 	bool MatrixAdaptation::adapt_matrix(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
 	                                    const Settings& settings, parameters::Stats& stats)
 	{
+		stats.last_update = stats.t;
+		stats.n_updates++;
+		
 		const auto old_m = (1. - (0.5 * w.c1) - (0.5 * w.cmu)) * M;
 		const auto scaled_ps = (0.5 * w.c1) * (M * ps) * ps.transpose();
 
@@ -215,10 +219,7 @@ namespace matrix_adaptation
 
 	void MatrixAdaptation::restart(const Settings& settings)
 	{
-		ps.setOnes();
-		m = settings.x0.value_or(Vector::Zero(settings.dim));
-		m_old.setZero();
-		dm.setZero();
+		Adaptation::restart(settings);
 		M = Matrix::Identity(settings.dim, settings.dim);
 		M_inv = Matrix::Identity(settings.dim, settings.dim);
 	}
@@ -241,14 +242,6 @@ namespace matrix_adaptation
 		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * dz);
 	}
 
-	void None::restart(const Settings& settings)
-	{
-		ps.setZero();
-		m = settings.x0.value_or(Vector::Zero(settings.dim));
-		m_old.setZero();
-		dm.setZero();
-	}
-
 	Vector None::compute_y(const Vector& zi)
 	{
 		return zi;
@@ -259,4 +252,71 @@ namespace matrix_adaptation
 	{
 		return yi;
 	}
+
+
+	Matrix CholeskyAdaptation::rank_one_update(const Matrix& A, const Float beta, Vector a)
+	{
+		const auto d = a.size();
+		Float b = 1.0;
+		A_prime.setZero();
+
+		for (int j = 0; j < d; j++)
+		{
+			const Float aj2 = std::pow(a(j), 2);
+			const Float Ajj2 = std::pow(A(j, j), 2);
+			const Float gamma = Ajj2 * b + beta * aj2;
+
+			A_prime(j, j) = std::sqrt(Ajj2 + (beta / b) * aj2);
+			
+			for (int k = j+1; k < d; k++)
+			{
+				a(k) -= a(j) / A(j, j) * A(k, j);
+				A_prime(k, j) = A_prime(j, j) / A(j, j) * A(k, j) + A_prime(j, j) * beta * a(j) / gamma * a(k);
+			}
+			b += beta * aj2 / Ajj2;
+		}
+		return A_prime;
+	}
+
+	void CholeskyAdaptation::adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
+		const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+		size_t mu, size_t lambda)
+	{
+		pc = (1.0 - w.cc) * pc + (std::sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
+		ps = (1.0 - mutation->cs)* ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * 
+			A.triangularView<Eigen::Lower>().solve(dm));
+	}
+
+	bool CholeskyAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		const parameters::Settings& settings, parameters::Stats& stats)
+	{
+		
+		stats.last_update = stats.t;
+		stats.n_updates++;		
+
+		A *= std::sqrt(1 - w.c1 - w.cmu);
+		A = rank_one_update(A, w.c1, pc);
+		for (auto i = 0; i < mu; i++)
+			A = rank_one_update(A, w.cmu * w.positive(i), pop.Y.col(i));
+		return true;
+	}
+
+	void CholeskyAdaptation::restart(const parameters::Settings& settings)
+	{
+		Adaptation::restart(settings);
+		A = Matrix::Identity(settings.dim, settings.dim);
+	}
+
+	Vector CholeskyAdaptation::compute_y(const Vector& zi)
+	{
+		return A * zi;
+	}
+
+	Vector CholeskyAdaptation::invert_y(const Vector& yi)
+	{
+		//TODO: check is this correct
+		return A.triangularView<Eigen::Lower>().solve(yi);
+	}
+
+
 }

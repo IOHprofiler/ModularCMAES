@@ -73,7 +73,8 @@ namespace parameters
         COVARIANCE,
         MATRIX,
         SEPERABLE,
-        ONEPLUSONE
+        ONEPLUSONE,
+        CHOLESKY,
     };
 
     enum class CenterPlacement

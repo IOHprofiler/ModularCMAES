@@ -83,7 +83,7 @@ namespace parameters
                 if (modules.restart_strategy == RestartStrategyType::BIPOP || modules.restart_strategy == RestartStrategyType::IPOP)
                     modules.restart_strategy = RestartStrategyType::RESTART;
             }
-            volume = (this->ub - this->lb).prod();
+            volume = (this->ub.cwiseMin(10 * sigma0) - this->lb.cwiseMax(-10 * sigma0)).prod();
         }
     };
 

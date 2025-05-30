@@ -1,5 +1,5 @@
 #include "c_maes.hpp"
-#include "acmaes.hpp"
+#include "to_string.hpp"
 #include <chrono>
 #include <iomanip>
 
@@ -10,17 +10,17 @@ using std::chrono::duration;
 using std::chrono::milliseconds;
 
 
-static int dim = 100;
-static bool rotated = false;
-static size_t budget = dim * 1000;
+static int dim = 50;
+static bool rotated = true;
+static size_t budget = dim * 4000;
 
 struct Ellipse
 {
 	size_t evals = 0;
-	Matrix R; 
+	Matrix R;
 
 	Ellipse(const int dim, const bool rotated = false) :
-		R{ rotated ? functions::random_rotation_matrix(dim, 1): Matrix::Identity(dim, dim) }
+		R{ rotated ? functions::random_rotation_matrix(dim, 1) : Matrix::Identity(dim, dim) }
 	{
 	}
 
@@ -50,21 +50,21 @@ struct Timer
 	{
 		const auto t2 = high_resolution_clock::now();
 		const auto ms_int = duration_cast<milliseconds>(t2 - t1);
-		std::cout << "Time elapsed: " << static_cast<Float>(ms_int.count()) / 1000.0 << "s\n";
+		std::cout << "Time elapsed: " << static_cast<Float>(ms_int.count()) / 1000.0 << "s\n\n";
 	}
 };
 
 
-void run_modcma()
+void run_modcma(parameters::MatrixAdaptationType mat_t)
 {
 	rng::set_seed(42);
 	parameters::Modules m;
-	//m.matrix_adaptation = parameters::MatrixAdaptationType::MATRIX;
-	//m.sample_transformation = parameters::SampleTranformerType::SCALED_UNIFORM;
-	m.bound_correction = parameters::CorrectionMethod::NONE;
-
-	parameters::Settings settings(dim, m, -std::numeric_limits<double>::infinity(),
-		std::nullopt, budget, 2.0);
+	m.matrix_adaptation = mat_t;
+	m.elitist = true;
+	parameters::Settings settings(
+		dim, m, -std::numeric_limits<double>::infinity(),
+		std::nullopt, budget, 2.0
+	);
 	auto p = std::make_shared<parameters::Parameters>(settings);
 	auto cma = ModularCMAES(p);
 
@@ -97,80 +97,16 @@ void run_modcma()
 		// 
 	}
 
-	std::cout << "modcmaes\n" << std::defaultfloat;
+	std::cout << "modcmaes: " << parameters::to_string(mat_t) << "\n" << std::defaultfloat;
 	std::cout << "evals: " << cma.p->stats.evaluations << std::endl;
 	std::cout << "iters: " << cma.p->stats.t << std::endl;
 	std::cout << "updates: " << cma.p->stats.n_updates << std::endl;
-	std::cout << "best_y: " << std::scientific << std::setprecision(3) << cma.p->stats.global_best.y << std::endl << std::endl;
+	std::cout << "best_y: " << std::scientific << std::setprecision(3) << cma.p->stats.global_best.y << std::endl;
 }
-
-void run_acmaes()
-{
-	Timer t;
-	double sigma = 2.0;
-	bool normalize = false;
-
-	vec guess(dim), lower_limit(dim), upper_limit(dim), inputSigma(dim);
-	for (int i = 0; i < dim; i++) {
-		guess[i] = 0.;
-		inputSigma[i] = sigma;
-		lower_limit[i] = -5;
-		upper_limit[i] = 5;
-	}
-
-
-	auto func_par = [](int popsize, int dim, double* x, double* y) {
-		static FunctionType f = Ellipse(dim, rotated);
-		//std::cout << "is this called\n";
-
-		for (int i = 0; i < popsize; i++)
-		{
-			auto map = Eigen::Map<vec, Eigen::Unaligned>(x + i * dim, dim);
-			//std::cout << map.transpose() << std::endl;
-			y[i] = f(map);
-		}
-	};
-
-
-	auto func = [](int popsize, const double* x, double* y) {
-		static FunctionType f = Ellipse(dim, rotated);
-		std::cout << "is this called\n";
-		return true;
-	};
-
-
-
-	Fitness fitfun(func, func_par, dim, 1, lower_limit, upper_limit);
-	fitfun.setNormalize(normalize);
-
-	int popsize = 4 + std::floor(3 * std::log((double)dim));
-	int mu = popsize / 2;
-	long seed = 32;
-	constexpr double accuracy = -std::numeric_limits<double>::infinity();
-	constexpr double stop_fitness = -std::numeric_limits<double>::infinity();
-	double stopTolHistFun = 0;
-	int update_gap = -1;
-	
-	acmaes::AcmaesOptimizer opt(0, &fitfun, popsize, mu, guess, inputSigma,
-		budget, accuracy, stop_fitness, stopTolHistFun, update_gap, seed);
-
-	int evals = 0;
-	
-	evals = opt.doOptimize();
-	vec bestX = opt.getBestX();
-	double bestY = opt.getBestValue();
-
-	std::cout << "acmaes\n" << std::defaultfloat;
-	std::cout << "evals: " << evals << std::endl;
-	std::cout << "iters: " << (int)opt.getIterations() << std::endl;
-	std::cout << "updates: " << opt.n_updates << std::endl;
-	std::cout << "best_y: " << std::scientific << std::setprecision(3) << bestY << std::endl << std::endl;
-	//std::cout << bestX.transpose() << std::endl;
-}
-
 
 int main()
 {
-	run_modcma();
-	run_acmaes();
+	run_modcma(parameters::MatrixAdaptationType::CHOLESKY);
+	//run_modcma(parameters::MatrixAdaptationType::MATRIX);
+	run_modcma(parameters::MatrixAdaptationType::COVARIANCE);
 }

@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 file(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 list(FILTER  SRC_FILES  EXCLUDE REGEX ".*interface.cpp$")
-
+ 
 add_executable(main ${SRC_FILES}) 
 
 target_include_directories(main PUBLIC 

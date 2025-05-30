@@ -111,6 +111,14 @@ namespace parameters
         {
         case MatrixAdaptationType::MATRIX:
             return "MATRIX";
+        case MatrixAdaptationType::CHOLESKY:
+            return "CHOLESKY";
+        case MatrixAdaptationType::ONEPLUSONE:
+            return "ONEPLUSONE";
+        case MatrixAdaptationType::NONE:
+            return "NONE";
+        case MatrixAdaptationType::SEPERABLE:
+            return "SEPERABLE";
         default:
         case MatrixAdaptationType::COVARIANCE:
             return "COVARIANCE";

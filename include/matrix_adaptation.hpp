@@ -32,13 +32,20 @@ namespace matrix_adaptation
 		virtual bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
 			size_t mu, const parameters::Settings& settings, parameters::Stats& stats) = 0;
 
-		virtual void restart(const parameters::Settings& settings) = 0;
-
 		virtual Vector compute_y(const Vector&) = 0;
 
 		virtual Vector invert_x(const Vector&, Float sigma);
 
 		virtual Vector invert_y(const Vector&) = 0;
+
+		virtual void restart(const parameters::Settings& settings)
+		{
+			m = settings.x0.value_or(Vector::Zero(settings.dim));
+			m_old.setZero();
+			dm.setZero();
+			ps.setZero();
+			dz.setZero();
+		}
 
 	};
 
@@ -58,7 +65,6 @@ namespace matrix_adaptation
 			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
-		void restart(const parameters::Settings& settings) override;
 
 		Vector compute_y(const Vector&) override;
 
@@ -150,7 +156,40 @@ namespace matrix_adaptation
 		Vector compute_y(const Vector&) override;
 
 		Vector invert_y(const Vector&) override;
+	}; 
+
+	struct CholeskyAdaptation final : Adaptation
+	{
+		Matrix A;
+		Vector pc;
+
+		CholeskyAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) 
+			: Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
+			A(Matrix::Identity(dim, dim)),
+			pc(Vector::Zero(dim)),
+			A_prime(Matrix::Zero(dim, dim))
+		{
+		}
+
+		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
+			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+			size_t mu, size_t lambda) override;
+
+		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+			const parameters::Settings& settings, parameters::Stats& stats) override;
+
+		void restart(const parameters::Settings& settings) override;
+
+		Vector compute_y(const Vector&) override;
+
+		Vector invert_y(const Vector&) override;
+
+		Matrix rank_one_update(const Matrix& A, const Float beta, Vector a);
+
+	private:
+		Matrix A_prime;
 	};
+
 
 	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0, const Float expected_z)
 	{
@@ -165,6 +204,8 @@ namespace matrix_adaptation
 			return std::make_shared<SeperableAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::ONEPLUSONE:
 			return std::make_shared<OnePlusOneAdaptation>(dim, x0, expected_z);
+		case MatrixAdaptationType::CHOLESKY:
+			return std::make_shared<CholeskyAdaptation>(dim, x0, expected_z);
 		default:
 		case MatrixAdaptationType::COVARIANCE:
 			return std::make_shared<CovarianceAdaptation>(dim, x0, expected_z);
