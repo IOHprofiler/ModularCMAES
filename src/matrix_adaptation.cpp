@@ -145,10 +145,66 @@ namespace matrix_adaptation
 		return (B.transpose() * yi).cwiseQuotient(d);
 	}
 
-	bool SeperableAdaptation::perform_eigendecomposition(const Settings& settings)
+
+	void SeperableAdaptation::adapt_evolution_paths_inner(
+		const Population& pop,
+		const parameters::Weights& w,
+		const std::shared_ptr<mutation::Strategy>& mutation,
+		const parameters::Stats& stats,
+		size_t mu, size_t lambda)
 	{
-		d = C.diagonal().cwiseSqrt();
-		return d.minCoeff() > 0.0;
+		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * sqrt(w.mueff)) * dz);
+
+		const Float actual_ps_length = ps.norm() / sqrt(
+			1.0 - pow(1.0 - mutation->cs, 2.0 * (stats.evaluations / lambda)));
+
+		const Float expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
+
+		hs = actual_ps_length < expected_ps_length;
+		pc = (1.0 - w.cc) * pc + (hs * sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
+	}
+
+	bool SeperableAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		const parameters::Settings& settings, parameters::Stats& stats)
+	{
+		
+		stats.last_update = stats.t;
+		stats.n_updates++;
+
+		const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
+		const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * w.positive.sum()));
+
+		for (auto j = 0; j < settings.dim; j++) 
+		{
+			auto rank_mu = (pop.Z.leftCols(mu).row(j).array().pow(2) * w.positive.transpose().array() * c(j)).sum();
+			
+			if (m.active)
+				rank_mu += (pop.Z.rightCols(pop.Z.cols() - mu).row(j).array().pow(2) * w.negative.transpose().array() * c(j)).sum();
+
+
+			c(j) = decay_c * c(j) + w.c1 * pow(pc(j), 2) + w.cmu * rank_mu;
+			d(j) = std::sqrt(c(j));
+		}
+		
+		
+		return true;
+	}
+
+	void SeperableAdaptation::restart(const parameters::Settings& settings) {
+		Adaptation::restart(settings);
+		c.setOnes();
+		d.setOnes();
+		pc.setZero();
+	}
+
+	Vector SeperableAdaptation::compute_y(const Vector& zi) 
+	{
+		return d.array() * zi.array();
+	}
+
+	Vector SeperableAdaptation::invert_y(const Vector& yi)
+	{
+		return yi.array() / d.array();
 	}
 
 

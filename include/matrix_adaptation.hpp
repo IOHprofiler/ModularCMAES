@@ -109,11 +109,33 @@ namespace matrix_adaptation
 		Vector invert_y(const Vector&) override;
 	};
 
-	struct SeperableAdaptation : CovarianceAdaptation
+	struct SeperableAdaptation : Adaptation
 	{
-		using CovarianceAdaptation::CovarianceAdaptation;
+		Vector pc, d, c;
+		bool hs;
+		// B remains I
+		
+		
+		SeperableAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
+			pc(Vector::Zero(dim)),
+			d(Vector::Ones(dim)),
+			c(Vector::Ones(dim)),
+			hs(true)
+		{
+		}
 
-		bool perform_eigendecomposition(const parameters::Settings& settings) override;
+		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
+			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+			size_t mu, size_t lambda) override;
+
+		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+			const parameters::Settings& settings, parameters::Stats& stats) override;
+
+		void restart(const parameters::Settings& settings) override;
+
+		Vector compute_y(const Vector&) override;
+
+		Vector invert_y(const Vector&) override;
 	};
 
 
