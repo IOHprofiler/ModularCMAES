@@ -181,7 +181,6 @@ namespace matrix_adaptation
 			if (m.active)
 				rank_mu += (pop.Z.rightCols(pop.Z.cols() - mu).row(j).array().pow(2) * w.negative.transpose().array() * c(j)).sum();
 
-
 			c(j) = decay_c * c(j) + w.c1 * pow(pc(j), 2) + w.cmu * rank_mu;
 			d(j) = std::sqrt(c(j));
 		}
@@ -352,8 +351,13 @@ namespace matrix_adaptation
 
 		A *= std::sqrt(1 - w.c1 - w.cmu);
 		A = rank_one_update(A, w.c1, pc);
-		for (auto i = 0; i < mu; i++)
+		for (auto i = 0; i < mu; i++) 
 			A = rank_one_update(A, w.cmu * w.positive(i), pop.Y.col(i));
+
+		if (m.active)
+			for (auto i = 0; i < pop.Y.cols() - mu; i++)
+				A = rank_one_update(A, w.cmu * w.negative(i), pop.Y.col(mu + i));
+
 		return true;
 	}
 
@@ -370,7 +374,6 @@ namespace matrix_adaptation
 
 	Vector CholeskyAdaptation::invert_y(const Vector& yi)
 	{
-		//TODO: check is this correct
 		return A.triangularView<Eigen::Lower>().solve(yi);
 	}
 

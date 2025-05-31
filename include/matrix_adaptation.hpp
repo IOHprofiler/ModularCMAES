@@ -113,8 +113,6 @@ namespace matrix_adaptation
 	{
 		Vector pc, d, c;
 		bool hs;
-		// B remains I
-		
 		
 		SeperableAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
 			pc(Vector::Zero(dim)),

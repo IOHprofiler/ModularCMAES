@@ -10,7 +10,7 @@ using std::chrono::duration;
 using std::chrono::milliseconds;
 
 
-static int dim = 100;
+static int dim = 50;
 static bool rotated = false;
 static size_t budget = dim * 5000;
 
@@ -60,8 +60,8 @@ void run_modcma(parameters::MatrixAdaptationType mat_t)
 	rng::set_seed(42);
 	parameters::Modules m;
 	m.matrix_adaptation = mat_t;
-	m.elitist = false;
-	m.active = true;
+	m.elitist = true;
+	m.active = false;
 
 	parameters::Settings settings(
 		dim, 
@@ -93,8 +93,8 @@ void run_modcma(parameters::MatrixAdaptationType mat_t)
 int main()
 {
 	//run_modcma(parameters::MatrixAdaptationType::NONE);
-	run_modcma(parameters::MatrixAdaptationType::SEPERABLE);
+	//run_modcma(parameters::MatrixAdaptationType::SEPERABLE);
 	//run_modcma(parameters::MatrixAdaptationType::MATRIX);
 	run_modcma(parameters::MatrixAdaptationType::CHOLESKY);
-	run_modcma(parameters::MatrixAdaptationType::COVARIANCE);
+	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE);
 }
