@@ -235,13 +235,12 @@ namespace matrix_adaptation
 		stats.last_update = stats.t;
 		stats.n_updates++;
 
-		const auto& I = Matrix::Identity(settings.dim, settings.dim);
-
 		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
 		const auto& popZ = m.active ? pop.Z : pop.Z.leftCols(mu);
 		const auto& Z = popZ * weights.asDiagonal() * popZ.transpose();
-		const auto& ZwI = (w.cmu / 2.0) * (Z - I);
-		const auto& ssI = (w.c1 / 2.0) * (ps * ps.transpose() - I);
+
+		ZwI.noalias() = (w.cmu / 2.0) * (Z - I);
+		ssI.noalias() = (w.c1 / 2.0) * (ps * ps.transpose() - I);
 
 		M = M * (I + ssI + ZwI);
 		M_inv = (I - ssI - ZwI + epsilon * I) * M_inv;
@@ -319,6 +318,7 @@ namespace matrix_adaptation
 	{
 		Adaptation::restart(settings);
 		A = Matrix::Identity(settings.dim, settings.dim);
+		pc.setZero();
 	}
 
 	Vector CholeskyAdaptation::compute_y(const Vector& zi)

@@ -63,9 +63,14 @@ namespace parameters
             return "MXNES";
         case StepSizeAdaptation::LPXNES:
             return "LPXNES";
-        default:
+        case StepSizeAdaptation::SR:
+            return "SR";
         case StepSizeAdaptation::PSR:
             return "PSR";
+        case StepSizeAdaptation::SA:
+            return "SA";
+        default:
+            return "unknown";
         }
     }
     inline std::string to_string(const CorrectionMethod &s)

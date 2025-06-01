@@ -44,7 +44,8 @@ namespace parameters
         MXNES,
         LPXNES,
         PSR,
-        SR
+        SR,
+        SA,
     };
 
     enum class CorrectionMethod

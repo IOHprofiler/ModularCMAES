@@ -20,15 +20,9 @@ namespace mutation
 		return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 0);
 	}
 
-	void CSA::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
-		Population& pop,
-		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 
-	{
-		sigma *= std::exp((w.cs / w.damps) * ((adaptation->ps.norm() / w.expected_length_z) - 1));
-	}
 
-	void CSA::mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p)
+	void Strategy::mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p)
 	{
 		ss->sample(sigma, p.pop);
 		p.bounds->n_out_of_bounds = 0;
@@ -53,9 +47,18 @@ namespace mutation
 		}
 	}
 
+	void CSA::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
+
+	{
+		sigma *= std::exp((w.cs / w.damps) * ((adaptation->ps.norm() / w.expected_length_z) - 1));
+	}
+
+
 	void TPA::mutate(FunctionType& objective, const size_t n_offspring_, parameters::Parameters& p)
 	{
-		CSA::mutate(objective, n_offspring_, p);
+		Strategy::mutate(objective, n_offspring_, p);
 
 		const auto f_pos = objective(p.adaptation->m + (p.mutation->sigma * p.adaptation->dm));
 		const auto f_neg = objective(p.adaptation->m + (p.mutation->sigma * -p.adaptation->dm));
@@ -163,7 +166,8 @@ namespace mutation
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		const auto z = std::exp(w.cs * pop.s.array().log().matrix().dot(w.clipped()));
+		const auto z = std::exp(
+			w.cs * pop.s.array().log().matrix().dot(w.clipped()));
 		sigma = std::pow(sigma, 1.0 - w.cs) * z;
 	}
 
@@ -173,6 +177,15 @@ namespace mutation
 	{
 		sigma *= std::exp((1 / w.damps) * ((stats.success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
 	}
+
+	void SA::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
+	{
+		sigma = pop.s.topRows(w.positive.rows()).transpose() * w.positive;
+	}
+
+
 
 
 	std::shared_ptr<Strategy> get(const parameters::Modules& m, const size_t mu, const Float d, const Float sigma)
@@ -187,7 +200,7 @@ namespace mutation
 			? std::make_shared<SequentialSelection>(m.mirrored, mu)
 			: std::make_shared<NoSequentialSelection>(m.mirrored, mu);
 
-		auto ss = (m.sample_sigma or m.ssa == StepSizeAdaptation::LPXNES)
+		auto ss = (m.sample_sigma or m.ssa == StepSizeAdaptation::LPXNES or m.ssa == StepSizeAdaptation::SA)
 			? std::make_shared<SigmaSampler>(d)
 			: std::make_shared<NoSigmaSampler>(d);
 
@@ -207,6 +220,8 @@ namespace mutation
 			return std::make_shared<PSR>(tc, sq, ss, sigma);
 		case StepSizeAdaptation::SR:
 			return std::make_shared<SR>(tc, sq, ss, sigma);
+		case StepSizeAdaptation::SA:
+			return std::make_shared<SA>(tc, sq, ss, sigma);
 		default:
 		case StepSizeAdaptation::CSA:
 			return std::make_shared<CSA>(tc, sq, ss, sigma);

@@ -160,7 +160,10 @@ namespace matrix_adaptation
 
 		MatrixAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
 			M(Matrix::Identity(dim, dim)),
-			M_inv(Matrix::Identity(dim, dim))
+			M_inv(Matrix::Identity(dim, dim)),
+			ZwI(Matrix::Identity(dim, dim)),
+			ssI(Matrix::Identity(dim, dim)),
+			I(Matrix::Identity(dim, dim))
 		{
 		}
 
@@ -176,6 +179,9 @@ namespace matrix_adaptation
 		Vector compute_y(const Vector&) override;
 
 		Vector invert_y(const Vector&) override;
+
+	private:
+		Matrix ZwI, ssI, I;
 	}; 
 
 	struct CholeskyAdaptation final : Adaptation
@@ -186,8 +192,7 @@ namespace matrix_adaptation
 		CholeskyAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) 
 			: Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
 			A(Matrix::Identity(dim, dim)),
-			pc(Vector::Zero(dim)),
-			A_prime(Matrix::Zero(dim, dim))
+			pc(Vector::Zero(dim))
 		{
 		}
 
@@ -209,8 +214,6 @@ namespace matrix_adaptation
 
 		Matrix rank_one_update(const Matrix& A, const Float beta, Vector a);
 
-	private:
-		Matrix A_prime;
 	};
 
 
