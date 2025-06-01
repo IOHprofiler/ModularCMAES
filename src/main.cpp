@@ -9,7 +9,7 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-static int dim = 30;
+static int dim = 50;
 static bool rotated = false;
 static size_t budget = dim * 10000;
 
@@ -66,7 +66,7 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 	parameters::Modules m;
 	m.matrix_adaptation = mat_t;
 	m.elitist = false;
-	m.active = true;
+	m.active = false;
 
 	parameters::Settings settings(
 		dim, 
@@ -83,8 +83,8 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 	FunctionType f = Ellipse(dim, rotated, fun_t);
 	while (cma.step(f))
 	{
-		if (cma.p->stats.global_best.y < 1e-9)
-			break;
+		/*if (cma.p->stats.global_best.y < 1e-9)
+			break;*/
 	}
 
 	std::cout << "modcmaes: " << parameters::to_string(mat_t) << std::defaultfloat;

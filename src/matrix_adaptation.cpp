@@ -283,31 +283,6 @@ namespace matrix_adaptation
 		return yi;
 	}
 
-
-	Matrix CholeskyAdaptation::rank_one_update(const Matrix& A, const Float beta, Vector a)
-	{
-		const auto d = a.size();
-		Float b = 1.0;
-		A_prime.setZero();
-
-		for (int j = 0; j < d; j++)
-		{
-			const Float aj2 = std::pow(a(j), 2);
-			const Float Ajj2 = std::pow(A(j, j), 2);
-			const Float gamma = Ajj2 * b + beta * aj2;
-
-			A_prime(j, j) = std::sqrt(Ajj2 + (beta / b) * aj2);
-
-			for (int k = j + 1; k < d; k++)
-			{
-				a(k) -= a(j) / A(j, j) * A(k, j);
-				A_prime(k, j) = A_prime(j, j) / A(j, j) * A(k, j) + A_prime(j, j) * beta * a(j) / gamma * a(k);
-			}
-			b += beta * aj2 / Ajj2;
-		}
-		return A_prime;
-	}
-
 	void CholeskyAdaptation::adapt_evolution_paths_inner(
 		const Population& pop,
 		const parameters::Weights& w,
@@ -327,13 +302,15 @@ namespace matrix_adaptation
 		stats.n_updates++;
 
 		A *= std::sqrt(1 - w.c1 - w.cmu);
-		A = rank_one_update(A, w.c1, pc);
+	
+		Eigen::internal::llt_rank_update_lower(A, pc, w.c1);
 		for (auto i = 0; i < mu; i++)
-			A = rank_one_update(A, w.cmu * w.positive(i), pop.Y.col(i));
+			Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * w.positive(i));
 
 		if (m.active)
 			for (auto i = 0; i < pop.Y.cols() - mu; i++)
-				A = rank_one_update(A, w.cmu * w.negative(i), pop.Y.col(mu + i));
+				Eigen::internal::llt_rank_update_lower(A, pop.Y.col(mu + i), w.cmu * w.negative(i));
+
 
 		return true;
 	}
