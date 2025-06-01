@@ -12,11 +12,15 @@ namespace parameters
         Vector negative;
 
         Float mueff, mueff_neg;
-        Float c1, cmu, cc;
+        Float c1, cmu, cc, cs;
+        Float damps;
+        Float sqrt_cc_mueff, sqrt_cs_mueff;
         Float lazy_update_interval;
         Float sigma_path_scale;
+        Float expected_length_z;
+        Float expected_length_ps;
 
-        Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings);
+        Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings, const Float expected_length_z);
 
         void weights_default(const size_t lambda);
 

@@ -24,13 +24,14 @@ namespace parameters
 
         Settings settings;
         Stats stats;
+        std::shared_ptr<sampling::Sampler> sampler;
+
         Weights weights;
 
         Population pop;
         Population old_pop;
 
         restart::Criteria criteria;
-        std::shared_ptr<sampling::Sampler> sampler;
         std::shared_ptr<matrix_adaptation::Adaptation> adaptation;
         std::shared_ptr<mutation::Strategy> mutation;
         std::shared_ptr<selection::Strategy> selection;

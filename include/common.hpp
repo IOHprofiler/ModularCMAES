@@ -341,4 +341,45 @@ namespace functions
 	Float ellipse(const Vector& x);
 	Float rosenbrock(const Vector& x);
 	Matrix random_rotation_matrix(int n, int seed);
+
+	enum ObjectiveFunction {
+		ELLIPSE,
+		ROSENBROCK,
+		SPHERE,
+		RASTRIGIN
+	};
+
+	inline FunctionType get(const ObjectiveFunction f)
+	{
+		switch (f)
+		{
+		case ELLIPSE:
+			return ellipse;
+		case RASTRIGIN:
+			return rastrigin;
+		case ROSENBROCK:
+			return rosenbrock;
+		case SPHERE:
+			return sphere;
+		default:
+			return sphere;
+		}
+	}
+
+	inline std::string to_string(const ObjectiveFunction f)
+	{
+		switch (f)
+		{
+		case ELLIPSE:
+			return "ellipse";
+		case RASTRIGIN:
+			return "rastrigin";
+		case ROSENBROCK:
+			return "rosenbrock";
+		case SPHERE:
+			return "sphere";
+		default:
+			return "unknown";
+		}
+	}
 }

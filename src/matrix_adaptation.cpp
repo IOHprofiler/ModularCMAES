@@ -10,56 +10,46 @@ namespace matrix_adaptation
 	}
 
 	void Adaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
-		const std::shared_ptr<mutation::Strategy>& mutation,
 		const Stats& stats, const size_t mu, const size_t lambda)
 	{
-		dm = (m - m_old) / mutation->sigma;
+		const auto sigma = pop.s.mean();
+		dm = (m - m_old) / sigma;
 		dz = pop.Z.leftCols(mu) * w.positive.head(mu);
-		adapt_evolution_paths_inner(pop, w, mutation, stats, mu, lambda);
+		adapt_evolution_paths_inner(pop, w, stats, mu, lambda);
 	}
 
 
 	void CovarianceAdaptation::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
-		const std::shared_ptr<mutation::Strategy>& mutation,
 		const Stats& stats, const size_t mu, const size_t lambda)
 	{
 		const auto& expr = constants::calc_eigv ? inv_root_C * dm : dz;
-		
-		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * expr);
+
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * expr);
 
 		const Float actual_ps_length = ps.norm() / sqrt(
-			1.0 - pow(1.0 - mutation->cs, 2.0 * (stats.evaluations / lambda)));
+			1.0 - pow(1.0 - w.cs, 2.0 * (stats.evaluations / lambda)));
 
-		const Float expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
-
-		hs = actual_ps_length < expected_ps_length;
-		pc = (1.0 - w.cc) * pc + (hs * sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
+		hs = actual_ps_length < w.expected_length_ps;
+		pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
 	}
 
 	void CovarianceAdaptation::adapt_covariance_matrix(const Weights& w, const Modules& m, const Population& pop,
 		const size_t mu)
 	{
-		const auto rank_one = w.c1 * pc * pc.transpose();
 		const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
-		const auto old_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * w.positive.sum())) * C;
+		const auto& rank_one = w.c1 * pc * pc.transpose();
 
-		if (m.active)
-		{
-			auto weights = w.weights.topRows(pop.Y.cols());
-			C = old_c + rank_one + w.cmu * ((pop.Y.array().rowwise() * weights.array().transpose()).matrix() * pop.Y.transpose());
-		}
-		else
-		{
-			C = old_c + rank_one + (w.cmu * ((pop.Y.leftCols(mu).array().rowwise() * w.positive.array().transpose()).matrix() * pop.Y.
-				leftCols(mu).transpose()));
-
-		}
+		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
+		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+		const auto& old_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum())) * C;
+		const auto& rank_mu = w.cmu * (popY * weights.asDiagonal() * popY.transpose());
+		C = old_c + rank_one + rank_mu;
 		C = 0.5 * (C + C.transpose().eval());
 	}
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
 	{
-		if (!constants::calc_eigv) 
+		if (!constants::calc_eigv)
 		{
 			const Eigen::LLT<Matrix> chol(C);
 			if (chol.info() != Eigen::Success)
@@ -74,8 +64,8 @@ namespace matrix_adaptation
 
 			A = chol.matrixL();
 			return true;
-		}		
-		
+		}
+
 		const Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(C);
 		if (eigen_solver.info() != Eigen::Success)
 		{
@@ -117,7 +107,7 @@ namespace matrix_adaptation
 			return perform_eigendecomposition(settings);
 		}
 		return true;
-	
+
 	}
 
 	void CovarianceAdaptation::restart(const Settings& settings)
@@ -141,7 +131,7 @@ namespace matrix_adaptation
 		if (!constants::calc_eigv) {
 			return A.triangularView<Eigen::Lower>().solve(yi);
 		}
-		
+
 		return (B.transpose() * yi).cwiseQuotient(d);
 	}
 
@@ -149,43 +139,40 @@ namespace matrix_adaptation
 	void SeperableAdaptation::adapt_evolution_paths_inner(
 		const Population& pop,
 		const parameters::Weights& w,
-		const std::shared_ptr<mutation::Strategy>& mutation,
 		const parameters::Stats& stats,
 		size_t mu, size_t lambda)
 	{
-		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * sqrt(w.mueff)) * dz);
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
 
 		const Float actual_ps_length = ps.norm() / sqrt(
-			1.0 - pow(1.0 - mutation->cs, 2.0 * (stats.evaluations / lambda)));
+			1.0 - pow(1.0 - w.cs, 2.0 * (stats.evaluations / lambda)));
 
-		const Float expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
+		hs = actual_ps_length < w.expected_length_ps;
 
-		hs = actual_ps_length < expected_ps_length;
-		pc = (1.0 - w.cc) * pc + (hs * sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
+		pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
 	}
 
 	bool SeperableAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 		const parameters::Settings& settings, parameters::Stats& stats)
 	{
-		
+
 		stats.last_update = stats.t;
 		stats.n_updates++;
 
 		const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
-		const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * w.positive.sum()));
 
-		for (auto j = 0; j < settings.dim; j++) 
+		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
+		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+		const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
+
+		for (auto j = 0; j < settings.dim; j++)
 		{
-			auto rank_mu = (pop.Z.leftCols(mu).row(j).array().pow(2) * w.positive.transpose().array() * c(j)).sum();
-			
-			if (m.active)
-				rank_mu += (pop.Z.rightCols(pop.Z.cols() - mu).row(j).array().pow(2) * w.negative.transpose().array() * c(j)).sum();
-
-			c(j) = decay_c * c(j) + w.c1 * pow(pc(j), 2) + w.cmu * rank_mu;
+			const auto rank_mu = (popY.row(j).array().pow(2) * weights.transpose().array()).sum();
+			c(j) = (decay_c * c(j)) + (w.c1 * pow(pc(j), 2)) + (w.cmu * rank_mu);
+			c(j) = std::max(c(j), 1e-12);
 			d(j) = std::sqrt(c(j));
 		}
-		
-		
+
 		return true;
 	}
 
@@ -196,7 +183,7 @@ namespace matrix_adaptation
 		pc.setZero();
 	}
 
-	Vector SeperableAdaptation::compute_y(const Vector& zi) 
+	Vector SeperableAdaptation::compute_y(const Vector& zi)
 	{
 		return d.array() * zi.array();
 	}
@@ -208,16 +195,15 @@ namespace matrix_adaptation
 
 
 	void OnePlusOneAdaptation::adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-		const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+		const parameters::Stats& stats,
 		size_t mu, size_t lambda)
 	{
 		if (!stats.has_improved)
 			return;
 
+		pc = (1.0 - w.cc) * pc;
 		if (stats.success_ratio < max_success_ratio)
-			pc = ((1.0 - w.cc) * pc) + (std::sqrt(w.cc * (2.0 - w.cc)) * pop.Y.col(0));
-		else
-			pc = (1.0 - w.cc) * pc;
+			pc += w.sqrt_cc_mueff * pop.Y.col(0);
 	}
 
 	bool OnePlusOneAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
@@ -236,39 +222,29 @@ namespace matrix_adaptation
 
 
 	void MatrixAdaptation::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
-	                                             const std::shared_ptr<mutation::Strategy>& mutation,
-	                                             const Stats& stats, const size_t mu, const size_t lambda)
+		const Stats& stats, const size_t mu, const size_t lambda)
 	{
-		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * dz);
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
 	}
 
 	bool MatrixAdaptation::adapt_matrix(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
-	                                    const Settings& settings, parameters::Stats& stats)
+		const Settings& settings, parameters::Stats& stats)
 	{
+		constexpr Float epsilon = 1e-10;
+
 		stats.last_update = stats.t;
 		stats.n_updates++;
-		
-		const auto old_m = (1. - (0.5 * w.c1) - (0.5 * w.cmu)) * M;
-		const auto scaled_ps = (0.5 * w.c1) * (M * ps) * ps.transpose();
 
-		const auto old_m_inv = (1. + (0.5 * w.c1) + (0.5 * w.cmu)) * M_inv;
-		const auto scaled_inv_ps = (0.5 * w.c1) * ps * (ps.transpose() * M);
+		const auto& I = Matrix::Identity(settings.dim, settings.dim);
 
-		if (m.active)
-		{
-			const auto scaled_weights = ((0.5 * w.cmu) * w.weights.topRows(pop.Y.cols())).array().transpose();
-			const auto scaled_y = (pop.Y.array().rowwise() * scaled_weights).matrix();
+		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
+		const auto& popZ = m.active ? pop.Z : pop.Z.leftCols(mu);
+		const auto& Z = popZ * weights.asDiagonal() * popZ.transpose();
+		const auto& ZwI = (w.cmu / 2.0) * (Z - I);
+		const auto& ssI = (w.c1 / 2.0) * (ps * ps.transpose() - I);
 
-			M = old_m + scaled_ps + scaled_y * pop.Z.transpose();
-			M_inv = old_m_inv - scaled_inv_ps - scaled_y * (pop.Z.transpose() * M_inv);
-		}
-		else
-		{
-			const auto scaled_weights = ((0.5 * w.cmu) * w.positive).array().transpose();
-			const auto scaled_y = (pop.Y.leftCols(mu).array().rowwise() * scaled_weights).matrix();
-			M = old_m + scaled_ps + scaled_y * pop.Z.leftCols(mu).transpose();
-			M_inv = old_m_inv - scaled_inv_ps - scaled_y * (pop.Z.leftCols(mu).transpose() * M_inv);
-		}
+		M = M * (I + ssI + ZwI);
+		M_inv = (I - ssI - ZwI + epsilon * I) * M_inv;
 		return true;
 	}
 
@@ -291,10 +267,9 @@ namespace matrix_adaptation
 
 
 	void None::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
-	                                 const std::shared_ptr<mutation::Strategy>& mutation, const
-	                                 Stats& stats, const size_t mu, const size_t lambda)
+		const Stats& stats, const size_t mu, const size_t lambda)
 	{
-		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * dz);
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
 	}
 
 	Vector None::compute_y(const Vector& zi)
@@ -322,8 +297,8 @@ namespace matrix_adaptation
 			const Float gamma = Ajj2 * b + beta * aj2;
 
 			A_prime(j, j) = std::sqrt(Ajj2 + (beta / b) * aj2);
-			
-			for (int k = j+1; k < d; k++)
+
+			for (int k = j + 1; k < d; k++)
 			{
 				a(k) -= a(j) / A(j, j) * A(k, j);
 				A_prime(k, j) = A_prime(j, j) / A(j, j) * A(k, j) + A_prime(j, j) * beta * a(j) / gamma * a(k);
@@ -333,25 +308,27 @@ namespace matrix_adaptation
 		return A_prime;
 	}
 
-	void CholeskyAdaptation::adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-		const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
-		size_t mu, size_t lambda)
+	void CholeskyAdaptation::adapt_evolution_paths_inner(
+		const Population& pop,
+		const parameters::Weights& w,
+		const parameters::Stats& stats,
+		size_t mu, size_t lambda
+	)
 	{
-		pc = (1.0 - w.cc) * pc + (std::sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
-		ps = (1.0 - mutation->cs)* ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * 
-			A.triangularView<Eigen::Lower>().solve(dm));
+		pc = (1.0 - w.cc) * pc + (w.sqrt_cc_mueff) * dm;
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * A.triangularView<Eigen::Lower>().solve(dm));
 	}
 
 	bool CholeskyAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 		const parameters::Settings& settings, parameters::Stats& stats)
 	{
-		
+
 		stats.last_update = stats.t;
-		stats.n_updates++;		
+		stats.n_updates++;
 
 		A *= std::sqrt(1 - w.c1 - w.cmu);
 		A = rank_one_update(A, w.c1, pc);
-		for (auto i = 0; i < mu; i++) 
+		for (auto i = 0; i < mu; i++)
 			A = rank_one_update(A, w.cmu * w.positive(i), pop.Y.col(i));
 
 		if (m.active)
@@ -376,6 +353,5 @@ namespace matrix_adaptation
 	{
 		return A.triangularView<Eigen::Lower>().solve(yi);
 	}
-
 
 }

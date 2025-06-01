@@ -205,8 +205,8 @@ namespace restart
             criteria.push_back(std::make_shared<restart::MinDSigma>());
             criteria.push_back(std::make_shared<restart::MaxDSigma>());
 
-            if (modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE ||
-                modules.matrix_adaptation == parameters::MatrixAdaptationType::SEPERABLE)
+            //! TODO: make these compatible with other MA
+            if (modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE)
             {
                 criteria.push_back(std::make_shared<restart::TolX>());
                 criteria.push_back(std::make_shared<restart::ConditionC>());

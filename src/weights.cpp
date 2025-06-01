@@ -1,9 +1,54 @@
 #include "weights.hpp"
 
+
+
 namespace parameters
 {
-	Weights::Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings& settings)
-		: weights(lambda), positive(mu), negative(lambda - mu)
+	static Float get_default_cs(const StepSizeAdaptation ssa, const Float mueff, const Float d)
+	{
+		switch (ssa)
+		{
+		case StepSizeAdaptation::XNES:
+			return mueff / (2.0 * std::log(std::max(Float{ 2. }, d)) * sqrt(d));
+		case StepSizeAdaptation::MXNES:
+			return 1.0;
+		case StepSizeAdaptation::LPXNES:
+			return 9.0 * mueff / (10.0 * sqrt(d));
+		case StepSizeAdaptation::PSR:
+			return 0.9;
+		case StepSizeAdaptation::SR:
+			return 1.0 / 12.0;
+		case StepSizeAdaptation::CSA:
+			return (mueff + 2.0) / (d + mueff + 5.0);
+		default:
+			return 0.3;
+		}
+	}
+
+	static Float get_default_damps(const StepSizeAdaptation ssa, const Float mueff, const Float d, const Float cs)
+	{
+		switch (ssa)
+		{
+		case StepSizeAdaptation::SR:
+			return 1.0 + (d / 2.0);
+		case StepSizeAdaptation::CSA:
+		{
+			const Float rhs = std::sqrt((mueff - Float(1.0)) / (d + 1)) - 1;
+			return 1.0 + (2.0 * std::max(Float(0.0), rhs) + cs);
+		}
+		default:
+			return 0.0;
+		}
+	}
+	
+	Weights::Weights(
+		const size_t dim, 
+		const size_t mu, 
+		const size_t lambda, 
+		const Settings& settings,
+		const Float expected_length_z
+)
+		: weights(lambda), positive(mu), negative(lambda - mu), expected_length_z(expected_length_z)
 	{
 		const Float d = static_cast<Float>(dim);
 		switch (settings.modules.weights)
@@ -51,7 +96,17 @@ namespace parameters
 		weights << positive, negative;
 
 		lazy_update_interval = 1.0 / (c1 + cmu + 1e-23) / d / 10.0;
+
+		cs = settings.cs.value_or(get_default_cs(settings.modules.ssa, mueff, d));//
+		damps = get_default_damps(settings.modules.ssa, mueff, d, cs);
+		sqrt_cs_mueff = std::sqrt(cs * (2.0 - cs) * mueff);
+		sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff);
+
+		expected_length_ps = (1.4 + (2.0 / (d + 1.0))) * expected_length_z;
 	}
+
+	
+
 
 	void Weights::weights_default(const size_t lambda)
 	{

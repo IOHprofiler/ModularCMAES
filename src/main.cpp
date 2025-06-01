@@ -9,18 +9,23 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-
-static int dim = 50;
+static int dim = 30;
 static bool rotated = false;
-static size_t budget = dim * 5000;
+static size_t budget = dim * 10000;
+
+
+
 
 struct Ellipse
 {
-	size_t evals = 0;
+	size_t evals;
 	Matrix R;
+	FunctionType function;
 
-	Ellipse(const int dim, const bool rotated = false) :
-		R{ rotated ? functions::random_rotation_matrix(dim, 1) : Matrix::Identity(dim, dim) }
+	Ellipse(const int dim, const bool rotated, const functions::ObjectiveFunction ft) :
+		evals(0),
+		R{ rotated ? functions::random_rotation_matrix(dim, 1) : Matrix::Identity(dim, dim) },
+		function(functions::get(ft))
 	{
 	}
 
@@ -28,7 +33,7 @@ struct Ellipse
 	{
 		evals++;
 		const auto x_shift = R * (x.array() - 1.).matrix();
-		return functions::ellipse(x_shift);
+		return function(x_shift);
 	}
 };
 
@@ -55,13 +60,13 @@ struct Timer
 };
 
 
-void run_modcma(parameters::MatrixAdaptationType mat_t)
+void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunction fun_t)
 {
 	rng::set_seed(42);
 	parameters::Modules m;
 	m.matrix_adaptation = mat_t;
-	m.elitist = true;
-	m.active = false;
+	m.elitist = false;
+	m.active = true;
 
 	parameters::Settings settings(
 		dim, 
@@ -69,32 +74,44 @@ void run_modcma(parameters::MatrixAdaptationType mat_t)
 		-std::numeric_limits<double>::infinity(),
 		std::nullopt, 
 		budget, 
-		2.0
+		0.1
 	);
 	auto p = std::make_shared<parameters::Parameters>(settings);
 	auto cma = ModularCMAES(p);
 
 	Timer t;
-	FunctionType f = Ellipse(dim, rotated);
+	FunctionType f = Ellipse(dim, rotated, fun_t);
 	while (cma.step(f))
 	{
-		if (cma.p->stats.global_best.y < 1e-8)
+		if (cma.p->stats.global_best.y < 1e-9)
 			break;
 	}
 
-	std::cout << "modcmaes: " << parameters::to_string(mat_t) << "\n" << std::defaultfloat;
-	std::cout << "evals: " << cma.p->stats.evaluations << std::endl;
+	std::cout << "modcmaes: " << parameters::to_string(mat_t) << std::defaultfloat;
+	if (m.active)
+		std::cout << " ACTIVE";
+	
+	if (m.elitist)
+		std::cout << " ELITIST";
+
+	std::cout << "\nfunction: " << functions::to_string(fun_t) << " " << dim << "D";
+	if (rotated)
+		std::cout << " (rotated)";
+	std::cout << "\nevals: " << cma.p->stats.evaluations << "/" << budget << std::endl;
 	std::cout << "iters: " << cma.p->stats.t << std::endl;
-	std::cout << "updates: " << cma.p->stats.n_updates << std::endl;
-	std::cout << "best_y: " << std::scientific << std::setprecision(3) << cma.p->stats.global_best.y << std::endl;
+	std::cout << "updates: " << cma.p->stats.n_updates << "\n" << std::scientific << std::setprecision(3);
+	std::cout << "sigma: " << cma.p->mutation->sigma << std::endl;
+	std::cout << "best_y: " << cma.p->stats.global_best.y << std::endl;
 	std::cout << "solved: " << std::boolalpha << (cma.p->stats.global_best.y < 1e-8) << std::endl;
 }
 
 int main()
 {
-	//run_modcma(parameters::MatrixAdaptationType::NONE);
-	//run_modcma(parameters::MatrixAdaptationType::SEPERABLE);
-	//run_modcma(parameters::MatrixAdaptationType::MATRIX);
-	run_modcma(parameters::MatrixAdaptationType::CHOLESKY);
-	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE);
+	auto ft = functions::ELLIPSE;
+	
+	run_modcma(parameters::MatrixAdaptationType::NONE, ft);
+	run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ft);
+	run_modcma(parameters::MatrixAdaptationType::MATRIX, ft);
+	run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft);
+	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ft);
 }

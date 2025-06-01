@@ -5,8 +5,8 @@
 
 namespace mutation
 {
-	Vector ThresholdConvergence::scale(const Vector &zi, const Float diameter, const size_t budget,
-									   const size_t evaluations)
+	Vector ThresholdConvergence::scale(const Vector& zi, const Float diameter, const size_t budget,
+		const size_t evaluations)
 	{
 		const Float t = init_threshold * diameter * pow(static_cast<Float>(budget - evaluations) / static_cast<Float>(budget), decay_factor);
 
@@ -15,25 +15,25 @@ namespace mutation
 		return zi;
 	}
 
-	bool SequentialSelection::break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror &m)
+	bool SequentialSelection::break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror& m)
 	{
 		return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 0);
 	}
 
-	void CSA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
-					Population &pop,
-					const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+	void CSA::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 
 	{
-		sigma *= std::exp((cs / damps) * ((adaptation->ps.norm() / expected_length_z) - 1));
+		sigma *= std::exp((w.cs / w.damps) * ((adaptation->ps.norm() / w.expected_length_z) - 1));
 	}
 
-	void CSA::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
+	void CSA::mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p)
 	{
 		ss->sample(sigma, p.pop);
 		p.bounds->n_out_of_bounds = 0;
 		p.repelling->prepare_sampling(p);
-		
+
 		for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
 		{
 			size_t n_rej = 0;
@@ -44,8 +44,8 @@ namespace mutation
 				p.pop.X.col(i).noalias() = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
 				p.bounds->correct(i, p);
 			} while (
-				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE && n_rej++ < 5*p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X.col(i)).any()) || p.repelling->is_rejected(p.pop.X.col(i), p));
-			
+				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE && n_rej++ < 5 * p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X.col(i)).any()) || p.repelling->is_rejected(p.pop.X.col(i), p));
+
 			p.pop.f(i) = objective(p.pop.X.col(i));
 			p.stats.evaluations++;
 			if (sq->break_conditions(i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored))
@@ -53,7 +53,7 @@ namespace mutation
 		}
 	}
 
-	void TPA::mutate(FunctionType &objective, const size_t n_offspring_, parameters::Parameters &p)
+	void TPA::mutate(FunctionType& objective, const size_t n_offspring_, parameters::Parameters& p)
 	{
 		CSA::mutate(objective, n_offspring_, p);
 
@@ -63,25 +63,25 @@ namespace mutation
 		this->rank_tpa = f_neg < f_pos ? -a_tpa : a_tpa + b_tpa;
 	}
 
-	void TPA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
-					Population &pop,
-					const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+	void TPA::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		s = ((1.0 - cs) * s) + (cs * this->rank_tpa);
+		s = ((1.0 - w.cs) * s) + (w.cs * this->rank_tpa);
 		sigma *= std::exp(s);
 	}
 
 	//! Assumes the vector to be arready sorted
-	Float median(const Vector &x)
+	Float median(const Vector& x)
 	{
 		if (x.size() % 2 == 0)
 			return (x(x.size() / 2) + x(x.size() / 2 - 1)) / 2.0;
 		return x(x.size() / 2);
 	}
 
-	void MSR::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
-					Population &pop,
-					const Population &old_pop, const parameters::Stats &stats, const size_t lamb)
+	void MSR::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lamb)
 	{
 		const auto n = std::min(pop.n_finite(), old_pop.n_finite());
 		if (n != 0)
@@ -89,18 +89,18 @@ namespace mutation
 			const Float lambda = static_cast<Float>(lamb);
 			const Float k = (pop.f.array() < median(old_pop.f)).cast<Float>().sum();
 			const auto z = (2.0 / lambda) * (k - ((lambda + 1.0) / 2.0));
-			s = ((1.0 - cs) * s) + (cs * z);
+			s = ((1.0 - w.cs) * s) + (w.cs * z);
 			sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
 		}
 	}
 
 	//! Returns the indices of the elements of query in database
-	Vector searchsorted(const Vector &query, const Vector &database)
+	Vector searchsorted(const Vector& query, const Vector& database)
 	{
 		Vector res(query.size());
 		auto i = 0;
 
-		for (const auto &xi : query)
+		for (const auto& xi : query)
 		{
 			auto it = std::find(std::begin(database), std::end(database), xi);
 			res(i++) = static_cast<Float>(std::distance(std::begin(database), it));
@@ -108,9 +108,9 @@ namespace mutation
 		return res;
 	}
 
-	void PSR::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
-					Population &pop,
-					const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+	void PSR::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
 		const auto n = std::min(pop.n_finite(), old_pop.n_finite());
 		if (n != 0)
@@ -130,23 +130,23 @@ namespace mutation
 			}
 
 			const auto z = delta_r / std::pow(n, 2) - success_ratio;
-			s = (1.0 - cs) * s + (cs * z);
+			s = (1.0 - w.cs) * s + (w.cs * z);
 			sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
 		}
 	}
 
-	void XNES::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
-					 Population &pop,
-					 const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+	void XNES::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
 		// const Float z = ((std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(adaptation)->inv_root_C *  .Y).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
 		const Float z = ((pop.Z).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
-		sigma *= std::exp((cs / std::sqrt(adaptation->dd)) * z);
+		sigma *= std::exp((w.cs / std::sqrt(adaptation->dd)) * z);
 	}
 
-	void MXNES::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
-					  Population &pop,
-					  const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+	void MXNES::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
 		const auto n = std::min(pop.n_finite(), old_pop.n_finite());
 		if (n != 0)
@@ -155,75 +155,61 @@ namespace mutation
 			const auto mu = pop.n - lambda;
 			const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().matrix();
 			const auto z = (w.mueff * std::pow(dz.norm(), 2)) - adaptation->dd;
-			sigma *= std::exp((cs / adaptation->dd) * z);
+			sigma *= std::exp((w.cs / adaptation->dd) * z);
 		}
 	}
 
-	void LPXNES::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
-					   Population &pop,
-					   const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
+	void LPXNES::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+		Population& pop,
+		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		const auto z = std::exp(cs * pop.s.array().log().matrix().dot(w.clipped()));
-		sigma = std::pow(sigma, 1.0 - cs) * z;
+		const auto z = std::exp(w.cs * pop.s.array().log().matrix().dot(w.clipped()));
+		sigma = std::pow(sigma, 1.0 - w.cs) * z;
 	}
 
 	void SR::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		sigma *= std::exp((1 / damps) * ((stats.success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
+		sigma *= std::exp((1 / w.damps) * ((stats.success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
 	}
 
 
-	std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const Float mueff,
-								  const Float d, const Float sigma, const std::optional<Float> cs0,
-								  const Float expected_z)
+	std::shared_ptr<Strategy> get(const parameters::Modules& m, const size_t mu, const Float d, const Float sigma)
 	{
 		using namespace parameters;
 
 		auto tc = m.threshold_convergence
-					  ? std::make_shared<ThresholdConvergence>()
-					  : std::make_shared<NoThresholdConvergence>();
+			? std::make_shared<ThresholdConvergence>()
+			: std::make_shared<NoThresholdConvergence>();
 
 		auto sq = m.sequential_selection
-					  ? std::make_shared<SequentialSelection>(m.mirrored, mu)
-					  : std::make_shared<NoSequentialSelection>(m.mirrored, mu);
+			? std::make_shared<SequentialSelection>(m.mirrored, mu)
+			: std::make_shared<NoSequentialSelection>(m.mirrored, mu);
 
 		auto ss = (m.sample_sigma or m.ssa == StepSizeAdaptation::LPXNES)
-					  ? std::make_shared<SigmaSampler>(d)
-					  : std::make_shared<NoSigmaSampler>(d);
-
-		Float cs = cs0.value_or(0.3);
-		Float damps = 0.0;
+			? std::make_shared<SigmaSampler>(d)
+			: std::make_shared<NoSigmaSampler>(d);
 
 		switch (m.ssa)
 		{
 		case StepSizeAdaptation::TPA:
-			return std::make_shared<TPA>(tc, sq, ss, cs, damps, sigma, expected_z);
+			return std::make_shared<TPA>(tc, sq, ss, sigma);
 		case StepSizeAdaptation::MSR:
-			return std::make_shared<MSR>(tc, sq, ss, cs, damps, sigma, expected_z);
+			return std::make_shared<MSR>(tc, sq, ss, sigma);
 		case StepSizeAdaptation::XNES:
-			cs = cs0.value_or(mueff / (2.0 * std::log(std::max(Float{2.}, d)) * sqrt(d)));
-			return std::make_shared<XNES>(tc, sq, ss, cs, damps, sigma, expected_z);
+			return std::make_shared<XNES>(tc, sq, ss, sigma);
 		case StepSizeAdaptation::MXNES:
-			cs = cs0.value_or(1.);
-			return std::make_shared<MXNES>(tc, sq, ss, cs, damps, sigma, expected_z);
+			return std::make_shared<MXNES>(tc, sq, ss, sigma);
 		case StepSizeAdaptation::LPXNES:
-			cs = cs0.value_or(9.0 * mueff / (10.0 * sqrt(d)));
-			return std::make_shared<LPXNES>(tc, sq, ss, cs, damps, sigma, expected_z);
+			return std::make_shared<LPXNES>(tc, sq, ss, sigma);
 		case StepSizeAdaptation::PSR:
-			cs = cs0.value_or(.9);
-			return std::make_shared<PSR>(tc, sq, ss, cs, damps, sigma, expected_z);
+			return std::make_shared<PSR>(tc, sq, ss, sigma);
 		case StepSizeAdaptation::SR:
-			cs = cs0.value_or(1.0 / 12.0);
-			damps = 1.0 + (d / 2.0);
-			return std::make_shared<SR>(tc, sq, ss, cs, damps, sigma, expected_z);
+			return std::make_shared<SR>(tc, sq, ss, sigma);
 		default:
 		case StepSizeAdaptation::CSA:
-			cs = cs0.value_or((mueff + 2.0) / (d + mueff + 5.0));
-			const Float rhs = std::sqrt((mueff - Float(1.0)) / (d + 1)) - 1;
-			damps = 1.0 + (2.0 * std::max(Float(0.0), rhs) + cs);
-			return std::make_shared<CSA>(tc, sq, ss, cs, damps, sigma, expected_z);
+			return std::make_shared<CSA>(tc, sq, ss, sigma);
 		}
 	}
 }

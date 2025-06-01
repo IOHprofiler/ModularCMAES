@@ -22,11 +22,9 @@ namespace matrix_adaptation
 		}
 
 		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
-			const std::shared_ptr<mutation::Strategy>& mutation,
 			const parameters::Stats& stats, size_t mu, size_t lambda);
 
 		virtual void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const std::shared_ptr<mutation::Strategy>& mutation,
 			const parameters::Stats& stats, size_t mu, size_t lambda) = 0;
 
 		virtual bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
@@ -61,8 +59,10 @@ namespace matrix_adaptation
 			return true;
 		}
 
-		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+		void adapt_evolution_paths_inner(
+			const Population& pop, 
+			const parameters::Weights& w,
+		    const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
 
@@ -96,7 +96,7 @@ namespace matrix_adaptation
 		virtual bool perform_eigendecomposition(const parameters::Settings& settings);
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+			const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
@@ -123,7 +123,7 @@ namespace matrix_adaptation
 		}
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+			const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
@@ -144,7 +144,7 @@ namespace matrix_adaptation
 		using CovarianceAdaptation::CovarianceAdaptation;
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+			const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
@@ -165,7 +165,7 @@ namespace matrix_adaptation
 		}
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
+			 const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
@@ -191,9 +191,12 @@ namespace matrix_adaptation
 		{
 		}
 
-		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
-			size_t mu, size_t lambda) override;
+		void adapt_evolution_paths_inner(
+			const Population& pop, 
+			const parameters::Weights& w,
+			const parameters::Stats& stats,
+			size_t mu, size_t lambda
+		) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
