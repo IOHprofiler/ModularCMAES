@@ -128,6 +128,10 @@ namespace parameters
             return "COVARIANCE";
         case MatrixAdaptationType::CMSA:
             return "CMSA";
+        case MatrixAdaptationType::COVARIANCE_NO_EIGV:
+            return "COVARIANCE_NO_EIGV";
+        case MatrixAdaptationType::NATURAL_GRADIENT:
+            return "NATURAL_GRADIENT";
         default:
             return "unkown";
         }

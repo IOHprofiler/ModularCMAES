@@ -76,7 +76,9 @@ namespace parameters
         SEPERABLE,
         ONEPLUSONE,
         CHOLESKY,
-        CMSA
+        CMSA,
+        COVARIANCE_NO_EIGV,
+        NATURAL_GRADIENT
     };
 
     enum class CenterPlacement

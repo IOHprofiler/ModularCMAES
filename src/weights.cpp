@@ -8,20 +8,21 @@ namespace parameters
 	{
 		switch (ssa)
 		{
-		case StepSizeAdaptation::XNES:
-			return mueff / (2.0 * std::log(std::max(Float{ 2. }, d)) * sqrt(d));
-		case StepSizeAdaptation::MXNES:
-			return 1.0;
-		case StepSizeAdaptation::LPXNES:
-			return (9.0 * mueff) / (10.0 * sqrt(d));
-		case StepSizeAdaptation::PSR:
-			return 0.9;
-		case StepSizeAdaptation::SR:
-			return 1.0 / 12.0;
-		case StepSizeAdaptation::CSA:
-			return (mueff + 2.0) / (d + mueff + 5.0);
-		default:
-			return 0.3;
+			case StepSizeAdaptation::XNES:
+				//return 1.0 / std::sqrt(d);
+				return mueff / (2.0 * std::log(std::max(Float{ 2. }, d)) * sqrt(d));
+			case StepSizeAdaptation::MXNES:
+				return 1.0;
+			case StepSizeAdaptation::LPXNES:
+				return (9.0 * mueff) / (10.0 * sqrt(d));
+			case StepSizeAdaptation::PSR:
+				return 0.9;
+			case StepSizeAdaptation::SR:
+				return 1.0 / 12.0;
+			case StepSizeAdaptation::CSA:
+				return (mueff + 2.0) / (d + mueff + 5.0);
+			default:
+				return 0.3;
 		}
 	}
 
@@ -29,39 +30,39 @@ namespace parameters
 	{
 		switch (ssa)
 		{
-		case StepSizeAdaptation::SR:
-			return 1.0 + (d / 2.0);
-		case StepSizeAdaptation::CSA:
-		{
-			const Float rhs = std::sqrt((mueff - Float(1.0)) / (d + 1)) - 1;
-			return 1.0 + (2.0 * std::max(Float(0.0), rhs) + cs);
-		}
-		default:
-			return 0.0;
+			case StepSizeAdaptation::SR:
+				return 1.0 + (d / 2.0);
+			case StepSizeAdaptation::CSA:
+			{
+				const Float rhs = std::sqrt((mueff - Float(1.0)) / (d + 1)) - 1;
+				return 1.0 + (2.0 * std::max(Float(0.0), rhs) + cs);
+			}
+			default:
+				return 0.0;
 		}
 	}
-	
+
 	Weights::Weights(
-		const size_t dim, 
-		const size_t mu, 
-		const size_t lambda, 
+		const size_t dim,
+		const size_t mu,
+		const size_t lambda,
 		const Settings& settings,
 		const Float expected_length_z
-)
+	)
 		: weights(lambda), positive(mu), negative(lambda - mu), expected_length_z(expected_length_z)
 	{
 		const Float d = static_cast<Float>(dim);
 		switch (settings.modules.weights)
 		{
-		case RecombinationWeights::EQUAL:
-			weights_equal(mu);
-			break;
-		case RecombinationWeights::HALF_POWER_LAMBDA:
-			weights_half_power_lambda(mu, lambda);
-			break;
-		case RecombinationWeights::DEFAULT:
-			weights_default(lambda);
-			break;
+			case RecombinationWeights::EQUAL:
+				weights_equal(mu);
+				break;
+			case RecombinationWeights::HALF_POWER_LAMBDA:
+				weights_half_power_lambda(mu, lambda);
+				break;
+			case RecombinationWeights::DEFAULT:
+				weights_default(lambda);
+				break;
 		}
 
 		mueff = std::pow(positive.sum(), 2) / positive.dot(positive);
@@ -104,9 +105,9 @@ namespace parameters
 
 		expected_length_ps = (1.4 + (2.0 / (d + 1.0))) * expected_length_z;
 
-		beta = 1.0 / std::sqrt(2.0 * mueff) ? settings.modules.ssa != StepSizeAdaptation::LPXNES : 
-			std::log(2.0) / (std::sqrt(d) * std::log(d))
-		;
+		beta = 1.0 / std::sqrt(2.0 * mueff);
+		if (settings.modules.ssa == StepSizeAdaptation::LPXNES)
+			beta = std::log(2.0) / (std::sqrt(d) * std::log(d));
 
 	}
 

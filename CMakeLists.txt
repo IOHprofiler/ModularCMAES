@@ -14,7 +14,7 @@ add_executable(main ${SRC_FILES})
 
 target_include_directories(main PUBLIC 
 	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_SOURCE_DIR}/external
+	${PROJECT_SOURCE_DIR}/external 
 )
 
 if (MSVC)

@@ -20,8 +20,6 @@ namespace mutation
 		return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 0);
 	}
 
-
-
 	void Strategy::mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p)
 	{
 		ss->sample(sigma, p.pop, p.weights.beta);
@@ -143,10 +141,7 @@ namespace mutation
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		// const Float z = ((std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(adaptation)->inv_root_C *  .Y).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
-
-
-		const Float z = ((pop.Z).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
+		const Float z = ((pop.Z).colwise().squaredNorm().array() - adaptation->dd).matrix() * w.clipped();
 		sigma *= std::exp((w.cs / std::sqrt(adaptation->dd)) * z);
 	}
 
@@ -154,23 +149,16 @@ namespace mutation
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		const auto n = std::min(pop.n_finite(), old_pop.n_finite());
-		if (n != 0)
-		{
-			// const auto z = (w.mueff * std::pow((dynamic.inv_root_C * dynamic.dm).norm(), 2)) - dynamic.dd;
-			const auto mu = pop.n - lambda;
-			const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().matrix();
-			const auto z = (w.mueff * std::pow(dz.norm(), 2)) - adaptation->dd;
-			sigma *= std::exp((w.cs / adaptation->dd) * z);
-		}
+		const Float delta = (w.mueff * adaptation->dz.squaredNorm() - adaptation->dd);
+		sigma *= std::exp((w.cs / adaptation->dd) * delta);
 	}
 
 	void LPXNES::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		const auto z = std::exp(w.cs * pop.s.array().log().matrix().dot(w.clipped()));
-		sigma = std::pow(sigma, 1.0 - w.cs) * z;
+		const Float rel_log = (pop.s.array() / sigma).log().matrix().dot(w.clipped());
+		sigma *= std::exp(w.cs * rel_log);
 	}
 
 	void SR::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,

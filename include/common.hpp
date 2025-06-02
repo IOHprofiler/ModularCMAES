@@ -21,6 +21,7 @@
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
+#include <unsupported/Eigen/MatrixFunctions>
 
 using Float = double;
 using Matrix = Eigen::Matrix<Float, -1, -1>;

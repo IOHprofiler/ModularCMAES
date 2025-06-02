@@ -5,20 +5,6 @@ namespace matrix_adaptation
 	using namespace parameters;
 
 
-	static Matrix cholesky_decomposition(const Matrix& C)
-	{
-		const Eigen::LLT<Matrix> chol(C);
-		if(chol.info() != Eigen::Success)
-		{
-			std::cout << chol.info();
-
-
-			//raise std::exception(chol.info());
-			assert(false);
-		}
-		return chol.matrixL();
-	}
-
 	Vector Adaptation::invert_x(const Vector& xi, const Float sigma)
 	{
 		return (xi - m) / sigma;
@@ -33,14 +19,16 @@ namespace matrix_adaptation
 		adapt_evolution_paths_inner(pop, w, stats, mu, lambda);
 	}
 
+	void CovarianceAdaptation::adapt_ps(const Weights& w)
+	{
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * inv_root_C * dm);
+	}
+
 
 	void CovarianceAdaptation::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
 		const Stats& stats, const size_t mu, const size_t lambda)
 	{
-		const auto& expr = constants::calc_eigv ? inv_root_C * dm : dz;
-
-		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * expr);
-
+		adapt_ps(w);
 		const Float actual_ps_length = ps.norm() / sqrt(
 			1.0 - pow(1.0 - w.cs, 2.0 * (stats.evaluations / lambda)));
 
@@ -64,23 +52,6 @@ namespace matrix_adaptation
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
 	{
-		if(!constants::calc_eigv)
-		{
-			const Eigen::LLT<Matrix> chol(C);
-			if(chol.info() != Eigen::Success)
-			{
-				if(settings.verbose)
-				{
-					std::cout << "Cholesky solver failed, we need to restart reason:"
-						<< chol.info() << '\n';
-				}
-				return false;
-			}
-
-			A = chol.matrixL();
-			return true;
-		}
-
 		const Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(C);
 		if(eigen_solver.info() != Eigen::Success)
 		{
@@ -143,11 +114,6 @@ namespace matrix_adaptation
 
 	Vector CovarianceAdaptation::invert_y(const Vector& yi)
 	{
-		if(!constants::calc_eigv)
-		{
-			return A.triangularView<Eigen::Lower>().solve(yi);
-		}
-
 		return (B.transpose() * yi).cwiseQuotient(d);
 	}
 
@@ -392,6 +358,85 @@ namespace matrix_adaptation
 	}
 
 	Vector SelfAdaptation::invert_y(const Vector& yi)
+	{
+		return A.triangularView<Eigen::Lower>().solve(yi);
+	}
+
+
+	void CovarainceNoEigvAdaptation::adapt_ps(const Weights& w)
+	{
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
+	}
+
+	bool CovarainceNoEigvAdaptation::perform_eigendecomposition(const parameters::Settings& settings)
+	{
+		const Eigen::LLT<Matrix> chol(C);
+		if(chol.info() != Eigen::Success)
+		{
+			if(settings.verbose)
+			{
+				std::cout << "Cholesky solver failed, we need to restart reason:"
+					<< chol.info() << '\n';
+			}
+			return false;
+		}
+
+		A = chol.matrixL();
+		return true;
+	}
+
+	Vector CovarainceNoEigvAdaptation::invert_y(const Vector& yi)
+	{
+		return A.triangularView<Eigen::Lower>().solve(yi);
+	}
+
+	void NaturalGradientAdaptation::adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w, const parameters::Stats& stats, size_t mu, size_t lambda)
+	{
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * A.triangularView<Eigen::Lower>().solve(dm));
+	}
+
+	bool NaturalGradientAdaptation::adapt_matrix(
+		const parameters::Weights& w, const parameters::Modules& m,
+		const Population& pop, size_t mu, const parameters::Settings& settings, parameters::Stats& stats)
+	{
+
+		stats.last_update = stats.t;
+		stats.n_updates++;
+		static Float eta = 0.6 * (3 + std::log(settings.dim)) / std::pow(settings.dim, 1.5);
+
+		G.setZero();
+		const Matrix I = Matrix::Identity(settings.dim, settings.dim);
+		for(int i = 0; i < mu; ++i)
+		{
+			const auto& z = pop.Z.col(i);
+			G.noalias() += w.positive(i) * (z * z.transpose() - I);
+		}
+
+		// Remove isotropic (sigma-related) component: make G trace-free
+		G -= (G.trace() / dd) * I;
+
+		// Ensure symmetry for numerical stability
+		G = 0.5 * (G + G.transpose().eval());
+
+		// Apply the exponential update to A
+		A *= ((0.5 * eta) * G).exp();
+
+		return true;
+	}
+
+	void NaturalGradientAdaptation::restart(const parameters::Settings& settings)
+	{
+		Adaptation::restart(settings);
+		A = Matrix::Identity(settings.dim, settings.dim);
+		G = Matrix::Zero(settings.dim, settings.dim);
+	}
+
+	Vector NaturalGradientAdaptation::compute_y(const Vector& zi)
+	{
+		return A * zi;
+	}
+
+	Vector NaturalGradientAdaptation::invert_y(const Vector& yi)
 	{
 		return A.triangularView<Eigen::Lower>().solve(yi);
 	}

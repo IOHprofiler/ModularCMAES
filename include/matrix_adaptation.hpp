@@ -95,6 +95,8 @@ namespace matrix_adaptation
 
 		virtual bool perform_eigendecomposition(const parameters::Settings& settings);
 
+		virtual void adapt_ps(const parameters::Weights& w);
+		
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
@@ -241,6 +243,52 @@ namespace matrix_adaptation
 		Vector invert_y(const Vector&) override;
 	};
 
+	struct CovarainceNoEigvAdaptation final : CovarianceAdaptation
+	{
+		using CovarianceAdaptation::CovarianceAdaptation;
+
+		void adapt_ps(const parameters::Weights& w) override;
+
+		bool perform_eigendecomposition(const parameters::Settings& settings) override;
+
+		Vector invert_y(const Vector&) override;
+	};
+
+
+	struct NaturalGradientAdaptation final : Adaptation
+	{
+		Matrix A;
+		Matrix G;
+
+		NaturalGradientAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z)
+			: Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
+			A(Matrix::Identity(dim, dim)),
+			G(Matrix::Zero(dim, dim)),
+			I(Matrix::Identity(dim, dim))
+		{}
+
+		void adapt_evolution_paths_inner(
+			const Population& pop,
+			const parameters::Weights& w,
+			const parameters::Stats& stats,
+			size_t mu, size_t lambda
+		) override;
+
+		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+			const parameters::Settings& settings, parameters::Stats& stats) override;
+
+		void restart(const parameters::Settings& settings) override;
+
+		Vector compute_y(const Vector&) override;
+
+		Vector invert_y(const Vector&) override;
+
+	private:
+		const Matrix I;
+	};
+
+
+
 
 	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0, const Float expected_z)
 	{
@@ -257,9 +305,12 @@ namespace matrix_adaptation
 			return std::make_shared<OnePlusOneAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::CHOLESKY:
 			return std::make_shared<CholeskyAdaptation>(dim, x0, expected_z);
-
 		case MatrixAdaptationType::CMSA:
 			return std::make_shared<SelfAdaptation>(dim, x0, expected_z);
+		case MatrixAdaptationType::COVARIANCE_NO_EIGV:
+			return std::make_shared<CovarainceNoEigvAdaptation>(dim, x0, expected_z);
+		case MatrixAdaptationType::NATURAL_GRADIENT:
+			return std::make_shared<NaturalGradientAdaptation>(dim, x0, expected_z);
 		default:
 		case MatrixAdaptationType::COVARIANCE:
 			return std::make_shared<CovarianceAdaptation>(dim, x0, expected_z);
