@@ -392,7 +392,7 @@ namespace matrix_adaptation
 
 	void NaturalGradientAdaptation::adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w, const parameters::Stats& stats, size_t mu, size_t lambda)
 	{
-		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * A.triangularView<Eigen::Lower>().solve(dm));
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
 	}
 
 	bool NaturalGradientAdaptation::adapt_matrix(
@@ -410,20 +410,15 @@ namespace matrix_adaptation
 			const auto& z = pop.Z.col(i);
 			G.noalias() += w.positive(i) * (z * z.transpose() - I);
 		}
-
-		
-		//std::cout << A << std::endl << std::endl;
 		
 		// Remove isotropic (sigma-related) component: make G trace-free
 		G -= (G.trace() / dd) * I;
 
 		// Ensure symmetry for numerical stability
-		G = 0.5 * (G + G.transpose().eval());
+		G = 0.5 * (G + G.transpose().eval()); 
 
 		// Apply the exponential update to A
 		A *= ((0.5 * eta) * G).exp();
-
-		//std::cout << A << std::endl << std::endl << std::endl;
 
 		return true;
 	}
@@ -442,7 +437,8 @@ namespace matrix_adaptation
 
 	Vector NaturalGradientAdaptation::invert_y(const Vector& yi)
 	{
-		return A.triangularView<Eigen::Lower>().solve(yi);
+		//return A.triangularView<Eigen::Lower>().solve(yi);
+		return A.fullPivLu().solve(yi);
 	}
 
 }

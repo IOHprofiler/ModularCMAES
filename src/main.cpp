@@ -63,7 +63,7 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 	rng::set_seed(42);
 	parameters::Modules m;
 	m.matrix_adaptation = mat_t;
-	m.elitist = false;
+	m.elitist = true;
 	m.active = false;
 	m.ssa = ssa;
 	//m.weights = parameters::RecombinationWeights::EQUAL;
@@ -116,10 +116,10 @@ int main()
 	//run_modcma(parameters::MatrixAdaptationType::NONE, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ft);
 	//run_modcma(parameters::MatrixAdaptationType::MATRIX, ft, ssa);
-	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft);
+	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ft, ssa);
-	//run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::XNES);
-	run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::MXNES);
+	run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::XNES);
+	run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::LPXNES);
 	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ft, ssa);
 }
