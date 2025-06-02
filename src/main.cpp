@@ -9,7 +9,7 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-static int dim = 2;
+static int dim = 20;
 static bool rotated = true;
 static size_t budget = dim * 10000;
 
