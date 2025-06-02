@@ -124,9 +124,12 @@ namespace parameters
             return "NONE";
         case MatrixAdaptationType::SEPERABLE:
             return "SEPERABLE";
-        default:
         case MatrixAdaptationType::COVARIANCE:
             return "COVARIANCE";
+        case MatrixAdaptationType::CMSA:
+            return "CMSA";
+        default:
+            return "unkown";
         }
     }
 

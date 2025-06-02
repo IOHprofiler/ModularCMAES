@@ -4,6 +4,21 @@ namespace matrix_adaptation
 {
 	using namespace parameters;
 
+
+	static Matrix cholesky_decomposition(const Matrix& C)
+	{
+		const Eigen::LLT<Matrix> chol(C);
+		if(chol.info() != Eigen::Success)
+		{
+			std::cout << chol.info();
+
+
+			//raise std::exception(chol.info());
+			assert(false);
+		}
+		return chol.matrixL();
+	}
+
 	Vector Adaptation::invert_x(const Vector& xi, const Float sigma)
 	{
 		return (xi - m) / sigma;
@@ -49,12 +64,12 @@ namespace matrix_adaptation
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
 	{
-		if (!constants::calc_eigv)
+		if(!constants::calc_eigv)
 		{
 			const Eigen::LLT<Matrix> chol(C);
-			if (chol.info() != Eigen::Success)
+			if(chol.info() != Eigen::Success)
 			{
-				if (settings.verbose)
+				if(settings.verbose)
 				{
 					std::cout << "Cholesky solver failed, we need to restart reason:"
 						<< chol.info() << '\n';
@@ -67,9 +82,9 @@ namespace matrix_adaptation
 		}
 
 		const Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(C);
-		if (eigen_solver.info() != Eigen::Success)
+		if(eigen_solver.info() != Eigen::Success)
 		{
-			if (settings.verbose)
+			if(settings.verbose)
 			{
 				std::cout << "Eigenvalue solver failed, we need to restart reason:"
 					<< eigen_solver.info() << '\n';
@@ -79,9 +94,9 @@ namespace matrix_adaptation
 		d = eigen_solver.eigenvalues();
 		B = eigen_solver.eigenvectors();
 
-		if (d.minCoeff() < 0.0)
+		if(d.minCoeff() < 0.0)
 		{
-			if (settings.verbose)
+			if(settings.verbose)
 			{
 				std::cout << "Negative eigenvalues after decomposition, we need to restart.\n";
 			}
@@ -99,7 +114,7 @@ namespace matrix_adaptation
 		const Settings& settings, parameters::Stats& stats)
 	{
 
-		if (static_cast<Float>(stats.t) >= static_cast<Float>(stats.last_update) + w.lazy_update_interval)
+		if(static_cast<Float>(stats.t) >= static_cast<Float>(stats.last_update) + w.lazy_update_interval)
 		{
 			stats.last_update = stats.t;
 			stats.n_updates++;
@@ -128,7 +143,8 @@ namespace matrix_adaptation
 
 	Vector CovarianceAdaptation::invert_y(const Vector& yi)
 	{
-		if (!constants::calc_eigv) {
+		if(!constants::calc_eigv)
+		{
 			return A.triangularView<Eigen::Lower>().solve(yi);
 		}
 
@@ -165,7 +181,7 @@ namespace matrix_adaptation
 		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
 		const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
 
-		for (auto j = 0; j < settings.dim; j++)
+		for(auto j = 0; j < settings.dim; j++)
 		{
 			const auto rank_mu = (popY.row(j).array().pow(2) * weights.transpose().array()).sum();
 			c(j) = (decay_c * c(j)) + (w.c1 * pow(pc(j), 2)) + (w.cmu * rank_mu);
@@ -176,7 +192,8 @@ namespace matrix_adaptation
 		return true;
 	}
 
-	void SeperableAdaptation::restart(const parameters::Settings& settings) {
+	void SeperableAdaptation::restart(const parameters::Settings& settings)
+	{
 		Adaptation::restart(settings);
 		c.setOnes();
 		d.setOnes();
@@ -198,18 +215,18 @@ namespace matrix_adaptation
 		const parameters::Stats& stats,
 		size_t mu, size_t lambda)
 	{
-		if (!stats.has_improved)
+		if(!stats.has_improved)
 			return;
 
 		pc = (1.0 - w.cc) * pc;
-		if (stats.success_ratio < max_success_ratio)
+		if(stats.success_ratio < max_success_ratio)
 			pc += w.sqrt_cc_mueff * pop.Y.col(0);
 	}
 
 	bool OnePlusOneAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 		const parameters::Settings& settings, parameters::Stats& stats)
 	{
-		if (!stats.has_improved)
+		if(!stats.has_improved)
 		{
 			return true;
 		}
@@ -301,13 +318,13 @@ namespace matrix_adaptation
 		stats.n_updates++;
 
 		A *= std::sqrt(1 - w.c1 - w.cmu);
-	
+
 		Eigen::internal::llt_rank_update_lower(A, pc, w.c1);
-		for (auto i = 0; i < mu; i++)
+		for(auto i = 0; i < mu; i++)
 			Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * w.positive(i));
 
-		if (m.active)
-			for (auto i = 0; i < pop.Y.cols() - mu; i++)
+		if(m.active)
+			for(auto i = 0; i < pop.Y.cols() - mu; i++)
 				Eigen::internal::llt_rank_update_lower(A, pop.Y.col(mu + i), w.cmu * w.negative(i));
 
 
@@ -327,6 +344,54 @@ namespace matrix_adaptation
 	}
 
 	Vector CholeskyAdaptation::invert_y(const Vector& yi)
+	{
+		return A.triangularView<Eigen::Lower>().solve(yi);
+	}
+
+	void SelfAdaptation::adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w, const parameters::Stats& stats, size_t mu, size_t lambda)
+	{
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * A.triangularView<Eigen::Lower>().solve(dm));
+	}
+
+	bool SelfAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu, const parameters::Settings& settings, parameters::Stats& stats)
+	{
+		stats.last_update = stats.t;
+		stats.n_updates++;
+
+		const Float tc = 1.0 + (dd * (dd + 1)) / (2.0 * w.mueff);
+		const Float tc_inv = 1.0 / tc;
+
+		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
+		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+		const auto& Y = popY * weights.asDiagonal() * popY.transpose();
+
+		C = (1.0 - tc_inv) * C + (tc_inv * Y);
+		C = 0.5 * (C + C.transpose().eval());
+
+		const Eigen::LLT<Matrix> chol(C);
+		if(chol.info() != Eigen::Success)
+		{
+			if(settings.verbose)
+				std::cout << "t: " << stats.t << "Cholesky solver failed, we need to restart reason:"
+				<< chol.info() << '\n';
+			return false;
+		}
+		A = chol.matrixL();
+
+		return true;
+	}
+
+	void SelfAdaptation::restart(const parameters::Settings& settings)
+	{
+		A = Matrix::Identity(settings.dim, settings.dim);
+	}
+
+	Vector SelfAdaptation::compute_y(const Vector& zi)
+	{
+		return A * zi;
+	}
+
+	Vector SelfAdaptation::invert_y(const Vector& yi)
 	{
 		return A.triangularView<Eigen::Lower>().solve(yi);
 	}

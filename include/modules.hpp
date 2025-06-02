@@ -76,6 +76,7 @@ namespace parameters
         SEPERABLE,
         ONEPLUSONE,
         CHOLESKY,
+        CMSA
     };
 
     enum class CenterPlacement

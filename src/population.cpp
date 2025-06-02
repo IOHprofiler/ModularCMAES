@@ -8,6 +8,7 @@ void Population::sort()
 	Y = Y(Eigen::all, idx).eval();
 	f = f(idx).eval();
 	s = s(idx).eval();
+	t = t(idx).eval();
 }
 
 Population& Population::operator+=(const Population& other)
@@ -17,6 +18,7 @@ Population& Population::operator+=(const Population& other)
 	utils::hstack(Z, other.Z);
 	utils::concat(f, other.f);
 	utils::concat(s, other.s);
+	utils::concat(t, other.t);
 	n += other.n;
 	return *this;
 }
@@ -29,6 +31,7 @@ void Population::resize_cols(const size_t size)
 	Z.conservativeResize(d, n);
 	f.conservativeResize(n);
 	s.conservativeResize(n);
+	t.conservativeResize(n);
 }
 
 
@@ -39,6 +42,7 @@ void Population::keep_only(const std::vector<size_t>& idx)
 	Y = Y(Eigen::all, idx).eval();
 	f = f(idx).eval();
 	s = s(idx).eval();
+	t = t(idx).eval();
 	n = idx.size();
 }
 

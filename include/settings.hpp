@@ -69,6 +69,11 @@ namespace parameters
                 mu0 = lambda0 / 2;
             }
 
+            if(modules.ssa == StepSizeAdaptation::SA)
+            {
+                mu0 = std::min(lambda0 / 4, mu0);
+            }
+
             if (lambda0 == 1)
             {
                 mu0 = 1;

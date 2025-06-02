@@ -19,6 +19,7 @@ namespace parameters
         Float sigma_path_scale;
         Float expected_length_z;
         Float expected_length_ps;
+        Float beta;
 
         Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings, const Float expected_length_z);
 

@@ -13,7 +13,7 @@ namespace parameters
 		case StepSizeAdaptation::MXNES:
 			return 1.0;
 		case StepSizeAdaptation::LPXNES:
-			return 9.0 * mueff / (10.0 * sqrt(d));
+			return (9.0 * mueff) / (10.0 * sqrt(d));
 		case StepSizeAdaptation::PSR:
 			return 0.9;
 		case StepSizeAdaptation::SR:
@@ -103,9 +103,12 @@ namespace parameters
 		sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff);
 
 		expected_length_ps = (1.4 + (2.0 / (d + 1.0))) * expected_length_z;
-	}
 
-	
+		beta = 1.0 / std::sqrt(2.0 * mueff) ? settings.modules.ssa != StepSizeAdaptation::LPXNES : 
+			std::log(2.0) / (std::sqrt(d) * std::log(d))
+		;
+
+	}
 
 
 	void Weights::weights_default(const size_t lambda)

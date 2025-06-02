@@ -24,7 +24,7 @@ namespace mutation
 
 	void Strategy::mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p)
 	{
-		ss->sample(sigma, p.pop);
+		ss->sample(sigma, p.pop, p.weights.beta);
 		p.bounds->n_out_of_bounds = 0;
 		p.repelling->prepare_sampling(p);
 
@@ -33,6 +33,7 @@ namespace mutation
 			size_t n_rej = 0;
 			do
 			{
+				p.pop.t(i) = p.stats.t;
 				p.pop.Z.col(i).noalias() = p.mutation->tc->scale((*p.sampler)(), p.bounds->diameter, p.settings.budget, p.stats.evaluations);
 				p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));
 				p.pop.X.col(i).noalias() = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
@@ -143,6 +144,8 @@ namespace mutation
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
 		// const Float z = ((std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(adaptation)->inv_root_C *  .Y).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
+
+
 		const Float z = ((pop.Z).colwise().norm().array().pow(2.) - adaptation->dd).matrix() * w.clipped();
 		sigma *= std::exp((w.cs / std::sqrt(adaptation->dd)) * z);
 	}
@@ -166,8 +169,7 @@ namespace mutation
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		const auto z = std::exp(
-			w.cs * pop.s.array().log().matrix().dot(w.clipped()));
+		const auto z = std::exp(w.cs * pop.s.array().log().matrix().dot(w.clipped()));
 		sigma = std::pow(sigma, 1.0 - w.cs) * z;
 	}
 
@@ -182,10 +184,9 @@ namespace mutation
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
-		sigma = pop.s.topRows(w.positive.rows()).transpose() * w.positive;
+		const auto& sigma_l = pop.s.topRows(w.positive.rows());
+		sigma = std::exp((w.positive.array() * sigma_l.array().log()).sum());
 	}
-
-
 
 
 	std::shared_ptr<Strategy> get(const parameters::Modules& m, const size_t mu, const Float d, const Float sigma)

@@ -48,14 +48,12 @@ namespace mutation
 	public:
 		SequentialSelection(const parameters::Mirror& m, const size_t mu, const Float seq_cutoff_factor = 1.0) : seq_cutoff_factor(m == parameters::Mirror::PAIRWISE ? std::max(Float{ 2. }, seq_cutoff_factor) : seq_cutoff_factor),
 			seq_cutoff(static_cast<size_t>(mu* seq_cutoff_factor))
-		{
-		}
+		{}
 		virtual bool break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror& m);
 	};
 
 	struct NoSequentialSelection : SequentialSelection
 	{
-
 		using SequentialSelection::SequentialSelection;
 
 		bool break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror& m) override { return false; }
@@ -63,19 +61,15 @@ namespace mutation
 
 	struct SigmaSampler
 	{
-		Float beta;
+		sampling::GaussianTransformer sampler;
 
-		SigmaSampler(const Float d) : beta(
-			std::log(2.0) / std::max((std::sqrt(d) * std::log(d)), Float{ 1.0 })
+		SigmaSampler(const Float d) : sampler{ std::make_shared<sampling::Uniform>(1) }
+		{}
 
-			//1.0 / std::sqrt(2.0 * d)
-		
-		) {}
-
-		virtual void sample(const Float sigma, Population& pop) const
+		virtual void sample(const Float sigma, Population& pop, const Float tau)
 		{
-			pop.s = sampling::Random<std::lognormal_distribution<>>(pop.s.size(),
-				std::lognormal_distribution<>(std::log(sigma), beta))();
+			sampler.sampler->d = pop.s.rows();
+			pop.s.noalias() = (sigma * (tau * sampler().array()).exp()).matrix().eval();
 		}
 	};
 
@@ -83,7 +77,7 @@ namespace mutation
 	{
 		using SigmaSampler::SigmaSampler;
 
-		void sample(const Float sigma, Population& pop) const override
+		void sample(const Float sigma, Population& pop, const Float tau) override
 		{
 			pop.s.setConstant(sigma);
 		}
@@ -101,8 +95,8 @@ namespace mutation
 			const std::shared_ptr<ThresholdConvergence>& threshold_covergence,
 			const std::shared_ptr<SequentialSelection>& sequential_selection,
 			const std::shared_ptr<SigmaSampler>& sigma_sampler,
-			const Float sigma0) : tc(threshold_covergence), sq(sequential_selection), ss(sigma_sampler), sigma(sigma0) {
-		}
+			const Float sigma0) : tc(threshold_covergence), sq(sequential_selection), ss(sigma_sampler), sigma(sigma0)
+		{}
 
 		virtual void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p);
 
@@ -112,7 +106,7 @@ namespace mutation
 
 	struct CSA : Strategy
 	{
-		
+
 		using Strategy::Strategy;
 
 		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
@@ -189,7 +183,7 @@ namespace mutation
 	};
 
 
-	struct SA: Strategy
+	struct SA : Strategy
 	{
 		using Strategy::Strategy;
 

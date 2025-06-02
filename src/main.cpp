@@ -9,10 +9,9 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-static int dim = 5;
-static bool rotated = false;
+static int dim = 40;
+static bool rotated = true;
 static size_t budget = dim * 10000;
-
 
 
 
@@ -68,7 +67,7 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 	m.elitist = false;
 	m.active = false;
 	m.ssa = ssa;
-	m.weights = parameters::RecombinationWeights::EQUAL;
+	//m.weights = parameters::RecombinationWeights::EQUAL;
 
 	parameters::Settings settings(
 		dim, 
@@ -87,9 +86,6 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 	{
 		if (cma.p->stats.global_best.y < 1e-9)
 			break;
-
-		//std::cout << cma.p->stats.t << " ";/*
-		//std::cout << cma.p->mutation->sigma << std::endl;*/
 	}
 
 	std::cout << "modcmaes: " << parameters::to_string(mat_t) << std::defaultfloat;
@@ -114,11 +110,12 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 int main()
 {
 	auto ft = functions::ELLIPSE;
-	auto ssa = parameters::StepSizeAdaptation::SA;
+	auto ssa = parameters::StepSizeAdaptation::LPXNES;
 	
-	//run_modcma(parameters::MatrixAdaptationType::NONE, ft);
+	//run_modcma(parameters::MatrixAdaptationType::NONE, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ft);
 	//run_modcma(parameters::MatrixAdaptationType::MATRIX, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft);
+	//run_modcma(parameters::MatrixAdaptationType::CMSA, ft, ssa);
 	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ft, ssa);
 }

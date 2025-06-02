@@ -236,7 +236,6 @@ namespace sampling
             return (*sampler)();
         }
 
-    protected:
         std::shared_ptr<Sampler> sampler;
     };
 
