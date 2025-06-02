@@ -16,14 +16,13 @@ namespace parameters
         Float damps;
         Float sqrt_cc_mueff, sqrt_cs_mueff;
         Float lazy_update_interval;
-        Float sigma_path_scale;
         Float expected_length_z;
         Float expected_length_ps;
         Float beta;
 
         Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings, const Float expected_length_z);
 
-        void weights_default(const size_t lambda);
+        void weights_default(const size_t mu, const size_t lambda);
 
         void weights_equal(const size_t mu);
 

@@ -9,7 +9,7 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-static int dim = 5;
+static int dim = 2;
 static bool rotated = true;
 static size_t budget = dim * 10000;
 
@@ -118,8 +118,8 @@ int main()
 	//run_modcma(parameters::MatrixAdaptationType::MATRIX, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft);
 	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ft, ssa);
-	run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::XNES);
-	/*run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::MXNES);
-	run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::LPXNES);
-	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ft, ssa);*/
+	//run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::XNES);
+	run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::MXNES);
+	//run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, parameters::StepSizeAdaptation::LPXNES);
+	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ft, ssa);
 }

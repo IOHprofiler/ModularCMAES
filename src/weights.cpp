@@ -9,8 +9,8 @@ namespace parameters
 		switch (ssa)
 		{
 			case StepSizeAdaptation::XNES:
-				//return 1.0 / std::sqrt(d);
-				return mueff / (2.0 * std::log(std::max(Float{ 2. }, d)) * sqrt(d));
+				//return mueff / (2.0 * std::log(std::max(Float{ 2. }, d)) * sqrt(d));
+				return 0.01;
 			case StepSizeAdaptation::MXNES:
 				return 1.0;
 			case StepSizeAdaptation::LPXNES:
@@ -61,7 +61,7 @@ namespace parameters
 				weights_half_power_lambda(mu, lambda);
 				break;
 			case RecombinationWeights::DEFAULT:
-				weights_default(lambda);
+				weights_default(mu, lambda);
 				break;
 		}
 
@@ -108,13 +108,13 @@ namespace parameters
 		beta = 1.0 / std::sqrt(2.0 * mueff);
 		if (settings.modules.ssa == StepSizeAdaptation::LPXNES)
 			beta = std::log(2.0) / (std::sqrt(d) * std::log(d));
-
 	}
 
 
-	void Weights::weights_default(const size_t lambda)
+	void Weights::weights_default(const size_t mu, const size_t lambda)
 	{
-		const Float base = std::log((static_cast<Float>(lambda) + 1.) / 2.0);
+		const Float ratio = static_cast<Float>(lambda) / static_cast<Float>(mu);
+		const Float base = std::log((static_cast<Float>(lambda) + 1.) / ratio);
 		for (auto i = 0; i < positive.size(); ++i)
 			positive(i) = base - std::log(static_cast<Float>(i + 1));
 

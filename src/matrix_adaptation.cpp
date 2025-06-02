@@ -53,9 +53,9 @@ namespace matrix_adaptation
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
 	{
 		const Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(C);
-		if(eigen_solver.info() != Eigen::Success)
+		if (eigen_solver.info() != Eigen::Success)
 		{
-			if(settings.verbose)
+			if (settings.verbose)
 			{
 				std::cout << "Eigenvalue solver failed, we need to restart reason:"
 					<< eigen_solver.info() << '\n';
@@ -65,9 +65,9 @@ namespace matrix_adaptation
 		d = eigen_solver.eigenvalues();
 		B = eigen_solver.eigenvectors();
 
-		if(d.minCoeff() < 0.0)
+		if (d.minCoeff() < 0.0)
 		{
-			if(settings.verbose)
+			if (settings.verbose)
 			{
 				std::cout << "Negative eigenvalues after decomposition, we need to restart.\n";
 			}
@@ -85,7 +85,7 @@ namespace matrix_adaptation
 		const Settings& settings, parameters::Stats& stats)
 	{
 
-		if(static_cast<Float>(stats.t) >= static_cast<Float>(stats.last_update) + w.lazy_update_interval)
+		if (static_cast<Float>(stats.t) >= static_cast<Float>(stats.last_update) + w.lazy_update_interval)
 		{
 			stats.last_update = stats.t;
 			stats.n_updates++;
@@ -147,7 +147,7 @@ namespace matrix_adaptation
 		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
 		const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
 
-		for(auto j = 0; j < settings.dim; j++)
+		for (auto j = 0; j < settings.dim; j++)
 		{
 			const auto rank_mu = (popY.row(j).array().pow(2) * weights.transpose().array()).sum();
 			c(j) = (decay_c * c(j)) + (w.c1 * pow(pc(j), 2)) + (w.cmu * rank_mu);
@@ -181,18 +181,18 @@ namespace matrix_adaptation
 		const parameters::Stats& stats,
 		size_t mu, size_t lambda)
 	{
-		if(!stats.has_improved)
+		if (!stats.has_improved)
 			return;
 
 		pc = (1.0 - w.cc) * pc;
-		if(stats.success_ratio < max_success_ratio)
+		if (stats.success_ratio < max_success_ratio)
 			pc += w.sqrt_cc_mueff * pop.Y.col(0);
 	}
 
 	bool OnePlusOneAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 		const parameters::Settings& settings, parameters::Stats& stats)
 	{
-		if(!stats.has_improved)
+		if (!stats.has_improved)
 		{
 			return true;
 		}
@@ -286,11 +286,11 @@ namespace matrix_adaptation
 		A *= std::sqrt(1 - w.c1 - w.cmu);
 
 		Eigen::internal::llt_rank_update_lower(A, pc, w.c1);
-		for(auto i = 0; i < mu; i++)
+		for (auto i = 0; i < mu; i++)
 			Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * w.positive(i));
 
-		if(m.active)
-			for(auto i = 0; i < pop.Y.cols() - mu; i++)
+		if (m.active)
+			for (auto i = 0; i < pop.Y.cols() - mu; i++)
 				Eigen::internal::llt_rank_update_lower(A, pop.Y.col(mu + i), w.cmu * w.negative(i));
 
 
@@ -335,9 +335,9 @@ namespace matrix_adaptation
 		C = 0.5 * (C + C.transpose().eval());
 
 		const Eigen::LLT<Matrix> chol(C);
-		if(chol.info() != Eigen::Success)
+		if (chol.info() != Eigen::Success)
 		{
-			if(settings.verbose)
+			if (settings.verbose)
 				std::cout << "t: " << stats.t << "Cholesky solver failed, we need to restart reason:"
 				<< chol.info() << '\n';
 			return false;
@@ -371,9 +371,9 @@ namespace matrix_adaptation
 	bool CovarainceNoEigvAdaptation::perform_eigendecomposition(const parameters::Settings& settings)
 	{
 		const Eigen::LLT<Matrix> chol(C);
-		if(chol.info() != Eigen::Success)
+		if (chol.info() != Eigen::Success)
 		{
-			if(settings.verbose)
+			if (settings.verbose)
 			{
 				std::cout << "Cholesky solver failed, we need to restart reason:"
 					<< chol.info() << '\n';
@@ -405,13 +405,15 @@ namespace matrix_adaptation
 		static Float eta = 0.6 * (3 + std::log(settings.dim)) / std::pow(settings.dim, 1.5);
 
 		G.setZero();
-		const Matrix I = Matrix::Identity(settings.dim, settings.dim);
-		for(int i = 0; i < mu; ++i)
+		for (int i = 0; i < w.positive.rows(); ++i)
 		{
 			const auto& z = pop.Z.col(i);
 			G.noalias() += w.positive(i) * (z * z.transpose() - I);
 		}
 
+		
+		//std::cout << A << std::endl << std::endl;
+		
 		// Remove isotropic (sigma-related) component: make G trace-free
 		G -= (G.trace() / dd) * I;
 
@@ -420,6 +422,8 @@ namespace matrix_adaptation
 
 		// Apply the exponential update to A
 		A *= ((0.5 * eta) * G).exp();
+
+		//std::cout << A << std::endl << std::endl << std::endl;
 
 		return true;
 	}
