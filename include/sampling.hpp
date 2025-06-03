@@ -219,7 +219,7 @@ namespace sampling
         /**
          * Should be overwritten, transforms U(0,1) indep samples into something else
          */
-        [[nodiscard]] virtual Vector transform(Vector x) = 0;
+        [[nodiscard]] virtual Vector transform(const Vector& x) = 0;
 
         [[nodiscard]] virtual Vector operator()() override
         {
@@ -243,7 +243,7 @@ namespace sampling
     {
         IdentityTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
         
-        [[nodiscard]] virtual Vector transform(Vector x)
+        [[nodiscard]] virtual Vector transform(const Vector& x)
         {
             return x;
         }
@@ -261,11 +261,28 @@ namespace sampling
             return sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)));
         }
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] inline Vector box_muller(const Vector& u)
         {
-            for (auto &xi : x)
-                xi = ppf(xi);
-            return x;
+            int n = u.size();
+            int m = n / 2;
+
+            Vector z(n);
+            for (size_t i = 0; i < m; ++i) {
+                const Float r = std::sqrt(-2.0 * std::log(u(2 * i)));
+                const Float theta = 2.0 * M_PI * u(2 * i + 1);
+
+                z(2 * i) = r * std::cos(theta);
+                z(2 * i + 1) = r * std::sin(theta);
+            }
+            return z.head(n % 2 == 0 ? n : n - 1);
+        }   
+
+
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
+        {
+            if (constants::use_box_muller)
+                return box_muller(x);
+            return x.unaryExpr(&ppf);
         }
     };
 
@@ -275,11 +292,9 @@ namespace sampling
 
         UniformScaler(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-                xi = -scale + (2.0 * scale) * xi;
-            return x;
+            return (-scale + (2.0 * scale) * x.array()).matrix();
         }
     };
 
@@ -289,17 +304,11 @@ namespace sampling
         
         LaplaceTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-            {
-                if (xi < 0.5)
-                    xi = b * std::log(2.0 * xi);
-                else
-                    xi = -b * std::log(2.0 * (1.0 - xi));
-                
-            }
-            return x;
+            return ((x.array() < 0.5)
+                .select(b * (2.0 * x.array()).log(),
+                    -b * (2.0 * (1.0 - x.array())).log())).matrix();
         }
     };
 
@@ -309,11 +318,9 @@ namespace sampling
         
         LogisticTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-                xi = s * std::log(xi  / (1 - xi));
-            return x;
+            return (s * (x.array() / (1.0 - x.array())).log()).matrix();
         }
     };
 
@@ -334,11 +341,9 @@ namespace sampling
             return median_z;
         }
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-                xi = gamma * std::tan(M_PI * (xi - 0.5));
-            return x;
+            return (gamma * (M_PI * (x.array() - 0.5)).tan()).matrix();
         }
     };
 
@@ -346,14 +351,13 @@ namespace sampling
     {
         DoubleWeibullTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-                if (xi < 0.5)
-                    xi = -std::sqrt(-std::log(2.0 * xi));
-                else
-                    xi = std::sqrt(-std::log(2.0 * (1.0 - xi)));
-            return x;
+            return ((x.array() < 0.5)
+                .select(
+                    -(-((2.0 * x.array()).log())).sqrt(),
+                    (-((2.0 * (1.0 - x.array())).log())).sqrt()
+                )).matrix();
         }
     };
 

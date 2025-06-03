@@ -40,7 +40,7 @@ namespace constants
 	extern size_t cache_min_samples;
 	extern bool cache_samples;
 	extern bool clip_sigma; 
-	extern bool calc_eigv;
+	extern bool use_box_muller;
 }
 
 /**

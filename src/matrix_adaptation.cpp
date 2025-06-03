@@ -431,11 +431,11 @@ namespace matrix_adaptation
 		for (int i = 0; i < w.positive.rows(); ++i)
 		{
 			const auto& z = pop.Z.col(i);
-			G.noalias() += w.positive(i) * (z * z.transpose() - I);
+			G.noalias() += w.positive(i) * (z * z.transpose() - Matrix::Identity(settings.dim, settings.dim));
 		}
 		
 		// Remove isotropic (sigma-related) component: make G trace-free
-		G -= (G.trace() / dd) * I;
+		G.diagonal().array() -= (G.trace() / dd);
 
 		// Ensure symmetry for numerical stability
 		G = 0.5 * (G + G.transpose().eval()); 

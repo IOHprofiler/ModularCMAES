@@ -9,7 +9,7 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-static int dim = 50;
+static int dim = 100;
 static bool rotated = false;
 static size_t budget = dim * 10000;
 
@@ -114,9 +114,12 @@ int main()
 	
 	//run_modcma(parameters::MatrixAdaptationType::NONE, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ft, ssa);
-	run_modcma(parameters::MatrixAdaptationType::MATRIX, ft, ssa);
-	run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::MATRIX, ft, ssa);
+
+
+
+	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft, ssa);
 	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ft, ssa);
-	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ft, ssa);
+	run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, ssa);
 }
