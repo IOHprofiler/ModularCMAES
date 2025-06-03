@@ -23,7 +23,7 @@
 #include <Eigen/QR>
 #include <unsupported/Eigen/MatrixFunctions>
 
-using Float = double;
+using Float = long double;
 using Matrix = Eigen::Matrix<Float, -1, -1>;
 using Vector = Eigen::Matrix<Float, -1, 1>;
 using Array = Eigen::Array<Float, -1, 1>;

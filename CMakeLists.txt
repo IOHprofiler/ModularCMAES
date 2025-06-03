@@ -19,5 +19,8 @@ target_include_directories(main PUBLIC
 
 if (MSVC)
   target_compile_options(main PRIVATE /bigobj)
+
+else()
+  target_compile_options(main PRIVATE -march=native)
 endif() 
  

@@ -151,7 +151,7 @@ namespace matrix_adaptation
 		{
 			const auto rank_mu = (popY.row(j).array().pow(2) * weights.transpose().array()).sum();
 			c(j) = (decay_c * c(j)) + (w.c1 * pow(pc(j), 2)) + (w.cmu * rank_mu);
-			c(j) = std::max(c(j), 1e-12);
+			c(j) = std::max(c(j), Float{ 1e-12 });
 			d(j) = std::sqrt(c(j));
 		}
 
