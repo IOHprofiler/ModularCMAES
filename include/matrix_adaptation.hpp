@@ -163,9 +163,10 @@ namespace matrix_adaptation
 		MatrixAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
 			M(Matrix::Identity(dim, dim)),
 			M_inv(Matrix::Identity(dim, dim)),
-			ZwI(Matrix::Identity(dim, dim)),
+			/*ZwI(Matrix::Identity(dim, dim)),
 			ssI(Matrix::Identity(dim, dim)),
-			I(Matrix::Identity(dim, dim))
+			I(Matrix::Identity(dim, dim)), */
+			outdated_M_inv(false)
 		{
 		}
 
@@ -183,8 +184,12 @@ namespace matrix_adaptation
 		Vector invert_y(const Vector&) override;
 
 	private:
-		Matrix ZwI, ssI, I;
+		//Matrix ZwI, ssI, I;
+		bool outdated_M_inv;
 	}; 
+
+
+
 
 	struct CholeskyAdaptation final : Adaptation
 	{

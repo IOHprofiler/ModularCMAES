@@ -218,15 +218,33 @@ namespace matrix_adaptation
 		stats.last_update = stats.t;
 		stats.n_updates++;
 
-		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
+		const auto& weights = m.active ? w.weights.topRows(pop.Z.cols()) : w.positive;
 		const auto& popZ = m.active ? pop.Z : pop.Z.leftCols(mu);
-		const auto& Z = popZ * weights.asDiagonal() * popZ.transpose();
+		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
 
-		ZwI.noalias() = (w.cmu / 2.0) * (Z - I);
-		ssI.noalias() = (w.c1 / 2.0) * (ps * ps.transpose() - I);
+		// Normal MA-ES -> O(n^3)
+		// 
+		// const auto& Z = popZ * weights.asDiagonal() * popZ.transpose();
+		// ZwI.noalias() = (w.cmu / 2.0) * (Z - I);
+		// ssI.noalias() = (w.c1 / 2.0) * (ps * ps.transpose() - I);
+		// M = M * (I + ssI + ZwI);
+		// M_inv = (I - ssI - ZwI + epsilon * I) * M_inv;
 
-		M = M * (I + ssI + ZwI);
-		M_inv = (I - ssI - ZwI + epsilon * I) * M_inv;
+		// Fast MA-ES -> O(n^2)
+		const Float tau_1 = w.c1 / 2.0;
+		const Float tau_m = w.cmu / 2.0;
+		const Float decay_m = (1.0 - tau_1 - tau_m);
+
+		M = (decay_m * M) 
+			+ (tau_1 * (M * ps) * ps.transpose()) 
+			+ (popY * (tau_m * weights).asDiagonal() * popZ.transpose());
+
+		if (settings.modules.elitist)
+			M_inv = (decay_m * M_inv)
+				+ (tau_1 * ps * (ps.transpose() * M_inv))
+				+ ((popY * (tau_m * weights).asDiagonal()) * (popZ.transpose() * M_inv));
+		else
+			outdated_M_inv = true; // Rely on moore penrose pseudo-inv (only when needed)
 		return true;
 	}
 
@@ -235,6 +253,7 @@ namespace matrix_adaptation
 		Adaptation::restart(settings);
 		M = Matrix::Identity(settings.dim, settings.dim);
 		M_inv = Matrix::Identity(settings.dim, settings.dim);
+		outdated_M_inv = false;
 	}
 
 	Vector MatrixAdaptation::compute_y(const Vector& zi)
@@ -244,6 +263,10 @@ namespace matrix_adaptation
 
 	Vector MatrixAdaptation::invert_y(const Vector& yi)
 	{
+		if (outdated_M_inv) {
+			M_inv = M.completeOrthogonalDecomposition().pseudoInverse();
+			outdated_M_inv = false;
+		}
 		return M_inv * yi;
 	}
 
