@@ -115,7 +115,7 @@ int main()
 	//run_modcma(parameters::MatrixAdaptationType::NONE, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ft, ssa);
 	run_modcma(parameters::MatrixAdaptationType::MATRIX, ft, ssa);
-	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft, ssa);
+	run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft, ssa);
 	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, ssa);

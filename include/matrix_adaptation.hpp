@@ -264,12 +264,14 @@ namespace matrix_adaptation
 	{
 		Matrix A;
 		Matrix G;
+		Matrix A_inv;
 
 		NaturalGradientAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z)
 			: Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
 			A(Matrix::Identity(dim, dim)),
 			G(Matrix::Zero(dim, dim)),
-			I(Matrix::Identity(dim, dim))
+			A_inv(Matrix::Identity(dim, dim)),
+			outdated_A_inv(false)
 		{}
 
 		void adapt_evolution_paths_inner(
@@ -289,7 +291,7 @@ namespace matrix_adaptation
 		Vector invert_y(const Vector&) override;
 
 	private:
-		const Matrix I;
+		bool outdated_A_inv;
 	};
 
 

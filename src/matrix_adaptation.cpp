@@ -443,6 +443,8 @@ namespace matrix_adaptation
 		// Apply the exponential update to A
 		A *= ((0.5 * eta) * G).exp();
 
+		outdated_A_inv = true;
+
 		return true;
 	}
 
@@ -451,6 +453,7 @@ namespace matrix_adaptation
 		Adaptation::restart(settings);
 		A = Matrix::Identity(settings.dim, settings.dim);
 		G = Matrix::Zero(settings.dim, settings.dim);
+		outdated_A_inv = false;
 	}
 
 	Vector NaturalGradientAdaptation::compute_y(const Vector& zi)
@@ -460,8 +463,9 @@ namespace matrix_adaptation
 
 	Vector NaturalGradientAdaptation::invert_y(const Vector& yi)
 	{
-		//return A.triangularView<Eigen::Lower>().solve(yi);
-		return A.fullPivLu().solve(yi);
+		if (outdated_A_inv)
+			A_inv = A.inverse();
+		return A_inv * yi;
 	}
 
 }
