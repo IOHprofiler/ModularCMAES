@@ -148,7 +148,7 @@ namespace matrix_adaptation
 		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
 		const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
 
-		for (auto j = 0; j < settings.dim; j++)
+		for (size_t j = 0; j < settings.dim; j++)
 		{
 			const auto rank_mu = (popY.row(j).array().pow(2) * weights.transpose().array()).sum();
 			c(j) = (decay_c * c(j)) + (w.c1 * pow(pc(j), 2)) + (w.cmu * rank_mu);
@@ -214,17 +214,17 @@ namespace matrix_adaptation
 	bool MatrixAdaptation::adapt_matrix(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
 		const Settings& settings, parameters::Stats& stats)
 	{
-		constexpr Float epsilon = 1e-10;
-
+		
 		stats.last_update = stats.t;
 		stats.n_updates++;
-
+		
 		const auto& weights = m.active ? w.weights.topRows(pop.Z.cols()) : w.positive;
 		const auto& popZ = m.active ? pop.Z : pop.Z.leftCols(mu);
 		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
-
+		
 		// Normal MA-ES -> O(n^3)
 		// 
+		// constexpr Float epsilon = 1e-10;
 		// const auto& Z = popZ * weights.asDiagonal() * popZ.transpose();
 		// ZwI.noalias() = (w.cmu / 2.0) * (Z - I);
 		// ssI.noalias() = (w.c1 / 2.0) * (ps * ps.transpose() - I);
@@ -310,11 +310,11 @@ namespace matrix_adaptation
 		A *= std::sqrt(1 - w.c1 - w.cmu);
 
 		Eigen::internal::llt_rank_update_lower(A, pc, w.c1);
-		for (auto i = 0; i < mu; i++)
+		for (size_t i = 0; i < mu; i++)
 			Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * w.positive(i));
 
 		if (m.active)
-			for (auto i = 0; i < pop.Y.cols() - mu; i++)
+			for (size_t i = 0; i < pop.Y.cols() - mu; i++)
 				Eigen::internal::llt_rank_update_lower(A, pop.Y.col(mu + i), w.cmu * w.negative(i));
 
 

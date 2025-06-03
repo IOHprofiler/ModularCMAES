@@ -101,12 +101,11 @@ namespace mutation
 		virtual void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p);
 
 		virtual void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) = 0;
+			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) {};
 	};
 
 	struct CSA : Strategy
 	{
-
 		using Strategy::Strategy;
 
 		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,

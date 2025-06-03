@@ -1,11 +1,10 @@
 #pragma once
 
-
 #include "settings.hpp"
 
 namespace parameters
 {
-    struct Weights 
+    struct Weights
     {
         Vector weights;
         Vector positive;
@@ -20,7 +19,8 @@ namespace parameters
         Float expected_length_ps;
         Float beta;
 
-        Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings, const Float expected_length_z);
+        Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings, 
+            const Float expected_length_z);
 
         void weights_default(const size_t mu, const size_t lambda);
 

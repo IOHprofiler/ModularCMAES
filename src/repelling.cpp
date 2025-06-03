@@ -97,7 +97,7 @@ namespace repelling
 				  { return a.criticality > b.criticality; });
 
 		//! If it is not intialized
-		if (C_inv.cols() != p.settings.dim)
+		if (static_cast<size_t>(C_inv.cols()) != p.settings.dim)
 		{
 			C_inv = Matrix::Identity(p.settings.dim, p.settings.dim);
 		}

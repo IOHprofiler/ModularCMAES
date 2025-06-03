@@ -263,8 +263,8 @@ namespace sampling
 
         [[nodiscard]] inline Vector box_muller(const Vector& u)
         {
-            int n = u.size();
-            int m = n / 2;
+            size_t n = u.size();
+            size_t m = n / 2;
 
             Vector z(n);
             for (size_t i = 0; i < m; ++i) {

@@ -34,6 +34,7 @@ class Population:
     f: numpy.ndarray
     n: int
     s: numpy.ndarray
+    t: numpy.ndarray
     @overload
     def __init__(self, dimension: int, n: int) -> None: ...
     @overload

@@ -56,6 +56,7 @@ class Settings:
         cmu: float | None = ...,
         c1: float | None = ...,
         verbose: bool = ...,
+        always_compute_eigv: bool | False = ...
     ) -> None: ...
 
 class Solution:
@@ -66,23 +67,34 @@ class Solution:
     def __init__(self) -> None: ...
 
 class Stats:
-    centers: list[Solution]
-    current_avg: float
-    current_best: Solution
-    evaluations: int
-    global_best: Solution
-    has_improved: bool
-    solutions: list[Solution]
-    success_ratio: float
     t: int
+    evaluations: int
+    current_avg: float
+    solutions: list[Solution]
+    centers: list[Solution]
+    global_best: Solution
+    current_best: Solution
+    has_improved: bool
+    success_ratio: float
+    cs: float
+    last_update: int
+    n_updates: int
     def __init__(self) -> None: ...
 
 class Weights:
-    c1: float
-    cc: float
-    cmu: float
     mueff: float
     mueff_neg: float
+    c1: float
+    cmu: float
+    cc: float
+    cs: float
+    damps: float
+    sqrt_cc_mueff: float 
+    sqrt_cs_mueff: float 
+    lazy_update_interval: float 
+    expected_length_z: float 
+    expected_length_ps: float 
+    beta: float 
     negative: numpy.ndarray
     positive: numpy.ndarray
     weights: numpy.ndarray

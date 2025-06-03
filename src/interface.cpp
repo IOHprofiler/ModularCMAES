@@ -59,7 +59,8 @@ void define_options(py::module& main)
 		.value("MXNES", StepSizeAdaptation::MXNES)
 		.value("LPXNES", StepSizeAdaptation::LPXNES)
 		.value("PSR", StepSizeAdaptation::PSR)
-		.value("SR", StepSizeAdaptation::PSR)
+		.value("SR", StepSizeAdaptation::SR)
+		.value("SA", StepSizeAdaptation::SA)
 		.export_values();
 
 	py::enum_<CorrectionMethod>(m, "CorrectionMethod")
@@ -86,7 +87,10 @@ void define_options(py::module& main)
 		.value("MATRIX", MatrixAdaptationType::MATRIX)
 		.value("SEPERABLE", MatrixAdaptationType::SEPERABLE)
 		.value("ONEPLUSONE", MatrixAdaptationType::ONEPLUSONE)
-		.value("CHOLESKSY", MatrixAdaptationType::CHOLESKSY)
+		.value("CHOLESKY", MatrixAdaptationType::CHOLESKY)
+		.value("CMSA", MatrixAdaptationType::CMSA)
+		.value("COVARIANCE_NO_EIGV", MatrixAdaptationType::COVARIANCE_NO_EIGV)
+		.value("NATURAL_GRADIENT", MatrixAdaptationType::NATURAL_GRADIENT)
 		.export_values();
 
 	py::enum_<CenterPlacement>(m, "CenterPlacement")
@@ -329,14 +333,19 @@ void define_matrix_adaptation(py::module& main)
 		.def_readwrite("m", &Adaptation::m)
 		.def_readwrite("m_old", &Adaptation::m_old)
 		.def_readwrite("dm", &Adaptation::dm)
-		.def_readwrite("dz", &Adaptation::dz)
 		.def_readwrite("ps", &Adaptation::ps)
+		.def_readwrite("dz", &Adaptation::dz)
 		.def_readwrite("dd", &Adaptation::dd)
 		.def_readwrite("expected_length_z", &Adaptation::expected_length_z)
 		.def("adapt_evolution_paths", &Adaptation::adapt_evolution_paths,
 			py::arg("pop"),
 			py::arg("weights"),
-			py::arg("mutation"),
+			py::arg("stats"),
+			py::arg("mu"),
+			py::arg("lamb"))
+		.def("adapt_evolution_paths_innner", &Adaptation::adapt_evolution_paths_inner,
+			py::arg("pop"),
+			py::arg("weights"),
 			py::arg("stats"),
 			py::arg("mu"),
 			py::arg("lamb"))
@@ -365,6 +374,24 @@ void define_matrix_adaptation(py::module& main)
 				ss << ">";
 				return ss.str(); });
 
+	
+	py::class_<None, Adaptation, std::shared_ptr<None>>(m, "NoAdaptation")
+		.def(py::init<size_t, Vector, Float>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
+		.def("__repr__", [](None& dyn)
+			{
+				std::stringstream ss;
+				ss << std::boolalpha;
+				ss << "<NoAdaptation";
+				ss << " m: " << dyn.m.transpose();
+				ss << " m_old: " << dyn.m_old.transpose();
+				ss << " dm: " << dyn.dm.transpose();
+				ss << " ps: " << dyn.ps.transpose();
+				ss << " dd: " << dyn.dd;
+				ss << " expected_length_z: " << dyn.expected_length_z;
+				ss << ">";
+				return ss.str(); });		
+
+
 	py::class_<CovarianceAdaptation, Adaptation, std::shared_ptr<CovarianceAdaptation>>(m, "CovarianceAdaptation")
 		.def(py::init<size_t, Vector, Float>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
 		.def_readwrite("pc", &CovarianceAdaptation::pc)
@@ -380,6 +407,7 @@ void define_matrix_adaptation(py::module& main)
 			py::arg("population"),
 			py::arg("mu"))
 		.def("perform_eigendecomposition", &CovarianceAdaptation::perform_eigendecomposition, py::arg("stats"))
+		.def("adapt_ps", &CovarianceAdaptation::adapt_ps, py::arg("weights"))
 		.def("__repr__", [](CovarianceAdaptation& dyn)
 			{
 				std::stringstream ss;
@@ -400,8 +428,11 @@ void define_matrix_adaptation(py::module& main)
 				ss << ">";
 				return ss.str(); });
 
-	py::class_<SeperableAdaptation, CovarianceAdaptation, std::shared_ptr<SeperableAdaptation>>(m, "SeperableAdaptation")
+	py::class_<SeperableAdaptation, Adaptation, std::shared_ptr<SeperableAdaptation>>(m, "SeperableAdaptation")
 		.def(py::init<size_t, Vector, Float>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
+		.def_readwrite("c", &SeperableAdaptation::c)
+		.def_readwrite("pc", &SeperableAdaptation::pc)
+		.def_readwrite("d", &SeperableAdaptation::d)
 		.def("__repr__", [](SeperableAdaptation& dyn)
 			{
 				std::stringstream ss;
@@ -413,18 +444,14 @@ void define_matrix_adaptation(py::module& main)
 				ss << " pc: " << dyn.pc.transpose();
 				ss << " ps: " << dyn.ps.transpose();
 				ss << " d: " << dyn.d.transpose();
-				ss << " B: " << dyn.B;
-				ss << " C: " << dyn.C;
-				ss << " inv_root_C: " << dyn.inv_root_C;
-				ss << " dd: " << dyn.dd;
+				ss << " c: " << dyn.c.transpose();
 				ss << " expected_length_z: " << dyn.expected_length_z;
 				ss << " hs: " << dyn.hs;
 				ss << ">";
 				return ss.str(); });
 
 	py::class_<OnePlusOneAdaptation, CovarianceAdaptation, std::shared_ptr<OnePlusOneAdaptation>>(m, "OnePlusOneAdaptation")
-		.def(py::init<size_t, Vector, Float>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
-		.def("__repr__", [](SeperableAdaptation& dyn)
+		.def("__repr__", [](OnePlusOneAdaptation& dyn)
 			{
 				std::stringstream ss;
 				ss << std::boolalpha;
@@ -463,21 +490,25 @@ void define_matrix_adaptation(py::module& main)
 				ss << ">";
 				return ss.str(); });
 
-	py::class_<None, Adaptation, std::shared_ptr<None>>(m, "NoAdaptation")
+	py::class_<CholeskyAdaptation, Adaptation, std::shared_ptr<CholeskyAdaptation>>(m, "CholeskyAdaptation")
 		.def(py::init<size_t, Vector, Float>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
-		.def("__repr__", [](None& dyn)
-			{
-				std::stringstream ss;
-				ss << std::boolalpha;
-				ss << "<NoAdaptation";
-				ss << " m: " << dyn.m.transpose();
-				ss << " m_old: " << dyn.m_old.transpose();
-				ss << " dm: " << dyn.dm.transpose();
-				ss << " ps: " << dyn.ps.transpose();
-				ss << " dd: " << dyn.dd;
-				ss << " expected_length_z: " << dyn.expected_length_z;
-				ss << ">";
-				return ss.str(); });
+		.def_readwrite("A", &CholeskyAdaptation::A)
+		.def_readwrite("pc", &CholeskyAdaptation::pc);
+
+	py::class_<SelfAdaptation, Adaptation, std::shared_ptr<SelfAdaptation>>(m, "SelfAdaptation")
+		.def(py::init<size_t, Vector, Float>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
+		.def_readwrite("A", &SelfAdaptation::A)
+		.def_readwrite("C", &SelfAdaptation::C);
+
+	py::class_<CovarainceNoEigvAdaptation, CovarianceAdaptation, std::shared_ptr<CovarainceNoEigvAdaptation>>(m, "CovarainceNoEigvAdaptation")
+		;
+
+	py::class_<NaturalGradientAdaptation, Adaptation, std::shared_ptr<NaturalGradientAdaptation>>(m, "NaturalGradientAdaptation")
+		.def(py::init<size_t, Vector, Float>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
+		.def_readwrite("A", &NaturalGradientAdaptation::A)
+		.def_readwrite("A_inv", &NaturalGradientAdaptation::A_inv)
+		.def_readwrite("G", &NaturalGradientAdaptation::G);
+		
 }
 
 void define_parameters(py::module& main)
@@ -560,6 +591,7 @@ void define_parameters(py::module& main)
 		.def_readwrite("lazy_update_interval", &Weights::lazy_update_interval)
 		.def_readwrite("expected_length_z", &Weights::expected_length_z)
 		.def_readwrite("expected_length_ps", &Weights::expected_length_ps)
+		.def_readwrite("beta", &Weights::beta)
 		.def_readwrite("weights", &Weights::weights)
 		.def_readwrite("positive", &Weights::positive)
 		.def_readwrite("negative", &Weights::negative)
@@ -584,7 +616,7 @@ void define_parameters(py::module& main)
 			std::optional<size_t>, std::optional<size_t>, std::optional<Vector>,
 			std::optional<Vector>, std::optional<Vector>,
 			std::optional<Float>, std::optional<Float>, std::optional<Float>,
-			std::optional<Float>, bool>(),
+			std::optional<Float>, bool, bool>(),
 			py::arg("dim"),
 			py::arg("modules") = std::nullopt,
 			py::arg("target") = std::nullopt,
@@ -600,7 +632,9 @@ void define_parameters(py::module& main)
 			py::arg("cc") = std::nullopt,
 			py::arg("cmu") = std::nullopt,
 			py::arg("c1") = std::nullopt,
-			py::arg("verbose") = false)
+			py::arg("verbose") = false,
+			py::arg("always_compute_eigv") = false
+		)
 		.def_readonly("dim", &Settings::dim)
 		.def_readonly("modules", &Settings::modules)
 		.def_readwrite("target", &Settings::target)
@@ -646,10 +680,15 @@ void define_parameters(py::module& main)
 
 	using AdaptationType = std::variant<
 		std::shared_ptr<matrix_adaptation::MatrixAdaptation>,
-		std::shared_ptr<matrix_adaptation::CovarianceAdaptation>,
+		std::shared_ptr<matrix_adaptation::None>,
 		std::shared_ptr<matrix_adaptation::SeperableAdaptation>,
 		std::shared_ptr<matrix_adaptation::OnePlusOneAdaptation>,
-		std::shared_ptr<matrix_adaptation::None>>;
+		std::shared_ptr<matrix_adaptation::CholeskyAdaptation>,
+		std::shared_ptr<matrix_adaptation::SelfAdaptation>,
+		std::shared_ptr<matrix_adaptation::CovarainceNoEigvAdaptation>,
+		std::shared_ptr<matrix_adaptation::NaturalGradientAdaptation>,
+		std::shared_ptr<matrix_adaptation::CovarianceAdaptation>
+	>;		
 
 	py::class_<Parameters, std::shared_ptr<Parameters>>(main, "Parameters")
 		.def(py::init<size_t>(), py::arg("dimension"))
@@ -675,6 +714,14 @@ void define_parameters(py::module& main)
 					return std::dynamic_pointer_cast<matrix_adaptation::SeperableAdaptation>(self.adaptation);
 				case MatrixAdaptationType::ONEPLUSONE:
 					return std::dynamic_pointer_cast<matrix_adaptation::OnePlusOneAdaptation>(self.adaptation);
+				case MatrixAdaptationType::CHOLESKY:
+					return std::dynamic_pointer_cast<matrix_adaptation::CholeskyAdaptation>(self.adaptation);
+				case MatrixAdaptationType::CMSA:
+					return std::dynamic_pointer_cast<matrix_adaptation::SelfAdaptation>(self.adaptation);
+				case MatrixAdaptationType::COVARIANCE_NO_EIGV:
+					return std::dynamic_pointer_cast<matrix_adaptation::CovarainceNoEigvAdaptation>(self.adaptation);
+				case MatrixAdaptationType::NATURAL_GRADIENT:
+					return std::dynamic_pointer_cast<matrix_adaptation::NaturalGradientAdaptation>(self.adaptation);
 				default:
 				case MatrixAdaptationType::COVARIANCE:
 					return std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(self.adaptation);
@@ -768,60 +815,57 @@ void define_mutation(py::module& main)
 
 	py::class_<SigmaSampler, std::shared_ptr<SigmaSampler>>(m, "SigmaSampler")
 		.def(py::init<Float>(), py::arg("dimension"))
-		.def_readwrite("beta", &SigmaSampler::beta)
-		.def("sample", &SigmaSampler::sample, py::arg("sigma"), py::arg("population"));
+		.def("sample", &SigmaSampler::sample, py::arg("sigma"), py::arg("population"), py::arg("tau"));
 
 	py::class_<NoSigmaSampler, SigmaSampler, std::shared_ptr<NoSigmaSampler>>(m, "NoSigmaSampler")
 		.def(py::init<Float>(), py::arg("dimension"));
 
 	py::class_<Strategy, std::shared_ptr<Strategy>>(m, "Strategy")
+		.def(
+			py::init<
+				std::shared_ptr<ThresholdConvergence>, 
+				std::shared_ptr<SequentialSelection>, 
+				std::shared_ptr<SigmaSampler>, 
+				Float
+			>(),
+			py::arg("threshold_convergence"),
+			py::arg("sequential_selection"),
+			py::arg("sigma_sampler"),
+			py::arg("sigma0"))
 		.def("adapt", &Strategy::adapt, py::arg("weights"),
 			py::arg("dynamic"),
 			py::arg("population"),
 			py::arg("old_population"),
 			py::arg("stats"),
 			py::arg("lamb"))
+		.def(
+			"mutate", &CSA::mutate, py::arg("objective"),
+			py::arg("n_offspring"),
+			py::arg("parameters"))
 		.def_readwrite("threshold_convergence", &Strategy::tc)
 		.def_readwrite("sequential_selection", &Strategy::sq)
 		.def_readwrite("sigma_sampler", &Strategy::ss)
 		.def_readwrite("sigma", &Strategy::sigma)
-		.def_readwrite("s", &Strategy::s);
+		.def_readwrite("s", &Strategy::s)
+	;
 
-	py::class_<CSA, Strategy, std::shared_ptr<CSA>>(m, "CSA")
-		.def(
-			py::init<std::shared_ptr<ThresholdConvergence>, std::shared_ptr<SequentialSelection>, std::shared_ptr<SigmaSampler>, Float>(),
-			py::arg("threshold_convergence"),
-			py::arg("sequential_selection"),
-			py::arg("sigma_sampler"),
-			py::arg("sigma0"))
-		.def(
-			"mutate", &CSA::mutate, py::arg("objective"),
-			py::arg("n_offspring"),
-			py::arg("parameters"));
-
-	py::class_<TPA, CSA, std::shared_ptr<TPA>>(m, "TPA")
+	py::class_<CSA, Strategy, std::shared_ptr<CSA>>(m, "CSA");
+	py::class_<TPA, Strategy, std::shared_ptr<TPA>>(m, "TPA")
 		.def_readwrite("a_tpa", &TPA::a_tpa)
 		.def_readwrite("b_tpa", &TPA::b_tpa)
 		.def_readwrite("rank_tpa", &TPA::rank_tpa);
 
-	py::class_<MSR, CSA, std::shared_ptr<MSR>>(m, "MSR")
-		;
-
-	py::class_<PSR, CSA, std::shared_ptr<PSR>>(m, "PSR")
+	py::class_<MSR, Strategy, std::shared_ptr<MSR>>(m, "MSR");
+	py::class_<PSR, Strategy, std::shared_ptr<PSR>>(m, "PSR")
 		.def_readwrite("success_ratio", &PSR::success_ratio);
 
-	py::class_<XNES, CSA, std::shared_ptr<XNES>>(m, "XNES")
-		;
+	py::class_<XNES, Strategy, std::shared_ptr<XNES>>(m, "XNES");
+	py::class_<MXNES, Strategy, std::shared_ptr<MXNES>>(m, "MXNES");
+	py::class_<LPXNES, Strategy, std::shared_ptr<LPXNES>>(m, "LPXNES");
+	py::class_<SR, Strategy, std::shared_ptr<SR>>(m, "SR");
+	py::class_<SA, Strategy, std::shared_ptr<SA>>(m, "SA");
 
-	py::class_<MXNES, CSA, std::shared_ptr<MXNES>>(m, "MXNES")
-		;
 
-	py::class_<LPXNES, CSA, std::shared_ptr<LPXNES>>(m, "LPXNES")
-		;
-
-	py::class_<SR, CSA, std::shared_ptr<SR>>(m, "SR")
-		// .def_staticreadwrite("tgt_success_ratio", &SR::tgt_success_ratio)
-		;
 }
 
 void define_population(py::module& main)
@@ -840,7 +884,8 @@ void define_population(py::module& main)
 		.def_readwrite("f", &Population::f)
 		.def_readwrite("s", &Population::s)
 		.def_readwrite("d", &Population::d)
-		.def_readwrite("n", &Population::n);
+		.def_readwrite("n", &Population::n)
+		.def_readwrite("t", &Population::t);
 }
 
 class constants_w
@@ -875,11 +920,11 @@ void define_constants(py::module& m)
 			[](py::object, bool a)
 			{ constants::clip_sigma = a; })
 		.def_property_static(
-			"calc_eigv",
+			"use_box_muller",
 			[](py::object)
-			{ return constants::calc_eigv; },
+			{ return constants::use_box_muller; },
 			[](py::object, bool a)
-			{ constants::calc_eigv = a; })
+			{ constants::use_box_muller = a; })
 		;
 }
 

@@ -27,7 +27,8 @@ namespace matrix_adaptation
 		virtual void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const parameters::Stats& stats, size_t mu, size_t lambda) = 0;
 
-		virtual bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
+		virtual bool adapt_matrix(
+			const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
 			size_t mu, const parameters::Settings& settings, parameters::Stats& stats) = 0;
 
 		virtual Vector compute_y(const Vector&) = 0;
@@ -78,7 +79,6 @@ namespace matrix_adaptation
 		Matrix A;
 		Matrix inv_root_C;
 		bool hs = true;
-
 
 		CovarianceAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
 			pc(Vector::Zero(dim)),

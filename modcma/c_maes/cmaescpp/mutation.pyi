@@ -97,11 +97,10 @@ class SigmaSampler:
     beta: float
     def __init__(self, dimension: float) -> None: ...
     def sample(
-        self, sigma: float, population: modcma.c_maes.cmaescpp.Population
+        self, sigma: float, population: modcma.c_maes.cmaescpp.Population, beta: float
     ) -> None: ...
 
 class Strategy:
-    cs: float
     s: float
     sequential_selection: SequentialSelection
     sigma: float

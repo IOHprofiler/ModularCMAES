@@ -15,10 +15,10 @@ struct Population
     size_t n;
 
     Population(const size_t d, const size_t n)
-        : X(d, n), Z(d, n), Y(d, n), f(Vector::Constant(n, std::numeric_limits<Float>::infinity())), s(n), d(d), n(n), t(n) {}
+        : X(d, n), Z(d, n), Y(d, n), f(Vector::Constant(n, std::numeric_limits<Float>::infinity())), s(n), t(n), d(d), n(n) {}
 
     Population(const Matrix &X, const Matrix &Z, const Matrix &Y, const Vector &f, const Vector &s)
-        : X(X), Z(Z), Y(Y), f(f), s(s), d(X.rows()), n(X.cols()) {}
+        : X(X), Z(Z), Y(Y), f(f), s(s), t(f.rows()), d(X.rows()), n(X.cols())  {}
 
     Population() : Population(0, 0) {}
 

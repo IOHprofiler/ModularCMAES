@@ -40,4 +40,26 @@ class OnePlusOneAdaptation(CovarianceAdaptation):
     def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
 
 class SeperableAdaptation(CovarianceAdaptation):
+    c: numpy.ndarray
+    pc: numpy.ndarray
+    d: numpy.ndarray
+    def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
+    
+class CovarainceNoEigvAdaptation(CovarainceNoEigvAdaptation):
+    def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
+
+class CholeskyAdaptation(Adaptation):
+    A: numpy.ndarray
+    pc: numpy.ndarray
+    def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
+
+class SelfAdaptation(Adaptation):
+    A: numpy.ndarray
+    C: numpy.ndarray
+    def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
+    
+class NaturalGradientAdaptation(Adaptation):
+    A: numpy.ndarray
+    G: numpy.ndarray
+    A_inv: numpy.ndarray
     def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
