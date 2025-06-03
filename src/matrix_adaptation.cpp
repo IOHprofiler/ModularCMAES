@@ -53,6 +53,7 @@ namespace matrix_adaptation
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
 	{
 		const Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(C);
+
 		if (eigen_solver.info() != Eigen::Success)
 		{
 			if (settings.verbose)

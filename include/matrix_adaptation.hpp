@@ -60,9 +60,9 @@ namespace matrix_adaptation
 		}
 
 		void adapt_evolution_paths_inner(
-			const Population& pop, 
+			const Population& pop,
 			const parameters::Weights& w,
-		    const parameters::Stats& stats,
+			const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
 
@@ -75,8 +75,8 @@ namespace matrix_adaptation
 	{
 		Vector pc, d;
 		Matrix B, C;
-		Matrix A;     
-		Matrix inv_root_C; 
+		Matrix A;
+		Matrix inv_root_C;
 		bool hs = true;
 
 
@@ -96,7 +96,7 @@ namespace matrix_adaptation
 		virtual bool perform_eigendecomposition(const parameters::Settings& settings);
 
 		virtual void adapt_ps(const parameters::Weights& w);
-		
+
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
@@ -115,7 +115,7 @@ namespace matrix_adaptation
 	{
 		Vector pc, d, c;
 		bool hs;
-		
+
 		SeperableAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
 			pc(Vector::Zero(dim)),
 			d(Vector::Ones(dim)),
@@ -139,7 +139,7 @@ namespace matrix_adaptation
 	};
 
 
-	struct OnePlusOneAdaptation: CovarianceAdaptation
+	struct OnePlusOneAdaptation : CovarianceAdaptation
 	{
 		constexpr static Float max_success_ratio = 0.44;
 
@@ -163,15 +163,12 @@ namespace matrix_adaptation
 		MatrixAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
 			M(Matrix::Identity(dim, dim)),
 			M_inv(Matrix::Identity(dim, dim)),
-			/*ZwI(Matrix::Identity(dim, dim)),
-			ssI(Matrix::Identity(dim, dim)),
-			I(Matrix::Identity(dim, dim)), */
 			outdated_M_inv(false)
 		{
 		}
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			 const parameters::Stats& stats,
+			const parameters::Stats& stats,
 			size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
@@ -184,11 +181,8 @@ namespace matrix_adaptation
 		Vector invert_y(const Vector&) override;
 
 	private:
-		//Matrix ZwI, ssI, I;
 		bool outdated_M_inv;
-	}; 
-
-
+	};
 
 
 	struct CholeskyAdaptation final : Adaptation
@@ -196,7 +190,7 @@ namespace matrix_adaptation
 		Matrix A;
 		Vector pc;
 
-		CholeskyAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) 
+		CholeskyAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z)
 			: Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
 			A(Matrix::Identity(dim, dim)),
 			pc(Vector::Zero(dim))
@@ -204,7 +198,7 @@ namespace matrix_adaptation
 		}
 
 		void adapt_evolution_paths_inner(
-			const Population& pop, 
+			const Population& pop,
 			const parameters::Weights& w,
 			const parameters::Stats& stats,
 			size_t mu, size_t lambda

@@ -76,12 +76,12 @@ namespace parameters
 				mu0 = std::min(lambda0 / 4, mu0);
 			}
 
-			/*if (modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT)
+			if (modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT) 
 			{
-				mu0 = lambda0;
-			}*/
+				modules.active = false;
+			}
 
-			if (modules.ssa == StepSizeAdaptation::CSA
+			if (modules.ssa != StepSizeAdaptation::CSA
 				and modules.matrix_adaptation == MatrixAdaptationType::COVARIANCE
 				and not always_compute_eigv
 				)
