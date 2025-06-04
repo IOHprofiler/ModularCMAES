@@ -39,7 +39,8 @@ namespace parameters
 
 	void Parameters::perform_restart(FunctionType& objective, const std::optional<Float>& sigma)
 	{
-		std::cout << "performing restart. reason: "<< criteria.reason() << std::endl;
+		if (settings.verbose)
+			std::cout << "performing restart. reason: "<< criteria.reason() << std::endl;
 
 		stats.solutions.push_back(stats.current_best);
 		stats.evaluations++;
