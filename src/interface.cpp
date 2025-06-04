@@ -1024,6 +1024,7 @@ void define_restart_criteria(py::module& main)
 		.def_readwrite("items", &Criteria::items)
 		.def("reset", &Criteria::reset, py::arg("parameters"))
 		.def("update", &Criteria::update, py::arg("parameters"))
+		.def("reason", &Criteria::reason)
 		.def("any", &Criteria::any);
 
 }
