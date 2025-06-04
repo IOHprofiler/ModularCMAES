@@ -35,7 +35,7 @@ namespace restart
 
         void update(const parameters::Parameters &p)
         {
-            for (const auto &c : items)
+            for (auto &c : items)
             {
                 c->update(p);
             }
@@ -43,7 +43,7 @@ namespace restart
 
         void reset(const parameters::Parameters &p)
         {
-            for (const auto &c : items)
+            for (auto &c : items)
                 c->reset(p);
         }
 
@@ -53,6 +53,15 @@ namespace restart
                 if (c->met)
                     return true;
             return false;
+        }
+
+        std::string reason() const
+        {
+            std::string res;
+            for (const auto& c : items)
+                if (c->met)
+                    res += c->name + "; ";
+            return res;
         }
 
         vCriteria items;

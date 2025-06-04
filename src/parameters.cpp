@@ -39,6 +39,8 @@ namespace parameters
 
 	void Parameters::perform_restart(FunctionType& objective, const std::optional<Float>& sigma)
 	{
+		std::cout << "performing restart. reason: "<< criteria.reason() << std::endl;
+
 		stats.solutions.push_back(stats.current_best);
 		stats.evaluations++;
 		stats.centers.emplace_back(adaptation->m, objective(adaptation->m), stats.t - 1, stats.evaluations);

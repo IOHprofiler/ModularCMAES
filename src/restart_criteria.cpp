@@ -21,6 +21,9 @@ namespace
     // TODO: this is duplicate code
     Float median(const Vector &x)
     {
+        if (x.size() == 1)
+            return x(0);
+
         if (x.size() % 2 == 0)
             return (x(x.size() / 2) + x(x.size() / 2 - 1)) / 2.0;
         return x(x.size() / 2);
@@ -28,6 +31,9 @@ namespace
 
     Float median(const std::vector<Float> &v, const size_t from, const size_t to)
     {
+        if (v.size() == 1)
+            return v[0];
+
         const size_t n = to - from;
         if (n % 2 == 0)
             return (v[from + (n / 2)] + v[from + (n / 2) - 1]) / 2.0;
@@ -80,6 +86,7 @@ namespace restart
 
     void UnableToAdapt::update(const parameters::Parameters &p)
     {
+        //std::cout << p.stats.t << ", "<< p.stats.evaluations << ": " << std::boolalpha << p.successfull_adaptation << ": " << p.mutation->sigma << '\n';
         met = !p.successfull_adaptation or !std::isfinite(p.mutation->sigma);
     }
 
@@ -174,10 +181,12 @@ namespace restart
         median_fitnesses.push_back(median(p.pop.f));
         best_fitnesses.push_back(p.pop.f(0));
 
-        const bool best_better = median(best_fitnesses, pt, time_since_restart) >= median(best_fitnesses, 0, pt);
-        const bool median_better = median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt);
-
-        met = time_since_restart > n_stagnation and (best_better and median_better);
+        if (time_since_restart > n_stagnation)
+        {
+            const bool best_better = median(best_fitnesses, pt, time_since_restart) >= median(best_fitnesses, 0, pt);
+            const bool median_better = median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt);
+            met = best_better and median_better;
+        }      
     }
 
     void Stagnation::on_reset(const parameters::Parameters &p)

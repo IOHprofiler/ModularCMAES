@@ -150,7 +150,13 @@ namespace mutation
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
 		const Float delta = (w.mueff * adaptation->dz.squaredNorm() - adaptation->dd);
+
 		sigma *= std::exp((w.cs / adaptation->dd) * delta);
+		if (!std::isfinite(sigma))
+		{
+			std::cout << stats.t << ": ";
+			std::cout << sigma;
+		}
 	}
 
 	void LPXNES::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
