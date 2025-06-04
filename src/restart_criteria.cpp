@@ -86,7 +86,6 @@ namespace restart
 
     void UnableToAdapt::update(const parameters::Parameters &p)
     {
-        //std::cout << p.stats.t << ", "<< p.stats.evaluations << ": " << std::boolalpha << p.successfull_adaptation << ": " << p.mutation->sigma << '\n';
         met = !p.successfull_adaptation or !std::isfinite(p.mutation->sigma);
     }
 
