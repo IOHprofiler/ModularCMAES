@@ -66,12 +66,16 @@ namespace restart
         n_bin = 10 + static_cast<size_t>(std::ceil(30 * static_cast<Float>(p.settings.dim) / static_cast<Float>(p.lambda)));
     }
 
-    void NoImprovement::update(const parameters::Parameters &p)
+    void NoImprovement::update(const parameters::Parameters& p)
     {
         const size_t time_since_restart = p.stats.t - last_restart;
         best_fitnesses.push_back(p.pop.f(0));
-        const auto recent_improvement = ptp_tail(best_fitnesses, n_bin);
-        met = time_since_restart > n_bin and recent_improvement == 0;
+        met = false;
+        if (time_since_restart > n_bin)
+        {
+            const auto recent_improvement = ptp_tail(best_fitnesses, n_bin);
+            met = recent_improvement == 0;
+        }
     }
 
     void MaxSigma::update(const parameters::Parameters &p)
@@ -93,8 +97,12 @@ namespace restart
     {
         const size_t time_since_restart = p.stats.t - last_restart;
         flat_fitnesses(p.stats.t % p.settings.dim) = p.pop.f(0) == p.pop.f(flat_fitness_index);
-        const size_t n_flat_fitness = static_cast<size_t>(flat_fitnesses.sum());
-        met = time_since_restart > static_cast<size_t>(flat_fitnesses.size()) and n_flat_fitness > max_flat_fitness;
+        met = false;
+        if (time_since_restart > static_cast<size_t>(flat_fitnesses.size()))
+        {
+            const size_t n_flat_fitness = static_cast<size_t>(flat_fitnesses.sum());
+            met = n_flat_fitness > max_flat_fitness;
+        }
     }
 
     void FlatFitness::on_reset(const parameters::Parameters &p)
@@ -180,6 +188,7 @@ namespace restart
         median_fitnesses.push_back(median(p.pop.f));
         best_fitnesses.push_back(p.pop.f(0));
 
+        met = false;
         if (time_since_restart > n_stagnation)
         {
             const bool best_better = median(best_fitnesses, pt, time_since_restart) >= median(best_fitnesses, 0, pt);

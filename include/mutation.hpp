@@ -188,6 +188,11 @@ namespace mutation
 
 		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
 			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+
+		void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p) override;
+
+	private:
+		Float mean_sigma;
 	};
 
 

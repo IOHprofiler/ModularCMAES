@@ -169,12 +169,19 @@ namespace mutation
 		sigma *= std::exp((1 / w.damps) * ((stats.success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
 	}
 
+
+	void SA::mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p)
+	{
+		Strategy::mutate(objective, n_offspring, p);
+		mean_sigma = std::exp(p.pop.s.array().log().mean());
+	}
+
 	void SA::adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
 		const auto& sigma_l = pop.s.topRows(w.positive.rows());
-		sigma = std::exp((w.positive.array() * sigma_l.array().log()).sum());
+		sigma = std::exp((w.positive.array() * sigma_l.array().log()).sum()) / mean_sigma;
 	}
 
 

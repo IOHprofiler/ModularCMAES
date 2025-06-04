@@ -62,8 +62,8 @@ namespace parameters
     enum class RestartStrategyType
     {
         NONE,
-        STOP,
         RESTART,
+        STOP,
         IPOP,
         BIPOP
     };

@@ -64,9 +64,10 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 	rng::set_seed(412);
 	parameters::Modules m;
 	m.matrix_adaptation = mat_t;
-	m.elitist = false;
-	m.active = false;
 	m.ssa = ssa;
+
+	/*m.elitist = false;
+	m.active = false;
 	m.sampler = parameters::BaseSampler::SOBOL;
 	m.bound_correction = parameters::CorrectionMethod::SATURATE;
 	m.restart_strategy = parameters::RestartStrategyType::RESTART;
@@ -74,8 +75,24 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 	m.sample_transformation = parameters::SampleTranformerType::CAUCHY;
 	m.sequential_selection = true;
 	m.threshold_convergence = true;
-	m.weights = parameters::RecombinationWeights::HALF_POWER_LAMBDA;
+	m.weights = parameters::RecombinationWeights::HALF_POWER_LAMBDA;*/
 
+	m.elitist = true;
+	m.active = true;
+	m.sampler = parameters::BaseSampler::UNIFORM;
+	m.bound_correction = parameters::CorrectionMethod::SATURATE;
+	m.restart_strategy = parameters::RestartStrategyType::STOP;
+	m.sample_transformation = parameters::SampleTranformerType::SCALED_UNIFORM;
+	m.orthogonal = true;
+	m.sequential_selection = true;
+	m.weights = parameters::RecombinationWeights::EQUAL;
+	m.mirrored = parameters::Mirror::PAIRWISE;
+	/*
+		"c1" : 0.1659166344465,
+		"cc" : 0.2310662705758,
+		"cmu" : 0.2024033500315,
+		"cs" : 0.2789599486741,
+	*/
 	parameters::Settings settings(
 		dim, 
 		m, 
@@ -83,8 +100,8 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 		std::nullopt, 
 		budget, 
 		2.0,
-		130,
-		23
+		43,
+		13
 	);
 	auto p = std::make_shared<parameters::Parameters>(settings);
 	auto cma = ModularCMAES(p);
@@ -93,8 +110,14 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 	FunctionType f = Ellipse(dim, rotated, fun_t);
 	while (cma.step(f))
 	{
-		//if (cma.p->stats.global_best.y < 1e-9)
-		//	break;*/
+		
+		std::cout << "evals: " << cma.p->stats.evaluations << "/" << budget << ": ";
+		std::cout << "iters: " << cma.p->stats.t << ": ";
+		std::cout << "sigma: " << cma.p->mutation->sigma << ": ";
+		std::cout << "best_y: " << cma.p->stats.global_best.y << std::endl;
+
+		if (cma.p->stats.global_best.y < 1e-9)
+			break;
 	}
 
 	std::cout << "modcmaes: " << parameters::to_string(mat_t) << std::defaultfloat;
@@ -118,17 +141,17 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 
 int main()
 {
-	auto ft = functions::ROSENBROCK;
-	auto ssa = parameters::StepSizeAdaptation::MXNES;
+	auto ft = functions::SPHERE;
+	auto ssa = parameters::StepSizeAdaptation::LPXNES;
 	
-	//run_modcma(parameters::MatrixAdaptationType::NONE, ft, ssa);
+	run_modcma(parameters::MatrixAdaptationType::NONE, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::MATRIX, ft, ssa);
 
 
 
 	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ft, ssa);
-	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ft, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ft, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ft, ssa);
 }
