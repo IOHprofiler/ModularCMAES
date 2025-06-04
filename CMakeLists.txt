@@ -18,7 +18,7 @@ target_include_directories(main PUBLIC
 )
 
 if (MSVC)
-  target_compile_options(main PRIVATE /bigobj)
+  target_compile_options(main PRIVATE /bigobj /openmp)
 
 else()
   target_compile_options(main PRIVATE -march=native)

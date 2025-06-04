@@ -11,7 +11,7 @@ using std::chrono::milliseconds;
 
 static int dim = 100;
 static bool rotated = false;
-static size_t budget = dim * 10000;
+static size_t budget = dim * 2000;
 
 
 struct Ellipse
@@ -75,7 +75,7 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, functions::ObjectiveFunc
 		-std::numeric_limits<double>::infinity(),
 		std::nullopt, 
 		budget, 
-		0.1
+		2.0
 	);
 	auto p = std::make_shared<parameters::Parameters>(settings);
 	auto cma = ModularCMAES(p);

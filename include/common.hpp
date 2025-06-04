@@ -23,7 +23,7 @@
 #include <Eigen/QR>
 #include <unsupported/Eigen/MatrixFunctions>
 
-using Float = long double;
+using Float = double;
 using Matrix = Eigen::Matrix<Float, -1, -1>;
 using Vector = Eigen::Matrix<Float, -1, 1>;
 using Array = Eigen::Array<Float, -1, 1>;
@@ -338,8 +338,8 @@ namespace rng
 namespace functions
 {
 	Float sphere(const Vector &x);
-	Float rastrigin(const Vector &x);
 	Float ellipse(const Vector& x);
+	Float rastrigin(const Vector &x);
 	Float rosenbrock(const Vector& x);
 	Matrix random_rotation_matrix(int n, int seed);
 
