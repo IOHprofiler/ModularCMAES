@@ -46,6 +46,15 @@ namespace matrix_adaptation
 			dz.setZero();
 		}
 
+		Float distance(const Vector u, const Vector& v)
+		{
+			const auto& delta = u - v;
+			return invert_y(delta).norm();
+		}
+
+		Float distance_from_center(const Vector& xi) 		{
+			return distance(m, xi);
+		}
 	};
 
 	struct None final : Adaptation
@@ -228,6 +237,7 @@ namespace matrix_adaptation
 		Vector compute_y(const Vector&) override;
 
 		Vector invert_y(const Vector&) override;
+
 	};
 
 	struct CovarainceNoEigvAdaptation final : CovarianceAdaptation
@@ -283,7 +293,6 @@ namespace matrix_adaptation
 	private:
 		bool outdated_A_inv;
 	};
-
 
 
 

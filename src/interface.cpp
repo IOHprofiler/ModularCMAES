@@ -341,12 +341,14 @@ void define_matrix_adaptation(py::module& main)
 			py::arg("pop"),
 			py::arg("weights"),
 			py::arg("stats"),
+			py::arg("settings"),
 			py::arg("mu"),
 			py::arg("lamb"))
 		.def("adapt_evolution_paths_innner", &Adaptation::adapt_evolution_paths_inner,
 			py::arg("pop"),
 			py::arg("weights"),
 			py::arg("stats"),
+			py::arg("settings"),
 			py::arg("mu"),
 			py::arg("lamb"))
 		.def("adapt_matrix", &Adaptation::adapt_matrix,
@@ -356,7 +358,9 @@ void define_matrix_adaptation(py::module& main)
 			py::arg("mu"),
 			py::arg("settings"),
 			py::arg("stats"))
-		.def("restart", &Adaptation::restart, py::arg("settings"))
+		.def("restart", &Adaptation::restart, py::arg("settings"), py::args("sigma"))
+		.def("distance", &Adaptation::distance, py::arg("u"), py::arg("v"))
+		.def("distance_from_center", &Adaptation::distance_from_center, py::arg("x"))
 		.def("compute_y", &Adaptation::compute_y, py::arg("zi"))
 		.def("invert_x", &Adaptation::invert_x, py::arg("xi"), py::arg("sigma"))
 		.def("invert_y", &Adaptation::invert_y, py::arg("yi"))
