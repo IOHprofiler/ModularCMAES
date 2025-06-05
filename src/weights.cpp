@@ -4,9 +4,12 @@
 
 namespace parameters
 {
-	static Float get_default_cs(const StepSizeAdaptation ssa, const Float mueff, const Float d)
+	static Float get_default_cs(const Settings& settings, const Float mueff, const Float d)
 	{
-		switch (ssa)
+		if (settings.modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT)
+			return (9.0 + 3.0 + std::log(d)) / (5.0 * d * std::sqrt(d));
+		
+		switch (settings.modules.ssa)
 		{
 			case StepSizeAdaptation::XNES:
 				//return mueff / (2.0 * std::log(std::max(Float{ 2. }, d)) * sqrt(d));
@@ -26,9 +29,10 @@ namespace parameters
 		}
 	}
 
-	static Float get_default_damps(const StepSizeAdaptation ssa, const Float mueff, const Float d, const Float cs)
+	
+	static Float get_default_damps(const Settings& settings, const Float mueff, const Float d, const Float cs)
 	{
-		switch (ssa)
+		switch (settings.modules.ssa)
 		{
 			case StepSizeAdaptation::SR:
 				return 1.0 + (d / 2.0);
@@ -41,6 +45,49 @@ namespace parameters
 				return 1.0;
 		}
 	}
+
+
+	static Float get_default_c1(const Settings& settings, const Float d, const Float mueff)
+	{
+		if (settings.one_plus_one)
+			return  2.0 / (pow(d, 2) + 6.0);
+
+		return 2.0 / (pow(d + 1.3, 2) + mueff);
+	}
+
+	static Float get_default_cc(const Settings& settings, const Float d, const Float mueff, const Float cs)
+	{
+		if (settings.modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT)
+			return !settings.one_plus_one ? 0.5 * cs : (1.0 / (4.0 * pow(d, 1.5)));
+		
+		
+		if (settings.one_plus_one)
+			return 2.0 / (d + 2.0);
+		
+		return (4.0 + (mueff / d)) / (d + 4.0 + (2.0 * mueff / d));
+	}
+
+	static Float get_default_cmu(
+		const Settings& settings, 
+		const Float d, 
+		const Float mueff, 
+		const Float c1
+	)
+	{
+		Float cmu_default = std::min(
+			1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))));
+
+		if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPERABLE)
+			cmu_default *= ((d + 2.0) / 3.0);
+
+		if (settings.lambda0 == 1)
+		{
+			cmu_default = 2 / (pow(d, 2) + 6.0);
+		}
+		return cmu_default;
+	}
+
+
 
 	Weights::Weights(
 		const size_t dim,
@@ -69,52 +116,29 @@ namespace parameters
 		mueff_neg = std::pow(negative.sum(), 2) / negative.dot(negative);
 		positive /= positive.sum();
 
-		c1 = settings.c1.value_or(2.0 / (pow(d + 1.3, 2) + mueff));
 
-		Float cmu_default = std::min(
-			1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))));
+		c1 = settings.c1.value_or(get_default_c1(settings, d, mueff));
+		cmu = settings.cmu.value_or(get_default_cmu(settings, d, mueff, c1));
+		cs = settings.cs.value_or(get_default_cs(settings, mueff, d));
+		cc = settings.cmu.value_or(get_default_cc(settings, d, mueff, cs));
+		damps = get_default_damps(settings, mueff, d, cs);
 
-		if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPERABLE)
-			cmu_default *= ((d + 2.0) / 3.0);
-
-
-		if (settings.lambda0 == 1)
-		{
-			cmu_default = 2 / (pow(d, 2) + 6.0);
-		}
-		cmu = settings.cmu.value_or(cmu_default);
-		cc = settings.cmu.value_or(
-			(4.0 + (mueff / d)) / (d + 4.0 + (2.0 * mueff / d))
-		);
-
-
+		sqrt_cs_mueff = std::sqrt(cs * (2.0 - cs) * mueff);
+		sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff);
+			
 		const Float amu_neg = 1.0 + (c1 / static_cast<Float>(mu));
 		const Float amueff_neg = 1.0 + ((2.0 * mueff_neg) / (mueff + 2.0));
 		const Float aposdef_neg = (1.0 - c1 - cmu) / (d * cmu);
-
 		const Float neg_scaler = std::min(amu_neg, std::min(amueff_neg, aposdef_neg));
 
 		negative *= (neg_scaler / negative.cwiseAbs().sum());
 		weights << positive, negative;
-
 		lazy_update_interval = 1.0 / (c1 + cmu + 1e-23) / d / 10.0;
-
-		cs = settings.cs.value_or(get_default_cs(settings.modules.ssa, mueff, d));//
-		damps = get_default_damps(settings.modules.ssa, mueff, d, cs);
-		sqrt_cs_mueff = std::sqrt(cs * (2.0 - cs) * mueff);
-		sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff);
-
 		expected_length_ps = (1.4 + (2.0 / (d + 1.0))) * expected_length_z;
 
 		beta = 1.0 / std::sqrt(2.0 * mueff);
 		if (settings.modules.ssa == StepSizeAdaptation::LPXNES)
 			beta = std::log(2.0) / (std::sqrt(d) * std::log(d));
-
-		if (settings.modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT)
-		{
-			cs = (9.0 + 3.0 + std::log(d)) / (5.0 * d * std::sqrt(d));
-			cc = lambda != 1 ? 0.5 * cs : (1.0 / (4.0 * pow(d, 1.5)));
-		}
 	}
 
 

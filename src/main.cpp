@@ -82,9 +82,9 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdap
 		-std::numeric_limits<double>::infinity(),
 		std::nullopt, 
 		budget, 
-		0.3,
-		1,
-		1
+		0.3
+		//1,
+		//1
 	);
 	auto p = std::make_shared<parameters::Parameters>(settings);
 	auto cma = ModularCMAES(p);

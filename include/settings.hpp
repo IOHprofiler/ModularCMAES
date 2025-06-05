@@ -101,9 +101,7 @@ namespace parameters
 				modules.active = false;
 				modules.weights = RecombinationWeights::EQUAL;
 				modules.ssa = StepSizeAdaptation::SR;
-				cc = 2.0 / (static_cast<Float>(dim) + 2.0);
-				c1 = 2.0 / (pow(static_cast<Float>(dim), 2) + 6.0);
-
+			
 				if (modules.restart_strategy == RestartStrategyType::BIPOP || modules.restart_strategy == RestartStrategyType::IPOP)
 					modules.restart_strategy = RestartStrategyType::RESTART;
 			}
