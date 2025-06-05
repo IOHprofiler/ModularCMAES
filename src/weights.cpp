@@ -111,7 +111,10 @@ namespace parameters
 			beta = std::log(2.0) / (std::sqrt(d) * std::log(d));
 
 		if (settings.modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT)
-			cs = cc = (9.0 + 3.0 + std::log(d)) / (5.0 * d * std::sqrt(d));
+		{
+			cs = (9.0 + 3.0 + std::log(d)) / (5.0 * d * std::sqrt(d));
+			cc = lambda != 1 ? 0.5 * cs : (1.0 / (4.0 * pow(d, 1.5)));
+		}
 	}
 
 

@@ -27,7 +27,17 @@ namespace matrix_adaptation
 		virtual void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) = 0;
 
-		virtual bool adapt_matrix(
+		bool adapt_matrix(
+			const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
+			size_t mu, const parameters::Settings& settings, parameters::Stats& stats)
+		{
+			if (settings.one_plus_one and !stats.has_improved)
+				return true;
+			return adapt_matrix_inner(w, m, pop, mu, settings, stats);
+
+		}
+
+		virtual bool adapt_matrix_inner(
 			const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
 			size_t mu, const parameters::Settings& settings, parameters::Stats& stats) = 0;
 
@@ -63,7 +73,7 @@ namespace matrix_adaptation
 		{
 		}
 
-		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
+		bool adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
 			const size_t mu, const parameters::Settings& settings, parameters::Stats& stats) override
 		{
 			return true;
@@ -107,7 +117,7 @@ namespace matrix_adaptation
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
-		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		bool adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings, const Float sigma) override;
@@ -133,7 +143,7 @@ namespace matrix_adaptation
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
-		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		bool adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings, const Float sigma) override;
@@ -141,21 +151,6 @@ namespace matrix_adaptation
 		Vector compute_y(const Vector&) override;
 
 		Vector invert_y(const Vector&) override;
-	};
-
-
-	struct OnePlusOneAdaptation : CovarianceAdaptation
-	{
-		constexpr static Float max_success_ratio = 0.44;
-
-		using CovarianceAdaptation::CovarianceAdaptation;
-
-		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
-
-		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
-			const parameters::Settings& settings, parameters::Stats& stats) override;
-
 	};
 
 
@@ -174,7 +169,7 @@ namespace matrix_adaptation
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
-		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		bool adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings, const Float sigma) override;
@@ -186,7 +181,6 @@ namespace matrix_adaptation
 	private:
 		bool outdated_M_inv;
 	};
-
 
 	struct CholeskyAdaptation final : Adaptation
 	{
@@ -204,7 +198,7 @@ namespace matrix_adaptation
 			const parameters::Weights& w,
 			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
-		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		bool adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings, const Float sigma) override;
@@ -229,7 +223,7 @@ namespace matrix_adaptation
 			const parameters::Weights& w,
 			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
-		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		bool adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings, const Float sigma) override;
@@ -240,7 +234,7 @@ namespace matrix_adaptation
 
 	};
 
-	struct CovarainceNoEigvAdaptation final : CovarianceAdaptation
+	struct CovarainceNoEigvAdaptation : CovarianceAdaptation
 	{
 		using CovarianceAdaptation::CovarianceAdaptation;
 
@@ -250,7 +244,6 @@ namespace matrix_adaptation
 
 		Vector invert_y(const Vector&) override;
 	};
-
 
 	struct NaturalGradientAdaptation final : Adaptation
 	{
@@ -281,7 +274,7 @@ namespace matrix_adaptation
 			const parameters::Weights& w,
 			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
-		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		bool adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
 		void restart(const parameters::Settings& settings, const Float sigma) override;
@@ -294,6 +287,18 @@ namespace matrix_adaptation
 		bool outdated_A_inv;
 	};
 
+	/*struct OnePlusOneAdaptation : CovarainceNoEigvAdaptation
+	{
+		
+
+		using CovarainceNoEigvAdaptation::CovarainceNoEigvAdaptation;
+
+		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
+
+		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+			const parameters::Settings& settings, parameters::Stats& stats) override;
+	};*/
 
 
 	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0, const Float expected_z, const Float sigma0)
@@ -307,8 +312,6 @@ namespace matrix_adaptation
 			return std::make_shared<None>(dim, x0, expected_z);
 		case MatrixAdaptationType::SEPERABLE:
 			return std::make_shared<SeperableAdaptation>(dim, x0, expected_z);
-		case MatrixAdaptationType::ONEPLUSONE:
-			return std::make_shared<OnePlusOneAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::CHOLESKY:
 			return std::make_shared<CholeskyAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::CMSA:

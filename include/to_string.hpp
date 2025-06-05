@@ -118,8 +118,6 @@ namespace parameters
             return "MATRIX";
         case MatrixAdaptationType::CHOLESKY:
             return "CHOLESKY";
-        case MatrixAdaptationType::ONEPLUSONE:
-            return "ONEPLUSONE";
         case MatrixAdaptationType::NONE:
             return "NONE";
         case MatrixAdaptationType::SEPERABLE:

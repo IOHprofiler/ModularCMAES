@@ -74,7 +74,6 @@ namespace parameters
         COVARIANCE,
         MATRIX,
         SEPERABLE,
-        ONEPLUSONE,
         CHOLESKY,
         CMSA,
         COVARIANCE_NO_EIGV,

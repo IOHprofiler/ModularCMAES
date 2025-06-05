@@ -454,27 +454,6 @@ void define_matrix_adaptation(py::module& main)
 				ss << ">";
 				return ss.str(); });
 
-	py::class_<OnePlusOneAdaptation, CovarianceAdaptation, std::shared_ptr<OnePlusOneAdaptation>>(m, "OnePlusOneAdaptation")
-		.def("__repr__", [] (OnePlusOneAdaptation& dyn)
-			{
-				std::stringstream ss;
-				ss << std::boolalpha;
-				ss << "<OnePlusOneAdaptation";
-				ss << " m: " << dyn.m.transpose();
-				ss << " m_old: " << dyn.m_old.transpose();
-				ss << " dm: " << dyn.dm.transpose();
-				ss << " pc: " << dyn.pc.transpose();
-				ss << " ps: " << dyn.ps.transpose();
-				ss << " d: " << dyn.d.transpose();
-				ss << " B: " << dyn.B;
-				ss << " C: " << dyn.C;
-				ss << " inv_root_C: " << dyn.inv_root_C;
-				ss << " dd: " << dyn.dd;
-				ss << " expected_length_z: " << dyn.expected_length_z;
-				ss << " hs: " << dyn.hs;
-				ss << ">";
-				return ss.str(); });
-
 	py::class_<MatrixAdaptation, Adaptation, std::shared_ptr<MatrixAdaptation>>(m, "MatrixAdaptation")
 		.def(py::init<size_t, Vector, Float>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
 		.def_readwrite("M", &MatrixAdaptation::M)

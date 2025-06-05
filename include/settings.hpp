@@ -27,6 +27,7 @@ namespace parameters
 		std::optional<Float> c1;
 		bool verbose;
 		Float volume;
+		bool one_plus_one;
 
 		Settings(size_t dim,
 			std::optional<Modules> mod = std::nullopt,
@@ -76,6 +77,7 @@ namespace parameters
 				mu0 = std::min(lambda0 / 4, mu0);
 			}
 
+
 			if (modules.ssa != StepSizeAdaptation::CSA
 				and modules.matrix_adaptation == MatrixAdaptationType::COVARIANCE
 				and not always_compute_eigv
@@ -84,14 +86,22 @@ namespace parameters
 				modules.matrix_adaptation = MatrixAdaptationType::COVARIANCE_NO_EIGV;
 			}
 
+			if (
+				modules.matrix_adaptation == MatrixAdaptationType::NONE ||
+				modules.matrix_adaptation == MatrixAdaptationType::NONE
+			)
+			{
+				modules.active = false;
+			}
+
 			if (lambda0 == 1)
 			{
 				mu0 = 1;
+				one_plus_one = true;
 				modules.elitist = true;
 				modules.active = false;
 				modules.weights = RecombinationWeights::EQUAL;
 				modules.ssa = StepSizeAdaptation::SR;
-				modules.matrix_adaptation = MatrixAdaptationType::ONEPLUSONE;
 				cc = 2.0 / (static_cast<Float>(dim) + 2.0);
 				c1 = 2.0 / (pow(static_cast<Float>(dim), 2) + 6.0);
 
