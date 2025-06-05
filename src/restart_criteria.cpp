@@ -206,6 +206,12 @@ namespace restart
         best_fitnesses = {};
     }
 
+    void TooMuchRepelling::update(const parameters::Parameters& p)
+    {
+        const Float average_repelling = static_cast<Float>(p.repelling->attempts) / static_cast<Float>(p.lambda);
+        met = average_repelling >= tolerance;
+    }
+
     Criteria Criteria::get(const parameters::Modules modules)
     {
         vCriteria criteria{
@@ -230,6 +236,11 @@ namespace restart
                 criteria.push_back(std::make_shared<restart::NoEffectAxis>());
                 criteria.push_back(std::make_shared<restart::NoEffectCoord>());
             }
+        }
+
+        if (modules.repelling_restart)
+        {
+            criteria.push_back(std::make_shared<restart::TooMuchRepelling>());
         }
         return Criteria(criteria);
     }

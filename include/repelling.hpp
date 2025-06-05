@@ -43,7 +43,7 @@ namespace repelling
 			const Float radius) :
 			solution(s),
 			radius(radius),
-			shrinkage(std::pow(0.99, 1. / static_cast<Float>(s.x.size()))),
+			shrinkage(std::pow(0.95, 1. / static_cast<Float>(s.x.size()))),
 			n_rep(1),
 			criticality(0.0)
 		{}
