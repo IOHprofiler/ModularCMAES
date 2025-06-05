@@ -119,8 +119,7 @@ namespace repelling
 		}
 
 		if (accept_candidate)
-			archive.emplace_back(candidate_point, 1.0);// , C, C_inv);
-
+			archive.emplace_back(candidate_point, 1.0);
 		
 		const Float volume_per_n = p.settings.volume / (p.settings.sigma0 * coverage * p.stats.solutions.size());
 		const Float n = p.adaptation->dd;

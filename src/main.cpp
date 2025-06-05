@@ -9,7 +9,7 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-static int dim = 5;
+static int dim = 10;
 static bool rotated = false;
 static functions::ObjectiveFunction fun_t = functions::ObjectiveFunction::ELLIPSE;
 static size_t budget = dim * 10000;
@@ -82,7 +82,7 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdap
 		-std::numeric_limits<double>::infinity(),
 		std::nullopt, 
 		budget, 
-		2.0,
+		0.3,
 		1,
 		1
 	);
@@ -94,12 +94,12 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdap
 	while (cma.step(f))
 	{
 		
-		//std::cout << "evals: " << cma.p->stats.evaluations << "/" << budget << ": ";
-		//std::cout << "iters: " << cma.p->stats.t << ": ";
-		//std::cout << "sigma: " << cma.p->mutation->sigma << ": ";
-		//std::cout << "best_y: " << cma.p->stats.global_best.y;
-		//std::cout << "	n_resamples: " << cma.p->repelling->attempts;
-	 //   std::cout << std::endl;
+	/*	std::cout << "evals: " << cma.p->stats.evaluations << "/" << budget << ": ";
+		std::cout << "iters: " << cma.p->stats.t << ": ";
+		std::cout << "sigma: " << cma.p->mutation->sigma << ": ";
+		std::cout << "best_y: " << cma.p->stats.global_best.y;
+		std::cout << "	n_resamples: " << cma.p->repelling->attempts;
+	    std::cout << std::endl;*/
 
 		if (cma.p->stats.global_best.y < 1e-9)
 			break;
@@ -116,7 +116,9 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdap
 	std::cout << "\nfunction: " << functions::to_string(fun_t) << " " << dim << "D";
 	if (rotated)
 		std::cout << " (rotated)";
-	std::cout << "\nevals: " << cma.p->stats.evaluations << "/" << budget << std::endl;
+	const Float budget_used = static_cast<Float>(cma.p->stats.evaluations) / static_cast<Float>(budget) * 100;
+	std::cout << "\nevals: " << cma.p->stats.evaluations << "/" << budget;
+	std::cout << " ~ (" << std::defaultfloat << std::setprecision(3) << budget_used << "%)" << std::endl;
 	std::cout << "iters: " << cma.p->stats.t << std::endl;
 	std::cout << "updates: " << cma.p->stats.n_updates << "\n" << std::scientific << std::setprecision(3);
 	std::cout << "sigma: " << cma.p->mutation->sigma << std::endl;
@@ -128,11 +130,11 @@ int main()
 {
 	auto ssa = parameters::StepSizeAdaptation::CSA;
 	
-	run_modcma(parameters::MatrixAdaptationType::NONE, ssa);
-	run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::NONE, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ssa);
 	run_modcma(parameters::MatrixAdaptationType::MATRIX, ssa);
-	run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ssa);
-	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ssa);
-	run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ssa);
 	run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ssa);
 }

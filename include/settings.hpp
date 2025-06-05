@@ -87,7 +87,6 @@ namespace parameters
 			}
 
 			if (
-				modules.matrix_adaptation == MatrixAdaptationType::NONE ||
 				modules.matrix_adaptation == MatrixAdaptationType::NONE
 			)
 			{

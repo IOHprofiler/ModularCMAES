@@ -287,20 +287,6 @@ namespace matrix_adaptation
 		bool outdated_A_inv;
 	};
 
-	/*struct OnePlusOneAdaptation : CovarainceNoEigvAdaptation
-	{
-		
-
-		using CovarainceNoEigvAdaptation::CovarainceNoEigvAdaptation;
-
-		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
-
-		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
-			const parameters::Settings& settings, parameters::Stats& stats) override;
-	};*/
-
-
 	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0, const Float expected_z, const Float sigma0)
 	{
 		using namespace parameters;

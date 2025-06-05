@@ -241,10 +241,6 @@ namespace matrix_adaptation
 			+ (popY * (tau_m * weights).asDiagonal() * popZ.transpose());
 
 
-		// No need to compute M_inv
-		if (settings.one_plus_one)
-			return true;
-
 		if (settings.modules.elitist)
 			M_inv = (decay_m * M_inv)
 				+ (tau_1 * ps * (ps.transpose() * M_inv))
@@ -440,7 +436,10 @@ namespace matrix_adaptation
 		}
 
 		if (stats.has_improved)
-			compute_gradients(pop, w, stats, settings, mu, lambda);
+		{
+			const auto& z = pop.Z.col(0);
+			G.noalias() = (z * z.transpose() - Matrix::Identity(settings.dim, settings.dim));
+		}
 	}
 
 	void NaturalGradientAdaptation::compute_gradients(
@@ -465,7 +464,9 @@ namespace matrix_adaptation
 
 		// Remove isotropic (sigma-related) component: make G trace-free
 		sigma_g = (G.trace() / dd);
-		G.diagonal().array() -= sigma_g;
+		
+		if (!settings.one_plus_one)
+			G.diagonal().array() -= sigma_g;
 
 		// Ensure symmetry for numerical stability
 		G = 0.5 * (G + G.transpose().eval());
@@ -480,14 +481,12 @@ namespace matrix_adaptation
 		stats.n_updates++;
 
 		A *= (w.cc * G).exp();
-		
-		//! no need to update this if you have one plus one
-		outdated_A_inv = !settings.one_plus_one;
+		outdated_A_inv = true;
 
 		return true;
 	}
 
-	void matrix_adaptation::NaturalGradientAdaptation::restart(const parameters::Settings& settings, const Float sigma)
+	void NaturalGradientAdaptation::restart(const parameters::Settings& settings, const Float sigma)
 	{
 		Adaptation::restart(settings, sigma);
 		A = Matrix::Identity(settings.dim, settings.dim) / sigma;

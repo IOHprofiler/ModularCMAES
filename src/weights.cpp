@@ -38,7 +38,7 @@ namespace parameters
 				return 1.0 + (2.0 * std::max(Float(0.0), rhs) + cs);
 			}
 			default:
-				return 0.0;
+				return 1.0;
 		}
 	}
 
