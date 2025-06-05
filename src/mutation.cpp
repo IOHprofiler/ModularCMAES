@@ -42,7 +42,11 @@ namespace mutation
 			p.pop.f(i) = objective(p.pop.X.col(i));
 			p.stats.evaluations++;
 			if (sq->break_conditions(i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored))
+			{
+				// TODO: We should renormalize the weights
 				break;
+			}
+				
 		}
 	}
 

@@ -46,15 +46,15 @@ namespace bounds
 		}
 	}
 
-	Vector COTN::correct_x(const Vector& xi, const Mask& oob)
+	Vector COTN::correct_x(const Vector& xi, const Mask& oob, const Float sigma)
 	{
 		const Vector y = delta_out_of_bounds(xi, oob);
 		return (oob).select(
-			lb.array() + db.array() * ((y.array() > 0).cast<Float>() - sampler().array().abs()).abs(), y);
+			lb.array() + db.array() * ((y.array() > 0).cast<Float>() - (sigma * sampler().array().abs())).abs(), y);
 	}
 
 
-	Vector Mirror::correct_x(const Vector& xi, const Mask& oob)
+	Vector Mirror::correct_x(const Vector& xi, const Mask& oob, const Float sigma)
 	{
 		const Vector y = delta_out_of_bounds(xi, oob);
 		return (oob).select(
@@ -64,19 +64,19 @@ namespace bounds
 	}
 
 
-	Vector UniformResample::correct_x(const Vector& xi, const Mask& oob)
+	Vector UniformResample::correct_x(const Vector& xi, const Mask& oob, const Float sigma)
 	{
 		return (oob).select(lb + sampler().cwiseProduct(db), xi);
 	}
 
-	Vector Saturate::correct_x(const Vector& xi, const Mask& oob)
+	Vector Saturate::correct_x(const Vector& xi, const Mask& oob, const Float sigma)
 	{
 		const Vector y = delta_out_of_bounds(xi, oob);
 		return (oob).select(
 			lb.array() + db.array() * (y.array() > 0).cast<Float>(), y);
 	}
 
-	Vector Toroidal::correct_x(const Vector& xi, const Mask& oob)
+	Vector Toroidal::correct_x(const Vector& xi, const Mask& oob, const Float sigma)
 	{
 		const Vector y = delta_out_of_bounds(xi, oob);
 		return (oob).select(
