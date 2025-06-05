@@ -14,7 +14,9 @@ namespace parameters
 		criteria(restart::Criteria::get(settings.modules)),
 		adaptation(matrix_adaptation::get(settings.modules, settings.dim,
 			settings.x0.value_or(Vector::Zero(settings.dim)),
-			sampler->expected_length())),
+			sampler->expected_length(),
+			settings.sigma0
+		)),
 		mutation(mutation::get(settings.modules,
 			settings.mu0,
 			static_cast<Float>(settings.dim),
@@ -59,7 +61,7 @@ namespace parameters
 		mutation = mutation::get(settings.modules, mu,
 			static_cast<Float>(settings.dim),
 			sigma.value_or(settings.sigma0));
-		adaptation->restart(settings);
+		adaptation->restart(settings, sigma.value_or(settings.sigma0));
 		(*center_placement)(*this);
 		criteria.reset(*this);
 		stats.current_best = {};
@@ -67,7 +69,7 @@ namespace parameters
 
 	void Parameters::adapt()
 	{
-		adaptation->adapt_evolution_paths(pop, weights, stats, mu, lambda);
+		adaptation->adapt_evolution_paths(pop, weights, stats, settings, lambda, mu);
 		mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
 
 		if (constants::clip_sigma)

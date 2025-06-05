@@ -40,7 +40,7 @@ namespace bounds
 		if (oob.any())
 		{
 			n_out_of_bounds++;
-			p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob);
+			p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob, p.mutation->sigma);
 			p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.pop.s(i));
 			p.pop.Z.col(i) = p.adaptation->invert_y(p.pop.Y.col(i));
 		}

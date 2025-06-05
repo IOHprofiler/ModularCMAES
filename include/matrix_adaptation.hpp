@@ -20,12 +20,12 @@ namespace matrix_adaptation
 			expected_length_z(expected_length_z)
 		{
 		}
-
+		 
 		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
-			const parameters::Stats& stats, size_t mu, size_t lambda);
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t lambda, size_t mu);
 
 		virtual void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const parameters::Stats& stats, size_t mu, size_t lambda) = 0;
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) = 0;
 
 		virtual bool adapt_matrix(
 			const parameters::Weights& w, const parameters::Modules& m, const Population& pop,
@@ -37,7 +37,7 @@ namespace matrix_adaptation
 
 		virtual Vector invert_y(const Vector&) = 0;
 
-		virtual void restart(const parameters::Settings& settings)
+		virtual void restart(const parameters::Settings& settings, const Float sigma)
 		{
 			m = settings.x0.value_or(Vector::Zero(settings.dim));
 			m_old.setZero();
@@ -60,11 +60,9 @@ namespace matrix_adaptation
 			return true;
 		}
 
-		void adapt_evolution_paths_inner(
-			const Population& pop,
+		void adapt_evolution_paths_inner(const Population& pop,
 			const parameters::Weights& w,
-			const parameters::Stats& stats,
-			size_t mu, size_t lambda) override;
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
 
 		Vector compute_y(const Vector&) override;
@@ -98,13 +96,12 @@ namespace matrix_adaptation
 		virtual void adapt_ps(const parameters::Weights& w);
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const parameters::Stats& stats,
-			size_t mu, size_t lambda) override;
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
-		void restart(const parameters::Settings& settings) override;
+		void restart(const parameters::Settings& settings, const Float sigma) override;
 
 		Vector compute_y(const Vector&) override;
 
@@ -125,13 +122,12 @@ namespace matrix_adaptation
 		}
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const parameters::Stats& stats,
-			size_t mu, size_t lambda) override;
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
-		void restart(const parameters::Settings& settings) override;
+		void restart(const parameters::Settings& settings, const Float sigma) override;
 
 		Vector compute_y(const Vector&) override;
 
@@ -146,8 +142,7 @@ namespace matrix_adaptation
 		using CovarianceAdaptation::CovarianceAdaptation;
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const parameters::Stats& stats,
-			size_t mu, size_t lambda) override;
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
@@ -168,13 +163,12 @@ namespace matrix_adaptation
 		}
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
-			const parameters::Stats& stats,
-			size_t mu, size_t lambda) override;
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
-		void restart(const parameters::Settings& settings) override;
+		void restart(const parameters::Settings& settings, const Float sigma) override;
 
 		Vector compute_y(const Vector&) override;
 
@@ -197,17 +191,14 @@ namespace matrix_adaptation
 		{
 		}
 
-		void adapt_evolution_paths_inner(
-			const Population& pop,
+		void adapt_evolution_paths_inner(const Population& pop,
 			const parameters::Weights& w,
-			const parameters::Stats& stats,
-			size_t mu, size_t lambda
-		) override;
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
-		void restart(const parameters::Settings& settings) override;
+		void restart(const parameters::Settings& settings, const Float sigma) override;
 
 		Vector compute_y(const Vector&) override;
 
@@ -225,17 +216,14 @@ namespace matrix_adaptation
 			C(Matrix::Identity(dim, dim))
 		{}
 
-		void adapt_evolution_paths_inner(
-			const Population& pop,
+		void adapt_evolution_paths_inner(const Population& pop,
 			const parameters::Weights& w,
-			const parameters::Stats& stats,
-			size_t mu, size_t lambda
-		) override;
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
-		void restart(const parameters::Settings& settings) override;
+		void restart(const parameters::Settings& settings, const Float sigma) override;
 
 		Vector compute_y(const Vector&) override;
 
@@ -259,26 +247,34 @@ namespace matrix_adaptation
 		Matrix A;
 		Matrix G;
 		Matrix A_inv;
+		Float sigma_g;
 
-		NaturalGradientAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z)
+		NaturalGradientAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z, const Float sigma0)
 			: Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
-			A(Matrix::Identity(dim, dim)),
+			A(Matrix::Identity(dim, dim) / sigma0),
 			G(Matrix::Zero(dim, dim)),
 			A_inv(Matrix::Identity(dim, dim)),
+			sigma_g(0),
 			outdated_A_inv(false)
 		{}
 
-		void adapt_evolution_paths_inner(
-			const Population& pop,
+		void compute_gradients(
+			const Population& pop, 
+			const parameters::Weights& w, 
+			const parameters::Stats& stats, 
+			const parameters::Settings& settings,
+			size_t mu, 
+			size_t lambda
+		);
+
+		void adapt_evolution_paths_inner(const Population& pop,
 			const parameters::Weights& w,
-			const parameters::Stats& stats,
-			size_t mu, size_t lambda
-		) override;
+			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
 
 		bool adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 			const parameters::Settings& settings, parameters::Stats& stats) override;
 
-		void restart(const parameters::Settings& settings) override;
+		void restart(const parameters::Settings& settings, const Float sigma) override;
 
 		Vector compute_y(const Vector&) override;
 
@@ -291,7 +287,7 @@ namespace matrix_adaptation
 
 
 
-	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0, const Float expected_z)
+	inline std::shared_ptr<Adaptation> get(const parameters::Modules& m, const size_t dim, const Vector& x0, const Float expected_z, const Float sigma0)
 	{
 		using namespace parameters;
 		switch (m.matrix_adaptation)
@@ -311,7 +307,7 @@ namespace matrix_adaptation
 		case MatrixAdaptationType::COVARIANCE_NO_EIGV:
 			return std::make_shared<CovarainceNoEigvAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::NATURAL_GRADIENT:
-			return std::make_shared<NaturalGradientAdaptation>(dim, x0, expected_z);
+			return std::make_shared<NaturalGradientAdaptation>(dim, x0, expected_z, sigma0);
 		default:
 		case MatrixAdaptationType::COVARIANCE:
 			return std::make_shared<CovarianceAdaptation>(dim, x0, expected_z);

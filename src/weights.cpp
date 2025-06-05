@@ -77,6 +77,7 @@ namespace parameters
 		if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPERABLE)
 			cmu_default *= ((d + 2.0) / 3.0);
 
+
 		if (settings.lambda0 == 1)
 		{
 			cmu_default = 2 / (pow(d, 2) + 6.0);
@@ -108,6 +109,9 @@ namespace parameters
 		beta = 1.0 / std::sqrt(2.0 * mueff);
 		if (settings.modules.ssa == StepSizeAdaptation::LPXNES)
 			beta = std::log(2.0) / (std::sqrt(d) * std::log(d));
+
+		if (settings.modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT)
+			cs = cc = (9.0 + 3.0 + std::log(d)) / (5.0 * d * std::sqrt(d));
 	}
 
 

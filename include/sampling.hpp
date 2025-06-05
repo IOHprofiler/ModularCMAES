@@ -261,6 +261,14 @@ namespace sampling
             return sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)));
         }
 
+        [[nodiscard]] inline std::pair<Float, Float> box_muller(const Float u1, const Float u2)
+        {
+            const Float r = std::sqrt(-2.0 * std::log(u1));
+            const Float theta = 2.0 * M_PI * u2;
+            return { r * std::cos(theta), r * std::sin(theta) };
+        }
+
+
         [[nodiscard]] inline Vector box_muller(const Vector& u)
         {
             size_t n = u.size();
@@ -268,13 +276,15 @@ namespace sampling
 
             Vector z(n);
             for (size_t i = 0; i < m; ++i) {
-                const Float r = std::sqrt(-2.0 * std::log(u(2 * i)));
-                const Float theta = 2.0 * M_PI * u(2 * i + 1);
-
-                z(2 * i) = r * std::cos(theta);
-                z(2 * i + 1) = r * std::sin(theta);
+                const auto&[n1, n2] = box_muller(u(2 * i), u(2 * i + 1));
+                z(2 * i) = n1;
+                z(2 * i + 1) = n2;
             }
-            return z.head(n % 2 == 0 ? n : n - 1);
+
+            if (n % 2 != 0)
+                z(n - 1) = box_muller(u(0), u(n - 1)).first;
+
+            return z;
         }   
 
 

@@ -32,7 +32,11 @@ namespace mutation
 			do
 			{
 				p.pop.t(i) = p.stats.t;
-				p.pop.Z.col(i).noalias() = p.mutation->tc->scale((*p.sampler)(), p.bounds->diameter, p.settings.budget, p.stats.evaluations);
+				const auto& zi = (*p.sampler)();
+				const auto& zi_scaled = p.mutation->tc->scale(
+					zi, p.bounds->diameter, p.settings.budget, p.stats.evaluations
+				);
+				p.pop.Z.col(i).noalias() = zi;
 				p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));
 				p.pop.X.col(i).noalias() = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
 				p.bounds->correct(i, p);
@@ -145,6 +149,12 @@ namespace mutation
 		Population& pop,
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 	{
+		if (const auto dynamic = std::dynamic_pointer_cast<matrix_adaptation::NaturalGradientAdaptation>(adaptation))
+		{
+			sigma *= std::exp(w.cs / 2.0 * dynamic->sigma_g);
+			return; 
+		}
+		
 		const Float z = ((pop.Z).colwise().squaredNorm().array() - adaptation->dd).matrix() * w.clipped();
 		sigma *= std::exp((w.cs / std::sqrt(adaptation->dd)) * z);
 	}
