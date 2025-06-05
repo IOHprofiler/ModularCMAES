@@ -26,7 +26,7 @@ void define_options(py::module& main)
 	py::enum_<RecombinationWeights>(m, "RecombinationWeights")
 		.value("DEFAULT", parameters::RecombinationWeights::DEFAULT)
 		.value("EQUAL", parameters::RecombinationWeights::EQUAL)
-		.value("HALF_POWER_LAMBDA", parameters::RecombinationWeights::HALF_POWER_LAMBDA)
+		.value("EXPONENTIAL", parameters::RecombinationWeights::EXPONENTIAL)
 		.export_values();
 
 	py::enum_<BaseSampler>(m, "BaseSampler")
@@ -313,7 +313,7 @@ void define_repelling(py::module& main)
 		.def_readwrite("archive", &Repelling::archive)
 		.def_readwrite("coverage", &Repelling::coverage)
 		.def_readwrite("attempts", &Repelling::attempts)
-		.def_readwrite("C_inv", &Repelling::C_inv);
+	;
 
 	py::class_<NoRepelling, Repelling, std::shared_ptr<NoRepelling>>(m, "NoRepelling")
 		.def(py::init<>());
@@ -358,7 +358,7 @@ void define_matrix_adaptation(py::module& main)
 			py::arg("mu"),
 			py::arg("settings"),
 			py::arg("stats"))
-		.def("restart", &Adaptation::restart, py::arg("settings"), py::args("sigma"))
+		.def("restart", &Adaptation::restart, py::arg("settings"), py::arg("sigma"))
 		.def("distance", &Adaptation::distance, py::arg("u"), py::arg("v"))
 		.def("distance_from_center", &Adaptation::distance_from_center, py::arg("x"))
 		.def("compute_y", &Adaptation::compute_y, py::arg("zi"))
