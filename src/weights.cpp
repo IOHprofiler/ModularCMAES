@@ -18,7 +18,7 @@ namespace parameters
 			case StepSizeAdaptation::PSR:
 				return 0.9;
 			case StepSizeAdaptation::SR:
-				return 1.0 / 12.0;
+				return 2.0 / (d + 2.0);
 			case StepSizeAdaptation::CSA:
 				return (mueff + 2.0) / (d + mueff + 5.0);
 			default:

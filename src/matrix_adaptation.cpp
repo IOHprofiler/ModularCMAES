@@ -208,6 +208,8 @@ namespace matrix_adaptation
 	void MatrixAdaptation::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
 		const Stats& stats, const parameters::Settings& settings, const size_t mu, const size_t lambda)
 	{
+		if (settings.one_plus_one && !stats.has_improved)
+			return;
 		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
 	}
 
@@ -241,7 +243,7 @@ namespace matrix_adaptation
 			+ (popY * (tau_m * weights).asDiagonal() * popZ.transpose());
 
 
-		if (settings.modules.elitist)
+		if (settings.modules.elitist && !settings.one_plus_one)
 			M_inv = (decay_m * M_inv)
 				+ (tau_1 * ps * (ps.transpose() * M_inv))
 				+ ((popY * (tau_m * weights).asDiagonal()) * (popZ.transpose() * M_inv));

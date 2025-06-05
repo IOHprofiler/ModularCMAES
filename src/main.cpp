@@ -130,11 +130,11 @@ int main()
 {
 	auto ssa = parameters::StepSizeAdaptation::CSA;
 	
-	//run_modcma(parameters::MatrixAdaptationType::NONE, ssa);
-	//run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ssa);
+	run_modcma(parameters::MatrixAdaptationType::NONE, ssa);
+	run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ssa);
 	run_modcma(parameters::MatrixAdaptationType::MATRIX, ssa);
-	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ssa);
-	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ssa);
-	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ssa);
+	run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ssa);
+	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ssa);
+	run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ssa);
 	run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ssa);
 }

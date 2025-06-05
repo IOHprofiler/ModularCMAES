@@ -40,10 +40,14 @@ namespace selection
 		if (p.stats.t != 0)
 		{
 			p.old_pop.resize_cols(k);
-			for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(p.old_pop.n); i++)
+
+			if (!p.settings.one_plus_one)
 			{
-				p.old_pop.Y.col(i).noalias() = p.adaptation->invert_x(p.old_pop.X.col(i), p.old_pop.s(i));
-				p.old_pop.Z.col(i).noalias() = p.adaptation->invert_y(p.old_pop.Y.col(i));
+				for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(p.old_pop.n); i++)
+				{
+					p.old_pop.Y.col(i).noalias() = p.adaptation->invert_x(p.old_pop.X.col(i), p.old_pop.s(i));
+					p.old_pop.Z.col(i).noalias() = p.adaptation->invert_y(p.old_pop.Y.col(i));
+				}
 			}
 			p.pop += p.old_pop;
 		}

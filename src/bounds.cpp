@@ -33,7 +33,7 @@ namespace bounds
 
 	void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters& p)
 	{
-		if (!has_bounds)
+		if (!has_bounds or p.settings.modules.bound_correction == parameters::CorrectionMethod::NONE)
 			return;
 
 		const auto oob = is_out_of_bounds(p.pop.X.col(i));
