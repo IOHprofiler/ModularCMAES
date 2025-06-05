@@ -11,8 +11,8 @@ namespace parameters
         {
         case RecombinationWeights::EQUAL:
             return "EQUAL";
-        case RecombinationWeights::HALF_POWER_LAMBDA:
-            return "HALF_POWER_LAMBDA";
+        case RecombinationWeights::EXPONENTIAL:
+            return "EXPONENTIAL";
         default:
         case RecombinationWeights::DEFAULT:
             return "DEFAULT";

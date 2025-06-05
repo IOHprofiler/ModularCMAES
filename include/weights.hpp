@@ -26,7 +26,7 @@ namespace parameters
 
         void weights_equal(const size_t mu);
 
-        void weights_half_power_lambda(const size_t mu, const size_t lambda);
+        void weights_exponential(const size_t mu, const size_t lambda);
 
         Vector clipped() const;
     };

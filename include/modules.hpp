@@ -6,7 +6,7 @@ namespace parameters
     {
         DEFAULT,
         EQUAL,
-        HALF_POWER_LAMBDA
+        EXPONENTIAL
     };
 
     enum class BaseSampler

@@ -57,8 +57,8 @@ namespace parameters
 			case RecombinationWeights::EQUAL:
 				weights_equal(mu);
 				break;
-			case RecombinationWeights::HALF_POWER_LAMBDA:
-				weights_half_power_lambda(mu, lambda);
+			case RecombinationWeights::EXPONENTIAL:
+				weights_exponential(mu, lambda);
 				break;
 			case RecombinationWeights::DEFAULT:
 				weights_default(mu, lambda);
@@ -129,7 +129,7 @@ namespace parameters
 		negative.setConstant(-wi);
 	}
 
-	void Weights::weights_half_power_lambda(const size_t mu, const size_t lambda)
+	void Weights::weights_exponential(const size_t mu, const size_t lambda)
 	{
 		const Float dmu = static_cast<Float>(mu);
 		const Float base = (1.0 / pow(2.0, dmu)) / dmu;
