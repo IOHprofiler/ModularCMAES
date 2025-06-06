@@ -62,7 +62,8 @@ namespace parameters
 			cmu(cmu),
 			c1(c1),
 			verbose(verbose),
-			volume(0.0)
+			volume(0.0),
+			one_plus_one(false)
 		{
 			if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
 				lambda0++;
