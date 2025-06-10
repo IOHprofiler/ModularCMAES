@@ -186,6 +186,10 @@ namespace matrix_adaptation
 	{
 		Matrix A;
 		Vector pc;
+		/*
+		First, as only triangular matrices have to be stored, the storage complexity is optimal.
+		Second, the diagonal elements of a triangular Cholesky factor are the square roots of the eigenvalues
+		of the factorized matrix, that is, we get the eigenvalues of the covariance matrix for free*/
 
 		CholeskyAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z)
 			: Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),

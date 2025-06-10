@@ -6,6 +6,8 @@ namespace parameters
 {
 	static Float get_default_cs(const Settings& settings, const Float mueff, const Float d)
 	{
+		// TODO: check whether the value of cs needs to be increased when CMA is NONE
+		
 		if (settings.modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT)
 			return (9.0 + 3.0 + std::log(d)) / (5.0 * d * std::sqrt(d));
 		

@@ -75,7 +75,7 @@ namespace parameters
 
 			if (modules.ssa == StepSizeAdaptation::SA)
 			{
-				mu0 = std::min(lambda0 / 4, mu0);
+				mu0 = mu.value_or(lambda0 / 4);
 			}
 
 
@@ -100,6 +100,7 @@ namespace parameters
 				one_plus_one = true;
 				modules.elitist = true;
 				modules.active = false;
+				modules.sequential_selection = false;
 				modules.weights = RecombinationWeights::EQUAL;
 				modules.ssa = StepSizeAdaptation::SR;
 			
