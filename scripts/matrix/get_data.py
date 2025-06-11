@@ -13,8 +13,9 @@ from pprint import pprint
 np.random.seed(12)
 
 DIMS = 2, 3, 5, 10, 20, 40, 100
-FUNCTIONS = [1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+FUNCTIONS = [1, 2, 6, 8, 9, 10, 11, 12, 13, 14]
 N_REPEATS = 100
+BUDGET = 100_000
 
 def run_modma(problem: ioh.ProblemType, 
               x0: np.ndarray, 
@@ -33,7 +34,7 @@ def run_modma(problem: ioh.ProblemType,
         verbose=True,
         sigma0=2.0,
         target=problem.optimum.y + 1e-8,
-        budget=problem.meta_data.n_variables * 100_000
+        budget=problem.meta_data.n_variables * BUDGET
     )
     
     cma = modcma.ModularCMAES(settings)
@@ -72,28 +73,28 @@ class RestartCollector:
         for item in self.names:
             setattr(self, item, 0)
 
+def collect(name, option):
+    logger = ioh.logger.Analyzer(
+        folder_name=name, 
+        algorithm_name=name,
+        root="data"
+    )
+    collector = RestartCollector()
+    logger.add_run_attributes(collector, collector.names)
+    for fid in FUNCTIONS:
+        for d in DIMS:
+            problem = ioh.get_problem(fid, 1, d)
+            problem.attach_logger(logger)
+            for i in range(N_REPEATS):
+                modcma.utils.set_seed(21 + fid * d * i)
+                collector.reset()
+                run_modma(problem, np.zeros(d), collector, option)
+                print(name, fid, d, problem.state.current_best_internal.y, problem.state.evaluations)
+                problem.reset()
+
 def collect_modcma():
     options = modcma.options.MatrixAdaptationType.__members__
     del options['COVARIANCE_NO_EIGV']
-
-    def collect(name, option):
-        logger = ioh.logger.Analyzer(
-            folder_name=name, 
-            algorithm_name=name,
-            root="data"
-        )
-        collector = RestartCollector()
-        logger.add_run_attributes(collector, collector.names)
-        for fid in FUNCTIONS:
-            for d in DIMS:
-                problem = ioh.get_problem(fid, 1, d)
-                problem.attach_logger(logger)
-                for i in range(N_REPEATS):
-                    modcma.utils.set_seed(21 + fid * d * i)
-                    collector.reset()
-                    run_modma(problem, np.zeros(d), collector, option)
-                    print(name, fid, d, problem.state.current_best_internal.y, problem.state.evaluations)
-                    problem.reset()
 
     with Pool(len(options)) as p:
         p.starmap(collect, options.items())
@@ -118,7 +119,7 @@ def run_pycma(problem: ioh.ProblemType, x0: np.ndarray):
         while problem.state.evaluations < budget:
             X, y = cma.ask_and_eval(problem)
             cma.tell(X, y)
-            if problem.current_best.y <= target:
+            if problem.state.current_best.y <= target:
                 break
 
     stop = perf_counter()
@@ -137,8 +138,7 @@ def collect_pycma():
             problem = ioh.get_problem(fid, 1, d)
             problem.attach_logger(logger)
             for i in range(N_REPEATS):
-                np.seed(21 + fid * d * i)
-                modcma.utils.set_seed()
+                np.random.seed(21 + fid * d * i)
                 run_pycma(problem, np.zeros(d))
                 print("pycma", fid, d, problem.state.current_best_internal.y, problem.state.evaluations)
                 problem.reset()
@@ -146,6 +146,7 @@ def collect_pycma():
 
 
 if __name__ == "__main__":
+    collect_modcma()
     collect_pycma()
     # problem = ioh.get_problem(fid, 1, d)
     # run_modma(problem, np.zeros(d), modcma.options.CMSA)
