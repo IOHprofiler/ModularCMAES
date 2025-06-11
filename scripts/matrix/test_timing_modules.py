@@ -39,13 +39,15 @@ def run_pycma(problem: ioh.ProblemType, x0: np.ndarray, max_generations=1000):
     options = pycma.CMAOptions()
     options['CMA_active'] = False
     # options['maxfevals'] = n_evaluations
-    options["verbose"] = -1
+    options['conditioncov_alleviate'] = False
+    options["verbose"] = 10
     options["CMA_diagonal"] = False
-    # pprint(options)
+    pprint(options)
 
     cma = pycma.CMAEvolutionStrategy(x0, 2.0, options=options)
     settings = modcma.Settings(problem.meta_data.n_variables)
     assert settings.lambda0 == cma.sp.popsize
+    np.random.seed(1)
     start = perf_counter()
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
@@ -96,3 +98,4 @@ if __name__ == "__main__":
     stats = pd.DataFrame(stats, columns=["method", "dim", "time", "n_gen", "n_evals", "n_updates"])
     stats.to_csv("time_stats_pycma.csv")
     print(stats)
+    

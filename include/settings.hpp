@@ -73,7 +73,7 @@ namespace parameters
 				mu0 = lambda0 / 2;
 			}
 
-			if (modules.ssa == StepSizeAdaptation::SA)
+			if (modules.ssa == StepSizeAdaptation::SA || modules.matrix_adaptation == MatrixAdaptationType::CMSA)
 			{
 				mu0 = mu.value_or(lambda0 / 4);
 			}
