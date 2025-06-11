@@ -380,7 +380,9 @@ namespace matrix_adaptation
 
 	void SelfAdaptation::restart(const parameters::Settings& settings, const Float sigma)
 	{
+		Adaptation::restart(settings, sigma);
 		A = Matrix::Identity(settings.dim, settings.dim);
+		C = Matrix::Identity(settings.dim, settings.dim);
 	}
 
 	Vector SelfAdaptation::compute_y(const Vector& zi)
@@ -392,7 +394,6 @@ namespace matrix_adaptation
 	{
 		return A.triangularView<Eigen::Lower>().solve(yi);
 	}
-
 
 	void CovarainceNoEigvAdaptation::adapt_ps(const Weights& w)
 	{
@@ -509,8 +510,4 @@ namespace matrix_adaptation
 			A_inv = A.completeOrthogonalDecomposition().pseudoInverse();
 		return A_inv * yi;
 	}
-
-
-
-
 }

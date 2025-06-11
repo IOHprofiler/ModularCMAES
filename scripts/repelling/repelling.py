@@ -498,9 +498,10 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = F
     # c_cmaes.constants.tol_min_sigma = 0.01
 
     modules = c_cmaes.parameters.Modules()
-    modules.restart_strategy = c_cmaes.options.RESTART
-    modules.bound_correction = c_cmaes.options.SATURATE
+    modules.restart_strategy = c_cmaes.options.BIPOP
+    # modules.bound_correction = c_cmaes.options.SATURATE
     modules.elitist = True
+    modules.active = True
     modules.repelling_restart = rep
     modules.center_placement = c_cmaes.options.UNIFORM
     settings = c_cmaes.parameters.Settings(
@@ -516,10 +517,10 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = F
     parameters.repelling.coverage = coverage
     cma = c_cmaes.ModularCMAES(parameters)
     
-    c1 = CloseToTaboo()
-    c2 = TooMuchRepelling()
-    c3 = ConvergingToBadBasin()
-    cma.p.criteria.items = cma.p.criteria.items + [c1, c2, c3]
+    # c1 = CloseToTaboo()
+    # c2 = TooMuchRepelling()
+    # c3 = ConvergingToBadBasin()
+    # cma.p.criteria.items = cma.p.criteria.items + [c1, c2, c3]
 
     archive_size = 0
     while not cma.break_conditions():
@@ -529,7 +530,7 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = F
         # print("before start", cma.p.criteria.items)
         # print(cma.p.repelling.archive)
         # print(cma.p.stats.solutions)        
-        cma.p.start(problem)
+        # cma.p.start(problem)
         # print()
         # print("after start", cma.p.criteria.items)
         # print(cma.p.repelling.archive)
