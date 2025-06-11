@@ -37,6 +37,25 @@ namespace matrix_adaptation
 		adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);
 	}
 
+	void None::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
+		const Stats& stats, const parameters::Settings& settings, const size_t mu, const size_t lambda)
+	{
+		if (!settings.one_plus_one)
+			ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
+	}
+
+	Vector None::compute_y(const Vector& zi)
+	{
+		return zi;
+	}
+
+
+	Vector None::invert_y(const Vector& yi)
+	{
+		return yi;
+	}
+
+
 
 	void CovarianceAdaptation::adapt_ps(const Weights& w)
 	{
@@ -274,23 +293,6 @@ namespace matrix_adaptation
 		return M_inv * yi;
 	}
 
-	void None::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
-		const Stats& stats, const parameters::Settings& settings, const size_t mu, const size_t lambda)
-	{
-		if (!settings.one_plus_one)
-			ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
-	}
-
-	Vector None::compute_y(const Vector& zi)
-	{
-		return zi;
-	}
-
-
-	Vector None::invert_y(const Vector& yi)
-	{
-		return yi;
-	}
 
 	void CholeskyAdaptation::adapt_evolution_paths_inner(const Population& pop,
 		const parameters::Weights& w,

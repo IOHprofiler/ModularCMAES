@@ -1,10 +1,12 @@
 from time import perf_counter
+import warnings
 
 import numpy as np
 import modcma.c_maes as modcma
 import ioh
 import pandas as pd 
 import matplotlib.pyplot as plt
+import cma as pycma
 
 from pprint import pprint
 
@@ -33,6 +35,28 @@ def run_modma(problem: ioh.ProblemType, x0: np.ndarray, matrix_adaptation = modc
     return elapsed, cma.p.stats.t, problem.state.evaluations, cma.p.stats.n_updates
 
 
+def run_pycma(problem: ioh.ProblemType, x0: np.ndarray, max_generations=1000):
+    options = pycma.CMAOptions()
+    options['CMA_active'] = False
+    # options['maxfevals'] = n_evaluations
+    options["verbose"] = -1
+    options["CMA_diagonal"] = False
+    # pprint(options)
+
+    cma = pycma.CMAEvolutionStrategy(x0, 2.0, options=options)
+    settings = modcma.Settings(problem.meta_data.n_variables)
+    assert settings.lambda0 == cma.sp.popsize
+    start = perf_counter()
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        for i in range(max_generations):
+            X, y = cma.ask_and_eval(problem)
+            cma.tell(X, y)
+    stop = perf_counter()
+    elapsed = stop - start
+
+    return elapsed, cma.countiter, problem.state.evaluations, cma.sm.count_eigen
+
 def collect():
     fid = 2
     dims = 2, 3, 5, 10, 20, 40, 100, 200, 500, 1000
@@ -58,5 +82,17 @@ def collect():
 
 
 if __name__ == "__main__":
-    stats = pd.read_csv("time_stats.csv")
+    fid = 2
+    dims = 2, 3, 5, 10, 20, 40, 100, 200, 500, 1000
+    n_repeats = 15
+
+    stats = []
+    for d in dims:
+        for _ in range(n_repeats):
+            problem = ioh.get_problem(fid, 1, d)
+            time, n_gen, n_evals, n_updates = run_pycma(problem, np.zeros(d))
+            stats.append(("pycma", d, time, n_gen, n_evals, n_updates))
+            print(stats[-1])
+    stats = pd.DataFrame(stats, columns=["method", "dim", "time", "n_gen", "n_evals", "n_updates"])
+    stats.to_csv("time_stats_pycma.csv")
     print(stats)

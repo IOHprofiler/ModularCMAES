@@ -1,16 +1,20 @@
 from time import perf_counter
-
+import warnings
 import numpy as np
 import modcma.c_maes as modcma
 import ioh
 import pandas as pd 
 
 from multiprocessing import Pool
-
+import cma as pycma
 
 from pprint import pprint
 
 np.random.seed(12)
+
+DIMS = 2, 3, 5, 10, 20, 40, 100
+FUNCTIONS = [1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14]
+N_REPEATS = 100
 
 def run_modma(problem: ioh.ProblemType, 
               x0: np.ndarray, 
@@ -68,15 +72,9 @@ class RestartCollector:
         for item in self.names:
             setattr(self, item, 0)
 
-
-if __name__ == "__main__":
-    dims = 2, 3, 5, 10, 20, 40, 100
-    functions = [1, 2, 6, 7, 8, 9, 10, 11, 12, 13, 14]
-    
-    n_repeats = 100
+def collect_modcma():
     options = modcma.options.MatrixAdaptationType.__members__
     del options['COVARIANCE_NO_EIGV']
-
 
     def collect(name, option):
         logger = ioh.logger.Analyzer(
@@ -86,11 +84,11 @@ if __name__ == "__main__":
         )
         collector = RestartCollector()
         logger.add_run_attributes(collector, collector.names)
-        for fid in functions:
-            for d in dims:
+        for fid in FUNCTIONS:
+            for d in DIMS:
                 problem = ioh.get_problem(fid, 1, d)
                 problem.attach_logger(logger)
-                for i in range(n_repeats):
+                for i in range(N_REPEATS):
                     modcma.utils.set_seed(21 + fid * d * i)
                     collector.reset()
                     run_modma(problem, np.zeros(d), collector, option)
@@ -100,6 +98,55 @@ if __name__ == "__main__":
     with Pool(len(options)) as p:
         p.starmap(collect, options.items())
 
+
+def run_pycma(problem: ioh.ProblemType, x0: np.ndarray):
+    options = pycma.CMAOptions()
+    options['CMA_active'] = False
+    options["verbose"] = -1
+    options["CMA_diagonal"] = False
+
+    cma = pycma.CMAEvolutionStrategy(x0, 2.0, options=options)
+    settings = modcma.Settings(problem.meta_data.n_variables)
+    assert settings.lambda0 == cma.sp.popsize
+    start = perf_counter()
+
+    target = problem.optimum.y + 1e-8
+    budget = problem.meta_data.n_variables * 100_000
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        while problem.state.evaluations < budget:
+            X, y = cma.ask_and_eval(problem)
+            cma.tell(X, y)
+            if problem.current_best.y <= target:
+                break
+
+    stop = perf_counter()
+    elapsed = stop - start
+
+    return elapsed, cma.countiter, problem.state.evaluations, cma.sm.count_eigen
+
+def collect_pycma():
+    logger = ioh.logger.Analyzer(
+        folder_name="pycma", 
+        algorithm_name="pycma",
+        root="data"
+    )
+    for fid in FUNCTIONS:
+        for d in DIMS:
+            problem = ioh.get_problem(fid, 1, d)
+            problem.attach_logger(logger)
+            for i in range(N_REPEATS):
+                np.seed(21 + fid * d * i)
+                modcma.utils.set_seed()
+                run_pycma(problem, np.zeros(d))
+                print("pycma", fid, d, problem.state.current_best_internal.y, problem.state.evaluations)
+                problem.reset()
+
+
+
+if __name__ == "__main__":
+    collect_pycma()
     # problem = ioh.get_problem(fid, 1, d)
     # run_modma(problem, np.zeros(d), modcma.options.CMSA)
     # print(problem.state.evaluations, problem.state.current_best_internal.y)
