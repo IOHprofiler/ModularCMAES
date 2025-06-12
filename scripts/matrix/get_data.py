@@ -68,15 +68,24 @@ def run_modma(problem: ioh.ProblemType,
         sigma0=2.0,
         target=problem.optimum.y + 1e-8,
         budget=problem.meta_data.n_variables * BUDGET,
-        cs=pcma.adapt_sigma.cs,
-        c1=pcma.sp.c1,
-        cc=pcma.sp.cc,
-        cmu=pcma.sp.cmu,
+        # cs=pcma.adapt_sigma.cs,
+        # c1=pcma.sp.c1,
+        cc=pcma.sp.cmu,
+        # cmu=pcma.sp.cmu,
     )
 
 
+
     cma = modcma.ModularCMAES(settings)
-    cma.p.weights.damps = pcma.adapt_sigma.damps
+    if N_REPEATS == 1:
+        print()
+        print("cmu", cma.p.weights.cmu, pcma.sp.cmu,  np.isclose(cma.p.weights.cmu, pcma.sp.cmu))
+        print("c1", cma.p.weights.c1, pcma.sp.c1, np.isclose(cma.p.weights.c1, pcma.sp.c1))
+        print("cc", cma.p.weights.cc, pcma.sp.cc, np.isclose(cma.p.weights.cc, pcma.sp.cc))
+        print("mueff", cma.p.weights.mueff, pcma.sp.weights.mueff, np.isclose(cma.p.weights.mueff, pcma.sp.weights.mueff))
+        print("cs", cma.p.weights.cs, pcma.adapt_sigma.cs, np.isclose(cma.p.weights.cs, pcma.adapt_sigma.cs))
+        print("damps", cma.p.weights.damps, pcma.adapt_sigma.damps, np.isclose(cma.p.weights.damps, pcma.adapt_sigma.damps))
+
 
     start = perf_counter()
     while not cma.break_conditions():
@@ -127,17 +136,17 @@ class RestartCollector:
             setattr(self, item, 0)
 
 def collect(name, option):
-    logger = ioh.logger.Analyzer(
-        folder_name=name, 
-        algorithm_name=name,
-        root=ROOT
-    )
+    # logger = ioh.logger.Analyzer(
+    #     folder_name=name, 
+    #     algorithm_name=name,
+    #     root=ROOT
+    # )
     collector = RestartCollector()
-    logger.add_run_attributes(collector, collector.names)
+    # logger.add_run_attributes(collector, collector.names)
     for fid in FUNCTIONS:
         for d in DIMS:
             problem = ioh.get_problem(fid, 1, d)
-            problem.attach_logger(logger)
+            # problem.attach_logger(logger)
             runs = []
             for i in range(N_REPEATS):
                 modcma.utils.set_seed(21 + fid * d * i)
@@ -146,8 +155,7 @@ def collect(name, option):
                 # print(name, fid, d, problem.state.current_best_internal.y, problem.state.evaluations)
                 runs.append(dict(evals=problem.state.evaluations, best_y=problem.state.current_best_internal.y))
                 problem.reset()
-            print("ert:", ert(runs))
-            print()
+            print(name, fid, d, "ert:", ert(runs))
 
 def collect_modcma():
     options = modcma.options.MatrixAdaptationType.__members__
