@@ -80,9 +80,11 @@ namespace parameters
 		//Float cmu_default_old = std::min(
 		//	1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))));
 
-		Float cmu_default = std::min(1.0 - c1, acov * ((1.0 / 4.0 + mueff + 1.0 / mueff - 2.0) / (pow(d + 2., 2) + acov * mueff / 2)));
+		Float cmu_default = std::min(1.0 - c1,
+			acov * 
+			(0.25 + mueff + 1.0 / mueff - 2.0) / 
+			(pow(d + 2., 2.0) + acov * mueff / 2.0));
 			
-
 		if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPERABLE)
 			cmu_default *= ((d + 2.0) / 3.0);
 
@@ -118,9 +120,10 @@ namespace parameters
 				break;
 		}
 
-		mueff = std::pow(positive.sum(), 2) / positive.dot(positive);
-		mueff_neg = std::pow(negative.sum(), 2) / negative.dot(negative);
+		//mueff = std::pow(positive.sum(), 2) / positive.dot(positive);
 		positive /= positive.sum();
+		mueff = 1.0 / positive.dot(positive);
+		mueff_neg = std::pow(negative.sum(), 2) / negative.dot(negative);
 
 		acov = settings.acov.value_or(2.0);
 		c1 = settings.c1.value_or(get_default_c1(settings, d, mueff, acov));
@@ -152,7 +155,8 @@ namespace parameters
 	void Weights::weights_default(const size_t mu, const size_t lambda)
 	{
 		const Float ratio = static_cast<Float>(lambda) / static_cast<Float>(mu);
-		const Float base = std::log((static_cast<Float>(lambda) + 1.) / ratio);
+		const Float base = std::log((static_cast<Float>(lambda) + 1.) / std::round(ratio));
+
 		for (auto i = 0; i < positive.size(); ++i)
 			positive(i) = base - std::log(static_cast<Float>(i + 1));
 

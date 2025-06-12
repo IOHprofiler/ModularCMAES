@@ -9,7 +9,7 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-static int dim = 4;
+static int dim = 3;
 static bool rotated = false;
 static functions::ObjectiveFunction fun_t = functions::ObjectiveFunction::SPHERE;
 static size_t budget = dim * 100;
