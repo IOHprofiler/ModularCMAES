@@ -129,8 +129,8 @@ namespace parameters
 		c1 = settings.c1.value_or(get_default_c1(settings, d, mueff, acov));
 		cmu = settings.cmu.value_or(get_default_cmu(settings, d, mueff, c1, acov));
 		cs = settings.cs.value_or(get_default_cs(settings, mueff, d));
-
-		cc = settings.cmu.value_or(get_default_cc(settings, d, mueff, cs));
+		cc = settings.cc.value_or(get_default_cc(settings, d, mueff, cs));
+		
 		damps = settings.damps.value_or(get_default_damps(settings, mueff, d, cs));
 
 		sqrt_cs_mueff = std::sqrt(cs * (2.0 - cs) * mueff);
