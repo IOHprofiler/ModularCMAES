@@ -13,11 +13,23 @@ from pprint import pprint
 np.random.seed(12)
 
 DIMS = 2, 3, 5, 10, 20, 40, #100
-FUNCTIONS = [3, 4, 5, 7] + list(range(15, 25)) #[1, 2, 6, 8, 9, 10, 11, 12, 13, 14]
+FUNCTIONS = [13] #[3, 4, 5, 7] + list(range(15, 25)) #[1, 2, 6, 8, 9, 10, 11, 12, 13, 14]
 N_REPEATS = 100
 BUDGET = 100_000
 ROOT = "data"
 
+
+def ert(runs, target = 1e-8):
+    total_evals = 0
+    n_suc = 0
+    for row in runs:
+        total_evals += row['evals']
+        if row['best_y'] <= target:
+            n_suc += 1
+
+    if n_suc <= 0:
+        return float("inf")
+    return total_evals / n_suc
 
 def run_modma(problem: ioh.ProblemType, 
               x0: np.ndarray, 
@@ -26,7 +38,25 @@ def run_modma(problem: ioh.ProblemType,
             ):
     modules = modcma.parameters.Modules()
     modules.matrix_adaptation = matrix_adaptation
+    modules.ssa = modcma.options.StepSizeAdaptation.CSA
     modules.restart_strategy = modcma.options.RestartStrategy.STOP
+
+    options = pycma.CMAOptions()
+    options['CMA_active'] = False
+    options["verbose"] = -1
+    options["CMA_diagonal"] = False
+    options["CSA_squared"] = False
+    options['conditioncov_alleviate'] = False
+    options['ftarget'] = problem.optimum.y + 1e-8
+    options['maxfevals'] = problem.meta_data.n_variables * BUDGET
+
+    pcma = pycma.CMAEvolutionStrategy(x0, 2.0, options=options)
+    problem2 = ioh.get_problem(problem.meta_data.problem_id, 1, problem.meta_data.n_variables)
+
+    while not pcma.stop():
+        X, y = pcma.ask_and_eval(problem2)
+        pcma.tell(X, y)
+        break
 
     settings = modcma.Settings(
         problem.meta_data.n_variables, 
@@ -37,10 +67,16 @@ def run_modma(problem: ioh.ProblemType,
         verbose=True,
         sigma0=2.0,
         target=problem.optimum.y + 1e-8,
-        budget=problem.meta_data.n_variables * BUDGET
+        budget=problem.meta_data.n_variables * BUDGET,
+        cs=pcma.adapt_sigma.cs,
+        c1=pcma.sp.c1,
+        cc=pcma.sp.cc,
+        cmu=pcma.sp.cmu,
     )
-    
+
+
     cma = modcma.ModularCMAES(settings)
+    cma.p.weights.damps = pcma.adapt_sigma.damps
 
     start = perf_counter()
     while not cma.break_conditions():
@@ -51,7 +87,18 @@ def run_modma(problem: ioh.ProblemType,
     if cma.p.criteria.any():
         logger_obj.update(cma.p.criteria.items)
 
-    cma.run(problem)
+    # print("modcma")
+    # print(cma.p.mutation.sigma)
+    # print(cma.p.adaptation.C)
+    # print(cma.p.pop.f)
+    # print(cma.p.criteria.reason())
+    # print(problem.state)
+    # print("\npycma")
+    # print(pcma.sigma)
+    # print(pcma.sm.C)
+    # print(problem2.state)
+    
+    # cma.run(problem)
     stop = perf_counter()
     elapsed = stop - start
     return elapsed, cma.p.stats.t, problem.state.evaluations, cma.p.stats.n_updates
@@ -91,12 +138,16 @@ def collect(name, option):
         for d in DIMS:
             problem = ioh.get_problem(fid, 1, d)
             problem.attach_logger(logger)
+            runs = []
             for i in range(N_REPEATS):
                 modcma.utils.set_seed(21 + fid * d * i)
                 collector.reset()
                 run_modma(problem, np.zeros(d), collector, option)
-                print(name, fid, d, problem.state.current_best_internal.y, problem.state.evaluations)
+                # print(name, fid, d, problem.state.current_best_internal.y, problem.state.evaluations)
+                runs.append(dict(evals=problem.state.evaluations, best_y=problem.state.current_best_internal.y))
                 problem.reset()
+            print("ert:", ert(runs))
+            print()
 
 def collect_modcma():
     options = modcma.options.MatrixAdaptationType.__members__
@@ -159,10 +210,12 @@ def collect_pycma():
 
 
 if __name__ == "__main__":
-    p1 = Process(target=collect_modcma)
-    p2 = Process(target=collect_pycma)
+    # p1 = Process(target=collect_modcma)
+    # p2 = Process(target=collect_pycma)
 
-    p1.start()
-    p2.start()
-    p1.join()
-    p2.join()
+    # p1.start()
+    # p2.start()
+    # p1.join()
+    # p2.join()
+
+    collect("COVARIANCE-2", modcma.options.MatrixAdaptationType.COVARIANCE)

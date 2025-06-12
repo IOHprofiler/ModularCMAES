@@ -61,7 +61,10 @@ namespace mutation
 		const Population& old_pop, const parameters::Stats& stats, const size_t lambda)
 
 	{
-		sigma *= std::exp((w.cs / w.damps) * ((adaptation->ps.norm() / w.expected_length_z) - 1));
+		Float l = (w.cs / w.damps) * ((adaptation->ps.norm() / w.expected_length_z) - 1);
+		// Clamping as seen in pycma
+		l = std::min(Float{1.0}, std::max(l, Float{-1.0}));
+		sigma *= std::exp(l);
 	}
 
 

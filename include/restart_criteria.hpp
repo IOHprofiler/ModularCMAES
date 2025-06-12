@@ -119,7 +119,7 @@ namespace restart
 
 	struct TolX : Criterion
 	{
-		static inline Float tolerance = 10e-12;
+		static inline Float tolerance = 1e-12;
 		Vector tolx_vector;
 		TolX() : Criterion("TolX") {}
 		void update(const parameters::Parameters& p) override;
