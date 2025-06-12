@@ -119,7 +119,7 @@ namespace restart
 
 	struct TolX : Criterion
 	{
-		static inline Float tolerance = 1e-12;
+		static inline Float tolerance = 1e-11;
 		Vector tolx_vector;
 		TolX() : Criterion("TolX") {}
 		void update(const parameters::Parameters& p) override;
@@ -135,7 +135,7 @@ namespace restart
 
 	struct MinDSigma : Criterion
 	{
-		static inline Float tolerance = 1e-8;
+		static inline Float tolerance = std::pow(10., -20.);
 		MinDSigma() : Criterion("MinDSigma") {}
 		void update(const parameters::Parameters& p) override;
 	};
@@ -149,14 +149,14 @@ namespace restart
 
 	struct NoEffectAxis : Criterion
 	{
-		static inline Float tolerance = 0.;
+		static inline Float tolerance = 10.0 * std::numeric_limits<Float>::epsilon();
 		NoEffectAxis() : Criterion("NoEffectAxis") {}
 		void update(const parameters::Parameters& p) override;
 	};
 
 	struct NoEffectCoord : Criterion
 	{
-		static inline Float tolerance = 0.;
+		static inline Float tolerance = 10.0 * std::numeric_limits<Float>::epsilon();
 		NoEffectCoord() : Criterion("NoEffectCoord") {}
 		void update(const parameters::Parameters& p) override;
 	};

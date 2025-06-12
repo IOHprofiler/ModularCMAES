@@ -119,7 +119,7 @@ namespace restart
         {
             const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
             const Float tolx_condition = tolerance * p.settings.sigma0;
-            tolx_vector.head(p.settings.dim) = dynamic->C.diagonal() * d_sigma;
+            tolx_vector.head(p.settings.dim) = dynamic->C.diagonal().cwiseSqrt() * d_sigma;
             tolx_vector.tail(p.settings.dim) = dynamic->pc * d_sigma;
             met = (tolx_vector.array() < tolx_condition).all();
         }
@@ -177,7 +177,7 @@ namespace restart
         if (const auto dynamic = std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
         {
             const auto effect_coord = 0.2 * p.mutation->sigma * dynamic->C.diagonal().cwiseSqrt();
-            met = (effect_coord.array().abs() < tolerance).all();
+            met = (effect_coord.array().abs() < tolerance).any();
         }
     }
 
@@ -201,7 +201,10 @@ namespace restart
     {
         const auto d = static_cast<Float>(p.settings.dim);
         const auto lambda = static_cast<Float>(p.lambda);
-        n_stagnation = (static_cast<size_t>(std::min(static_cast<int>(120 + (30 * d / lambda)), 20000)));
+        n_stagnation = static_cast<size_t>(
+            100 + 100 * std::pow(p.settings.dim, 1.5) / static_cast<Float>(p.lambda)
+        );
+
         median_fitnesses = {};
         best_fitnesses = {};
     }
