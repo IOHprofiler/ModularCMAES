@@ -25,7 +25,8 @@ namespace parameters
 			case StepSizeAdaptation::SR:
 				return 2.0 / (d + 2.0);
 			case StepSizeAdaptation::CSA:
-				return (mueff + 2.0) / (d + mueff + 5.0);
+				//return (mueff + 2.0) / (d + mueff + 5.0);
+				return (mueff + 2) / (d + (mueff + 3.0));
 			default:
 				return 0.3;
 		}
@@ -120,7 +121,6 @@ namespace parameters
 				break;
 		}
 
-		//mueff = std::pow(positive.sum(), 2) / positive.dot(positive);
 		positive /= positive.sum();
 		mueff = 1.0 / positive.dot(positive);
 		mueff_neg = std::pow(negative.sum(), 2) / negative.dot(negative);
@@ -129,6 +129,7 @@ namespace parameters
 		c1 = settings.c1.value_or(get_default_c1(settings, d, mueff, acov));
 		cmu = settings.cmu.value_or(get_default_cmu(settings, d, mueff, c1, acov));
 		cs = settings.cs.value_or(get_default_cs(settings, mueff, d));
+
 		cc = settings.cmu.value_or(get_default_cc(settings, d, mueff, cs));
 		damps = settings.damps.value_or(get_default_damps(settings, mueff, d, cs));
 
