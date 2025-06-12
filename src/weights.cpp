@@ -156,7 +156,7 @@ namespace parameters
 	void Weights::weights_default(const size_t mu, const size_t lambda)
 	{
 		const Float ratio = static_cast<Float>(lambda) / static_cast<Float>(mu);
-		const Float base = std::log((static_cast<Float>(lambda) + 1.) / std::round(ratio));
+		const Float base = std::log((static_cast<Float>(lambda) + 1.) / std::floor(ratio));
 
 		for (auto i = 0; i < positive.size(); ++i)
 			positive(i) = base - std::log(static_cast<Float>(i + 1));
