@@ -606,7 +606,8 @@ void define_parameters(py::module& main)
 			std::optional<size_t>, std::optional<size_t>, std::optional<Vector>,
 			std::optional<Vector>, std::optional<Vector>,
 			std::optional<Float>, std::optional<Float>, std::optional<Float>,
-			std::optional<Float>, std::optional<Float>, bool, bool, bool>(),
+			std::optional<Float>, std::optional<Float>, std::optional<Float>,
+			bool, bool>(),
 			py::arg("dim"),
 			py::arg("modules") = std::nullopt,
 			py::arg("target") = std::nullopt,
@@ -623,9 +624,9 @@ void define_parameters(py::module& main)
 			py::arg("cmu") = std::nullopt,
 			py::arg("c1") = std::nullopt,
 			py::arg("damps") = std::nullopt,
+			py::arg("acov") = std::nullopt,
 			py::arg("verbose") = false,
-			py::arg("always_compute_eigv") = false,
-			py::arg("reformulated_learning_rate") = false
+			py::arg("always_compute_eigv") = false
 
 		)
 		.def_readonly("dim", &Settings::dim)
@@ -644,10 +645,10 @@ void define_parameters(py::module& main)
 		.def_readwrite("cmu", &Settings::cmu)
 		.def_readwrite("c1", &Settings::c1)
 		.def_readwrite("damps", &Settings::damps)
+		.def_readwrite("acov", &Settings::acov)
 		.def_readwrite("verbose", &Settings::verbose)
 		.def_readonly("volume", &Settings::volume)
 		.def_readonly("one_plus_one", &Settings::one_plus_one)
-		.def_readonly("reformulated_learning_rate", &Settings::reformulated_learning_rate)
 		.def("__repr__", [] (Settings& settings)
 			{
 				std::stringstream ss;

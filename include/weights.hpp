@@ -12,7 +12,7 @@ namespace parameters
 
         Float mueff, mueff_neg;
         Float c1, cmu, cc, cs;
-        Float damps;
+        Float damps, acov;
         Float sqrt_cc_mueff, sqrt_cs_mueff;
         Float lazy_update_interval;
         Float expected_length_z;

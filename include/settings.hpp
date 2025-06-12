@@ -26,10 +26,10 @@ namespace parameters
 		std::optional<Float> cmu;
 		std::optional<Float> c1;
 		std::optional<Float> damps;
+		std::optional<Float> acov;
 		bool verbose;
 		Float volume;
 		bool one_plus_one;
-		bool reformulated_learning_rate;
 
 		Settings(size_t dim,
 			std::optional<Modules> mod = std::nullopt,
@@ -47,9 +47,9 @@ namespace parameters
 			std::optional<Float> cmu = std::nullopt,
 			std::optional<Float> c1 = std::nullopt,
 			std::optional<Float> damps = std::nullopt,
+			std::optional<Float> acov = std::nullopt,
 			bool verbose = true,
-			bool always_compute_eigv = false,
-			bool reformulated_learning_rate = false
+			bool always_compute_eigv = false
 		) : dim(dim),
 			modules(mod.value_or(Modules())),
 			target(target),
@@ -66,10 +66,10 @@ namespace parameters
 			cmu(cmu),
 			c1(c1),
 			damps(damps),
+			acov(acov),
 			verbose(verbose),
 			volume(0.0),
-			one_plus_one(false),
-			reformulated_learning_rate(reformulated_learning_rate)
+			one_plus_one(false)
 		{
 			if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
 				lambda0++;

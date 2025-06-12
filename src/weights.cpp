@@ -49,12 +49,12 @@ namespace parameters
 	}
 
 
-	static Float get_default_c1(const Settings& settings, const Float d, const Float mueff)
+	static Float get_default_c1(const Settings& settings, const Float d, const Float mueff, const Float acov)
 	{
 		if (settings.one_plus_one)
 			return  2.0 / (pow(d, 2) + 6.0);
 
-		return 2.0 / (pow(d + 1.3, 2) + mueff);
+		return acov / (pow(d + 1.3, 2) + mueff);
 	}
 
 	static Float get_default_cc(const Settings& settings, const Float d, const Float mueff, const Float cs)
@@ -73,11 +73,15 @@ namespace parameters
 		const Settings& settings, 
 		const Float d, 
 		const Float mueff, 
-		const Float c1
+		const Float c1, 
+		const Float acov
 	)
 	{
-		Float cmu_default = std::min(
-			1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))));
+		//Float cmu_default_old = std::min(
+		//	1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))));
+
+		Float cmu_default = std::min(1.0 - c1, acov * ((1.0 / 4.0 + mueff + 1.0 / mueff - 2.0) / (pow(d + 2., 2) + acov * mueff / 2)));
+			
 
 		if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPERABLE)
 			cmu_default *= ((d + 2.0) / 3.0);
@@ -118,9 +122,9 @@ namespace parameters
 		mueff_neg = std::pow(negative.sum(), 2) / negative.dot(negative);
 		positive /= positive.sum();
 
-
-		c1 = settings.c1.value_or(get_default_c1(settings, d, mueff));
-		cmu = settings.cmu.value_or(get_default_cmu(settings, d, mueff, c1));
+		acov = settings.acov.value_or(2.0);
+		c1 = settings.c1.value_or(get_default_c1(settings, d, mueff, acov));
+		cmu = settings.cmu.value_or(get_default_cmu(settings, d, mueff, c1, acov));
 		cs = settings.cs.value_or(get_default_cs(settings, mueff, d));
 		cc = settings.cmu.value_or(get_default_cc(settings, d, mueff, cs));
 		damps = settings.damps.value_or(get_default_damps(settings, mueff, d, cs));
@@ -128,13 +132,14 @@ namespace parameters
 		sqrt_cs_mueff = std::sqrt(cs * (2.0 - cs) * mueff);
 		sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff);
 			
-		const Float amu_neg = 1.0 + (c1 / static_cast<Float>(mu));
+		const Float amu_neg = 1.0 + (c1 / cmu);
 		const Float amueff_neg = 1.0 + ((2.0 * mueff_neg) / (mueff + 2.0));
 		const Float aposdef_neg = (1.0 - c1 - cmu) / (d * cmu);
 		const Float neg_scaler = std::min(amu_neg, std::min(amueff_neg, aposdef_neg));
 
 		negative *= (neg_scaler / negative.cwiseAbs().sum());
-		weights << positive, negative;
+		weights << positive, negative;		
+
 		lazy_update_interval = 1.0 / (c1 + cmu + 1e-23) / d / 10.0;
 		expected_length_ps = (1.4 + (2.0 / (d + 1.0))) * expected_length_z;
 
