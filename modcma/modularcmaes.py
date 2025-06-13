@@ -481,10 +481,13 @@ def evaluate_bbob(
     # This speeds up the import, this import is quite slow, so import it lazy here
     # pylint: disable=import-outside-toplevel
     import ioh
+    from modcma.c_maes import Settings, parameters, options, constants, utils
+    from modcma.c_maes import ModularCMAES as cModularCMAES
 
     evals, fopts = np.array([]), np.array([])
     if seed:
         np.random.seed(seed)
+        utils.set_seed(seed)
     fitness_func = ioh.get_problem(
         fid, dimension=dim, instance=instance
     )
@@ -516,13 +519,11 @@ def evaluate_bbob(
         hs = []
     
         if cpp:
-            from modcma.c_maes import Settings, parameters, options
-            from modcma.c_maes import ModularCMAES as cModularCMAES
 
             modules = parameters.Modules()
             modules.matrix_adaptation = options.COVARIANCE
             modules.ssa = options.StepSizeAdaptation.CSA
-            modules.restart_strategy = options.RestartStrategy.STOP
+            modules.restart_strategy = options.RestartStrategy.NONE
 
             settings = Settings(
                 fitness_func.meta_data.n_variables, 
@@ -534,10 +535,9 @@ def evaluate_bbob(
                 sigma0=2.0,
                 target=fitness_func.optimum.y + 1e-8,
                 budget=fitness_func.meta_data.n_variables * 10_000,
-                cs=0.4149090010980616,
-                cmu=0.0512430870135861,
             )
             optimizer = cModularCMAES(settings)
+
             while not optimizer.break_conditions():
                 optimizer.step(fitness_func)
                 ps_norm.append(np.linalg.norm(optimizer.p.adaptation.ps))
@@ -549,6 +549,7 @@ def evaluate_bbob(
                 f_values.append(optimizer.p.pop.f.mean())
                 dm.append(optimizer.p.adaptation.dm.copy())
                 hs.append(optimizer.p.adaptation.hs)
+            # print(optimizer)
             title = "modcmacpp"
         else:
             optimizer = ModularCMAES(fitness_func, dim, x0 = np.zeros(dim), target=target, **kwargs)
@@ -602,7 +603,7 @@ def evaluate_bbob(
 
             for ax in ax0, ax1, ax2, ax3, ax4:
                 ax.grid()
-                ax.set_xlim(0, 300)
+                ax.set_xlim(0, 500)
                 ax.set_yscale("log", base=10)
             plt.show()
 

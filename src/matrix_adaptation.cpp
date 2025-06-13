@@ -117,15 +117,9 @@ namespace matrix_adaptation
 			}
 			return false;
 		}
-		
-		for (int i = 0; i < d.size(); ++i)
-    		d[i] = std::max(d[i], 1e-10);
 
-		d.noalias() = d.cwiseSqrt();
-		// inv_root_C.noalias() = eigen_solver.operatorInverseSqrt();
-
-		Matrix D_inv_sqrt = d.cwiseInverse().asDiagonal();
-		inv_root_C.noalias() = B * D_inv_sqrt * B.transpose();
+		d.noalias() = d.cwiseSqrt().eval();
+		inv_root_C.noalias() = B * d.cwiseInverse().asDiagonal() * B.transpose();
 		A.noalias() = B * d.asDiagonal();
 		return true;
 	}

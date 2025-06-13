@@ -17,17 +17,17 @@ namespace sampling
     struct Sampler
     {
         Sampler(const size_t d) : d(d) {}
-        [[nodiscard]] virtual Vector operator()() = 0;
         size_t d;
-
+        
         virtual void reset(const parameters::Modules &, const size_t)
         {
         }
-
+        
         virtual Float expected_length()
         {
             return std::sqrt(static_cast<Float>(d));
         }
+        [[nodiscard]] virtual Vector operator()() = 0;
     };
 
     /**
@@ -271,6 +271,9 @@ namespace sampling
 
         [[nodiscard]] inline Vector box_muller(const Vector& u)
         {
+            static Vector u_extra;
+            static int n_extra_used = 0;
+
             size_t n = u.size();
             size_t m = n / 2;
 
@@ -282,7 +285,14 @@ namespace sampling
             }
 
             if (n % 2 != 0)
-                z(n - 1) = box_muller(u(0), u(n - 1)).first;
+            {
+                if (u_extra.size() <= n_extra_used)
+                {
+                    u_extra = (*sampler)();
+                    n_extra_used = 0;
+                }
+                z(n - 1) = box_muller(u(n - 1), u_extra(n_extra_used++)).first;
+            }
 
             return z;
         }   
