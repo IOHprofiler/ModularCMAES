@@ -273,6 +273,8 @@ namespace sampling
         {
             static Vector u_extra;
             static int n_extra_used = 0;
+            static bool needs_new_sample = true;
+            static Float extra_sample;
 
             size_t n = u.size();
             size_t m = n / 2;
@@ -291,7 +293,19 @@ namespace sampling
                     u_extra = (*sampler)();
                     n_extra_used = 0;
                 }
-                z(n - 1) = box_muller(u(n - 1), u_extra(n_extra_used++)).first;
+
+                if (needs_new_sample)
+                {
+                    const auto&[n1, n2] = box_muller(u(n - 1), u_extra(n_extra_used++));
+                    z(n - 1) = n1;
+                    extra_sample = n2;
+                    needs_new_sample = false;                 
+                }
+                else
+                {
+                    z(n -1) = extra_sample;
+                    needs_new_sample = true;
+                }
             }
 
             return z;

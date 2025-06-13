@@ -519,7 +519,7 @@ def evaluate_bbob(
         hs = []
     
         if cpp:
-
+            # TODO: map c++ types to python types
             modules = parameters.Modules()
             modules.matrix_adaptation = options.COVARIANCE
             modules.ssa = options.StepSizeAdaptation.CSA
@@ -537,7 +537,6 @@ def evaluate_bbob(
                 budget=fitness_func.meta_data.n_variables * 10_000,
             )
             optimizer = cModularCMAES(settings)
-
             while not optimizer.break_conditions():
                 optimizer.step(fitness_func)
                 ps_norm.append(np.linalg.norm(optimizer.p.adaptation.ps))
@@ -549,7 +548,6 @@ def evaluate_bbob(
                 f_values.append(optimizer.p.pop.f.mean())
                 dm.append(optimizer.p.adaptation.dm.copy())
                 hs.append(optimizer.p.adaptation.hs)
-            # print(optimizer)
             title = "modcmacpp"
         else:
             optimizer = ModularCMAES(fitness_func, dim, x0 = np.zeros(dim), target=target, **kwargs)
@@ -603,12 +601,8 @@ def evaluate_bbob(
 
             for ax in ax0, ax1, ax2, ax3, ax4:
                 ax.grid()
-                ax.set_xlim(0, 500)
                 ax.set_yscale("log", base=10)
             plt.show()
-
-
-
                 
         evals = np.append(evals, fitness_func.state.evaluations)
         fopts = np.append(fopts, fitness_func.state.current_best_internal.y)
