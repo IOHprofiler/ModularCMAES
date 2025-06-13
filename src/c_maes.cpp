@@ -3,8 +3,10 @@
 void ModularCMAES::recombine() const
 {
 	p->adaptation->m_old = p->adaptation->m;
-	p->adaptation->m = p->adaptation->m_old + ((p->pop.X.leftCols(p->mu).colwise() - p->adaptation->m_old) * p->weights.
-		positive);
+	p->adaptation->m = p->adaptation->m_old + (
+		(p->pop.X.leftCols(p->mu).colwise() - p->adaptation->m_old) 
+		* p->weights.positive
+	);
 }
 
 void ModularCMAES::mutate(FunctionType &objective) const

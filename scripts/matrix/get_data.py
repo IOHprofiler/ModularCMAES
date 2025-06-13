@@ -40,7 +40,7 @@ def run_modma(problem: ioh.ProblemType,
     modules.matrix_adaptation = matrix_adaptation
     modules.ssa = modcma.options.StepSizeAdaptation.CSA
     modules.restart_strategy = modcma.options.RestartStrategy.STOP
-
+    
     options = pycma.CMAOptions()
     options['CMA_active'] = False
     options["verbose"] = -1
@@ -70,7 +70,7 @@ def run_modma(problem: ioh.ProblemType,
         budget=problem.meta_data.n_variables * BUDGET,
         # cs=pcma.adapt_sigma.cs,
         # c1=pcma.sp.c1,
-        cc=pcma.sp.cmu,
+        # cc=pcma.sp.cmu,
         # cmu=pcma.sp.cmu,
     )
 
