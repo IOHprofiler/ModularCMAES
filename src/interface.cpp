@@ -85,7 +85,7 @@ void define_options(py::module& main)
 		.value("COVARIANCE", MatrixAdaptationType::COVARIANCE)
 		.value("NONE", MatrixAdaptationType::NONE)
 		.value("MATRIX", MatrixAdaptationType::MATRIX)
-		.value("SEPERABLE", MatrixAdaptationType::SEPERABLE)
+		.value("SEPARABLE", MatrixAdaptationType::SEPARABLE)
 		.value("CHOLESKY", MatrixAdaptationType::CHOLESKY)
 		.value("CMSA", MatrixAdaptationType::CMSA)
 		.value("COVARIANCE_NO_EIGV", MatrixAdaptationType::COVARIANCE_NO_EIGV)
@@ -706,7 +706,7 @@ void define_parameters(py::module& main)
 						return std::dynamic_pointer_cast<matrix_adaptation::MatrixAdaptation>(self.adaptation);
 					case MatrixAdaptationType::NONE:
 						return std::dynamic_pointer_cast<matrix_adaptation::None>(self.adaptation);
-					case MatrixAdaptationType::SEPERABLE:
+					case MatrixAdaptationType::SEPARABLE:
 						return std::dynamic_pointer_cast<matrix_adaptation::SeperableAdaptation>(self.adaptation);
 					case MatrixAdaptationType::CHOLESKY:
 						return std::dynamic_pointer_cast<matrix_adaptation::CholeskyAdaptation>(self.adaptation);

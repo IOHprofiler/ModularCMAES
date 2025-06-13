@@ -21,8 +21,13 @@ namespace matrix_adaptation
 		{
 		}
 		 
-		void adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
-			const parameters::Stats& stats, const parameters::Settings& settings, size_t lambda, size_t mu);
+		void adapt_evolution_paths(
+			const Population& pop, 
+			const parameters::Weights& w,
+			const parameters::Stats& stats, 
+			const parameters::Settings& settings, 
+			size_t lambda, size_t mu
+		);
 
 		virtual void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) = 0;
@@ -300,7 +305,7 @@ namespace matrix_adaptation
 			return std::make_shared<MatrixAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::NONE:
 			return std::make_shared<None>(dim, x0, expected_z);
-		case MatrixAdaptationType::SEPERABLE:
+		case MatrixAdaptationType::SEPARABLE:
 			return std::make_shared<SeperableAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::CHOLESKY:
 			return std::make_shared<CholeskyAdaptation>(dim, x0, expected_z);

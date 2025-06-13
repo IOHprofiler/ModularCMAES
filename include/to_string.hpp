@@ -120,8 +120,8 @@ namespace parameters
             return "CHOLESKY";
         case MatrixAdaptationType::NONE:
             return "NONE";
-        case MatrixAdaptationType::SEPERABLE:
-            return "SEPERABLE";
+        case MatrixAdaptationType::SEPARABLE:
+            return "SEPARABLE";
         case MatrixAdaptationType::COVARIANCE:
             return "COVARIANCE";
         case MatrixAdaptationType::CMSA:

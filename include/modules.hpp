@@ -73,7 +73,7 @@ namespace parameters
         NONE,
         COVARIANCE,
         MATRIX,
-        SEPERABLE,
+        SEPARABLE,
         CHOLESKY,
         CMSA,
         COVARIANCE_NO_EIGV,

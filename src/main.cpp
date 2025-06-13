@@ -131,7 +131,7 @@ int main()
 	auto ssa = parameters::StepSizeAdaptation::CSA;
 	
 	//run_modcma(parameters::MatrixAdaptationType::NONE, ssa);
-	/*run_modcma(parameters::MatrixAdaptationType::SEPERABLE, ssa);
+	/*run_modcma(parameters::MatrixAdaptationType::SEPARABLE, ssa);
 	run_modcma(parameters::MatrixAdaptationType::MATRIX, ssa);
 	run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ssa);*/
 	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ssa);

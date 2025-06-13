@@ -86,7 +86,7 @@ namespace parameters
 			(0.25 + mueff + 1.0 / mueff - 2.0) / 
 			(pow(d + 2., 2.0) + acov * mueff / 2.0));
 			
-		if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPERABLE)
+		if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPARABLE)
 			cmu_default *= ((d + 2.0) / 3.0);
 
 		if (settings.lambda0 == 1)
