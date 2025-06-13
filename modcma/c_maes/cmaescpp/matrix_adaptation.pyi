@@ -46,7 +46,7 @@ class NoAdaptation(Adaptation):
 class OnePlusOneAdaptation(CovarianceAdaptation):
     def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
 
-class SeperableAdaptation(CovarianceAdaptation):
+class SeparableAdaptation(CovarianceAdaptation):
     c: numpy.ndarray
     pc: numpy.ndarray
     d: numpy.ndarray

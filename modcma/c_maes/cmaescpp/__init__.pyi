@@ -57,7 +57,7 @@ class Parameters:
     adaptation: (
         matrix_adaptation.MatrixAdaptation
         | matrix_adaptation.CovarianceAdaptation
-        | matrix_adaptation.SeperableAdaptation
+        | matrix_adaptation.SeparableAdaptation
         | matrix_adaptation.OnePlusOneAdaptation
         | matrix_adaptation.NoAdaptation
     )

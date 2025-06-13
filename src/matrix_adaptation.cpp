@@ -161,7 +161,7 @@ namespace matrix_adaptation
 	}
 
 
-	void SeperableAdaptation::adapt_evolution_paths_inner(const Population& pop,
+	void SeparableAdaptation::adapt_evolution_paths_inner(const Population& pop,
 		const parameters::Weights& w,
 		const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda)
 	{
@@ -180,7 +180,7 @@ namespace matrix_adaptation
 		pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
 	}
 
-	bool SeperableAdaptation::adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+	bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
 		const parameters::Settings& settings, parameters::Stats& stats)
 	{
 
@@ -204,7 +204,7 @@ namespace matrix_adaptation
 		return true;
 	}
 
-	void SeperableAdaptation::restart(const parameters::Settings& settings, const Float sigma)
+	void SeparableAdaptation::restart(const parameters::Settings& settings, const Float sigma)
 	{
 		Adaptation::restart(settings, sigma);
 		c.setOnes();
@@ -212,12 +212,12 @@ namespace matrix_adaptation
 		pc.setZero();
 	}
 
-	Vector SeperableAdaptation::compute_y(const Vector& zi)
+	Vector SeparableAdaptation::compute_y(const Vector& zi)
 	{
 		return d.array() * zi.array();
 	}
 
-	Vector SeperableAdaptation::invert_y(const Vector& yi)
+	Vector SeparableAdaptation::invert_y(const Vector& yi)
 	{
 		return yi.array() / d.array();
 	}

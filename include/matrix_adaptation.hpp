@@ -132,12 +132,12 @@ namespace matrix_adaptation
 		Vector invert_y(const Vector&) override;
 	};
 
-	struct SeperableAdaptation : Adaptation
+	struct SeparableAdaptation : Adaptation
 	{
 		Vector pc, d, c;
 		bool hs;
 
-		SeperableAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
+		SeparableAdaptation(const size_t dim, const Vector& x0, const Float expected_length_z) : Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
 			pc(Vector::Zero(dim)),
 			d(Vector::Ones(dim)),
 			c(Vector::Ones(dim)),
@@ -306,7 +306,7 @@ namespace matrix_adaptation
 		case MatrixAdaptationType::NONE:
 			return std::make_shared<None>(dim, x0, expected_z);
 		case MatrixAdaptationType::SEPARABLE:
-			return std::make_shared<SeperableAdaptation>(dim, x0, expected_z);
+			return std::make_shared<SeparableAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::CHOLESKY:
 			return std::make_shared<CholeskyAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::CMSA:

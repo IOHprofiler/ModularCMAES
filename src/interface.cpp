@@ -431,16 +431,16 @@ void define_matrix_adaptation(py::module& main)
 				ss << ">";
 				return ss.str(); });
 
-	py::class_<SeperableAdaptation, Adaptation, std::shared_ptr<SeperableAdaptation>>(m, "SeperableAdaptation")
+	py::class_<SeparableAdaptation, Adaptation, std::shared_ptr<SeparableAdaptation>>(m, "SeparableAdaptation")
 		.def(py::init<size_t, Vector, Float>(), py::arg("dimension"), py::arg("x0"), py::arg("expected_length_z"))
-		.def_readwrite("c", &SeperableAdaptation::c)
-		.def_readwrite("pc", &SeperableAdaptation::pc)
-		.def_readwrite("d", &SeperableAdaptation::d)
-		.def("__repr__", [] (SeperableAdaptation& dyn)
+		.def_readwrite("c", &SeparableAdaptation::c)
+		.def_readwrite("pc", &SeparableAdaptation::pc)
+		.def_readwrite("d", &SeparableAdaptation::d)
+		.def("__repr__", [] (SeparableAdaptation& dyn)
 			{
 				std::stringstream ss;
 				ss << std::boolalpha;
-				ss << "<SeperableAdaptation";
+				ss << "<SeparableAdaptation";
 				ss << " m: " << dyn.m.transpose();
 				ss << " m_old: " << dyn.m_old.transpose();
 				ss << " dm: " << dyn.dm.transpose();
@@ -678,7 +678,7 @@ void define_parameters(py::module& main)
 	using AdaptationType = std::variant<
 		std::shared_ptr<matrix_adaptation::MatrixAdaptation>,
 		std::shared_ptr<matrix_adaptation::None>,
-		std::shared_ptr<matrix_adaptation::SeperableAdaptation>,
+		std::shared_ptr<matrix_adaptation::SeparableAdaptation>,
 		std::shared_ptr<matrix_adaptation::CholeskyAdaptation>,
 		std::shared_ptr<matrix_adaptation::SelfAdaptation>,
 		std::shared_ptr<matrix_adaptation::CovarainceNoEigvAdaptation>,
@@ -707,7 +707,7 @@ void define_parameters(py::module& main)
 					case MatrixAdaptationType::NONE:
 						return std::dynamic_pointer_cast<matrix_adaptation::None>(self.adaptation);
 					case MatrixAdaptationType::SEPARABLE:
-						return std::dynamic_pointer_cast<matrix_adaptation::SeperableAdaptation>(self.adaptation);
+						return std::dynamic_pointer_cast<matrix_adaptation::SeparableAdaptation>(self.adaptation);
 					case MatrixAdaptationType::CHOLESKY:
 						return std::dynamic_pointer_cast<matrix_adaptation::CholeskyAdaptation>(self.adaptation);
 					case MatrixAdaptationType::CMSA:
