@@ -127,7 +127,7 @@ class TestModularCMAESSingle(unittest.TestCase):
         self.assertTrue(any(c.break_conditions))
 
         c = modularcmaes.ModularCMAES(sum, 5)
-        self.assertEqual(2, len(c.break_conditions))
+        self.assertEqual(3, len(c.break_conditions))
 
     def testtpa_mutation(self):
         """Test tpa mutation."""

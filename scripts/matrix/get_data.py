@@ -13,7 +13,7 @@ from pprint import pprint
 np.random.seed(12)
 
 DIMS = 2, 3, 5, 10, 20, 40, #100
-FUNCTIONS = [13] #[3, 4, 5, 7] + list(range(15, 25)) #[1, 2, 6, 8, 9, 10, 11, 12, 13, 14]
+FUNCTIONS = list(range(1, 25))
 N_REPEATS = 100
 BUDGET = 100_000
 ROOT = "data"
@@ -40,23 +40,6 @@ def run_modma(problem: ioh.ProblemType,
     modules.matrix_adaptation = matrix_adaptation
     modules.ssa = modcma.options.StepSizeAdaptation.CSA
     modules.restart_strategy = modcma.options.RestartStrategy.STOP
-    
-    options = pycma.CMAOptions()
-    options['CMA_active'] = False
-    options["verbose"] = -1
-    options["CMA_diagonal"] = False
-    options["CSA_squared"] = False
-    options['conditioncov_alleviate'] = False
-    options['ftarget'] = problem.optimum.y + 1e-8
-    options['maxfevals'] = problem.meta_data.n_variables * BUDGET
-
-    pcma = pycma.CMAEvolutionStrategy(x0, 2.0, options=options)
-    problem2 = ioh.get_problem(problem.meta_data.problem_id, 1, problem.meta_data.n_variables)
-
-    while not pcma.stop():
-        X, y = pcma.ask_and_eval(problem2)
-        pcma.tell(X, y)
-        break
 
     settings = modcma.Settings(
         problem.meta_data.n_variables, 
@@ -68,25 +51,9 @@ def run_modma(problem: ioh.ProblemType,
         sigma0=2.0,
         target=problem.optimum.y + 1e-8,
         budget=problem.meta_data.n_variables * BUDGET,
-        # cs=pcma.adapt_sigma.cs,
-        # c1=pcma.sp.c1,
-        # cc=pcma.sp.cmu,
-        # cmu=pcma.sp.cmu,
     )
 
-
-
     cma = modcma.ModularCMAES(settings)
-    if N_REPEATS == 1:
-        print()
-        print("cmu", cma.p.weights.cmu, pcma.sp.cmu,  np.isclose(cma.p.weights.cmu, pcma.sp.cmu))
-        print("c1", cma.p.weights.c1, pcma.sp.c1, np.isclose(cma.p.weights.c1, pcma.sp.c1))
-        print("cc", cma.p.weights.cc, pcma.sp.cc, np.isclose(cma.p.weights.cc, pcma.sp.cc))
-        print("mueff", cma.p.weights.mueff, pcma.sp.weights.mueff, np.isclose(cma.p.weights.mueff, pcma.sp.weights.mueff))
-        print("cs", cma.p.weights.cs, pcma.adapt_sigma.cs, np.isclose(cma.p.weights.cs, pcma.adapt_sigma.cs))
-        print("damps", cma.p.weights.damps, pcma.adapt_sigma.damps, np.isclose(cma.p.weights.damps, pcma.adapt_sigma.damps))
-
-
     start = perf_counter()
     while not cma.break_conditions():
         if cma.p.criteria.any():
@@ -96,18 +63,6 @@ def run_modma(problem: ioh.ProblemType,
     if cma.p.criteria.any():
         logger_obj.update(cma.p.criteria.items)
 
-    # print("modcma")
-    # print(cma.p.mutation.sigma)
-    # print(cma.p.adaptation.C)
-    # print(cma.p.pop.f)
-    # print(cma.p.criteria.reason())
-    # print(problem.state)
-    # print("\npycma")
-    # print(pcma.sigma)
-    # print(pcma.sm.C)
-    # print(problem2.state)
-    
-    # cma.run(problem)
     stop = perf_counter()
     elapsed = stop - start
     return elapsed, cma.p.stats.t, problem.state.evaluations, cma.p.stats.n_updates
@@ -136,17 +91,17 @@ class RestartCollector:
             setattr(self, item, 0)
 
 def collect(name, option):
-    # logger = ioh.logger.Analyzer(
-    #     folder_name=name, 
-    #     algorithm_name=name,
-    #     root=ROOT
-    # )
+    logger = ioh.logger.Analyzer(
+        folder_name=name, 
+        algorithm_name=name,
+        root=ROOT
+    )
     collector = RestartCollector()
-    # logger.add_run_attributes(collector, collector.names)
+    logger.add_run_attributes(collector, collector.names)
     for fid in FUNCTIONS:
         for d in DIMS:
             problem = ioh.get_problem(fid, 1, d)
-            # problem.attach_logger(logger)
+            problem.attach_logger(logger)
             runs = []
             for i in range(N_REPEATS):
                 modcma.utils.set_seed(21 + fid * d * i)
@@ -225,5 +180,4 @@ if __name__ == "__main__":
     # p2.start()
     # p1.join()
     # p2.join()
-
-    collect("COVARIANCE-2", modcma.options.MatrixAdaptationType.COVARIANCE)
+    collect_modcma()

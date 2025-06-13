@@ -33,13 +33,16 @@ namespace bounds
 
 	void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters& p)
 	{
-		if (!has_bounds or p.settings.modules.bound_correction == parameters::CorrectionMethod::NONE)
+		if (!has_bounds)
 			return;
 
 		const auto oob = is_out_of_bounds(p.pop.X.col(i));
 		if (oob.any())
 		{
 			n_out_of_bounds++;
+			if (p.settings.modules.bound_correction == parameters::CorrectionMethod::NONE)
+				return;
+
 			p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob, p.mutation->sigma);
 			p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.pop.s(i));
 			p.pop.Z.col(i) = p.adaptation->invert_y(p.pop.Y.col(i));
