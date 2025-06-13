@@ -30,6 +30,9 @@ parser.add_argument("-a", "--arguments", nargs="+", required=False)
 parser.add_argument(
     "-c", "--cpp", required=False, action="store_true", default=False
 )
+parser.add_argument(
+    "--plot", required=False, action="store_true", default=False
+)
 
 args = vars(parser.parse_args())
 for arg in args.pop("arguments") or []:

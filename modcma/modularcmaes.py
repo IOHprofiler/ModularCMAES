@@ -435,6 +435,7 @@ def evaluate_bbob(
     target_precision=1e-8,
     return_optimizer=False,
     cpp=False,
+    plot=False,
     **kwargs,
 ):
     """Helper function to evaluate a ModularCMAES on the BBOB test suite.
@@ -463,7 +464,8 @@ def evaluate_bbob(
         Whether to return the optimizer
     cpp: bool = False   
         Wheter to run the C++ backend
-
+    plot: bool = False
+        Plotting stats
     **kwargs
         These are directly passed into the instance of ModularCMAES,
         in this manner parameters can be specified for the optimizer.
@@ -497,11 +499,22 @@ def evaluate_bbob(
         f"{target_precision} with {iterations} iterations."
     )
     n_succ = 0
+    if plot:
+        iterations = 1
+    
     for idx in range(iterations):
         if idx > 0:
             fitness_func.reset()
         target = fitness_func.optimum.y + target_precision
 
+        ps_norm = []
+        pc_norm = []
+        eigvals = []
+        f_values = []
+        dm = []
+        sigma = []
+        hs = []
+    
         if cpp:
             from modcma.c_maes import Settings, parameters, options
             from modcma.c_maes import ModularCMAES as cModularCMAES
@@ -525,13 +538,6 @@ def evaluate_bbob(
                 cmu=0.0512430870135861,
             )
             optimizer = cModularCMAES(settings)
-            ps_norm = []
-            pc_norm = []
-            eigvals = []
-            f_values = []
-            sigma = []
-            dm = []
-            hs = []
             while not optimizer.break_conditions():
                 optimizer.step(fitness_func)
                 ps_norm.append(np.linalg.norm(optimizer.p.adaptation.ps))
@@ -547,13 +553,7 @@ def evaluate_bbob(
         else:
             optimizer = ModularCMAES(fitness_func, dim, x0 = np.zeros(dim), target=target, **kwargs)
             
-            ps_norm = []
-            pc_norm = []
-            eigvals = []
-            f_values = []
-            dm = []
-            sigma = []
-            hs = []
+     
             while optimizer.step():
                 ps_norm.append(np.linalg.norm(optimizer.parameters.ps))
                 pc_norm.append(np.linalg.norm(optimizer.parameters.pc))
@@ -565,45 +565,46 @@ def evaluate_bbob(
                 dm.append(optimizer.parameters.dm.ravel())
                 hs.append(optimizer.parameters.hs)
             title = "modcmapy"
+
+        if plot:    
+            import matplotlib.pyplot as plt
+
+            f, (ax0, ax1, ax2, ax3, ax4) = plt.subplots(5, figsize=(13, 10), sharex=True)
+            f.suptitle(title)
+            ax0.plot(f_values, label=f"fmin: {fitness_func.state.current_best_internal.y}")
+            ax0.legend()
+            axs = ax0.twinx()
+            axs.plot(sigma, color='red')
+
+            axs.set_ylabel("sigma")
+
+            ax1.plot(ps_norm)
+            ax12 = ax1.twinx()
+            ax12.plot(hs, color="red")
+            ax12.set_ylabel("hs")
+
+            ax2.plot(pc_norm)
             
-        # import matplotlib.pyplot as plt
+            for i, v in enumerate(np.array(eigvals).T):
+                ax3.plot(v, label=i)
 
-        # f, (ax0, ax1, ax2, ax3, ax4) = plt.subplots(5, figsize=(13, 10), sharex=True)
-        # f.suptitle(title)
-        # ax0.plot(f_values, label=f"fmin: {fitness_func.state.current_best_internal.y}")
-        # ax0.legend()
-        # axs = ax0.twinx()
-        # axs.plot(sigma, color='red')
+            for i, v in enumerate(np.array(dm).T):
+                ax4.plot(v, label=i)
 
-        # axs.set_ylabel("sigma")
+            ax0.set_ylabel("f")
+            ax1.set_ylabel("ps")
+            ax2.set_ylabel("pc")
+            ax3.set_ylabel("eigvals")
+            ax3.legend()
 
-        # ax1.plot(ps_norm)
-        # ax12 = ax1.twinx()
-        # ax12.plot(hs, color="red")
-        # ax12.set_ylabel("hs")
+            ax4.set_ylabel("dm")
+            ax4.legend()
 
-        # ax2.plot(pc_norm)
-        
-        # for i, v in enumerate(np.array(eigvals).T):
-        #     ax3.plot(v, label=i)
-
-        # for i, v in enumerate(np.array(dm).T):
-        #     ax4.plot(v, label=i)
-
-        # ax0.set_ylabel("f")
-        # ax1.set_ylabel("ps")
-        # ax2.set_ylabel("pc")
-        # ax3.set_ylabel("eigvals")
-        # ax3.legend()
-
-        # ax4.set_ylabel("dm")
-        # ax4.legend()
-
-        # for ax in ax0, ax1, ax2, ax3, ax4:
-        #     ax.grid()
-        #     ax.set_xlim(0, 300)
-        #     ax.set_yscale("log", base=10)
-        # plt.show()
+            for ax in ax0, ax1, ax2, ax3, ax4:
+                ax.grid()
+                ax.set_xlim(0, 300)
+                ax.set_yscale("log", base=10)
+            plt.show()
 
 
 
