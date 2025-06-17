@@ -713,7 +713,7 @@ void define_parameters(py::module& main)
 					case MatrixAdaptationType::CMSA:
 						return std::dynamic_pointer_cast<matrix_adaptation::SelfAdaptation>(self.adaptation);
 					case MatrixAdaptationType::COVARIANCE_NO_EIGV:
-						return std::dynamic_pointer_cast<matrix_adaptation::CovarainceNoEigvAdaptation>(self.adaptation);
+						return std::dynamic_pointer_cast<matrix_adaptation::CovarianceNoEigvAdaptation>(self.adaptation);
 					case MatrixAdaptationType::NATURAL_GRADIENT:
 						return std::dynamic_pointer_cast<matrix_adaptation::NaturalGradientAdaptation>(self.adaptation);
 					default:

@@ -52,7 +52,9 @@ namespace restart
 
     void ExceededMaxIter::on_reset(const parameters::Parameters &p)
     {
-        max_iter = static_cast<size_t>(100 + 50 * std::pow((static_cast<Float>(p.settings.dim) + 3), 2.0) / std::sqrt(static_cast<Float>(p.lambda)));
+        max_iter = static_cast<size_t>(
+            100 + 50 * std::pow((static_cast<Float>(p.settings.dim) + 3), 2.0) / std::sqrt(static_cast<Float>(p.lambda))
+        );
     }
 
     void ExceededMaxIter::update(const parameters::Parameters &p)
