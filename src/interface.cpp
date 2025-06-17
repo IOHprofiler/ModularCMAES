@@ -482,7 +482,7 @@ void define_matrix_adaptation(py::module& main)
 		.def_readwrite("A", &SelfAdaptation::A)
 		.def_readwrite("C", &SelfAdaptation::C);
 
-	py::class_<CovarainceNoEigvAdaptation, CovarianceAdaptation, std::shared_ptr<CovarainceNoEigvAdaptation>>(m, "CovarainceNoEigvAdaptation")
+	py::class_<CovarianceNoEigvAdaptation, CovarianceAdaptation, std::shared_ptr<CovarianceNoEigvAdaptation>>(m, "CovarianceNoEigvAdaptation")
 		;
 
 	py::class_<NaturalGradientAdaptation, Adaptation, std::shared_ptr<NaturalGradientAdaptation>>(m, "NaturalGradientAdaptation")
@@ -681,7 +681,7 @@ void define_parameters(py::module& main)
 		std::shared_ptr<matrix_adaptation::SeparableAdaptation>,
 		std::shared_ptr<matrix_adaptation::CholeskyAdaptation>,
 		std::shared_ptr<matrix_adaptation::SelfAdaptation>,
-		std::shared_ptr<matrix_adaptation::CovarainceNoEigvAdaptation>,
+		std::shared_ptr<matrix_adaptation::CovarianceNoEigvAdaptation>,
 		std::shared_ptr<matrix_adaptation::NaturalGradientAdaptation>,
 		std::shared_ptr<matrix_adaptation::CovarianceAdaptation>
 	>;

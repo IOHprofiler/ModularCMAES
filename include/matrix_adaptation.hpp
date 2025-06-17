@@ -20,6 +20,8 @@ namespace matrix_adaptation
 			expected_length_z(expected_length_z)
 		{
 		}
+
+		virtual void adapt_ps(const parameters::Weights& w);
 		 
 		void adapt_evolution_paths(
 			const Population& pop, 
@@ -117,7 +119,7 @@ namespace matrix_adaptation
 
 		virtual bool perform_eigendecomposition(const parameters::Settings& settings);
 
-		virtual void adapt_ps(const parameters::Weights& w);
+		void adapt_ps(const parameters::Weights& w) override;
 
 		void adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w,
 			const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda) override;
@@ -243,7 +245,7 @@ namespace matrix_adaptation
 
 	};
 
-	struct CovarainceNoEigvAdaptation : CovarianceAdaptation
+	struct CovarianceNoEigvAdaptation : CovarianceAdaptation
 	{
 		using CovarianceAdaptation::CovarianceAdaptation;
 
@@ -312,7 +314,7 @@ namespace matrix_adaptation
 		case MatrixAdaptationType::CMSA:
 			return std::make_shared<SelfAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::COVARIANCE_NO_EIGV:
-			return std::make_shared<CovarainceNoEigvAdaptation>(dim, x0, expected_z);
+			return std::make_shared<CovarianceNoEigvAdaptation>(dim, x0, expected_z);
 		case MatrixAdaptationType::NATURAL_GRADIENT:
 			return std::make_shared<NaturalGradientAdaptation>(dim, x0, expected_z, sigma0);
 		default:

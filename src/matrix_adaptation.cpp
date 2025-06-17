@@ -37,11 +37,16 @@ namespace matrix_adaptation
 		adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);
 	}
 
+	void Adaptation::adapt_ps(const parameters::Weights& w)
+	{
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
+	}
+
 	void None::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
 		const Stats& stats, const parameters::Settings& settings, const size_t mu, const size_t lambda)
 	{
 		if (!settings.one_plus_one)
-			ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
+			adapt_ps(w);
 	}
 
 	Vector None::compute_y(const Vector& zi)
@@ -54,8 +59,6 @@ namespace matrix_adaptation
 	{
 		return yi;
 	}
-
-
 
 	void CovarianceAdaptation::adapt_ps(const Weights& w)
 	{
@@ -171,7 +174,7 @@ namespace matrix_adaptation
 			return;
 		}
 		
-		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
+		adapt_ps(w);
 
 		const Float actual_ps_length = ps.norm() / sqrt(
 			1.0 - pow(1.0 - w.cs, 2.0 * (stats.evaluations / lambda)));
@@ -228,7 +231,7 @@ namespace matrix_adaptation
 	{
 		if (settings.one_plus_one && !stats.has_improved)
 			return;
-		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
+		adapt_ps(w);
 	}
 
 	bool MatrixAdaptation::adapt_matrix_inner(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
@@ -302,9 +305,9 @@ namespace matrix_adaptation
 			one_plus_one_path_update(pc, pop, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
 			return;
 		}
-		
-		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * A.triangularView<Eigen::Lower>().solve(dm));
-		pc = (1.0 - w.cc) * pc + (w.sqrt_cc_mueff) * dm;
+
+		adapt_ps(w);
+		pc = (1.0 - w.cc) * pc + (w.sqrt_cc_mueff * dm);
 	}
 
 	bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights & w, const parameters::Modules & m, const Population & pop, size_t mu,
@@ -347,8 +350,9 @@ namespace matrix_adaptation
 
 	void SelfAdaptation::adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w, const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda)
 	{
+		
 		if (!settings.one_plus_one)
-			ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * A.triangularView<Eigen::Lower>().solve(dm));
+			adapt_ps(w);
 	}
 
 	bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu, const parameters::Settings& settings, parameters::Stats& stats)
@@ -396,12 +400,12 @@ namespace matrix_adaptation
 		return A.triangularView<Eigen::Lower>().solve(yi);
 	}
 
-	void CovarainceNoEigvAdaptation::adapt_ps(const Weights& w)
+	void CovarianceNoEigvAdaptation::adapt_ps(const Weights& w)
 	{
-		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
+		Adaptation::adapt_ps(w);
 	}
 
-	bool CovarainceNoEigvAdaptation::perform_eigendecomposition(const parameters::Settings& settings)
+	bool CovarianceNoEigvAdaptation::perform_eigendecomposition(const parameters::Settings& settings)
 	{
 		const Eigen::LLT<Matrix> chol(C);
 		if (chol.info() != Eigen::Success)
@@ -418,7 +422,7 @@ namespace matrix_adaptation
 		return true;
 	}
 
-	Vector CovarainceNoEigvAdaptation::invert_y(const Vector& yi)
+	Vector CovarianceNoEigvAdaptation::invert_y(const Vector& yi)
 	{
 		return A.triangularView<Eigen::Lower>().solve(yi);
 	}
@@ -434,7 +438,7 @@ namespace matrix_adaptation
 	{
 		if (!settings.one_plus_one)
 		{
-			ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
+			adapt_ps(w);
 			compute_gradients(pop, w, stats, settings, mu, lambda);
 			return;
 		}
