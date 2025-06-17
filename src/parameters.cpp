@@ -42,9 +42,13 @@ namespace parameters
 	void Parameters::perform_restart(FunctionType& objective, const std::optional<Float>& sigma)
 	{
 		if (settings.verbose)
+		{
 			std::cout << "performing restart. t(" << stats.t <<", " << stats.evaluations
 					  << ") reason: " << criteria.reason() << std::endl;
-
+			std::cout << "setting parameters (mu, lambda, sigma): (" <<
+				sigma.value_or(settings.sigma0) << ", "
+				<< mu << ", " << lambda << ")\n";
+		}
 		stats.solutions.push_back(stats.current_best);
 		stats.evaluations++;
 		stats.centers.emplace_back(adaptation->m, objective(adaptation->m), stats.t - 1, stats.evaluations);

@@ -9,9 +9,9 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-static int dim = 3;
-static bool rotated = false;
-static functions::ObjectiveFunction fun_t = functions::ObjectiveFunction::ELLIPSE;
+static int dim = 5;
+static bool rotated = true;
+static functions::ObjectiveFunction fun_t = functions::ObjectiveFunction::RASTRIGIN;
 static size_t budget = dim * 10000;
 
 
@@ -59,16 +59,22 @@ struct Timer
 	}
 };
 
+struct Run {
+	int budget_used;
+	double fval;
+	bool solved;
+};
 
-void run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdaptation ssa)
+
+Run run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdaptation ssa)
 {
-	rng::set_seed(412);
+	//rng::set_seed(412);
 	parameters::Modules m;
 	m.matrix_adaptation = mat_t;
 	m.ssa = ssa;
 	//m.active = false;
 	//m.sampler = parameters::BaseSampler::HALTON;
-	//m.restart_strategy = parameters::RestartStrategyType::RESTART;
+	m.restart_strategy = parameters::RestartStrategyType::IPOP;
 	//m.sample_transformation = parameters::SampleTranformerType::CAUCHY;
 	//m.elitist = false;
 	//m.sequential_selection = true;
@@ -82,10 +88,12 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdap
 		-std::numeric_limits<double>::infinity(),
 		std::nullopt, 
 		budget, 
-		0.3
+		2.0//,
+		//500
 		//1,
 		//1
 	);
+	settings.verbose = true;
 	auto p = std::make_shared<parameters::Parameters>(settings);
 	auto cma = ModularCMAES(p);
 
@@ -124,17 +132,45 @@ void run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdap
 	std::cout << "sigma: " << cma.p->mutation->sigma << std::endl;
 	std::cout << "best_y: " << cma.p->stats.global_best.y << std::endl;
 	std::cout << "solved: " << std::boolalpha << (cma.p->stats.global_best.y < 1e-8) << std::endl;
+	return { 
+		(int)cma.p->stats.evaluations, 
+		cma.p->stats.global_best.y, 
+		cma.p->stats.global_best.y < 1e-8 
+	};
+}
+
+void ert_exp(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdaptation ssa, int n_runs)
+{
+	double rt = 0;
+	int n_succ = 0;
+	for (int i = 0; i < n_runs; i++) {
+		auto run_dat = run_modcma(mat_t, ssa);
+		rt += run_dat.budget_used;
+		n_succ += run_dat.solved;
+	}
+	std::cout << "ERT:";
+	if (n_succ == 0) 
+	{
+		std::cout << "inf";
+	}
+	else {
+		std::cout << std::defaultfloat << rt / n_succ;
+		std::cout << " SR: " << n_succ << "/" << n_runs;
+	}
+	std::cout << std::endl;
+	
+
 }
 
 int main()
 {
 	auto ssa = parameters::StepSizeAdaptation::CSA;
 	
-	run_modcma(parameters::MatrixAdaptationType::NONE, ssa);
-	run_modcma(parameters::MatrixAdaptationType::SEPARABLE, ssa);
-	run_modcma(parameters::MatrixAdaptationType::MATRIX, ssa);
-	run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ssa);
-	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ssa);
-	run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ssa);
-	run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ssa);
+	ert_exp(parameters::MatrixAdaptationType::COVARIANCE, ssa, 100);
+	//run_modcma(parameters::MatrixAdaptationType::SEPARABLE, ssa);/*
+	//run_modcma(parameters::MatrixAdaptationType::MATRIX, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV, ssa);
+	//run_modcma(parameters::MatrixAdaptationType::NATURAL_GRADIENT, ssa);*/
 }
