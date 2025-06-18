@@ -74,7 +74,7 @@ Run run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdapt
 	m.ssa = ssa;
 	//m.active = false;
 	//m.sampler = parameters::BaseSampler::HALTON;
-	m.restart_strategy = parameters::RestartStrategyType::IPOP;
+	//m.restart_strategy = parameters::RestartStrategyType::IPOP;
 	//m.sample_transformation = parameters::SampleTranformerType::CAUCHY;
 	//m.elitist = false;
 	//m.sequential_selection = true;
@@ -165,8 +165,8 @@ void ert_exp(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdaptat
 int main()
 {
 	auto ssa = parameters::StepSizeAdaptation::CSA;
-	
-	ert_exp(parameters::MatrixAdaptationType::COVARIANCE, ssa, 100);
+	constants::use_box_muller = true;
+	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::SEPARABLE, ssa);/*
 	//run_modcma(parameters::MatrixAdaptationType::MATRIX, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ssa);

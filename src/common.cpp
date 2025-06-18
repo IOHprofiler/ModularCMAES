@@ -15,7 +15,7 @@ namespace constants
 	size_t cache_min_samples = 128;
 	bool cache_samples = false;
 	bool clip_sigma = false;
-	bool use_box_muller = true;
+	bool use_box_muller = false;
 }
 
 namespace utils
