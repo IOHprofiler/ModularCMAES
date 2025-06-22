@@ -90,32 +90,19 @@ namespace matrix_adaptation
 	)
 	{
 		const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
-		const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
 		const auto& rank_one = w.c1 * pc * pc.transpose();
 
 		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
-		
-		
 		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
-		const auto& old_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum())) * C;
-		
-		
-		Vector rank_mu_weights = weights.eval();
-		const auto& multiplier = (dd / (inv_root_C * pop.Y.rightCols(weights.size() - mu)).colwise().squaredNorm().array()).matrix();
-		rank_mu_weights.tail(weights.size() - mu) = rank_mu_weights.tail(weights.size() - mu).cwiseProduct(multiplier);
-
-		const auto& rank_mu = w.cmu * (popY * rank_mu_weights.asDiagonal() * popY.transpose());
 
 		const Float decay = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
 		const auto& old_c = decay * C;
 
-		// Scale to unit vector
-		Vector rank_mu_w = weights;
+		Vector rank_mu_w = weights.eval();
 		for (size_t i = mu; i < weights.size() - mu; i++)
 			rank_mu_w(i) *= dd / (inv_root_C * popY.col(i)).squaredNorm();
 
 		const auto& rank_mu = w.cmu * (popY * rank_mu_w.asDiagonal() * popY.transpose());
-
 		C = old_c + rank_one + rank_mu;
 		
 		C = 0.5 * (C + C.transpose().eval());
