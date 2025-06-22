@@ -85,14 +85,30 @@ namespace matrix_adaptation
 	void CovarianceAdaptation::adapt_covariance_matrix(const Weights& w, const Modules& m, const Population& pop,
 		const size_t mu)
 	{
-		const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
+		const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
 		const auto& rank_one = w.c1 * pc * pc.transpose();
 
 		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
 		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
-		const auto& old_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum())) * C;
-		const auto& rank_mu = w.cmu * (popY * weights.asDiagonal() * popY.transpose());
+
+		const Float decay = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
+		const auto& old_c = decay * C;
+
+		Vector rank_mu_w = weights;
+		for (size_t i = mu; i < weights.size() - mu; i++)
+			rank_mu_w(i) *= dd / (inv_root_C * popY.col(i)).squaredNorm();
+
+		const auto& rank_mu = w.cmu * (popY * rank_mu_w.asDiagonal() * popY.transpose());
+
+		//std::cout << decay << std::endl;
+		//std::cout << rank_mu_w.transpose() << std::endl;
+
+		//std::cout << old_c << std::endl << std::endl;
+		//std::cout << rank_one << std::endl << std::endl;
+		//std::cout << rank_mu << std::endl << std::endl;
+
 		C = old_c + rank_one + rank_mu;
+		
 		C = 0.5 * (C + C.transpose().eval());
 	}
 
@@ -136,7 +152,16 @@ namespace matrix_adaptation
 			stats.last_update = stats.t;
 			stats.n_updates++;
 			adapt_covariance_matrix(w, m, pop, mu);
-			return perform_eigendecomposition(settings);
+			auto succ = perform_eigendecomposition(settings);
+			if (!succ)
+			{
+				std::cout << d.transpose() << std::endl << std::endl;
+				std::cout << C << std::endl << std::endl;
+
+				std::cout << stats.global_best.y << std::endl;
+				std::cout << stats.t << std::endl << std::endl;
+			}
+			return succ;
 		}
 		return true;
 

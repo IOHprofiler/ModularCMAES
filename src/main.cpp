@@ -9,9 +9,9 @@ using std::chrono::duration_cast;
 using std::chrono::duration;
 using std::chrono::milliseconds;
 
-static int dim = 5;
+static int dim = 2;
 static bool rotated = true;
-static functions::ObjectiveFunction fun_t = functions::ObjectiveFunction::RASTRIGIN;
+static functions::ObjectiveFunction fun_t = functions::ObjectiveFunction::SPHERE;
 static size_t budget = dim * 10000;
 
 
@@ -72,9 +72,9 @@ Run run_modcma(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdapt
 	parameters::Modules m;
 	m.matrix_adaptation = mat_t;
 	m.ssa = ssa;
-	//m.active = false;
+	m.active = true;
 	//m.sampler = parameters::BaseSampler::HALTON;
-	//m.restart_strategy = parameters::RestartStrategyType::IPOP;
+	m.restart_strategy = parameters::RestartStrategyType::STOP;
 	//m.sample_transformation = parameters::SampleTranformerType::CAUCHY;
 	//m.elitist = false;
 	//m.sequential_selection = true;
@@ -165,8 +165,7 @@ void ert_exp(parameters::MatrixAdaptationType mat_t, parameters::StepSizeAdaptat
 int main()
 {
 	auto ssa = parameters::StepSizeAdaptation::CSA;
-	constants::use_box_muller = true;
-	run_modcma(parameters::MatrixAdaptationType::COVARIANCE, ssa);
+	ert_exp(parameters::MatrixAdaptationType::COVARIANCE, ssa, 100);
 	//run_modcma(parameters::MatrixAdaptationType::SEPARABLE, ssa);/*
 	//run_modcma(parameters::MatrixAdaptationType::MATRIX, ssa);
 	//run_modcma(parameters::MatrixAdaptationType::CHOLESKY, ssa);

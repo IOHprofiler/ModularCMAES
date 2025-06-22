@@ -2,6 +2,17 @@
 
 
 
+#include <Eigen/Dense>
+#include <iostream>
+#include <cmath>
+#include <cassert>
+
+using Eigen::VectorXd;
+using std::log;
+using std::sqrt;
+using std::max;
+using std::min;
+
 namespace parameters
 {
 	static Float get_default_cs(const Settings& settings, const Float mueff, const Float d)
@@ -78,13 +89,15 @@ namespace parameters
 		const Float acov
 	)
 	{
-		//Float cmu_default_old = std::min(
-		//	1.0 - c1, 2.0 * ((mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (2.0 * mueff / 2))));
+		Float cmu_default = std::min(1.0 - c1, 
+			acov *
+				(mueff - 2.0 + (1.0 / mueff)) 
+					/ (pow(d + 2.0, 2) + (acov * mueff / 2)));
 
-		Float cmu_default = std::min(1.0 - c1,
-			acov * 
-			(0.25 + mueff + 1.0 / mueff - 2.0) / 
-			(pow(d + 2., 2.0) + acov * mueff / 2.0));
+		//Float cmu_default = std::min(1.0 - c1,
+		//	acov * 
+		//	(0.25 + mueff + 1.0 / mueff - 2.0) / 
+		//	(pow(d + 2., 2.0) + acov * mueff / 2.0));
 			
 		if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPARABLE)
 			cmu_default *= ((d + 2.0) / 3.0);
@@ -136,13 +149,14 @@ namespace parameters
 		sqrt_cs_mueff = std::sqrt(cs * (2.0 - cs) * mueff);
 		sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff);
 			
-		const Float amu_neg = 1.0 + (c1 / cmu);
+		//const Float amu_neg = 1.0 + (c1 / cmu);
+		const Float amu_neg = 1.0 + (c1 / static_cast<Float>(mu));
 		const Float amueff_neg = 1.0 + ((2.0 * mueff_neg) / (mueff + 2.0));
 		const Float aposdef_neg = (1.0 - c1 - cmu) / (d * cmu);
 		const Float neg_scaler = std::min(amu_neg, std::min(amueff_neg, aposdef_neg));
-
 		negative *= (neg_scaler / negative.cwiseAbs().sum());
 		weights << positive, negative;		
+
 
 		lazy_update_interval = 1.0 / (c1 + cmu + 1e-23) / d / 10.0;
 		expected_length_ps = (1.4 + (2.0 / (d + 1.0))) * expected_length_z;
