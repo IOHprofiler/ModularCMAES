@@ -442,6 +442,9 @@ class Parameters(AnnotatedStruct):
             / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
         )))
 
+        acov = 2.0
+        cmu2 = (acov * (0.25 + self.mueff + 1.0 / self.mueff - 2.0) / (pow(self.d + 2., 2.0) + acov * self.mueff / 2.0))
+
         amu_neg = 1 + (self.c1 / self.mu) 
         amueff_neg = 1 + ((2 * mueff_neg) / (self.mueff + 2))
         aposdef_neg = (1 - self.c1 - self.cmu) / (self.d * self.cmu)

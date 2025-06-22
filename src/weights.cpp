@@ -109,8 +109,6 @@ namespace parameters
 		return cmu_default;
 	}
 
-
-
 	Weights::Weights(
 		const size_t dim,
 		const size_t mu,

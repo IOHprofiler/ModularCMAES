@@ -34,12 +34,14 @@ def ert(runs, target = 1e-8):
 def run_modma(problem: ioh.ProblemType, 
               x0: np.ndarray, 
               logger_obj,
-              matrix_adaptation = modcma.options.COVARIANCE
+              module_name, option
             ):
-    modules = modcma.parameters.Modules()
-    modules.matrix_adaptation = matrix_adaptation
-    modules.ssa = modcma.options.StepSizeAdaptation.CSA
-    modules.restart_strategy = modcma.options.RestartStrategy.STOP
+    
+    modules = make_modules(module_name, option)
+    # modules = modcma.parameters.Modules()
+    # modules.matrix_adaptation = matrix_adaptation
+    # modules.ssa = modcma.options.StepSizeAdaptation.CSA
+    # modules.restart_strategy = modcma.options.RestartStrategy.STOP
 
     settings = modcma.Settings(
         problem.meta_data.n_variables, 
@@ -90,7 +92,7 @@ class RestartCollector:
         for item in self.names:
             setattr(self, item, 0)
 
-def collect(name, option):
+def collect(name, module_name, option):
     logger = ioh.logger.Analyzer(
         folder_name=name, 
         algorithm_name=name,
@@ -106,17 +108,24 @@ def collect(name, option):
             for i in range(N_REPEATS):
                 modcma.utils.set_seed(21 + fid * d * i)
                 collector.reset()
-                run_modma(problem, np.zeros(d), collector, option)
+                run_modma(problem, np.zeros(d), collector,  module_name, option)
                 # print(name, fid, d, problem.state.current_best_internal.y, problem.state.evaluations)
                 runs.append(dict(evals=problem.state.evaluations, best_y=problem.state.current_best_internal.y))
                 problem.reset()
             print(name, fid, d, "ert:", ert(runs))
 
+
+def make_modules(module_name, option):
+    modules = modcma.parameters.Modules()
+    modules.restart_strategy = modcma.options.RestartStrategy.STOP
+    setattr(modules, module_name, option)
+    return modules
+
 def collect_modcma():
     options = modcma.options.MatrixAdaptationType.__members__
     del options['COVARIANCE_NO_EIGV']
 
-    with Pool(len(options)) as p:
+    with Pool(6) as p:
         p.starmap(collect, options.items())
 
 
@@ -180,4 +189,27 @@ if __name__ == "__main__":
     # p2.start()
     # p1.join()
     # p2.join()
-    collect_modcma()
+    # collect_modcma()
+
+
+    # modules = modcma.parameters.Modules()    
+    # module_names = dir(modules)[-16:]
+    # module_names = list(set(module_names) - {'bound_correction', 'matrix_adaptation', 'restart_strategy', 'sample_sigma', 'center_placement'})
+
+    # modules_list = []
+    # for name in module_names:
+    #     obj = getattr(modules, name)
+    #     if isinstance(obj, bool):
+    #         modules_list.append((name, name, True))
+    #         continue
+    #     for option_name, option in obj.__class__.__members__.items():
+    #         if option.value == 0: continue
+    #         if option_name == "GAUSSIAN": continue
+    #         modules_list.append((f"{option_name}", name, option))
+    
+    # with Pool(12) as p:
+    #     p.starmap(collect, modules_list)
+
+    collect("active", "active", True)
+
+ 

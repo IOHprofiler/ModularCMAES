@@ -9,7 +9,6 @@ namespace parameters
         Vector weights;
         Vector positive;
         Vector negative;
-
         Float mueff, mueff_neg;
         Float c1, cmu, cc, cs;
         Float damps, acov;
