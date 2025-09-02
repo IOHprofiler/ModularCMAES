@@ -34,6 +34,7 @@ if platform.system() in ("Linux", "Darwin"):
         ])
 else:
     c_flags = ["/O2"]
+    l_flags = []
 
 ext = Pybind11Extension(
     "modcma.c_maes.cmaescpp",
@@ -55,6 +56,7 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     cmdclass={"build_ext": build_ext},
     ext_modules=[ext],
+    python_requires=">=3.8",
     install_requires=[
         "numpy", 
         "scipy", 
