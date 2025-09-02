@@ -267,7 +267,7 @@ class Parameters(AnnotatedStruct):
     bound_correction: (
         None, "saturate", "unif_resample", "COTN", "toroidal", "mirror") = None
     orthogonal: bool = False
-    local_restart: (None, "restart",  "IPOP", "BIPOP") = None
+    local_restart: (None, "restart",  "IPOP", "BIPOP", "STOP") = None
     base_sampler: ("gaussian", "sobol", "halton") = "gaussian"
     mirrored: (None, "mirrored", "mirrored pairwise") = None
     weights_option: ("default", "equal", "1/2^lambda") = "default"
@@ -442,6 +442,9 @@ class Parameters(AnnotatedStruct):
             / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
         )))
 
+        acov = 2.0
+        cmu2 = (acov * (0.25 + self.mueff + 1.0 / self.mueff - 2.0) / (pow(self.d + 2., 2.0) + acov * self.mueff / 2.0))
+
         amu_neg = 1 + (self.c1 / self.mu) 
         amueff_neg = 1 + ((2 * mueff_neg) / (self.mueff + 2))
         aposdef_neg = (1 - self.c1 - self.cmu) / (self.d * self.cmu)
@@ -505,8 +508,12 @@ class Parameters(AnnotatedStruct):
         self.record_statistics()
         self.calculate_termination_criteria()
         self.old_population = self.population.copy()
-        if any(self.termination_criteria.values()):
+        if any(self.termination_criteria.values()) and self.local_restart != "STOP":
             self.perform_local_restart()
+
+    @property
+    def should_stop(self):
+        return any(self.termination_criteria.values()) and self.local_restart == "STOP"
 
     def adapt_sigma(self) -> None:
         """Method to adapt the step size sigma.
@@ -577,16 +584,15 @@ class Parameters(AnnotatedStruct):
             1 - (self.c1 * dhs) - self.c1 - (self.cmu * self.pweights.sum())
         ) * self.C
 
-        if self.active:
-            weights = self.weights[::].copy()
-            weights = weights[: self.population.y.shape[1]]
-            rank_mu = self.cmu * (weights * self.population.y @ self.population.y.T)
-        else:
-            rank_mu = self.cmu * (
-                self.pweights
-                * self.population.y[:, : self.mu]
-                @ self.population.y[:, : self.mu].T
-            )
+
+        weights = self.weights[: self.population.y.shape[1]].copy() if self.active else self.pweights
+        n = len(weights.ravel())
+        rank_mu = self.cmu * (
+            weights 
+            * self.population.y[:, : n]
+            @ self.population.y[:, : n].T
+        )
+
         self.C = old_C + rank_one + rank_mu
 
     def perform_eigendecomposition(self) -> None:

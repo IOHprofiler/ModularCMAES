@@ -8,7 +8,7 @@ namespace restart
 {
 
 	Float Strategy::update(parameters::Parameters &p)
-	{
+	{ 
 		return p.settings.sigma0;
 	}
 	
@@ -43,7 +43,7 @@ namespace restart
 			lambda_large *= 2;
 		}
 		else
-		{
+		{ 
 			budget_small -= last_used_budget;
 		}
 

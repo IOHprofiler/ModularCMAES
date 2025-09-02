@@ -93,13 +93,13 @@ class TestUtils(unittest.TestCase):
         """Test ert method."""
         evals = [5000, 45000, 1000, 100, 10]
         budget = 10000
-        ert, ert_sd, n_succ = utils.ert(evals, budget)
-        self.assertEqual(n_succ, 4)
-        self.assertAlmostEqual(ert, 12777.5)
+        n_succ = 3
+        ert, ert_sd, n_succ = utils.ert(evals, n_succ)
+        self.assertAlmostEqual(ert, 17036.666666666668)
         self.assertAlmostEqual(ert_sd, 17484.642861665)
 
         for evals in ([50000], [], [int(1e10)]):
-            ert, ert_sd, n_succ = utils.ert(evals, budget)
+            ert, ert_sd, n_succ = utils.ert(evals, 0)
             self.assertEqual(ert, float("inf"))
             self.assertEqual(np.isnan(ert_sd), True)
             self.assertEqual(n_succ, 0)

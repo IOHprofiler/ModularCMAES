@@ -21,6 +21,9 @@ namespace
     // TODO: this is duplicate code
     Float median(const Vector &x)
     {
+        if (x.size() == 1)
+            return x(0);
+
         if (x.size() % 2 == 0)
             return (x(x.size() / 2) + x(x.size() / 2 - 1)) / 2.0;
         return x(x.size() / 2);
@@ -28,6 +31,9 @@ namespace
 
     Float median(const std::vector<Float> &v, const size_t from, const size_t to)
     {
+        if (v.size() == 1)
+            return v[0];
+
         const size_t n = to - from;
         if (n % 2 == 0)
             return (v[from + (n / 2)] + v[from + (n / 2) - 1]) / 2.0;
@@ -46,7 +52,9 @@ namespace restart
 
     void ExceededMaxIter::on_reset(const parameters::Parameters &p)
     {
-        max_iter = static_cast<size_t>(100 + 50 * std::pow((static_cast<Float>(p.settings.dim) + 3), 2.0) / std::sqrt(static_cast<Float>(p.lambda)));
+        max_iter = static_cast<size_t>(
+            100 + 50 * std::pow((static_cast<Float>(p.settings.dim) + 3), 2.0) / std::sqrt(static_cast<Float>(p.lambda))
+        );
     }
 
     void ExceededMaxIter::update(const parameters::Parameters &p)
@@ -60,12 +68,16 @@ namespace restart
         n_bin = 10 + static_cast<size_t>(std::ceil(30 * static_cast<Float>(p.settings.dim) / static_cast<Float>(p.lambda)));
     }
 
-    void NoImprovement::update(const parameters::Parameters &p)
+    void NoImprovement::update(const parameters::Parameters& p)
     {
         const size_t time_since_restart = p.stats.t - last_restart;
         best_fitnesses.push_back(p.pop.f(0));
-        const auto recent_improvement = ptp_tail(best_fitnesses, n_bin);
-        met = time_since_restart > n_bin and recent_improvement == 0;
+        met = false;
+        if (time_since_restart > n_bin)
+        {
+            const auto recent_improvement = ptp_tail(best_fitnesses, n_bin);
+            met = recent_improvement == 0;
+        }
     }
 
     void MaxSigma::update(const parameters::Parameters &p)
@@ -87,8 +99,12 @@ namespace restart
     {
         const size_t time_since_restart = p.stats.t - last_restart;
         flat_fitnesses(p.stats.t % p.settings.dim) = p.pop.f(0) == p.pop.f(flat_fitness_index);
-        const size_t n_flat_fitness = static_cast<size_t>(flat_fitnesses.sum());
-        met = time_since_restart > static_cast<size_t>(flat_fitnesses.size()) and n_flat_fitness > max_flat_fitness;
+        met = false;
+        if (time_since_restart > static_cast<size_t>(flat_fitnesses.size()))
+        {
+            const size_t n_flat_fitness = static_cast<size_t>(flat_fitnesses.sum());
+            met = n_flat_fitness > max_flat_fitness;
+        }
     }
 
     void FlatFitness::on_reset(const parameters::Parameters &p)
@@ -105,7 +121,7 @@ namespace restart
         {
             const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
             const Float tolx_condition = tolerance * p.settings.sigma0;
-            tolx_vector.head(p.settings.dim) = dynamic->C.diagonal() * d_sigma;
+            tolx_vector.head(p.settings.dim) = dynamic->C.diagonal().cwiseSqrt() * d_sigma;
             tolx_vector.tail(p.settings.dim) = dynamic->pc * d_sigma;
             met = (tolx_vector.array() < tolx_condition).all();
         }
@@ -154,7 +170,7 @@ namespace restart
         {
             const Eigen::Index t = p.stats.t % p.settings.dim;
             const auto effect_axis = 0.1 * p.mutation->sigma * std::sqrt(dynamic->d(t)) * dynamic->B.col(t);
-            met = (effect_axis.array() < tolerance).all();
+            met = (effect_axis.array().abs() < tolerance).all();
         }
     }
 
@@ -163,7 +179,7 @@ namespace restart
         if (const auto dynamic = std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
         {
             const auto effect_coord = 0.2 * p.mutation->sigma * dynamic->C.diagonal().cwiseSqrt();
-            met = (effect_coord.array() < tolerance).all();
+            met = (effect_coord.array().abs() < tolerance).any();
         }
     }
 
@@ -174,19 +190,31 @@ namespace restart
         median_fitnesses.push_back(median(p.pop.f));
         best_fitnesses.push_back(p.pop.f(0));
 
-        const bool best_better = median(best_fitnesses, pt, time_since_restart) >= median(best_fitnesses, 0, pt);
-        const bool median_better = median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt);
-
-        met = time_since_restart > n_stagnation and (best_better and median_better);
+        met = false;
+        if (time_since_restart > n_stagnation)
+        {
+            const bool best_better = median(best_fitnesses, pt, time_since_restart) >= median(best_fitnesses, 0, pt);
+            const bool median_better = median(median_fitnesses, pt, time_since_restart) >= median(median_fitnesses, 0, pt);
+            met = best_better and median_better;
+        }      
     }
 
     void Stagnation::on_reset(const parameters::Parameters &p)
     {
         const auto d = static_cast<Float>(p.settings.dim);
         const auto lambda = static_cast<Float>(p.lambda);
-        n_stagnation = (static_cast<size_t>(std::min(static_cast<int>(120 + (30 * d / lambda)), 20000)));
+        n_stagnation = static_cast<size_t>(
+            100 + 100 * std::pow(p.settings.dim, 1.5) / static_cast<Float>(p.lambda)
+        );
+
         median_fitnesses = {};
         best_fitnesses = {};
+    }
+
+    void TooMuchRepelling::update(const parameters::Parameters& p)
+    {
+        const Float average_repelling = static_cast<Float>(p.repelling->attempts) / static_cast<Float>(p.lambda);
+        met = average_repelling >= tolerance;
     }
 
     Criteria Criteria::get(const parameters::Modules modules)
@@ -205,14 +233,19 @@ namespace restart
             criteria.push_back(std::make_shared<restart::MinDSigma>());
             criteria.push_back(std::make_shared<restart::MaxDSigma>());
 
-            if (modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE ||
-                modules.matrix_adaptation == parameters::MatrixAdaptationType::SEPERABLE)
+            //! TODO: make these compatible with other MA
+            if (modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE)
             {
                 criteria.push_back(std::make_shared<restart::TolX>());
                 criteria.push_back(std::make_shared<restart::ConditionC>());
                 criteria.push_back(std::make_shared<restart::NoEffectAxis>());
                 criteria.push_back(std::make_shared<restart::NoEffectCoord>());
             }
+        }
+
+        if (modules.repelling_restart)
+        {
+            criteria.push_back(std::make_shared<restart::TooMuchRepelling>());
         }
         return Criteria(criteria);
     }

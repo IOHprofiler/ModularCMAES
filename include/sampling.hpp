@@ -17,23 +17,23 @@ namespace sampling
     struct Sampler
     {
         Sampler(const size_t d) : d(d) {}
-        [[nodiscard]] virtual Vector operator()() = 0;
         size_t d;
-
+        
         virtual void reset(const parameters::Modules &, const size_t)
         {
         }
-
+        
         virtual Float expected_length()
         {
             return std::sqrt(static_cast<Float>(d));
         }
+        [[nodiscard]] virtual Vector operator()() = 0;
     };
 
     /**
      * @brief Testing sampler, simple incrementing generator.
      */
-    struct Tester : Sampler
+    struct Tester : Sampler 
     {
         Tester(const size_t d) : Sampler(d) {}
 
@@ -219,7 +219,7 @@ namespace sampling
         /**
          * Should be overwritten, transforms U(0,1) indep samples into something else
          */
-        [[nodiscard]] virtual Vector transform(Vector x) = 0;
+        [[nodiscard]] virtual Vector transform(const Vector& x) = 0;
 
         [[nodiscard]] virtual Vector operator()() override
         {
@@ -236,7 +236,6 @@ namespace sampling
             return (*sampler)();
         }
 
-    protected:
         std::shared_ptr<Sampler> sampler;
     };
 
@@ -244,7 +243,7 @@ namespace sampling
     {
         IdentityTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
         
-        [[nodiscard]] virtual Vector transform(Vector x)
+        [[nodiscard]] virtual Vector transform(const Vector& x)
         {
             return x;
         }
@@ -262,11 +261,62 @@ namespace sampling
             return sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)));
         }
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] inline std::pair<Float, Float> box_muller(const Float u1, const Float u2)
         {
-            for (auto &xi : x)
-                xi = ppf(xi);
-            return x;
+            const Float r = std::sqrt(-2.0 * std::log(u1));
+            const Float theta = 2.0 * M_PI * u2;
+            return { r * std::cos(theta), r * std::sin(theta) };
+        }
+
+
+        [[nodiscard]] inline Vector box_muller(const Vector& u)
+        {
+            static Vector u_extra;
+            static int n_extra_used = 0;
+            static bool needs_new_sample = true;
+            static Float extra_sample;
+
+            size_t n = u.size();
+            size_t m = n / 2;
+
+            Vector z(n);
+            for (size_t i = 0; i < m; ++i) {
+                const auto&[n1, n2] = box_muller(u(2 * i), u(2 * i + 1));
+                z(2 * i) = n1;
+                z(2 * i + 1) = n2;
+            }
+
+            if (n % 2 != 0)
+            {
+                if (u_extra.size() <= n_extra_used)
+                {
+                    u_extra = (*sampler)();
+                    n_extra_used = 0;
+                }
+
+                if (needs_new_sample)
+                {
+                    const auto&[n1, n2] = box_muller(u(n - 1), u_extra(n_extra_used++));
+                    z(n - 1) = n1;
+                    extra_sample = n2;
+                    needs_new_sample = false;                 
+                }
+                else
+                {
+                    z(n -1) = extra_sample;
+                    needs_new_sample = true;
+                }
+            }
+
+            return z;
+        }   
+
+
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
+        {
+            if (constants::use_box_muller)
+                return box_muller(x);
+            return x.unaryExpr(&ppf);
         }
     };
 
@@ -276,11 +326,9 @@ namespace sampling
 
         UniformScaler(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-                xi = -scale + (2.0 * scale) * xi;
-            return x;
+            return (-scale + (2.0 * scale) * x.array()).matrix();
         }
     };
 
@@ -290,17 +338,11 @@ namespace sampling
         
         LaplaceTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-            {
-                if (xi < 0.5)
-                    xi = b * std::log(2.0 * xi);
-                else
-                    xi = -b * std::log(2.0 * (1.0 - xi));
-                
-            }
-            return x;
+            return ((x.array() < 0.5)
+                .select(b * (2.0 * x.array()).log(),
+                    -b * (2.0 * (1.0 - x.array())).log())).matrix();
         }
     };
 
@@ -310,11 +352,9 @@ namespace sampling
         
         LogisticTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-                xi = s * std::log(xi  / (1 - xi));
-            return x;
+            return (s * (x.array() / (1.0 - x.array())).log()).matrix();
         }
     };
 
@@ -335,11 +375,9 @@ namespace sampling
             return median_z;
         }
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-                xi = gamma * std::tan(M_PI * (xi - 0.5));
-            return x;
+            return (gamma * (M_PI * (x.array() - 0.5)).tan()).matrix();
         }
     };
 
@@ -347,14 +385,13 @@ namespace sampling
     {
         DoubleWeibullTransformer(const std::shared_ptr<Sampler> sampler) : SampleTransformer(sampler) {}
 
-        [[nodiscard]] virtual Vector transform(Vector x) override
+        [[nodiscard]] virtual Vector transform(const Vector& x) override
         {
-            for (auto &xi : x)
-                if (xi < 0.5)
-                    xi = -std::sqrt(-std::log(2.0 * xi));
-                else
-                    xi = std::sqrt(-std::log(2.0 * (1.0 - xi)));
-            return x;
+            return ((x.array() < 0.5)
+                .select(
+                    -(-((2.0 * x.array()).log())).sqrt(),
+                    (-((2.0 * (1.0 - x.array())).log())).sqrt()
+                )).matrix();
         }
     };
 

@@ -18,7 +18,7 @@ parser.add_argument(
     type=int,
     help="number of iterations per agent",
     required=False,
-    default=50,
+    default=1,
 )
 parser.add_argument(
     "-l", "--logging", required=False, action="store_true", default=False
@@ -27,6 +27,12 @@ parser.add_argument("-L", "--label", type=str, required=False, default="")
 parser.add_argument("-s", "--seed", type=int, required=False, default=42)
 parser.add_argument("-p", "--data_folder", type=str, required=False)
 parser.add_argument("-a", "--arguments", nargs="+", required=False)
+parser.add_argument(
+    "-c", "--cpp", required=False, action="store_true", default=False
+)
+parser.add_argument(
+    "--plot", required=False, action="store_true", default=False
+)
 
 args = vars(parser.parse_args())
 for arg in args.pop("arguments") or []:
@@ -34,4 +40,4 @@ for arg in args.pop("arguments") or []:
     exec(arg, None, args)
 
 
-evaluate_bbob(**args, active=True, step_size_adaptation="psr")
+evaluate_bbob(**args)

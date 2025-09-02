@@ -11,8 +11,8 @@ namespace parameters
         {
         case RecombinationWeights::EQUAL:
             return "EQUAL";
-        case RecombinationWeights::HALF_POWER_LAMBDA:
-            return "HALF_POWER_LAMBDA";
+        case RecombinationWeights::EXPONENTIAL:
+            return "EXPONENTIAL";
         default:
         case RecombinationWeights::DEFAULT:
             return "DEFAULT";
@@ -63,9 +63,14 @@ namespace parameters
             return "MXNES";
         case StepSizeAdaptation::LPXNES:
             return "LPXNES";
-        default:
+        case StepSizeAdaptation::SR:
+            return "SR";
         case StepSizeAdaptation::PSR:
             return "PSR";
+        case StepSizeAdaptation::SA:
+            return "SA";
+        default:
+            return "unknown";
         }
     }
     inline std::string to_string(const CorrectionMethod &s)
@@ -111,9 +116,22 @@ namespace parameters
         {
         case MatrixAdaptationType::MATRIX:
             return "MATRIX";
-        default:
+        case MatrixAdaptationType::CHOLESKY:
+            return "CHOLESKY";
+        case MatrixAdaptationType::NONE:
+            return "NONE";
+        case MatrixAdaptationType::SEPARABLE:
+            return "SEPARABLE";
         case MatrixAdaptationType::COVARIANCE:
             return "COVARIANCE";
+        case MatrixAdaptationType::CMSA:
+            return "CMSA";
+        case MatrixAdaptationType::COVARIANCE_NO_EIGV:
+            return "COVARIANCE_NO_EIGV";
+        case MatrixAdaptationType::NATURAL_GRADIENT:
+            return "NATURAL_GRADIENT";
+        default:
+            return "unkown";
         }
     }
 

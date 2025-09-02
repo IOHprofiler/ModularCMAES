@@ -21,8 +21,9 @@
 #include <Eigen/Core>
 #include <Eigen/Eigenvalues>
 #include <Eigen/QR>
+#include <unsupported/Eigen/MatrixFunctions>
 
-using Float = long double;
+using Float = double;
 using Matrix = Eigen::Matrix<Float, -1, -1>;
 using Vector = Eigen::Matrix<Float, -1, 1>;
 using Array = Eigen::Array<Float, -1, 1>;
@@ -39,6 +40,7 @@ namespace constants
 	extern size_t cache_min_samples;
 	extern bool cache_samples;
 	extern bool clip_sigma; 
+	extern bool use_box_muller;
 }
 
 /**
@@ -336,6 +338,49 @@ namespace rng
 namespace functions
 {
 	Float sphere(const Vector &x);
-	Float rastrigin(const Vector &x);
 	Float ellipse(const Vector& x);
+	Float rastrigin(const Vector &x);
+	Float rosenbrock(const Vector& x);
+	Matrix random_rotation_matrix(int n, int seed);
+
+	enum ObjectiveFunction {
+		ELLIPSE,
+		ROSENBROCK,
+		SPHERE,
+		RASTRIGIN
+	};
+
+	inline FunctionType get(const ObjectiveFunction f)
+	{
+		switch (f)
+		{
+		case ELLIPSE:
+			return ellipse;
+		case RASTRIGIN:
+			return rastrigin;
+		case ROSENBROCK:
+			return rosenbrock;
+		case SPHERE:
+			return sphere;
+		default:
+			return sphere;
+		}
+	}
+
+	inline std::string to_string(const ObjectiveFunction f)
+	{
+		switch (f)
+		{
+		case ELLIPSE:
+			return "ellipse";
+		case RASTRIGIN:
+			return "rastrigin";
+		case ROSENBROCK:
+			return "rosenbrock";
+		case SPHERE:
+			return "sphere";
+		default:
+			return "unknown";
+		}
+	}
 }

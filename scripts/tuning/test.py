@@ -27,7 +27,7 @@ def get_matrix(key: str) -> modcma.options.MatrixAdaptationType:
     if key == "matrix":
         return modcma.options.MatrixAdaptationType.MATRIX
     if key == "seperable":
-        return modcma.options.MatrixAdaptationType.SEPERABLE
+        return modcma.options.MatrixAdaptationType.SEPARABLE
     if key == "covariance":
         return modcma.options.MatrixAdaptationType.COVARIANCE
     if key == "none":

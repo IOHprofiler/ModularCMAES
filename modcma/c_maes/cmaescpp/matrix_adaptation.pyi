@@ -10,7 +10,14 @@ class Adaptation:
     m_old: numpy.ndarray
     ps: numpy.ndarray
     def __init__(self, *args, **kwargs) -> None: ...
-    def adapt_evolution_paths(self, pop: modcma.c_maes.cmaescpp.Population, weights, mutation: modcma.c_maes.cmaescpp.mutation.Strategy, stats, mu: int, lamb: int) -> None: ...
+    def adapt_evolution_paths(
+            self, 
+            pop: modcma.c_maes.cmaescpp.Population, 
+            weights: modcma.c_maes.cmaescpp.parameters.Weights, 
+            stats: modcma.c_maes.cmaescpp.parameters.Stats,
+            settings: modcma.c_maes.cmaescpp.parameters.Settings, 
+            mu: int, lamb: int
+        ) -> None: ...
     def adapt_matrix(self, weights, modules, population: modcma.c_maes.cmaescpp.Population, mu: int, settings, stats) -> bool: ...
     def compute_y(self, zi: numpy.ndarray) -> numpy.ndarray: ...
     def invert_x(self, xi: numpy.ndarray, sigma: float) -> numpy.ndarray: ...
@@ -39,5 +46,27 @@ class NoAdaptation(Adaptation):
 class OnePlusOneAdaptation(CovarianceAdaptation):
     def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
 
-class SeperableAdaptation(CovarianceAdaptation):
+class SeparableAdaptation(CovarianceAdaptation):
+    c: numpy.ndarray
+    pc: numpy.ndarray
+    d: numpy.ndarray
+    def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
+    
+class CovarainceNoEigvAdaptation(CovarainceNoEigvAdaptation):
+    def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
+
+class CholeskyAdaptation(Adaptation):
+    A: numpy.ndarray
+    pc: numpy.ndarray
+    def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
+
+class SelfAdaptation(Adaptation):
+    A: numpy.ndarray
+    C: numpy.ndarray
+    def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...
+    
+class NaturalGradientAdaptation(Adaptation):
+    A: numpy.ndarray
+    G: numpy.ndarray
+    A_inv: numpy.ndarray
     def __init__(self, dimension: int, x0: numpy.ndarray, expected_length_z: float) -> None: ...

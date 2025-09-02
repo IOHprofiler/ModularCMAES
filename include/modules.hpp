@@ -6,7 +6,7 @@ namespace parameters
     {
         DEFAULT,
         EQUAL,
-        HALF_POWER_LAMBDA
+        EXPONENTIAL
     };
 
     enum class BaseSampler
@@ -44,7 +44,8 @@ namespace parameters
         MXNES,
         LPXNES,
         PSR,
-        SR
+        SR,
+        SA,
     };
 
     enum class CorrectionMethod
@@ -61,8 +62,8 @@ namespace parameters
     enum class RestartStrategyType
     {
         NONE,
-        STOP,
         RESTART,
+        STOP,
         IPOP,
         BIPOP
     };
@@ -72,8 +73,11 @@ namespace parameters
         NONE,
         COVARIANCE,
         MATRIX,
-        SEPERABLE,
-        ONEPLUSONE
+        SEPARABLE,
+        CHOLESKY,
+        CMSA,
+        COVARIANCE_NO_EIGV,
+        NATURAL_GRADIENT
     };
 
     enum class CenterPlacement

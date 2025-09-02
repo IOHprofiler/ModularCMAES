@@ -264,6 +264,7 @@ class ModularCMAES:
         return [
             self.parameters.target >= self.parameters.fopt,
             self.parameters.used_budget >= self.parameters.budget,
+            self.parameters.should_stop
         ]
 
     def fitness_func(self, x: np.ndarray) -> float:
@@ -433,6 +434,8 @@ def evaluate_bbob(
     instance=1,
     target_precision=1e-8,
     return_optimizer=False,
+    cpp=False,
+    plot=False,
     **kwargs,
 ):
     """Helper function to evaluate a ModularCMAES on the BBOB test suite.
@@ -459,6 +462,10 @@ def evaluate_bbob(
         The target precision for the objective function value
     return_optimizer: bool = False
         Whether to return the optimizer
+    cpp: bool = False   
+        Wheter to run the C++ backend
+    plot: bool = False
+        Plotting stats
     **kwargs
         These are directly passed into the instance of ModularCMAES,
         in this manner parameters can be specified for the optimizer.
@@ -474,10 +481,13 @@ def evaluate_bbob(
     # This speeds up the import, this import is quite slow, so import it lazy here
     # pylint: disable=import-outside-toplevel
     import ioh
+    from modcma.c_maes import Settings, parameters, options, constants, utils
+    from modcma.c_maes import ModularCMAES as cModularCMAES
 
     evals, fopts = np.array([]), np.array([])
     if seed:
         np.random.seed(seed)
+        utils.set_seed(seed)
     fitness_func = ioh.get_problem(
         fid, dimension=dim, instance=instance
     )
@@ -491,15 +501,114 @@ def evaluate_bbob(
         f"Optimizing function {fid} in {dim}D for target "
         f"{target_precision} with {iterations} iterations."
     )
-
+    n_succ = 0
+    if plot:
+        iterations = 1
+    
     for idx in range(iterations):
         if idx > 0:
             fitness_func.reset()
         target = fitness_func.optimum.y + target_precision
-        
-        optimizer = ModularCMAES(fitness_func, dim, x0 = np.zeros(dim), target=target, **kwargs).run()
+
+        ps_norm = []
+        pc_norm = []
+        eigvals = []
+        f_values = []
+        dm = []
+        sigma = []
+        hs = []
+    
+        if cpp:
+            # TODO: map c++ types to python types
+            modules = parameters.Modules()
+            modules.matrix_adaptation = options.COVARIANCE
+            modules.ssa = options.StepSizeAdaptation.CSA
+            modules.restart_strategy = options.RestartStrategy.NONE
+
+            settings = Settings(
+                fitness_func.meta_data.n_variables, 
+                x0=np.zeros(dim),
+                modules=modules,
+                lb=fitness_func.bounds.lb,
+                ub=fitness_func.bounds.ub, 
+                verbose=True,
+                sigma0=2.0,
+                target=fitness_func.optimum.y + 1e-8,
+                budget=fitness_func.meta_data.n_variables * 10_000,
+            )
+            optimizer = cModularCMAES(settings)
+            while not optimizer.break_conditions():
+                optimizer.step(fitness_func)
+                ps_norm.append(np.linalg.norm(optimizer.p.adaptation.ps))
+                pc_norm.append(np.linalg.norm(optimizer.p.adaptation.pc))
+                eigvals.append(
+                    optimizer.p.adaptation.d**2
+                )
+                sigma.append(optimizer.p.mutation.sigma)
+                f_values.append(optimizer.p.pop.f.mean())
+                dm.append(optimizer.p.adaptation.dm.copy())
+                hs.append(optimizer.p.adaptation.hs)
+            title = "modcmacpp"
+        else:
+            optimizer = ModularCMAES(fitness_func, dim, x0 = np.zeros(dim), target=target, **kwargs)
+            
+     
+            while optimizer.step():
+                ps_norm.append(np.linalg.norm(optimizer.parameters.ps))
+                pc_norm.append(np.linalg.norm(optimizer.parameters.pc))
+                eigvals.append(
+                    (optimizer.parameters.D**2).ravel()
+                )
+                sigma.append(optimizer.parameters.sigma)
+                f_values.append(optimizer.parameters.population.f.mean())
+                dm.append(optimizer.parameters.dm.ravel())
+                hs.append(optimizer.parameters.hs)
+            title = "modcmapy"
+
+        if plot:    
+            import matplotlib.pyplot as plt
+
+            f, (ax0, ax1, ax2, ax3, ax4) = plt.subplots(5, figsize=(13, 10), sharex=True)
+            f.suptitle(title)
+            ax0.plot(f_values, label=f"fmin: {fitness_func.state.current_best_internal.y}")
+            ax0.legend()
+            axs = ax0.twinx()
+            axs.plot(sigma, color='red')
+
+            axs.set_ylabel("sigma")
+
+            ax1.plot(ps_norm)
+            ax12 = ax1.twinx()
+            ax12.plot(hs, color="red")
+            ax12.set_ylabel("hs")
+
+            ax2.plot(pc_norm)
+            
+            for i, v in enumerate(np.array(eigvals).T):
+                ax3.plot(v, label=i)
+
+            for i, v in enumerate(np.array(dm).T):
+                ax4.plot(v, label=i)
+
+            ax0.set_ylabel("f")
+            ax1.set_ylabel("ps")
+            ax2.set_ylabel("pc")
+            ax3.set_ylabel("eigvals")
+            ax3.legend()
+
+            ax4.set_ylabel("dm")
+            ax4.legend()
+
+            for ax in ax0, ax1, ax2, ax3, ax4:
+                ax.grid()
+                ax.set_yscale("log", base=10)
+            plt.show()
+                
         evals = np.append(evals, fitness_func.state.evaluations)
         fopts = np.append(fopts, fitness_func.state.current_best_internal.y)
+        
+        if fitness_func.state.current_best_internal.y <= target_precision:
+            n_succ += 1
 
     result_string = (
         "FCE:\t{:10.8f}\t{:10.4f}\n"
@@ -510,7 +619,7 @@ def evaluate_bbob(
         result_string.format(
             np.mean(fopts),
             np.std(fopts),
-            *ert(evals, optimizer.parameters.budget),
+            *ert(evals, n_succ),
             iterations,
         )
     )

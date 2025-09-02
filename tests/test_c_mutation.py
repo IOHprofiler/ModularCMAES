@@ -22,9 +22,9 @@ class TestMutation(unittest.TestCase):
         ss = mutation.SigmaSampler(2)
         noss = mutation.NoSigmaSampler(2)
 
-        ss.sample(2.0, self.pop)
+        ss.sample(2.0, self.pop, 1)
         self.assertFalse(np.all(self.pop.s == 2.0))
-        noss.sample(2.0, self.pop)
+        noss.sample(2.0, self.pop, 1)
         self.assertTrue(np.all(self.pop.s == 2.0))
 
     def test_threshold_convergence(self):
@@ -59,7 +59,8 @@ class TestMutation(unittest.TestCase):
             cma.select()
             cma.recombine()
             cma.p.adaptation.adapt_evolution_paths(
-                cma.p.pop, cma.p.weights, cma.p.mutation, cma.p.stats, cma.p.mu, cma.p.lamb
+                cma.p.pop, cma.p.weights, cma.p.stats, 
+                cma.p.settings, cma.p.mu, cma.p.lamb
             )
             cma.p.mutation.adapt(
                 cma.p.weights, cma.p.adaptation, cma.p.pop, cma.p.old_pop, cma.p.stats, cma.p.lamb
@@ -73,14 +74,14 @@ class TestMutation(unittest.TestCase):
             cma.p.mutation.sigma,
             cma.p.settings.sigma0
             * np.exp(
-                (cma.p.mutation.cs / cma.p.mutation.damps)
+                (cma.p.weights.cs / cma.p.weights.damps)
                 * ((np.linalg.norm(cma.p.adaptation.ps) / cma.p.sampler.expected_length()) - 1)
             ),
         )
 
     def test_adapt_tpa(self):
         cma = self.get_cma(options.TPA)
-        s = ((1 - cma.p.mutation.cs) * 0) + (cma.p.mutation.cs * cma.p.mutation.a_tpa)
+        s = ((1 - cma.p.weights.cs) * 0) + (cma.p.weights.cs * cma.p.mutation.a_tpa)
         self.assertAlmostEqual(cma.p.mutation.sigma, cma.p.settings.sigma0 * np.exp(s))
 
     def test_adapt_msr(self):
@@ -106,7 +107,7 @@ class TestMutation(unittest.TestCase):
         self.assertTrue(np.isclose(
             cma.p.mutation.sigma,
             cma.p.settings.sigma0
-            * np.exp((cma.p.mutation.cs / np.sqrt(cma.p.settings.dim)) * (w * z).sum()),
+            * np.exp((cma.p.weights.cs / np.sqrt(cma.p.settings.dim)) * (w * z).sum()),
         ))
 
 
@@ -115,8 +116,8 @@ class TestMutation(unittest.TestCase):
 
         w = cma.p.weights.weights.clip(0)[: cma.p.pop.n]
         
-        z = np.exp(cma.p.mutation.cs * (w @ np.log(cma.p.pop.s)))
-        sigma = np.power(cma.p.settings.sigma0, 1 - cma.p.mutation.cs) * z
+        z = np.exp(cma.p.weights.cs * (w @ np.log(cma.p.pop.s)))
+        sigma = np.power(cma.p.settings.sigma0, 1 - cma.p.weights.cs) * z
         self.assertTrue(np.isclose(cma.p.mutation.sigma, sigma))
 
 if __name__ == "__main__":

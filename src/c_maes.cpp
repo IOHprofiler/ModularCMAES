@@ -3,8 +3,10 @@
 void ModularCMAES::recombine() const
 {
 	p->adaptation->m_old = p->adaptation->m;
-	p->adaptation->m = p->adaptation->m_old + ((p->pop.X.leftCols(p->mu).colwise() - p->adaptation->m_old) * p->weights.
-		positive);
+	p->adaptation->m = p->adaptation->m_old + (
+		(p->pop.X.leftCols(p->mu).colwise() - p->adaptation->m_old) 
+		* p->weights.positive
+	);
 }
 
 void ModularCMAES::mutate(FunctionType &objective) const
@@ -49,6 +51,6 @@ bool ModularCMAES::break_conditions() const
 	const auto budget_used_up = p->stats.evaluations >= p->settings.budget;
 	const auto exceed_gens = p->settings.max_generations and p->stats.t >= p->settings.max_generations;
 	const auto restart_strategy_criteria = p->settings.modules.restart_strategy == parameters::RestartStrategyType::STOP
-		and p->criteria.any;
+		and p->criteria.any();
 	return exceed_gens or target_reached or budget_used_up or restart_strategy_criteria;
 }

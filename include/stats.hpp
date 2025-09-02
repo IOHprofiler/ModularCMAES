@@ -16,7 +16,9 @@ namespace parameters
 		Solution global_best = {};
 		bool has_improved = false;
 		Float success_ratio = 2.0 / 11.0;
-		Float cs = 1.0 / 12.0;
+		Float cp = 1.0 / 12.0;
+		size_t last_update = 0;
+		size_t n_updates = 0;
 
 		void update_best(const Vector &x, const Float y)
 		{
@@ -30,7 +32,7 @@ namespace parameters
 
 				has_improved = true;
 			}
-			success_ratio = (1 - cs) * success_ratio + (cs * has_improved);
+			success_ratio = (1 - cp) * success_ratio + (cp * has_improved);
 		}
 	};
 }

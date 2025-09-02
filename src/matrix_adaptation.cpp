@@ -4,54 +4,114 @@ namespace matrix_adaptation
 {
 	using namespace parameters;
 
+
 	Vector Adaptation::invert_x(const Vector& xi, const Float sigma)
 	{
 		return (xi - m) / sigma;
 	}
 
-	void CovarianceAdaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
-		const std::shared_ptr<mutation::Strategy>& mutation,
-		const Stats& stats, const size_t mu, const size_t lambda)
+	static void one_plus_one_path_update(
+		Vector& path, 
+		const Population& pop, 
+		const parameters::Stats& stats, 
+		const Float c,
+		const Float sqrt_c_mueff,
+		const Vector& v
+	)
 	{
-		dm = (m - m_old) / mutation->sigma;
-		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * inv_root_C * dm);
+		constexpr static Float max_success_ratio = 0.44;
+		if (!stats.has_improved)
+			return;
 
-		const Float actual_ps_length = ps.norm() / sqrt(
-			1.0 - pow(1.0 - mutation->cs, 2.0 * (stats.evaluations / lambda)));
-		const Float expected_ps_length = (1.4 + (2.0 / (dd + 1.0))) * expected_length_z;
-
-		hs = actual_ps_length < expected_ps_length;
-		pc = (1.0 - w.cc) * pc + (hs * sqrt(w.cc * (2.0 - w.cc) * w.mueff)) * dm;
+		path = (1.0 - c) * path;
+		if (stats.success_ratio < max_success_ratio)
+			path += sqrt_c_mueff * v;
 	}
 
-	void CovarianceAdaptation::adapt_covariance_matrix(const Weights& w, const Modules& m, const Population& pop,
-		const size_t mu)
+	void Adaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
+		const Stats& stats, const parameters::Settings& settings, const size_t lambda, const size_t mu)
 	{
-		const auto rank_one = w.c1 * pc * pc.transpose();
-		const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
-		const auto old_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * w.positive.sum())) * C;
+		const auto sigma = pop.s.mean();
+		dm = (m - m_old) / sigma; 
+		dz = pop.Z.leftCols(mu) * w.positive.head(mu);
+		adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);
+	}
 
-		Matrix rank_mu;
-		if (m.active)
-		{
-			auto weights = w.weights.topRows(pop.Y.cols());
-			rank_mu = w.cmu * ((pop.Y.array().rowwise() * weights.array().transpose()).matrix() * pop.Y.transpose());
-		}
-		else
-		{
-			rank_mu = w.cmu * ((pop.Y.leftCols(mu).array().rowwise() * w.positive.array().transpose()).matrix() * pop.Y.
-				leftCols(mu).transpose());
+	void Adaptation::adapt_ps(const parameters::Weights& w)
+	{
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * dz);
+	}
 
+	void None::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
+		const Stats& stats, const parameters::Settings& settings, const size_t mu, const size_t lambda)
+	{
+		if (!settings.one_plus_one)
+			adapt_ps(w);
+	}
+
+	Vector None::compute_y(const Vector& zi)
+	{
+		return zi;
+	}
+
+
+	Vector None::invert_y(const Vector& yi)
+	{
+		return yi;
+	}
+
+	void CovarianceAdaptation::adapt_ps(const Weights& w)
+	{
+		ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * inv_root_C * dm);
+	}
+
+	void CovarianceAdaptation::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
+		const Stats& stats, const parameters::Settings& settings, const size_t mu, const size_t lambda)
+	{
+		if (settings.one_plus_one)
+		{
+			one_plus_one_path_update(pc, pop, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
+			return;
 		}
+		
+		adapt_ps(w);
+		const Float actual_ps_length = ps.norm() / sqrt(
+			1.0 - pow(1.0 - w.cs, 2.0 * (stats.evaluations / lambda)));
+
+		hs = actual_ps_length < w.expected_length_ps;
+		pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
+	}
+
+	void CovarianceAdaptation::adapt_covariance_matrix(
+		const Weights& w, 
+		const Modules& m, 
+		const Population& pop,
+		const size_t mu
+	)
+	{
+		const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
+		const auto& rank_one = w.c1 * pc * pc.transpose();
+
+		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
+		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+
+		const Float decay = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
+		const auto& old_c = decay * C;
+
+		Vector rank_mu_w = weights.eval();
+		for (size_t i = mu; i < weights.size() - mu; i++)
+			rank_mu_w(i) *= dd / (inv_root_C * popY.col(i)).squaredNorm();
+
+		const auto& rank_mu = w.cmu * (popY * rank_mu_w.asDiagonal() * popY.transpose());
 		C = old_c + rank_one + rank_mu;
-
-		C = C.triangularView<Eigen::Upper>().toDenseMatrix() +
-			C.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().transpose();
+		
+		C = 0.5 * (C + C.transpose().eval());
 	}
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
 	{
 		const Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(C);
+
 		if (eigen_solver.info() != Eigen::Success)
 		{
 			if (settings.verbose)
@@ -72,127 +132,172 @@ namespace matrix_adaptation
 			}
 			return false;
 		}
-		inv_C = ((B * d.cwiseInverse().asDiagonal()) * B.transpose());
-		d = d.cwiseSqrt();
-		inv_root_C = (B * d.cwiseInverse().asDiagonal()) * B.transpose();
+
+		d.noalias() = d.cwiseSqrt().eval();
+		inv_root_C.noalias() = B * d.cwiseInverse().asDiagonal() * B.transpose();
+		A.noalias() = B * d.asDiagonal();
 		return true;
 	}
 
-	bool CovarianceAdaptation::adapt_matrix(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
-		const Settings& settings, const parameters::Stats& stats)
+	bool CovarianceAdaptation::adapt_matrix_inner(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
+		const Settings& settings, parameters::Stats& stats)
 	{
-		adapt_covariance_matrix(w, m, pop, mu);
-		return perform_eigendecomposition(settings);
+
+		if (static_cast<Float>(stats.t) >= static_cast<Float>(stats.last_update) + w.lazy_update_interval)
+		{
+			stats.last_update = stats.t;
+			stats.n_updates++;
+			adapt_covariance_matrix(w, m, pop, mu);
+			auto succ = perform_eigendecomposition(settings);
+			if (!succ)
+			{
+				std::cout << "t: " << stats.t << ". ";
+				std::cout << "Eigendecomposition failed! C:\n";
+				std::cout << C << std::endl << std::endl;
+			}
+			return succ;
+		}
+		return true;
+
 	}
 
-	void CovarianceAdaptation::restart(const Settings& settings)
+	void CovarianceAdaptation::restart(const Settings& settings, const Float sigma)
 	{
+		Adaptation::restart(settings, sigma);
 		B = Matrix::Identity(settings.dim, settings.dim);
 		C = Matrix::Identity(settings.dim, settings.dim);
+		A = Matrix::Identity(settings.dim, settings.dim);
 		inv_root_C = Matrix::Identity(settings.dim, settings.dim);
-		inv_C = Matrix::Identity(settings.dim, settings.dim);
 		d.setOnes();
-		m = settings.x0.value_or(Vector::Zero(settings.dim));
-		m_old.setZero();
-		dm.setZero();
 		pc.setZero();
-		ps.setZero();
 	}
 
 	Vector CovarianceAdaptation::compute_y(const Vector& zi)
 	{
-		return B * (d.asDiagonal() * zi);
+		return A * zi;
 	}
 
 	Vector CovarianceAdaptation::invert_y(const Vector& yi)
 	{
-		return d.cwiseInverse().asDiagonal() * (B.transpose() * yi);
-	}
-
-	bool SeperableAdaptation::perform_eigendecomposition(const Settings& settings)
-	{
-		d = C.diagonal().cwiseSqrt();
-		return d.minCoeff() > 0.0;
+		return (B.transpose() * yi).cwiseQuotient(d);
 	}
 
 
-	void OnePlusOneAdaptation::adapt_evolution_paths(const Population& pop, const parameters::Weights& w,
-		const std::shared_ptr<mutation::Strategy>& mutation, const parameters::Stats& stats,
-		size_t mu, size_t lambda)
+	void SeparableAdaptation::adapt_evolution_paths_inner(const Population& pop,
+		const parameters::Weights& w,
+		const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda)
 	{
-		dm = (m - m_old) / mutation->sigma;
-		if (!stats.has_improved)
+		if (settings.one_plus_one)
+		{
+			one_plus_one_path_update(pc, pop, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
 			return;
+		}
+		
+		adapt_ps(w);
 
-		if (stats.success_ratio < max_success_ratio)
-			pc = ((1.0 - w.cc) * pc) + (std::sqrt(w.cc * (2.0 - w.cc)) * pop.Y.col(0));
-		else
-			pc = (1.0 - w.cc) * pc;
+		const Float actual_ps_length = ps.norm() / sqrt(
+			1.0 - pow(1.0 - w.cs, 2.0 * (stats.evaluations / lambda)));
+
+		hs = actual_ps_length < w.expected_length_ps;
+		pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
 	}
 
-	bool OnePlusOneAdaptation::adapt_matrix(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
-		const parameters::Settings& settings, const parameters::Stats& stats)
+	bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu,
+		const parameters::Settings& settings, parameters::Stats& stats)
 	{
-		if (!stats.has_improved)
+
+		stats.last_update = stats.t;
+		stats.n_updates++;
+
+		const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
+
+		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
+		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+		const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
+
+		for (size_t j = 0; j < settings.dim; j++)
 		{
-			return true;
-		}
-		return CovarianceAdaptation::adapt_matrix(w, m, pop, mu, settings, stats);
-	}
-
-
-
-
-	void MatrixAdaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
-	                                             const std::shared_ptr<mutation::Strategy>& mutation,
-	                                             const Stats& stats, const size_t mu, const size_t lambda)
-	{
-		dm = (m - m_old) / mutation->sigma;
-
-		const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().
-			matrix();
-		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * dz);
-	}
-
-	bool MatrixAdaptation::adapt_matrix(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
-	                                    const Settings& settings, const parameters::Stats& stats)
-	{
-		const auto old_m = (1. - (0.5 * w.c1) - (0.5 * w.cmu)) * M;
-		const auto scaled_ps = (0.5 * w.c1) * (M * ps) * ps.transpose();
-
-		const auto old_m_inv = (1. + (0.5 * w.c1) + (0.5 * w.cmu)) * M_inv;
-		const auto scaled_inv_ps = (0.5 * w.c1) * ps * (ps.transpose() * M);
-
-		Matrix new_m, new_m_inv;
-		if (m.active)
-		{
-			// TODO: Check if we can do this like this
-			const auto scaled_weights = ((0.5 * w.cmu) * w.weights.topRows(pop.Y.cols())).array().transpose();
-			const auto scaled_y = (pop.Y.array().rowwise() * scaled_weights).matrix();
-			new_m = scaled_y * pop.Z.transpose();
-			new_m_inv = scaled_y * (pop.Z.transpose() * M_inv);
-		}
-		else
-		{
-			const auto scaled_weights = ((0.5 * w.cmu) * w.positive).array().transpose();
-			const auto scaled_y = (pop.Y.leftCols(mu).array().rowwise() * scaled_weights).matrix();
-			new_m = scaled_y * pop.Z.leftCols(mu).transpose();
-			new_m_inv = scaled_y * (pop.Z.leftCols(mu).transpose() * M_inv);
+			const auto rank_mu = (popY.row(j).array().pow(2) * weights.transpose().array()).sum();
+			c(j) = (decay_c * c(j)) + (w.c1 * pow(pc(j), 2)) + (w.cmu * rank_mu);
+			c(j) = std::max(c(j), Float{ 1e-12 });
+			d(j) = std::sqrt(c(j));
 		}
 
-		M = old_m + scaled_ps + new_m;
-		M_inv = old_m_inv - scaled_inv_ps - new_m_inv;
 		return true;
 	}
 
-	void MatrixAdaptation::restart(const Settings& settings)
+	void SeparableAdaptation::restart(const parameters::Settings& settings, const Float sigma)
 	{
-		ps.setOnes();
-		m = settings.x0.value_or(Vector::Zero(settings.dim));
-		m_old.setZero();
-		dm.setZero();
+		Adaptation::restart(settings, sigma);
+		c.setOnes();
+		d.setOnes();
+		pc.setZero();
+	}
+
+	Vector SeparableAdaptation::compute_y(const Vector& zi)
+	{
+		return d.array() * zi.array();
+	}
+
+	Vector SeparableAdaptation::invert_y(const Vector& yi)
+	{
+		return yi.array() / d.array();
+	}
+
+
+	void MatrixAdaptation::adapt_evolution_paths_inner(const Population& pop, const Weights& w,
+		const Stats& stats, const parameters::Settings& settings, const size_t mu, const size_t lambda)
+	{
+		if (settings.one_plus_one && !stats.has_improved)
+			return;
+		adapt_ps(w);
+	}
+
+	bool MatrixAdaptation::adapt_matrix_inner(const Weights& w, const Modules& m, const Population& pop, const size_t mu,
+		const Settings& settings, parameters::Stats& stats)
+	{
+		
+		stats.last_update = stats.t;
+		stats.n_updates++;
+		
+		const auto& weights = m.active ? w.weights.topRows(pop.Z.cols()) : w.positive;
+		const auto& popZ = m.active ? pop.Z : pop.Z.leftCols(mu);
+		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+		
+		// Normal MA-ES -> O(n^3)
+		// 
+		// constexpr Float epsilon = 1e-10;
+		// const auto& Z = popZ * weights.asDiagonal() * popZ.transpose();
+		// ZwI.noalias() = (w.cmu / 2.0) * (Z - I);
+		// ssI.noalias() = (w.c1 / 2.0) * (ps * ps.transpose() - I);
+		// M = M * (I + ssI + ZwI);
+		// M_inv = (I - ssI - ZwI + epsilon * I) * M_inv;
+
+		// Fast MA-ES -> O(n^2)
+		const Float tau_1 = w.c1 / 2.0;
+		const Float tau_m = w.cmu / 2.0;
+		const Float decay_m = (1.0 - tau_1 - tau_m);
+
+		M = (decay_m * M) 
+			+ (tau_1 * (M * ps) * ps.transpose()) 
+			+ (popY * (tau_m * weights).asDiagonal() * popZ.transpose());
+
+
+		if (settings.modules.elitist && !settings.one_plus_one)
+			M_inv = (decay_m * M_inv)
+				+ (tau_1 * ps * (ps.transpose() * M_inv))
+				+ ((popY * (tau_m * weights).asDiagonal()) * (popZ.transpose() * M_inv));
+		else
+			outdated_M_inv = true; // Rely on moore penrose pseudo-inv (only when needed)
+		return true;
+	}
+
+	void MatrixAdaptation::restart(const Settings& settings, const Float sigma)
+	{
+		Adaptation::restart(settings, sigma);
 		M = Matrix::Identity(settings.dim, settings.dim);
 		M_inv = Matrix::Identity(settings.dim, settings.dim);
+		outdated_M_inv = false;
 	}
 
 	Vector MatrixAdaptation::compute_y(const Vector& zi)
@@ -202,37 +307,231 @@ namespace matrix_adaptation
 
 	Vector MatrixAdaptation::invert_y(const Vector& yi)
 	{
+		if (outdated_M_inv) {
+			M_inv = M.completeOrthogonalDecomposition().pseudoInverse();
+			outdated_M_inv = false;
+		}
 		return M_inv * yi;
 	}
 
 
-	void None::adapt_evolution_paths(const Population& pop, const Weights& w,
-	                                 const std::shared_ptr<mutation::Strategy>& mutation, const
-	                                 Stats& stats, const size_t mu, const size_t lambda)
+	void CholeskyAdaptation::adapt_evolution_paths_inner(const Population& pop,
+		const parameters::Weights& w,
+		const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda)
 	{
-		dm = (m - m_old) / mutation->sigma;
+		if (settings.one_plus_one)
+		{
+			one_plus_one_path_update(pc, pop, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
+			return;
+		}
 
-		const auto dz = (pop.Z.leftCols(mu).array().rowwise() * w.positive.array().transpose()).rowwise().sum().
-			matrix();
-		ps = (1.0 - mutation->cs) * ps + (sqrt(mutation->cs * (2.0 - mutation->cs) * w.mueff) * dz);
+		adapt_ps(w);
+		pc = (1.0 - w.cc) * pc + (w.sqrt_cc_mueff * dm);
 	}
 
-	void None::restart(const Settings& settings)
+	bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights & w, const parameters::Modules & m, const Population & pop, size_t mu,
+		const parameters::Settings& settings, parameters::Stats& stats)
 	{
-		ps.setZero();
-		m = settings.x0.value_or(Vector::Zero(settings.dim));
-		m_old.setZero();
-		dm.setZero();
+
+		stats.last_update = stats.t;
+		stats.n_updates++;
+
+		A *= std::sqrt(1 - w.c1 - w.cmu);
+
+		Eigen::internal::llt_rank_update_lower(A, pc, w.c1);
+		for (size_t i = 0; i < mu; i++)
+			Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * w.positive(i));
+
+		if (m.active)
+			for (size_t i = 0; i < pop.Y.cols() - mu; i++)
+				Eigen::internal::llt_rank_update_lower(A, pop.Y.col(mu + i), w.cmu * w.negative(i));
+
+
+		return true;
 	}
 
-	Vector None::compute_y(const Vector& zi)
+	void CholeskyAdaptation::restart(const parameters::Settings& settings, const Float sigma)
 	{
-		return zi;
+		Adaptation::restart(settings, sigma);
+		A = Matrix::Identity(settings.dim, settings.dim);
+		pc.setZero();
 	}
 
-
-	Vector None::invert_y(const Vector& yi)
+	Vector CholeskyAdaptation::compute_y(const Vector& zi)
 	{
-		return yi;
+		return A * zi;
+	}
+
+	Vector CholeskyAdaptation::invert_y(const Vector& yi)
+	{
+		return A.triangularView<Eigen::Lower>().solve(yi);
+	}
+
+	void SelfAdaptation::adapt_evolution_paths_inner(const Population& pop, const parameters::Weights& w, const parameters::Stats& stats, const parameters::Settings& settings, size_t mu, size_t lambda)
+	{
+		
+		if (!settings.one_plus_one)
+			adapt_ps(w);
+	}
+
+	bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights& w, const parameters::Modules& m, const Population& pop, size_t mu, const parameters::Settings& settings, parameters::Stats& stats)
+	{
+		stats.last_update = stats.t;
+		stats.n_updates++;
+
+		const Float tc = 1.0 + (dd * (dd + 1)) / (2.0 * w.mueff);
+		const Float tc_inv = 1.0 / tc;
+
+		const auto& weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
+		const auto& popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+		const auto& Y = popY * weights.asDiagonal() * popY.transpose();
+
+		C = (1.0 - tc_inv) * C + (tc_inv * Y);
+		C = 0.5 * (C + C.transpose().eval());
+
+		const Eigen::LLT<Matrix> chol(C);
+		if (chol.info() != Eigen::Success)
+		{
+			if (settings.verbose)
+				std::cout << "t: " << stats.t << "Cholesky solver failed, we need to restart reason:"
+				<< chol.info() << '\n';
+			return false;
+		}
+		A = chol.matrixL();
+
+		return true;
+	}
+
+	void SelfAdaptation::restart(const parameters::Settings& settings, const Float sigma)
+	{
+		Adaptation::restart(settings, sigma);
+		A = Matrix::Identity(settings.dim, settings.dim);
+		C = Matrix::Identity(settings.dim, settings.dim);
+	}
+
+	Vector SelfAdaptation::compute_y(const Vector& zi)
+	{
+		return A * zi;
+	}
+
+	Vector SelfAdaptation::invert_y(const Vector& yi)
+	{
+		return A.triangularView<Eigen::Lower>().solve(yi);
+	}
+
+	void CovarianceNoEigvAdaptation::adapt_ps(const Weights& w)
+	{
+		Adaptation::adapt_ps(w);
+	}
+
+	bool CovarianceNoEigvAdaptation::perform_eigendecomposition(const parameters::Settings& settings)
+	{
+		const Eigen::LLT<Matrix> chol(C);
+		if (chol.info() != Eigen::Success)
+		{
+			if (settings.verbose)
+			{
+				std::cout << "Cholesky solver failed, we need to restart reason:"
+					<< chol.info() << '\n';
+			}
+			return false;
+		}
+
+		A = chol.matrixL();
+		return true;
+	}
+
+	Vector CovarianceNoEigvAdaptation::invert_y(const Vector& yi)
+	{
+		return A.triangularView<Eigen::Lower>().solve(yi);
+	}
+
+	void NaturalGradientAdaptation::adapt_evolution_paths_inner(
+		const Population& pop, 
+		const parameters::Weights& w, 
+		const parameters::Stats& stats, 
+		const parameters::Settings& settings, 
+		size_t mu, 
+		size_t lambda 
+	)
+	{
+		if (!settings.one_plus_one)
+		{
+			adapt_ps(w);
+			compute_gradients(pop, w, stats, settings, mu, lambda);
+			return;
+		}
+
+		if (stats.has_improved)
+		{
+			const auto& z = pop.Z.col(0);
+			G.noalias() = (z * z.transpose() - Matrix::Identity(settings.dim, settings.dim));
+		}
+	}
+
+	void NaturalGradientAdaptation::compute_gradients(
+		const Population& pop, 
+		const parameters::Weights& w, 
+		const parameters::Stats& stats, 
+		const parameters::Settings& settings,
+		size_t mu, 
+		size_t lambda
+	)
+	{
+		const size_t dim = pop.Z.rows();
+
+		const auto& weights = settings.modules.active ? w.weights.topRows(pop.Z.cols()) : w.positive;
+		
+		G.setZero();
+		for (int i = 0; i < weights.rows(); ++i)
+		{
+			const auto& z = pop.Z.col(i);
+			G.noalias() += weights(i) * (z * z.transpose() - Matrix::Identity(dim, dim));
+		}
+
+		// Remove isotropic (sigma-related) component: make G trace-free
+		sigma_g = (G.trace() / dd);
+		
+		if (!settings.one_plus_one)
+			G.diagonal().array() -= sigma_g;
+
+		// Ensure symmetry for numerical stability
+		G = 0.5 * (G + G.transpose().eval());
+	}
+
+	bool NaturalGradientAdaptation::adapt_matrix_inner(
+		const parameters::Weights& w, const parameters::Modules& m,
+		const Population& pop, size_t mu, const parameters::Settings& settings, parameters::Stats& stats)
+	{
+
+		stats.last_update = stats.t;
+		stats.n_updates++;
+
+		A *= (w.cc * G).exp();
+		outdated_A_inv = true;
+
+		return true;
+	}
+
+	void NaturalGradientAdaptation::restart(const parameters::Settings& settings, const Float sigma)
+	{
+		Adaptation::restart(settings, sigma);
+		A = Matrix::Identity(settings.dim, settings.dim) / sigma;
+		A_inv = Matrix::Identity(settings.dim, settings.dim);
+		G = Matrix::Zero(settings.dim, settings.dim);
+		outdated_A_inv = false;
+		sigma_g = 0.;
+	}
+
+	Vector NaturalGradientAdaptation::compute_y(const Vector& zi)
+	{
+		return A * zi;
+	}
+
+	Vector NaturalGradientAdaptation::invert_y(const Vector& yi)
+	{
+		if (outdated_A_inv)
+			A_inv = A.completeOrthogonalDecomposition().pseudoInverse();
+		return A_inv * yi;
 	}
 }

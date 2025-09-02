@@ -23,7 +23,7 @@ class TestMutation(unittest.TestCase):
         
         M = cma.p.adaptation.M.copy()
         z = np.sum(cma.p.weights.positive * cma.p.pop.Z[:, :cma.p.mu], axis=1, keepdims=True)
-        ps = ((1.0 - cma.p.mutation.cs) * cma.p.adaptation.ps + (np.sqrt(cma.p.mutation.cs * (2.0 - cma.p.mutation.cs) * cma.p.weights.mueff) * z.ravel())).reshape(-1, 1)
+        ps = ((1.0 - cma.p.weights.cs) * cma.p.adaptation.ps + (np.sqrt(cma.p.weights.cs * (2.0 - cma.p.weights.cs) * cma.p.weights.mueff) * z.ravel())).reshape(-1, 1)
         old_M = ((1 - 0.5 * cma.p.weights.c1 - 0.5 * cma.p.weights.cmu) * M)
         scaled_ps = ((0.5 * cma.p.weights.c1) * M.dot(ps).dot(ps.T))
         new_M = ((0.5 * cma.p.weights.cmu * cma.p.weights.positive) * cma.p.pop.Y[:, :cma.p.mu]).dot(cma.p.pop.Z[:, :cma.p.mu].T)

@@ -15,7 +15,7 @@ namespace es
 
             const auto mask = corrector->is_out_of_bounds(x1);
             if (mask.any())
-                x1 = corrector->correct_x(x1, mask);
+                x1 = corrector->correct_x(x1, mask, sigma);
 
         } while (rejection_sampling && n_rej++ < 5*d && bounds::any_out_of_bounds(x1, corrector->lb, corrector->ub) );
         return x1;
@@ -51,7 +51,7 @@ namespace es
 
             const auto mask = corrector->is_out_of_bounds(x);
             if (mask.any())
-                x = corrector->correct_x(x, mask);
+                x = corrector->correct_x(x, mask, si.mean());
 
         } while (rejection_sampling && n_rej++ < 5*d && bounds::any_out_of_bounds(x, corrector->lb, corrector->ub));
         return x;

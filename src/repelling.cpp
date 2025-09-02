@@ -66,8 +66,8 @@ namespace repelling
 	bool TabooPoint::rejects(const Vector &xi, const parameters::Parameters &p, const int attempts) const
 	{
 		const Float rejection_radius = std::pow(shrinkage, attempts) * radius;
-		const Float delta_xi = distance::mahanolobis(xi, solution.x, p.adaptation->inv_C) / p.mutation->sigma;
-
+		const Float delta_xi = p.adaptation->distance(xi, solution.x) / p.mutation->sigma;
+		
 		if (delta_xi < rejection_radius)
 			return true;
 
@@ -81,7 +81,8 @@ namespace repelling
 
 	void TabooPoint::calculate_criticality(const parameters::Parameters &p)
 	{
-		const Float delta_m = distance::mahanolobis(p.adaptation->m, solution.x, p.adaptation->inv_C) / p.mutation->sigma;
+		const Float delta_m = p.adaptation->distance_from_center(solution.x) / p.mutation->sigma;
+			
 		const auto u = delta_m + radius;
 		const auto l = delta_m - radius;
 		criticality = cdf(u) - cdf(l);
@@ -95,29 +96,6 @@ namespace repelling
 
 		std::sort(archive.begin(), archive.end(), [](const TabooPoint &a, const TabooPoint &b)
 				  { return a.criticality > b.criticality; });
-
-		//! If it is not intialized
-		/*
-		if (C.cols() != p.settings.dim)
-		{
-			C = Matrix::Identity(p.settings.dim, p.settings.dim);
-			C_inv = Matrix::Identity(p.settings.dim, p.settings.dim);
-		}
-
-		if (!(p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::NONE ||
-			  p.settings.modules.matrix_adaptation == parameters::MatrixAdaptationType::MATRIX))
-		{
-			using namespace matrix_adaptation;
-			const auto dynamic = std::dynamic_pointer_cast<CovarianceAdaptation>(p.adaptation);
-
-			const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
-			if (d_sigma > constants::sigma_threshold)
-			{
-				C = dynamic->C / dynamic->C.maxCoeff();
-				C_inv = dynamic->inv_C / dynamic->inv_C.maxCoeff();
-			}
-		}
-		*/
 	}
 
 	void Repelling::update_archive(FunctionType &objective, parameters::Parameters &p)
@@ -141,13 +119,13 @@ namespace repelling
 		}
 
 		if (accept_candidate)
-			archive.emplace_back(candidate_point, 1.0);// , C, C_inv);
-
+			archive.emplace_back(candidate_point, 1.0);
+		
 		const Float volume_per_n = p.settings.volume / (p.settings.sigma0 * coverage * p.stats.solutions.size());
 		const Float n = p.adaptation->dd;
 		const Float gamma_f = std::pow(std::tgamma(n / 2.0 + 1.0), 1.0 / n) / std::sqrt(M_PI);
 		for (auto &point : archive)
-			point.radius = std::pow(volume_per_n * point.n_rep, 1.0 / n) * gamma_f;
+			point.radius = (std::pow(volume_per_n * point.n_rep, 1.0 / n) * gamma_f) / std::sqrt(n);
 	}
 
 	bool Repelling::is_rejected(const Vector &xi, parameters::Parameters &p)
@@ -168,7 +146,6 @@ namespace repelling
 				}
 			}
 		}
-
 		return false;
 	}
 }

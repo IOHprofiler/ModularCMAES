@@ -228,14 +228,14 @@ def timeit(func):
     return inner
 
 
-def ert(evals, budget):
+def ert(evals, n_succ):
     """Computed the expected running time of a list of evaluations.
 
     Parameters
     ----------
     evals: list
         a list of running times (number of evaluations)
-    budget: int
+    n_succ: int
         the maximum number of evaluations
 
     Returns
@@ -253,7 +253,6 @@ def ert(evals, budget):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             evals = np.array(evals)
-            n_succ = (evals < budget).sum()
             _ert = float(evals.sum()) / int(n_succ)
         return _ert, np.std(evals), n_succ
     except ZeroDivisionError:
