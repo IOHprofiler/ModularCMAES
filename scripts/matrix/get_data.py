@@ -190,26 +190,6 @@ if __name__ == "__main__":
     # p1.join()
     # p2.join()
     # collect_modcma()
-
-
-    # modules = modcma.parameters.Modules()    
-    # module_names = dir(modules)[-16:]
-    # module_names = list(set(module_names) - {'bound_correction', 'matrix_adaptation', 'restart_strategy', 'sample_sigma', 'center_placement'})
-
-    # modules_list = []
-    # for name in module_names:
-    #     obj = getattr(modules, name)
-    #     if isinstance(obj, bool):
-    #         modules_list.append((name, name, True))
-    #         continue
-    #     for option_name, option in obj.__class__.__members__.items():
-    #         if option.value == 0: continue
-    #         if option_name == "GAUSSIAN": continue
-    #         modules_list.append((f"{option_name}", name, option))
     
-    # with Pool(12) as p:
-    #     p.starmap(collect, modules_list)
-
-    collect("active", "active", True)
-
- 
+    mods = modcma.parameters.Modules()
+    
