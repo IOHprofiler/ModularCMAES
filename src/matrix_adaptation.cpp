@@ -151,11 +151,9 @@ namespace matrix_adaptation
 			auto succ = perform_eigendecomposition(settings);
 			if (!succ)
 			{
-				std::cout << d.transpose() << std::endl << std::endl;
+				std::cout << "t: " << stats.t << ". ";
+				std::cout << "Eigendecomposition failed! C:\n";
 				std::cout << C << std::endl << std::endl;
-
-				std::cout << stats.global_best.y << std::endl;
-				std::cout << stats.t << std::endl << std::endl;
 			}
 			return succ;
 		}

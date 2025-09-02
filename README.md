@@ -257,6 +257,11 @@ modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.MATRIX
 modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.NONE
 # Or use the seperable CMA-ES
 modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.SEPARABLE
+# Other variants:
+modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.CHOLESKY
+modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.CMSA
+modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.COVARIANCE_NO_EIGV
+modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.NATURAL_GRADIENT
 ```
 
 ### Active Update <a name="active-update"></a>
