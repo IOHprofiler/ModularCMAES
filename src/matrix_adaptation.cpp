@@ -149,10 +149,9 @@ namespace matrix_adaptation
 			stats.n_updates++;
 			adapt_covariance_matrix(w, m, pop, mu);
 			auto succ = perform_eigendecomposition(settings);
-			if (!succ)
+			if (!succ and settings.verbose)
 			{
-				std::cout << "t: " << stats.t << ". ";
-				std::cout << "Eigendecomposition failed! C:\n";
+				std::cout << "t: " << stats.t << ". C:\n";
 				std::cout << C << std::endl << std::endl;
 			}
 			return succ;
