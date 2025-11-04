@@ -745,16 +745,15 @@ void define_bounds(py::module& main)
 	using namespace bounds;
 
 	py::class_<BoundCorrection, std::shared_ptr<BoundCorrection>>(m, "BoundCorrection")
-		.def_readwrite("lb", &BoundCorrection::lb)
-		.def_readwrite("ub", &BoundCorrection::ub)
 		.def_readwrite("db", &BoundCorrection::db)
 		.def_readwrite("diameter", &BoundCorrection::diameter)
 		.def_readwrite("has_bounds", &BoundCorrection::has_bounds)
 		.def_readonly("n_out_of_bounds", &BoundCorrection::n_out_of_bounds)
 		.def("correct", &BoundCorrection::correct,
-			py::arg("population"), py::arg("m"))
-		.def("delta_out_of_bounds", &BoundCorrection::delta_out_of_bounds, py::arg("xi"), py::arg("oob"))	
-		.def("is_out_of_bounds", &BoundCorrection::is_out_of_bounds, py::arg("xi"))
+			py::arg("index"), py::arg("parameters"))
+		.def("correct_x", &BoundCorrection::correct_x, py::arg("xi"), py::arg("oob"), py::arg("sigma"), py::arg("settings"))
+		.def("delta_out_of_bounds", &BoundCorrection::delta_out_of_bounds, py::arg("xi"), py::arg("oob"), py::arg("settings"))	
+		.def("is_out_of_bounds", &BoundCorrection::is_out_of_bounds, py::arg("xi"), py::arg("settings"))
 		;
 
 	py::class_<Resample, BoundCorrection, std::shared_ptr<Resample>>(m, "Resample")

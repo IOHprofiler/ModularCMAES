@@ -13,11 +13,11 @@ namespace es
             const Vector z = (*sampler)();
             x1 = x + sigma * z;
 
-            const auto mask = corrector->is_out_of_bounds(x1);
+            const auto mask = corrector->is_out_of_bounds(x, settings);
             if (mask.any())
-                x1 = corrector->correct_x(x1, mask, sigma);
+                x1 = corrector->correct_x(x1, mask, sigma, settings);
 
-        } while (rejection_sampling && n_rej++ < 5*d && bounds::any_out_of_bounds(x1, corrector->lb, corrector->ub) );
+        } while (rejection_sampling && n_rej++ < 5*d && bounds::any_out_of_bounds(x1, settings.lb, settings.ub) );
         return x1;
     }
 
@@ -49,11 +49,11 @@ namespace es
             const Vector z = (*sampler)();
             x = m.array() + (si.array() * z.array());
 
-            const auto mask = corrector->is_out_of_bounds(x);
+            const auto mask = corrector->is_out_of_bounds(x, settings);
             if (mask.any())
-                x = corrector->correct_x(x, mask, si.mean());
+                x = corrector->correct_x(x, mask, si.mean(), settings);
 
-        } while (rejection_sampling && n_rej++ < 5*d && bounds::any_out_of_bounds(x, corrector->lb, corrector->ub));
+        } while (rejection_sampling && n_rej++ < 5*d && bounds::any_out_of_bounds(x, settings.lb, settings.ub));
         return x;
     }
 
