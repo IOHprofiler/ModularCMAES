@@ -202,9 +202,8 @@ namespace restart
     void Stagnation::on_reset(const parameters::Parameters &p)
     {
         const auto d = static_cast<Float>(p.settings.dim);
-        const auto lambda = static_cast<Float>(p.lambda);
         n_stagnation = static_cast<size_t>(
-            100 + 100 * std::pow(p.settings.dim, 1.5) / static_cast<Float>(p.lambda)
+            100 + 100 * std::pow(d, 1.5) / static_cast<Float>(p.lambda)
         );
 
         median_fitnesses = {};
