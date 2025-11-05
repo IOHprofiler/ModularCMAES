@@ -9,26 +9,27 @@ struct Population;
 namespace parameters
 {
 	struct Parameters;
+	struct Settings;
 }
 
 namespace bounds
 {
 	using Mask = Eigen::Array<bool, Eigen::Dynamic, 1>;
 
-	Mask is_out_of_bounds(const Vector& xi, const Vector& lb, const Vector& ub);
-	bool any_out_of_bounds(const Vector& xi, const Vector& lb, const Vector& ub);
+	Mask is_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub);
+	bool any_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub);
 
 	struct BoundCorrection
 	{
 		virtual ~BoundCorrection() = default;
-		Vector lb, ub, db;
+		Vector db;
 		Float diameter;
 		size_t n_out_of_bounds = 0;
 		bool has_bounds;
 
-		BoundCorrection(const Vector& lb, const Vector& ub) : lb(lb), ub(ub), db(ub - lb),
-			diameter((ub - lb).norm()),
-			has_bounds(true)
+		BoundCorrection(const Vector &lb, const Vector &ub) : db(ub - lb),
+															  diameter((ub - lb).norm()),
+															  has_bounds(true)
 		{
 			//! find a better way
 			if (!std::isfinite(diameter))
@@ -38,13 +39,22 @@ namespace bounds
 			}
 		}
 
-		void correct(const Eigen::Index i, parameters::Parameters& p);
+		void correct(const Eigen::Index i, parameters::Parameters &p);
 
-		virtual Vector correct_x(const Vector& xi, const Mask& oob, const Float sigma) = 0;
+		virtual Vector correct_x(
+			const Vector &xi,
+			const Mask &oob,
+			const Float sigma,
+			const parameters::Settings &settings) = 0;
 
-		[[nodiscard]] Mask is_out_of_bounds(const Vector& xi) const;
+		[[nodiscard]] Mask is_out_of_bounds(
+			const Vector &xi,
+			const parameters::Settings &settings) const;
 
-		[[nodiscard]] Vector delta_out_of_bounds(const Vector& xi, const Mask& oob) const;
+		[[nodiscard]] Vector delta_out_of_bounds(
+			const Vector &xi,
+			const Mask &oob,
+			const parameters::Settings &settings) const;
 
 		[[nodiscard]] bool any_out_of_bounds() const
 		{
@@ -56,7 +66,7 @@ namespace bounds
 	{
 		using BoundCorrection::BoundCorrection;
 
-		Vector correct_x(const Vector& xi, const Mask& oob, const Float sigma) override
+		Vector correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings) override
 		{
 			return xi;
 		}
@@ -73,14 +83,14 @@ namespace bounds
 
 		COTN(Eigen::Ref<const Vector> lb, Eigen::Ref<const Vector> ub) : BoundCorrection(lb, ub), sampler(static_cast<size_t>(lb.size()), rng::normal<Float>(0, 1.0 / 3.)) {}
 
-		Vector correct_x(const Vector& xi, const Mask& oob, const Float sigma) override;
+		Vector correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings) override;
 	};
 
 	struct Mirror final : BoundCorrection
 	{
 		using BoundCorrection::BoundCorrection;
 
-		Vector correct_x(const Vector& xi, const Mask& oob, const Float sigma) override;
+		Vector correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings) override;
 	};
 
 	struct UniformResample final : BoundCorrection
@@ -89,24 +99,24 @@ namespace bounds
 
 		UniformResample(Eigen::Ref<const Vector> lb, Eigen::Ref<const Vector> ub) : BoundCorrection(lb, ub), sampler(static_cast<size_t>(lb.size())) {}
 
-		Vector correct_x(const Vector& xi, const Mask& oob, const Float sigma) override;
+		Vector correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings) override;
 	};
 
 	struct Saturate final : BoundCorrection
 	{
 		using BoundCorrection::BoundCorrection;
 
-		Vector correct_x(const Vector& xi, const Mask& oob, const Float sigma) override;
+		Vector correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings) override;
 	};
 
 	struct Toroidal final : BoundCorrection
 	{
 		using BoundCorrection::BoundCorrection;
 
-		Vector correct_x(const Vector& xi, const Mask& oob, const Float sigma) override;
+		Vector correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings) override;
 	};
 
-	inline std::shared_ptr<BoundCorrection> get(const parameters::CorrectionMethod& m, const Vector& lb, const Vector& ub)
+	inline std::shared_ptr<BoundCorrection> get(const parameters::CorrectionMethod &m, const Vector &lb, const Vector &ub)
 	{
 		using namespace parameters;
 		switch (m)

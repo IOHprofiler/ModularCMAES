@@ -3,6 +3,7 @@
 #include "sampling.hpp"
 #include "stats.hpp"
 #include "bounds.hpp"
+#include "settings.hpp"
 
 namespace es
 {
@@ -20,8 +21,15 @@ namespace es
               x(x0), f(f0), t(1), budget(budget), target(target),
               rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
               sampler(sampling::get(d, modules, 1)),
-              corrector(bounds::get(modules.bound_correction, Vector::Ones(d) * -5.0, Vector::Ones(d) * 5.0))
+              corrector(bounds::get(modules.bound_correction, Vector::Ones(d) * -5.0, Vector::Ones(d) * 5.0)),
+              settings{d}
         {
+            settings.modules = modules;
+            settings.x0 = x0;
+            settings.budget = budget;
+            settings.target = target;
+            settings.lb = Vector::Ones(d) * -5.0;
+            settings.ub = Vector::Ones(d) * 5.0;
         }
 
         Vector sample();
@@ -40,6 +48,7 @@ namespace es
 
         std::shared_ptr<sampling::Sampler> sampler;
         std::shared_ptr<bounds::BoundCorrection> corrector;
+        parameters::Settings settings;
     };
 
     struct MuCommaLambdaES
@@ -65,10 +74,18 @@ namespace es
               sampler(sampling::get(d, modules, lambda)),
               sigma_sampler(std::make_shared<sampling::Gaussian>(d)),
               rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
-              corrector(bounds::get(modules.bound_correction, Vector::Ones(d) * -5.0, Vector::Ones(d) * 5.0))
+              corrector(bounds::get(modules.bound_correction, Vector::Ones(d) * -5.0, Vector::Ones(d) * 5.0)),
+              settings(d)
         {
             // tau = 1.0 / sampler->expected_length();
             // tau_i = 1.0 / std::sqrt(sampler->expected_length());
+
+            settings.modules = modules;
+            settings.x0 = x0;
+            settings.budget = budget;
+            settings.target = target;
+            settings.lb = Vector::Ones(d) * -5.0;
+            settings.ub = Vector::Ones(d) * 5.0;
         }
 
         Vector sample(const Vector si);
@@ -100,5 +117,6 @@ namespace es
 
         bool rejection_sampling;
         std::shared_ptr<bounds::BoundCorrection> corrector;
+        parameters::Settings settings;
     };
 }

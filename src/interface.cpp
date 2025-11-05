@@ -4,6 +4,7 @@
 #include <pybind11/functional.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl_bind.h>
 #include <pybind11/stl.h>
 
 #include "c_maes.hpp"
@@ -11,6 +12,9 @@
 #include "es.hpp"
 
 namespace py = pybind11;
+
+PYBIND11_MAKE_OPAQUE(restart::vCriteria);
+
 
 template <typename RNG>
 Float random_double()
@@ -745,16 +749,15 @@ void define_bounds(py::module& main)
 	using namespace bounds;
 
 	py::class_<BoundCorrection, std::shared_ptr<BoundCorrection>>(m, "BoundCorrection")
-		.def_readwrite("lb", &BoundCorrection::lb)
-		.def_readwrite("ub", &BoundCorrection::ub)
 		.def_readwrite("db", &BoundCorrection::db)
 		.def_readwrite("diameter", &BoundCorrection::diameter)
 		.def_readwrite("has_bounds", &BoundCorrection::has_bounds)
 		.def_readonly("n_out_of_bounds", &BoundCorrection::n_out_of_bounds)
 		.def("correct", &BoundCorrection::correct,
-			py::arg("population"), py::arg("m"))
-		.def("delta_out_of_bounds", &BoundCorrection::delta_out_of_bounds, py::arg("xi"), py::arg("oob"))	
-		.def("is_out_of_bounds", &BoundCorrection::is_out_of_bounds, py::arg("xi"))
+			py::arg("index"), py::arg("parameters"))
+		.def("correct_x", &BoundCorrection::correct_x, py::arg("xi"), py::arg("oob"), py::arg("sigma"), py::arg("settings"))
+		.def("delta_out_of_bounds", &BoundCorrection::delta_out_of_bounds, py::arg("xi"), py::arg("oob"), py::arg("settings"))	
+		.def("is_out_of_bounds", &BoundCorrection::is_out_of_bounds, py::arg("xi"), py::arg("settings"))
 		;
 
 	py::class_<Resample, BoundCorrection, std::shared_ptr<Resample>>(m, "Resample")
@@ -940,6 +943,9 @@ struct PyCriterion : restart::Criterion
 	}
 };
 
+
+
+
 void define_restart_criteria(py::module& main)
 {
 	auto m = main.def_submodule("restart");
@@ -1017,8 +1023,23 @@ void define_restart_criteria(py::module& main)
 		.def_readwrite("best_fitnesses", &Stagnation::best_fitnesses)
 		.def_readwrite_static("tolerance", &Stagnation::tolerance);
 
+	py::bind_vector<vCriteria>(m, "CriteriaVector", py::module_local())
+		.def("__repr__", [](const vCriteria& v) {
+			std::string s = "CriteriaVector[";
+			for (size_t i = 0; i < v.size(); ++i) {
+				if (i) s += ", ";
+				s += v[i] ? py::str(py::cast(v[i])).cast<std::string>() : "None";
+			}
+			return s + "]";
+		});
+	
 	py::class_<Criteria>(m, "Criteria")
-		.def_readwrite("items", &Criteria::items)
+		.def_property(
+            "items",
+            [](Criteria &self)  -> vCriteria& { return self.items; },
+            [](Criteria &self, vCriteria v) { self.items = std::move(v); },
+            py::return_value_policy::reference_internal
+        )
 		.def("reset", &Criteria::reset, py::arg("parameters"))
 		.def("update", &Criteria::update, py::arg("parameters"))
 		.def("reason", &Criteria::reason)
@@ -1156,6 +1177,8 @@ void define_es(py::module& main)
 		.def_readwrite("rejection_sampling", &MuCommaLambdaES::rejection_sampling)
 		.def_readwrite("corrector", &MuCommaLambdaES::corrector);
 }
+
+
 
 PYBIND11_MODULE(cmaescpp, m)
 {
