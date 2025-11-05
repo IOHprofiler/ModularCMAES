@@ -45,8 +45,6 @@ class TestCriteria(unittest.TestCase):
         self.cma.p.criteria.items.append(MyCriterion('c3'))        
         self.assertEqual(len(self.cma.p.criteria.items), 4)
         self.assertEqual(self.cma.p.criteria.items[-1].name, "MyCriterionc3")
-        print(self.cma.p.criteria.items)
-        breakpoint()
 
 if __name__ == "__main__":
     unittest.main() 
