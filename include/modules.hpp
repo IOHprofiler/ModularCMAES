@@ -85,6 +85,7 @@ namespace parameters
         X0,
         ZERO,
         UNIFORM,
+        CENTER
     };
 
     struct Modules

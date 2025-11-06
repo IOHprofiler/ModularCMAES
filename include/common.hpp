@@ -129,6 +129,18 @@ inline std::ostream &operator<<(std::ostream &os, const Solution &s)
 namespace utils
 {
 	/**
+	 * @brief Sort an array of indexes idx inplace based 
+	 * based on comparing values in v using std::stable_sort
+	 *
+	 * @param v Vector
+	 * @param idx std::vector<size_t>
+	 * @return void 
+	 */
+	void sort_index_inplace(const Vector &v, std::vector<size_t>& idx);
+
+	void sort_index_inplace(const std::vector<size_t> &v, std::vector<size_t>& idx);
+	
+	/**
 	 * @brief Return an array of indexes of the sorted array
 	 * sort indexes based on comparing values in v using std::stable_sort instead
 	 * of std::sort  to avoid unnecessary index re-orderings

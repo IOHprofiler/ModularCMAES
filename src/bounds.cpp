@@ -27,13 +27,13 @@ namespace bounds
 
 	Vector BoundCorrection::delta_out_of_bounds(const Vector &xi, const Mask &oob, const parameters::Settings &settings) const
 	{
-		return (oob).select((xi - settings.lb).cwiseQuotient(db), xi);
+		return (oob).select((xi - settings.lb).cwiseQuotient(settings.db), xi);
 		;
 	}
 
 	void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters &p)
 	{
-		if (!has_bounds)
+		if (!p.settings.has_bounds)
 			return;
 
 		const auto oob = is_out_of_bounds(p.pop.X.col(i), p.settings);
@@ -53,33 +53,33 @@ namespace bounds
 	{
 		const Vector y = delta_out_of_bounds(xi, oob, settings);
 		return (oob).select(
-			settings.lb.array() + db.array() * ((y.array() > 0).cast<Float>() - (sigma * sampler().array().abs())).abs(), y);
+			settings.lb.array() + settings.db.array() * ((y.array() > 0).cast<Float>() - (sigma * sampler().array().abs())).abs(), y);
 	}
 
 	Vector Mirror::correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings)
 	{
 		const Vector y = delta_out_of_bounds(xi, oob, settings);
 		return (oob).select(
-			settings.lb.array() + db.array() * (y.array() - y.array().floor() - y.array().floor().unaryExpr(&modulo2)).abs(),
+			settings.lb.array() + settings.db.array() * (y.array() - y.array().floor() - y.array().floor().unaryExpr(&modulo2)).abs(),
 			y);
 	}
 
 	Vector UniformResample::correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings)
 	{
-		return (oob).select(settings.lb + sampler().cwiseProduct(db), xi);
+		return (oob).select(settings.lb + sampler().cwiseProduct(settings.db), xi);
 	}
 
 	Vector Saturate::correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings)
 	{
 		const Vector y = delta_out_of_bounds(xi, oob, settings);
 		return (oob).select(
-			settings.lb.array() + db.array() * (y.array() > 0).cast<Float>(), y);
+			settings.lb.array() + settings.db.array() * (y.array() > 0).cast<Float>(), y);
 	}
 
 	Vector Toroidal::correct_x(const Vector &xi, const Mask &oob, const Float sigma, const parameters::Settings &settings)
 	{
 		const Vector y = delta_out_of_bounds(xi, oob, settings);
 		return (oob).select(
-			settings.lb.array() + db.array() * (y.array() - y.array().floor()).abs(), y);
+			settings.lb.array() + settings.db.array() * (y.array() - y.array().floor()).abs(), y);
 	}
 }

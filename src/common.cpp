@@ -20,17 +20,29 @@ namespace constants
 
 namespace utils
 {
-	std::vector<size_t> sort_indexes(const Vector& v)
+	void sort_index_inplace(const Vector& v, std::vector<size_t>& idx)
 	{
-		std::vector<size_t> idx(v.size());
-		std::iota(idx.begin(), idx.end(), 0);
-
 		std::stable_sort(idx.begin(), idx.end(),
 			[&v](size_t i1, size_t i2)
 			{
 				return v[i1] < v[i2];
 			});
+	}
 
+	void sort_index_inplace(const std::vector<size_t>& v, std::vector<size_t>& idx)
+	{
+		std::stable_sort(idx.begin(), idx.end(),
+			[&v](size_t i1, size_t i2)
+			{
+				return v[i1] < v[i2];
+			});
+	}
+	
+	std::vector<size_t> sort_indexes(const Vector& v)
+	{
+		std::vector<size_t> idx(v.size());
+		std::iota(idx.begin(), idx.end(), 0);
+		sort_index_inplace(v, idx);
 		return idx;
 	}
 
@@ -38,13 +50,7 @@ namespace utils
 	{
 		std::vector<size_t> idx(v.size());
 		std::iota(idx.begin(), idx.end(), 0);
-
-		std::stable_sort(idx.begin(), idx.end(),
-			[&v](size_t i1, size_t i2)
-			{
-				return v[i1] < v[i2];
-			});
-
+		sort_index_inplace(v, idx);
 		return idx;
 	}
 

@@ -21,7 +21,7 @@ namespace es
               x(x0), f(f0), t(1), budget(budget), target(target),
               rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
               sampler(sampling::get(d, modules, 1)),
-              corrector(bounds::get(modules.bound_correction, Vector::Ones(d) * -5.0, Vector::Ones(d) * 5.0)),
+              corrector(bounds::get(modules.bound_correction, d)),
               settings{d}
         {
             settings.modules = modules;
@@ -74,7 +74,7 @@ namespace es
               sampler(sampling::get(d, modules, lambda)),
               sigma_sampler(std::make_shared<sampling::Gaussian>(d)),
               rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
-              corrector(bounds::get(modules.bound_correction, Vector::Ones(d) * -5.0, Vector::Ones(d) * 5.0)),
+              corrector(bounds::get(modules.bound_correction, d)),
               settings(d)
         {
             // tau = 1.0 / sampler->expected_length();
