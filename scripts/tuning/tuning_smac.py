@@ -93,7 +93,8 @@ def create_search_space(DIM, use_learning_rates):
 
     if use_learning_rates:
         cs_param = NormalFloatHyperparameter(
-            "cs", lower=0.0, upper=1.5, default_value=0.3, mu=0.3, sigma=0.2)
+            "cs", lower=0.0, upper=1.5, default_value=0.3, mu=0.3, sigma=0.2
+        )
         
         # Define the conditional normal float hyperparameter
         c1_param = MultiConditionalNormalFloatHyperparameter("c1", ["lambda_", "mu", "weights_option"], c1, lambda lambda_, mu, weight_option: 0.1, lower=0.0001, upper=1.0, default_value=c1(default_lambda, default_lambda // 2, "default"))

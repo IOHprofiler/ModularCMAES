@@ -627,7 +627,6 @@ void define_parameters(py::module &main)
 			 py::arg("acov") = std::nullopt,
 			 py::arg("verbose") = false,
 			 py::arg("always_compute_eigv") = false
-
 			 )
 		.def_readonly("dim", &Settings::dim)
 		.def_readonly("modules", &Settings::modules)

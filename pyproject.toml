@@ -1,13 +1,13 @@
 [build-system]
 requires = [
-    "setuptools>=42",
-    "wheel",
-    "pybind11>=2.6.0",
+    "configspace",
     "ioh>=0.3.14",
     "numpy>=1.18.5, <2.0.0",
     "mypy",
     "pybind11>=2.6.0",
+    "setuptools>=42",
     "scipy>=1.5.1",
+    "wheel",
 ]
 
 build-backend = "setuptools.build_meta"
