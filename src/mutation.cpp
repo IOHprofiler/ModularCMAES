@@ -34,7 +34,7 @@ namespace mutation
 				p.pop.t(i) = p.stats.t;
 				const auto &zi = (*p.sampler)();
 				const auto &zi_scaled = p.mutation->tc->scale(
-					zi, p.bounds->diameter, p.settings.budget, p.stats.evaluations);
+					zi, p.settings.diameter, p.settings.budget, p.stats.evaluations);
 				p.pop.Z.col(i).noalias() = zi_scaled;
 				p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));
 				p.pop.X.col(i).noalias() = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
@@ -130,8 +130,16 @@ namespace mutation
 			combined.conservativeResize(n + n);
 			combined.head(n) = pop.f.head(n);
 			combined.tail(n) = old_pop.f.head(n);
-			const auto idx = utils::sort_indexes(combined);
-			const auto oidx = utils::sort_indexes(idx);
+
+			if (idx.size() != n) {
+				idx.resize(n);
+				oidx.resize(n);
+				std::iota(idx.begin(), idx.end(), 0);
+				std::iota(oidx.begin(), oidx.end(), 0);
+			}
+			
+			utils::sort_index_inplace(combined, idx);
+			utils::sort_index_inplace(idx, oidx);
 
 			Float delta_r = 0.0;
 			for (size_t i = 0; i < n; i++)

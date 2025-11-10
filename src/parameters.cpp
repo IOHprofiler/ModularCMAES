@@ -28,7 +28,7 @@ namespace parameters
 			static_cast<Float>(settings.lambda0),
 			static_cast<Float>(settings.mu0),
 			settings.budget)),
-		bounds(bounds::get(settings.modules.bound_correction, settings.lb, settings.ub)),
+		bounds(bounds::get(settings.modules.bound_correction, settings.dim)),
 		repelling(repelling::get(settings.modules)),
 		center_placement(center::get(settings.modules.center_placement))
 	{

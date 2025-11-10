@@ -140,6 +140,10 @@ namespace mutation
 
 		Vector combined;
 
+		std::vector<size_t> idx;
+		std::vector<size_t> oidx;
+		
+
 		using Strategy::Strategy;
 
 		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,

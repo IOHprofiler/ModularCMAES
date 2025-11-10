@@ -100,6 +100,7 @@ void define_options(py::module& main)
 		.value("X0", CenterPlacement::X0)
 		.value("ZERO", CenterPlacement::ZERO)
 		.value("UNIFORM", CenterPlacement::UNIFORM)
+		.value("CENTER", CenterPlacement::CENTER)
 		.export_values();
 }
 
@@ -285,6 +286,9 @@ void define_center_placement(py::module& main)
 		.def(py::init<>());
 
 	py::class_<Zero, Placement, std::shared_ptr<Zero>>(m, "Zero")
+		.def(py::init<>());
+
+	py::class_<Center, Placement, std::shared_ptr<Center>>(m, "Center")
 		.def(py::init<>());
 }
 
@@ -644,6 +648,11 @@ void define_parameters(py::module& main)
 		.def_readwrite("x0", &Settings::x0)
 		.def_readwrite("lb", &Settings::lb)
 		.def_readwrite("ub", &Settings::ub)
+		.def_readwrite("db", &Settings::db)
+		.def_readwrite("center", &Settings::center)
+		.def_readwrite("diameter", &Settings::diameter)
+		.def_readonly("volume", &Settings::volume)
+		.def_readwrite("has_bounds", &Settings::has_bounds)
 		.def_readwrite("cs", &Settings::cs)
 		.def_readwrite("cc", &Settings::cc)
 		.def_readwrite("cmu", &Settings::cmu)
@@ -651,7 +660,6 @@ void define_parameters(py::module& main)
 		.def_readwrite("damps", &Settings::damps)
 		.def_readwrite("acov", &Settings::acov)
 		.def_readwrite("verbose", &Settings::verbose)
-		.def_readonly("volume", &Settings::volume)
 		.def_readonly("one_plus_one", &Settings::one_plus_one)
 		.def("__repr__", [] (Settings& settings)
 			{
@@ -749,9 +757,7 @@ void define_bounds(py::module& main)
 	using namespace bounds;
 
 	py::class_<BoundCorrection, std::shared_ptr<BoundCorrection>>(m, "BoundCorrection")
-		.def_readwrite("db", &BoundCorrection::db)
-		.def_readwrite("diameter", &BoundCorrection::diameter)
-		.def_readwrite("has_bounds", &BoundCorrection::has_bounds)
+	
 		.def_readonly("n_out_of_bounds", &BoundCorrection::n_out_of_bounds)
 		.def("correct", &BoundCorrection::correct,
 			py::arg("index"), py::arg("parameters"))
@@ -761,26 +767,26 @@ void define_bounds(py::module& main)
 		;
 
 	py::class_<Resample, BoundCorrection, std::shared_ptr<Resample>>(m, "Resample")
-		.def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
+		.def(py::init<>());
 
 	py::class_<NoCorrection, BoundCorrection, std::shared_ptr<NoCorrection>>(m, "NoCorrection")
-		.def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
+		.def(py::init<>());
 
 	py::class_<COTN, BoundCorrection, std::shared_ptr<COTN>>(m, "COTN")
-		.def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"))
+		.def(py::init<size_t>(), py::arg("dim"))
 		.def_readonly("sampler", &COTN::sampler);
 
 	py::class_<Mirror, BoundCorrection, std::shared_ptr<Mirror>>(m, "Mirror")
-		.def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
+		.def(py::init<>());
 
 	py::class_<UniformResample, BoundCorrection, std::shared_ptr<UniformResample>>(m, "UniformResample")
-		.def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
+		.def(py::init<size_t>(), py::arg("dim"));
 
 	py::class_<Saturate, BoundCorrection, std::shared_ptr<Saturate>>(m, "Saturate")
-		.def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
+		.def(py::init<>());
 
 	py::class_<Toroidal, BoundCorrection, std::shared_ptr<Toroidal>>(m, "Toroidal")
-		.def(py::init<Vector, Vector>(), py::arg("lb"), py::arg("ub"));
+		.def(py::init<>());
 }
 
 void define_mutation(py::module& main)

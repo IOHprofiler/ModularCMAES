@@ -19,16 +19,23 @@ namespace parameters
 		size_t mu0;
 
 		std::optional<Vector> x0;
+
 		Vector lb;
 		Vector ub;
+		Vector db;
+		Vector center;
+		Float diameter; 
+		Float volume;
+		bool has_bounds;
+
 		std::optional<Float> cs;
 		std::optional<Float> cc;
 		std::optional<Float> cmu;
 		std::optional<Float> c1;
 		std::optional<Float> damps;
 		std::optional<Float> acov;
+
 		bool verbose;
-		Float volume;
 		bool one_plus_one;
 
 		Settings(size_t dim,
@@ -60,7 +67,12 @@ namespace parameters
 			mu0(mu.value_or(lambda0 / 2)),
 			x0(x0),
 			lb(lb.value_or(Vector::Ones(dim) * -5)),
-			ub(ub.value_or(Vector::Ones(dim)* 5)),
+			ub(ub.value_or(Vector::Ones(dim) * 5)),
+			db(this->ub - this->lb),
+			center(this->lb + (db * 0.5)),
+			diameter(db.norm()),			
+			volume(db.prod()),
+			has_bounds(true),
 			cs(cs),
 			cc(cc),
 			cmu(cmu),
@@ -68,7 +80,6 @@ namespace parameters
 			damps(damps),
 			acov(acov),
 			verbose(verbose),
-			volume(0.0),
 			one_plus_one(false)
 		{
 			if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
@@ -113,7 +124,13 @@ namespace parameters
 				if (modules.restart_strategy == RestartStrategyType::BIPOP || modules.restart_strategy == RestartStrategyType::IPOP)
 					modules.restart_strategy = RestartStrategyType::RESTART;
 			}
-			volume = (this->ub.cwiseMin(10 * sigma0) - this->lb.cwiseMax(-10 * sigma0)).prod();
+			
+			if (!std::isfinite(diameter)){
+				has_bounds = false;
+				diameter = 10;
+				volume = pow(diameter, dim);
+				center.setConstant(0);
+			}
 		}
 	};
 

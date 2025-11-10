@@ -30,6 +30,11 @@ namespace center
         void operator()(parameters::Parameters &p) override;
     };
 
+    struct Center : Placement
+    {
+        void operator()(parameters::Parameters &p) override;
+    };
+
 
     inline std::shared_ptr<Placement> get(const parameters::CenterPlacement &p)
     {
@@ -41,6 +46,8 @@ namespace center
             return std::make_shared<Uniform>();
         case CenterPlacement::ZERO:
             return std::make_shared<Zero>();
+        case CenterPlacement::CENTER:
+            return std::make_shared<Center>();
         default:
         case CenterPlacement::X0:
             return std::make_shared<X0>();
