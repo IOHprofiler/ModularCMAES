@@ -113,9 +113,7 @@ class TestMutation(unittest.TestCase):
 
     def test_adapt_lpxnes(self):
         cma = self.get_cma(options.StepSizeAdaptation.LPXNES)
-
         w = cma.p.weights.weights.clip(0)[: cma.p.pop.n]
-        
         z = np.exp(cma.p.weights.cs * (w @ np.log(cma.p.pop.s)))
         sigma = np.power(cma.p.settings.sigma0, 1 - cma.p.weights.cs) * z
         self.assertTrue(np.isclose(cma.p.mutation.sigma, sigma))

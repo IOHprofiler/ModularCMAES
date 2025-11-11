@@ -1,5 +1,6 @@
 import warnings
 from enum import Enum
+from typing import Union
 
 import numpy as np
 from ConfigSpace import (
@@ -66,7 +67,7 @@ def get_all_module_options() -> dict:
 
 def _make_numeric_parameter(
     name: str, dim: int, lb: float, ub: float
-) -> UniformIntegerHyperparameter | NormalFloatHyperparameter:
+) -> Union[UniformIntegerHyperparameter | NormalFloatHyperparameter]:
 
     settings = Parameters(Settings(dim))
     default = getattr(settings.weights, name, None)
