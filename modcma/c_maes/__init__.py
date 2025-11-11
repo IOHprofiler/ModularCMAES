@@ -32,7 +32,7 @@ from .cmaescpp import (
     es,  # pyright: ignore[reportMissingModuleSource]
 )
 
-from .cmaescpp.parameters import (
+from .cmaescpp.parameters import ( # pyright: ignore[reportMissingModuleSource]
     Settings,
     Modules,
 )  # pyright: ignore[reportMissingModuleSource]
@@ -66,7 +66,7 @@ def get_all_module_options() -> dict:
 
 def _make_numeric_parameter(
     name: str, dim: int, lb: float, ub: float
-) -> Union[UniformIntegerHyperparameter | NormalFloatHyperparameter]:
+) -> Union[UniformIntegerHyperparameter, NormalFloatHyperparameter]:
 
     settings = Parameters(Settings(dim))
     default = getattr(settings.weights, name, None)
