@@ -58,6 +58,7 @@ setuptools.setup(
     ext_modules=[ext],
     python_requires=">=3.8",
     install_requires=[
+        "configspace",
         "numpy", 
         "scipy", 
         "ioh>=0.3.12,!=0.3.15"

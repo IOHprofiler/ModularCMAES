@@ -97,8 +97,16 @@ def create_search_space(DIM, use_learning_rates):
         )
         
         # Define the conditional normal float hyperparameter
-        c1_param = MultiConditionalNormalFloatHyperparameter("c1", ["lambda_", "mu", "weights_option"], c1, lambda lambda_, mu, weight_option: 0.1, lower=0.0001, upper=1.0, default_value=c1(default_lambda, default_lambda // 2, "default"))
-        cc_param = MultiConditionalNormalFloatHyperparameter("cc", ["lambda_", "mu", "weights_option"], cc, lambda lambda_, mu, weight_option: 0.1, lower=0.0001, upper=1.0, default_value=cc(default_lambda, default_lambda // 2, "default"))
+        c1_param = MultiConditionalNormalFloatHyperparameter(
+            "c1", ["lambda_", "mu", "weights_option"], c1, 
+            lambda lambda_, mu, weight_option: 0.1, 
+            lower=0.0001, upper=1.0, 
+            default_value=c1(default_lambda, default_lambda // 2, "default"))
+        cc_param = MultiConditionalNormalFloatHyperparameter(
+            "cc", 
+            ["lambda_", "mu", "weights_option"], cc, 
+            lambda lambda_, mu, weight_option: 0.1, 
+            lower=0.0001, upper=1.0, default_value=cc(default_lambda, default_lambda // 2, "default"))
         cmu_param = MultiConditionalNormalFloatHyperparameter("cmu", ["lambda_", "mu", "weights_option", "c1"], cmu, lambda lambda_, mu, weight_option, c1: 0.1, lower=0.0001, upper=1.0, default_value=cmu(default_lambda, default_lambda // 2, "default", c1(default_lambda, default_lambda // 2, "default")))
 
         cma_cs.add([cs_param, c1_param, cc_param, cmu_param])

@@ -68,7 +68,7 @@ class TestMutation(unittest.TestCase):
         return cma
 
     def test_adapt_csa(self):
-        cma = self.get_cma(options.CSA)
+        cma = self.get_cma(options.StepSizeAdaptation.CSA)
 
         self.assertAlmostEqual(
             cma.p.mutation.sigma,
@@ -80,22 +80,22 @@ class TestMutation(unittest.TestCase):
         )
 
     def test_adapt_tpa(self):
-        cma = self.get_cma(options.TPA)
+        cma = self.get_cma(options.StepSizeAdaptation.TPA)
         s = ((1 - cma.p.weights.cs) * 0) + (cma.p.weights.cs * cma.p.mutation.a_tpa)
         self.assertAlmostEqual(cma.p.mutation.sigma, cma.p.settings.sigma0 * np.exp(s))
 
     def test_adapt_msr(self):
-        cma = self.get_cma(options.MSR)
+        cma = self.get_cma(options.StepSizeAdaptation.MSR)
 
     def test_adapt_psr(self):
-        cma = self.get_cma(options.PSR)
+        cma = self.get_cma(options.StepSizeAdaptation.PSR)
         
     def test_adapt_mxnes(self):
-        cma = self.get_cma(options.MXNES)
+        cma = self.get_cma(options.StepSizeAdaptation.MXNES)
 
 
     def test_adapt_xnes(self):
-        cma = self.get_cma(options.XNES)
+        cma = self.get_cma(options.StepSizeAdaptation.XNES)
 
         w = cma.p.weights.weights.clip(0)[: cma.p.pop.n]
         z = (
@@ -112,7 +112,7 @@ class TestMutation(unittest.TestCase):
 
 
     def test_adapt_lpxnes(self):
-        cma = self.get_cma(options.LPXNES)
+        cma = self.get_cma(options.StepSizeAdaptation.LPXNES)
 
         w = cma.p.weights.weights.clip(0)[: cma.p.pop.n]
         
