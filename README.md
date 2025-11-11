@@ -147,7 +147,7 @@ such as custom selection, recombination, or adaptation routines.
 
 #### Tuning <a name="tuning"></a>
 
-To facilitate **automated hyperparameter tuning**, ModularCMAES now provides functionality to **create and manipulate configuration spaces** directly compatible with popular optimization and AutoML tools, such as **SMAC**, **BOHB**, or **Optuna**. This functionality allows users to systematically explore both **algorithmic module combinations** and **numerical hyperparameters** (e.g., population size, learning rates, damping coefficients).
+To facilitate **automated hyperparameter tuning**, ModularCMAES now provides functionality to **create and manipulate configuration spaces** directly compatible with popular optimization and AutoML tools, such as **SMAC**, **BOHB**. This functionality allows users to systematically explore both **algorithmic module combinations** and **numerical hyperparameters** (e.g., population size, learning rates, damping coefficients).
 
 #### Configuration Space Generation
 
@@ -177,7 +177,7 @@ Example:
 
 ```python
 # Get only the module configuration space (no numeric parameters)
-cs_modules = get_configspace(only_modules=True)
+cs_modules = get_configspace(add_popsize=False, add_sigma=False, add_learning_rates=False)
 ```
 
 #### Creating Settings from a Configuration
@@ -191,8 +191,15 @@ from ConfigSpace import Configuration
 # Sample or load a configuration
 config = cs.sample_configuration()
 
+# Or for defaults
+default = cs.default_configuration()
+
+# The config can be edited
+config['sampler'] = 'HALTON'
+
 # Convert the configuration to a Settings object
-settings = settings_from_config(dim=10, config=config)
+# Note that keyword arguments like lb in the next example, can be passed to settings like so
+settings = settings_from_config(dim=10, config=config, lb=np.ones(10))
 ```
 
 The resulting `Settings` object can then be passed directly to the C++ backend:

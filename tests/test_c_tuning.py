@@ -15,9 +15,6 @@ class TestTuning(unittest.TestCase):
         self.assertEqual(options, options | {"sample_sigma": (False, True)})
         self.assertEqual(options, options | {"repelling_restart": (False, True)})
 
-    def test_numeric_options(self):
-        options = c_maes._get_numeric_config(2)
-        self.assertIsInstance(options, ConfigurationSpace)
 
     def test_configspace(self):
         cspace = c_maes.get_configspace(2)
@@ -30,7 +27,7 @@ class TestTuning(unittest.TestCase):
         
         changed = deepcopy(default)
         changed['cc'] = 0.1
-        changed['sampler'] = c_maes.options.BaseSampler.HALTON
+        changed['sampler'] = "HALTON"
         settings_changed = c_maes.settings_from_config(2, changed)
         self.assertEqual(settings_changed.cc, 0.1)
         self.assertEqual(settings_changed.modules.sampler, c_maes.options.BaseSampler.HALTON)
