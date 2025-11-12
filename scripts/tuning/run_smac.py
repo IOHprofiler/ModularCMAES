@@ -1,4 +1,7 @@
 import os
+os.environ["OMP_NUM_THREADS"] = "1"
+os.environ["OPENBLAS_NUM_THREADS"] = "1"
+
 import time
 import argparse
 from itertools import product
@@ -88,13 +91,13 @@ def run_smac(fid, dim, use_learning_rates):
         cma_cs,
         name=str(int(time.time())) + "-" + "CMA",
         deterministic=False,
-        n_trials=100_000,
+        n_trials=50_000,
         instances=args,
         instance_features=inst_feats,
         output_directory=os.path.join(
             DATA_DIR, f"BBOB_F{fid}_{dim}D_LR{use_learning_rates}"
         ),
-        n_workers=16,
+        n_workers=1,
     )
     pf = PriorAcquisitionFunction(
         acquisition_function=AlgorithmConfigurationFacade.get_acquisition_function(
