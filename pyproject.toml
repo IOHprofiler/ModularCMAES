@@ -1,12 +1,12 @@
 [build-system]
 requires = [
     "configspace",
-    "ioh>=0.3.14",
-    "numpy>=1.18.5, <2.0.0",
+    "ioh",
+    "numpy",
     "mypy",
-    "pybind11>=2.6.0",
+    "pybind11",
     "setuptools>=42",
-    "scipy>=1.5.1",
+    "scipy",
     "wheel",
 ]
 

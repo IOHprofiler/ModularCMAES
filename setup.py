@@ -61,7 +61,7 @@ setuptools.setup(
         "configspace",
         "numpy", 
         "scipy", 
-        "ioh>=0.3.12,!=0.3.15"
+        "ioh"
     ],
     classifiers=[
         "Programming Language :: Python :: 3",
