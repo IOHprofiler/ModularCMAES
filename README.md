@@ -16,6 +16,7 @@ This README provides a high level overview of the implemented modules, and provi
   - [Usage ](#usage-)
     - [C++ Backend ](#c-backend-)
       - [High Level interface ](#high-level-interface-)
+      - [Low Level interface ](#low-level-interface-)
       - [Tuning ](#tuning-)
       - [Configuration Space Generation](#configuration-space-generation)
       - [Creating Settings from a Configuration](#creating-settings-from-a-configuration)
@@ -99,6 +100,27 @@ If you want to work on a development version of the library, you should follow t
 
 For performance, completeness, and modularity, the **C++ backend** is the **recommended interface** for ModularCMAES. It exposes all available modules and options through a direct Python binding.
 
+#### High Level interface <a name="high-level-interface"></a>
+
+In addition to the fully specified method described below, we can run an optimization via a friendly `fmin` interface:
+
+```python
+x0 = [0, 1, 2, 3] # Location to start the search from
+sigma0 = 0.234    # Initial estimate of the stepsize, try 0.3 * (ub - lb) if you're unsure
+budget = 100      # Total number of function evaluations
+xopt, fopt, evals, cma = c_maes.fmin(
+    func, x0, sigma0, budget,
+    # We can specify modules and setting values as keyword arguments
+    active=True,
+    target=10.0,
+    cc=0.8  
+    matrix_adaptation='NONE'
+)
+```
+Note that the `func`, `x0`, `sigma0` and `budget` arguments are **required**. Modules and settings can be specified via keyword arguments by they corresponding names in the `Modules` and `Settings` objects. Module options, such as `matrix_adaptation` in the above example, can be specified by their name as `str`. 
+
+#### Low Level interface <a name="low-level-interface"></a>
+
 To run an optimization, first create a `Modules` object specifying which modules and options to enable. Then construct a `Settings` object (which defines problem dimension and strategy parameters), and pass it through a `Parameters` object to the optimizer:
 
 ```python
@@ -144,22 +166,8 @@ while not cma.break_conditions():
 This modularity allows experimentation with specific parts of the evolution strategy, 
 such as custom selection, recombination, or adaptation routines.
 
-#### High Level interface <a name="fmin"></a>
 
-In addition to the fully specified method described above, we can also call the optimizer via a more friendly `fmin` interface:
 
-```python
-x0 = [0, 1, 2, 3] # Location to start the search from
-sigma0 = 0.234    # Initial estimate of the stepsize, try 0.3 * (ub - lb) if you're unsure
-budget = 100      # Total number of function evaluations
-xopt, fopt, evals, cma = c_maes.fmin(
-    func, x0, sigma0, budget,
-    # We can specify modules and setting values as keyword arguments
-    active=True,
-    cc=0.8  
-)
-```
-Note that the `func`, `x0`, `sigma0` and `budget` arguments are required. Via keyword arguments, modules and settings can be specified, provided by their names in the `Modules` and `Settings` objects. 
 
 ---
 
