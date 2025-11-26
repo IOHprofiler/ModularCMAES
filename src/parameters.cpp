@@ -30,7 +30,8 @@ namespace parameters
 			settings.budget)),
 		bounds(bounds::get(settings.modules.bound_correction, settings.dim)),
 		repelling(repelling::get(settings.modules)),
-		center_placement(center::get(settings.modules.center_placement))
+		center_placement(center::get(settings.modules.center_placement)),
+		integer_handling(integer::get(settings.integer_variables, settings.dim, weights.mueff))
 	{
 		criteria.reset(*this);
 	}
@@ -80,8 +81,8 @@ namespace parameters
 			mutation->sigma = std::min(std::max(mutation->sigma, restart::MinSigma::tolerance), restart::MaxSigma::tolerance);
 
 		successfull_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings, stats);
-
 		criteria.update(*this);
+		integer_handling->update_diagonal(*this);
 		stats.t++;
 	}
 

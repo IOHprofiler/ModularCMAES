@@ -37,8 +37,12 @@ namespace mutation
 					zi, p.settings.diameter, p.settings.budget, p.stats.evaluations);
 				p.pop.Z.col(i).noalias() = zi_scaled;
 				p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));
-				p.pop.X.col(i).noalias() = p.pop.Y.col(i) * p.pop.s(i) + p.adaptation->m;
+				
+				const auto effective_sigma = p.integer_handling->get_effective_sigma(p, i);
+				p.pop.X.col(i).array() = p.pop.Y.col(i).array() * effective_sigma + p.adaptation->m.array();
 				p.bounds->correct(i, p);
+
+				p.integer_handling->round_to_integer(p.pop.X.col(i), p.settings.integer_variables);
 			} while (
 				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
 				 n_rej++ < 5 * p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X.col(i), p.settings).any()) ||

@@ -12,6 +12,7 @@
 #include "weights.hpp"
 #include "repelling.hpp"
 #include "center_placement.hpp"
+#include "integer.hpp"
 
 namespace parameters
 {
@@ -39,7 +40,8 @@ namespace parameters
         std::shared_ptr<bounds::BoundCorrection> bounds;
         std::shared_ptr<repelling::Repelling> repelling;
         std::shared_ptr<center::Placement> center_placement;
-
+        std::shared_ptr<integer::IntegerHandling> integer_handling;
+        
         Parameters(const size_t dim);
 
         Parameters(const Settings &settings);

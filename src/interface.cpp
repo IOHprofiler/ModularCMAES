@@ -11,7 +11,6 @@
 #include "c_maes.hpp"
 #include "to_string.hpp"
 #include "es.hpp"
-
 namespace py = pybind11;
 
 PYBIND11_MAKE_OPAQUE(restart::vCriteria);
@@ -604,7 +603,7 @@ void define_parameters(py::module &main)
 	py::class_<Settings, std::shared_ptr<Settings>>(m, "Settings")
 		.def(py::init<size_t, std::optional<Modules>, std::optional<Float>, size_to, size_to, std::optional<Float>,
 					  std::optional<size_t>, std::optional<size_t>, std::optional<Vector>,
-					  std::optional<Vector>, std::optional<Vector>,
+					  std::optional<Vector>, std::optional<Vector>, std::optional<Indices>,
 					  std::optional<Float>, std::optional<Float>, std::optional<Float>,
 					  std::optional<Float>, std::optional<Float>, std::optional<Float>,
 					  bool, bool>(),
@@ -619,6 +618,7 @@ void define_parameters(py::module &main)
 			 py::arg("x0") = std::nullopt,
 			 py::arg("lb") = std::nullopt,
 			 py::arg("ub") = std::nullopt,
+			 py::arg("integer_variables") = std::nullopt,
 			 py::arg("cs") = std::nullopt,
 			 py::arg("cc") = std::nullopt,
 			 py::arg("cmu") = std::nullopt,
@@ -668,6 +668,7 @@ void define_parameters(py::module &main)
 				ss << " x0: " << to_string(settings.x0);
 				ss << " lb: " << settings.lb.transpose();
 				ss << " ub: " << settings.ub.transpose();
+				ss << " integer_variables: " << settings.integer_variables.transpose();
 				ss << " cs: " << to_string(settings.cs);
 				ss << " cc: " << to_string(settings.cc);
 				ss << " cmu: " << to_string(settings.cmu);
