@@ -265,16 +265,16 @@ class Parameters(AnnotatedStruct):
     sequential: bool = False
     threshold_convergence: bool = False
     bound_correction: (
-        None, "saturate", "unif_resample", "COTN", "toroidal", "mirror") = None
+        None, "saturate", "unif_resample", "COTN", "toroidal", "mirror") = None # pyright: ignore[reportInvalidTypeForm]
     orthogonal: bool = False
-    local_restart: (None, "restart",  "IPOP", "BIPOP", "STOP") = None
-    base_sampler: ("gaussian", "sobol", "halton") = "gaussian"
-    mirrored: (None, "mirrored", "mirrored pairwise") = None
-    weights_option: ("default", "equal", "1/2^lambda") = "default"
+    local_restart: (None, "restart",  "IPOP", "BIPOP", "STOP") = None  # pyright: ignore[reportInvalidTypeForm]
+    base_sampler: ("gaussian", "sobol", "halton") = "gaussian"  # pyright: ignore[reportInvalidTypeForm]
+    mirrored: (None, "mirrored", "mirrored pairwise") = None  # pyright: ignore[reportInvalidTypeForm]
+    weights_option: ("default", "equal", "1/2^lambda") = "default"  # pyright: ignore[reportInvalidTypeForm]
     step_size_adaptation: (
-        "csa", "tpa", "msr", "xnes", "m-xnes", "lp-xnes", "psr") = "csa"
-    population: TypeVar("Population") = None
-    old_population: TypeVar("Population") = None
+        "csa", "tpa", "msr", "xnes", "m-xnes", "lp-xnes", "psr") = "csa"  # pyright: ignore[reportInvalidTypeForm]
+    population: TypeVar("Population") = None  # pyright: ignore[reportInvalidTypeForm]
+    old_population: TypeVar("Population") = None  # pyright: ignore[reportInvalidTypeForm]
     termination_criteria: dict = {}
     
     ipop_factor: int = 2
@@ -286,8 +286,8 @@ class Parameters(AnnotatedStruct):
     compute_termination_criteria: bool = False
     sample_sigma: bool = False  # TODO make this a module
     vectorized_fitness: bool = False
-    sobol: TypeVar("Sobol") = None
-    halton: TypeVar("Halton") = None
+    sobol: TypeVar("Sobol") = None  # pyright: ignore[reportInvalidTypeForm]
+    halton: TypeVar("Halton") = None  # pyright: ignore[reportInvalidTypeForm]
 
     __modules__ = (
         "active",

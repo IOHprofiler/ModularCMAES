@@ -14,9 +14,13 @@ This README provides a high level overview of the implemented modules, and provi
     - [Python Installation](#python-installation)
     - [Installation from source](#installation-from-source)
   - [Usage ](#usage-)
-    - [Python-only ](#python-only-)
-    - [Ask-Tell Interface ](#ask-tell-interface-)
     - [C++ Backend ](#c-backend-)
+      - [High Level interface ](#high-level-interface-)
+      - [Tuning ](#tuning-)
+      - [Configuration Space Generation](#configuration-space-generation)
+      - [Creating Settings from a Configuration](#creating-settings-from-a-configuration)
+    - [Python-only (Legacy) ](#python-only-legacy-)
+      - [Ask–Tell Interface ](#asktell-interface-)
   - [Modules ](#modules-)
     - [Matrix Adaptation ](#matrix-adaptation-)
     - [Active Update ](#active-update-)
@@ -31,6 +35,9 @@ This README provides a high level overview of the implemented modules, and provi
     - [Step size adaptation](#step-size-adaptation)
     - [Restart Strategy](#restart-strategy)
     - [Bound correction](#bound-correction)
+    - [Sample Transformer ](#sample-transformer-)
+    - [Repelling Restart ](#repelling-restart-)
+    - [Center Placement ](#center-placement-)
   - [Citation ](#citation-)
   - [License ](#license-)
 
@@ -83,113 +90,226 @@ If you want to work on a development version of the library, you should follow t
 
 ## Usage <a name="usage"></a>
 
-To optimize a single function, we provide a basic fmin interface, which requires two parameters: `func`, which is the function to be minimized, and `x0`, the initial estimate for the function. Optionally, any parameter that is valid for the `ModularCMAES` class, is valid for this function as keyword argument. For example, to minimize the value of the sum function, in 4D with a budget of 1000 function evaluations, using an active CMA-ES with an intial stepsize $\sigma$ of 2.5, we could use the following:
+> **Note:**  
+> The **C++ backend** is the primary and recommended interface for ModularCMAES.  
+> The **pure Python implementation** remains available for reference and educational purposes,  
+> but is **no longer actively developed** and may not include all new module options or performance improvements.
+
+### C++ Backend <a name="c-backend"></a>
+
+For performance, completeness, and modularity, the **C++ backend** is the **recommended interface** for ModularCMAES. It exposes all available modules and options through a direct Python binding.
+
+To run an optimization, first create a `Modules` object specifying which modules and options to enable. Then construct a `Settings` object (which defines problem dimension and strategy parameters), and pass it through a `Parameters` object to the optimizer:
+
+```python
+from modcma import c_maes
+
+# Instantiate module configuration
+modules = c_maes.parameters.Modules()
+modules.active = True
+modules.matrix_adaptation = c_maes.parameters.MatrixAdaptationType.MATRIX
+
+# Create Settings and Parameters objects
+settings = c_maes.parameters.Settings(dim=10, modules=modules, sigma0=2.5)
+parameters = c_maes.Parameters(settings)
+
+# Instantiate the optimizer
+cma = c_maes.ModularCMAES(parameters)
+
+# Define objective function
+def func(x):
+    return sum(x**2)
+
+# Run the optimization
+cma.run(func)
+```
+
+The API provides fine-grained control over the optimization process. Instead of calling `run`, you can explicitly step through the algorithm:
+
+```python
+while not cma.break_conditions():
+    cma.step(func)
+```
+
+Or execute the internal components of each iteration separately:
+
+```python
+while not cma.break_conditions():
+    cma.mutate(func)
+    cma.select()
+    cma.recombine()
+    cma.adapt()
+```
+
+This modularity allows experimentation with specific parts of the evolution strategy, 
+such as custom selection, recombination, or adaptation routines.
+
+#### High Level interface <a name="fmin"></a>
+
+In addition to the fully specified method described above, we can also call the optimizer via a more friendly `fmin` interface:
+
+```python
+x0 = [0, 1, 2, 3] # Location to start the search from
+sigma0 = 0.234    # Initial estimate of the stepsize, try 0.3 * (ub - lb) if you're unsure
+budget = 100      # Total number of function evaluations
+xopt, fopt, evals, cma = c_maes.fmin(
+    func, x0, sigma0, budget,
+    # We can specify modules and setting values as keyword arguments
+    active=True,
+    cc=0.8  
+)
+```
+Note that the `func`, `x0`, `sigma0` and `budget` arguments are required. Via keyword arguments, modules and settings can be specified, provided by their names in the `Modules` and `Settings` objects. 
+
+---
+
+#### Tuning <a name="tuning"></a>
+
+To facilitate **automated hyperparameter tuning**, ModularCMAES now provides functionality to **create and manipulate configuration spaces** directly compatible with popular optimization and AutoML tools, such as **SMAC**, **BOHB**. This functionality allows users to systematically explore both **algorithmic module combinations** and **numerical hyperparameters** (e.g., population size, learning rates, damping coefficients).
+
+#### Configuration Space Generation
+
+The configuration space is automatically derived from the available modules and tunable parameters via the function:
+
+```python
+from modcma.cmaescpp import get_configspace
+```
+
+Usage:
+
+```python
+from modcma.cmaescpp import get_configspace
+
+# Create a configuration space for a 10-dimensional problem
+cs = get_configspace(dim=10)
+```
+
+This function returns a `ConfigSpace.ConfigurationSpace` object containing:
+
+- **Categorical parameters** for all available modules (e.g., mirrored sampling, restart strategy, bound correction).  
+- **Numeric parameters** for key internal strategy settings such as `lambda0`, `mu0`, `sigma0`, `cs`, `cc`, `cmu`, `c1`, and `damps`.  
+- A built-in constraint ensuring `mu0 ≤ lambda0`.  
+- Optionally, the configuration space can include **only module-level options** by setting `only_modules=True`.
+
+Example:
+
+```python
+# Get only the module configuration space (no numeric parameters)
+cs_modules = get_configspace(add_popsize=False, add_sigma=False, add_learning_rates=False)
+```
+
+#### Creating Settings from a Configuration
+
+Once a configuration has been selected—either manually or from a tuner—the library provides a simple interface to construct a corresponding `Settings` object:
+
+```python
+from modcma.cmaescpp import settings_from_config
+from ConfigSpace import Configuration
+
+# Sample or load a configuration
+config = cs.sample_configuration()
+
+# Or for defaults
+default = cs.default_configuration()
+
+# The config can be edited
+config['sampler'] = 'HALTON'
+
+# Convert the configuration to a Settings object
+# Note that keyword arguments like lb in the next example, can be passed to settings like so
+settings = settings_from_config(dim=10, config=config, lb=np.ones(10))
+```
+
+The resulting `Settings` object can then be passed directly to the C++ backend:
+
+```python
+from modcma import c_maes
+
+parameters = c_maes.Parameters(settings)
+cma = c_maes.ModularCMAES(parameters)
+cma.run(func)
+```
+
+---
+
+### Python-only (Legacy) <a name="python-only"></a>
+
+> **Legacy notice:**  
+> The Python-only implementation is **no longer actively developed** and does not include all features of the C++ version.  
+> It remains available for experimentation and teaching purposes.
+
+The Python interface provides a simple API and includes a convenience `fmin` function for optimizing a single objective function in one call:
 
 ```python
 from modcma import fmin
 xopt, fopt, used_budget = fmin(func=sum, x0=[1, 2, 3, 4], budget=1000, active=True, sigma0=2.5)
 ```
 
-### Python-only <a name="python-only"></a>
-
-The Python-only implentation revolves around the `ModularCMAES` class. The class has a `run` method, which runs the specified algorithm until any break conditions arise.
+The main class is `ModularCMAES`, which mimics the structure of the C++ version but runs entirely in Python:
 
 ```python
 from modcma import ModularCMAES
+import numpy as np
 
 def func(x: np.ndarray):
-   return sum(x)
+    return sum(x)
 
 dim = 10
 budget = 10_000
 
-# Create an instance of the CMA-ES (no modules active)
+# Instantiate and run
 cma = ModularCMAES(func, dim, budget=budget)
-
-# Run until break conditions are met
 cma = cma.run()
 ```
 
-Alternatively, we could also iteratively run the `step` method, for a more fine grained control on how the algorithm is executed.  
+You can also run the algorithm step by step:
 
 ```python
-cma = ModularCMAES(func, dim, budget=budget)
-
 while not cma.break_conditions():
-   cma.step()
+    cma.step()
 ```
 
-At an even lower level, we could run all methods ran by the `step` methods seperately, which are (in order) `mutate`, `select`, `recombine` and `adapt`. The following snippet shows an example of all three methods.
+Or explicitly call each internal phase — analogous to the C++ interface:
 
 ```python
-cma = ModularCMAES(func, dim, budget=budget)
-
 while not cma.break_conditions():
-   cma.mutate()
-   cma.select()
-   cma.recombine()
-   cma.adapt()
+    cma.mutate()
+    cma.select()
+    cma.recombine()
+    cma.adapt()
 ```
 
-### Ask-Tell Interface <a name="ask-tell"></a>
+---
 
-Often, it can be usefull consider the algorithm in an Ask-Tell fashion, such that we can sequentally evaluate points while having outside control of the objective function. For this purpose, we provide the `AskTellCMAES` interface, which can be used as follows:
+#### Ask–Tell Interface <a name="ask-tell"></a>
+
+The **Ask–Tell interface** is only available in the **Python implementation**.  It provides an alternative interaction model where function evaluations are managed externally.  This is particularly useful for **parallel**, **asynchronous**, or **expensive** objective evaluations,  
+where you want to control when and how points are evaluated.
+
+The optimizer generates candidate solutions via `ask()`, and their objective values are later supplied with `tell()`.
 
 ```python
 from modcma import AskTellCMAES
 
-# Instantiate an ask-tell cmaes. Note that the objective function argument is omitted here. 
-# All other parameters, e.g. the active modules can be passed by keyword, similar to ModularCMAES
-cma = AskTellCMAES(dim, budget=budget, active=True)
+def func(x):
+    return sum(x**2)
+
+# Instantiate an ask-tell CMA-ES optimizer
+# Note: the objective function is not passed at construction
+cma = AskTellCMAES(dim=10, budget=10_000, active=True)
 
 while not cma.break_conditions():
-   # Retrieve a single new candidate solution
-   xi = cma.ask()
-   # Evaluate the objective function
-   fi = func(xi)
-   # Update the algorithm with the objective function value
-   cma.tell(xi, fi)
+    # Get a candidate solution
+    xi = cma.ask()
+    # Evaluate externally
+    fi = func(xi)
+    # Report the result back
+    cma.tell(xi, fi)
 ```
 
-### C++ Backend <a name="c-backend"></a>
-
-For obvious performance reasons, we've also implemented the algorithm in C++, with an interface to Python. The algorithm can be accessed similarly in Python, but calling it is slightly more verbose. The `ModularCMAES` class in C++ accepts a single argument, which is an `Parameters` object. This object must be instantiated with a `Settings` object, which in turn is built from the problem dimension and a `Modules` object, which can be used to specify certain module options. A boilerplate code example for this process is given in the following:
-
-```python
-# import the c++ subpackage
-from modcma import c_maes
-# Instantate a modules object
-modules = c_maes.parameters.Modules()
-# Create a settings object, here also optional parameters such as sigma0 can be specified
-settings = c_maes.parameters.Settings(dim, modules, sigma0 = 2.5)
-# Create a parameters object
-parameters = c_maes.Parameters(settings)
-# Pass the parameters object to the ModularCMAES optimizer class
-cma = c_maes.ModularCMAES(parameters)
-```
-
-Then, the API for both the Python-only and C++ interface is mostly similar, and a single run of the algorithm can be performed by using the `run` function. A difference is that now the objective function is a parameter of the run function, and not pass when the class is instantiated.
-
-```python
-cma.run(func)
-```
-
-Similarly, the `step` function is also directly exposed:
-
-```python
-while not cma.break_conditions():
-   cma.step(func)
-```
-
-Or by calling the function in the `step` seperately:
-
-```python
-while not cma.break_conditions():
-   cma.mutate(func)
-   cma.select()
-   cma.recombine()
-   cma.adapt()
-```
+This design provides flexibility when the evaluation process is nontrivial,  
+such as when objectives are computed through simulations, APIs, or distributed systems.  
+However, note that this interface is **not available** in the C++ backend.
 
 ## Modules <a name="modules"></a>
 
@@ -197,52 +317,72 @@ The CMA-ES Modular package provides various modules, grouped into 13 categories.
 
 <table>
 <tr ><td style="border: none!important;">
-
-| Category                                         | Option    | Python         | C++            |
-| --------                                         | ------    | ------         | ----           |
-| [Matrix Adaptation](#matrix-adaptation)          | Covariance       | :green_circle: | :green_circle: |
-|                                                  |  Matrix          | :red_circle: | :green_circle: |
-|                                                  |  Separable       | :red_circle: | :green_circle: |
-|                                                  |  None            | :red_circle: | :green_circle: |
-| [Active Update](#active-update)   | Off/On       | :green_circle:   | :green_circle: |
-| [Elitism](#elitism)              | Off/On        | :green_circle:    | :green_circle: |
-| [Orthogonal Sampling](#orthogonal-sampling)      | Off/On    | :green_circle: | :green_circle: |
-| [Sequential Selection](#sequential-selection)    | Off/On    | :green_circle: | :green_circle: |
-| [Threshold Convergence](#threshold-convergence) | Off/On    | :green_circle: | :green_circle: |
-| [Sample Sigma](#sample-sigma)          | Off/On  | :green_circle: | :green_circle: |
-| [Base Sampler](#base-sampler)          | Gaussian  | :green_circle: | :green_circle: |
-|                       | Sobol     | :green_circle: | :green_circle: |
-|                       | Halton    | :green_circle: | :green_circle: |
-| [Recombination Weights](#recombination-weights) | Default   | :green_circle: | :green_circle: |
-|                       | Equal     | :green_circle: | :green_circle: |
-|                       | $1/2^\lambda$   | :green_circle: | :green_circle: |
-| [Mirrored Sampling](#mirrored-sampling)     | Off       | :green_circle: | :green_circle: |
-|                       | On        | :green_circle: | :green_circle: |
-|                       | Pairwise  | :green_circle: | :green_circle: |
-
-</td><td style="border: none!important;">
-
-| Category              | Option             | Python         | C++            |
-| --------              | ------             | ------         | ----           |
-| [Step size adaptation](#step-size-adaptation)  | CSA                | :green_circle: | :green_circle: |
-|                       | TPA                | :green_circle: | :green_circle: |
-|                       | MSR                | :green_circle: | :green_circle: |
-|                       | PSR                | :green_circle: | :green_circle: |
-|                       | XNES               | :green_circle: | :green_circle: |
-|                       | MXNES              | :green_circle: | :green_circle: |
-|                       | MPXNES             | :green_circle: | :green_circle: |
-| [Restart Strategy](#restart-strategy)      | Off                | :green_circle: | :green_circle: |
-|                       | Restart            | :green_circle: | :green_circle: |
-|                       | IPOP               | :green_circle: | :green_circle: |
-|                       | BIPOP              | :green_circle: | :green_circle: |
-| [Bound Correction](#bound-correction)      | Off                | :green_circle: | :green_circle: |
-|                       | Saturate           | :green_circle: | :green_circle: |
-|                       | Mirror             | :green_circle: | :green_circle: |
-|                       | COTN               | :green_circle: | :green_circle: |
-|                       | Toroidal           | :green_circle: | :green_circle: |
-|                       | Uniform resample   | :green_circle: | :green_circle: |
+| Category | Option | Python | C++ |
+|---|---|---|---|
+| [Matrix Adaptation](#matrix-adaptation) | COVARIANCE | :green_circle: | :green_circle: |
+|  | MATRIX | :red_circle: | :green_circle: |
+|  | SEPARABLE | :red_circle: | :green_circle: |
+|  | NONE | :red_circle: | :green_circle: |
+|  | CHOLESKY | :red_circle: | :green_circle: |
+|  | CMSA | :red_circle: | :green_circle: |
+|  | NATURAL_GRADIENT | :red_circle: | :green_circle: |
+| [Active Update](#active-update) | Off/On | :green_circle: | :green_circle: |
+| [Elitism](#elitism) | Off/On | :green_circle: | :green_circle: |
+| [Orthogonal Sampling](#orthogonal-sampling) | Off/On | :green_circle: | :green_circle: |
+| [Sequential Selection](#sequential-selection) | Off/On | :green_circle: | :green_circle: |
+| [Threshold Convergence](#threshold-convergence) | Off/On | :green_circle: | :green_circle: |
+| [Sample Sigma](#sample-sigma) | Off/On | :green_circle: | :green_circle: |
+| [Base Sampler](#base-sampler) | GAUSSIAN | :green_circle: | :red_circle: *(use Sample Transformer = GAUSSIAN)* |
+|  | SOBOL | :green_circle: | :green_circle: |
+|  | HALTON | :green_circle: | :green_circle: |
+|  | UNIFORM | :red_circle: | :green_circle: |
+| [Sample Transformer](#sample-transformer) | GAUSSIAN | :red_circle: | :green_circle: |
+|  | SCALED_UNIFORM | :red_circle: | :green_circle: |
+|  | LAPLACE | :red_circle: | :green_circle: |
+|  | LOGISTIC | :red_circle: | :green_circle: |
+|  | CAUCHY | :red_circle: | :green_circle: |
+|  | DOUBLE_WEIBULL | :red_circle: | :green_circle: |
+| [Recombination Weights](#recombination-weights) | DEFAULT | :green_circle: | :green_circle: |
+|  | EQUAL | :green_circle: | :green_circle: |
+|  | 1/2^λ | :green_circle: | :red_circle: *(use EXPONENTIAL instead)* |
+|  | EXPONENTIAL | :red_circle: | :green_circle: |
+| [Mirrored Sampling](#mirrored-sampling) | NONE | :green_circle: | :green_circle: |
+|  | MIRRORED | :green_circle: | :green_circle: |
+|  | PAIRWISE | :green_circle: | :green_circle: |
+| [Step size adaptation](#step-size-adaptation) | CSA | :green_circle: | :green_circle: |
+|  | TPA | :green_circle: | :green_circle: |
+|  | MSR | :green_circle: | :green_circle: |
+|  | XNES | :green_circle: | :green_circle: |
+|  | MXNES | :green_circle: | :green_circle: |
+|  | LPXNES | :green_circle: | :green_circle: |
+|  | PSR | :green_circle: | :green_circle: |
+|  | SR | :red_circle: | :green_circle: |
+|  | SA | :red_circle: | :green_circle: |
+| [Restart Strategy](#restart-strategy) | NONE | :green_circle: | :green_circle: |
+|  | RESTART | :green_circle: | :green_circle: |
+|  | IPOP | :green_circle: | :green_circle: |
+|  | BIPOP | :green_circle: | :green_circle: |
+|  | STOP | :red_circle: | :green_circle: |
+| [Bound correction](#bound-correction) | NONE | :green_circle: | :green_circle: |
+|  | SATURATE | :green_circle: | :green_circle: |
+|  | MIRROR | :green_circle: | :green_circle: |
+|  | COTN | :green_circle: | :green_circle: |
+|  | TOROIDAL | :green_circle: | :green_circle: |
+|  | UNIFORM_RESAMPLE | :green_circle: | :green_circle: |
+|  | RESAMPLE | :red_circle: | :green_circle: |
+| [Repelling Restart](#repelling-restart) | Off/On | :red_circle: | :green_circle: |
+| [Center Placement](#center-placement) | X0 | :red_circle: | :green_circle: |
+|  | ZERO | :red_circle: | :green_circle: |
+|  | UNIFORM | :red_circle: | :green_circle: |
+|  | CENTER | :red_circle: | :green_circle: |
 
 </td></tr> </table>
+
+
+**Notes**  
+- In C++, `BaseSampler` generates uniform points in \[0,1)^d; the actual search-space distribution is controlled by `SampleTranformerType` (e.g., GAUSSIAN, CAUCHY).  
+- Python’s “1/2^λ” recombination weights correspond to C++’s `EXPONENTIAL`.  
+- New C++-only modules: `repelling_restart` (bool), `center_placement` (enum), and extended `ssa`, `bound_correction`, and sampling options.
 
 ### Matrix Adaptation <a name="matrix-adaptation"></a>
 
@@ -285,17 +425,18 @@ modules.active = True
 
 When this option is selected, (𝜇 + 𝜆)-selection instead of (𝜇, 𝜆)-selection is enabled. This can be usefull to speed up convergence on unimodal problems, but can have a negative impact on population diversity.  
 
-For the Python only version, this can be enabled by passing the option `elitist=True`:
-
-```python
-cma = ModularCMAES(func, dim, elitist=True)
-```
 
 For the C++ version, this can be done by setting the appropriate value in the `Modules` object:
 
 ```python
 ...
 modules.elitist = True
+```
+
+For the Python only version, this can be enabled by passing the option `elitist=True`:
+
+```python
+cma = ModularCMAES(func, dim, elitist=True)
 ```
 
 ### Orthogonal Sampling <a name="orthogonal-sampling"></a>
@@ -429,7 +570,7 @@ modules.weights = c_maes.options.RecombinationWeights.DEFAULT
 # or
 modules.weights = c_maes.options.RecombinationWeights.EQUAL
 # or
-modules.weights = c_maes.options.RecombinationWeights.HALF_POWER_LAMBDA
+modules.weights = c_maes.options.RecombinationWeights.EXPONENTIAL
 ```
 
 ### Mirrored Sampling <a name="mirrored-sampling"></a>
@@ -541,6 +682,23 @@ modules.bound_correction = c_maes.options.CorrectionMethod.NONE
 # or 
 modules.bound_correction = c_maes.options.CorrectionMethod.SATURATE
 ```
+ 
+### Sample Transformer <a name="sample-transformer"></a>
+
+Controls the transformation from a base uniform sampler in \[0,1)^d to a target search-space distribution (e.g., `GAUSSIAN, CAUCHY, LAPLACE`, …) in the C++ backend. See the [paper](https://dl.acm.org/doi/10.1145/3712256.3726479). By default, this performs a transform to a standard Gaussian. 
+
+### Repelling Restart <a name="repelling-restart"></a>
+
+C++-only boolean module to bias restarts away from previously explored regions (helpful in multimodal settings). See the [paper](https://link.springer.com/chapter/10.1007/978-3-031-70068-2_17)
+
+### Center Placement <a name="center-placement"></a>
+
+C++-only enum controlling the initial center of mass of the sampling distribution (`X0, ZERO, UNIFORM, CENTER`) on restart, iniatiated by a `restart_strategy`. The options are:
+   -  `X0` sets the intial center to x0 on every restart
+   -  `ZERO` set the intial center to the all-zero vector
+   -  `UNIFORM` picks a uniform random location inside the search space
+   -  `CENTER` sets the center to the precise center of the search space.
+   -  
 
 ## Citation <a name="citation"></a>
 

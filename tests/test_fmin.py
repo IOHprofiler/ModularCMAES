@@ -20,6 +20,8 @@ class TestFmin(unittest.TestCase):
         self.assertAlmostEqual(sum(xopt), fopt)
         self.assertGreater(evaluations, 0)
         self.assertAlmostEqual(len(xopt), 5)
+        
+        
 
 
     
