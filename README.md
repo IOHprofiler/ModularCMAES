@@ -15,6 +15,7 @@ This README provides a high level overview of the implemented modules, and provi
     - [Installation from source](#installation-from-source)
   - [Usage ](#usage-)
     - [C++ Backend ](#c-backend-)
+      - [High Level interface ](#high-level-interface-)
       - [Tuning ](#tuning-)
       - [Configuration Space Generation](#configuration-space-generation)
       - [Creating Settings from a Configuration](#creating-settings-from-a-configuration)
@@ -142,6 +143,23 @@ while not cma.break_conditions():
 
 This modularity allows experimentation with specific parts of the evolution strategy, 
 such as custom selection, recombination, or adaptation routines.
+
+#### High Level interface <a name="fmin"></a>
+
+In addition to the fully specified method described above, we can also call the optimizer via a more friendly `fmin` interface:
+
+```python
+x0 = [0, 1, 2, 3] # Location to start the search from
+sigma0 = 0.234    # Initial estimate of the stepsize, try 0.3 * (ub - lb) if you're unsure
+budget = 100      # Total number of function evaluations
+xopt, fopt, evals, cma = c_maes.fmin(
+    func, x0, sigma0, budget,
+    # We can specify modules and setting values as keyword arguments
+    active=True,
+    cc=0.8  
+)
+```
+Note that the `func`, `x0`, `sigma0` and `budget` arguments are required. Via keyword arguments, modules and settings can be specified, provided by their names in the `Modules` and `Settings` objects. 
 
 ---
 

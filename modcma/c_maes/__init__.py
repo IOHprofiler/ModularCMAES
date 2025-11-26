@@ -121,28 +121,77 @@ def get_configspace(
     return cspace
 
 
+def set_module(modules: Modules, name: str, value: Enum) -> bool:
+    if hasattr(modules, name):
+        attr_class = type(getattr(modules, name))
+        if issubclass(attr_class, Enum):
+            value = getattr(attr_class, value)
+        setattr(modules, name, value)
+        return True
+    return False    
+
+
+def settings_from_dict(dim: int, **config: dict) -> Settings:
+    modules = Modules()
+    via_settings = {}
+    for name, value in dict(config).items():
+        if set_module(modules, name, value):
+            continue
+        via_settings[name] = value
+    settings = Settings(dim, modules, **via_settings)
+    return settings
+
+
 def settings_from_config(
     dim: int, 
     config: Configuration, 
     **kwargs
 ) -> Settings:
-    modules = Modules()
-    via_setings = kwargs
+    via_settings = kwargs
     default_config = get_configspace(dim).get_default_configuration()
+    modules = Modules()
     for name, value in dict(config).items():
-        if hasattr(modules, name):
-            attr_class = type(getattr(modules, name))
-            if issubclass(attr_class, Enum):
-                value = getattr(attr_class, value)
-            setattr(modules, name, value)
+        if set_module(modules, name, value):
             continue
         if default_config[name] != value:
-            via_setings[name] = value
+            via_settings[name] = value
 
-    settings = Settings(dim, modules, **via_setings)
+    settings = Settings(dim, modules, **via_settings)
     return settings
 
+def fmin(func: callable, x0: np.ndarray, sigma0: float, budget: int, **kwargs):
+    """Minimize a function using the modular CMA-ES.
 
+    Parameters
+    ----------
+    func: callable
+        The objective function to be minimized.
+    x0 np.ndarray: 
+        The first solution estimate
+    sigma0: float
+        The estimate of the stepsize (rule of thumb: 0.3 * (ub - lb))
+    budget: int
+        Maximum number of function evaluations to make.
+    **kwargs
+        These are directly passed into the instance of ModularCMAES,
+        in this manner parameters can be specified for the optimizer.
+    Returns
+    -------
+    xopt
+        The variables which minimize the function during this run
+    fopt
+        The value of function at found xopt
+    evals
+        The number of evaluations performed
+    es
+        The ModularCMAES instance
+    """
+    settings = settings_from_dict(len(x0), sigma0=sigma0, budget=budget, **kwargs)
+    es = ModularCMAES(settings)
+    es(func)
+    
+    return es.p.stats.global_best.x, es.p.stats.global_best.y, es.p.stats.evaluations, es
+    
 __all__ = (
     "settings_from_config",
     "get_configspace",

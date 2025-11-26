@@ -48,7 +48,7 @@ void ModularCMAES::operator()(FunctionType& objective) const
 bool ModularCMAES::break_conditions() const
 {
 	const auto target_reached = p->settings.target and p->settings.target.value() >= p->stats.global_best.y;
-	const auto budget_used_up = p->stats.evaluations >= p->settings.budget;
+	const auto budget_used_up = (p->stats.evaluations + p->lambda) >= p->settings.budget;
 	const auto exceed_gens = p->settings.max_generations and p->stats.t >= p->settings.max_generations;
 	const auto restart_strategy_criteria = p->settings.modules.restart_strategy == parameters::RestartStrategyType::STOP
 		and p->criteria.any();

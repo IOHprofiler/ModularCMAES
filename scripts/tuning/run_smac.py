@@ -34,11 +34,13 @@ def calc_aoc(logger, budget, fid, iid, dim):
 
 
 def get_bbob_performance(
-    config: Configuration, instance: str, seed: int = 0, dim: int = 5
+    config: Configuration, seed: int = 0, fid: int = 0,  dim: int = 5
 ):
-    fid, iid = instance.split(",")
-    fid = int(fid[1:])
-    iid = int(iid[:-1])
+    # print(fid, seed, dim)
+    iid = 1 + (seed % 10)
+    # fid, iid = instance.split(",")
+    # fid = int(fid[1:])
+    # iid = int(iid[:-1])
     np.random.seed(seed + iid)
     c_maes.utils.set_seed(seed + iid)
     BUDGET = dim * 10_000
@@ -84,16 +86,16 @@ def run_smac(fid, dim, use_learning_rates):
         fids = [fid]
         max_budget = 50
 
-    args = list(product(fids, iids))
-    np.random.shuffle(args)
-    inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
+    # args = list(product(fids, iids))
+    # np.random.shuffle(args)
+    # inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
     scenario = Scenario(
         cma_cs,
         name=str(int(time.time())) + "-" + "CMA",
         deterministic=False,
-        n_trials=50_000,
-        instances=args,
-        instance_features=inst_feats,
+        n_trials=5_000,
+        # instances=args,
+        # instance_features=inst_feats,
         output_directory=os.path.join(
             DATA_DIR, f"BBOB_F{fid}_{dim}D_LR{use_learning_rates}"
         ),
@@ -105,7 +107,7 @@ def run_smac(fid, dim, use_learning_rates):
         ),
         decay_beta=scenario.n_trials / 10,
     )
-    eval_func = partial(get_bbob_performance, dim=dim)
+    eval_func = partial(get_bbob_performance, fid=fid, dim=dim)
     intensifier = HyperparameterOptimizationFacade.get_intensifier(
         scenario, max_config_calls=max_budget
     )
