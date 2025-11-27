@@ -82,7 +82,6 @@ namespace parameters
 
 		successfull_adaptation = adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings, stats);
 		criteria.update(*this);
-		integer_handling->update_diagonal(*this);
 		stats.t++;
 	}
 

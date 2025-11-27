@@ -14,25 +14,21 @@ namespace integer
     struct IntegerHandling
     {
         Float lb_sigma;
-        Vector ones;
-        Vector effective_y;
 
         IntegerHandling(const size_t d, const Float mueff) 
             : 
-            lb_sigma(std::min(0.2, mueff / static_cast<Float>(d))), 
-            ones(Vector::Ones(d)), 
-            effective_y(Vector::Ones(d))
+            lb_sigma(std::min(0.2, mueff / static_cast<Float>(d)))
         {
         }
 
-        virtual void update_diagonal(const parameters::Parameters& p);
-
         virtual Array get_effective_sigma(const parameters::Parameters& p, const size_t idx); 
 
-        virtual void round_to_integer(Eigen::Ref<Vector> x, const Indices iidx) 
+        virtual Vector round_to_integer(const Vector& x, const Indices iidx) 
         {
+            auto x_rounded = x;
             for (const auto& idx: iidx)
-                x[idx] = std::round(x[idx]);
+                x_rounded[idx] = std::round(x[idx]);
+            return x_rounded;
         }
     };
 

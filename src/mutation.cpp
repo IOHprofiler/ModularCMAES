@@ -29,6 +29,7 @@ namespace mutation
 		for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
 		{
 			size_t n_rej = 0;
+			const auto effective_sigma = p.integer_handling->get_effective_sigma(p, i);
 			do
 			{
 				p.pop.t(i) = p.stats.t;
@@ -36,18 +37,20 @@ namespace mutation
 				const auto &zi_scaled = p.mutation->tc->scale(
 					zi, p.settings.diameter, p.settings.budget, p.stats.evaluations);
 				p.pop.Z.col(i).noalias() = zi_scaled;
-				p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));
-				
-				const auto effective_sigma = p.integer_handling->get_effective_sigma(p, i);
-				p.pop.X.col(i).array() = p.pop.Y.col(i).array() * effective_sigma + p.adaptation->m.array();
+				p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));				
+				p.pop.X_internal.col(i).array() = p.pop.Y.col(i).array() * effective_sigma + p.adaptation->m.array();
 				p.bounds->correct(i, p);
 
-				p.integer_handling->round_to_integer(p.pop.X.col(i), p.settings.integer_variables);
 			} while (
 				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
-				 n_rej++ < 5 * p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X.col(i), p.settings).any()) ||
-				p.repelling->is_rejected(p.pop.X.col(i), p));
-
+					n_rej++ < 5 * p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X_internal.col(i), p.settings).any()) ||
+					p.repelling->is_rejected(p.pop.X_internal.col(i), p));
+					
+			
+			p.pop.X.col(i) = p.integer_handling->round_to_integer(
+				p.pop.X_internal.col(i), p.settings.integer_variables
+			);
+			
 			p.pop.f(i) = objective(p.pop.X.col(i));
 			p.stats.evaluations++;
 			if (sq->break_conditions(i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored))

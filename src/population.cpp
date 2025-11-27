@@ -3,6 +3,7 @@
 void Population::sort()
 {
 	const auto idx = utils::sort_indexes(f);
+	X_internal = X_internal(Eigen::all, idx).eval();
 	X = X(Eigen::all, idx).eval();
 	Z = Z(Eigen::all, idx).eval();
 	Y = Y(Eigen::all, idx).eval();
@@ -13,6 +14,7 @@ void Population::sort()
 
 Population& Population::operator+=(const Population& other)
 {
+	utils::hstack(X_internal, other.X_internal);
 	utils::hstack(X, other.X);
 	utils::hstack(Y, other.Y);
 	utils::hstack(Z, other.Z);
@@ -25,7 +27,8 @@ Population& Population::operator+=(const Population& other)
 
 void Population::resize_cols(const size_t size)
 {
-	n = std::min(size, static_cast<size_t>(X.cols()));
+	n = std::min(size, static_cast<size_t>(X_internal.cols()));
+	X_internal.conservativeResize(d, n);
 	X.conservativeResize(d, n);
 	Y.conservativeResize(d, n);
 	Z.conservativeResize(d, n);
@@ -37,6 +40,7 @@ void Population::resize_cols(const size_t size)
 
 void Population::keep_only(const std::vector<size_t>& idx)
 {
+	X_internal = X_internal(Eigen::all, idx).eval();
 	X = X(Eigen::all, idx).eval();
 	Z = Z(Eigen::all, idx).eval();
 	Y = Y(Eigen::all, idx).eval();

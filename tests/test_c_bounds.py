@@ -33,7 +33,8 @@ class TestBounds(unittest.TestCase):
         Z[0, 0] *= 2
         self.par.pop.Z = Z
         self.par.pop.Y = self.par.pop.Z.copy()
-        self.par.pop.X = self.par.adaptation.m + (self.par.pop.s * self.par.pop.Y)
+        self.par.pop.X_internal = self.par.pop.X = self.par.adaptation.m + (self.par.pop.s * self.par.pop.Y)
+        
 
     def test_bound_fixers(self):
         for i, (boundcntrl, option) in enumerate(zip(self.__bound_fixers, self.__bound_fixers_options)):
@@ -47,7 +48,8 @@ class TestBounds(unittest.TestCase):
             self.assertEqual(method.n_out_of_bounds, 0)
             method.correct(0, self.par)
             self.assertEqual(method.n_out_of_bounds, 1)
-
+            print(self.par.pop.X)
+            print(self.par.pop.X_internal)
             self.assertTrue(np.all(self.par.pop.X <= 2))
             self.assertTrue(np.all(np.isclose(self.par.pop.Y.ravel()[1:], 0.9)))
             self.assertTrue(np.all(np.isclose(self.par.pop.X.ravel()[1:], 1.9)))
