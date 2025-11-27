@@ -23,8 +23,8 @@ class TestInteger(unittest.TestCase):
         while not cma.break_conditions():            
             cma.mutate(sphere)
             
-            print(cma.p.stats.t, cma.p.stats.evaluations, cma.p.pop.f)
-            breakpoint()
+            # print(cma.p.stats.t, cma.p.stats.evaluations, cma.p.pop.f)
+            # breakpoint()
             
             # if cma.p.pop.s[0] < (cma.p.weights.mueff / dim):
                 # breakpoint()
