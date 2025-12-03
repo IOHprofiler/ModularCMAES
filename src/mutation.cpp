@@ -28,14 +28,14 @@ namespace mutation
 			const Float Cii = std::max(Cdiag[iidx], Float(1e-16));
 			const Float lb_sigma = p.weights.int_lb_sigma / std::sqrt(Cii);
 
-			for (auto i = 0; i < p.pop.n; i++)
+			for (size_t i = 0; i < p.pop.n; i++)
 				p.pop.S(iidx, i) = std::max(p.pop.S(iidx, i), lb_sigma);
 		}
 	}
 
 	void SigmaSampler::sample(const Float sigma, parameters::Parameters &p)
 	{
-		for (auto i = 0; i < p.pop.n; i++)
+		for (size_t i = 0; i < p.pop.n; i++)
 		{
 			const auto z = sampler();
 			p.pop.S.col(i) = (sigma * (p.weights.beta * z.array()).exp()).matrix();
