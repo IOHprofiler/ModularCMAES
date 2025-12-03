@@ -208,7 +208,7 @@ This function returns a `ConfigSpace.ConfigurationSpace` object containing:
 - **Categorical parameters** for all available modules (e.g., mirrored sampling, restart strategy, bound correction).  
 - **Numeric parameters** for key internal strategy settings such as `lambda0`, `mu0`, `sigma0`, `cs`, `cc`, `cmu`, `c1`, and `damps`.  
 - A built-in constraint ensuring `mu0 ≤ lambda0`.  
-- Optionally, the configuration space can include **only module-level options** by setting `only_modules=True`.
+- Optionally, the configuration space can include **only module-level options** by setting `add_popsize=False, add_sigma=False, add_learning_rates=False`.
 
 Example:
 
