@@ -2,7 +2,7 @@ from time import perf_counter
 import warnings
 
 import numpy as np
-import modcma.c_maes as modcma
+import modcma.c_maes as ccma
 import ioh
 import pandas as pd 
 import matplotlib.pyplot as plt
@@ -12,10 +12,10 @@ from pprint import pprint
 
 np.random.seed(12)
 
-def run_modma(problem: ioh.ProblemType, x0: np.ndarray, matrix_adaptation = modcma.options.COVARIANCE, max_generations=1000):
-    modules = modcma.parameters.Modules()
+def run_modma(problem: ioh.ProblemType, x0: np.ndarray, matrix_adaptation = ccma.options.COVARIANCE, max_generations=1000):
+    modules = ccma.parameters.Modules()
     modules.matrix_adaptation = matrix_adaptation
-    settings = modcma.Settings(
+    settings = ccma.Settings(
         problem.meta_data.n_variables, 
         x0=x0,
         modules=modules,
@@ -25,7 +25,7 @@ def run_modma(problem: ioh.ProblemType, x0: np.ndarray, matrix_adaptation = modc
         max_generations=max_generations
     )
     
-    cma = modcma.ModularCMAES(settings)
+    cma = ccma.ModularCMAES(settings)
 
     start = perf_counter()
     cma.run(problem)
@@ -45,7 +45,7 @@ def run_pycma(problem: ioh.ProblemType, x0: np.ndarray, max_generations=1000):
     pprint(options)
 
     cma = pycma.CMAEvolutionStrategy(x0, 2.0, options=options)
-    settings = modcma.Settings(problem.meta_data.n_variables)
+    settings = ccma.Settings(problem.meta_data.n_variables)
     assert settings.lambda0 == cma.sp.popsize
     np.random.seed(1)
     start = perf_counter()
@@ -64,7 +64,7 @@ def collect():
     dims = 2, 3, 5, 10, 20, 40, 100, 200, 500, 1000
     
     n_repeats = 15
-    options = modcma.options.MatrixAdaptationType.__members__
+    options = ccma.options.MatrixAdaptationType.__members__
     del options['COVARIANCE_NO_EIGV']
 
     pprint(options)

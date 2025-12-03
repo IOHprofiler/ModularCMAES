@@ -162,6 +162,8 @@ namespace parameters
 		beta = 1.0 / std::sqrt(2.0 * mueff);
 		if (settings.modules.ssa == StepSizeAdaptation::LPXNES)
 			beta = std::log(2.0) / (std::sqrt(d) * std::log(d));
+
+		int_lb_sigma = std::min(0.2, mueff / d);
 	}
 
 

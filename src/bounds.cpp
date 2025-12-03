@@ -35,16 +35,16 @@ namespace bounds
 		if (!p.settings.has_bounds)
 			return;
 
-		const auto oob = is_out_of_bounds(p.pop.X_internal.col(i), p.settings);
+		const auto oob = is_out_of_bounds(p.pop.X.col(i), p.settings);
 		if (oob.any())
 		{
 			n_out_of_bounds++;
 			if (p.settings.modules.bound_correction == parameters::CorrectionMethod::NONE)
 				return;
 
-			p.pop.X_internal.col(i) = correct_x(p.pop.X_internal.col(i), oob, p.mutation->sigma, p.settings);
-			p.pop.X.col(i) = p.pop.X_internal.col(i);
-			p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X_internal.col(i), p.pop.s(i));
+			p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob, p.mutation->sigma, p.settings);
+			p.pop.X_transformed.col(i) = p.pop.X.col(i);
+			p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.pop.S.col(i));
 			p.pop.Z.col(i) = p.adaptation->invert_y(p.pop.Y.col(i));
 		}
 	}

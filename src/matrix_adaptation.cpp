@@ -5,9 +5,9 @@ namespace matrix_adaptation
 	using namespace parameters;
 
 
-	Vector Adaptation::invert_x(const Vector& xi, const Float sigma)
+	Vector Adaptation::invert_x(const Vector& xi, const Vector sigma)
 	{
-		return (xi - m) / sigma;
+		return ((xi - m).array() / sigma.array()).matrix();
 	}
 
 	static void one_plus_one_path_update(
@@ -31,7 +31,7 @@ namespace matrix_adaptation
 	void Adaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
 		const Stats& stats, const parameters::Settings& settings, const size_t lambda, const size_t mu)
 	{
-		const auto sigma = pop.s.mean();
+		const auto sigma = pop.S.mean();
 		dm = (m - m_old) / sigma; 
 		dz = pop.Z.leftCols(mu) * w.positive.head(mu);
 		adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);

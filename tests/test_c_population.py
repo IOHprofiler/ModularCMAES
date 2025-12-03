@@ -27,20 +27,19 @@ class TestPopulation(unittest.TestCase):
         self.Y = np.dot(self.B, self.D * self.Z)
         self.X = self.xmean + (self._sigma * self.Y)
         self.f = np.array([sum(i) for i in self.X.T])
-        self.s = np.ones(self._lambda) * self._sigma
-        self.pop = Population(self.X, self.Z, self.Y, self.f, self.s) 
+        self.S = np.ones((self._dim, self._lambda)) * self._sigma
+        self.pop = Population(self.X, self.Z, self.Y, self.f, self.S) 
         
     def test_sort(self):
         """Test sorting behaviour."""
         self.pop.sort()
         rank = np.argsort(self.f)
-        for e in ("X", "Y", "Z",):
+        for e in ("X", "Y", "Z", "S"):
             self.assertListEqual(
                 getattr(self, e)[:, rank].tolist(), getattr(self.pop, e).tolist()
             )
 
         self.assertListEqual(self.f[rank].tolist(), self.pop.f.tolist())
-        self.assertListEqual(self.s[rank].tolist(), self.pop.s.tolist())
 
     def test_keeponly(self):
         """Test keeponly behaviour."""
@@ -54,8 +53,8 @@ class TestPopulation(unittest.TestCase):
         self.pop.resize_cols(2)
         self.assertEqual(self.pop.n, 2)
         self.assertEqual(self.pop.f.size, 2)
-        self.assertEqual(self.pop.s.size, 2)
         self.assertEqual(self.pop.X.shape[1], 2)
+        self.assertEqual(self.pop.S.shape[1], 2)
         self.assertEqual(self.pop.Y.shape[1], 2)
         self.assertEqual(self.pop.Z.shape[1], 2)
 
@@ -67,7 +66,7 @@ class TestPopulation(unittest.TestCase):
 
     def test_add(self):
         """Test addition.""" 
-        self.pop = self.pop + Population(self.X, self.Z, self.Y, self.f, self.s)
+        self.pop = self.pop + Population(self.X, self.Z, self.Y, self.f, self.S)
         self.assertEqual(
             self.pop.X.shape,
             (

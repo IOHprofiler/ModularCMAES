@@ -1,7 +1,7 @@
 from time import perf_counter
 import warnings
 import numpy as np
-import modcma.c_maes as modcma
+import modcma.c_maes as ccma
 import ioh
 import pandas as pd 
 
@@ -43,7 +43,7 @@ def run_modma(problem: ioh.ProblemType,
     # modules.ssa = modcma.options.StepSizeAdaptation.CSA
     # modules.restart_strategy = modcma.options.RestartStrategy.STOP
 
-    settings = modcma.Settings(
+    settings = ccma.Settings(
         problem.meta_data.n_variables, 
         x0=x0,
         modules=modules,
@@ -55,7 +55,7 @@ def run_modma(problem: ioh.ProblemType,
         budget=problem.meta_data.n_variables * BUDGET,
     )
 
-    cma = modcma.ModularCMAES(settings)
+    cma = ccma.ModularCMAES(settings)
     start = perf_counter()
     while not cma.break_conditions():
         if cma.p.criteria.any():
@@ -71,14 +71,14 @@ def run_modma(problem: ioh.ProblemType,
 
 
 class RestartCollector:
-    def __init__(self, strategy = modcma.options.RestartStrategy.STOP):
-        modules = modcma.parameters.Modules()
+    def __init__(self, strategy = ccma.options.RestartStrategy.STOP):
+        modules = ccma.parameters.Modules()
         modules.restart_strategy = strategy
-        settings = modcma.Settings(
+        settings = ccma.Settings(
             2, 
             modules=modules,
         )
-        cma = modcma.ModularCMAES(settings)
+        cma = ccma.ModularCMAES(settings)
         self.names = [x.name for x in cma.p.criteria.items]
         self.reset()
     
@@ -106,7 +106,7 @@ def collect(name, module_name, option):
             problem.attach_logger(logger)
             runs = []
             for i in range(N_REPEATS):
-                modcma.utils.set_seed(21 + fid * d * i)
+                ccma.utils.set_seed(21 + fid * d * i)
                 collector.reset()
                 run_modma(problem, np.zeros(d), collector,  module_name, option)
                 # print(name, fid, d, problem.state.current_best_internal.y, problem.state.evaluations)
@@ -116,13 +116,13 @@ def collect(name, module_name, option):
 
 
 def make_modules(module_name, option):
-    modules = modcma.parameters.Modules()
-    modules.restart_strategy = modcma.options.RestartStrategy.STOP
+    modules = ccma.parameters.Modules()
+    modules.restart_strategy = ccma.options.RestartStrategy.STOP
     setattr(modules, module_name, option)
     return modules
 
 def collect_modcma():
-    options = modcma.options.MatrixAdaptationType.__members__
+    options = ccma.options.MatrixAdaptationType.__members__
     del options['COVARIANCE_NO_EIGV']
 
     with Pool(6) as p:
@@ -139,7 +139,7 @@ def run_pycma(problem: ioh.ProblemType, x0: np.ndarray):
     options['maxfevals'] = problem.meta_data.n_variables * BUDGET
 
     cma = pycma.CMAEvolutionStrategy(x0, 2.0, options=options)
-    settings = modcma.Settings(problem.meta_data.n_variables)
+    settings = ccma.Settings(problem.meta_data.n_variables)
     assert settings.lambda0 == cma.sp.popsize
     start = perf_counter()
 
@@ -191,5 +191,5 @@ if __name__ == "__main__":
     # p2.join()
     # collect_modcma()
     
-    mods = modcma.parameters.Modules()
+    mods = ccma.parameters.Modules()
     

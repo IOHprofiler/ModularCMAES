@@ -2,16 +2,16 @@
 
 import unittest
 
-import modcma.c_maes as modcma
+import modcma.c_maes as ccma
 
-class MyCriterion(modcma.restart.Criterion):
+class MyCriterion(ccma.restart.Criterion):
     def __init__(self, name):
         super().__init__(f"MyCriterion{name}")
         
-    def on_reset(self, par: modcma.Parameters):
+    def on_reset(self, par: ccma.Parameters):
         """Called when a restart happens (also at the start)"""
    
-    def update(self, par: modcma.Parameters):
+    def update(self, par: ccma.Parameters):
         """Called after each iteration, needs to modify self.met"""
         self.met = True
 
@@ -19,15 +19,15 @@ class MyCriterion(modcma.restart.Criterion):
 
 class TestCriteria(unittest.TestCase):
     def setUp(self):
-        mod = modcma.parameters.Modules()
-        mod.restart_strategy = modcma.options.RestartStrategy.RESTART
-        settings = modcma.Settings(
+        mod = ccma.parameters.Modules()
+        mod.restart_strategy = ccma.options.RestartStrategy.RESTART
+        settings = ccma.Settings(
             dim=3,
             budget=1000,
             verbose=True,
             modules=mod
         )
-        self.cma = modcma.ModularCMAES(settings)
+        self.cma = ccma.ModularCMAES(settings)
 
     def test_modify(self):
         self.cma.p.criteria.items = self.cma.p.criteria.items[1:3]

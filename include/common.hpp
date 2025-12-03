@@ -34,6 +34,7 @@ using Indices = Eigen::ArrayXi;
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);
 
+
 using FunctionType = std::function<Float(const Vector &)>;
 
 namespace constants

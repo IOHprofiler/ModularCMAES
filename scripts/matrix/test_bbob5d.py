@@ -1,6 +1,6 @@
 from time import perf_counter
 import ioh
-import modcma.c_maes as modcma 
+import modcma.c_maes as ccma 
 import iohinspector as ins
 import matplotlib.colors as mcolors
 import numpy as np
@@ -18,10 +18,10 @@ def timeit(f):
 
 @timeit
 def run_modma(f: ioh.ProblemType, dim: int, n_evaluations):
-    modules = modcma.parameters.Modules()
+    modules = ccma.parameters.Modules()
     # modules.restart_strategy = modcma.options.RestartStrategy.IPOP
     # modules.active = True
-    settings = modcma.Settings(
+    settings = ccma.Settings(
         dim, 
         budget=n_evaluations, 
         target=f.optimum.y + 1e-8,
@@ -31,7 +31,7 @@ def run_modma(f: ioh.ProblemType, dim: int, n_evaluations):
         modules=modules, 
         verbose=False
     )
-    cma = modcma.ModularCMAES(settings)
+    cma = ccma.ModularCMAES(settings)
     cma.run(f)
     return cma
 

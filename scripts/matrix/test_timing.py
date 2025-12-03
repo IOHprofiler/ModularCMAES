@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import numpy as np
 from modcma import ModularCMAES
-import modcma.c_maes as modcma
+import modcma.c_maes as ccma
 import cma as pycma
 import ioh
 from fcmaes import optimizer, retry

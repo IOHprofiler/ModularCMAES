@@ -31,7 +31,7 @@ namespace parameters
 		bounds(bounds::get(settings.modules.bound_correction, settings.dim)),
 		repelling(repelling::get(settings.modules)),
 		center_placement(center::get(settings.modules.center_placement)),
-		integer_handling(integer::get(settings.integer_variables, settings.dim, weights.mueff))
+		coordinate_mapping(mapping::get(settings.integer_variables, settings.dim, weights.mueff))
 	{
 		criteria.reset(*this);
 	}
@@ -52,7 +52,8 @@ namespace parameters
 		}
 		stats.solutions.push_back(stats.current_best);
 		stats.evaluations++;
-		stats.centers.emplace_back(adaptation->m, objective(adaptation->m), stats.t - 1, stats.evaluations);
+		const auto mean = coordinate_mapping->transform(adaptation->m);
+		stats.centers.emplace_back(mean, objective(mean), stats.t - 1, stats.evaluations);
 		stats.update_best(stats.centers.back().x, stats.centers.back().y);
 		stats.has_improved = false;
 		repelling->update_archive(objective, *this);

@@ -20,16 +20,44 @@ namespace mutation
 		return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 0);
 	}
 
+	void SigmaSampler::apply_integer_bounds(parameters::Parameters &p)
+	{
+		const Array &Cdiag = p.adaptation->coordinate_wise_variances;
+		for (const auto &iidx : p.settings.integer_variables)
+		{
+			const Float Cii = std::max(Cdiag[iidx], Float(1e-16));
+			const Float lb_sigma = p.weights.int_lb_sigma / std::sqrt(Cii);
+
+			for (auto i = 0; i < p.pop.n; i++)
+				p.pop.S(iidx, i) = std::max(p.pop.S(iidx, i), lb_sigma);
+		}
+	}
+
+	void SigmaSampler::sample(const Float sigma, parameters::Parameters &p)
+	{
+		for (auto i = 0; i < p.pop.n; i++)
+		{
+			const auto z = sampler();
+			p.pop.S.col(i) = (sigma * (p.weights.beta * z.array()).exp()).matrix();
+		}
+		apply_integer_bounds(p);
+	}
+
+	void NoSigmaSampler::sample(const Float sigma, parameters::Parameters &p)
+	{
+		p.pop.S.setConstant(sigma);
+		apply_integer_bounds(p);
+	}
+
 	void Strategy::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
 	{
-		ss->sample(sigma, p.pop, p.weights.beta);
+		ss->sample(sigma, p);
 		p.bounds->n_out_of_bounds = 0;
 		p.repelling->prepare_sampling(p);
 
 		for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
 		{
 			size_t n_rej = 0;
-			const auto effective_sigma = p.integer_handling->get_effective_sigma(p, i);
 			do
 			{
 				p.pop.t(i) = p.stats.t;
@@ -37,21 +65,18 @@ namespace mutation
 				const auto &zi_scaled = p.mutation->tc->scale(
 					zi, p.settings.diameter, p.settings.budget, p.stats.evaluations);
 				p.pop.Z.col(i).noalias() = zi_scaled;
-				p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));				
-				p.pop.X_internal.col(i).array() = p.pop.Y.col(i).array() * effective_sigma + p.adaptation->m.array();
+				p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));
+				p.pop.X.col(i).array() = p.pop.Y.col(i).array() * p.pop.S.col(i).array() + p.adaptation->m.array();
 				p.bounds->correct(i, p);
 
 			} while (
 				(p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
-					n_rej++ < 5 * p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X_internal.col(i), p.settings).any()) ||
-					p.repelling->is_rejected(p.pop.X_internal.col(i), p));
-					
-			
-			p.pop.X.col(i) = p.integer_handling->round_to_integer(
-				p.pop.X_internal.col(i), p.settings.integer_variables
-			);
-			
-			p.pop.f(i) = objective(p.pop.X.col(i));
+				 n_rej++ < 5 * p.settings.dim && p.bounds->is_out_of_bounds(p.pop.X.col(i), p.settings).any()) ||
+				p.repelling->is_rejected(p.pop.X.col(i), p));
+
+			p.pop.X_transformed.col(i) = p.coordinate_mapping->transform(p.pop.X.col(i));
+
+			p.pop.f(i) = objective(p.pop.X_transformed.col(i));
 			p.stats.evaluations++;
 			if (sq->break_conditions(i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored))
 			{
@@ -76,8 +101,12 @@ namespace mutation
 	{
 		Strategy::mutate(objective, n_offspring_, p);
 
-		const auto f_pos = objective(p.adaptation->m + (p.mutation->sigma * p.adaptation->dm));
-		const auto f_neg = objective(p.adaptation->m + (p.mutation->sigma * -p.adaptation->dm));
+		const auto x_pos = p.coordinate_mapping->transform(p.adaptation->m + (p.mutation->sigma * p.adaptation->dm));
+		const auto x_neg = p.coordinate_mapping->transform(p.adaptation->m + (p.mutation->sigma * -p.adaptation->dm));
+		const auto f_pos = objective(x_pos);
+		const auto f_neg = objective(x_neg);
+		p.stats.update_best(x_pos, f_pos);
+		p.stats.update_best(x_neg, f_neg);
 		p.stats.evaluations += 2;
 		this->rank_tpa = f_neg < f_pos ? -a_tpa : a_tpa + b_tpa;
 	}
@@ -138,13 +167,14 @@ namespace mutation
 			combined.head(n) = pop.f.head(n);
 			combined.tail(n) = old_pop.f.head(n);
 
-			if (idx.size() != n) {
+			if (idx.size() != n)
+			{
 				idx.resize(n);
 				oidx.resize(n);
 				std::iota(idx.begin(), idx.end(), 0);
 				std::iota(oidx.begin(), oidx.end(), 0);
 			}
-			
+
 			utils::sort_index_inplace(combined, idx);
 			utils::sort_index_inplace(idx, oidx);
 
@@ -189,7 +219,9 @@ namespace mutation
 					   Population &pop,
 					   const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
 	{
-		const Float rel_log = (pop.s.array() / sigma).log().matrix().dot(w.clipped());
+		const auto logS = (pop.S.array() / sigma).log();
+		const Vector per_sample = logS.colwise().mean().transpose();
+		const Float rel_log = per_sample.dot(w.clipped());
 		sigma *= std::exp(w.cs * rel_log);
 	}
 
@@ -203,15 +235,17 @@ namespace mutation
 	void SA::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
 	{
 		Strategy::mutate(objective, n_offspring, p);
-		mean_sigma = std::exp(p.pop.s.array().log().mean());
+		mean_sigma = std::exp(p.pop.S.array().log().mean());
 	}
 
 	void SA::adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
 				   Population &pop,
 				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda)
 	{
-		const auto &sigma_l = pop.s.topRows(w.positive.rows());
-		sigma = std::exp((w.positive.array() * sigma_l.array().log()).sum()) / mean_sigma;
+		const auto &sigma_l = pop.S.topRows(w.positive.rows());
+		const auto &log_sigma_dim = sigma_l.array().log().rowwise().mean();
+		const Float log_sigma = (w.positive.array() * log_sigma_dim).sum();
+		sigma = std::exp(log_sigma) / mean_sigma;
 	}
 
 	std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const Float d, const Float sigma)

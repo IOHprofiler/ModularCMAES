@@ -17,6 +17,7 @@ namespace parameters
         Float expected_length_z;
         Float expected_length_ps;
         Float beta;
+        Float int_lb_sigma;
 
         Weights(const size_t dim, const size_t mu, const size_t lambda, const Settings &settings, 
             const Float expected_length_z);

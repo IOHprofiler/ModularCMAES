@@ -23,9 +23,9 @@ class TestMutation(unittest.TestCase):
         noss = mutation.NoSigmaSampler(2)
 
         ss.sample(2.0, self.pop, 1)
-        self.assertFalse(np.all(self.pop.s == 2.0))
+        self.assertFalse(np.all(self.pop.S == 2.0))
         noss.sample(2.0, self.pop, 1)
-        self.assertTrue(np.all(self.pop.s == 2.0))
+        self.assertTrue(np.all(self.pop.S == 2.0))
 
     def test_threshold_convergence(self):
         tc = mutation.ThresholdConvergence()
@@ -113,8 +113,11 @@ class TestMutation(unittest.TestCase):
 
     def test_adapt_lpxnes(self):
         cma = self.get_cma(options.StepSizeAdaptation.LPXNES)
+        
         w = cma.p.weights.weights.clip(0)[: cma.p.pop.n]
-        z = np.exp(cma.p.weights.cs * (w @ np.log(cma.p.pop.s)))
+        
+        z = np.exp(cma.p.weights.cs * (w @ np.log(cma.p.pop.S).mean(axis=0)))
+        
         sigma = np.power(cma.p.settings.sigma0, 1 - cma.p.weights.cs) * z
         self.assertTrue(np.isclose(cma.p.mutation.sigma, sigma))
 

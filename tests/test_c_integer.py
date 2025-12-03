@@ -8,7 +8,7 @@ def sphere(x):
 
 class TestInteger(unittest.TestCase):
     def test_int(self):
-        dim = 4
+        dim = 10
         settings = c_maes.settings_from_dict(
             dim, 
             integer_variables=list(range(dim)), 
@@ -16,22 +16,19 @@ class TestInteger(unittest.TestCase):
             lb=[-50] * dim,
             ub=[50] * dim,
             # active=True,
-            # sample_transformation='LAPLACE'
+            # lambda0=1,
+            sample_transformation='LAPLACE',
+            ssa="SA"
         )
         cma = c_maes.ModularCMAES(settings)
         c_maes.utils.set_seed(100)
         while not cma.break_conditions():            
             cma.mutate(sphere)
-            
-            # print(cma.p.stats.t, cma.p.stats.evaluations, cma.p.pop.f)
-            # breakpoint()
-            
-            # if cma.p.pop.s[0] < (cma.p.weights.mueff / dim):
-                # breakpoint()
-            
+            # print(cma.p.pop.S)
             cma.select()
             cma.recombine()
             cma.adapt()
             
-        # breakpoint()
+        print(cma.p.stats)
+        self.assertEqual(cma.p.stats.global_best.y, 0.0)
         

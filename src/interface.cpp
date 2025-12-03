@@ -6,7 +6,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl_bind.h>
 #include <pybind11/stl.h>
-#include <pybind11/native_enum.h> 
+#include <pybind11/native_enum.h>
 
 #include "c_maes.hpp"
 #include "to_string.hpp"
@@ -627,8 +627,7 @@ void define_parameters(py::module &main)
 			 py::arg("damps") = std::nullopt,
 			 py::arg("acov") = std::nullopt,
 			 py::arg("verbose") = false,
-			 py::arg("always_compute_eigv") = false
-			 )
+			 py::arg("always_compute_eigv") = false)
 		.def_readonly("dim", &Settings::dim)
 		.def_readonly("modules", &Settings::modules)
 		.def_readwrite("target", &Settings::target)
@@ -690,6 +689,10 @@ void define_parameters(py::module &main)
 		std::shared_ptr<matrix_adaptation::NaturalGradientAdaptation>,
 		std::shared_ptr<matrix_adaptation::CovarianceAdaptation>>;
 
+	py::class_<mapping::CoordinateMapping, std::shared_ptr<mapping::CoordinateMapping>>(m, "CoordinateMapping")
+		.def(py::init<Indices, size_t, Float>())
+		.def("transform", &mapping::CoordinateMapping::transform, py::arg("x"));
+
 	py::class_<Parameters, std::shared_ptr<Parameters>>(main, "Parameters")
 		.def(py::init<size_t>(), py::arg("dimension"))
 		.def(py::init<Settings>(), py::arg("settings"))
@@ -740,7 +743,8 @@ void define_parameters(py::module &main)
 		.def_readwrite("restart_strategy", &Parameters::restart_strategy)
 		.def_readwrite("repelling", &Parameters::repelling)
 		.def_readwrite("bounds", &Parameters::bounds)
-		.def_readwrite("center_placement", &Parameters::center_placement);
+		.def_readwrite("center_placement", &Parameters::center_placement)
+		.def_readwrite("coordinate_mapping", &Parameters::coordinate_mapping);
 }
 
 void define_bounds(py::module &main)
@@ -813,7 +817,8 @@ void define_mutation(py::module &main)
 
 	py::class_<SigmaSampler, std::shared_ptr<SigmaSampler>>(m, "SigmaSampler")
 		.def(py::init<Float>(), py::arg("dimension"))
-		.def("sample", &SigmaSampler::sample, py::arg("sigma"), py::arg("population"), py::arg("tau"));
+		.def("apply_integer_bounds", &SigmaSampler::apply_integer_bounds)
+		.def("sample", &SigmaSampler::sample, py::arg("sigma"), py::arg("parameters"));
 
 	py::class_<NoSigmaSampler, SigmaSampler, std::shared_ptr<NoSigmaSampler>>(m, "NoSigmaSampler")
 		.def(py::init<Float>(), py::arg("dimension"));
@@ -866,18 +871,18 @@ void define_population(py::module &main)
 {
 	py::class_<Population>(main, "Population")
 		.def(py::init<size_t, size_t>(), py::arg("dimension"), py::arg("n"))
-		.def(py::init<Matrix, Matrix, Matrix, Vector, Vector>(), py::arg("X"), py::arg("Z"), py::arg("Y"), py::arg("f"), py::arg("s"))
+		.def(py::init<Matrix, Matrix, Matrix, Vector, Matrix>(), py::arg("X"), py::arg("Z"), py::arg("Y"), py::arg("f"), py::arg("S"))
 		.def("sort", &Population::sort)
 		.def("resize_cols", &Population::resize_cols, py::arg("size"))
 		.def("keep_only", &Population::keep_only, py::arg("idx"))
 		.def_property_readonly("n_finite", &Population::n_finite)
 		.def("__add__", &Population::operator+=, py::arg("other"))
 		.def_readwrite("X", &Population::X)
-		.def_readwrite("X_internal", &Population::X_internal)
+		.def_readwrite("X_transformed", &Population::X_transformed)
 		.def_readwrite("Z", &Population::Z)
 		.def_readwrite("Y", &Population::Y)
+		.def_readwrite("S", &Population::S)
 		.def_readwrite("f", &Population::f)
-		.def_readwrite("s", &Population::s)
 		.def_readwrite("d", &Population::d)
 		.def_readwrite("n", &Population::n)
 		.def_readwrite("t", &Population::t);
