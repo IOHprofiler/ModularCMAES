@@ -1,45 +1,57 @@
-# ModularCMAES ![Unittest](https://github.com/IOHprofiler/ModularCMAES/workflows/Unittest/badge.svg) [![Codacy Badge](https://api.codacy.com/project/badge/Grade/e25b2d338c194d67954fc9e138ca69cc)](https://app.codacy.com/gh/IOHprofiler/ModularCMAES?utm_source=github.com&utm_medium=referral&utm_content=IOHprofiler/ModularCMAES&utm_campaign=Badge_Grade) [![Codacy Badge](https://app.codacy.com/project/badge/Coverage/73720e228a89480585bdde05d3806661)](https://www.codacy.com/gh/IOHprofiler/ModularCMAES/dashboard?utm_source=github.com&utm_medium=referral&utm_content=IOHprofiler/ModularCMAES&utm_campaign=Badge_Coverage)
+<!-- # ModularCMAES  -->
+<p align="center">
+  <img src="banner.png" alt="Modular CMA-ES Banner"/>
+</p>
+
+<hr>
+ 
+![Unittest](https://github.com/IOHprofiler/ModularCMAES/workflows/Unittest/badge.svg) 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/e25b2d338c194d67954fc9e138ca69cc)](https://app.codacy.com/gh/IOHprofiler/ModularCMAES?utm_source=github.com&utm_medium=referral&utm_content=IOHprofiler/ModularCMAES&utm_campaign=Badge_Grade) 
+[![Codacy Badge](https://app.codacy.com/project/badge/Coverage/73720e228a89480585bdde05d3806661)](https://www.codacy.com/gh/IOHprofiler/ModularCMAES/dashboard?utm_source=github.com&utm_medium=referral&utm_content=IOHprofiler/ModularCMAES&utm_campaign=Badge_Coverage)
+![PyPI - Version](https://img.shields.io/pypi/v/modcma)
+![PyPI - Downloads](https://img.shields.io/pypi/dm/modcma)
 
 The **Modular CMA-ES** is a Python and C++ package that provides a modular implementation of the Covariance Matrix Adaptation Evolution Strategy (CMA-ES) algorithm. This package allows you to create various algorithmic variants of CMA-ES by enabling or disabling different modules, offering flexibility and customization in evolutionary optimization. In addition to the CMA-ES, the library includes an implementation of the Matrix Adaptation Evolution Strategy (MA-ES) algorithm, which has similar emprical performance on most problems, but signifanctly lower runtime. All modules implemented are compatible with both the CMA-ES and MA-ES.
 
 This implementation is based on the algorithm introduced in the paper "[Evolving the Structure of Evolution Strategies. (2016)](https://ieeexplore.ieee.org/document/7850138)" by Sander van Rijn et. al. If you would like to cite this work in your research, please cite the paper: "[Tuning as a Means of Assessing the Benefits of New Ideas in Interplay with Existing Algorithmic Modules (2021)](https://doi.org/10.1145/3449726.3463167)" by Jacob de Nobel, Diederick Vermetten, Hao Wang, Carola Doerr and Thomas Bäck.
 
-This README provides a high level overview of the implemented modules, and provides some usage examples for both the Python-only and the C++-based versions of the framework. A complete API documentation can be found [here](https://modularcmaes.readthedocs.io/) (under construction).
+This README provides a high level overview of the implemented modules, and provides some usage examples for both the Python-only and the C++-based versions of the framework. 
 
 ## Table of Contents
 
-- [ModularCMAES   ](#modularcmaes---)
-  - [Table of Contents](#table-of-contents)
-  - [Installation ](#installation-)
-    - [Python Installation](#python-installation)
-    - [Installation from source](#installation-from-source)
-  - [Usage ](#usage-)
-    - [C++ Backend ](#c-backend-)
-      - [High Level interface ](#high-level-interface-)
-      - [Tuning ](#tuning-)
-      - [Configuration Space Generation](#configuration-space-generation)
-      - [Creating Settings from a Configuration](#creating-settings-from-a-configuration)
-    - [Python-only (Legacy) ](#python-only-legacy-)
-      - [Ask–Tell Interface ](#asktell-interface-)
-  - [Modules ](#modules-)
-    - [Matrix Adaptation ](#matrix-adaptation-)
-    - [Active Update ](#active-update-)
-    - [Elitism ](#elitism-)
-    - [Orthogonal Sampling ](#orthogonal-sampling-)
-    - [Sequential Selection ](#sequential-selection-)
-    - [Threshold Convergence ](#threshold-convergence-)
-    - [Sample Sigma ](#sample-sigma-)
-    - [Quasi-Gaussian Sampling ](#quasi-gaussian-sampling-)
-    - [Recombination Weights ](#recombination-weights-)
-    - [Mirrored Sampling ](#mirrored-sampling-)
-    - [Step size adaptation](#step-size-adaptation)
-    - [Restart Strategy](#restart-strategy)
-    - [Bound correction](#bound-correction)
-    - [Sample Transformer ](#sample-transformer-)
-    - [Repelling Restart ](#repelling-restart-)
-    - [Center Placement ](#center-placement-)
-  - [Citation ](#citation-)
-  - [License ](#license-)
+- [Table of Contents](#table-of-contents)
+- [Installation ](#installation-)
+  - [Python Installation](#python-installation)
+  - [Installation from source](#installation-from-source)
+- [Usage ](#usage-)
+  - [C++ Backend ](#c-backend-)
+    - [High Level interface ](#high-level-interface-)
+    - [Low Level interface ](#low-level-interface-)
+  - [Tuning ](#tuning-)
+    - [Configuration Space Generation](#configuration-space-generation)
+    - [Creating Settings from a Configuration](#creating-settings-from-a-configuration)
+  - [Integer Variables](#integer-variables)
+  - [Python-only (Legacy) ](#python-only-legacy-)
+    - [Ask–Tell Interface ](#asktell-interface-)
+- [Modules ](#modules-)
+  - [Matrix Adaptation ](#matrix-adaptation-)
+  - [Active Update ](#active-update-)
+  - [Elitism ](#elitism-)
+  - [Orthogonal Sampling ](#orthogonal-sampling-)
+  - [Sequential Selection ](#sequential-selection-)
+  - [Threshold Convergence ](#threshold-convergence-)
+  - [Sample Sigma ](#sample-sigma-)
+  - [Quasi-Gaussian Sampling ](#quasi-gaussian-sampling-)
+  - [Recombination Weights ](#recombination-weights-)
+  - [Mirrored Sampling ](#mirrored-sampling-)
+  - [Step size adaptation](#step-size-adaptation)
+  - [Restart Strategy](#restart-strategy)
+  - [Bound correction](#bound-correction)
+  - [Sample Transformer ](#sample-transformer-)
+  - [Repelling Restart ](#repelling-restart-)
+  - [Center Placement ](#center-placement-)
+- [Citation ](#citation-)
+- [License ](#license-)
 
 ## Installation <a name="installation"></a>
 
@@ -99,6 +111,27 @@ If you want to work on a development version of the library, you should follow t
 
 For performance, completeness, and modularity, the **C++ backend** is the **recommended interface** for ModularCMAES. It exposes all available modules and options through a direct Python binding.
 
+#### High Level interface <a name="high-level-interface"></a>
+
+In addition to the fully specified method described below, we can run an optimization via a friendly `fmin` interface:
+
+```python
+x0 = [0, 1, 2, 3] # Location to start the search from
+sigma0 = 0.234    # Initial estimate of the stepsize, try 0.3 * (ub - lb) if you're unsure
+budget = 100      # Total number of function evaluations
+xopt, fopt, evals, cma = c_maes.fmin(
+    func, x0, sigma0, budget,
+    # We can specify modules and setting values as keyword arguments
+    active=True,
+    target=10.0,
+    cc=0.8  
+    matrix_adaptation='NONE'
+)
+```
+Note that the `func`, `x0`, `sigma0` and `budget` arguments are **required**. Modules and settings can be specified via keyword arguments by they corresponding names in the `Modules` and `Settings` objects. Module options, such as `matrix_adaptation` in the above example, can be specified by their name as `str`. 
+
+#### Low Level interface <a name="low-level-interface"></a>
+
 To run an optimization, first create a `Modules` object specifying which modules and options to enable. Then construct a `Settings` object (which defines problem dimension and strategy parameters), and pass it through a `Parameters` object to the optimizer:
 
 ```python
@@ -144,26 +177,12 @@ while not cma.break_conditions():
 This modularity allows experimentation with specific parts of the evolution strategy, 
 such as custom selection, recombination, or adaptation routines.
 
-#### High Level interface <a name="fmin"></a>
 
-In addition to the fully specified method described above, we can also call the optimizer via a more friendly `fmin` interface:
 
-```python
-x0 = [0, 1, 2, 3] # Location to start the search from
-sigma0 = 0.234    # Initial estimate of the stepsize, try 0.3 * (ub - lb) if you're unsure
-budget = 100      # Total number of function evaluations
-xopt, fopt, evals, cma = c_maes.fmin(
-    func, x0, sigma0, budget,
-    # We can specify modules and setting values as keyword arguments
-    active=True,
-    cc=0.8  
-)
-```
-Note that the `func`, `x0`, `sigma0` and `budget` arguments are required. Via keyword arguments, modules and settings can be specified, provided by their names in the `Modules` and `Settings` objects. 
 
 ---
 
-#### Tuning <a name="tuning"></a>
+### Tuning <a name="tuning"></a>
 
 To facilitate **automated hyperparameter tuning**, ModularCMAES now provides functionality to **create and manipulate configuration spaces** directly compatible with popular optimization and AutoML tools, such as **SMAC**, **BOHB**. This functionality allows users to systematically explore both **algorithmic module combinations** and **numerical hyperparameters** (e.g., population size, learning rates, damping coefficients).
 
@@ -230,6 +249,25 @@ cma = c_maes.ModularCMAES(parameters)
 cma.run(func)
 ```
 
+### Integer Variables
+A rudimentary mechanism for dealing with integer variables is implemented, which applies a lower bound on `sigma` for integer coordinates and rounds them to the nearest integer before evaluation, inspired by http://www.cmap.polytechnique.fr/~nikolaus.hansen/marty2024lb+ic-cma.pdf. 
+
+An option can be provided to the `Settings` object or `settings_from_dict`/`settings_from_config` functions:
+
+```python
+dim = 5
+settings = Settings(
+    dim,
+    integer_variables=[1, 2] # A list or numpy array of integer indices
+)
+
+settings = settings_from_dict(
+    dim, 
+    integer_variables=list(range(dim)) # All variables are integer
+)
+```
+
+
 ---
 
 ### Python-only (Legacy) <a name="python-only"></a>
@@ -237,6 +275,7 @@ cma.run(func)
 > **Legacy notice:**  
 > The Python-only implementation is **no longer actively developed** and does not include all features of the C++ version.  
 > It remains available for experimentation and teaching purposes.
+> A complete API documentation can be found [here](https://modularcmaes.readthedocs.io/) (under construction).
 
 The Python interface provides a simple API and includes a convenience `fmin` function for optimizing a single objective function in one call:
 

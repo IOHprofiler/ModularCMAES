@@ -15,37 +15,41 @@ from modcma.modularcmaes import scale_with_threshold
 
 class TestMutation(unittest.TestCase):
     def setUp(self):
-        self.pop = Population(2, 2)
-        self.pop.Z = np.ones((2, 2)) * 0.5
+        
+        pop = Population(2, 2)
+        pop.Z = np.ones((2, 2)) * 0.5
+        self.par = Parameters(2)
+        self.par.pop = pop
+        self.par.weights.beta = 1
 
     def test_sigma_sampler(self):
         ss = mutation.SigmaSampler(2)
         noss = mutation.NoSigmaSampler(2)
 
-        ss.sample(2.0, self.pop, 1)
-        self.assertFalse(np.all(self.pop.s == 2.0))
-        noss.sample(2.0, self.pop, 1)
-        self.assertTrue(np.all(self.pop.s == 2.0))
+        ss.sample(2.0, self.par)
+        self.assertFalse(np.all(self.par.pop.S == 2.0))
+        noss.sample(2.0, self.par)
+        self.assertTrue(np.all(self.par.pop.S == 2.0))
 
     def test_threshold_convergence(self):
         tc = mutation.ThresholdConvergence()
         notc = mutation.NoThresholdConvergence()
-        notc.scale(self.pop.Z[0], 10, 100, 2)
-        self.assertTrue(np.all(self.pop.Z == 0.5))
+        notc.scale(self.par.pop.Z[0], 10, 100, 2)
+        self.assertTrue(np.all(self.par.pop.Z == 0.5))
 
         budget = 100
         evals = 2
         diam = 10
 
         t = tc.init_threshold * diam * pow((budget - evals) / budget, tc.decay_factor)
-        norm = np.linalg.norm(self.pop.Z, axis=0)
+        norm = np.linalg.norm(self.par.pop.Z, axis=0)
         Z = np.ones((2, 2))
-        Z[0] = tc.scale(self.pop.Z[0], diam, budget, evals)
-        Z[1] = tc.scale(self.pop.Z[1], diam, budget, evals)
-        self.pop.Z = Z
+        Z[0] = tc.scale(self.par.pop.Z[0], diam, budget, evals)
+        Z[1] = tc.scale(self.par.pop.Z[1], diam, budget, evals)
+        self.par.pop.Z = Z
         expected_z = 0.5 * ((t + (t - norm)) / norm)
-        self.assertTrue(np.isclose(self.pop.Z, expected_z).all())
-        self.assertTrue(np.isclose(self.pop.Z, scale_with_threshold(np.ones(2) * .5, t)).all())
+        self.assertTrue(np.isclose(self.par.pop.Z, expected_z).all())
+        self.assertTrue(np.isclose(self.par.pop.Z, scale_with_threshold(np.ones(2) * .5, t)).all())
 
     def get_cma(self, ssa, adapt_sigma=True):
         modules = parameters.Modules()
@@ -113,8 +117,11 @@ class TestMutation(unittest.TestCase):
 
     def test_adapt_lpxnes(self):
         cma = self.get_cma(options.StepSizeAdaptation.LPXNES)
+        
         w = cma.p.weights.weights.clip(0)[: cma.p.pop.n]
-        z = np.exp(cma.p.weights.cs * (w @ np.log(cma.p.pop.s)))
+        
+        z = np.exp(cma.p.weights.cs * (w @ np.log(cma.p.pop.S).mean(axis=0)))
+        
         sigma = np.power(cma.p.settings.sigma0, 1 - cma.p.weights.cs) * z
         self.assertTrue(np.isclose(cma.p.mutation.sigma, sigma))
 

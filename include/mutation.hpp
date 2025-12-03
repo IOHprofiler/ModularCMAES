@@ -29,12 +29,12 @@ namespace mutation
 	{
 		Float init_threshold = 0.1;
 		Float decay_factor = 0.995;
-		virtual Vector scale(const Vector& zi, const Float diameter, const size_t budget, const size_t evaluations);
+		virtual Vector scale(const Vector &zi, const Float diameter, const size_t budget, const size_t evaluations);
 	};
 
 	struct NoThresholdConvergence : ThresholdConvergence
 	{
-		Vector scale(const Vector& zi, const Float diameter, const size_t budget, const size_t evaluations) override
+		Vector scale(const Vector &zi, const Float diameter, const size_t budget, const size_t evaluations) override
 		{
 			return zi;
 		}
@@ -46,41 +46,38 @@ namespace mutation
 		size_t seq_cutoff;
 
 	public:
-		SequentialSelection(const parameters::Mirror& m, const size_t mu, const Float seq_cutoff_factor = 1.0) : seq_cutoff_factor(m == parameters::Mirror::PAIRWISE ? std::max(Float{ 2. }, seq_cutoff_factor) : seq_cutoff_factor),
-			seq_cutoff(static_cast<size_t>(mu* seq_cutoff_factor))
-		{}
-		virtual bool break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror& m);
+		SequentialSelection(const parameters::Mirror &m, const size_t mu, const Float seq_cutoff_factor = 1.0) : seq_cutoff_factor(m == parameters::Mirror::PAIRWISE ? std::max(Float{2.}, seq_cutoff_factor) : seq_cutoff_factor),
+																												 seq_cutoff(static_cast<size_t>(mu * seq_cutoff_factor))
+		{
+		}
+		virtual bool break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror &m);
 	};
 
 	struct NoSequentialSelection : SequentialSelection
 	{
 		using SequentialSelection::SequentialSelection;
 
-		bool break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror& m) override { return false; }
+		bool break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror &m) override { return false; }
 	};
 
 	struct SigmaSampler
 	{
 		sampling::GaussianTransformer sampler;
 
-		SigmaSampler(const Float d) : sampler{ std::make_shared<sampling::Uniform>(1) }
-		{}
-
-		virtual void sample(const Float sigma, Population& pop, const Float tau)
+		SigmaSampler(const Float d) : sampler{std::make_shared<sampling::Uniform>(d)}
 		{
-			sampler.sampler->d = pop.s.rows();
-			pop.s.noalias() = (sigma * (tau * sampler().array()).exp()).matrix().eval();
 		}
+
+		void apply_integer_bounds(parameters::Parameters &p);
+
+		virtual void sample(const Float sigma, parameters::Parameters &p);
 	};
 
 	struct NoSigmaSampler : SigmaSampler
 	{
 		using SigmaSampler::SigmaSampler;
 
-		void sample(const Float sigma, Population& pop, const Float tau) override
-		{
-			pop.s.setConstant(sigma);
-		}
+		void sample(const Float sigma, parameters::Parameters &p) override;
 	};
 
 	struct Strategy
@@ -92,24 +89,25 @@ namespace mutation
 		Float s = 0;
 
 		Strategy(
-			const std::shared_ptr<ThresholdConvergence>& threshold_covergence,
-			const std::shared_ptr<SequentialSelection>& sequential_selection,
-			const std::shared_ptr<SigmaSampler>& sigma_sampler,
+			const std::shared_ptr<ThresholdConvergence> &threshold_covergence,
+			const std::shared_ptr<SequentialSelection> &sequential_selection,
+			const std::shared_ptr<SigmaSampler> &sigma_sampler,
 			const Float sigma0) : tc(threshold_covergence), sq(sequential_selection), ss(sigma_sampler), sigma(sigma0)
-		{}
+		{
+		}
 
-		virtual void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p);
+		virtual void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p);
 
-		virtual void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) {};
+		virtual void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+						   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) {};
 	};
 
 	struct CSA : Strategy
 	{
 		using Strategy::Strategy;
 
-		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+		void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
 	};
 
 	struct TPA : Strategy
@@ -120,18 +118,18 @@ namespace mutation
 		Float b_tpa = 0.0;
 		Float rank_tpa = 0.0;
 
-		void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p) override;
+		void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p) override;
 
-		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+		void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
 	};
 
 	struct MSR : Strategy
 	{
 		using Strategy::Strategy;
 
-		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+		void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
 	};
 
 	struct PSR : Strategy
@@ -142,38 +140,36 @@ namespace mutation
 
 		std::vector<size_t> idx;
 		std::vector<size_t> oidx;
-		
 
 		using Strategy::Strategy;
 
-		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+		void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
 	};
 
 	struct XNES : Strategy
 	{
 		using Strategy::Strategy;
 
-		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+		void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
 	};
 
 	struct MXNES : Strategy
 	{
 		using Strategy::Strategy;
 
-		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+		void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
 	};
 
 	struct LPXNES : Strategy
 	{
 		using Strategy::Strategy;
 
-		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+		void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
 	};
-
 
 	struct SR : Strategy
 	{
@@ -181,26 +177,23 @@ namespace mutation
 
 		using Strategy::Strategy;
 
-		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+		void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
 	};
-
 
 	struct SA : Strategy
 	{
 		using Strategy::Strategy;
 
-		void adapt(const parameters::Weights& w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population& pop,
-			const Population& old_pop, const parameters::Stats& stats, const size_t lambda) override;
+		void adapt(const parameters::Weights &w, std::shared_ptr<matrix_adaptation::Adaptation> adaptation, Population &pop,
+				   const Population &old_pop, const parameters::Stats &stats, const size_t lambda) override;
 
-		void mutate(FunctionType& objective, const size_t n_offspring, parameters::Parameters& p) override;
+		void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p) override;
 
 	private:
 		Float mean_sigma;
 	};
 
-
-
-	std::shared_ptr<Strategy> get(const parameters::Modules& m, const size_t mu, const Float d, const Float sigma);
+	std::shared_ptr<Strategy> get(const parameters::Modules &m, const size_t mu, const Float d, const Float sigma);
 
 }

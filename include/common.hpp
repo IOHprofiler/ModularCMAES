@@ -28,9 +28,12 @@ using Matrix = Eigen::Matrix<Float, -1, -1>;
 using Vector = Eigen::Matrix<Float, -1, 1>;
 using Array = Eigen::Array<Float, -1, 1>;
 using size_to = std::optional<size_t>;
+using Mask = Eigen::Array<bool, Eigen::Dynamic, 1>;
+using Indices = Eigen::ArrayXi;
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);
+
 
 using FunctionType = std::function<Float(const Vector &)>;
 

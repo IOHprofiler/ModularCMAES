@@ -22,6 +22,7 @@ namespace parameters
 
 		Vector lb;
 		Vector ub;
+		Indices integer_variables;
 		Vector db;
 		Vector center;
 		Float diameter; 
@@ -49,6 +50,7 @@ namespace parameters
 			std::optional<Vector> x0 = std::nullopt,
 			std::optional<Vector> lb = std::nullopt,
 			std::optional<Vector> ub = std::nullopt,
+			std::optional<Indices> integer_variables = std::nullopt,
 			std::optional<Float> cs = std::nullopt,
 			std::optional<Float> cc = std::nullopt,
 			std::optional<Float> cmu = std::nullopt,
@@ -68,6 +70,7 @@ namespace parameters
 			x0(x0),
 			lb(lb.value_or(Vector::Ones(dim) * -5)),
 			ub(ub.value_or(Vector::Ones(dim) * 5)),
+			integer_variables(integer_variables.value_or(Indices{})),
 			db(this->ub - this->lb),
 			center(this->lb + (db * 0.5)),
 			diameter(db.norm()),			

@@ -33,7 +33,7 @@ namespace repelling
 			for (size_t k = 1; k < n_evals + 1; k++)
 			{
 				const Float a = static_cast<Float>(k) / (static_cast<Float>(n_evals) + 1.0);
-				const Vector x = v.x + a * (u.x - v.x);
+				const Vector x = p.coordinate_mapping->transform(v.x + a * (u.x - v.x));
 				const Float y = f(x);
 				p.stats.evaluations++;
 				if (max_f < y)

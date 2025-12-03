@@ -28,7 +28,6 @@ namespace bounds
 	Vector BoundCorrection::delta_out_of_bounds(const Vector &xi, const Mask &oob, const parameters::Settings &settings) const
 	{
 		return (oob).select((xi - settings.lb).cwiseQuotient(settings.db), xi);
-		;
 	}
 
 	void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters &p)
@@ -44,7 +43,8 @@ namespace bounds
 				return;
 
 			p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob, p.mutation->sigma, p.settings);
-			p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.pop.s(i));
+			p.pop.X_transformed.col(i) = p.pop.X.col(i);
+			p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.pop.S.col(i));
 			p.pop.Z.col(i) = p.adaptation->invert_y(p.pop.Y.col(i));
 		}
 	}

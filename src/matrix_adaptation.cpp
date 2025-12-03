@@ -5,9 +5,9 @@ namespace matrix_adaptation
 	using namespace parameters;
 
 
-	Vector Adaptation::invert_x(const Vector& xi, const Float sigma)
+	Vector Adaptation::invert_x(const Vector& xi, const Vector sigma)
 	{
-		return (xi - m) / sigma;
+		return ((xi - m).array() / sigma.array()).matrix();
 	}
 
 	static void one_plus_one_path_update(
@@ -31,7 +31,7 @@ namespace matrix_adaptation
 	void Adaptation::adapt_evolution_paths(const Population& pop, const Weights& w,
 		const Stats& stats, const parameters::Settings& settings, const size_t lambda, const size_t mu)
 	{
-		const auto sigma = pop.s.mean();
+		const auto sigma = pop.S.mean();
 		dm = (m - m_old) / sigma; 
 		dz = pop.Z.leftCols(mu) * w.positive.head(mu);
 		adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);
@@ -106,6 +106,7 @@ namespace matrix_adaptation
 		C = old_c + rank_one + rank_mu;
 		
 		C = 0.5 * (C + C.transpose().eval());
+		coordinate_wise_variances.noalias() = C.diagonal();
 	}
 
 	bool CovarianceAdaptation::perform_eigendecomposition(const Settings& settings)
@@ -136,6 +137,7 @@ namespace matrix_adaptation
 		d.noalias() = d.cwiseSqrt().eval();
 		inv_root_C.noalias() = B * d.cwiseInverse().asDiagonal() * B.transpose();
 		A.noalias() = B * d.asDiagonal();
+	
 		return true;
 	}
 
@@ -220,6 +222,7 @@ namespace matrix_adaptation
 			c(j) = (decay_c * c(j)) + (w.c1 * pow(pc(j), 2)) + (w.cmu * rank_mu);
 			c(j) = std::max(c(j), Float{ 1e-12 });
 			d(j) = std::sqrt(c(j));
+			coordinate_wise_variances(j) = c(j);
 		}
 
 		return true;
@@ -288,6 +291,8 @@ namespace matrix_adaptation
 				+ ((popY * (tau_m * weights).asDiagonal()) * (popZ.transpose() * M_inv));
 		else
 			outdated_M_inv = true; // Rely on moore penrose pseudo-inv (only when needed)
+
+		coordinate_wise_variances.noalias() = (M.array().square().rowwise().sum()).matrix();
 		return true;
 	}
 
@@ -345,7 +350,7 @@ namespace matrix_adaptation
 			for (size_t i = 0; i < pop.Y.cols() - mu; i++)
 				Eigen::internal::llt_rank_update_lower(A, pop.Y.col(mu + i), w.cmu * w.negative(i));
 
-
+		coordinate_wise_variances.noalias() = (A.array().square().rowwise().sum()).matrix();
 		return true;
 	}
 
@@ -387,6 +392,7 @@ namespace matrix_adaptation
 
 		C = (1.0 - tc_inv) * C + (tc_inv * Y);
 		C = 0.5 * (C + C.transpose().eval());
+		coordinate_wise_variances.noalias() = C.diagonal();
 
 		const Eigen::LLT<Matrix> chol(C);
 		if (chol.info() != Eigen::Success)
@@ -397,7 +403,7 @@ namespace matrix_adaptation
 			return false;
 		}
 		A = chol.matrixL();
-
+		
 		return true;
 	}
 
@@ -508,6 +514,7 @@ namespace matrix_adaptation
 
 		A *= (w.cc * G).exp();
 		outdated_A_inv = true;
+		coordinate_wise_variances.noalias() = (A.array().square().rowwise().sum()).matrix();		
 
 		return true;
 	}

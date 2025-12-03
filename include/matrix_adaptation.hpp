@@ -11,12 +11,18 @@ namespace matrix_adaptation
 	struct Adaptation
 	{
 		Vector m, m_old, dm, ps, dz;
+		Vector coordinate_wise_variances;
+
 		Float dd;
 		Float expected_length_z;
 
 		Adaptation(const size_t dim, const Vector& x0, const Vector& ps, const Float expected_length_z) :
-			m(x0), m_old(dim), dm(Vector::Zero(dim)),
-			ps(ps), dd(static_cast<Float>(dim)),
+			m(x0), 
+			m_old(dim), 
+			dm(Vector::Zero(dim)),
+			ps(ps), 
+			coordinate_wise_variances(Vector::Ones(dim)),
+			dd(static_cast<Float>(dim)),
 			expected_length_z(expected_length_z)
 		{
 		}
@@ -50,7 +56,7 @@ namespace matrix_adaptation
 
 		virtual Vector compute_y(const Vector&) = 0;
 
-		virtual Vector invert_x(const Vector&, Float sigma);
+		virtual Vector invert_x(const Vector&, Vector sigma);
 
 		virtual Vector invert_y(const Vector&) = 0;
 
@@ -61,6 +67,7 @@ namespace matrix_adaptation
 			dm.setZero();
 			ps.setZero();
 			dz.setZero();
+			coordinate_wise_variances.setOnes();
 		}
 
 		Float distance(const Vector u, const Vector& v)

@@ -14,8 +14,6 @@ namespace parameters
 
 namespace bounds
 {
-	using Mask = Eigen::Array<bool, Eigen::Dynamic, 1>;
-
 	Mask is_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub);
 	bool any_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub);
 
