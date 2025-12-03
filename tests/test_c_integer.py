@@ -24,11 +24,9 @@ class TestInteger(unittest.TestCase):
         c_maes.utils.set_seed(100)
         while not cma.break_conditions():            
             cma.mutate(sphere)
-            # print(cma.p.pop.S)
             cma.select()
             cma.recombine()
             cma.adapt()
             
-        print(cma.p.stats)
         self.assertEqual(cma.p.stats.global_best.y, 0.0)
         
