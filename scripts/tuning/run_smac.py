@@ -4,14 +4,12 @@ os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
 import time
 import argparse
-from itertools import product
 from functools import partial
 
 import ioh
 import numpy as np
 from smac import Scenario
-from smac.acquisition.function import PriorAcquisitionFunction
-from smac import AlgorithmConfigurationFacade, HyperparameterOptimizationFacade
+from smac import AlgorithmConfigurationFacade
 from ConfigSpace import Configuration
 
 from modcma import c_maes
@@ -36,11 +34,7 @@ def calc_aoc(logger, budget, fid, iid, dim):
 def get_bbob_performance(
     config: Configuration, seed: int = 0, fid: int = 0,  dim: int = 5
 ):
-    # print(fid, seed, dim)
     iid = 1 + (seed % 10)
-    # fid, iid = instance.split(",")
-    # fid = int(fid[1:])
-    # iid = int(iid[:-1])
     np.random.seed(seed + iid)
     c_maes.utils.set_seed(seed + iid)
     BUDGET = dim * 10_000
@@ -54,7 +48,7 @@ def get_bbob_performance(
         dim, 
         config, 
         budget=BUDGET, 
-        target= problem.optimum.y + 1e-9,
+        target=problem.optimum.y + 9e-9,
         ub=problem.bounds.ub,
         lb=problem.bounds.lb
     )
@@ -67,52 +61,34 @@ def get_bbob_performance(
         print(
             f"Found target {problem.state.current_best.y} target, but exception ({e}), so run failed"
         )
-        print(config)
         return [np.inf]
     
     auc = calc_aoc(l3, BUDGET, fid, iid, dim)
-    return [auc] 
+    return auc 
 
 
 def run_smac(fid, dim, use_learning_rates):
     print(f"Running SMAC with fid={fid}, lr={use_learning_rates} and d={dim}")
     cma_cs = c_maes.get_configspace(dim, add_learning_rates=use_learning_rates)
 
-    iids = range(1, 51)
-    if fid == "all":
-        fids = range(1, 25)
-        max_budget = 240
-    else:
-        fids = [fid]
-        max_budget = 50
-
-    # args = list(product(fids, iids))
-    # np.random.shuffle(args)
-    # inst_feats = {str(arg): [arg[0]] for idx, arg in enumerate(args)}
     scenario = Scenario(
         cma_cs,
         name=str(int(time.time())) + "-" + "CMA",
         deterministic=False,
-        n_trials=5_000,
-        # instances=args,
-        # instance_features=inst_feats,
+        n_trials=100_000,
         output_directory=os.path.join(
             DATA_DIR, f"BBOB_F{fid}_{dim}D_LR{use_learning_rates}"
         ),
         n_workers=1,
     )
-    pf = PriorAcquisitionFunction(
-        acquisition_function=AlgorithmConfigurationFacade.get_acquisition_function(
-            scenario
-        ),
-        decay_beta=scenario.n_trials / 10,
-    )
+
     eval_func = partial(get_bbob_performance, fid=fid, dim=dim)
-    intensifier = HyperparameterOptimizationFacade.get_intensifier(
-        scenario, max_config_calls=max_budget
-    )
-    smac = HyperparameterOptimizationFacade(
-        scenario, eval_func, acquisition_function=pf, intensifier=intensifier
+    
+    smac = AlgorithmConfigurationFacade(
+        scenario, eval_func, 
+        intensifier=AlgorithmConfigurationFacade.get_intensifier(
+            scenario, max_config_calls=50
+        ),
     )
     smac.optimize()
 
