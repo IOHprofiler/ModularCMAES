@@ -67,9 +67,11 @@ def get_bbob_performance(
     return auc 
 
 
-def run_smac(fid, dim, use_learning_rates):
+def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma):
     print(f"Running SMAC with fid={fid}, lr={use_learning_rates} and d={dim}")
-    cma_cs = c_maes.get_configspace(dim, add_learning_rates=use_learning_rates)
+    cma_cs = c_maes.get_configspace(
+        dim, add_learning_rates=use_learning_rates, add_popsize=add_popsize, add_sigma=add_sigma
+    )
 
     scenario = Scenario(
         cma_cs,
@@ -98,5 +100,8 @@ if __name__ == "__main__":
     parser.add_argument("--fid", type=int, default=1)
     parser.add_argument("--dim", type=int, default=5)
     parser.add_argument("--use_learning_rates", action="store_true")
+    parser.add_argument("--add_popsize", action="store_true")
+    parser.add_argument("--add_sigma", action="store_true")
     args = parser.parse_args()
-    run_smac(args.fid, args.dim, args.use_learning_rates)
+    
+    run_smac(args.fid, args.dim, args.use_learning_rates, args.add_popsize, args.add_sigma)
