@@ -8,27 +8,15 @@ from functools import partial
 
 import ioh
 import numpy as np
-from smac import Scenario
-from smac import AlgorithmConfigurationFacade
+
+from smac import Scenario,AlgorithmConfigurationFacade
+from smac.main.config_selector import ConfigSelector
 from ConfigSpace import Configuration
 
 from modcma import c_maes
 
 
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data"))
-
-
-def calc_aoc(logger, budget, fid, iid, dim):
-    data = logger.data()
-    data1 = data["None"][fid][dim][iid][0]
-    fvals = [x["raw_y_best"] for x in data1.values()]
-    fvals = np.array(fvals)
-    if np.isnan(fvals).any():
-        np.nan_to_num(fvals, copy=False, nan=1e8)
-    if len(fvals) < budget:
-        fvals = np.concatenate([fvals, (budget - len(fvals)) * [np.min(fvals)]])
-    parts = np.log10(np.clip(fvals[:budget], 1e-8, 1e2)) + 8
-    return np.mean(parts) / 10
 
 
 def get_bbob_performance(
@@ -38,11 +26,8 @@ def get_bbob_performance(
     np.random.seed(seed + iid)
     c_maes.utils.set_seed(seed + iid)
     BUDGET = dim * 10_000
-    l3 = ioh.logger.Store(
-        triggers=[ioh.logger.trigger.ALWAYS], properties=[ioh.logger.property.RAWYBEST]
-    )
+
     problem = ioh.get_problem(fid, iid, dim)
-    problem.attach_logger(l3)
 
     settings = c_maes.settings_from_config(
         dim, 
@@ -57,17 +42,17 @@ def get_bbob_performance(
     try:
         cma = c_maes.ModularCMAES(par)
         cma.run(problem)
+        if not problem.state.final_target_found:
+            return BUDGET 
+        return problem.state.evaluations
     except Exception as e:
         print(
             f"Found target {problem.state.current_best.y} target, but exception ({e}), so run failed"
         )
-        return [np.inf]
-    
-    auc = calc_aoc(l3, BUDGET, fid, iid, dim)
-    return auc 
+        return np.inf
 
 
-def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma):
+def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
     print(f"Running SMAC with fid={fid}, lr={use_learning_rates} and d={dim}")
     cma_cs = c_maes.get_configspace(
         dim, add_learning_rates=use_learning_rates, add_popsize=add_popsize, add_sigma=add_sigma
@@ -81,16 +66,23 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma):
         output_directory=os.path.join(
             DATA_DIR, f"BBOB_F{fid}_{dim}D_LR{use_learning_rates}"
         ),
-        n_workers=1,
+        n_workers=n_workers,
     )
 
     eval_func = partial(get_bbob_performance, fid=fid, dim=dim)
-    
+    config_selector = ConfigSelector(
+        scenario,
+        retrain_after=500,
+        min_trials=1000,
+        retries=16,
+
+    )
     smac = AlgorithmConfigurationFacade(
         scenario, eval_func, 
         intensifier=AlgorithmConfigurationFacade.get_intensifier(
             scenario, max_config_calls=50
         ),
+        config_selector=config_selector
     )
     smac.optimize()
 
@@ -102,6 +94,14 @@ if __name__ == "__main__":
     parser.add_argument("--use_learning_rates", action="store_true")
     parser.add_argument("--add_popsize", action="store_true")
     parser.add_argument("--add_sigma", action="store_true")
+    parser.add_argument("--n_workers", type=int, default=1)
     args = parser.parse_args()
     
-    run_smac(args.fid, args.dim, args.use_learning_rates, args.add_popsize, args.add_sigma)
+    run_smac(
+        args.fid, 
+        args.dim, 
+        args.use_learning_rates, 
+        args.add_popsize, 
+        args.add_sigma, 
+        args.n_workers
+    )
