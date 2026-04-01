@@ -11,7 +11,7 @@ import numpy as np
 
 from smac import Scenario,AlgorithmConfigurationFacade
 from smac.main.config_selector import ConfigSelector
-from ConfigSpace import Configuration
+from ConfigSpace import Configuration, ConfigurationSpace
 
 from modcma import c_maes
 
@@ -57,7 +57,13 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
     cma_cs = c_maes.get_configspace(
         dim, add_learning_rates=use_learning_rates, add_popsize=add_popsize, add_sigma=add_sigma
     )
-
+    cs = ConfigurationSpace()
+    for hp in cma_cs.values():
+        if hp.name  in ("sample_sigma", ):
+            continue
+        
+        cs.add(hp)
+    breakpoint()
     scenario = Scenario(
         cma_cs,
         name=str(int(time.time())) + "-" + "CMA",
