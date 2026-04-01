@@ -12,6 +12,7 @@ import numpy as np
 from smac import Scenario,AlgorithmConfigurationFacade
 from smac.main.config_selector import ConfigSelector
 from ConfigSpace import Configuration, ConfigurationSpace
+from ConfigSpace.hyperparameters import CategoricalHyperparameter
 
 from modcma import c_maes
 
@@ -51,21 +52,44 @@ def get_bbob_performance(
         )
         return np.inf
 
+def make_new(hp: CategoricalHyperparameter, filter: list[str]):
+    new_choices = [c for c in hp.choices if c not in filter]
+    return CategoricalHyperparameter(
+        name=hp.name,
+        choices=new_choices,
+        default_value=hp.default_value
+    )
 
-def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
-    print(f"Running SMAC with fid={fid}, lr={use_learning_rates} and d={dim}")
+
+def get_configspace(dim, use_learning_rates, add_popsize, add_sigma):
     cma_cs = c_maes.get_configspace(
         dim, add_learning_rates=use_learning_rates, add_popsize=add_popsize, add_sigma=add_sigma
     )
     cs = ConfigurationSpace()
     for hp in cma_cs.values():
-        if hp.name  in ("sample_sigma", ):
+        if hp.name in ("sample_sigma", "bound_correction", "center_placement"):
             continue
-        
+
+        if hp.name == "matrix_adaptation":
+            cs.add(make_new(hp, ("COVARIANCE_NO_EIGV", )))
+            continue
+
+        if hp.name == "restart_strategy":
+            cs.add(make_new(hp, ("STOP", )))
+            continue
+
+        if hp.name == "sample_transformation":
+            cs.add(make_new(hp, ("NONE", )))
+            continue
+
         cs.add(hp)
-    breakpoint()
+    return cs
+
+def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
+    print(f"Running SMAC with fid={fid}, lr={use_learning_rates} and d={dim}")
+    cs = get_configspace(dim ,use_learning_rates, add_popsize, add_sigma)
     scenario = Scenario(
-        cma_cs,
+        cs,
         name=str(int(time.time())) + "-" + "CMA",
         deterministic=False,
         n_trials=100_000,
@@ -81,8 +105,8 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
         retrain_after=500,
         min_trials=1000,
         retries=16,
-
     )
+    
     smac = AlgorithmConfigurationFacade(
         scenario, eval_func, 
         intensifier=AlgorithmConfigurationFacade.get_intensifier(
