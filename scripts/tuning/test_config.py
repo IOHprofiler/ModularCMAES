@@ -82,24 +82,22 @@ def get_ert(
 
 if __name__ == "__main__":
     config = {
-       "active": False,
-        "bound_correction": "SATURATE",
-        "center_placement": "X0",
-        "elitist": True,
-        "matrix_adaptation": "SEPARABLE",
-        "mirrored": "NONE",
-        "orthogonal": False,
-        "repelling_restart": True,
-        "restart_strategy": "RESTART",
-        "sample_sigma": True,
-        "sample_transformation": "GAUSSIAN",
+        "active": False,
+        "elitist": False,
+        "matrix_adaptation": "COVARIANCE",
+        "mirrored": "MIRRORED",
+        "orthogonal": True,
+        "repelling_restart": False,
+        "restart_strategy": "BIPOP",
+        "sample_transformation": "DOUBLE_WEIBULL",
         "sampler": "HALTON",
-        "sequential_selection": True,
-        "ssa": "CSA",
+        "sequential_selection": False,
+        "ssa": "MXNES",
         "threshold_convergence": False,
         "weights": "EXPONENTIAL"
     }
 
     settings = c_maes.settings_from_dict(5, **config)   
-    print(get_ert(settings, 1, 21))
+    print(settings)
+    print(get_ert(settings, 1, 3))
 
