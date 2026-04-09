@@ -20,6 +20,19 @@ from modcma import c_maes
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data"))
 
 
+def calc_aoc(logger: ioh.logger.Store, budget: int, fid: int, iid: int, dim: int) -> float:
+    data = logger.data()
+    data1 = data['None'][fid][dim][iid][0]
+    fvals = [x['raw_y_best'] for x in data1.values()]
+    fvals = np.array(fvals)
+    if np.isnan(fvals).any():
+        np.nan_to_num(fvals, copy=False, nan=1e8)
+    if len(fvals) < budget:
+        fvals = np.concatenate([fvals, (budget-len(fvals))*[np.min(fvals)]])
+    parts = np.log10(np.clip(fvals[:budget], 1e-8, 1e2))+8
+    return np.mean(parts)/10
+
+
 def get_bbob_performance(
     config: Configuration, seed: int = 0, fid: int = 0,  dim: int = 5
 ):
@@ -29,7 +42,11 @@ def get_bbob_performance(
     BUDGET = dim * 10_000
 
     problem = ioh.get_problem(fid, iid, dim)
-
+    logger = ioh.logger.Store(
+        triggers=[ioh.logger.trigger.ON_IMPROVEMENT], 
+        properties=[ioh.logger.property.RAWYBEST]
+    )
+    problem.attach_logger(logger)
     settings = c_maes.settings_from_config(
         dim, 
         config, 
@@ -43,14 +60,12 @@ def get_bbob_performance(
     try:
         cma = c_maes.ModularCMAES(par)
         cma.run(problem)
-        if not problem.state.final_target_found:
-            return BUDGET 
-        return problem.state.evaluations
     except Exception as e:
         print(
             f"Found target {problem.state.current_best.y} target, but exception ({e}), so run failed"
         )
         return np.inf
+    return calc_aoc(problem, logger, BUDGET)
 
 def make_new(hp: CategoricalHyperparameter, filter: list[str]):
     new_choices = [c for c in hp.choices if c not in filter]
@@ -110,7 +125,7 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
     smac = AlgorithmConfigurationFacade(
         scenario, eval_func, 
         intensifier=AlgorithmConfigurationFacade.get_intensifier(
-            scenario, max_config_calls=50
+            scenario, max_config_calls=25
         ),
         config_selector=config_selector
     )
