@@ -64,7 +64,9 @@ def get_ert(
     problem = ioh.get_problem(fid, iid, settings.dim)
     settings.budget = settings.dim * 10_000
     settings.target = problem.optimum.y + 1e-8
-
+    print(problem.meta_data)
+    print(problem.optimum)
+    print()
     suc = 0
     rt = 0
     for _ in range(n_trials):
@@ -82,22 +84,22 @@ def get_ert(
 
 if __name__ == "__main__":
     config = {
-        "active": False,
-        "elitist": False,
-        "matrix_adaptation": "COVARIANCE",
+        "active": True,
+        "elitist": True,
+        "matrix_adaptation": "MATRIX",
         "mirrored": "MIRRORED",
-        "orthogonal": True,
-        "repelling_restart": False,
-        "restart_strategy": "BIPOP",
-        "sample_transformation": "DOUBLE_WEIBULL",
+        "orthogonal": False,
+        "repelling_restart": True,
+        "restart_strategy": "RESTART",
+        "sample_transformation": "GAUSSIAN",
         "sampler": "HALTON",
-        "sequential_selection": False,
-        "ssa": "MXNES",
+        "sequential_selection": True,
+        "ssa": "SR",
         "threshold_convergence": False,
-        "weights": "EXPONENTIAL"
+        "weights": "EQUAL"
     }
 
     settings = c_maes.settings_from_dict(5, **config)   
     print(settings)
-    print(get_ert(settings, 1, 3))
+    print(get_ert(settings, 1, 4))
 
