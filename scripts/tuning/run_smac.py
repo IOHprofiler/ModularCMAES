@@ -9,7 +9,10 @@ from functools import partial
 import ioh
 import numpy as np
 
-from smac import Scenario,AlgorithmConfigurationFacade
+from smac import Scenario, AlgorithmConfigurationFacade
+from smac.acquisition.maximizer import (
+    LocalAndSortedRandomSearch,
+)
 from smac.main.config_selector import ConfigSelector
 from ConfigSpace import Configuration, ConfigurationSpace
 from ConfigSpace.hyperparameters import CategoricalHyperparameter
@@ -20,9 +23,38 @@ from modcma import c_maes
 DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data"))
 
 
-def calc_aoc(logger: ioh.logger.Store, budget: int, fid: int, iid: int, dim: int) -> float:
+def calc_aoc(problem: ioh.ProblemType, logger: ioh.logger.Store, budget: int) -> float:
+    """
+    Compute the Area Over the Curve (AOC) for an optimization run.
+
+    The AOC summarizes optimization performance over time by averaging
+    the log-scaled best-so-far objective values across a fixed evaluation
+    budget. Lower values indicate better and faster convergence.
+
+    Steps:
+    - Extract best-so-far objective values ("raw_y_best") from the logger.
+    - Replace NaNs with a large penalty value (1e8).
+    - Pad the trajectory to the full budget using the best observed value.
+    - Clip values to [1e-8, 1e2] and apply log10 scaling.
+    - Shift values to [0, 10] and normalize to [0, 1].
+    - Return the mean over the budget (the AOC score).
+
+    Parameters
+    ----------
+    problem : ioh.ProblemType
+        The evaluated problem
+    logger : ioh.logger.Store
+        IOH logger containing experiment data.
+    budget : int
+        Maximum number of function evaluations to consider.
+    Returns
+    -------
+    float
+        AOC score in [0, 1], where lower values indicate better performance.
+    """
+    
     data = logger.data()
-    data1 = data['None'][fid][dim][iid][0]
+    data1 = data['None'][problem.meta_data.problem_id][problem.meta_data.n_variables][problem.meta_data.instance][0]
     fvals = [x['raw_y_best'] for x in data1.values()]
     fvals = np.array(fvals)
     if np.isnan(fvals).any():
@@ -43,7 +75,7 @@ def get_bbob_performance(
 
     problem = ioh.get_problem(fid, iid, dim)
     logger = ioh.logger.Store(
-        triggers=[ioh.logger.trigger.ON_IMPROVEMENT], 
+        triggers=[ioh.logger.trigger.ALWAYS], 
         properties=[ioh.logger.property.RAWYBEST]
     )
     problem.attach_logger(logger)
@@ -55,17 +87,30 @@ def get_bbob_performance(
         ub=problem.bounds.ub,
         lb=problem.bounds.lb
     )
+    settings.modules.center_placement = c_maes.options.CenterPlacement.UNIFORM
     par = c_maes.Parameters(settings)
 
     try:
         cma = c_maes.ModularCMAES(par)
         cma.run(problem)
+        aoc = calc_aoc(problem, logger, BUDGET)
     except Exception as e:
         print(
             f"Found target {problem.state.current_best.y} target, but exception ({e}), so run failed"
         )
-        return np.inf
-    return calc_aoc(problem, logger, BUDGET)
+        aoc = np.inf
+    
+    extra = {
+        "fid": fid,
+        "iid": iid,
+        "dim": dim,
+        "target": float(problem.optimum.y + 9e-9),
+        "final_y": float(problem.state.current_best.y),
+        "evals": int(problem.state.evaluations),
+        "hit_target": bool(problem.state.current_best.y <= problem.optimum.y + 9e-9),
+        "precision": float(abs(problem.state.current_best.y - problem.optimum.y)),
+    }
+    return aoc, extra
 
 def make_new(hp: CategoricalHyperparameter, filter: list[str]):
     new_choices = [c for c in hp.choices if c not in filter]
@@ -117,8 +162,8 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
     eval_func = partial(get_bbob_performance, fid=fid, dim=dim)
     config_selector = ConfigSelector(
         scenario,
-        retrain_after=500,
-        min_trials=1000,
+        retrain_after=250,
+        min_trials=500,
         retries=16,
     )
     
@@ -127,7 +172,23 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
         intensifier=AlgorithmConfigurationFacade.get_intensifier(
             scenario, max_config_calls=25
         ),
-        config_selector=config_selector
+        config_selector=config_selector,
+        initial_design = AlgorithmConfigurationFacade.get_initial_design(scenario), 
+        model = AlgorithmConfigurationFacade.get_model(
+            scenario,
+            n_trees=5,
+            ratio_features=0.5,
+            min_samples_split=10,
+            min_samples_leaf=5,
+            max_depth=10,
+            bootstrapping=True,
+            pca_components=13
+        ),
+        acquisition_maximizer=LocalAndSortedRandomSearch(
+            scenario.configspace,
+            seed=scenario.seed,
+            challengers=500
+        )
     )
     smac.optimize()
 

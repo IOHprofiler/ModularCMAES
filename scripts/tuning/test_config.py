@@ -1,6 +1,5 @@
 import ioh
 import numpy as np
-from ConfigSpace import Configuration
 
 from modcma import c_maes
 
@@ -84,22 +83,22 @@ def get_ert(
 
 if __name__ == "__main__":
     config = {
-        "active": True,
-        "elitist": True,
-        "matrix_adaptation": "MATRIX",
-        "mirrored": "MIRRORED",
-        "orthogonal": False,
-        "repelling_restart": True,
-        "restart_strategy": "RESTART",
-        "sample_transformation": "GAUSSIAN",
-        "sampler": "HALTON",
-        "sequential_selection": True,
-        "ssa": "SR",
-        "threshold_convergence": False,
-        "weights": "EQUAL"
+        'active': True,
+        'elitist': False,
+        'matrix_adaptation': 'CMSA',
+        'mirrored': 'MIRRORED',
+        'orthogonal': False,
+        'repelling_restart': False,
+        'restart_strategy': 'IPOP',
+        'sample_transformation': 'CAUCHY',
+        'sampler': 'UNIFORM',
+        'sequential_selection': True,
+        'ssa': 'TPA',
+        'threshold_convergence': True,
+        'weights': 'DEFAULT'
     }
 
     settings = c_maes.settings_from_dict(5, **config)   
     print(settings)
-    print(get_ert(settings, 1, 4))
+    print(get_ert(settings, 1, 2))
 

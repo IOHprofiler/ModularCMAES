@@ -9,6 +9,17 @@ from collections import defaultdict
 import numpy as np
 
 
+def min_rt(config_rt):
+    amin = float("inf")
+    cid = None
+    for k, values in config_rt.items():
+        if len(values) < 10: continue
+        if (kmin:= np.mean(values)) < amin:
+            amin = kmin
+            cid = k
+    return cid, amin, config_rt[cid]
+    
+
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--fid", default=1, type=int)
@@ -38,26 +49,39 @@ if __name__ == "__main__":
             print("cannot load data")
             continue
         
-        configs = defaultdict(list)
-        
+        config_costs = defaultdict(list)
+        config_rt = defaultdict(list)
+        records = defaultdict(list)
+
         for config in data['data']:
             cost, cid = config['cost'], str(config['config_id'])
+            records[cid].append(config)
             if cost != 1_000_000 and np.isfinite(cost):
-                configs[cid].append(float(cost))
+                config_costs[cid].append(float(cost))
+                rt = config['additional_info']['evals']
+                solved = config['additional_info']['hit_target']
+                config_rt[cid].append(rt if solved else 50_000)
 
         amin = float('inf')
         cmin = None
-        for cid, values in configs.items():
-            mvalue = round(np.mean(values), 1)
+        for cid, values in config_costs.items():
+            mvalue = np.mean(values)
             if args.show_all_feasible:
                 print(cid, mvalue, len(values), data['configs'][cid])     
-            if len(values) > 20 and mvalue < amin:
+            if len(values) > 10 and mvalue < amin:
                 amin = mvalue
                 cmin = cid
+
+
         print(f"{len(data['data'])} configs evaluated")
         if cmin is None:
             print("No best solutions yet")
         else:
-            print(f"lowest avg. cost ({cmin}):", amin)
+            print(f"lowest avg. cost ({cmin}): {amin: .6f}", end = ' - ')
+            print(f"avg. rt: {np.mean(config_rt[cmin]): .2f}")
             pprint(data['configs'][cmin])
+
+        # cid, m_rt, rts = min_rt(config_rt)
+        # print(cid, m_rt, np.mean(config_costs[cid]))
+        # pprint(records[cid])
         print()        
