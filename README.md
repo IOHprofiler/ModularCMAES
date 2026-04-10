@@ -354,8 +354,8 @@ However, note that this interface is **not available** in the C++ backend.
 
 The CMA-ES Modular package provides various modules, grouped into 13 categories. For each of these categories a given option can be selected, which can be arbitrarly combined. The following table lists the categories and the available options. Not all modules are available in both versions (i.e. some are only implemented in C++), an overview is given in the table. By default, the first option in the table is selected for a given category. Boolean modules, i.e. modules that only can be turned on or off are turned off by default.
 
-<table>
-<tr ><td style="border: none!important;">
+<!-- <table>
+<tr ><td style="border: none!important;"> -->
 | Category | Option | Python | C++ |
 |---|---|---|---|
 | [Matrix Adaptation](#matrix-adaptation) | COVARIANCE | :green_circle: | :green_circle: |
@@ -364,6 +364,7 @@ The CMA-ES Modular package provides various modules, grouped into 13 categories.
 |  | NONE | :red_circle: | :green_circle: |
 |  | CHOLESKY | :red_circle: | :green_circle: |
 |  | CMSA | :red_circle: | :green_circle: |
+|  | COVARIANCE_NO_EIGV | :red_circle: | :green_circle: |
 |  | NATURAL_GRADIENT | :red_circle: | :green_circle: |
 | [Active Update](#active-update) | Off/On | :green_circle: | :green_circle: |
 | [Elitism](#elitism) | Off/On | :green_circle: | :green_circle: |
@@ -375,7 +376,8 @@ The CMA-ES Modular package provides various modules, grouped into 13 categories.
 |  | SOBOL | :green_circle: | :green_circle: |
 |  | HALTON | :green_circle: | :green_circle: |
 |  | UNIFORM | :red_circle: | :green_circle: |
-| [Sample Transformer](#sample-transformer) | GAUSSIAN | :red_circle: | :green_circle: |
+| [Sample Transformer](#sample-transformer) 
+|  | GAUSSIAN | :red_circle: | :green_circle: |
 |  | SCALED_UNIFORM | :red_circle: | :green_circle: |
 |  | LAPLACE | :red_circle: | :green_circle: |
 |  | LOGISTIC | :red_circle: | :green_circle: |
@@ -414,8 +416,7 @@ The CMA-ES Modular package provides various modules, grouped into 13 categories.
 |  | ZERO | :red_circle: | :green_circle: |
 |  | UNIFORM | :red_circle: | :green_circle: |
 |  | CENTER | :red_circle: | :green_circle: |
-
-</td></tr> </table>
+<!-- </td></tr> </table> -->
 
 
 **Notes**  
