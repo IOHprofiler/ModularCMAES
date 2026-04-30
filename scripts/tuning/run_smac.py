@@ -14,7 +14,7 @@ from smac.acquisition.maximizer import (
     LocalAndSortedRandomSearch,
 )
 from smac.main.config_selector import ConfigSelector
-from ConfigSpace import Configuration, ConfigurationSpace
+from ConfigSpace import Configuration, ConfigurationSpace, ForbiddenGreaterThanRelation
 from ConfigSpace.hyperparameters import CategoricalHyperparameter
 
 from modcma import c_maes
@@ -143,6 +143,9 @@ def get_configspace(dim, use_learning_rates, add_popsize, add_sigma):
             continue
 
         cs.add(hp)
+
+    if add_popsize:
+        cs.add(ForbiddenGreaterThanRelation(cs["mu0"], cs["lambda0"]))
     return cs
 
 def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
@@ -154,7 +157,7 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
         deterministic=False,
         n_trials=100_000,
         output_directory=os.path.join(
-            DATA_DIR, f"BBOB_F{fid}_{dim}D_LR{use_learning_rates}"
+            DATA_DIR, f"BBOB_F{fid}_{dim}D_LR{use_learning_rates}{add_popsize}"
         ),
         n_workers=n_workers,
     )
@@ -170,7 +173,7 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
     smac = AlgorithmConfigurationFacade(
         scenario, eval_func, 
         intensifier=AlgorithmConfigurationFacade.get_intensifier(
-            scenario, max_config_calls=25
+            scenario, max_config_calls=50
         ),
         config_selector=config_selector,
         initial_design = AlgorithmConfigurationFacade.get_initial_design(scenario), 

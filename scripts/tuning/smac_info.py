@@ -1,12 +1,14 @@
 import os
-import shutil
 import json
+from itertools import accumulate
+
 from pprint import pprint
 from time import sleep
 from argparse import ArgumentParser
 from collections import defaultdict
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 
 def min_rt(config_rt):
@@ -18,7 +20,39 @@ def min_rt(config_rt):
             amin = kmin
             cid = k
     return cid, amin, config_rt[cid]
+
+def ert(values: list[float]):
+    total = 0
+    n_suc = 0
+    for v in values:
+        if v < 50_000:
+            n_suc += 1
+        total += v
+    if n_suc == 0:
+        return float("inf")
+    return total / n_suc
+
+def plot_convergence(fid: int, dim:int, config_rt: dict[str, list[float]]):
+    sorted_keys = np.array(list(sorted(map(int, config_rt.keys()))))
+    sorted_rts = np.array([    
+        ert(config_rt[str(x)])
+        for x in sorted_keys
+    ])
+    mins = list(accumulate(sorted_rts, min))
+    min_idx = np.array([
+        i for i, (rt, m) in enumerate(zip(sorted_rts, mins)) 
+        if rt == m and (i == 0 or m < mins[i-1])
+    ])
+    plt.figure()
+    plt.scatter(sorted_keys, sorted_rts,  marker='o')
+    plt.plot(sorted_keys[min_idx], sorted_rts[min_idx],  
+             marker='o', linestyle='dashed', color='red')
     
+    plt.grid()
+    plt.xlabel('config id')
+    plt.ylabel('ERT')
+    plt.yscale('log')
+    plt.title(f'Function {fid} {dim}D')    
 
 if __name__ == "__main__":
     parser = ArgumentParser()
@@ -27,6 +61,7 @@ if __name__ == "__main__":
     parser.add_argument("--root", default="data", type=str) 
     parser.add_argument("--show_all_feasible", action="store_true")
     parser.add_argument("--all", action="store_true")
+    parser.add_argument("--plot", action="store_true")
     args = parser.parse_args()
     
     folders = os.listdir(args.root)
@@ -78,10 +113,15 @@ if __name__ == "__main__":
             print("No best solutions yet")
         else:
             print(f"lowest avg. cost ({cmin}): {amin: .6f}", end = ' - ')
-            print(f"avg. rt: {np.mean(config_rt[cmin]): .2f}")
+            print(f"ERT: {ert(config_rt[cmin]): .2f}")
             pprint(data['configs'][cmin])
 
+        if args.plot:
+            fid = int(folder.split("F")[1].split("_")[0])
+            plot_convergence(fid, args.dim, config_rt)
         # cid, m_rt, rts = min_rt(config_rt)
         # print(cid, m_rt, np.mean(config_costs[cid]))
         # pprint(records[cid])
         print()        
+    if args.plot:
+        plt.show()

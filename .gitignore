@@ -31,6 +31,7 @@ MANIFEST
 *.manifest
 *.spec
 
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt
@@ -114,5 +115,8 @@ scripts/distributions/*pdf
 scripts/distributions/*png
 scripts/distributions/*pkl
 scripts/distributions/figures
+
+scripts/tuning/*pdf
+scripts/tuning/configs_*.csv
 
 data_old

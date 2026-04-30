@@ -7,11 +7,9 @@ from ConfigSpace import (
     ConfigurationSpace,
     Configuration,
     Categorical,
-    CategoricalHyperparameter,
     ForbiddenGreaterThanRelation,
     UniformIntegerHyperparameter,
     NormalFloatHyperparameter,
-    EqualsCondition,
 )
 
 from .cmaescpp import (

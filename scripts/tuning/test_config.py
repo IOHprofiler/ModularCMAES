@@ -1,3 +1,5 @@
+from argparse import ArgumentParser
+
 import ioh
 import numpy as np
 
@@ -63,17 +65,15 @@ def get_ert(
     problem = ioh.get_problem(fid, iid, settings.dim)
     settings.budget = settings.dim * 10_000
     settings.target = problem.optimum.y + 1e-8
-    print(problem.meta_data)
-    print(problem.optimum)
-    print()
     suc = 0
     rt = 0
     for _ in range(n_trials):
         es = c_maes.ModularCMAES(settings)
+        es.p.repelling.coverage = 10
         es.run(problem)
+
         suc += problem.state.final_target_found
         rt  += problem.state.evaluations
-        print(problem.state)
         problem.reset()
 
     if suc == 0:
@@ -82,23 +82,15 @@ def get_ert(
 
 
 if __name__ == "__main__":
+    parser = ArgumentParser()
+    parser.add_argument("--fid", type=int, default=1)
+    parser.add_argument("--reps", type=int, default=50)
+    args = parser.parse_args() 
     config = {
-        'active': True,
-        'elitist': False,
-        'matrix_adaptation': 'CMSA',
-        'mirrored': 'MIRRORED',
-        'orthogonal': False,
-        'repelling_restart': False,
-        'restart_strategy': 'IPOP',
-        'sample_transformation': 'CAUCHY',
-        'sampler': 'UNIFORM',
-        'sequential_selection': True,
-        'ssa': 'TPA',
-        'threshold_convergence': True,
-        'weights': 'DEFAULT'
+        'ssa': "PSR",
     }
 
     settings = c_maes.settings_from_dict(5, **config)   
     print(settings)
-    print(get_ert(settings, 1, 2))
+    print("ERT:", get_ert(settings, 1, args.fid, args.reps))
 
