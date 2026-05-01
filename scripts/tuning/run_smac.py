@@ -20,7 +20,7 @@ from ConfigSpace.hyperparameters import CategoricalHyperparameter
 from modcma import c_maes
 
 
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data"))
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data_new"))
 
 
 def calc_aoc(problem: ioh.ProblemType, logger: ioh.logger.Store, budget: int) -> float:
@@ -150,7 +150,7 @@ def get_configspace(dim, use_learning_rates, add_popsize, add_sigma):
 
 def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
     print(f"Running SMAC with fid={fid}, lr={use_learning_rates} and d={dim}")
-    cs = get_configspace(dim ,use_learning_rates, add_popsize, add_sigma)
+    cs = get_configspace(dim, use_learning_rates, add_popsize, add_sigma)
     scenario = Scenario(
         cs,
         name=str(int(time.time())) + "-" + "CMA",
@@ -165,7 +165,7 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
     eval_func = partial(get_bbob_performance, fid=fid, dim=dim)
     config_selector = ConfigSelector(
         scenario,
-        retrain_after=250,
+        retrain_after=100,
         min_trials=500,
         retries=16,
     )
@@ -183,7 +183,7 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
             ratio_features=0.5,
             min_samples_split=10,
             min_samples_leaf=5,
-            max_depth=10,
+            max_depth=8,
             bootstrapping=True,
             pca_components=13
         ),

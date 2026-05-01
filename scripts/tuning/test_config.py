@@ -74,6 +74,7 @@ def get_ert(
 
         suc += problem.state.final_target_found
         rt  += problem.state.evaluations
+        print(problem.state)
         problem.reset()
 
     if suc == 0:
@@ -87,7 +88,21 @@ if __name__ == "__main__":
     parser.add_argument("--reps", type=int, default=50)
     args = parser.parse_args() 
     config = {
-        'ssa': "PSR",
+        'active': True,
+    'elitist': True,
+    'lambda0': 4,
+    'matrix_adaptation': 'MATRIX',
+    'mirrored': 'PAIRWISE',
+    'mu0': 4,
+    'orthogonal': True,
+    'repelling_restart': True,
+    'restart_strategy': 'NONE',
+    'sample_transformation': 'LOGISTIC',
+    'sampler': 'HALTON',
+    'sequential_selection': True,
+    'ssa': 'MXNES',
+    'threshold_convergence': True,
+    'weights': 'DEFAULT'
     }
 
     settings = c_maes.settings_from_dict(5, **config)   

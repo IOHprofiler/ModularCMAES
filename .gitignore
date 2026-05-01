@@ -116,7 +116,9 @@ scripts/distributions/*png
 scripts/distributions/*pkl
 scripts/distributions/figures
 
-scripts/tuning/*pdf
+scripts/tuning/figures
 scripts/tuning/configs_*.csv
+scripts/tuning/data*
+script/tuning/data_new/*
 
 data_old

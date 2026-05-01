@@ -58,14 +58,14 @@ if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--fid", default=1, type=int)
     parser.add_argument("--dim", default=5, type=int)
-    parser.add_argument("--root", default="data", type=str) 
+    parser.add_argument("--root", default="data_new", type=str) 
     parser.add_argument("--show_all_feasible", action="store_true")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--plot", action="store_true")
     args = parser.parse_args()
     
     folders = os.listdir(args.root)
-    arg_folder = f"BBOB_F{args.fid}_{args.dim}D_LRFalse"
+    arg_folder = f"BBOB_F{args.fid}_{args.dim}D_LRFalseTrue"
     
     for folder in sorted(os.listdir(args.root)):
         if not args.all and not folder.endswith(arg_folder): continue

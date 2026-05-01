@@ -54,9 +54,10 @@ def calculate_potential(centers, problem):
     return potential, n_duplicate_runs
 
 
-def plot_contour(X, Y, Z, colorbar=True):
+def plot_contour(X, Y, Z, colorbar=True, vmin=-2, vmax=2):
     plt.contourf(
-        X, Y, np.log10(Z), levels=200, cmap="Spectral", zorder=-1, vmin=-1, vmax=2.5
+        X, Y, np.log10(Z), levels=200, cmap="Spectral", 
+        zorder=-1, vmin=vmin, vmax=vmax
     )
     plt.xlabel(R"$x_1$")
     plt.ylabel(R"$x_2$")
@@ -498,12 +499,12 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = F
     # c_cmaes.constants.tol_min_sigma = 0.01
 
     modules = c_cmaes.parameters.Modules()
-    modules.restart_strategy = c_cmaes.options.BIPOP
+    modules.restart_strategy = c_cmaes.options.RestartStrategy.RESTART
     # modules.bound_correction = c_cmaes.options.SATURATE
-    modules.elitist = True
-    modules.active = True
+    # modules.elitist = True
+    # modules.active = True
     modules.repelling_restart = rep
-    modules.center_placement = c_cmaes.options.UNIFORM
+    modules.center_placement = c_cmaes.options.CenterPlacement.UNIFORM
     settings = c_cmaes.parameters.Settings(
         dim,
         modules,
