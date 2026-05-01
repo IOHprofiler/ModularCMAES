@@ -167,7 +167,7 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
         scenario,
         retrain_after=100,
         min_trials=500,
-        retries=16,
+        max_new_config_tries=16,
     )
     
     smac = AlgorithmConfigurationFacade(
