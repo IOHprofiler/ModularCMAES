@@ -191,13 +191,13 @@ To facilitate **automated hyperparameter tuning**, ModularCMAES now provides fun
 The configuration space is automatically derived from the available modules and tunable parameters via the function:
 
 ```python
-from modcma.cmaescpp import get_configspace
+from modcma.c_maes import get_configspace
 ```
 
 Usage:
 
 ```python
-from modcma.cmaescpp import get_configspace
+from modcma.c_maes import get_configspace
 
 # Create a configuration space for a 10-dimensional problem
 cs = get_configspace(dim=10)
@@ -222,7 +222,7 @@ cs_modules = get_configspace(add_popsize=False, add_sigma=False, add_learning_ra
 Once a configuration has been selected—either manually or from a tuner—the library provides a simple interface to construct a corresponding `Settings` object:
 
 ```python
-from modcma.cmaescpp import settings_from_config
+from modcma.c_maes import settings_from_config
 from ConfigSpace import Configuration
 
 # Sample or load a configuration
