@@ -120,5 +120,5 @@ scripts/tuning/figures
 scripts/tuning/configs_*.csv
 scripts/tuning/data*
 script/tuning/data_new/*
-
+solutions/*
 data_old

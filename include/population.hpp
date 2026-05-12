@@ -15,13 +15,40 @@ struct Population
     size_t d;
     size_t n;
 
-    Population(const size_t d, const size_t n)
-        : X(d, n), X_transformed(d, n), Z(d, n), Y(d, n), S(d, n), f(Vector::Constant(n, std::numeric_limits<Float>::infinity())), t(n), d(d), n(n) {}
+    Population(const size_t d, const size_t n) :
+        X(d, n),
+        X_transformed(d, n),
+        Z(d, n),
+        Y(d, n),
+        S(d, n),
+        f(Vector::Constant(n, std::numeric_limits<Float>::infinity())),
+        t(n),
+        d(d),
+        n(n)
+    {
+    }
 
-    Population(const Matrix &X, const Matrix &Z, const Matrix &Y, const Vector &f, const Matrix &S)
-        : X(X), X_transformed(X), Z(Z), Y(Y), S(S), f(f),  t(f.rows()), d(X.rows()), n(X.cols()) {}
+    Population(const Matrix &X,
+               const Matrix &Z,
+               const Matrix &Y,
+               const Vector &f,
+               const Matrix &S) :
+        X(X),
+        X_transformed(X),
+        Z(Z),
+        Y(Y),
+        S(S),
+        f(f),
+        t(f.rows()),
+        d(X.rows()),
+        n(X.cols())
+    {
+    }
 
-    Population() : Population(0, 0) {}
+    Population() :
+        Population(0, 0)
+    {
+    }
 
     void sort();
 

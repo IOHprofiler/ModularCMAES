@@ -5,52 +5,64 @@
 
 namespace parameters
 {
-    struct Parameters;
+struct Parameters;
 }
 
 namespace center
 {
-    struct Placement
+struct Placement
+{
+    virtual void operator()(parameters::Parameters &p) = 0;
+};
+
+struct X0 : Placement
+{
+    void operator()(parameters::Parameters &p) override;
+};
+
+struct Uniform : Placement
+{
+    void operator()(parameters::Parameters &p) override;
+};
+
+struct Zero : Placement
+{
+    void operator()(parameters::Parameters &p) override;
+};
+
+struct Center : Placement
+{
+    void operator()(parameters::Parameters &p) override;
+};
+
+struct NoveltyWeighted : Placement
+{
+    void operator()(parameters::Parameters &p) override;
+};
+
+struct MaximinTaboo : Placement
+{
+    void operator()(parameters::Parameters &p) override;
+};
+
+inline std::shared_ptr<Placement> get(const parameters::CenterPlacement &p)
+{
+    using namespace parameters;
+    switch (p)
     {
-        virtual void operator()(parameters::Parameters &p) = 0;
-    };
-
-    struct X0 : Placement
-    {
-        void operator()(parameters::Parameters &p) override;
-    };
-
-    struct Uniform : Placement
-    {
-        void operator()(parameters::Parameters &p) override;
-    };
-
-    struct Zero : Placement
-    {
-        void operator()(parameters::Parameters &p) override;
-    };
-
-    struct Center : Placement
-    {
-        void operator()(parameters::Parameters &p) override;
-    };
-
-
-    inline std::shared_ptr<Placement> get(const parameters::CenterPlacement &p)
-    {
-
-        using namespace parameters;
-        switch (p)
-        {
-        case CenterPlacement::UNIFORM:
-            return std::make_shared<Uniform>();
-        case CenterPlacement::ZERO:
-            return std::make_shared<Zero>();
-        case CenterPlacement::CENTER:
-            return std::make_shared<Center>();
-        default:
-        case CenterPlacement::X0:
-            return std::make_shared<X0>();
-        }
+    case CenterPlacement::UNIFORM:
+        return std::make_shared<Uniform>();
+    case CenterPlacement::ZERO:
+        return std::make_shared<Zero>();
+    case CenterPlacement::CENTER:
+        return std::make_shared<Center>();
+    case CenterPlacement::NOVELTY_WEIGHTED:
+        return std::make_shared<NoveltyWeighted>();
+    case CenterPlacement::MAXIMIN_TABOO:
+        return std::make_shared<MaximinTaboo>();
+    default:
+    case CenterPlacement::X0:
+        return std::make_shared<X0>();
     }
 }
+} // namespace center
