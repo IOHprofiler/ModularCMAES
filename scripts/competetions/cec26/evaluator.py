@@ -419,32 +419,33 @@ def print_aggregates_by_function_dim(results: list[RunResult]):
     print("-" * 105)
     print()
 
-def print_results(results: list[RunResult]):
+def print_results(results: list[RunResult], per_file: bool = False):
     if not results:
         print("No valid solution CSV files found.")
         return
-
-    print()
-    print("Per-file results")
-    print("-" * 120)
-    print(
-        f"{'file':35s} "
-        f"{'pid':>3s} {'pin':>3s} {'dim':>3s} "
-        f"{'NGM':>4s} {'Nsol':>5s} "
-        f"{'RPR':>10s} {'Prec':>10s} {'F1':>10s} {'Overall':>10s} "
-        f"{'Missing':>7s}"
-    )
-    print("-" * 120)
-
-    for r in results:
+    
+    if per_file:
+        print()
+        print("Per-file results")
+        print("-" * 120)
         print(
-            f"{r.file.name:35s} "
-            f"{r.pid:3d} {r.pin:3d} {r.dim:3d} "
-            f"{r.ngm:4d} {r.nsol:5d} "
-            f"{r.rpr:10.6f} {r.precision:10.6f} "
-            f"{r.f1:10.6f} {r.overall:10.6f} "
-            f"{r.missing_optima:7d}"
+            f"{'file':35s} "
+            f"{'pid':>3s} {'pin':>3s} {'dim':>3s} "
+            f"{'NGM':>4s} {'Nsol':>5s} "
+            f"{'RPR':>10s} {'Prec':>10s} {'F1':>10s} {'Overall':>10s} "
+            f"{'Missing':>7s}"
         )
+        print("-" * 120)
+
+        for r in results:
+            print(
+                f"{r.file.name:35s} "
+                f"{r.pid:3d} {r.pin:3d} {r.dim:3d} "
+                f"{r.ngm:4d} {r.nsol:5d} "
+                f"{r.rpr:10.6f} {r.precision:10.6f} "
+                f"{r.f1:10.6f} {r.overall:10.6f} "
+                f"{r.missing_optima:7d}"
+            )
 
     rprs = np.array([r.rpr for r in results], dtype=float)
     f1s = np.array([r.f1 for r in results], dtype=float)

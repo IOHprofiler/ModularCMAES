@@ -99,7 +99,7 @@ def write_found_solutions_csv(
     pin: int,
     dim: int,
     out_dir: str | Path = ".",
-    overwrite: bool = True
+    overwrite: bool = True,
 ):
     """
     Write found solutions as CSV rows:
@@ -133,18 +133,30 @@ def write_found_solutions_csv(
 
     return path
 
-def run_modcma(fid, iid, dim, *, interactive=False, plot_every=5, lambda0=None):
+def run_modcma(
+    fid, iid, dim, *, 
+    interactive=False, 
+    plot_every=5, 
+    lambda0=None,
+    repelling_type: str ="COVERAGE", # ADAPTIVE, COVERAGE
+    restart_strategy: str ="RESTART",
+    center_placement: str ="NOVELTY_WEIGHTED", # UNIFORM, MAXIMIN_TABOO, NOVELTY_WEIGHTED
+    elitist: bool = False,
+    check_per_iteration: bool = False
+):
+    
     problem = ProblemMM(fid, iid, dim)
     problem.form()
 
     settings = c_maes.settings_from_dict(
         dim,
         **dict(
-            repelling_type="ADAPTIVE",
-            restart_strategy="RESTART",
-            bound_correction="RESAMPLE",
+            repelling_type=repelling_type,
+            restart_strategy=restart_strategy,
+            center_placement=center_placement,
             lambda0=lambda0,
-            center_placement="NOVELTY_WEIGHTED",
+            elitist=elitist,
+            bound_correction="RESAMPLE",
             budget=20_000 * dim,
             sigma0=1.0,
             lb=np.ones(dim) * problem.low_bound,
@@ -161,11 +173,10 @@ def run_modcma(fid, iid, dim, *, interactive=False, plot_every=5, lambda0=None):
 
     es.p.repelling.coverage = 2
 
-    print("target", problem.minima.f)
-    print("n optima", problem.minima.X.shape)
 
     plotter = None
     if interactive and dim == 2:
+        check_per_iteration = True
         plt.ion()
         plotter = ModCMABlitPlotter.from_problem_mm(
             problem,
@@ -181,33 +192,32 @@ def run_modcma(fid, iid, dim, *, interactive=False, plot_every=5, lambda0=None):
         es.step(problem._func_eval_single)
         iteration += 1
 
-        archive_size = len(es.p.repelling.archive)
+        if check_per_iteration:
+            if (archive_size:=len(es.p.repelling.archive)) != n_solutions:
+                n_solutions = archive_size
 
-        if archive_size != n_solutions:
-            n_solutions = archive_size
+                success, unique_archive_optima = archive_found_all_optima(
+                    es.p.repelling.archive,
+                    n_unique_optima=problem.minima.X.shape[0],
+                    target_y=target_y,
+                    verbose=interactive
+                )
 
-            success, unique_archive_optima = archive_found_all_optima(
-                es.p.repelling.archive,
-                n_unique_optima=problem.minima.X.shape[0],
-                target_y=target_y,
-                verbose=interactive
-            )
+                if success:
+                    break
 
-            if success:
-                break
+            if es.p.criteria.any() and interactive:
+                print("reason", es.p.criteria.reason())
 
-        if es.p.criteria.any() and interactive:
-            print("reason", es.p.criteria.reason())
-
-        if plotter is not None:
-            if lambda0 != 1:
-                if iteration % plot_every != 0:
-                    continue
-            else:
-                if not es.p.stats.has_improved:
-                    continue
-            
-            plotter.update(es)
+            if plotter is not None:
+                if lambda0 != 1:
+                    if iteration % plot_every != 0:
+                        continue
+                else:
+                    if not es.p.stats.has_improved:
+                        continue
+                
+                plotter.update(es)
 
     success, unique_archive_optima = archive_found_all_optima(
         es.p.repelling.archive,
@@ -220,7 +230,7 @@ def run_modcma(fid, iid, dim, *, interactive=False, plot_every=5, lambda0=None):
         pid=fid,
         pin=iid,
         dim=dim,
-        out_dir="solutions",
+        out_dir=f"solutions_{repelling_type}_{center_placement}_{restart_strategy}_{lambda0}_elitist{elitist}",
     )
     print(fid, iid, dim, es.p.stats.evaluations, csv_path)
 
@@ -234,7 +244,7 @@ def run_modcma(fid, iid, dim, *, interactive=False, plot_every=5, lambda0=None):
 def main():
     functions = tuple(range(1, 17))
     instances = tuple(range(1, 16))
-    dimensions = (2, 5, 10, 20)
+    dimensions = (2, )#5, 10, 20)
 
     c_maes.utils.set_seed(69)
     settings = tuple(product(functions, instances, dimensions))
@@ -245,4 +255,6 @@ def main():
         
 
 if __name__ == "__main__":
-    main()
+    # main()
+
+    run_modcma(1, 1, 2, interactive=True)

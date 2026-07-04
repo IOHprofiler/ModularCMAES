@@ -22,6 +22,7 @@ namespace distance
 Float manhattan(const Vector &u, const Vector &v);
 Float euclidian(const Vector &u, const Vector &v);
 Float mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv);
+Float quadratic(const Vector &u, const Vector &v, const Matrix &M);
 
 bool hill_valley_test(const Solution &u, const Solution &v, FunctionType &f, const size_t n_evals);
 
@@ -49,21 +50,14 @@ struct TabooPoint
     int checked_count = 0;
     Float last_rejection_rate = 0.0;
 
-    // Old-style/default constructor: useful for coverage-based repelling.
-    TabooPoint(const Solution &s, const Float radius) :
-        solution(s),
-        radius(radius),
-        shrinkage(std::pow(0.95, 1.0 / static_cast<Float>(s.x.size()))),
-        n_rep(1),
-        criticality(0.0)
-    {
-    }
+    Matrix M; // Metric matrix
 
     // Adaptive constructor: radius bounds are used by adaptive repelling.
     TabooPoint(const Solution &s,
                const Float radius,
                const Float min_radius,
-               const Float max_radius) :
+               const Float max_radius,
+               const Matrix &M) :
         solution(s),
         radius(radius),
         shrinkage(std::pow(0.95, 1.0 / static_cast<Float>(s.x.size()))),
@@ -74,7 +68,14 @@ struct TabooPoint
         duplicate_evaluations(0.0),
         rejected_count(0),
         checked_count(0),
-        last_rejection_rate(0.0)
+        last_rejection_rate(0.0),
+        M(M)
+    {
+    }
+
+    // Old-style/default constructor: useful for coverage-based repelling.
+    TabooPoint(const Solution &s, const Float radius, const Matrix &M) :
+        TabooPoint(s, radius, 0.0, std::numeric_limits<Float>::infinity(), M)
     {
     }
 

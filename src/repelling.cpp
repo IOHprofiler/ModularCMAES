@@ -21,6 +21,13 @@ Float mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv)
     return std::sqrt(delta.transpose() * C_inv * delta);
 }
 
+Float quadratic(const Vector &u, const Vector &v, const Matrix &M)
+{
+    const auto delta = u - v;
+    const Float q = delta.transpose() * M * delta;
+    return std::sqrt(std::max<Float>(0.0, q));
+}
+
 //! Returns true when u belongs to the same basin as v.
 bool hill_valley_test_p(const Solution &u,
                         const Solution &v,
@@ -75,7 +82,7 @@ bool TabooPoint::rejects(const Vector &xi,
 {
     const Float rejection_radius = std::pow(shrinkage, attempts) * radius;
 
-    const Float delta_xi = p.adaptation->distance(xi, solution.x) / p.mutation->sigma;
+    const Float delta_xi = distance::quadratic(xi, solution.x, M) / p.mutation->sigma;
 
     return delta_xi < rejection_radius;
 }
@@ -89,7 +96,7 @@ bool TabooPoint::shares_basin(FunctionType &objective,
 
 void TabooPoint::calculate_criticality(const parameters::Parameters &p)
 {
-    const Float delta_m = p.adaptation->distance_from_center(solution.x) / p.mutation->sigma;
+    const Float delta_m = distance::quadratic(p.adaptation->m, solution.x, M) / p.mutation->sigma;
 
     const auto u = delta_m + radius;
     const auto l = delta_m - radius;
@@ -188,7 +195,7 @@ void CoverageRepelling::update_archive(FunctionType &objective, parameters::Para
 
     if (accept_candidate)
     {
-        archive.emplace_back(candidate_point, 1.0);
+        archive.emplace_back(candidate_point, 1.0, p.adaptation->M);
     }
 
     const Float n_solutions = static_cast<Float>(std::max<size_t>(1, p.stats.solutions.size()));
@@ -323,7 +330,8 @@ void AdaptiveRepelling::update_archive(FunctionType &objective, parameters::Para
 
     if (accept_candidate)
     {
-        archive.emplace_back(candidate_point, initial_radius(p), min_radius(p), max_radius(p));
+        archive.emplace_back(
+            candidate_point, initial_radius(p), min_radius(p), max_radius(p), p.adaptation->M);
     }
 }
 

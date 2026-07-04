@@ -20,7 +20,7 @@ from ConfigSpace.hyperparameters import CategoricalHyperparameter
 from modcma import c_maes
 
 
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data_new"))
+DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data_new_again_again"))
 
 
 def calc_aoc(problem: ioh.ProblemType, logger: ioh.logger.Store, budget: int) -> float:
@@ -155,18 +155,19 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
         cs,
         name=str(int(time.time())) + "-" + "CMA",
         deterministic=False,
-        n_trials=100_000,
+        n_trials=50_000,
         output_directory=os.path.join(
             DATA_DIR, f"BBOB_F{fid}_{dim}D_LR{use_learning_rates}{add_popsize}"
         ),
         n_workers=n_workers,
+        seed=1993,
     )
 
     eval_func = partial(get_bbob_performance, fid=fid, dim=dim)
     config_selector = ConfigSelector(
         scenario,
         retrain_after=100,
-        min_trials=500,
+        min_trials=100,
         max_new_config_tries=16,
     )
     
@@ -177,21 +178,21 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
         ),
         config_selector=config_selector,
         initial_design = AlgorithmConfigurationFacade.get_initial_design(scenario), 
-        model = AlgorithmConfigurationFacade.get_model(
-            scenario,
-            n_trees=5,
-            ratio_features=0.5,
-            min_samples_split=10,
-            min_samples_leaf=5,
-            max_depth=8,
-            bootstrapping=True,
-            pca_components=13
-        ),
-        acquisition_maximizer=LocalAndSortedRandomSearch(
-            scenario.configspace,
-            seed=scenario.seed,
-            challengers=500
-        )
+        # model = AlgorithmConfigurationFacade.get_model(
+        #     scenario,
+        #     n_trees=7,
+        #     ratio_features=0.5,
+        #     min_samples_split=10,
+        #     min_samples_leaf=5,
+        #     max_depth=7,
+        #     bootstrapping=True,
+        #     pca_components=15
+        # ),
+        # acquisition_maximizer=LocalAndSortedRandomSearch(
+        #     scenario.configspace,
+        #     seed=scenario.seed,
+        #     challengers=500
+        # )
     )
     smac.optimize()
 
