@@ -5,6 +5,7 @@ import pickle
 import ioh
 import modcma.c_maes as c_cmaes
 
+
 def get_problem(fid, instance, dim):
     if fid < 25:
         return ioh.get_problem(fid, instance, dim)
@@ -13,6 +14,7 @@ def get_problem(fid, instance, dim):
     problem.invert()
     problem.set_instance(instance)
     return problem
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -29,7 +31,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     root = os.path.realpath(os.path.dirname(__file__))
-    
+
     modules = c_cmaes.parameters.Modules()
     if args.strat == 0:
         modules.restart_strategy = c_cmaes.options.RESTART
@@ -38,13 +40,12 @@ if __name__ == "__main__":
     else:
         modules.restart_strategy = c_cmaes.options.BIPOP
 
-
     modules.center_placement = c_cmaes.options.UNIFORM
     modules.bound_correction = c_cmaes.options.SATURATE
     modules.repelling_restart = args.coverage != 0
     modules.elitist = args.elitist
-    
-    algorithm_name=f"CMA-ES-{str(modules.restart_strategy).split('.')[-1]}"
+
+    algorithm_name = f"CMA-ES-{str(modules.restart_strategy).split('.')[-1]}"
     if args.coverage != 0:
         algorithm_name += f"-repelling-c{args.coverage}"
     if args.elitist:
@@ -52,9 +53,9 @@ if __name__ == "__main__":
 
     if args.logged:
         logger = ioh.logger.Analyzer(
-            root=os.path.join(root, "data/ioh"), 
-            algorithm_name=algorithm_name, 
-            folder_name=algorithm_name
+            root=os.path.join(root, "data/ioh"),
+            algorithm_name=algorithm_name,
+            folder_name=algorithm_name,
         )
     centers = []
     for instance in range(1, args.n_instances + 1):
@@ -67,7 +68,7 @@ if __name__ == "__main__":
             settings = c_cmaes.parameters.Settings(
                 problem.meta_data.n_variables,
                 modules,
-                sigma0=(problem.bounds.ub[0] - problem.bounds.lb[0]) *.2,
+                sigma0=(problem.bounds.ub[0] - problem.bounds.lb[0]) * 0.2,
                 budget=problem.meta_data.n_variables * args.budget,
                 target=problem.optimum.y + 1e-8,
             )
@@ -76,12 +77,20 @@ if __name__ == "__main__":
             parameters.repelling.coverage = args.coverage
             cma = c_cmaes.ModularCMAES(parameters)
             cma.run(problem)
-            centers.append((instance, run, [(sol.x, sol.y, sol.t, sol.e) for sol in cma.p.stats.centers]))
+            centers.append(
+                (
+                    instance,
+                    run,
+                    [(sol.x, sol.y, sol.t, sol.e) for sol in cma.p.stats.centers],
+                )
+            )
             problem.reset()
 
     if args.logged:
-        with open(os.path.join(root, f"data/pkl/{algorithm_name}_fid{args.fid}_dim{args.dim}.pkl"), "wb+") as f:
-            pickle.dump(centers, f)    
-
-
-
+        with open(
+            os.path.join(
+                root, f"data/pkl/{algorithm_name}_fid{args.fid}_dim{args.dim}.pkl"
+            ),
+            "wb+",
+        ) as f:
+            pickle.dump(centers, f)

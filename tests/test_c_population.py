@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 from modcma.c_maes import Population
 
+
 class TestPopulation(unittest.TestCase):
     """Test case for Population object of Modular C++ CMA-ES."""
 
@@ -28,8 +29,8 @@ class TestPopulation(unittest.TestCase):
         self.X = self.xmean + (self._sigma * self.Y)
         self.f = np.array([sum(i) for i in self.X.T])
         self.S = np.ones((self._dim, self._lambda)) * self._sigma
-        self.pop = Population(self.X, self.Z, self.Y, self.f, self.S) 
-        
+        self.pop = Population(self.X, self.Z, self.Y, self.f, self.S)
+
     def test_sort(self):
         """Test sorting behaviour."""
         self.pop.sort()
@@ -46,8 +47,8 @@ class TestPopulation(unittest.TestCase):
         f1 = self.pop.f[1]
         x1 = self.pop.X[:, 1]
         self.pop.keep_only([1])
-        self.assertEqual(self.pop.f[0],  f1)
-        self.assertTrue(np.all(self.pop.X[:, 0] ==  x1))
+        self.assertEqual(self.pop.f[0], f1)
+        self.assertTrue(np.all(self.pop.X[:, 0] == x1))
 
     def test_resize(self):
         self.pop.resize_cols(2)
@@ -62,10 +63,9 @@ class TestPopulation(unittest.TestCase):
         self.assertEqual(self.pop.n_finite, self._lambda)
         self.pop.f = np.ones(self._lambda) * float("inf")
         self.assertEqual(self.pop.n_finite, 0)
-        
 
     def test_add(self):
-        """Test addition.""" 
+        """Test addition."""
         self.pop = self.pop + Population(self.X, self.Z, self.Y, self.f, self.S)
         self.assertEqual(
             self.pop.X.shape,

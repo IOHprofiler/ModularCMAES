@@ -325,12 +325,16 @@ void define_repelling(py::module &main)
     auto m = main.def_submodule("repelling");
 
     py::class_<TabooPoint>(m, "TabooPoint")
-        .def(py::init<const Solution &, const Float>(), py::arg("solution"), py::arg("radius"))
-        .def(py::init<const Solution &, const Float, const Float, const Float>(),
+        .def(py::init<const Solution &, Float, const Matrix &>(),
+             py::arg("solution"),
+             py::arg("radius"),
+             py::arg("M"))
+        .def(py::init<const Solution &, Float, Float, Float, const Matrix &>(),
              py::arg("solution"),
              py::arg("radius"),
              py::arg("min_radius"),
-             py::arg("max_radius"))
+             py::arg("max_radius"),
+             py::arg("M"))
 
         .def("rejects", &TabooPoint::rejects, py::arg("xi"), py::arg("p"), py::arg("attempts"))
         .def("shares_basin",

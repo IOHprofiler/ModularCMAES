@@ -160,13 +160,34 @@ bool Repelling::is_rejected(const Vector &xi, parameters::Parameters &p)
     return false;
 }
 
-static Solution get_candidate(parameters::Parameters &p)
+static bool is_valid_candidate(const Solution &solution, const parameters::Parameters &p)
 {
-    const auto candidate_center = p.stats.centers.back();
-    const auto candidate_point = p.stats.solutions.back();
-    if (candidate_center.y < candidate_point.y)
-        return candidate_center;
-    return candidate_point;
+    return solution.x.size() == static_cast<Eigen::Index>(p.settings.dim) &&
+           solution.x.allFinite() && std::isfinite(solution.y);
+}
+
+static std::optional<Solution> get_candidate(const parameters::Parameters &p)
+{
+    if (p.stats.centers.empty() || p.stats.solutions.empty())
+        return std::nullopt;
+
+    const auto &center = p.stats.centers.back();
+    const auto &solution = p.stats.solutions.back();
+
+    const bool valid_center = is_valid_candidate(center, p);
+
+    const bool valid_solution = is_valid_candidate(solution, p);
+
+    if (!valid_center && !valid_solution)
+        return std::nullopt;
+
+    if (!valid_solution)
+        return center;
+
+    if (!valid_center)
+        return solution;
+
+    return center.y < solution.y ? center : solution;
 }
 
 // -----------------------------------------------------------------------------
@@ -175,7 +196,12 @@ static Solution get_candidate(parameters::Parameters &p)
 
 void CoverageRepelling::update_archive(FunctionType &objective, parameters::Parameters &p)
 {
-    const auto candidate_point = get_candidate(p);
+    const auto candidate = get_candidate(p);
+
+    if (!candidate.has_value())
+        return;
+
+    const auto candidate_point = candidate.value();
 
     bool accept_candidate = true;
 
@@ -281,7 +307,12 @@ void AdaptiveRepelling::adapt_radii_after_sampling(parameters::Parameters &p)
 
 void AdaptiveRepelling::update_archive(FunctionType &objective, parameters::Parameters &p)
 {
-    const auto candidate_point = get_candidate(p);
+    const auto candidate = get_candidate(p);
+
+    if (!candidate.has_value())
+        return;
+
+    const auto candidate_point = candidate.value();
 
     const int current_evaluations = p.stats.evaluations;
 

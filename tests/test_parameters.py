@@ -23,7 +23,13 @@ class TestParameters(unittest.TestCase):
 
     def try_wrong_types(self, p, name, type_):
         """Test for wrong input types."""
-        for x in (1, 1.0, "x", True, np.ndarray,):
+        for x in (
+            1,
+            1.0,
+            "x",
+            True,
+            np.ndarray,
+        ):
             if type(x) != type_:
                 with self.assertRaises(TypeError, msg=f"{name} {type_} {x}"):
                     setattr(p, name, x)
@@ -55,7 +61,7 @@ class TestParameters(unittest.TestCase):
         self.p.used_budget += 11
         self.p.bipop_parameters.adapt(self.p.used_budget)
         self.assertEqual(self.p.bipop_parameters.large, True)
-        bp = self.p.bipop_parameters 
+        bp = self.p.bipop_parameters
         self.assertEqual(bp.lambda_, self.p.lambda_ * 2)
         self.assertEqual(bp.mu, self.p.mu * 2)
         self.assertEqual(bp.sigma, 2)
@@ -191,7 +197,7 @@ class TestParameters(unittest.TestCase):
 
     def test_fix_lambda_even(self):
         self.p.lambda_ = 11
-        self.p.mirrored = 'mirrored pairwise'
+        self.p.mirrored = "mirrored pairwise"
         self.assertEqual(self.p.lambda_, 11)
         self.p.init_selection_parameters()
         self.assertEqual(self.p.lambda_, 12)
@@ -203,9 +209,10 @@ class TestParameters(unittest.TestCase):
             self.p.init_adaptation_parameters()
             self.assertEqual(len(self.p.weights), 11)
 
-        b = BIPOPParameters(7, 20, .5)
+        b = BIPOPParameters(7, 20, 0.5)
         b.adapt(11)
         self.assertEqual(b.lambda_small, 8)
+
 
 if __name__ == "__main__":
     unittest.main()

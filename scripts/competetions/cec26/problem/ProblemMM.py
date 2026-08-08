@@ -477,7 +477,7 @@ class ProblemMM:
         # the  fitness is the weighted average all basic functions
         self.used_eval = self.used_eval + 1
         # update this property
-        return f  + self.minima.f
+        return f + self.minima.f
 
 
 class Rotation:

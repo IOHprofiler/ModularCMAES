@@ -25,17 +25,16 @@ class TestModularCMAESMeta(type):
                     module, value, fid
                 )
             }
-            
+
         def make_test_option(module, value):
             return {
-                f"test_{module}_{value}": lambda self: self.run_module(
-                    module, value
-                )
+                f"test_{module}_{value}": lambda self: self.run_module(module, value)
             }
 
         for module in parameters.Parameters.__modules__:
             m = getattr(parameters.Parameters, module)
-            if module == "base_sampler": continue ## This breaks on different platforms because of scipy
+            if module == "base_sampler":
+                continue  ## This breaks on different platforms because of scipy
             if type(m) == utils.AnyOf:
                 for o in filter(None, m.options):
                     for fid in range(1, 25):
@@ -56,7 +55,7 @@ class TestModularCMAES(unittest.TestCase, metaclass=TestModularCMAESMeta):
 
     _dim = 2
     _budget = int(1e1 * _dim)
-    
+
     def __init__(self, args, **kwargs):
         """Initializes the expected function value dictionary."""
         with open("tests/expected.json", "r") as f:
@@ -105,10 +104,15 @@ class TestModularCMAESSingle(unittest.TestCase):
     """Test case for ModularCMAES Object, holds custom tests."""
 
     def test_tpa_threshold_cov_sequential(self):
-        c = modularcmaes.ModularCMAES(sum, 2,
-            threshold_convergence=True, sequential=True, 
-            step_size_adaptation='tpa', budget=10).run()
-        self.assertLess(c.parameters.fopt, 0.)
+        c = modularcmaes.ModularCMAES(
+            sum,
+            2,
+            threshold_convergence=True,
+            sequential=True,
+            step_size_adaptation="tpa",
+            budget=10,
+        ).run()
+        self.assertLess(c.parameters.fopt, 0.0)
 
     def test_str_repr(self):
         """Test the output of repr and str."""
@@ -192,7 +196,7 @@ class TestModularCMAESSingle(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             modularcmaes.correct_bounds(x.copy(), ub, lb, "something_undefined")
-            
+
     def test_popsize_changes(self):
         """Test manual changes to population size."""
         c = modularcmaes.ModularCMAES(sum, 2)
@@ -214,7 +218,6 @@ class TestModularCMAESSingle(unittest.TestCase):
         modularcmaes.evaluate_bbob(1, 2, 1, logging=True, data_folder=data_folder)
         shutil.rmtree(data_folder)
         modularcmaes.evaluate_bbob(1, 2, 2)
-        
 
 
 if __name__ == "__main__":

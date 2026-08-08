@@ -56,7 +56,7 @@ class Settings:
         cmu: float | None = ...,
         c1: float | None = ...,
         verbose: bool = ...,
-        always_compute_eigv: bool | False = ...
+        always_compute_eigv: bool | False = ...,
     ) -> None: ...
 
 class Solution:
@@ -89,12 +89,12 @@ class Weights:
     cc: float
     cs: float
     damps: float
-    sqrt_cc_mueff: float 
-    sqrt_cs_mueff: float 
-    lazy_update_interval: float 
-    expected_length_z: float 
-    expected_length_ps: float 
-    beta: float 
+    sqrt_cc_mueff: float
+    sqrt_cs_mueff: float
+    lazy_update_interval: float
+    expected_length_z: float
+    expected_length_ps: float
+    beta: float
     negative: numpy.ndarray
     positive: numpy.ndarray
     weights: numpy.ndarray

@@ -28,7 +28,7 @@ class TestSelection(unittest.TestCase):
 
         selector.select(self.p)
         self.assertEqual(self.p.stats.global_best.y, -4)
-        self.assertTrue(np.all(self.p.pop.f == np.array([-4., -3., -3., -2.])))
+        self.assertTrue(np.all(self.p.pop.f == np.array([-4.0, -3.0, -3.0, -2.0])))
 
     def test_pairwise(self):
         self.p.settings.modules.mirrored = options.Mirror.PAIRWISE
@@ -37,7 +37,9 @@ class TestSelection(unittest.TestCase):
         self.p.pop.f = -np.arange(4)
         selector.select(self.p)
 
-        self.assertTrue(np.all(self.p.pop.f == np.array([-3., -1., float("inf"), float("inf")])))
+        self.assertTrue(
+            np.all(self.p.pop.f == np.array([-3.0, -1.0, float("inf"), float("inf")]))
+        )
         self.assertEqual(self.p.stats.global_best.y, -3)
 
 

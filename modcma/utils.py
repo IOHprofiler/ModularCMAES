@@ -38,7 +38,7 @@ class InstanceOf(Descriptor):
         Raises
         ------
         TypeError
-            If type of the argument does not match self.dtype      
+            If type of the argument does not match self.dtype
 
         """
         if type(value) != type(None):
@@ -73,13 +73,14 @@ class AnyOf(Descriptor):
         Raises
         ------
         TypeError
-            If type of the argument does not match self.dtype        
+            If type of the argument does not match self.dtype
 
         """
         if value not in self.options:
             raise ValueError(
                 "{} should be any of [{}]. Got: {}".format(
-                    self.name, self.options, value)
+                    self.name, self.options, value
+                )
             )
         super().__set__(instance, value)
 
@@ -203,7 +204,6 @@ class AnnotatedStruct(metaclass=AnnotatedStructMeta):
             setattr(self, name, current.reshape(default_value.shape))
 
 
-
 def timeit(func):
     """Decorator function for timing the excecution of a function.
 
@@ -218,6 +218,7 @@ def timeit(func):
         a wrapped function
 
     """
+
     @wraps(func)
     def inner(*args, **kwargs):
         start = time()

@@ -4,8 +4,9 @@ from multiprocessing import Pool
 import numpy as np
 import matplotlib
 from pathlib import Path
+
 matplotlib.use("QtAgg")
-import matplotlib.pyplot as plt  
+import matplotlib.pyplot as plt
 
 from modcma import c_maes
 from problem.ProblemMM import ProblemMM
@@ -21,7 +22,6 @@ class ReachedPrecision(c_maes.restart.Criterion):
 
     def update(self, par: c_maes.Parameters):
         self.met = par.stats.current_best.y <= self.precision
-
 
 
 def count_unique_archive_optima(
@@ -66,7 +66,7 @@ def archive_found_all_optima(
     distance_tol: float = 1e-3,
     verbose: bool = True,
 ):
-  
+
     unique_solutions, good_solutions = count_unique_archive_optima(
         archive,
         target_y,
@@ -89,7 +89,6 @@ def archive_found_all_optima(
             print(f"{i:>2}. y={float(sol.y):.6e}, x={x}")
 
     return success, unique_solutions
-
 
 
 def write_found_solutions_csv(
@@ -133,18 +132,22 @@ def write_found_solutions_csv(
 
     return path
 
+
 def run_modcma(
-    fid, iid, dim, *, 
-    interactive=False, 
-    plot_every=5, 
+    fid,
+    iid,
+    dim,
+    *,
+    interactive=False,
+    plot_every=5,
     lambda0=None,
-    repelling_type: str ="COVERAGE", # ADAPTIVE, COVERAGE
-    restart_strategy: str ="RESTART",
-    center_placement: str ="NOVELTY_WEIGHTED", # UNIFORM, MAXIMIN_TABOO, NOVELTY_WEIGHTED
+    repelling_type: str = "COVERAGE",  # ADAPTIVE, COVERAGE
+    restart_strategy: str = "RESTART",
+    center_placement: str = "NOVELTY_WEIGHTED",  # UNIFORM, MAXIMIN_TABOO, NOVELTY_WEIGHTED
     elitist: bool = False,
-    check_per_iteration: bool = False
+    check_per_iteration: bool = False,
 ):
-    
+
     problem = ProblemMM(fid, iid, dim)
     problem.form()
 
@@ -173,7 +176,6 @@ def run_modcma(
 
     es.p.repelling.coverage = 2
 
-
     plotter = None
     if interactive and dim == 2:
         check_per_iteration = True
@@ -193,14 +195,14 @@ def run_modcma(
         iteration += 1
 
         if check_per_iteration:
-            if (archive_size:=len(es.p.repelling.archive)) != n_solutions:
+            if (archive_size := len(es.p.repelling.archive)) != n_solutions:
                 n_solutions = archive_size
 
                 success, unique_archive_optima = archive_found_all_optima(
                     es.p.repelling.archive,
                     n_unique_optima=problem.minima.X.shape[0],
                     target_y=target_y,
-                    verbose=interactive
+                    verbose=interactive,
                 )
 
                 if success:
@@ -216,14 +218,14 @@ def run_modcma(
                 else:
                     if not es.p.stats.has_improved:
                         continue
-                
+
                 plotter.update(es)
 
     success, unique_archive_optima = archive_found_all_optima(
         es.p.repelling.archive,
         n_unique_optima=problem.minima.X.shape[0],
         target_y=target_y,
-        verbose=True
+        verbose=True,
     )
     csv_path = write_found_solutions_csv(
         unique_archive_optima,
@@ -240,19 +242,17 @@ def run_modcma(
         plt.show()
 
 
-
 def main():
     functions = tuple(range(1, 17))
     instances = tuple(range(1, 16))
-    dimensions = (2, )#5, 10, 20)
+    dimensions = (2,)  # 5, 10, 20)
 
     c_maes.utils.set_seed(69)
     settings = tuple(product(functions, instances, dimensions))
 
-
     with Pool(30) as p:
         p.starmap(run_modcma, settings)
-        
+
 
 if __name__ == "__main__":
     # main()

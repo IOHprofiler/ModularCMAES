@@ -16,6 +16,7 @@ from fcmaes import optimizer, retry
 
 np.random.seed(12)
 
+
 def timeit(f):
     def inner(*args, **kwargs):
         start = perf_counter()
@@ -23,6 +24,7 @@ def timeit(f):
         stop = perf_counter()
         elapsed = stop - start
         return elapsed
+
     return inner
 
 
@@ -31,11 +33,11 @@ def timeit(f):
 #     cma = ModularCMAES(f, dim, budget=n_evaluations, x0=x0)
 #     cma.run()
 #     assert f.state.evaluations >= n_evaluations
-    
-    
+
+
 # @timeit
 # def run_fcmaes(f: ioh.ProblemType, dim: int, n_evaluations, x0: np.ndarray):
-    
+
 #     lamb = 4 + np.floor(3 * np.log(dim)).astype(int)
 #     bounds = np.array([f.bounds.lb, f.bounds.ub])
 #     res = optimizer.cmaescpp.minimize(
@@ -43,8 +45,8 @@ def timeit(f):
 #         stop_hist=0, accuracy=1e-10, stop_fitness=-700,
 #         popsize=lamb, workers=1, delayed_update=False
 #     )
-    
-        
+
+
 #     # ret = retry.minimize(f, bounds.T, optimizer=optimizer.Cma_cpp(n_evaluations))
 #     assert f.state.evaluations >= n_evaluations
 #     print(f.state.current_best_internal.y)
@@ -56,24 +58,24 @@ def timeit(f):
 #     modules = modcma.parameters.Modules()
 #     # modules.sample_transformation = modcma.options.SCALED_UNIFORM
 #     modules.matrix_adaptation = modcma.options.COVARIANCE
-#     settings = modcma.Settings(dim, 
-#                                budget=n_evaluations, 
+#     settings = modcma.Settings(dim,
+#                                budget=n_evaluations,
 #                                x0=x0,
 #                                modules=modules,
 #                                lb=f.bounds.lb,
-#                                ub=f.bounds.ub, 
+#                                ub=f.bounds.ub,
 #                                verbose=True
 #                             )
-    
+
 #     cma = modcma.ModularCMAES(settings)
-    
-    
+
+
 #     maxp = 1/(10 * dim * (cma.p.weights.c1 +cma.p.weights.cmu))
 #     # print(dim, max(1, maxp), maxp)
 #     # breakpoint()
 
 #     while cma.step(f):
-#         pass          
+#         pass
 #     # cma.run(f)
 #     print(cma.p.stats.t, cma.p.stats.n_updates, f.state.current_best_internal.y)
 #     assert f.state.evaluations >= n_evaluations

@@ -19,9 +19,7 @@ def calc_aoc(logger, budget, fid, iid, dim):
     return np.mean(parts) / 10
 
 
-def get_bbob_performance(
-    settings: c_maes.Settings, seed: int = 0, fid: int = 0
-):
+def get_bbob_performance(settings: c_maes.Settings, seed: int = 0, fid: int = 0):
     iid = 1 + (seed % 10)
     np.random.seed(seed + iid)
     c_maes.utils.set_seed(seed + iid)
@@ -30,10 +28,9 @@ def get_bbob_performance(
     settings.target = problem.optimum.y + 9e-9
 
     l3 = ioh.logger.Store(
-        triggers=[ioh.logger.trigger.ALWAYS], 
-        properties=[ioh.logger.property.RAWYBEST]
+        triggers=[ioh.logger.trigger.ALWAYS], properties=[ioh.logger.property.RAWYBEST]
     )
-    problem = ioh.get_problem(fid, iid, settings.dim )
+    problem = ioh.get_problem(fid, iid, settings.dim)
     problem.attach_logger(l3)
 
     par = c_maes.Parameters(settings)
@@ -46,19 +43,18 @@ def get_bbob_performance(
             f"Found target {problem.state.current_best.y} target, but exception ({e}), so run failed"
         )
         return [np.inf]
-    
+
     auc = calc_aoc(l3, settings.budget, fid, iid, settings.dim)
     return auc
 
 
-
 def get_ert(
-    settings: c_maes.Settings, 
-    seed: int = 0, 
+    settings: c_maes.Settings,
+    seed: int = 0,
     fid: int = 0,
     n_trials: int = 10,
 ):
-    iid =  1 + (seed % 10)
+    iid = 1 + (seed % 10)
     np.random.seed(seed + iid)
     c_maes.utils.set_seed(seed + iid)
 
@@ -73,39 +69,38 @@ def get_ert(
         es.run(problem)
 
         suc += problem.state.final_target_found
-        rt  += problem.state.evaluations
+        rt += problem.state.evaluations
         print(problem.state)
         problem.reset()
 
     if suc == 0:
         return float("inf")
-    return rt / suc 
+    return rt / suc
 
 
 if __name__ == "__main__":
     parser = ArgumentParser()
     parser.add_argument("--fid", type=int, default=1)
     parser.add_argument("--reps", type=int, default=50)
-    args = parser.parse_args() 
+    args = parser.parse_args()
     config = {
-        'active': True,
-    'elitist': True,
-    'lambda0': 4,
-    'matrix_adaptation': 'MATRIX',
-    'mirrored': 'PAIRWISE',
-    'mu0': 4,
-    'orthogonal': True,
-    'repelling_restart': True,
-    'restart_strategy': 'NONE',
-    'sample_transformation': 'LOGISTIC',
-    'sampler': 'HALTON',
-    'sequential_selection': True,
-    'ssa': 'MXNES',
-    'threshold_convergence': True,
-    'weights': 'DEFAULT'
+        "active": True,
+        "elitist": True,
+        "lambda0": 4,
+        "matrix_adaptation": "MATRIX",
+        "mirrored": "PAIRWISE",
+        "mu0": 4,
+        "orthogonal": True,
+        "repelling_restart": True,
+        "restart_strategy": "NONE",
+        "sample_transformation": "LOGISTIC",
+        "sampler": "HALTON",
+        "sequential_selection": True,
+        "ssa": "MXNES",
+        "threshold_convergence": True,
+        "weights": "DEFAULT",
     }
 
-    settings = c_maes.settings_from_dict(5, **config)   
+    settings = c_maes.settings_from_dict(5, **config)
     print(settings)
     print("ERT:", get_ert(settings, 1, args.fid, args.reps))
-

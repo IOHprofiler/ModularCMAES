@@ -50,19 +50,18 @@ class TestSampling(unittest.TestCase):
         sampler = sampling.CachedSampler(points, True)
         self.assertEqual(sum(sampler()), float("inf"))
 
-        points = [[0.1, .1], [.2, .2]]
+        points = [[0.1, 0.1], [0.2, 0.2]]
         sampler = sampling.CachedSampler(points, True)
         self.assertAlmostEqual(sum(sampler()), -2.5631031)
         self.assertAlmostEqual(sum(sampler()), -1.6832425)
-        
+
         cma = ModularCMAES(Settings(2, lambda0=2))
         cma.p.sampler = sampler
         cma.step(sum)
         z_sum = cma.p.pop.Z.sum(axis=0)
         self.assertAlmostEqual(z_sum[0], -2.5631031)
-        self.assertAlmostEqual(z_sum[1], -1.6832425)       
-        
-        
-        
+        self.assertAlmostEqual(z_sum[1], -1.6832425)
+
+
 if __name__ == "__main__":
     unittest.main()

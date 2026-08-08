@@ -1,4 +1,5 @@
 """Definition of Parameters objects, which are used by ModularCMA-ES."""
+
 import os
 import pickle
 import warnings
@@ -15,8 +16,8 @@ from .sampling import (
     mirrored_sampling,
     sobol_sampling,
     halton_sampling,
-    Sobol, 
-    Halton
+    Sobol,
+    Halton,
 )
 
 
@@ -128,7 +129,7 @@ class Parameters(AnnotatedStruct):
             [8] Nikolaus Hansen. The CMA evolution strategy: A tutorial.CoRR,
             abs/1604.00772, 2016
         tpa:
-            [9] Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR, 
+            [9] Nikolaus Hansen. CMA-ES with two-point step-size adaptation.CoRR,
             abs/0805.0231,2008.
         msr:
             [10] Ouassim Ait Elhara, Anne Auger, and Nikolaus Hansen.
@@ -232,7 +233,7 @@ class Parameters(AnnotatedStruct):
     last_restart: int
         The generation in where the last restart has occored
     max_resamples: int
-        The maximum amount of resamples which can be done when 
+        The maximum amount of resamples which can be done when
         'dismiss'-boundary correction is used
     n_out_of_bounds: int
         The number of individals that are sampled out of bounds
@@ -265,18 +266,35 @@ class Parameters(AnnotatedStruct):
     sequential: bool = False
     threshold_convergence: bool = False
     bound_correction: (
-        None, "saturate", "unif_resample", "COTN", "toroidal", "mirror") = None # pyright: ignore[reportInvalidTypeForm]
+        None,
+        "saturate",
+        "unif_resample",
+        "COTN",
+        "toroidal",
+        "mirror",
+    ) = None  # pyright: ignore[reportInvalidTypeForm]
     orthogonal: bool = False
-    local_restart: (None, "restart",  "IPOP", "BIPOP", "STOP") = None  # pyright: ignore[reportInvalidTypeForm]
-    base_sampler: ("gaussian", "sobol", "halton") = "gaussian"  # pyright: ignore[reportInvalidTypeForm]
-    mirrored: (None, "mirrored", "mirrored pairwise") = None  # pyright: ignore[reportInvalidTypeForm]
-    weights_option: ("default", "equal", "1/2^lambda") = "default"  # pyright: ignore[reportInvalidTypeForm]
-    step_size_adaptation: (
-        "csa", "tpa", "msr", "xnes", "m-xnes", "lp-xnes", "psr") = "csa"  # pyright: ignore[reportInvalidTypeForm]
+    local_restart: (None, "restart", "IPOP", "BIPOP", "STOP") = (
+        None  # pyright: ignore[reportInvalidTypeForm]
+    )
+    base_sampler: ("gaussian", "sobol", "halton") = (
+        "gaussian"  # pyright: ignore[reportInvalidTypeForm]
+    )
+    mirrored: (None, "mirrored", "mirrored pairwise") = (
+        None  # pyright: ignore[reportInvalidTypeForm]
+    )
+    weights_option: ("default", "equal", "1/2^lambda") = (
+        "default"  # pyright: ignore[reportInvalidTypeForm]
+    )
+    step_size_adaptation: ("csa", "tpa", "msr", "xnes", "m-xnes", "lp-xnes", "psr") = (
+        "csa"  # pyright: ignore[reportInvalidTypeForm]
+    )
     population: TypeVar("Population") = None  # pyright: ignore[reportInvalidTypeForm]
-    old_population: TypeVar("Population") = None  # pyright: ignore[reportInvalidTypeForm]
+    old_population: TypeVar("Population") = (
+        None  # pyright: ignore[reportInvalidTypeForm]
+    )
     termination_criteria: dict = {}
-    
+
     ipop_factor: int = 2
     tolx: float = pow(10, -12)
     tolup_sigma: float = float(pow(10, 20))
@@ -321,12 +339,12 @@ class Parameters(AnnotatedStruct):
             a sampler
 
         """
-        if self.base_sampler == 'gaussian':
+        if self.base_sampler == "gaussian":
             sampler = gaussian_sampling(self.d)
-        elif self.base_sampler == 'sobol':
+        elif self.base_sampler == "sobol":
             self.sobol = self.sobol or Sobol(self.d)
-            sampler = sobol_sampling(self.sobol)      
-        elif self.base_sampler == 'halton':
+            sampler = sobol_sampling(self.sobol)
+        elif self.base_sampler == "halton":
             self.halton = self.halton or Halton(self.d)
             sampler = halton_sampling(self.halton)
 
@@ -361,10 +379,10 @@ class Parameters(AnnotatedStruct):
         self.bipop_parameters = BIPOPParameters(
             self.lambda_, self.budget, self.mu / self.lambda_
         )
-        self.chiN = self.d ** 0.5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d ** 2))
+        self.chiN = self.d**0.5 * (1 - 1 / (4 * self.d) + 1 / (21 * self.d**2))
         self.ds = 2 - (2 / self.d)
         self.beta = np.log(2) / max((np.sqrt(self.d) * np.log(self.d)), 1)
-        self.succes_ratio = .25
+        self.succes_ratio = 0.25
 
     def init_selection_parameters(self) -> None:
         """Initialization function for parameters that influence in selection."""
@@ -378,7 +396,7 @@ class Parameters(AnnotatedStruct):
         self.mu = self.mu or self.lambda_ // 2
         if self.mu > self.lambda_:
             warnings.warn(
-                "\u03BC ({}) cannot be larger than \u03bb ({}). Modifying \u03bb to ({})".format(
+                "\u03bc ({}) cannot be larger than \u03bb ({}). Modifying \u03bb to ({})".format(
                     self.mu, self.lambda_, self.lambda_ // 2
                 ),
                 RuntimeWarning,
@@ -395,13 +413,11 @@ class Parameters(AnnotatedStruct):
         """Initialization function for parameters for local restart strategies, i.e. IPOP.
         TODO: check if we can move this to separate object.
         """
-          
+
         self.max_iter = 100 + 50 * (self.d + 3) ** 2 / np.sqrt(self.lambda_)
         self.nbin = 10 + int(np.ceil(30 * self.d / self.lambda_))
         self.n_stagnation = min(int(120 + (30 * self.d / self.lambda_)), 20000)
-        self.flat_fitness_index = int(
-            np.round(0.1 + self.lambda_ / 4)
-        )
+        self.flat_fitness_index = int(np.round(0.1 + self.lambda_ / 4))
 
     def init_adaptation_parameters(self) -> None:
         """Initialization function for parameters for self-adaptive processes.
@@ -416,13 +432,13 @@ class Parameters(AnnotatedStruct):
             )
         elif self.weights_option == "1/2^lambda":
             base = np.float64(2)
-            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + ( 
-                (1 / (base ** self.mu)) / self.mu
+            positive = self.mu / (base ** np.arange(1, self.mu + 1)) + (
+                (1 / (base**self.mu)) / self.mu
             )
             n = self.lambda_ - self.mu
-            negative = (1 / (base ** np.arange(1, n + 1)) + (
-                (1 / (base ** n)) / n
-            ))[::-1] * -1
+            negative = (1 / (base ** np.arange(1, n + 1)) + ((1 / (base**n)) / n))[
+                ::-1
+            ] * -1
             self.weights = np.append(positive, negative)
         else:
             self.weights = np.log((self.lambda_ + 1) / 2) - np.log(
@@ -430,22 +446,32 @@ class Parameters(AnnotatedStruct):
             )
 
         self.pweights = self.weights[: self.mu]
-        self.nweights = self.weights[self.mu:]
-        self.mueff = self.pweights.sum() ** 2 / (self.pweights ** 2).sum()
-        mueff_neg = self.nweights.sum() ** 2 / (self.nweights ** 2).sum()
+        self.nweights = self.weights[self.mu :]
+        self.mueff = self.pweights.sum() ** 2 / (self.pweights**2).sum()
+        mueff_neg = self.nweights.sum() ** 2 / (self.nweights**2).sum()
 
         self.pweights = self.pweights / self.pweights.sum()
 
         self.c1 = self.c1 or 2 / ((self.d + 1.3) ** 2 + self.mueff)
-        self.cmu = self.cmu or min(1 - self.c1, (2 * (
-            (self.mueff - 2 + (1 / self.mueff))
-            / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
-        )))
+        self.cmu = self.cmu or min(
+            1 - self.c1,
+            (
+                2
+                * (
+                    (self.mueff - 2 + (1 / self.mueff))
+                    / ((self.d + 2) ** 2 + (2 * self.mueff / 2))
+                )
+            ),
+        )
 
         acov = 2.0
-        cmu2 = (acov * (0.25 + self.mueff + 1.0 / self.mueff - 2.0) / (pow(self.d + 2., 2.0) + acov * self.mueff / 2.0))
+        cmu2 = (
+            acov
+            * (0.25 + self.mueff + 1.0 / self.mueff - 2.0)
+            / (pow(self.d + 2.0, 2.0) + acov * self.mueff / 2.0)
+        )
 
-        amu_neg = 1 + (self.c1 / self.mu) 
+        amu_neg = 1 + (self.c1 / self.mu)
         amueff_neg = 1 + ((2 * mueff_neg) / (self.mueff + 2))
         aposdef_neg = (1 - self.c1 - self.cmu) / (self.d * self.cmu)
         self.nweights = (
@@ -456,15 +482,18 @@ class Parameters(AnnotatedStruct):
         self.cc = self.cc or (
             (4 + (self.mueff / self.d)) / (self.d + 4 + (2 * self.mueff / self.d))
         )
-        self.cs = self.cs or {
-            "csa": (self.mueff + 2) / (self.d + self.mueff + 5),
-            "msr": .3,
-            "tpa": .3,
-            "xnes": self.mueff / (2 * np.log(max(2, self.d)) * np.sqrt(self.d)),
-            "m-xnes": 1.,
-            "lp-xnes": 9 * self.mueff / (10 * np.sqrt(self.d)),
-            "psr": .4
-        }[self.step_size_adaptation]
+        self.cs = (
+            self.cs
+            or {
+                "csa": (self.mueff + 2) / (self.d + self.mueff + 5),
+                "msr": 0.3,
+                "tpa": 0.3,
+                "xnes": self.mueff / (2 * np.log(max(2, self.d)) * np.sqrt(self.d)),
+                "m-xnes": 1.0,
+                "lp-xnes": 9 * self.mueff / (10 * np.sqrt(self.d)),
+                "psr": 0.4,
+            }[self.step_size_adaptation]
+        )
 
         self.damps = 1.0 + (
             2.0 * max(0.0, np.sqrt((self.mueff - 1) / (self.d + 1)) - 1) + self.cs
@@ -473,12 +502,14 @@ class Parameters(AnnotatedStruct):
     def init_dynamic_parameters(self) -> None:
         """Initialization function of parameters that represent the dynamic state of the CMA-ES.
 
-        Examples of such parameters are the Covariance matrix C and its 
+        Examples of such parameters are the Covariance matrix C and its
         eigenvectors and the learning rate sigma.
         """
         self.sigma = np.float64(self.sigma0)
-        if hasattr(self, "m") or self.x0 is None: 
-            self.m = (np.random.uniform(self.lb, self.ub, (self.d, 1))).astype(np.float64)
+        if hasattr(self, "m") or self.x0 is None:
+            self.m = (np.random.uniform(self.lb, self.ub, (self.d, 1))).astype(
+                np.float64
+            )
         else:
             self.m = (self.x0.copy().reshape(self.d, 1)).astype(np.float64)
         self.m_old = np.empty((self.d, 1), dtype=np.float64)
@@ -546,18 +577,23 @@ class Parameters(AnnotatedStruct):
             self.sigma *= np.exp(self.s / self.ds)
 
         elif self.step_size_adaptation == "xnes":
-            w = self.weights.clip(0)[:self.population.n]
-            z = np.power(
-                np.linalg.norm(self.inv_root_C.dot(self.population.y), axis=0), 2
-            ) - self.d
+            w = self.weights.clip(0)[: self.population.n]
+            z = (
+                np.power(
+                    np.linalg.norm(self.inv_root_C.dot(self.population.y), axis=0), 2
+                )
+                - self.d
+            )
             self.sigma *= np.exp((self.cs / np.sqrt(self.d)) * (w * z).sum())
 
         elif self.step_size_adaptation == "m-xnes" and self.old_population:
-            z = (self.mueff * np.power(np.linalg.norm(self.inv_root_C.dot(self.dm)), 2)) - self.d
+            z = (
+                self.mueff * np.power(np.linalg.norm(self.inv_root_C.dot(self.dm)), 2)
+            ) - self.d
             self.sigma *= np.exp((self.cs / self.d) * z)
 
         elif self.step_size_adaptation == "lp-xnes":
-            w = self.weights.clip(0)[:self.population.n]
+            w = self.weights.clip(0)[: self.population.n]
             z = np.exp(self.cs * (w @ np.log(self.population.s)))
             self.sigma = np.power(self.sigma, 1 - self.cs) * z
 
@@ -566,7 +602,7 @@ class Parameters(AnnotatedStruct):
             combined = (self.population[:n] + self.old_population[:n]).sort()
             r = np.searchsorted(combined.f, self.population.f[:n])
             r_old = np.searchsorted(combined.f, self.old_population.f[:n])
-            
+
             zpsr = (r_old - r).sum() / pow(n, 2) - self.succes_ratio
             self.s = (1 - self.cs) * self.s + (self.cs * zpsr)
             self.sigma *= np.exp(self.s / self.ds)
@@ -584,13 +620,14 @@ class Parameters(AnnotatedStruct):
             1 - (self.c1 * dhs) - self.c1 - (self.cmu * self.pweights.sum())
         ) * self.C
 
-
-        weights = self.weights[: self.population.y.shape[1]].copy() if self.active else self.pweights
+        weights = (
+            self.weights[: self.population.y.shape[1]].copy()
+            if self.active
+            else self.pweights
+        )
         n = len(weights.ravel())
         rank_mu = self.cmu * (
-            weights 
-            * self.population.y[:, : n]
-            @ self.population.y[:, : n].T
+            weights * self.population.y[:, :n] @ self.population.y[:, :n].T
         )
 
         self.C = old_C + rank_one + rank_mu
@@ -613,7 +650,7 @@ class Parameters(AnnotatedStruct):
             self.D, self.B = linalg.eigh(self.C)
             if np.all(self.D > 0):
                 self.D = np.sqrt(self.D.reshape(-1, 1))
-                self.inv_root_C = np.dot(self.B, self.D ** -1 * self.B.T)
+                self.inv_root_C = np.dot(self.B, self.D**-1 * self.B.T)
             else:
                 self.init_dynamic_parameters()
 
@@ -640,7 +677,7 @@ class Parameters(AnnotatedStruct):
             if len(self.restarts) == 0:
                 self.restarts.append(self.t)
 
-            if self.local_restart == "IPOP" and self.mu < 512: 
+            if self.local_restart == "IPOP" and self.mu < 512:
                 self.mu *= self.ipop_factor
                 self.lambda_ *= self.ipop_factor
 
@@ -750,13 +787,12 @@ class Parameters(AnnotatedStruct):
             The name of the file to save to.
 
         """
-        sampler = self.sampler 
+        sampler = self.sampler
         with open(filename, "wb") as f:
             self.sampler = None
             self.random_state = np.random.get_state()
             pickle.dump(self, f)
         self.sampler = sampler
-
 
     def record_statistics(self) -> None:
         """Method for recording metadata."""
@@ -780,8 +816,8 @@ class Parameters(AnnotatedStruct):
             _t = self.t % self.d
             diag_C = np.diag(self.C.T)
             d_sigma = self.sigma / self.sigma0
-            best_fopts = self.best_fitnesses[self.last_restart:]
-            median_fitnesses = self.median_fitnesses[self.last_restart:]
+            best_fopts = self.best_fitnesses[self.last_restart :]
+            median_fitnesses = self.median_fitnesses[self.last_restart :]
             time_since_restart = self.t - self.last_restart
             self.termination_criteria = (
                 dict()
@@ -790,7 +826,7 @@ class Parameters(AnnotatedStruct):
                     "max_iter": (time_since_restart > self.max_iter),
                     "equalfunvalues": (
                         len(best_fopts) > self.nbin
-                        and np.ptp(best_fopts[-self.nbin:]) == 0
+                        and np.ptp(best_fopts[-self.nbin :]) == 0
                     ),
                     "flat_fitness": (
                         time_since_restart > self.flat_fitnesses.maxlen
@@ -816,10 +852,14 @@ class Parameters(AnnotatedStruct):
                     "stagnation": (
                         time_since_restart > self.n_stagnation
                         and (
-                            np.median(best_fopts[-int(0.3 * time_since_restart):])
+                            np.median(best_fopts[-int(0.3 * time_since_restart) :])
                             >= np.median(best_fopts[: int(0.3 * time_since_restart)])
-                            and np.median(median_fitnesses[-int(0.3 * time_since_restart):])
-                            >= np.median(median_fitnesses[: int(0.3 * time_since_restart)])
+                            and np.median(
+                                median_fitnesses[-int(0.3 * time_since_restart) :]
+                            )
+                            >= np.median(
+                                median_fitnesses[: int(0.3 * time_since_restart)]
+                            )
                         )
                     ),
                 }
@@ -859,14 +899,16 @@ class Parameters(AnnotatedStruct):
         self.init_selection_parameters()
         self.init_adaptation_parameters()
         self.init_local_restart_parameters()
-        
+
     def update_popsize(self, lambda_new):
         """Manually control the population size."""
         if self.local_restart is not None:
-            warnings.warn("Modification of population size is disabled when local restart startegies are used")
+            warnings.warn(
+                "Modification of population size is disabled when local restart startegies are used"
+            )
             return
         self.lambda_ = lambda_new
-        self.mu = lambda_new//2
+        self.mu = lambda_new // 2
         self.init_selection_parameters()
         self.init_adaptation_parameters()
         self.init_local_restart_parameters()
@@ -904,7 +946,6 @@ class BIPOPParameters(AnnotatedStruct):
     def sigma(self) -> float:
         """Return value for sigma, based on which regime is active."""
         return 2 if self.large else 2 * pow(10, -2 * np.random.uniform())
-    
 
     @property
     def mu(self) -> int:

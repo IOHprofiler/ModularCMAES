@@ -48,7 +48,7 @@ class TestSampling(unittest.TestCase):
         """Test orthogonal sampling."""
         for base_sampler in (
             sampling.gaussian_sampling(self._dim),
-            sampling.sobol_sampling(sampling.Sobol(self._dim)),  
+            sampling.sobol_sampling(sampling.Sobol(self._dim)),
             sampling.halton_sampling(sampling.Halton(self._dim)),
         ):
             for n_samples in (3, 6):
@@ -59,7 +59,7 @@ class TestSampling(unittest.TestCase):
         """Test mirrored sampling."""
         for base_sampler in (
             sampling.gaussian_sampling(self._dim),
-            sampling.sobol_sampling(sampling.Sobol(self._dim)),  
+            sampling.sobol_sampling(sampling.Sobol(self._dim)),
             sampling.halton_sampling(sampling.Halton(self._dim)),
         ):
             sampler = sampling.mirrored_sampling(base_sampler)

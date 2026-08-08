@@ -4,7 +4,7 @@ import warnings
 import numpy as np
 import modcma.c_maes as ccma
 import ioh
-import pandas as pd 
+import pandas as pd
 import matplotlib.pyplot as plt
 import cma as pycma
 
@@ -12,19 +12,25 @@ from pprint import pprint
 
 np.random.seed(12)
 
-def run_modma(problem: ioh.ProblemType, x0: np.ndarray, matrix_adaptation = ccma.options.COVARIANCE, max_generations=1000):
+
+def run_modma(
+    problem: ioh.ProblemType,
+    x0: np.ndarray,
+    matrix_adaptation=ccma.options.COVARIANCE,
+    max_generations=1000,
+):
     modules = ccma.parameters.Modules()
     modules.matrix_adaptation = matrix_adaptation
     settings = ccma.Settings(
-        problem.meta_data.n_variables, 
+        problem.meta_data.n_variables,
         x0=x0,
         modules=modules,
         lb=problem.bounds.lb,
-        ub=problem.bounds.ub, 
+        ub=problem.bounds.ub,
         verbose=True,
-        max_generations=max_generations
+        max_generations=max_generations,
     )
-    
+
     cma = ccma.ModularCMAES(settings)
 
     start = perf_counter()
@@ -37,9 +43,9 @@ def run_modma(problem: ioh.ProblemType, x0: np.ndarray, matrix_adaptation = ccma
 
 def run_pycma(problem: ioh.ProblemType, x0: np.ndarray, max_generations=1000):
     options = pycma.CMAOptions()
-    options['CMA_active'] = False
+    options["CMA_active"] = False
     # options['maxfevals'] = n_evaluations
-    options['conditioncov_alleviate'] = False
+    options["conditioncov_alleviate"] = False
     options["verbose"] = 10
     options["CMA_diagonal"] = False
     pprint(options)
@@ -59,13 +65,14 @@ def run_pycma(problem: ioh.ProblemType, x0: np.ndarray, max_generations=1000):
 
     return elapsed, cma.countiter, problem.state.evaluations, cma.sm.count_eigen
 
+
 def collect():
     fid = 2
     dims = 2, 3, 5, 10, 20, 40, 100, 200, 500, 1000
-    
+
     n_repeats = 15
     options = ccma.options.MatrixAdaptationType.__members__
-    del options['COVARIANCE_NO_EIGV']
+    del options["COVARIANCE_NO_EIGV"]
 
     pprint(options)
 
@@ -74,11 +81,15 @@ def collect():
         for name, option in options.items():
             for _ in range(n_repeats):
                 problem = ioh.get_problem(fid, 1, d)
-                time, n_gen, n_evals, n_updates = run_modma(problem, np.zeros(d), option)
+                time, n_gen, n_evals, n_updates = run_modma(
+                    problem, np.zeros(d), option
+                )
                 stats.append((name, d, time, n_gen, n_evals, n_updates))
                 print(stats[-1])
 
-    stats = pd.DataFrame(stats, columns=["method", "dim", "time", "n_gen", "n_evals", "n_updates"])
+    stats = pd.DataFrame(
+        stats, columns=["method", "dim", "time", "n_gen", "n_evals", "n_updates"]
+    )
     stats.to_csv("time_stats.csv")
     print(stats)
 
@@ -95,7 +106,8 @@ if __name__ == "__main__":
             time, n_gen, n_evals, n_updates = run_pycma(problem, np.zeros(d))
             stats.append(("pycma", d, time, n_gen, n_evals, n_updates))
             print(stats[-1])
-    stats = pd.DataFrame(stats, columns=["method", "dim", "time", "n_gen", "n_evals", "n_updates"])
+    stats = pd.DataFrame(
+        stats, columns=["method", "dim", "time", "n_gen", "n_evals", "n_updates"]
+    )
     stats.to_csv("time_stats_pycma.csv")
     print(stats)
-    

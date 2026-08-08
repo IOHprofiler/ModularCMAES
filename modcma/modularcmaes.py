@@ -1,4 +1,5 @@
 """Main implementation of Modular CMA-ES."""
+
 from inspect import Parameter
 import os
 from itertools import islice
@@ -69,10 +70,12 @@ class ModularCMAES:
 
         n_offspring = int(self.parameters.lambda_ - (2 * perform_tpa))
 
-        if self.parameters.step_size_adaptation == 'lp-xnes' or self.parameters.sample_sigma:
+        if (
+            self.parameters.step_size_adaptation == "lp-xnes"
+            or self.parameters.sample_sigma
+        ):
             s = np.random.lognormal(
-                np.log(self.parameters.sigma),
-                self.parameters.beta, size=n_offspring
+                np.log(self.parameters.sigma), self.parameters.beta, size=n_offspring
             )
         else:
             s = np.ones(n_offspring) * self.parameters.sigma
@@ -85,16 +88,13 @@ class ModularCMAES:
         y = np.dot(self.parameters.B, self.parameters.D * z)
         x = self.parameters.m + (s * y)
         x, n_out_of_bounds = correct_bounds(
-            x, 
-            self.parameters.ub,
-            self.parameters.lb,
-            self.parameters.bound_correction
+            x, self.parameters.ub, self.parameters.lb, self.parameters.bound_correction
         )
         self.parameters.n_out_of_bounds += n_out_of_bounds
-    
+
         if not self.parameters.sequential and self.parameters.vectorized_fitness:
             f = self._fitness_func(x.T)
-            self.parameters.used_budget += len(x.T)       
+            self.parameters.used_budget += len(x.T)
         else:
             f = np.empty(n_offspring, object)
             for i in range(n_offspring):
@@ -194,7 +194,7 @@ class ModularCMAES:
     def adapt(self) -> None:
         """Shorthand for self.parameters.adapt"""
         self.parameters.adapt()
-        
+
     def step(self) -> bool:
         """The step method runs one iteration of the optimization process.
 
@@ -212,7 +212,6 @@ class ModularCMAES:
         self.recombine()
         self.adapt()
         return not any(self.break_conditions)
-    
 
     def sequential_break_conditions(self, i: int, f: float) -> bool:
         """Indicator whether there are any sequential break conditions.
@@ -264,7 +263,7 @@ class ModularCMAES:
         return [
             self.parameters.target >= self.parameters.fopt,
             self.parameters.used_budget >= self.parameters.budget,
-            self.parameters.should_stop
+            self.parameters.should_stop,
         ]
 
     def fitness_func(self, x: np.ndarray) -> float:
@@ -462,7 +461,7 @@ def evaluate_bbob(
         The target precision for the objective function value
     return_optimizer: bool = False
         Whether to return the optimizer
-    cpp: bool = False   
+    cpp: bool = False
         Wheter to run the C++ backend
     plot: bool = False
         Plotting stats
@@ -488,13 +487,13 @@ def evaluate_bbob(
     if seed:
         np.random.seed(seed)
         utils.set_seed(seed)
-    fitness_func = ioh.get_problem(
-        fid, dimension=dim, instance=instance
-    )
+    fitness_func = ioh.get_problem(fid, dimension=dim, instance=instance)
 
     if logging:
         data_location = data_folder if os.path.isdir(data_folder) else os.getcwd()
-        logger = ioh.logger.Analyzer(root=data_location, folder_name=f"{label}F{fid}_{dim}D")
+        logger = ioh.logger.Analyzer(
+            root=data_location, folder_name=f"{label}F{fid}_{dim}D"
+        )
         fitness_func.attach_logger(logger)
 
     print(
@@ -504,7 +503,7 @@ def evaluate_bbob(
     n_succ = 0
     if plot:
         iterations = 1
-    
+
     for idx in range(iterations):
         if idx > 0:
             fitness_func.reset()
@@ -517,7 +516,7 @@ def evaluate_bbob(
         dm = []
         sigma = []
         hs = []
-    
+
         if cpp:
             # TODO: map c++ types to python types
             modules = parameters.Modules()
@@ -526,11 +525,11 @@ def evaluate_bbob(
             modules.restart_strategy = options.RestartStrategy.NONE
 
             settings = Settings(
-                fitness_func.meta_data.n_variables, 
+                fitness_func.meta_data.n_variables,
                 x0=np.zeros(dim),
                 modules=modules,
                 lb=fitness_func.bounds.lb,
-                ub=fitness_func.bounds.ub, 
+                ub=fitness_func.bounds.ub,
                 verbose=True,
                 sigma0=2.0,
                 target=fitness_func.optimum.y + 1e-8,
@@ -541,39 +540,40 @@ def evaluate_bbob(
                 optimizer.step(fitness_func)
                 ps_norm.append(np.linalg.norm(optimizer.p.adaptation.ps))
                 pc_norm.append(np.linalg.norm(optimizer.p.adaptation.pc))
-                eigvals.append(
-                    optimizer.p.adaptation.d**2
-                )
+                eigvals.append(optimizer.p.adaptation.d**2)
                 sigma.append(optimizer.p.mutation.sigma)
                 f_values.append(optimizer.p.pop.f.mean())
                 dm.append(optimizer.p.adaptation.dm.copy())
                 hs.append(optimizer.p.adaptation.hs)
             title = "modcmacpp"
         else:
-            optimizer = ModularCMAES(fitness_func, dim, x0 = np.zeros(dim), target=target, **kwargs)
-            
-     
+            optimizer = ModularCMAES(
+                fitness_func, dim, x0=np.zeros(dim), target=target, **kwargs
+            )
+
             while optimizer.step():
                 ps_norm.append(np.linalg.norm(optimizer.parameters.ps))
                 pc_norm.append(np.linalg.norm(optimizer.parameters.pc))
-                eigvals.append(
-                    (optimizer.parameters.D**2).ravel()
-                )
+                eigvals.append((optimizer.parameters.D**2).ravel())
                 sigma.append(optimizer.parameters.sigma)
                 f_values.append(optimizer.parameters.population.f.mean())
                 dm.append(optimizer.parameters.dm.ravel())
                 hs.append(optimizer.parameters.hs)
             title = "modcmapy"
 
-        if plot:    
+        if plot:
             import matplotlib.pyplot as plt
 
-            f, (ax0, ax1, ax2, ax3, ax4) = plt.subplots(5, figsize=(13, 10), sharex=True)
+            f, (ax0, ax1, ax2, ax3, ax4) = plt.subplots(
+                5, figsize=(13, 10), sharex=True
+            )
             f.suptitle(title)
-            ax0.plot(f_values, label=f"fmin: {fitness_func.state.current_best_internal.y}")
+            ax0.plot(
+                f_values, label=f"fmin: {fitness_func.state.current_best_internal.y}"
+            )
             ax0.legend()
             axs = ax0.twinx()
-            axs.plot(sigma, color='red')
+            axs.plot(sigma, color="red")
 
             axs.set_ylabel("sigma")
 
@@ -583,7 +583,7 @@ def evaluate_bbob(
             ax12.set_ylabel("hs")
 
             ax2.plot(pc_norm)
-            
+
             for i, v in enumerate(np.array(eigvals).T):
                 ax3.plot(v, label=i)
 
@@ -603,10 +603,10 @@ def evaluate_bbob(
                 ax.grid()
                 ax.set_yscale("log", base=10)
             plt.show()
-                
+
         evals = np.append(evals, fitness_func.state.evaluations)
         fopts = np.append(fopts, fitness_func.state.current_best_internal.y)
-        
+
         if fitness_func.state.current_best_internal.y <= target_precision:
             n_succ += 1
 
@@ -628,14 +628,14 @@ def evaluate_bbob(
     return evals, fopts
 
 
-def fmin(func: callable, x0: np.ndarray, budget: int=None, **kwargs):
+def fmin(func: callable, x0: np.ndarray, budget: int = None, **kwargs):
     """Minimize a function using the modular CMA-ES.
 
     Parameters
     ----------
     func: callable
         The objective function to be minimized.
-    x0: 
+    x0:
         The dimensionality of the problem
     budget: int = None
         Maximum number of function evaluations to make.

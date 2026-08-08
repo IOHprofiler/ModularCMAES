@@ -30,7 +30,7 @@ from .cmaescpp import (
     es,  # pyright: ignore[reportMissingModuleSource]
 )
 
-from .cmaescpp.parameters import ( # pyright: ignore[reportMissingModuleSource]
+from .cmaescpp.parameters import (  # pyright: ignore[reportMissingModuleSource]
     Settings,
     Modules,
 )  # pyright: ignore[reportMissingModuleSource]
@@ -47,8 +47,7 @@ def _get_module_options(name: str) -> tuple:
     module_class = default_value.__class__
     if issubclass(module_class, Enum):
         other_values = [
-            x.name for x in module_class.__members__.values() 
-            if x is not default_value
+            x.name for x in module_class.__members__.values() if x is not default_value
         ]
         return tuple([default_value.name] + other_values)
     raise TypeError(f"{name} has a unparsable type {type(default_value)}")
@@ -85,10 +84,10 @@ def _make_numeric_parameter(
 
 
 def get_configspace(
-    dim: int = None, 
-    add_popsize: bool = True, 
-    add_sigma: bool = True, 
-    add_learning_rates: bool = True
+    dim: int = None,
+    add_popsize: bool = True,
+    add_sigma: bool = True,
+    add_learning_rates: bool = True,
 ) -> ConfigurationSpace:
     cspace = ConfigurationSpace()
     for name, options in get_all_module_options().items():
@@ -105,17 +104,17 @@ def get_configspace(
         cspace.add(_make_numeric_parameter("lambda0", dim, 1, 50 * dim))
         cspace.add(_make_numeric_parameter("mu0", dim, 1, 50 * dim))
         cspace.add(ForbiddenGreaterThanRelation(cspace["mu0"], cspace["lambda0"]))
-    
+
     if add_sigma:
         cspace.add(_make_numeric_parameter("sigma0", dim, 1e-15, 1e15))
-    
+
     if add_learning_rates:
         cspace.add(_make_numeric_parameter("cs", dim, 0, 1.0))
         cspace.add(_make_numeric_parameter("cc", dim, 0, 1.0))
         cspace.add(_make_numeric_parameter("cmu", dim, 0, 1.0))
         cspace.add(_make_numeric_parameter("c1", dim, 0, 1.0))
         cspace.add(_make_numeric_parameter("damps", dim, 0, 10.0))
-        
+
     return cspace
 
 
@@ -126,7 +125,7 @@ def set_module(modules: Modules, name: str, value: Enum) -> bool:
             value = getattr(attr_class, value)
         setattr(modules, name, value)
         return True
-    return False    
+    return False
 
 
 def settings_from_dict(dim: int, **config: dict) -> Settings:
@@ -140,11 +139,7 @@ def settings_from_dict(dim: int, **config: dict) -> Settings:
     return settings
 
 
-def settings_from_config(
-    dim: int, 
-    config: Configuration, 
-    **kwargs
-) -> Settings:
+def settings_from_config(dim: int, config: Configuration, **kwargs) -> Settings:
     via_settings = kwargs
     default_config = get_configspace(dim).get_default_configuration()
     modules = Modules()
@@ -157,6 +152,7 @@ def settings_from_config(
     settings = Settings(dim, modules, **via_settings)
     return settings
 
+
 def fmin(func: callable, x0: np.ndarray, sigma0: float, budget: int, **kwargs):
     """Minimize a function using the modular CMA-ES.
 
@@ -164,7 +160,7 @@ def fmin(func: callable, x0: np.ndarray, sigma0: float, budget: int, **kwargs):
     ----------
     func: callable
         The objective function to be minimized.
-    x0 np.ndarray: 
+    x0 np.ndarray:
         The first solution estimate
     sigma0: float
         The estimate of the stepsize (rule of thumb: 0.3 * (ub - lb))
@@ -187,9 +183,15 @@ def fmin(func: callable, x0: np.ndarray, sigma0: float, budget: int, **kwargs):
     settings = settings_from_dict(len(x0), sigma0=sigma0, budget=budget, **kwargs)
     es = ModularCMAES(settings)
     es(func)
-    
-    return es.p.stats.global_best.x, es.p.stats.global_best.y, es.p.stats.evaluations, es
-    
+
+    return (
+        es.p.stats.global_best.x,
+        es.p.stats.global_best.y,
+        es.p.stats.evaluations,
+        es,
+    )
+
+
 __all__ = (
     "settings_from_config",
     "get_configspace",

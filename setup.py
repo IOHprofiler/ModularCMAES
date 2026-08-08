@@ -1,4 +1,5 @@
 """Setup script."""
+
 # pylint: disable=protected-access
 
 import os
@@ -17,9 +18,9 @@ if platform.system() in ("Linux", "Darwin"):
     os.environ["CC"] = "g++"
     os.environ["CXX"] = "g++"
     c_flags = [
-        "-O3", 
+        "-O3",
         "-fno-math-errno",
-        "-funroll-loops", 
+        "-funroll-loops",
         "-ftree-vectorize",
     ]
     l_flags = [
@@ -28,10 +29,12 @@ if platform.system() in ("Linux", "Darwin"):
     if platform.system() == "Darwin":
         c_flags.append("-mmacosx-version-min=10.15")
     else:
-        c_flags.extend([
-            "-march=native",
-            "-mtune=native",
-        ])
+        c_flags.extend(
+            [
+                "-march=native",
+                "-mtune=native",
+            ]
+        )
 else:
     c_flags = ["/O2"]
     l_flags = []
@@ -42,7 +45,7 @@ ext = Pybind11Extension(
     include_dirs=["include", "external"],
     cxx_std=17,
     extra_link_args=l_flags,
-    extra_compile_args=c_flags
+    extra_compile_args=c_flags,
 )
 
 setuptools.setup(
@@ -57,12 +60,7 @@ setuptools.setup(
     cmdclass={"build_ext": build_ext},
     ext_modules=[ext],
     python_requires=">=3.8",
-    install_requires=[
-        "configspace",
-        "numpy", 
-        "scipy", 
-        "ioh"
-    ],
+    install_requires=["configspace", "numpy", "scipy", "ioh"],
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

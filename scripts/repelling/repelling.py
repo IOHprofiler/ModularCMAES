@@ -15,11 +15,12 @@ import modcma.c_maes as c_cmaes
 from modcma.c_maes.cmaescpp.parameters import Solution
 from scipy.spatial.distance import mahalanobis
 
-
 base_dir = os.path.realpath(os.path.dirname(__file__))
+
 
 def belongs_to_same_basin(x, y, problem, samples=10):
     return c_cmaes.repelling.hill_valley_test(x, y, problem, samples)
+
 
 def make_solution(x, y, t, e):
     sol = Solution()
@@ -28,6 +29,7 @@ def make_solution(x, y, t, e):
     sol.t = t
     sol.e = e
     return sol
+
 
 def calculate_potential(centers, problem):
     opt = Solution()
@@ -56,8 +58,7 @@ def calculate_potential(centers, problem):
 
 def plot_contour(X, Y, Z, colorbar=True, vmin=-2, vmax=2):
     plt.contourf(
-        X, Y, np.log10(Z), levels=200, cmap="Spectral", 
-        zorder=-1, vmin=vmin, vmax=vmax
+        X, Y, np.log10(Z), levels=200, cmap="Spectral", zorder=-1, vmin=vmin, vmax=vmax
     )
     plt.xlabel(R"$x_1$")
     plt.ylabel(R"$x_2$")
@@ -96,7 +97,7 @@ def plot(
     Z: np.ndarray,
     lb: float,
     ub: float,
-    problem
+    problem,
 ):
     plt.clf()
     plt.title(
@@ -153,8 +154,7 @@ def plot(
         Ct = C
 
         theta_t = np.degrees(np.arctan2(Ct[1, 0], Ct[0, 0]))
-        
-        
+
         # print(theta_t, np.degrees(np.arctan2(tabu_point.C[1, 0],  tabu_point.C[0, 0])))
         current = Ellipse(
             tabu_point.solution.x,
@@ -417,70 +417,75 @@ def calc_taboo_potential(fid=3, instance=6, dim=2, n_trials=1):
 
 
 class CloseToTaboo(c_cmaes.restart.Criterion):
-    
+
     def __init__(self):
         super().__init__("CloseToTaboo")
-    
+
     def update(self, par: c_cmaes.Parameters):
         self.met = False
         if len(par.repelling.archive) != 0:
-            d_sigma = par.mutation.sigma / par.settings.sigma0 
+            d_sigma = par.mutation.sigma / par.settings.sigma0
             somewhat_converged = d_sigma < 1e-1
-            
-            if somewhat_converged:           
+
+            if somewhat_converged:
                 for p in par.repelling.archive:
-                    distance = mahalanobis(par.adaptation.m, p.solution.x, par.repelling.C_inv)
+                    distance = mahalanobis(
+                        par.adaptation.m, p.solution.x, par.repelling.C_inv
+                    )
                     threshold = 1 / np.sqrt(par.settings.dim)
                     if distance < threshold:
                         print("close to taboo", distance, threshold)
                         self.met = True
 
-                        
-    def on_update(self,  par: c_cmaes.Parameters):
+    def on_update(self, par: c_cmaes.Parameters):
         self.met = False
-        
+
+
 class TooMuchRepelling(c_cmaes.restart.Criterion):
-    
+
     def __init__(self):
         super().__init__("TooMuchRepelling")
         self.decay = 0
         self.alpha = 0.9
-    
+
     def update(self, par: c_cmaes.Parameters):
         self.met = False
-        self.decay = (1 - self.alpha) * self.decay + (self.alpha * par.repelling.attempts)
+        self.decay = (1 - self.alpha) * self.decay + (
+            self.alpha * par.repelling.attempts
+        )
         if self.decay > (2 * par.lamb):
             self.met = True
-                        
-    def on_update(self,  par: c_cmaes.Parameters):
+
+    def on_update(self, par: c_cmaes.Parameters):
         self.met = False
         self.decay = 0
-        
+
+
 class ConvergingToBadBasin(c_cmaes.restart.Criterion):
-    
+
     def __init__(self):
         super().__init__("ConvergingToBadBasin")
-    
+
     def update(self, par: c_cmaes.Parameters):
         self.met = False
         if len(par.repelling.archive) != 0:
-            d_sigma = par.mutation.sigma / par.settings.sigma0 
+            d_sigma = par.mutation.sigma / par.settings.sigma0
             somewhat_converged = d_sigma < 1e-1
-            
-            if somewhat_converged:           
-                function_values = np.array([p.solution.y for p in par.repelling.archive])
+
+            if somewhat_converged:
+                function_values = np.array(
+                    [p.solution.y for p in par.repelling.archive]
+                )
                 threshold_value = np.median(function_values)
                 if threshold_value < par.pop.f.min():
                     print("Bad basin", threshold_value, "vs", par.pop.f.min())
                     self.met = True
-                        
-    def on_update(self,  par: c_cmaes.Parameters):
-        self.met = False
-      
-        
-        
 
-def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = False):
+    def on_update(self, par: c_cmaes.Parameters):
+        self.met = False
+
+
+def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames=False):
     lb = -5
     ub = 5
 
@@ -517,7 +522,7 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = F
     parameters = c_cmaes.Parameters(settings)
     parameters.repelling.coverage = coverage
     cma = c_cmaes.ModularCMAES(parameters)
-    
+
     # c1 = CloseToTaboo()
     # c2 = TooMuchRepelling()
     # c3 = ConvergingToBadBasin()
@@ -527,10 +532,10 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = F
     while not cma.break_conditions():
         # if any(x.met for x in cma.p.criteria.items):
         #     breakpoint()
-        
+
         # print("before start", cma.p.criteria.items)
         # print(cma.p.repelling.archive)
-        # print(cma.p.stats.solutions)        
+        # print(cma.p.stats.solutions)
         # cma.p.start(problem)
         # print()
         # print("after start", cma.p.criteria.items)
@@ -541,24 +546,23 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = F
         # print("after mutate", cma.p.criteria.items)
         # print(cma.p.repelling.archive)
         # print(cma.p.stats.solutions)
-        
+
         if dim == 2:
             plot(cma, X, Y, Z, lb, ub, problem)
-            
+
         # if len(cma.p.repelling.archive) != archive_size:
         #     archive_size = len(cma.p.repelling.archive)
         #     for p in cma.p.repelling.archive:
         #         print(f"({p.radius:.2e}, {p.criticality: .2e})", end=", ")
         #     print()
 
-            # breakpoint()
-            # time.sleep(1)
+        # breakpoint()
+        # time.sleep(1)
 
         cma.select()
         cma.recombine()
         cma.adapt()
-        
-        
+
     print(problem.optimum)
     print(len(cma.p.stats.solutions))
     # breakpoint()
@@ -566,6 +570,7 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames = F
     print("final target: ", final_target, "used budget: ", problem.state.evaluations)
 
     plt.show()
+
 
 def collect(
     fid=21,
@@ -666,6 +671,7 @@ def collect(
             # print()
     return erts
 
+
 # def collect(
 #     fid=21,
 #     dim=2,
@@ -711,7 +717,7 @@ def collect(
 
 #     data = []
 #     for fid in fids:
-        
+
 #         print(fid, end=": ")
 #         for dim in dims:
 #             print(dim, end=", ")
@@ -760,7 +766,7 @@ def collect(
 #                     )
 #                     problem.reset()
 #         print()
-            
+
 
 #     df = pd.DataFrame(data, columns="fid, instance, dim, seed, evaluations, final_target, target_reached, n_runs, n_duplicate_runs, potential".split(", "))
 #     df.to_pickle(f"data/{algorithm_name}.pkl")
@@ -800,7 +806,7 @@ if __name__ == "__main__":
                 args.coverage,
                 args.budget,
                 args.verbose,
-                elitist=args.elitist
+                elitist=args.elitist,
             )
             print("no repelling", ert_no)
 
@@ -815,7 +821,7 @@ if __name__ == "__main__":
                         c,
                         args.budget,
                         args.verbose,
-                        elitist=args.elitist
+                        elitist=args.elitist,
                     )
                     print("repelling cov:", c, ert_r, ert_r / ert_no)
             else:
@@ -828,7 +834,7 @@ if __name__ == "__main__":
                     args.coverage,
                     args.budget,
                     args.verbose,
-                    elitist=args.elitist
+                    elitist=args.elitist,
                 )
                 print("repelling cov:", args.coverage, ert_r, ert_r / ert_no)
         else:
@@ -842,7 +848,6 @@ if __name__ == "__main__":
                 args.budget,
                 args.verbose,
             )
-
 
     # dims = range(2, 10)
     # n_instances = 10
@@ -921,7 +926,6 @@ if __name__ == "__main__":
     #                 )
     #                 problem.reset()
     #     print()
-            
 
     # df = pd.DataFrame(data, columns="fid, instance, dim, seed, evaluations, final_target, target_reached, n_runs, n_duplicate_runs, potential".split(", "))
     # df.to_pickle(f"data/rep/{algorithm_name}_fid{args.fid}.pkl")

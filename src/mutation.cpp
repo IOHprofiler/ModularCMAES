@@ -269,10 +269,35 @@ void SA::adapt(const parameters::Weights &w,
                const parameters::Stats &stats,
                const size_t lambda)
 {
-    const auto &sigma_l = pop.S.topRows(w.positive.rows());
-    const auto &log_sigma_dim = sigma_l.array().log().rowwise().mean();
-    const Float log_sigma = (w.positive.array() * log_sigma_dim).sum();
-    sigma = std::exp(log_sigma) / mean_sigma;
+    const Eigen::Index mu = w.positive.size();
+
+    if (mu <= 0 || mu > pop.S.cols())
+    {
+        throw std::invalid_argument("SA::adapt: mu must be in [1, pop.S.cols()]");
+    }
+
+    if (pop.S.rows() == 0)
+    {
+        throw std::invalid_argument("SA::adapt: population sigma matrix has no dimensions");
+    }
+
+    const auto selected_sigma = pop.S.leftCols(mu);
+
+    // One geometric-mean log-sigma per selected offspring.
+    const Vector log_sigma_per_offspring =
+        selected_sigma.array().log().colwise().mean().transpose();
+
+    const Float weighted_log_sigma = w.positive.dot(log_sigma_per_offspring);
+
+    const Float selected_mean_sigma = std::exp(weighted_log_sigma);
+
+    if (!std::isfinite(selected_mean_sigma) || !std::isfinite(mean_sigma) || mean_sigma <= 0.0)
+    {
+        throw std::runtime_error("SA::adapt produced an invalid sigma update");
+    }
+
+    // Preserve the original intent of a normalized relative update.
+    sigma *= selected_mean_sigma / mean_sigma;
 }
 
 std::shared_ptr<Strategy>

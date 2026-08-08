@@ -6,6 +6,7 @@ import numpy as np
 from modcma import asktellcmaes
 import ioh
 
+
 class AskTellCMAESTestCase(unittest.TestCase):
     """Test case for ask-tell interface of Modular CMA-ES."""
 
@@ -62,7 +63,7 @@ class AskTellCMAESTestCase(unittest.TestCase):
         self.assertNotEqual(len(self.opt.ask_queue), 0)
 
     def test_disabled_functions(self):
-        """Test whether errors are produced correctly."""    
+        """Test whether errors are produced correctly."""
         with self.assertRaises(NotImplementedError):
             self.opt.run()
         with self.assertRaises(NotImplementedError):

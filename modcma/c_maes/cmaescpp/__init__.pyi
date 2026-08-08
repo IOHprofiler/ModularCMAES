@@ -24,8 +24,6 @@ class constants:
     clip_sigma: ClassVar[bool] = ...
     def __init__(self, *args, **kwargs) -> None: ...
 
-
-
 class Population:
     X: numpy.ndarray
     Y: numpy.ndarray
@@ -89,7 +87,7 @@ class Parameters:
     def start(
         self, objective: Callable[[numpy.ndarray[numpy.float64[m, 1]]], float]
     ) -> None: ...
-    
+
 class ModularCMAES:
     @overload
     def __init__(self, parameters: Parameters) -> None: ...

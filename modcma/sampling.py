@@ -1,4 +1,5 @@
 """Module implementing various samplers."""
+
 from typing import Generator
 from collections.abc import Iterator
 
@@ -86,7 +87,7 @@ def sobol_sampling(sobol: Sobol) -> Generator[np.ndarray, None, None]:
     Parameters
     ----------
     sobol: Sobol
-        QmcSampler which wraps a scipy.stats.qmc.Sobol sampler        
+        QmcSampler which wraps a scipy.stats.qmc.Sobol sampler
 
     Yields
     ------

@@ -15,7 +15,7 @@ from modcma.modularcmaes import scale_with_threshold
 
 class TestMutation(unittest.TestCase):
     def setUp(self):
-        
+
         pop = Population(2, 2)
         pop.Z = np.ones((2, 2)) * 0.5
         self.par = Parameters(2)
@@ -49,25 +49,36 @@ class TestMutation(unittest.TestCase):
         self.par.pop.Z = Z
         expected_z = 0.5 * ((t + (t - norm)) / norm)
         self.assertTrue(np.isclose(self.par.pop.Z, expected_z).all())
-        self.assertTrue(np.isclose(self.par.pop.Z, scale_with_threshold(np.ones(2) * .5, t)).all())
+        self.assertTrue(
+            np.isclose(self.par.pop.Z, scale_with_threshold(np.ones(2) * 0.5, t)).all()
+        )
 
     def get_cma(self, ssa, adapt_sigma=True):
         modules = parameters.Modules()
         modules.ssa = ssa
         settings = parameters.Settings(2, modules)
         par = Parameters(settings)
-        
+
         cma = ModularCMAES(par)
         if adapt_sigma:
             cma.mutate(sum)
             cma.select()
             cma.recombine()
             cma.p.adaptation.adapt_evolution_paths(
-                cma.p.pop, cma.p.weights, cma.p.stats, 
-                cma.p.settings, cma.p.mu, cma.p.lamb
+                cma.p.pop,
+                cma.p.weights,
+                cma.p.stats,
+                cma.p.settings,
+                cma.p.mu,
+                cma.p.lamb,
             )
             cma.p.mutation.adapt(
-                cma.p.weights, cma.p.adaptation, cma.p.pop, cma.p.old_pop, cma.p.stats, cma.p.lamb
+                cma.p.weights,
+                cma.p.adaptation,
+                cma.p.pop,
+                cma.p.old_pop,
+                cma.p.stats,
+                cma.p.lamb,
             )
         return cma
 
@@ -79,7 +90,13 @@ class TestMutation(unittest.TestCase):
             cma.p.settings.sigma0
             * np.exp(
                 (cma.p.weights.cs / cma.p.weights.damps)
-                * ((np.linalg.norm(cma.p.adaptation.ps) / cma.p.sampler.expected_length()) - 1)
+                * (
+                    (
+                        np.linalg.norm(cma.p.adaptation.ps)
+                        / cma.p.sampler.expected_length()
+                    )
+                    - 1
+                )
             ),
         )
 
@@ -93,37 +110,35 @@ class TestMutation(unittest.TestCase):
 
     def test_adapt_psr(self):
         cma = self.get_cma(options.StepSizeAdaptation.PSR)
-        
+
     def test_adapt_mxnes(self):
         cma = self.get_cma(options.StepSizeAdaptation.MXNES)
-
 
     def test_adapt_xnes(self):
         cma = self.get_cma(options.StepSizeAdaptation.XNES)
 
         w = cma.p.weights.weights.clip(0)[: cma.p.pop.n]
-        z = (
-            np.power(
-                np.linalg.norm(cma.p.pop.Z, axis=0), 2
+        z = np.power(np.linalg.norm(cma.p.pop.Z, axis=0), 2) - cma.p.settings.dim
+        self.assertTrue(
+            np.isclose(
+                cma.p.mutation.sigma,
+                cma.p.settings.sigma0
+                * np.exp(
+                    (cma.p.weights.cs / np.sqrt(cma.p.settings.dim)) * (w * z).sum()
+                ),
             )
-            - cma.p.settings.dim
         )
-        self.assertTrue(np.isclose(
-            cma.p.mutation.sigma,
-            cma.p.settings.sigma0
-            * np.exp((cma.p.weights.cs / np.sqrt(cma.p.settings.dim)) * (w * z).sum()),
-        ))
-
 
     def test_adapt_lpxnes(self):
         cma = self.get_cma(options.StepSizeAdaptation.LPXNES)
-        
+
         w = cma.p.weights.weights.clip(0)[: cma.p.pop.n]
-        
+
         z = np.exp(cma.p.weights.cs * (w @ np.log(cma.p.pop.S).mean(axis=0)))
-        
+
         sigma = np.power(cma.p.settings.sigma0, 1 - cma.p.weights.cs) * z
         self.assertTrue(np.isclose(cma.p.mutation.sigma, sigma))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -304,12 +304,12 @@ Criteria Criteria::get(const parameters::Modules modules, const int lambda)
             criteria.push_back(std::make_shared<restart::NoEffectAxis>());
             criteria.push_back(std::make_shared<restart::NoEffectCoord>());
         }
+        if (modules.repelling_type != parameters::RepellingType::NONE)
+        {
+            criteria.push_back(std::make_shared<restart::TooMuchRepelling>());
+        }
     }
 
-    if (modules.repelling_type != parameters::RepellingType::NONE)
-    {
-        criteria.push_back(std::make_shared<restart::TooMuchRepelling>());
-    }
     return Criteria(criteria);
 }
 } // namespace restart

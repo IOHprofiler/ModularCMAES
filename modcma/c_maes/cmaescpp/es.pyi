@@ -26,7 +26,15 @@ class MuCommaLambdaES:
     tau: float
     tau_i: float
     x_min: numpy.ndarray
-    def __init__(self, d: int, x0: numpy.ndarray, sigma0: float = ..., budget: int = ..., target: float = ..., modules: modcma.c_maes.cmaescpp.parameters.Modules = ...) -> None: ...
+    def __init__(
+        self,
+        d: int,
+        x0: numpy.ndarray,
+        sigma0: float = ...,
+        budget: int = ...,
+        target: float = ...,
+        modules: modcma.c_maes.cmaescpp.parameters.Modules = ...,
+    ) -> None: ...
     def sample(self, arg0: numpy.ndarray) -> numpy.ndarray: ...
     def step(self, arg0: Callable[[numpy.ndarray], float]) -> None: ...
     def __call__(self, arg0: Callable[[numpy.ndarray], float]) -> None: ...
@@ -43,7 +51,16 @@ class OnePlusOneES:
     t: int
     target: float
     x: numpy.ndarray
-    def __init__(self, d: int, x0: numpy.ndarray, f0: float, sigma0: float = ..., budget: int = ..., target: float = ..., modules: modcma.c_maes.cmaescpp.parameters.Modules = ...) -> None: ...
+    def __init__(
+        self,
+        d: int,
+        x0: numpy.ndarray,
+        f0: float,
+        sigma0: float = ...,
+        budget: int = ...,
+        target: float = ...,
+        modules: modcma.c_maes.cmaescpp.parameters.Modules = ...,
+    ) -> None: ...
     def sample(self) -> numpy.ndarray: ...
     def step(self, arg0: Callable[[numpy.ndarray], float]) -> None: ...
     def __call__(self, arg0: Callable[[numpy.ndarray], float]) -> None: ...

@@ -45,7 +45,10 @@ class TestPopulation(unittest.TestCase):
         """Test sorting behaviour."""
         self.pop.sort()
         rank = np.argsort(self.f)
-        for e in ("x", "y", ):
+        for e in (
+            "x",
+            "y",
+        ):
             self.assertListEqual(
                 getattr(self, e)[:, rank].tolist(), getattr(self.pop, e).tolist()
             )
@@ -58,7 +61,7 @@ class TestPopulation(unittest.TestCase):
     def test_getitem(self):
         """Test whether errors are produced correctly."""
         with self.assertRaises(KeyError):
-            _= self.pop["a"]
+            _ = self.pop["a"]
         with self.assertRaises(KeyError):
             _ = self.pop[0.1]
 
@@ -74,7 +77,7 @@ class TestPopulation(unittest.TestCase):
         population.Population(self.x.ravel(), self.y.ravel(), self.z.ravel(), self.f)
 
     def test_add(self):
-        """Test addition.""" 
+        """Test addition."""
         self.pop += population.Population(self.x, self.y, self.y, self.f)
         self.assertEqual(
             self.pop.x.shape,
@@ -104,7 +107,7 @@ class TestPopulation(unittest.TestCase):
         self.assertEqual(self._dim, self.pop.d)
 
     def test_repr(self):
-        """Test representation.""" 
+        """Test representation."""
         self.assertEqual(type(repr(self.pop)), str)
         self.assertEqual(type(str(self.pop)), str)
 

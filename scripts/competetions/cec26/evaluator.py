@@ -12,10 +12,7 @@ import numpy as np
 
 from problem.ProblemMM import ProblemMM
 
-
-FILENAME_RE = re.compile(
-    r"pid(?P<pid>\d+)_pin_(?P<pin>\d+)_dim_(?P<dim>\d+)\.csv$"
-)
+FILENAME_RE = re.compile(r"pid(?P<pid>\d+)_pin_(?P<pin>\d+)_dim_(?P<dim>\d+)\.csv$")
 
 
 @dataclass
@@ -131,10 +128,8 @@ def pda_from_error_ln(
     if error >= eps_loose:
         return 0.0
 
-    value = (
-        (np.log(eps_loose) - np.log(error))
-        /
-        (np.log(eps_loose) - np.log(eps_tight))
+    value = (np.log(eps_loose) - np.log(error)) / (
+        np.log(eps_loose) - np.log(eps_tight)
     )
 
     return float(min(1.0, max(0.0, value)))
@@ -373,6 +368,7 @@ def print_aggregates_by_function_dim(results: list[RunResult]):
     print("-" * 105)
     print()
 
+
 def print_aggregates_by_function_dim(results: list[RunResult]):
     if not results:
         return
@@ -419,11 +415,12 @@ def print_aggregates_by_function_dim(results: list[RunResult]):
     print("-" * 105)
     print()
 
+
 def print_results(results: list[RunResult], per_file: bool = False):
     if not results:
         print("No valid solution CSV files found.")
         return
-    
+
     if per_file:
         print()
         print("Per-file results")
@@ -554,6 +551,7 @@ def write_function_dim_summary_csv(results: list[RunResult], output_path: Path):
                     float(np.mean(missing)),
                 ]
             )
+
 
 def main():
     parser = argparse.ArgumentParser()

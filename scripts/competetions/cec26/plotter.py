@@ -40,9 +40,7 @@ def get_meshgrid_from_problem_mm(problem, delta: float = 0.05):
 
     for i in range(X.shape[0]):
         for j in range(X.shape[1]):
-            Z[i, j] = problem._func_eval_single(
-                np.array([X[i, j], Y[i, j]])
-            )
+            Z[i, j] = problem._func_eval_single(np.array([X[i, j], Y[i, j]]))
 
     if used_eval_before is not None:
         problem.used_eval = used_eval_before
@@ -198,6 +196,7 @@ def prepare_contour_values(
         vmax = vmin + 1.0
 
     return Z_plot, vmin, vmax
+
 
 class ModCMABlitPlotter:
     """
@@ -467,7 +466,9 @@ class ModCMABlitPlotter:
             return "none"
 
         # Attribute-based fallback.
-        if hasattr(repelling, "local_max_rejection_rate") or hasattr(repelling, "grow_eta"):
+        if hasattr(repelling, "local_max_rejection_rate") or hasattr(
+            repelling, "grow_eta"
+        ):
             return "adaptive"
 
         if hasattr(repelling, "coverage"):
@@ -518,7 +519,9 @@ class ModCMABlitPlotter:
         archive = self._get_archive(par)
         kind = self._repelling_kind(repelling)
 
-        attempts = int(getattr(repelling, "attempts", 0)) if repelling is not None else 0
+        attempts = (
+            int(getattr(repelling, "attempts", 0)) if repelling is not None else 0
+        )
 
         criticality_threshold = 0.01
 
@@ -705,7 +708,9 @@ class ModCMABlitPlotter:
             ),
         }
 
-    def _update_stats_text(self, par, current_best_y, global_best_y, m, sigma, pop_points):
+    def _update_stats_text(
+        self, par, current_best_y, global_best_y, m, sigma, pop_points
+    ):
         stats = getattr(par, "stats", None)
         repelling = getattr(par, "repelling", None)
 
@@ -714,7 +719,9 @@ class ModCMABlitPlotter:
         lamb = getattr(par, "lamb", getattr(par, "lambda", "?"))
 
         archive = self._get_archive(par)
-        attempts = int(getattr(repelling, "attempts", 0)) if repelling is not None else 0
+        attempts = (
+            int(getattr(repelling, "attempts", 0)) if repelling is not None else 0
+        )
 
         coverage = (
             float(getattr(repelling, "coverage", np.nan))
@@ -758,9 +765,7 @@ class ModCMABlitPlotter:
             local_max_rejection_rate = float(
                 getattr(repelling, "local_max_rejection_rate", np.nan)
             )
-            max_rejection_rate = float(
-                getattr(repelling, "max_rejection_rate", np.nan)
-            )
+            max_rejection_rate = float(getattr(repelling, "max_rejection_rate", np.nan))
             grow_eta = float(getattr(repelling, "grow_eta", np.nan))
             shrink_factor = float(getattr(repelling, "shrink_factor", np.nan))
             avg_restart_evals = float(

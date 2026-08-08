@@ -14,6 +14,7 @@ class TestUtils(unittest.TestCase):
 
     def setUp(self):
         """Test setup method."""
+
         class Foo(utils.AnnotatedStruct):
             x: int
             y: float = 0.0
@@ -25,6 +26,7 @@ class TestUtils(unittest.TestCase):
     @unittest.mock.patch("sys.stdout", new_callable=io.StringIO)
     def test_timeit(self, mock_stdout):
         """Test timit method."""
+
         @utils.timeit
         def f():
             pass
@@ -69,8 +71,10 @@ class TestUtils(unittest.TestCase):
     def test_metaclass_raises(self):
         """Test metaclass raises correct error."""
         with self.assertRaises(TypeError):
+
             class Foo(utils.AnnotatedStruct):
                 x: "x"
+
             _ = Foo()
 
     def test_repr(self):
@@ -79,6 +83,7 @@ class TestUtils(unittest.TestCase):
 
     def test_descriptor(self):
         """Test descriptor."""
+
         class Foo:
             x = utils.Descriptor()
 

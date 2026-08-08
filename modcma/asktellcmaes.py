@@ -1,4 +1,5 @@
 """Ask and tell interface to the Modular CMA-ES."""
+
 import warnings
 import typing
 from collections import deque
@@ -23,6 +24,7 @@ def check_break_conditions(f: typing.Callable) -> typing.Callable:
         When any(~AskTellCMAES.break_conditions) == True
 
     """
+
     @wraps(f)
     def inner(self, *args, **kwargs) -> typing.Any:
         if any(self.break_conditions):
@@ -140,7 +142,7 @@ class AskTellCMAES(ModularCMAES):
             When the same xi is provided more than once
 
         """
-        #pylint: disable=singleton-comparison
+        # pylint: disable=singleton-comparison
         if not self.parameters.population:
             raise RuntimeError("Call to tell without calling ask first is prohibited")
 
@@ -149,7 +151,7 @@ class AskTellCMAES(ModularCMAES):
             raise ValueError("Unkown xi provided")
 
         for index in indices:
-            if self.parameters.population.f[index] == None: # noqa
+            if self.parameters.population.f[index] == None:  # noqa
                 self.parameters.population.f[index] = fi
                 break
         else:
@@ -157,7 +159,9 @@ class AskTellCMAES(ModularCMAES):
             self.parameters.population.f[index] = fi
 
         self.parameters.used_budget += 1
-        if len(self.ask_queue) == 0 and (self.parameters.population.f != None).all(): # noqa
+        if (
+            len(self.ask_queue) == 0 and (self.parameters.population.f != None).all()
+        ):  # noqa
             self.select()
             self.recombine()
             self.parameters.adapt()
