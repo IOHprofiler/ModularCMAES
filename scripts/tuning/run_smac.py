@@ -273,7 +273,7 @@ def get_configspace(
         "SEPARABLE",
         "CHOLESKY",
         "CMSA",
-        "NATURAL_GRADIENT"
+        "NATURAL_GRADIENT",
     ]
 
     if add_popsize:

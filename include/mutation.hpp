@@ -47,19 +47,18 @@ struct NoThresholdConvergence : ThresholdConvergence
 class SequentialSelection
 {
     Float seq_cutoff_factor;
-    size_t seq_cutoff;
 
   public:
-    SequentialSelection(const parameters::Mirror &m,
-                        const size_t mu,
-                        const Float seq_cutoff_factor = 1.0) :
+    SequentialSelection(const parameters::Mirror &m, const Float seq_cutoff_factor = 1.0) :
         seq_cutoff_factor(m == parameters::Mirror::PAIRWISE ? std::max(Float{2.}, seq_cutoff_factor)
-                                                            : seq_cutoff_factor),
-        seq_cutoff(static_cast<size_t>(mu * seq_cutoff_factor))
+                                                            : seq_cutoff_factor)
     {
     }
-    virtual bool
-    break_conditions(const size_t i, const Float f, Float fopt, const parameters::Mirror &m);
+    virtual bool break_conditions(const size_t i,
+                                  const Float f,
+                                  Float fopt,
+                                  const parameters::Mirror &m,
+                                  const size_t mu);
 };
 
 struct NoSequentialSelection : SequentialSelection
@@ -69,7 +68,8 @@ struct NoSequentialSelection : SequentialSelection
     bool break_conditions(const size_t i,
                           const Float f,
                           Float fopt,
-                          const parameters::Mirror &m) override
+                          const parameters::Mirror &m,
+                          const size_t mu) override
     {
         return false;
     }
@@ -256,7 +256,6 @@ struct SA : Strategy
     Float mean_sigma;
 };
 
-std::shared_ptr<Strategy>
-get(const parameters::Modules &m, const size_t mu, const Float d, const Float sigma);
+std::shared_ptr<Strategy> get(const parameters::Modules &m, const Float d, const Float sigma);
 
 } // namespace mutation

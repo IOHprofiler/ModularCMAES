@@ -23,8 +23,10 @@ Vector ThresholdConvergence::scale(const Vector &zi,
 bool SequentialSelection::break_conditions(const size_t i,
                                            const Float f,
                                            Float fopt,
-                                           const parameters::Mirror &m)
+                                           const parameters::Mirror &m,
+                                           const size_t mu)
 {
+    const size_t seq_cutoff = static_cast<size_t>(mu * seq_cutoff_factor);
     return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 0);
 }
 
@@ -87,7 +89,8 @@ void Strategy::mutate(FunctionType &objective, const size_t n_offspring, paramet
 
         p.pop.f(i) = objective(p.pop.X_transformed.col(i));
         p.stats.evaluations++;
-        if (sq->break_conditions(i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored))
+        if (sq->break_conditions(
+                i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored, p.mu))
         {
             // TODO: We should renormalize the weights
             break;
@@ -300,16 +303,15 @@ void SA::adapt(const parameters::Weights &w,
     sigma *= selected_mean_sigma / mean_sigma;
 }
 
-std::shared_ptr<Strategy>
-get(const parameters::Modules &m, const size_t mu, const Float d, const Float sigma)
+std::shared_ptr<Strategy> get(const parameters::Modules &m, const Float d, const Float sigma)
 {
     using namespace parameters;
 
     auto tc = m.threshold_convergence ? std::make_shared<ThresholdConvergence>()
                                       : std::make_shared<NoThresholdConvergence>();
 
-    auto sq = m.sequential_selection ? std::make_shared<SequentialSelection>(m.mirrored, mu)
-                                     : std::make_shared<NoSequentialSelection>(m.mirrored, mu);
+    auto sq = m.sequential_selection ? std::make_shared<SequentialSelection>(m.mirrored)
+                                     : std::make_shared<NoSequentialSelection>(m.mirrored);
 
     auto ss =
         (m.sample_sigma or m.ssa == StepSizeAdaptation::LPXNES or m.ssa == StepSizeAdaptation::SA)

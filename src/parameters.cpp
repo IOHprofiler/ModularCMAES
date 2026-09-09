@@ -9,7 +9,7 @@ Parameters::Parameters(const Settings &settings) :
     settings(settings),
     stats{},
     sampler(sampling::get(settings.dim, settings.modules, settings.lambda0)),
-    weights(settings.dim, settings.mu0, settings.lambda0, settings, sampler->expected_length()),
+    weights(settings, sampler->expected_length()),
     pop(settings.dim, settings.lambda0),
     old_pop(settings.dim, settings.lambda0),
     criteria(restart::Criteria::get(settings.modules, settings.lambda0)),
@@ -18,10 +18,7 @@ Parameters::Parameters(const Settings &settings) :
                                       settings.x0.value_or(Vector::Zero(settings.dim)),
                                       sampler->expected_length(),
                                       settings.sigma0)),
-    mutation(mutation::get(settings.modules,
-                           settings.mu0,
-                           static_cast<Float>(settings.dim),
-                           settings.sigma0)),
+    mutation(mutation::get(settings.modules, static_cast<Float>(settings.dim), settings.sigma0)),
     selection(std::make_shared<selection::Strategy>(settings.modules)),
     restart_strategy(restart::strategy::get(settings.modules,
                                             static_cast<Float>(settings.lambda0),
@@ -38,6 +35,19 @@ Parameters::Parameters(const Settings &settings) :
 Parameters::Parameters(const size_t dim) :
     Parameters(Settings(dim, {}))
 {
+}
+
+void Parameters::resize_population(const size_t new_mu, const size_t new_lambda)
+{
+    // TODO: Check validity
+    mu = new_mu;
+    lambda = new_lambda;
+
+    sampler->reset(settings.modules, lambda);
+    weights.init(mu, lambda, settings);
+    pop = Population(settings.dim, lambda);
+
+    // old_pop = Population(settings.dim, lambda);
 }
 
 void Parameters::perform_restart(FunctionType &objective, const std::optional<Float> &sigma)
@@ -58,13 +68,13 @@ void Parameters::perform_restart(FunctionType &objective, const std::optional<Fl
     repelling->update_archive(objective, *this);
 
     sampler->reset(settings.modules, lambda);
-    weights = Weights(settings.dim, mu, lambda, settings, sampler->expected_length());
+    weights.init(mu, lambda, settings);
 
     pop = Population(settings.dim, lambda);
     old_pop = Population(settings.dim, lambda);
 
     mutation = mutation::get(
-        settings.modules, mu, static_cast<Float>(settings.dim), sigma.value_or(settings.sigma0));
+        settings.modules, static_cast<Float>(settings.dim), sigma.value_or(settings.sigma0));
     adaptation->restart(settings, sigma.value_or(settings.sigma0));
     (*center_placement)(*this);
     criteria.reset(*this);

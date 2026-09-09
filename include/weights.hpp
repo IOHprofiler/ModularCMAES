@@ -19,11 +19,7 @@ struct Weights
     Float beta;
     Float int_lb_sigma;
 
-    Weights(const size_t dim,
-            const size_t mu,
-            const size_t lambda,
-            const Settings &settings,
-            const Float expected_length_z);
+    Weights(const Settings &settings, const Float expected_length_z);
 
     void weights_default(const size_t mu, const size_t lambda);
 
@@ -32,6 +28,12 @@ struct Weights
     void weights_exponential(const size_t mu, const size_t lambda);
 
     Vector clipped() const;
+
+    void init_weights(const Settings &settings);
+
+    void init_vectors(const size_t mu, const size_t lambda, const Settings &settings);
+
+    void init(const size_t mu, const size_t lambda, const Settings &settings);
 };
 
 } // namespace parameters

@@ -102,17 +102,24 @@ static Float get_default_cmu(const Settings &settings,
     return cmu_default;
 }
 
-Weights::Weights(const size_t dim,
-                 const size_t mu,
-                 const size_t lambda,
-                 const Settings &settings,
-                 const Float expected_length_z) :
-    weights(lambda),
-    positive(mu),
-    negative(lambda - mu),
+Weights::Weights(const Settings &settings, const Float expected_length_z) :
     expected_length_z(expected_length_z)
 {
-    const Float d = static_cast<Float>(dim);
+    init(settings.mu0, settings.lambda0, settings);
+}
+
+void Weights::init(const size_t mu, const size_t lambda, const Settings &settings)
+{
+    init_vectors(mu, lambda, settings);
+    init_weights(settings);
+}
+
+void Weights::init_vectors(const size_t mu, const size_t lambda, const Settings &settings)
+{
+    weights.resize(lambda);
+    positive.resize(mu);
+    negative.resize(lambda - mu);
+
     switch (settings.modules.weights)
     {
     case RecombinationWeights::EQUAL:
@@ -125,7 +132,12 @@ Weights::Weights(const size_t dim,
         weights_default(mu, lambda);
         break;
     }
+}
 
+void Weights::init_weights(const Settings &settings)
+{
+    const size_t mu = positive.size();
+    const Float d = static_cast<Float>(settings.dim);
     positive /= positive.sum();
     mueff = 1.0 / positive.dot(positive);
     mueff_neg = std::pow(negative.sum(), 2) / negative.dot(negative);

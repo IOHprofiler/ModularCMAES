@@ -695,12 +695,7 @@ void define_parameters(py::module &main)
         });
 
     py::class_<Weights>(m, "Weights")
-        .def(py::init<size_t, size_t, size_t, Settings, Float>(),
-             py::arg("dimension"),
-             py::arg("mu0"),
-             py::arg("lambda0"),
-             py::arg("modules"),
-             py::arg("expected_length_z"))
+        .def(py::init<Settings, Float>(), py::arg("Settings"), py::arg("expected_length_z"))
         .def_readwrite("mueff", &Weights::mueff)
         .def_readwrite("mueff_neg", &Weights::mueff_neg)
         .def_readwrite("c1", &Weights::c1)
@@ -849,6 +844,10 @@ void define_parameters(py::module &main)
              &Parameters::perform_restart,
              py::arg("objective"),
              py::arg("sigma") = std::nullopt)
+        .def("resize_population",
+             &Parameters::resize_population,
+             py::arg("new_mu"),
+             py::arg("new_lambda"))
         .def_readwrite("settings", &Parameters::settings)
         .def_readwrite("mu", &Parameters::mu)
         .def_readwrite("lamb", &Parameters::lambda)
@@ -972,22 +971,21 @@ void define_mutation(py::module &main)
         .def(py::init<>());
 
     py::class_<SequentialSelection, std::shared_ptr<SequentialSelection>>(m, "SequentialSelection")
-        .def(py::init<parameters::Mirror, size_t, Float>(),
+        .def(py::init<parameters::Mirror, Float>(),
              py::arg("mirror"),
-             py::arg("mu"),
              py::arg("seq_cuttoff_factor") = 1.0)
         .def("break_conditions",
              &SequentialSelection::break_conditions,
              py::arg("i"),
              py::arg("f"),
              py::arg("fopt"),
-             py::arg("mirror"));
+             py::arg("mirror"),
+             py::arg("mu"));
 
     py::class_<NoSequentialSelection, SequentialSelection, std::shared_ptr<NoSequentialSelection>>(
         m, "NoSequentialSelection")
-        .def(py::init<parameters::Mirror, size_t, Float>(),
+        .def(py::init<parameters::Mirror, Float>(),
              py::arg("mirror"),
-             py::arg("mu"),
              py::arg("seq_cuttoff_factor") = 1.0);
 
     py::class_<SigmaSampler, std::shared_ptr<SigmaSampler>>(m, "SigmaSampler")

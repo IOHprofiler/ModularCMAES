@@ -51,6 +51,8 @@ struct Parameters
     void adapt();
 
     void perform_restart(FunctionType &objective, const std::optional<Float> &sigma = std::nullopt);
+
+    void resize_population(const size_t new_mu, const size_t new_lambda);
 };
 
 } // namespace parameters
