@@ -17,6 +17,10 @@ This implementation is based on the algorithm introduced in the paper "[Evolving
 
 This README provides a high level overview of the implemented modules, and provides some usage examples for both the Python-only and the C++-based versions of the framework. 
 
+The experiment and figure workflow for *The Modular CMA-ES: A Framework for
+Modern Evolution Strategies* is documented in
+[`REPRODUCIBILITY.md`](REPRODUCIBILITY.md).
+
 ## Table of Contents
 
 - [Table of Contents](#table-of-contents)
@@ -74,27 +78,16 @@ If you want to work on a development version of the library, you should follow t
    cd ModularCMAES
    ```
 
-2. Install dependencies (in a virtual environment)
+2. Create a virtual environment and install the package in editable mode:
 
    ```bash
    python3 -m venv env
    source ./env/bin/activate
-   pip install -r requirements.txt   
+   python -m pip install --upgrade pip
+   python -m pip install -e .
    ```
 
-3. Compile the library, we can optionally install the package globally:
-
-   ```bash
-   python setup.py install
-   ```
-
-   or install in develop mode, which is recommended if one would like to actively develop the library:
-
-   ```bash
-   python setup.py develop 
-   ```
-
-4. Ensure all functionality works as expected by running the unittests:
+3. Ensure all functionality works as expected by running the unittests:
 
    ```bash
    python -m unittest discover   

@@ -3,19 +3,13 @@ import os
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["OPENBLAS_NUM_THREADS"] = "1"
 
-import time
 import argparse
+import time
 from functools import partial
+from pathlib import Path
 
 import ioh
 import numpy as np
-
-from smac import Scenario, AlgorithmConfigurationFacade
-from smac.acquisition.maximizer import (
-    LocalAndSortedRandomSearch,
-)
-from smac.main.config_selector import ConfigSelector
-
 from ConfigSpace import (
     AndConjunction,
     Configuration,
@@ -29,10 +23,12 @@ from ConfigSpace import (
     InCondition,
 )
 from ConfigSpace.hyperparameters import CategoricalHyperparameter
+from smac import AlgorithmConfigurationFacade, Scenario
+from smac.main.config_selector import ConfigSelector
 
 from modcma import c_maes
 
-DATA_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), "data"))
+DATA_DIR = Path(__file__).resolve().parent / "data"
 
 
 def calc_aoc(problem: ioh.ProblemType, logger: ioh.logger.Store, budget: int) -> float:
@@ -96,7 +92,7 @@ def get_bbob_performance(
         dim,
         config,
         budget=BUDGET,
-        target=problem.optimum.y + 9e-9,
+        target=problem.optimum.y + 1e-8,
         ub=problem.bounds.ub,
         lb=problem.bounds.lb,
     )
@@ -107,27 +103,27 @@ def get_bbob_performance(
         cma = c_maes.ModularCMAES(par)
         cma.run(problem)
         aoc = calc_aoc(problem, logger, BUDGET)
-    except Exception as e:
-        print(
-            f"Found target {problem.state.current_best.y} target, but exception ({e}), so run failed"
-        )
+    # Convert any optimizer failure to a penalized SMAC observation so one
+    # invalid configuration cannot abort the entire tuning campaign.
+    except Exception as error:  # noqa: BLE001
+        print(f"Optimizer evaluation failed at {problem.state.current_best.y}: {error}")
         aoc = np.inf
 
     extra = {
         "fid": fid,
         "iid": iid,
         "dim": dim,
-        "target": float(problem.optimum.y + 9e-9),
+        "target": float(problem.optimum.y + 1e-8),
         "final_y": float(problem.state.current_best.y),
         "evals": int(problem.state.evaluations),
-        "hit_target": bool(problem.state.current_best.y <= problem.optimum.y + 9e-9),
+        "hit_target": bool(problem.state.current_best.y <= problem.optimum.y + 1e-8),
         "precision": float(abs(problem.state.current_best.y - problem.optimum.y)),
     }
     return aoc, extra
 
 
-def make_new(hp: CategoricalHyperparameter, filter: list[str]):
-    new_choices = [c for c in hp.choices if c not in filter]
+def make_new(hp: CategoricalHyperparameter, excluded: list[str]):
+    new_choices = [choice for choice in hp.choices if choice not in excluded]
     return CategoricalHyperparameter(
         name=hp.name, choices=new_choices, default_value=hp.default_value
     )
@@ -509,19 +505,31 @@ def get_configspace(
     return cs
 
 
-def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
+def run_smac(
+    fid,
+    dim,
+    use_learning_rates,
+    add_popsize,
+    add_sigma,
+    n_workers,
+    n_trials,
+    max_config_calls,
+    seed,
+    output_root,
+):
     print(f"Running SMAC with fid={fid}, lr={use_learning_rates} and d={dim}")
     cs = get_configspace(dim, use_learning_rates, add_popsize, add_sigma)
     scenario = Scenario(
         cs,
         name=str(int(time.time())) + "-" + "CMA",
         deterministic=False,
-        n_trials=50_000,
+        n_trials=n_trials,
         output_directory=os.path.join(
-            DATA_DIR, f"BBOB_F{fid}_{dim}D_LR{use_learning_rates}{add_popsize}"
+            output_root,
+            f"BBOB_F{fid}_{dim}D_LR{use_learning_rates}{add_popsize}",
         ),
         n_workers=n_workers,
-        seed=1993 + 69,
+        seed=seed,
     )
 
     eval_func = partial(get_bbob_performance, fid=fid, dim=dim)
@@ -536,7 +544,7 @@ def run_smac(fid, dim, use_learning_rates, add_popsize, add_sigma, n_workers):
         scenario,
         eval_func,
         intensifier=AlgorithmConfigurationFacade.get_intensifier(
-            scenario, max_config_calls=50
+            scenario, max_config_calls=max_config_calls
         ),
         config_selector=config_selector,
         initial_design=AlgorithmConfigurationFacade.get_initial_design(scenario),
@@ -567,7 +575,25 @@ if __name__ == "__main__":
     parser.add_argument("--add_popsize", action="store_true")
     parser.add_argument("--add_sigma", action="store_true")
     parser.add_argument("--n_workers", type=int, default=1)
+    parser.add_argument("--n_trials", type=int, default=50_000)
+    parser.add_argument(
+        "--max_config_calls",
+        type=int,
+        default=25,
+        help="Maximum evaluations of one configuration; 25 matches the paper.",
+    )
+    parser.add_argument("--seed", type=int, default=1993 + 69)
+    parser.add_argument("--output_root", type=Path, default=DATA_DIR)
     args = parser.parse_args()
+
+    if args.n_workers < 1:
+        parser.error("--n_workers must be positive")
+    if args.n_trials < 1:
+        parser.error("--n_trials must be positive")
+    if args.max_config_calls < 1:
+        parser.error("--max_config_calls must be positive")
+
+    args.output_root.mkdir(parents=True, exist_ok=True)
 
     run_smac(
         args.fid,
@@ -576,4 +602,8 @@ if __name__ == "__main__":
         args.add_popsize,
         args.add_sigma,
         args.n_workers,
+        args.n_trials,
+        args.max_config_calls,
+        args.seed,
+        args.output_root,
     )

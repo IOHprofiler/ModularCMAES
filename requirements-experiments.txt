@@ -1,0 +1,18 @@
+# Dependencies used by the paper reproduction scripts.
+#
+# Install ModCMA itself first:
+#   python -m pip install -e .
+#
+# The original experiment environment was not fully locked. These ranges
+# describe the APIs used by the maintained reproduction entry points.
+cma==4.2.0
+catboost>=1.2,<2
+iohinspector
+jupyterlab>=4,<5
+matplotlib>=3.8,<4
+pandas>=2,<3
+polars>=1,<2
+scikit-learn>=1.4,<2
+seaborn>=0.13,<1
+shap>=0.46,<1
+smac>=2.3,<3
