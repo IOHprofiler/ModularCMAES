@@ -32,6 +32,7 @@ Modern Evolution Strategies* is documented in
     - [High Level interface ](#high-level-interface-)
     - [Low Level interface ](#low-level-interface-)
     - [Ask–tell and vectorized evaluation ](#asktell-and-vectorized-evaluation-)
+    - [Random numbers and threads ](#random-numbers-and-threads-)
   - [Tuning ](#tuning-)
     - [Configuration Space Generation](#configuration-space-generation)
     - [Creating Settings from a Configuration](#creating-settings-from-a-configuration)
@@ -214,6 +215,17 @@ and `step` directly. It saves a Python call per evaluation:
 ```python
 cma.run(lambda X: np.sum(X**2, axis=1), vectorized=True)
 ```
+
+#### Random numbers and threads <a name="cpp-random"></a>
+
+Every optimizer has its own random generator. `c_maes.utils.set_seed(s)` seeds the global
+generator, which a new optimizer copies when it is created (call it before creating the optimizer);
+`Settings(..., seed=s)` gives an optimizer its own seed instead. Optimizers can therefore run side by
+side, also in parallel threads: on free-threaded CPython (3.14t) the module runs without the GIL.
+
+`Settings(..., fast_sampling=True)` draws the samples with xoshiro256++ and a ziggurat instead of
+mt19937 and the inverse normal CDF: up to twice as fast per generation for the cheaper matrix
+adaptations (`SEPARABLE`, `NONE`, `MATRIX`), but a different random stream than the default.
 
 
 

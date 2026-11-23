@@ -336,6 +336,8 @@ counter. Everything here is bit-exact except T2.8.
   bit-exact.
 
 ### T2.8 (D2) Batched linear algebra, not bit-exact
+
+**Done on branch `wp4-compute`** (PR stacked on WP3), validated statistically (below, WP4 status).
 * `Y = A·Z` as one GEMM for the whole batch, then `X = m + S∘Y`. Only columns rejected by `RESAMPLE` or
   repelling are redrawn per column.
 * `CovarianceAdaptation`: don't form `inv_root_C` (an O(d³) GEMM per eigendecomposition). Compute `ps`
@@ -434,7 +436,44 @@ Status (2026-11-23), on top of WP2 (PR #61 has WP0–WP2; WP3 is a PR stacked on
   the restart split and the test ideas. `origin/inplace-sampling` has no commits of its own (it points
   at master of Dec 2025). Delete both branches after WP2/WP3?
 
-## WP4: Remaining compute items (after WP2/WP3; each measured, each optional)
+## WP4: Remaining compute items (after WP2/WP3; each measured, each optional): branch `wp4-compute`
+
+Status (2026-11-23), on top of WP3, one PR with T2.8 (third PR of the stack):
+* **T4.1 done.** `Parameters::generator` (mt19937) for every module of an optimizer: sampler, sigma
+  sampler, COTN/uniform-resample bound correction, BIPOP, center placement. Default: `rng::fork()`
+  copies the global generator at creation and moves the global one on, so `set_seed(s)` + one
+  optimizer draws exactly the old stream (golden bit-exact except B6), and two optimizers after
+  one `set_seed` differ. `Settings(seed=...)`: an optimizer's own seed. Note: `set_seed` *after*
+  creating an optimizer no longer affects it. **B6 fixed** here: center placement drew from
+  `std::rand`; it changes the 17 golden runs with UNIFORM/MAXIMIN_TABOO/NOVELTY_WEIGHTED placement
+  after a restart. Built with nanobind `FREE_THREADED`: on CPython 3.14t the GIL stays disabled;
+  cp314t wheels; CI jobs on 3.14t (Linux, macOS). 8 threads x 20 runs: identical results per
+  thread, ~2.3x the throughput of one thread. Still global: `constants` (set them before starting
+  threads) and the generator of objects created outside an optimizer (ES baselines, a sampler on
+  its own).
+* **T4.2 done.** `Settings(fast_sampling=True)`: `sampling.FastGaussian`, xoshiro256++ and the
+  256-layer ziggurat (numpy's 64-bit variant) instead of mt19937 + inverse CDF, for the default
+  UNIFORM + GAUSSIAN sampler. us/generation: SEPARABLE d=10 1.43 -> 0.89, d=100 19.9 -> 10.2;
+  NONE similar; MATRIX d=100 38.7 -> 29.0; default (eigendecomposition-bound) ~4 %. Checked:
+  moments, a KS bound, the tail; two golden runs pin its stream.
+* **T4.3 measured, no change.** Repelling with 10 taboo points (RESTART, Rastrigin): at most 1-3 %
+  of the generation time for every metric at d=10 and d=40 (the criticality filter skips most
+  points). One d x d matrix per taboo point is 80 kB at d=100. Not worth a factorization.
+* **T4.4 measured, not doing.** 5 virtual calls per sample cost ~3.8 ns (M-series), against
+  ~70 ns per sample at d=2 and more at larger d: <= 5 %, < 2 % from d=10.
+* **T2.8 done** (see its section): batched `Y = A Z`, triangular products for Cholesky factors,
+  COVARIANCE without forming `C^-1/2` (`inv_root_C` became a computed read-only property) and with
+  symmetric rank updates (also CMSA and the natural-gradient G), MA-ES in place. us/generation,
+  same session: default d=40 58 -> 54, d=100 255 -> 227; active d=100 262 -> 235; CHOLESKY d=100
+  45.9 -> 40.4; MATRIX d=10 1.79 -> 1.61; mallocs/evaluation default 0.44 -> 0.15, MATRIX 0.45 ->
+  0.05.
+* **Tier 2 (D2):** `tests/statistical.py`, 7 BBOB functions x 14 configurations x d in {5, 20} x
+  25 seeds, Mann-Whitney U per cell (evaluations and final precision), pre-registered: no cell
+  below the Bonferroni threshold, at most 10 % raw p < 0.05. WP3 head (2cf6646) vs T2.8: 0 cells
+  after Bonferroni (392 tests), 2 raw p < 0.05 (0.5 %), median evaluations new/old geometric mean
+  1.004 over 131 solved cells: **met**.
+* Golden fixtures regenerated from 4892d8e for macOS, gcc 13 and the CI runner (gcc 15).
+
 
 * **T4.1** (D3a) Generator per optimizer instance, passed down instead of the global `rng::GENERATOR`.
   No function statics (B7). `set_seed` semantics kept for the single-optimizer case.
