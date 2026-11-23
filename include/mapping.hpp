@@ -66,8 +66,13 @@ struct CoordinateMapping
         d(d),
         transformations(d, identity)
     {
-        for (int i = 0; i < integer_idx.size(); i++)
-            transformations[i] = iround;
+        for (const auto idx : integer_idx)
+        {
+            if (idx < 0 || static_cast<size_t>(idx) >= d)
+                throw std::invalid_argument("integer variable index " + std::to_string(idx) +
+                                            " is out of range for dimension " + std::to_string(d));
+            transformations[idx] = iround;
+        }
     }
 
     Vector transform(const Vector &x)

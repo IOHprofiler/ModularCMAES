@@ -99,7 +99,9 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     const auto &old_c = decay * C;
 
     Vector rank_mu_w = weights.eval();
-    for (size_t i = mu; i < weights.size() - mu; i++)
+    // Negative weights are rescaled by d / ||C^-1/2 y_i||^2 (Hansen, The CMA Evolution Strategy: A
+    // Tutorial, 2016, eq. 46); the positive ones, i < mu, are used as they are.
+    for (Eigen::Index i = static_cast<Eigen::Index>(mu); i < weights.size(); i++)
         rank_mu_w(i) *= dd / (inv_root_C * popY.col(i)).squaredNorm();
 
     const auto &rank_mu = w.cmu * (popY * rank_mu_w.asDiagonal() * popY.transpose());
@@ -544,7 +546,10 @@ Vector NaturalGradientAdaptation::compute_y(const Vector &zi) { return A * zi; }
 Vector NaturalGradientAdaptation::invert_y(const Vector &yi)
 {
     if (outdated_A_inv)
+    {
         A_inv = A.completeOrthogonalDecomposition().pseudoInverse();
+        outdated_A_inv = false;
+    }
     return A_inv * yi;
 }
 } // namespace matrix_adaptation
