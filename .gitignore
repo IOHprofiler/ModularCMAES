@@ -123,7 +123,8 @@ script/tuning/data_new/*
 solutions_*/*
 data_old
 
-# golden trajectory fixtures (tests/golden.py)
+# test fixtures: golden trajectories (tests/golden.py) and API dumps (tests/api_dump.py)
 !tests/data/
 tests/data/*
 !tests/data/golden/
+!tests/data/api/

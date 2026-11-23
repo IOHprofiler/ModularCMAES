@@ -1,0 +1,4555 @@
+{
+ "cmaescpp.ModularCMAES": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "objective",
+       null
+      ]
+     ]
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [
+      [
+       "parameters",
+       null
+      ]
+     ],
+     [
+      [
+       "dimension",
+       null
+      ]
+     ],
+     [
+      [
+       "settings",
+       null
+      ]
+     ]
+    ]
+   },
+   "adapt": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "break_conditions": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "mutate": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "objective",
+       null
+      ]
+     ]
+    ]
+   },
+   "p": {
+    "kind": "property",
+    "readonly": true
+   },
+   "recombine": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "run": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "objective",
+       null
+      ]
+     ]
+    ]
+   },
+   "select": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "step": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "objective",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.Parameters": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [
+      [
+       "dimension",
+       null
+      ]
+     ],
+     [
+      [
+       "settings",
+       null
+      ]
+     ]
+    ]
+   },
+   "adapt": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "adaptation": {
+    "kind": "property",
+    "readonly": false
+   },
+   "bounds": {
+    "kind": "property",
+    "readonly": false
+   },
+   "center_placement": {
+    "kind": "property",
+    "readonly": false
+   },
+   "coordinate_mapping": {
+    "kind": "property",
+    "readonly": false
+   },
+   "criteria": {
+    "kind": "property",
+    "readonly": false
+   },
+   "lamb": {
+    "kind": "property",
+    "readonly": false
+   },
+   "mu": {
+    "kind": "property",
+    "readonly": false
+   },
+   "mutation": {
+    "kind": "property",
+    "readonly": false
+   },
+   "old_pop": {
+    "kind": "property",
+    "readonly": false
+   },
+   "perform_restart": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "objective",
+       null
+      ],
+      [
+       "sigma",
+       "None"
+      ]
+     ]
+    ]
+   },
+   "pop": {
+    "kind": "property",
+    "readonly": false
+   },
+   "repelling": {
+    "kind": "property",
+    "readonly": false
+   },
+   "resize_population": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "new_mu",
+       null
+      ],
+      [
+       "new_lambda",
+       null
+      ]
+     ]
+    ]
+   },
+   "restart_strategy": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sampler": {
+    "kind": "property",
+    "readonly": false
+   },
+   "selection": {
+    "kind": "property",
+    "readonly": false
+   },
+   "settings": {
+    "kind": "property",
+    "readonly": false
+   },
+   "start": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "objective",
+       null
+      ]
+     ]
+    ]
+   },
+   "stats": {
+    "kind": "property",
+    "readonly": false
+   },
+   "weights": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.Population": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "S": {
+    "kind": "property",
+    "readonly": false
+   },
+   "X": {
+    "kind": "property",
+    "readonly": false
+   },
+   "X_transformed": {
+    "kind": "property",
+    "readonly": false
+   },
+   "Y": {
+    "kind": "property",
+    "readonly": false
+   },
+   "Z": {
+    "kind": "property",
+    "readonly": false
+   },
+   "__add__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "other",
+       null
+      ]
+     ]
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [
+      [
+       "dimension",
+       null
+      ],
+      [
+       "n",
+       null
+      ]
+     ],
+     [
+      [
+       "X",
+       null
+      ],
+      [
+       "Z",
+       null
+      ],
+      [
+       "Y",
+       null
+      ],
+      [
+       "f",
+       null
+      ],
+      [
+       "S",
+       null
+      ]
+     ]
+    ]
+   },
+   "capacity": {
+    "kind": "property",
+    "readonly": true
+   },
+   "d": {
+    "kind": "property",
+    "readonly": false
+   },
+   "f": {
+    "kind": "property",
+    "readonly": false
+   },
+   "keep_only": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "idx",
+       null
+      ]
+     ]
+    ]
+   },
+   "n": {
+    "kind": "property",
+    "readonly": false
+   },
+   "n_finite": {
+    "kind": "property",
+    "readonly": true
+   },
+   "resize_cols": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "size",
+       null
+      ]
+     ]
+    ]
+   },
+   "sort": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "t": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.bounds.BoundCorrection": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "correct": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "index",
+       null
+      ],
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   },
+   "correct_x": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "xi",
+       null
+      ],
+      [
+       "oob",
+       null
+      ],
+      [
+       "sigma",
+       null
+      ],
+      [
+       "settings",
+       null
+      ]
+     ]
+    ]
+   },
+   "delta_out_of_bounds": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "xi",
+       null
+      ],
+      [
+       "oob",
+       null
+      ],
+      [
+       "settings",
+       null
+      ]
+     ]
+    ]
+   },
+   "is_out_of_bounds": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "xi",
+       null
+      ],
+      [
+       "settings",
+       null
+      ]
+     ]
+    ]
+   },
+   "n_out_of_bounds": {
+    "kind": "property",
+    "readonly": true
+   }
+  }
+ },
+ "cmaescpp.bounds.COTN": {
+  "bases": [
+   "BoundCorrection"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dim",
+       null
+      ]
+     ]
+    ]
+   },
+   "sampler": {
+    "kind": "property",
+    "readonly": true
+   }
+  }
+ },
+ "cmaescpp.bounds.Mirror": {
+  "bases": [
+   "BoundCorrection"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.bounds.NoCorrection": {
+  "bases": [
+   "BoundCorrection"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.bounds.Resample": {
+  "bases": [
+   "BoundCorrection"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.bounds.Saturate": {
+  "bases": [
+   "BoundCorrection"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.bounds.Toroidal": {
+  "bases": [
+   "BoundCorrection"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.bounds.UniformResample": {
+  "bases": [
+   "BoundCorrection"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dim",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.center.Center": {
+  "bases": [
+   "Placement"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.center.MaximinTaboo": {
+  "bases": [
+   "Placement"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.center.NoveltyWeighted": {
+  "bases": [
+   "Placement"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.center.Placement": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.center.Uniform": {
+  "bases": [
+   "Placement"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.center.X0": {
+  "bases": [
+   "Placement"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.center.Zero": {
+  "bases": [
+   "Placement"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.constants": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "cache_max_doubles": {
+    "kind": "property",
+    "readonly": false
+   },
+   "cache_min_samples": {
+    "kind": "property",
+    "readonly": false
+   },
+   "cache_samples": {
+    "kind": "property",
+    "readonly": false
+   },
+   "clip_sigma": {
+    "kind": "property",
+    "readonly": false
+   },
+   "use_box_muller": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.es.MuCommaLambdaES": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "S": {
+    "kind": "property",
+    "readonly": false
+   },
+   "X": {
+    "kind": "property",
+    "readonly": false
+   },
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "d",
+       null
+      ],
+      [
+       "x0",
+       null
+      ],
+      [
+       "sigma0",
+       "1.0"
+      ],
+      [
+       "budget",
+       "10000"
+      ],
+      [
+       "target",
+       "1e-08"
+      ],
+      [
+       "modules",
+       "<Moduleselitist:falseactive:falseorthogonal:falsesequential_selection:falsethreshold_convergence:falsesample_sigma:falserepelling_type:NONErepelling_metric:EUCLIDEANweights:DEFAULTsampler:UNIFORMmirrored:NONEssa:CSAbound_correction:NONErestart_strategy:NONEmatrix_adaptation:COVARIANCEcenter_placement:X0sample_transformation:GAUSSIAN>"
+      ]
+     ]
+    ]
+   },
+   "budget": {
+    "kind": "property",
+    "readonly": false
+   },
+   "corrector": {
+    "kind": "property",
+    "readonly": false
+   },
+   "d": {
+    "kind": "property",
+    "readonly": false
+   },
+   "e": {
+    "kind": "property",
+    "readonly": false
+   },
+   "f": {
+    "kind": "property",
+    "readonly": false
+   },
+   "f_min": {
+    "kind": "property",
+    "readonly": false
+   },
+   "lamb": {
+    "kind": "property",
+    "readonly": false
+   },
+   "m": {
+    "kind": "property",
+    "readonly": false
+   },
+   "mu": {
+    "kind": "property",
+    "readonly": false
+   },
+   "mu_inv": {
+    "kind": "property",
+    "readonly": false
+   },
+   "rejection_sampling": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sample": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   },
+   "sampler": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sigma": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sigma_sampler": {
+    "kind": "property",
+    "readonly": false
+   },
+   "step": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   },
+   "t": {
+    "kind": "property",
+    "readonly": false
+   },
+   "target": {
+    "kind": "property",
+    "readonly": false
+   },
+   "tau": {
+    "kind": "property",
+    "readonly": false
+   },
+   "tau_i": {
+    "kind": "property",
+    "readonly": false
+   },
+   "x_min": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.es.OnePlusOneES": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "d",
+       null
+      ],
+      [
+       "x0",
+       null
+      ],
+      [
+       "f0",
+       null
+      ],
+      [
+       "sigma0",
+       "1.0"
+      ],
+      [
+       "budget",
+       "10000"
+      ],
+      [
+       "target",
+       "1e-08"
+      ],
+      [
+       "modules",
+       "<Moduleselitist:falseactive:falseorthogonal:falsesequential_selection:falsethreshold_convergence:falsesample_sigma:falserepelling_type:NONErepelling_metric:EUCLIDEANweights:DEFAULTsampler:UNIFORMmirrored:NONEssa:CSAbound_correction:NONErestart_strategy:NONEmatrix_adaptation:COVARIANCEcenter_placement:X0sample_transformation:GAUSSIAN>"
+      ]
+     ]
+    ]
+   },
+   "budget": {
+    "kind": "property",
+    "readonly": false
+   },
+   "corrector": {
+    "kind": "property",
+    "readonly": false
+   },
+   "d": {
+    "kind": "property",
+    "readonly": false
+   },
+   "decay": {
+    "kind": "property",
+    "readonly": false
+   },
+   "f": {
+    "kind": "property",
+    "readonly": false
+   },
+   "rejection_sampling": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sample": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "sampler": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sigma": {
+    "kind": "property",
+    "readonly": false
+   },
+   "step": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   },
+   "t": {
+    "kind": "property",
+    "readonly": false
+   },
+   "target": {
+    "kind": "property",
+    "readonly": false
+   },
+   "x": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.matrix_adaptation.Adaptation": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "adapt_evolution_paths": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "pop",
+       null
+      ],
+      [
+       "weights",
+       null
+      ],
+      [
+       "stats",
+       null
+      ],
+      [
+       "settings",
+       null
+      ],
+      [
+       "mu",
+       null
+      ],
+      [
+       "lamb",
+       null
+      ]
+     ]
+    ]
+   },
+   "adapt_evolution_paths_innner": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "pop",
+       null
+      ],
+      [
+       "weights",
+       null
+      ],
+      [
+       "stats",
+       null
+      ],
+      [
+       "settings",
+       null
+      ],
+      [
+       "mu",
+       null
+      ],
+      [
+       "lamb",
+       null
+      ]
+     ]
+    ]
+   },
+   "adapt_matrix": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "weights",
+       null
+      ],
+      [
+       "modules",
+       null
+      ],
+      [
+       "population",
+       null
+      ],
+      [
+       "mu",
+       null
+      ],
+      [
+       "settings",
+       null
+      ],
+      [
+       "stats",
+       null
+      ]
+     ]
+    ]
+   },
+   "compute_y": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "zi",
+       null
+      ]
+     ]
+    ]
+   },
+   "coordinate_wise_variances": {
+    "kind": "property",
+    "readonly": false
+   },
+   "dd": {
+    "kind": "property",
+    "readonly": false
+   },
+   "distance": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "u",
+       null
+      ],
+      [
+       "v",
+       null
+      ]
+     ]
+    ]
+   },
+   "distance_from_center": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "x",
+       null
+      ]
+     ]
+    ]
+   },
+   "dm": {
+    "kind": "property",
+    "readonly": false
+   },
+   "dz": {
+    "kind": "property",
+    "readonly": false
+   },
+   "expected_length_z": {
+    "kind": "property",
+    "readonly": false
+   },
+   "invert_x": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "xi",
+       null
+      ],
+      [
+       "sigma",
+       null
+      ]
+     ]
+    ]
+   },
+   "invert_y": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "yi",
+       null
+      ]
+     ]
+    ]
+   },
+   "m": {
+    "kind": "property",
+    "readonly": false
+   },
+   "m_old": {
+    "kind": "property",
+    "readonly": false
+   },
+   "ps": {
+    "kind": "property",
+    "readonly": false
+   },
+   "restart": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "settings",
+       null
+      ],
+      [
+       "sigma",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.matrix_adaptation.CholeskyAdaptation": {
+  "bases": [
+   "Adaptation"
+  ],
+  "kind": "class",
+  "members": {
+   "A": {
+    "kind": "property",
+    "readonly": false
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dimension",
+       null
+      ],
+      [
+       "x0",
+       null
+      ],
+      [
+       "expected_length_z",
+       null
+      ]
+     ]
+    ]
+   },
+   "pc": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.matrix_adaptation.CovarianceAdaptation": {
+  "bases": [
+   "Adaptation"
+  ],
+  "kind": "class",
+  "members": {
+   "A": {
+    "kind": "property",
+    "readonly": false
+   },
+   "B": {
+    "kind": "property",
+    "readonly": false
+   },
+   "C": {
+    "kind": "property",
+    "readonly": false
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dimension",
+       null
+      ],
+      [
+       "x0",
+       null
+      ],
+      [
+       "expected_length_z",
+       null
+      ]
+     ]
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "adapt_covariance_matrix": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "weights",
+       null
+      ],
+      [
+       "modules",
+       null
+      ],
+      [
+       "population",
+       null
+      ],
+      [
+       "mu",
+       null
+      ]
+     ]
+    ]
+   },
+   "adapt_ps": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "weights",
+       null
+      ]
+     ]
+    ]
+   },
+   "d": {
+    "kind": "property",
+    "readonly": false
+   },
+   "hs": {
+    "kind": "property",
+    "readonly": false
+   },
+   "inv_root_C": {
+    "kind": "property",
+    "readonly": false
+   },
+   "pc": {
+    "kind": "property",
+    "readonly": false
+   },
+   "perform_eigendecomposition": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "stats",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.matrix_adaptation.CovarianceNoEigvAdaptation": {
+  "bases": [
+   "CovarianceAdaptation"
+  ],
+  "kind": "class",
+  "members": {}
+ },
+ "cmaescpp.matrix_adaptation.MatrixAdaptation": {
+  "bases": [
+   "Adaptation"
+  ],
+  "kind": "class",
+  "members": {
+   "M": {
+    "kind": "property",
+    "readonly": false
+   },
+   "M_inv": {
+    "kind": "property",
+    "readonly": false
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dimension",
+       null
+      ],
+      [
+       "x0",
+       null
+      ],
+      [
+       "expected_length_z",
+       null
+      ]
+     ]
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.matrix_adaptation.NaturalGradientAdaptation": {
+  "bases": [
+   "Adaptation"
+  ],
+  "kind": "class",
+  "members": {
+   "A": {
+    "kind": "property",
+    "readonly": false
+   },
+   "A_inv": {
+    "kind": "property",
+    "readonly": false
+   },
+   "G": {
+    "kind": "property",
+    "readonly": false
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dimension",
+       null
+      ],
+      [
+       "x0",
+       null
+      ],
+      [
+       "expected_length_z",
+       null
+      ],
+      [
+       "sigma",
+       null
+      ]
+     ]
+    ]
+   },
+   "compute_gradients": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "pop",
+       null
+      ],
+      [
+       "weights",
+       null
+      ],
+      [
+       "stats",
+       null
+      ],
+      [
+       "settings",
+       null
+      ],
+      [
+       "mu",
+       null
+      ],
+      [
+       "lamb",
+       null
+      ]
+     ]
+    ]
+   },
+   "sigma_g": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.matrix_adaptation.NoAdaptation": {
+  "bases": [
+   "Adaptation"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dimension",
+       null
+      ],
+      [
+       "x0",
+       null
+      ],
+      [
+       "expected_length_z",
+       null
+      ]
+     ]
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.matrix_adaptation.SelfAdaptation": {
+  "bases": [
+   "Adaptation"
+  ],
+  "kind": "class",
+  "members": {
+   "A": {
+    "kind": "property",
+    "readonly": false
+   },
+   "C": {
+    "kind": "property",
+    "readonly": false
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dimension",
+       null
+      ],
+      [
+       "x0",
+       null
+      ],
+      [
+       "expected_length_z",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.matrix_adaptation.SeparableAdaptation": {
+  "bases": [
+   "Adaptation"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dimension",
+       null
+      ],
+      [
+       "x0",
+       null
+      ],
+      [
+       "expected_length_z",
+       null
+      ]
+     ]
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "c": {
+    "kind": "property",
+    "readonly": false
+   },
+   "d": {
+    "kind": "property",
+    "readonly": false
+   },
+   "pc": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.mutation.CSA": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {}
+ },
+ "cmaescpp.mutation.LPXNES": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {}
+ },
+ "cmaescpp.mutation.MSR": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {}
+ },
+ "cmaescpp.mutation.MXNES": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {}
+ },
+ "cmaescpp.mutation.NoSequentialSelection": {
+  "bases": [
+   "SequentialSelection"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "mirror",
+       null
+      ],
+      [
+       "seq_cuttoff_factor",
+       "1.0"
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.mutation.NoSigmaSampler": {
+  "bases": [
+   "SigmaSampler"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dimension",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.mutation.NoThresholdConvergence": {
+  "bases": [
+   "ThresholdConvergence"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.mutation.PSR": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {
+   "success_ratio": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.mutation.SA": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {}
+ },
+ "cmaescpp.mutation.SR": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {}
+ },
+ "cmaescpp.mutation.SequentialSelection": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "mirror",
+       null
+      ],
+      [
+       "seq_cuttoff_factor",
+       "1.0"
+      ]
+     ]
+    ]
+   },
+   "break_conditions": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "i",
+       null
+      ],
+      [
+       "f",
+       null
+      ],
+      [
+       "fopt",
+       null
+      ],
+      [
+       "mirror",
+       null
+      ],
+      [
+       "mu",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.mutation.SigmaSampler": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dimension",
+       null
+      ]
+     ]
+    ]
+   },
+   "apply_integer_bounds": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   },
+   "sample": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sigma",
+       null
+      ],
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.mutation.Strategy": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "threshold_convergence",
+       null
+      ],
+      [
+       "sequential_selection",
+       null
+      ],
+      [
+       "sigma_sampler",
+       null
+      ],
+      [
+       "sigma0",
+       null
+      ]
+     ]
+    ]
+   },
+   "adapt": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "weights",
+       null
+      ],
+      [
+       "dynamic",
+       null
+      ],
+      [
+       "population",
+       null
+      ],
+      [
+       "old_population",
+       null
+      ],
+      [
+       "stats",
+       null
+      ],
+      [
+       "lamb",
+       null
+      ]
+     ]
+    ]
+   },
+   "mutate": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "objective",
+       null
+      ],
+      [
+       "n_offspring",
+       null
+      ],
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   },
+   "s": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sequential_selection": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sigma": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sigma_sampler": {
+    "kind": "property",
+    "readonly": false
+   },
+   "threshold_convergence": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.mutation.TPA": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {
+   "a_tpa": {
+    "kind": "property",
+    "readonly": false
+   },
+   "b_tpa": {
+    "kind": "property",
+    "readonly": false
+   },
+   "rank_tpa": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.mutation.ThresholdConvergence": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "decay_factor": {
+    "kind": "property",
+    "readonly": false
+   },
+   "init_threshold": {
+    "kind": "property",
+    "readonly": false
+   },
+   "scale": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "population",
+       null
+      ],
+      [
+       "diameter",
+       null
+      ],
+      [
+       "budget",
+       null
+      ],
+      [
+       "evaluations",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.mutation.XNES": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {}
+ },
+ "cmaescpp.options.BaseSampler": {
+  "kind": "enum",
+  "members": [
+   "UNIFORM",
+   "SOBOL",
+   "HALTON"
+  ]
+ },
+ "cmaescpp.options.CenterPlacement": {
+  "kind": "enum",
+  "members": [
+   "X0",
+   "ZERO",
+   "UNIFORM",
+   "CENTER",
+   "NOVELTY_WEIGHTED",
+   "MAXIMIN_TABOO"
+  ]
+ },
+ "cmaescpp.options.CorrectionMethod": {
+  "kind": "enum",
+  "members": [
+   "NONE",
+   "MIRROR",
+   "COTN",
+   "UNIFORM_RESAMPLE",
+   "SATURATE",
+   "TOROIDAL",
+   "RESAMPLE"
+  ]
+ },
+ "cmaescpp.options.MatrixAdaptationType": {
+  "kind": "enum",
+  "members": [
+   "COVARIANCE",
+   "NONE",
+   "MATRIX",
+   "SEPARABLE",
+   "CHOLESKY",
+   "CMSA",
+   "COVARIANCE_NO_EIGV",
+   "NATURAL_GRADIENT"
+  ]
+ },
+ "cmaescpp.options.Mirror": {
+  "kind": "enum",
+  "members": [
+   "NONE",
+   "MIRRORED",
+   "PAIRWISE"
+  ]
+ },
+ "cmaescpp.options.RecombinationWeights": {
+  "kind": "enum",
+  "members": [
+   "DEFAULT",
+   "EQUAL",
+   "EXPONENTIAL"
+  ]
+ },
+ "cmaescpp.options.RepellingMetric": {
+  "kind": "enum",
+  "members": [
+   "EUCLIDEAN",
+   "CURRENT",
+   "ARCHIVED"
+  ]
+ },
+ "cmaescpp.options.RepellingType": {
+  "kind": "enum",
+  "members": [
+   "NONE",
+   "COVERAGE",
+   "ADAPTIVE"
+  ]
+ },
+ "cmaescpp.options.RestartStrategy": {
+  "kind": "enum",
+  "members": [
+   "NONE",
+   "STOP",
+   "RESTART",
+   "IPOP",
+   "BIPOP"
+  ]
+ },
+ "cmaescpp.options.SampleTranformerType": {
+  "kind": "enum",
+  "members": [
+   "NONE",
+   "GAUSSIAN",
+   "SCALED_UNIFORM",
+   "LAPLACE",
+   "LOGISTIC",
+   "CAUCHY",
+   "DOUBLE_WEIBULL"
+  ]
+ },
+ "cmaescpp.options.StepSizeAdaptation": {
+  "kind": "enum",
+  "members": [
+   "CSA",
+   "TPA",
+   "MSR",
+   "XNES",
+   "MXNES",
+   "LPXNES",
+   "PSR",
+   "SR",
+   "SA"
+  ]
+ },
+ "cmaescpp.parameters.CoordinateMapping": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ],
+      [
+       "arg1",
+       null
+      ],
+      [
+       "arg2",
+       null
+      ]
+     ]
+    ]
+   },
+   "transform": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "x",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.parameters.Modules": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "active": {
+    "kind": "property",
+    "readonly": false
+   },
+   "bound_correction": {
+    "kind": "property",
+    "readonly": false
+   },
+   "center_placement": {
+    "kind": "property",
+    "readonly": false
+   },
+   "elitist": {
+    "kind": "property",
+    "readonly": false
+   },
+   "matrix_adaptation": {
+    "kind": "property",
+    "readonly": false
+   },
+   "mirrored": {
+    "kind": "property",
+    "readonly": false
+   },
+   "orthogonal": {
+    "kind": "property",
+    "readonly": false
+   },
+   "repelling_metric": {
+    "kind": "property",
+    "readonly": false
+   },
+   "repelling_type": {
+    "kind": "property",
+    "readonly": false
+   },
+   "restart_strategy": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sample_sigma": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sample_transformation": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sampler": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sequential_selection": {
+    "kind": "property",
+    "readonly": false
+   },
+   "ssa": {
+    "kind": "property",
+    "readonly": false
+   },
+   "threshold_convergence": {
+    "kind": "property",
+    "readonly": false
+   },
+   "weights": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.parameters.Settings": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dim",
+       null
+      ],
+      [
+       "modules",
+       "None"
+      ],
+      [
+       "target",
+       "None"
+      ],
+      [
+       "max_generations",
+       "None"
+      ],
+      [
+       "budget",
+       "None"
+      ],
+      [
+       "sigma0",
+       "None"
+      ],
+      [
+       "lambda0",
+       "None"
+      ],
+      [
+       "mu0",
+       "None"
+      ],
+      [
+       "x0",
+       "None"
+      ],
+      [
+       "lb",
+       "None"
+      ],
+      [
+       "ub",
+       "None"
+      ],
+      [
+       "integer_variables",
+       "None"
+      ],
+      [
+       "cs",
+       "None"
+      ],
+      [
+       "cc",
+       "None"
+      ],
+      [
+       "cmu",
+       "None"
+      ],
+      [
+       "c1",
+       "None"
+      ],
+      [
+       "damps",
+       "None"
+      ],
+      [
+       "acov",
+       "None"
+      ],
+      [
+       "verbose",
+       "False"
+      ],
+      [
+       "always_compute_eigv",
+       "False"
+      ]
+     ]
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "acov": {
+    "kind": "property",
+    "readonly": false
+   },
+   "budget": {
+    "kind": "property",
+    "readonly": false
+   },
+   "c1": {
+    "kind": "property",
+    "readonly": false
+   },
+   "cc": {
+    "kind": "property",
+    "readonly": false
+   },
+   "center": {
+    "kind": "property",
+    "readonly": false
+   },
+   "cmu": {
+    "kind": "property",
+    "readonly": false
+   },
+   "cs": {
+    "kind": "property",
+    "readonly": false
+   },
+   "damps": {
+    "kind": "property",
+    "readonly": false
+   },
+   "db": {
+    "kind": "property",
+    "readonly": false
+   },
+   "diameter": {
+    "kind": "property",
+    "readonly": false
+   },
+   "dim": {
+    "kind": "property",
+    "readonly": true
+   },
+   "has_bounds": {
+    "kind": "property",
+    "readonly": false
+   },
+   "lambda0": {
+    "kind": "property",
+    "readonly": false
+   },
+   "lb": {
+    "kind": "property",
+    "readonly": false
+   },
+   "max_generations": {
+    "kind": "property",
+    "readonly": false
+   },
+   "modules": {
+    "kind": "property",
+    "readonly": true
+   },
+   "mu0": {
+    "kind": "property",
+    "readonly": false
+   },
+   "one_plus_one": {
+    "kind": "property",
+    "readonly": true
+   },
+   "sigma0": {
+    "kind": "property",
+    "readonly": false
+   },
+   "target": {
+    "kind": "property",
+    "readonly": false
+   },
+   "ub": {
+    "kind": "property",
+    "readonly": false
+   },
+   "verbose": {
+    "kind": "property",
+    "readonly": false
+   },
+   "volume": {
+    "kind": "property",
+    "readonly": true
+   },
+   "x0": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.parameters.Solution": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "e": {
+    "kind": "property",
+    "readonly": false
+   },
+   "t": {
+    "kind": "property",
+    "readonly": false
+   },
+   "x": {
+    "kind": "property",
+    "readonly": false
+   },
+   "y": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.parameters.Stats": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "centers": {
+    "kind": "property",
+    "readonly": false
+   },
+   "current_avg": {
+    "kind": "property",
+    "readonly": false
+   },
+   "current_best": {
+    "kind": "property",
+    "readonly": false
+   },
+   "evaluations": {
+    "kind": "property",
+    "readonly": false
+   },
+   "global_best": {
+    "kind": "property",
+    "readonly": false
+   },
+   "has_improved": {
+    "kind": "property",
+    "readonly": false
+   },
+   "last_update": {
+    "kind": "property",
+    "readonly": false
+   },
+   "n_updates": {
+    "kind": "property",
+    "readonly": false
+   },
+   "solutions": {
+    "kind": "property",
+    "readonly": false
+   },
+   "success_ratio": {
+    "kind": "property",
+    "readonly": false
+   },
+   "t": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.parameters.Weights": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "Settings",
+       null
+      ],
+      [
+       "expected_length_z",
+       null
+      ]
+     ]
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "beta": {
+    "kind": "property",
+    "readonly": false
+   },
+   "c1": {
+    "kind": "property",
+    "readonly": false
+   },
+   "cc": {
+    "kind": "property",
+    "readonly": false
+   },
+   "cmu": {
+    "kind": "property",
+    "readonly": false
+   },
+   "cs": {
+    "kind": "property",
+    "readonly": false
+   },
+   "damps": {
+    "kind": "property",
+    "readonly": false
+   },
+   "expected_length_ps": {
+    "kind": "property",
+    "readonly": false
+   },
+   "expected_length_z": {
+    "kind": "property",
+    "readonly": false
+   },
+   "for_population": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "n",
+       null
+      ]
+     ]
+    ]
+   },
+   "lazy_update_interval": {
+    "kind": "property",
+    "readonly": false
+   },
+   "mueff": {
+    "kind": "property",
+    "readonly": false
+   },
+   "mueff_neg": {
+    "kind": "property",
+    "readonly": false
+   },
+   "negative": {
+    "kind": "property",
+    "readonly": false
+   },
+   "positive": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sqrt_cc_mueff": {
+    "kind": "property",
+    "readonly": false
+   },
+   "sqrt_cs_mueff": {
+    "kind": "property",
+    "readonly": false
+   },
+   "weights": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.repelling.AdaptiveRepelling": {
+  "bases": [
+   "Repelling"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "average_restart_evaluations": {
+    "kind": "property",
+    "readonly": false
+   },
+   "grow_eta": {
+    "kind": "property",
+    "readonly": false
+   },
+   "initial_radius": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   },
+   "initial_radius_factor": {
+    "kind": "property",
+    "readonly": false
+   },
+   "last_restart_evaluations": {
+    "kind": "property",
+    "readonly": false
+   },
+   "local_max_rejection_rate": {
+    "kind": "property",
+    "readonly": false
+   },
+   "local_target_rejection_rate": {
+    "kind": "property",
+    "readonly": false
+   },
+   "max_radius": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   },
+   "max_radius_factor": {
+    "kind": "property",
+    "readonly": false
+   },
+   "max_rejection_rate": {
+    "kind": "property",
+    "readonly": false
+   },
+   "max_waste_ratio": {
+    "kind": "property",
+    "readonly": false
+   },
+   "min_checks_before_local_shrink": {
+    "kind": "property",
+    "readonly": false
+   },
+   "min_radius": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   },
+   "min_radius_factor": {
+    "kind": "property",
+    "readonly": false
+   },
+   "restart_eval_alpha": {
+    "kind": "property",
+    "readonly": false
+   },
+   "shrink_factor": {
+    "kind": "property",
+    "readonly": false
+   },
+   "target_rejection_rate": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.repelling.CoverageRepelling": {
+  "bases": [
+   "Repelling"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.repelling.NoRepelling": {
+  "bases": [
+   "Repelling"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.repelling.Repelling": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "adapt_radii_after_sampling": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   },
+   "archive": {
+    "kind": "property",
+    "readonly": false
+   },
+   "attempts": {
+    "kind": "property",
+    "readonly": false
+   },
+   "coverage": {
+    "kind": "property",
+    "readonly": false
+   },
+   "is_rejected": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "xi",
+       null
+      ],
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   },
+   "prepare_sampling": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   },
+   "update_archive": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "objective",
+       null
+      ],
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.repelling.TabooPoint": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [
+      [
+       "solution",
+       null
+      ],
+      [
+       "radius",
+       null
+      ],
+      [
+       "metric",
+       "array([],shape=(0,0),dtype=float64)"
+      ]
+     ],
+     [
+      [
+       "solution",
+       null
+      ],
+      [
+       "radius",
+       null
+      ],
+      [
+       "min_radius",
+       null
+      ],
+      [
+       "max_radius",
+       null
+      ],
+      [
+       "metric",
+       "array([],shape=(0,0),dtype=float64)"
+      ]
+     ]
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "calculate_criticality": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   },
+   "checked_count": {
+    "kind": "property",
+    "readonly": false
+   },
+   "clamp_radius": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "criticality": {
+    "kind": "property",
+    "readonly": false
+   },
+   "distance": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "x",
+       null
+      ],
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   },
+   "duplicate_evaluations": {
+    "kind": "property",
+    "readonly": false
+   },
+   "last_rejection_rate": {
+    "kind": "property",
+    "readonly": false
+   },
+   "max_radius": {
+    "kind": "property",
+    "readonly": false
+   },
+   "metric": {
+    "kind": "property",
+    "readonly": false
+   },
+   "min_radius": {
+    "kind": "property",
+    "readonly": false
+   },
+   "n_rep": {
+    "kind": "property",
+    "readonly": false
+   },
+   "radius": {
+    "kind": "property",
+    "readonly": false
+   },
+   "rejected_count": {
+    "kind": "property",
+    "readonly": false
+   },
+   "rejects": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "xi",
+       null
+      ],
+      [
+       "p",
+       null
+      ],
+      [
+       "attempts",
+       null
+      ]
+     ]
+    ]
+   },
+   "shares_basin": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "objective",
+       null
+      ],
+      [
+       "xi",
+       null
+      ],
+      [
+       "p",
+       null
+      ]
+     ]
+    ]
+   },
+   "shrinkage": {
+    "kind": "property",
+    "readonly": false
+   },
+   "solution": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.repelling.archived_metric": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "p",
+     null
+    ]
+   ]
+  ]
+ },
+ "cmaescpp.repelling.euclidian": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "u",
+     null
+    ],
+    [
+     "v",
+     null
+    ]
+   ]
+  ]
+ },
+ "cmaescpp.repelling.hill_valley_test": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "u",
+     null
+    ],
+    [
+     "v",
+     null
+    ],
+    [
+     "f",
+     null
+    ],
+    [
+     "n_evals",
+     null
+    ]
+   ]
+  ]
+ },
+ "cmaescpp.repelling.mahanolobis": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "u",
+     null
+    ],
+    [
+     "v",
+     null
+    ],
+    [
+     "C_inv",
+     null
+    ]
+   ]
+  ]
+ },
+ "cmaescpp.repelling.manhattan": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "u",
+     null
+    ],
+    [
+     "v",
+     null
+    ]
+   ]
+  ]
+ },
+ "cmaescpp.restart.BIPOP": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {
+   "budget": {
+    "kind": "property",
+    "readonly": false
+   },
+   "budget_large": {
+    "kind": "property",
+    "readonly": false
+   },
+   "budget_small": {
+    "kind": "property",
+    "readonly": false
+   },
+   "lambda_init": {
+    "kind": "property",
+    "readonly": false
+   },
+   "lambda_large": {
+    "kind": "property",
+    "readonly": false
+   },
+   "lambda_small": {
+    "kind": "property",
+    "readonly": false
+   },
+   "large": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "mu_factor": {
+    "kind": "property",
+    "readonly": false
+   },
+   "used_budget": {
+    "kind": "property",
+    "readonly": true
+   }
+  }
+ },
+ "cmaescpp.restart.ConditionC": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.Criteria": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "any": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "items": {
+    "kind": "property",
+    "readonly": false
+   },
+   "reason": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "reset": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   },
+   "update": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.restart.CriteriaVector": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [],
+     [
+      [
+       "arg0",
+       null
+      ]
+     ],
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [],
+     []
+    ]
+   },
+   "append": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "x",
+       null
+      ]
+     ]
+    ]
+   },
+   "clear": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "count": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "x",
+       null
+      ]
+     ]
+    ]
+   },
+   "extend": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [
+      [
+       "L",
+       null
+      ]
+     ],
+     [
+      [
+       "L",
+       null
+      ]
+     ]
+    ]
+   },
+   "insert": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "i",
+       null
+      ],
+      [
+       "x",
+       null
+      ]
+     ]
+    ]
+   },
+   "pop": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [],
+     [
+      [
+       "i",
+       null
+      ]
+     ]
+    ]
+   },
+   "remove": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "x",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.restart.Criterion": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "name",
+       null
+      ]
+     ]
+    ]
+   },
+   "__repr__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "last_restart": {
+    "kind": "property",
+    "readonly": false
+   },
+   "met": {
+    "kind": "property",
+    "readonly": false
+   },
+   "name": {
+    "kind": "property",
+    "readonly": false
+   },
+   "on_reset": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   },
+   "reset": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   },
+   "update": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.restart.ExceededMaxIter": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "max_iter": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.FlatFitness": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "flat_fitness_index": {
+    "kind": "property",
+    "readonly": false
+   },
+   "flat_fitnesses": {
+    "kind": "property",
+    "readonly": false
+   },
+   "max_flat_fitness": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.IPOP": {
+  "bases": [
+   "Strategy"
+  ],
+  "kind": "class",
+  "members": {
+   "ipop_factor": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.MaxDSigma": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.MaxSigma": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.MinDSigma": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.MinSigma": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.NoEffectAxis": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.NoEffectCoord": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.NoImprovement": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "best_fitnesses": {
+    "kind": "property",
+    "readonly": false
+   },
+   "n_bin": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.Stagnation": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "best_fitnesses": {
+    "kind": "property",
+    "readonly": false
+   },
+   "median_fitnesses": {
+    "kind": "property",
+    "readonly": false
+   },
+   "n_stagnation": {
+    "kind": "property",
+    "readonly": false
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.Strategy": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "update": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.restart.TolX": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   },
+   "tolx_vector": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.TooMuchRepelling": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "tolerance": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.restart.UnableToAdapt": {
+  "bases": [
+   "Criterion"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.CachedSampler": {
+  "bases": [
+   "Sampler"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [
+      [
+       "sampler",
+       null
+      ]
+     ],
+     [
+      [
+       "cache",
+       null
+      ],
+      [
+       "transform_ppf",
+       "False"
+      ]
+     ]
+    ]
+   },
+   "cache": {
+    "kind": "property",
+    "readonly": true
+   },
+   "index": {
+    "kind": "property",
+    "readonly": true
+   },
+   "n_samples": {
+    "kind": "property",
+    "readonly": true
+   }
+  }
+ },
+ "cmaescpp.sampling.CauchyTransformer": {
+  "bases": [
+   "SampleTransformer"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sampler",
+       null
+      ]
+     ]
+    ]
+   },
+   "expected_length": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "transform": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.DoubleWeibullTransformer": {
+  "bases": [
+   "SampleTransformer"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sampler",
+       null
+      ]
+     ]
+    ]
+   },
+   "expected_length": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "transform": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.Gaussian": {
+  "bases": [
+   "Sampler"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "d",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.GaussianTransformer": {
+  "bases": [
+   "SampleTransformer"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sampler",
+       null
+      ]
+     ]
+    ]
+   },
+   "expected_length": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "transform": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.Halton": {
+  "bases": [
+   "Sampler"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "d",
+       null
+      ],
+      [
+       "scrambled",
+       "True"
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.IdentityTransformer": {
+  "bases": [
+   "SampleTransformer"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sampler",
+       null
+      ]
+     ]
+    ]
+   },
+   "expected_length": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "transform": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.LaplaceTransformer": {
+  "bases": [
+   "SampleTransformer"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sampler",
+       null
+      ]
+     ]
+    ]
+   },
+   "expected_length": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "transform": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.LogisticTransformer": {
+  "bases": [
+   "SampleTransformer"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sampler",
+       null
+      ]
+     ]
+    ]
+   },
+   "expected_length": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "transform": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.Mirrored": {
+  "bases": [
+   "Sampler"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sampler",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.Orthogonal": {
+  "bases": [
+   "Sampler"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sampler",
+       null
+      ],
+      [
+       "n_samples",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.PySampler": {
+  "bases": [
+   "Sampler"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "d",
+       null
+      ],
+      [
+       "function",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.SampleTransformer": {
+  "bases": [
+   "Sampler"
+  ],
+  "kind": "class",
+  "members": {
+   "raw": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.Sampler": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "d": {
+    "kind": "property",
+    "readonly": true
+   },
+   "expected_length": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "reset": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ],
+      [
+       "arg1",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.Sobol": {
+  "bases": [
+   "Sampler"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "d",
+       null
+      ]
+     ]
+    ]
+   },
+   "cache": {
+    "kind": "property",
+    "readonly": true
+   }
+  }
+ },
+ "cmaescpp.sampling.Uniform": {
+  "bases": [
+   "Sampler"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "d",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.sampling.UniformScaler": {
+  "bases": [
+   "SampleTransformer"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "sampler",
+       null
+      ]
+     ]
+    ]
+   },
+   "expected_length": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "transform": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.selection.Elitsm": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.selection.NoElitsm": {
+  "bases": [
+   "Elitsm"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.selection.NoPairwise": {
+  "bases": [
+   "Pairwise"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.selection.Pairwise": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__call__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   },
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.selection.Strategy": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "modules",
+       null
+      ]
+     ]
+    ]
+   },
+   "elitsm": {
+    "kind": "property",
+    "readonly": false
+   },
+   "pairwise": {
+    "kind": "property",
+    "readonly": false
+   },
+   "select": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "parameters",
+       null
+      ]
+     ]
+    ]
+   }
+  }
+ },
+ "cmaescpp.utils.CachedShuffleSequence": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "dim",
+       null
+      ]
+     ]
+    ]
+   },
+   "fill": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "arg0",
+       null
+      ]
+     ]
+    ]
+   },
+   "get_index": {
+    "kind": "function",
+    "overloads": [
+     [
+      [
+       "index",
+       null
+      ]
+     ]
+    ]
+   },
+   "next": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   }
+  }
+ },
+ "cmaescpp.utils.Shuffler": {
+  "bases": [
+   "pybind11_object"
+  ],
+  "kind": "class",
+  "members": {
+   "__init__": {
+    "kind": "function",
+    "overloads": [
+     [],
+     [
+      [
+       "start",
+       null
+      ],
+      [
+       "stop",
+       null
+      ]
+     ],
+     [
+      [
+       "stop",
+       null
+      ]
+     ]
+    ]
+   },
+   "found": {
+    "kind": "property",
+    "readonly": false
+   },
+   "modulus": {
+    "kind": "property",
+    "readonly": false
+   },
+   "multiplier": {
+    "kind": "property",
+    "readonly": false
+   },
+   "n": {
+    "kind": "property",
+    "readonly": false
+   },
+   "next": {
+    "kind": "function",
+    "overloads": [
+     []
+    ]
+   },
+   "offset": {
+    "kind": "property",
+    "readonly": false
+   },
+   "seed": {
+    "kind": "property",
+    "readonly": false
+   },
+   "start": {
+    "kind": "property",
+    "readonly": false
+   },
+   "stop": {
+    "kind": "property",
+    "readonly": false
+   }
+  }
+ },
+ "cmaescpp.utils.cdf": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "x",
+     null
+    ]
+   ]
+  ]
+ },
+ "cmaescpp.utils.compute_ert": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "running_times",
+     null
+    ],
+    [
+     "budget",
+     null
+    ]
+   ]
+  ]
+ },
+ "cmaescpp.utils.i8_sobol": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "dim_num",
+     null
+    ],
+    [
+     "seed",
+     null
+    ],
+    [
+     "quasi",
+     null
+    ]
+   ]
+  ]
+ },
+ "cmaescpp.utils.ppf": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "x",
+     null
+    ]
+   ]
+  ]
+ },
+ "cmaescpp.utils.random_normal": {
+  "kind": "function",
+  "overloads": [
+   []
+  ]
+ },
+ "cmaescpp.utils.random_uniform": {
+  "kind": "function",
+  "overloads": [
+   []
+  ]
+ },
+ "cmaescpp.utils.set_seed": {
+  "kind": "function",
+  "overloads": [
+   [
+    [
+     "seed",
+     null
+    ]
+   ]
+  ]
+ }
+}
