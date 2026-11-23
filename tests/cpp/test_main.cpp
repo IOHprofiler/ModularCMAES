@@ -98,8 +98,8 @@ static parameters::Settings ask_tell_settings(const int config)
                            std::nullopt,
                            size_t{6000},
                            2.0,
-                           mu ? std::optional<size_t>(lambda) : std::nullopt,
-                           mu ? std::optional<size_t>(mu) : std::nullopt);
+                           mu ? std::optional<size_t>(mu) : std::nullopt,
+                           mu ? std::optional<size_t>(lambda) : std::nullopt);
     s.verbose = false;
     return s;
 }
