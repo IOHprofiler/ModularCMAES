@@ -89,8 +89,15 @@ void define_restart_criteria(nb::module_ &main)
     nb::class_<Stagnation, Criterion>(m, "Stagnation")
         .def(nb::init<>())
         .def_rw("n_stagnation", &Stagnation::n_stagnation)
-        .def_rw("median_fitnesses", &Stagnation::median_fitnesses)
-        .def_rw("best_fitnesses", &Stagnation::best_fitnesses)
+        // lists, as before; assigning one rebuilds the running medians
+        .def_prop_rw(
+            "median_fitnesses",
+            [](const Stagnation &s) { return s.median_fitnesses.values(); },
+            [](Stagnation &s, const std::vector<Float> &v) { s.median_fitnesses.assign(v); })
+        .def_prop_rw(
+            "best_fitnesses",
+            [](const Stagnation &s) { return s.best_fitnesses.values(); },
+            [](Stagnation &s, const std::vector<Float> &v) { s.best_fitnesses.assign(v); })
         .def_rw_static("tolerance", &Stagnation::tolerance);
 
     nb::class_<TooMuchRepelling, Criterion>(m, "TooMuchRepelling")

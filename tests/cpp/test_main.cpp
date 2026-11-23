@@ -1,5 +1,6 @@
 // C++ unit tests for behaviour that cannot be reached from Python (run with ctest).
 // Deliberately without a test framework: each test is a function, CHECK reports and counts failures.
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -7,6 +8,7 @@
 #include <vector>
 
 #include "c_maes.hpp"
+#include "restart_criteria.hpp"
 #include "common.hpp"
 #include "sampling.hpp"
 
@@ -193,12 +195,57 @@ static void test_tell_errors()
     CHECK(!cma.has_pending());
 }
 
+// B10: the running medians of SplitMedian equal those of a sort, for every split
+static Float sorted_median(std::vector<Float> v)
+{
+    if (v.empty())
+        return std::numeric_limits<Float>::quiet_NaN();
+    std::sort(v.begin(), v.end());
+    const size_t n = v.size();
+    return n % 2 ? v[n / 2] : 0.5 * (v[n / 2 - 1] + v[n / 2]);
+}
+
+static void test_split_median()
+{
+    std::mt19937 gen(3);
+    std::uniform_int_distribution<int> small(0, 20); // many duplicates
+    restart::SplitMedian sm;
+    std::vector<Float> values;
+    bool same = true;
+    for (int k = 0; k < 3000; k++)
+    {
+        Float x = static_cast<Float>(small(gen));
+        if (k % 97 == 0)
+            x = std::numeric_limits<Float>::infinity();
+        if (k % 89 == 0)
+            x = -std::numeric_limits<Float>::infinity();
+        values.push_back(x);
+        sm.push_back(x);
+        // forward as Stagnation moves it; now and then backward
+        size_t split = static_cast<size_t>(0.3 * static_cast<Float>(values.size()));
+        if (k % 500 == 499)
+            split /= 2;
+        sm.set_split(split);
+        const std::vector<Float> head(values.begin(), values.begin() + split);
+        const std::vector<Float> tail(values.begin() + split, values.end());
+        const auto eq = [](Float a, Float b) { return a == b || (std::isnan(a) && std::isnan(b)); };
+        same = same && eq(sm.head_median(), sorted_median(head)) &&
+               eq(sm.tail_median(), sorted_median(tail));
+    }
+    CHECK(same);
+    sm.assign({3.0, 1.0, 2.0, 5.0});
+    sm.set_split(1);
+    CHECK(sm.head_median() == 3.0);
+    CHECK(sm.tail_median() == 2.0);
+}
+
 int main()
 {
     test_uniform_is_open_interval();
     test_uniform_values_unchanged();
     test_ask_tell_matches_classic_loop();
     test_tell_errors();
+    test_split_median();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else
