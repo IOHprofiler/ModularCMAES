@@ -276,6 +276,10 @@ def fixture_path(name: str) -> str:
 
 
 def git_commit() -> str:
+    """The commit the fixture is generated from (MODCMA_GOLDEN_COMMIT overrides, e.g. in a
+    container without the repository's .git)."""
+    if os.environ.get("MODCMA_GOLDEN_COMMIT"):
+        return os.environ["MODCMA_GOLDEN_COMMIT"]
     try:
         return subprocess.run(
             ["git", "rev-parse", "--short", "HEAD"],
