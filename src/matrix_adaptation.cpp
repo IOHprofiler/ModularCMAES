@@ -4,6 +4,39 @@ namespace matrix_adaptation
 {
 using namespace parameters;
 
+/**
+ * S = decay S + c1 v v^T + cmu Y diag(w) Y^T on the lower triangle of S, as rank updates (half the
+ * flops of the full products), then mirrored to the upper triangle. The weights of the first
+ * n_positive columns are >= 0, the others <= 0 (the order of a sorted population). v may be null.
+ */
+static void symmetric_rank_update(Matrix &S,
+                                  const Float decay,
+                                  const Vector *v,
+                                  const Float c1,
+                                  Eigen::Ref<const Matrix> Y,
+                                  Eigen::Ref<const Vector> w,
+                                  const Eigen::Index n_positive,
+                                  const Float cmu,
+                                  Matrix &scratch)
+{
+    S.triangularView<Eigen::Lower>() *= decay;
+    auto lower = S.selfadjointView<Eigen::Lower>();
+    if (v != nullptr)
+        lower.rankUpdate(*v, c1);
+
+    // y_i sqrt(|w_i|): the positive and the negative weights are two rank updates
+    scratch.resize(Y.rows(), Y.cols());
+    for (Eigen::Index i = 0; i < Y.cols(); ++i)
+        scratch.col(i) = std::sqrt(std::abs(w(i))) * Y.col(i);
+    const Eigen::Index n_pos = std::min(n_positive, Y.cols());
+    if (n_pos > 0)
+        lower.rankUpdate(scratch.leftCols(n_pos), cmu);
+    if (Y.cols() > n_pos)
+        lower.rankUpdate(scratch.rightCols(Y.cols() - n_pos), -cmu);
+
+    S.triangularView<Eigen::StrictlyUpper>() = S.transpose();
+}
+
 
 
 static void one_plus_one_path_update(Vector &path,
@@ -53,14 +86,20 @@ void None::adapt_evolution_paths_inner(const Population &pop,
 
 void None::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) { y = z; }
 
+void None::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) { Y = Z; }
+
 void None::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) { z = y; }
 
 void CovarianceAdaptation::adapt_ps(const Weights &w)
 {
     // Eigen evaluates dst = a + A x as dst = a; dst += A x (the product accumulates into a);
     // done here without its temporary, with the same rounding
+    // ps = (1 - cs) ps + sqrt(cs mueff) C^-1/2 dm, with C^-1/2 dm = B D^-1 B^T dm (two
+    // matrix-vector products instead of forming C^-1/2)
+    scratch_vector.noalias() = B.transpose() * dm;
+    scratch_vector.array() /= d.array();
     ps *= (1.0 - w.cs);
-    ps.noalias() += w.sqrt_cs_mueff * inv_root_C * dm;
+    ps.noalias() += w.sqrt_cs_mueff * (B * scratch_vector);
 }
 
 void CovarianceAdaptation::adapt_evolution_paths_inner(const Population &pop,
@@ -112,15 +151,16 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
         rank_mu_w(i) *= dd / scratch_vector.squaredNorm();
     }
 
-    // C = decay C + c1 pc pc^T + cmu Y diag(w) Y^T as one expression: Eigen's evaluation order of
-    // it (accumulating the products into a temporary, by GEMM or coefficient-wise depending on the
-    // size) is not reproduced by any sequence of in-place steps tried, so it keeps its temporaries
-    // (bit-exact); removing them belongs to T2.8 (D2: results may change in the last bits).
-    C = decay * C + w.c1 * pc * pc.transpose() +
-        w.cmu * (popY * rank_mu_w.asDiagonal() * popY.transpose());
-
-    square_scratch = C.transpose();
-    C = 0.5 * (C + square_scratch);
+    // C = decay C + c1 pc pc^T + cmu Y diag(w) Y^T, as symmetric rank updates
+    symmetric_rank_update(C,
+                          decay,
+                          &pc,
+                          w.c1,
+                          popY,
+                          rank_mu_w,
+                          static_cast<Eigen::Index>(mu),
+                          w.cmu,
+                          batch_scratch);
     coordinate_wise_variances.noalias() = C.diagonal();
 }
 
@@ -150,9 +190,6 @@ bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
     }
 
     d = d.cwiseSqrt();
-    // B D^-1 into a buffer (Eigen's temporary for the product), then the product
-    square_scratch.noalias() = B * d.cwiseInverse().asDiagonal();
-    inv_root_C.noalias() = square_scratch * B.transpose();
     A.noalias() = B * d.asDiagonal();
 
     return true;
@@ -189,7 +226,6 @@ void CovarianceAdaptation::restart(const Settings &settings, const Float sigma)
     B = Matrix::Identity(settings.dim, settings.dim);
     C = Matrix::Identity(settings.dim, settings.dim);
     A = Matrix::Identity(settings.dim, settings.dim);
-    inv_root_C = Matrix::Identity(settings.dim, settings.dim);
     d.setOnes();
     pc.setZero();
 }
@@ -197,6 +233,11 @@ void CovarianceAdaptation::restart(const Settings &settings, const Float sigma)
 void CovarianceAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
 {
     y.noalias() = A * z;
+}
+
+void CovarianceAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
+{
+    Y.noalias() = A * Z;
 }
 
 void CovarianceAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -240,8 +281,12 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 
     const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
 
-    const auto &weights = m.active ? w.for_population(pop.n) : w.positive;
-    const auto &popY = pop.Y.leftCols(m.active ? pop.n : mu);
+    if (m.active)
+        w.for_population_into(pop.n, weights_scratch);
+    else
+        weights_scratch = w.positive;
+    const Vector &weights = weights_scratch;
+    const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
     const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
 
     for (size_t j = 0; j < settings.dim; j++)
@@ -267,6 +312,11 @@ void SeparableAdaptation::restart(const parameters::Settings &settings, const Fl
 void SeparableAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
 {
     y = d.array() * z.array();
+}
+
+void SeparableAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
+{
+    Y = d.asDiagonal() * Z;
 }
 
 void SeparableAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -297,9 +347,13 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     stats.last_update = stats.t;
     stats.n_updates++;
 
-    const auto &weights = m.active ? w.for_population(pop.n) : w.positive;
-    const auto &popZ = pop.Z.leftCols(m.active ? pop.n : mu);
-    const auto &popY = pop.Y.leftCols(m.active ? pop.n : mu);
+    if (m.active)
+        w.for_population_into(pop.n, weights_scratch);
+    else
+        weights_scratch = w.positive;
+    const Vector &weights = weights_scratch;
+    const auto popZ = pop.Z.leftCols(m.active ? pop.n : mu);
+    const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
 
     // Normal MA-ES -> O(n^3)
     //
@@ -315,12 +369,22 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     const Float tau_m = w.cmu / 2.0;
     const Float decay_m = (1.0 - tau_1 - tau_m);
 
-    M = (decay_m * M) + (tau_1 * (M * ps) * ps.transpose()) +
-        (popY * (tau_m * weights).asDiagonal() * popZ.transpose());
+    // M = decay M + tau_1 (M ps) ps^T + Y diag(tau_m w) Z^T, in place
+    batch_scratch.noalias() = popY * (tau_m * weights).asDiagonal();
+    scratch_vector.noalias() = M * ps;
+    M *= decay_m;
+    M.noalias() += (tau_1 * scratch_vector) * ps.transpose();
+    M.noalias() += batch_scratch * popZ.transpose();
 
     if (settings.modules.elitist && !settings.one_plus_one)
-        M_inv = (decay_m * M_inv) + (tau_1 * ps * (ps.transpose() * M_inv)) +
-                ((popY * (tau_m * weights).asDiagonal()) * (popZ.transpose() * M_inv));
+    {
+        // M_inv = decay M_inv + tau_1 ps (ps^T M_inv) + (Y diag(tau_m w)) (Z^T M_inv)
+        scratch_vector.noalias() = M_inv.transpose() * ps;
+        batch_scratch2.noalias() = popZ.transpose() * M_inv;
+        M_inv *= decay_m;
+        M_inv.noalias() += (tau_1 * ps) * scratch_vector.transpose();
+        M_inv.noalias() += batch_scratch * batch_scratch2;
+    }
     else
         outdated_M_inv = true; // Rely on moore penrose pseudo-inv (only when needed)
 
@@ -339,6 +403,11 @@ void MatrixAdaptation::restart(const Settings &settings, const Float sigma)
 void MatrixAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
 {
     y.noalias() = M * z;
+}
+
+void MatrixAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
+{
+    Y.noalias() = M * Z;
 }
 
 void MatrixAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -387,9 +456,9 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 
     if (m.active)
     {
-        const Vector weights = w.for_population(pop.n);
+        w.for_population_into(pop.n, weights_scratch);
         for (size_t i = mu; i < pop.n; i++)
-            Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * weights(i));
+            Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * weights_scratch(i));
     }
 
     coordinate_wise_variances.noalias() = (A.array().square().rowwise().sum()).matrix();
@@ -405,7 +474,12 @@ void CholeskyAdaptation::restart(const parameters::Settings &settings, const Flo
 
 void CholeskyAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
 {
-    y.noalias() = A * z;
+    y.noalias() = A.triangularView<Eigen::Lower>() * z;
+}
+
+void CholeskyAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
+{
+    Y.noalias() = A.triangularView<Eigen::Lower>() * Z;
 }
 
 void CholeskyAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -439,12 +513,22 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     const Float tc = 1.0 + (dd * (dd + 1)) / (2.0 * w.mueff);
     const Float tc_inv = 1.0 / tc;
 
-    const auto &weights = m.active ? w.for_population(pop.n) : w.positive;
-    const auto &popY = pop.Y.leftCols(m.active ? pop.n : mu);
-    const auto &Y = popY * weights.asDiagonal() * popY.transpose();
+    if (m.active)
+        w.for_population_into(pop.n, weights_scratch);
+    else
+        weights_scratch = w.positive;
+    const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
 
-    C = (1.0 - tc_inv) * C + (tc_inv * Y);
-    C = 0.5 * (C + C.transpose().eval());
+    // C = (1 - 1/tc) C + (1/tc) Y diag(w) Y^T, as symmetric rank updates
+    symmetric_rank_update(C,
+                          1.0 - tc_inv,
+                          nullptr,
+                          0.0,
+                          popY,
+                          weights_scratch,
+                          static_cast<Eigen::Index>(mu),
+                          tc_inv,
+                          batch_scratch);
     coordinate_wise_variances.noalias() = C.diagonal();
 
     const Eigen::LLT<Matrix> chol(C);
@@ -470,7 +554,12 @@ void SelfAdaptation::restart(const parameters::Settings &settings, const Float s
 
 void SelfAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
 {
-    y.noalias() = A * z;
+    y.noalias() = A.triangularView<Eigen::Lower>() * z;
+}
+
+void SelfAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
+{
+    Y.noalias() = A.triangularView<Eigen::Lower>() * Z;
 }
 
 void SelfAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -496,6 +585,16 @@ bool CovarianceNoEigvAdaptation::perform_eigendecomposition(const parameters::Se
 
     A = chol.matrixL();
     return true;
+}
+
+void CovarianceNoEigvAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
+{
+    y.noalias() = A.triangularView<Eigen::Lower>() * z;
+}
+
+void CovarianceNoEigvAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
+{
+    Y.noalias() = A.triangularView<Eigen::Lower>() * Z;
 }
 
 void CovarianceNoEigvAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -538,25 +637,24 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
         weights_scratch = w.positive;
     const Vector &weights = weights_scratch;
 
-    // G += w_i (z_i z_i^T - I), with z_i z_i^T - I evaluated into a buffer
+    // G = sum_i w_i (z_i z_i^T - I) = Z diag(w) Z^T - (sum_i w_i) I, as symmetric rank updates
     G.setZero();
-    for (int i = 0; i < weights.rows(); ++i)
-    {
-        const auto &z = pop.Z.col(i);
-        square_scratch.noalias() = z * z.transpose();
-        square_scratch.diagonal().array() -= 1.0;
-        G.noalias() += weights(i) * square_scratch;
-    }
+    symmetric_rank_update(G,
+                          1.0,
+                          nullptr,
+                          0.0,
+                          pop.Z.leftCols(weights.rows()),
+                          weights,
+                          static_cast<Eigen::Index>(mu),
+                          1.0,
+                          batch_scratch);
+    G.diagonal().array() -= weights.sum();
 
     // Remove isotropic (sigma-related) component: make G trace-free
     sigma_g = (G.trace() / dd);
 
     if (!settings.one_plus_one)
         G.diagonal().array() -= sigma_g;
-
-    // Ensure symmetry for numerical stability
-    square_scratch = G.transpose();
-    G = 0.5 * (G + square_scratch);
 }
 
 bool NaturalGradientAdaptation::adapt_matrix_inner(const parameters::Weights &w,
@@ -590,6 +688,11 @@ void NaturalGradientAdaptation::restart(const parameters::Settings &settings, co
 void NaturalGradientAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
 {
     y.noalias() = A * z;
+}
+
+void NaturalGradientAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
+{
+    Y.noalias() = A * Z;
 }
 
 void NaturalGradientAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)

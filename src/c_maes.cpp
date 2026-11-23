@@ -142,8 +142,7 @@ void ModularCMAES::sample_batch()
     const size_t evaluations = p->stats.evaluations;
 
     n_individuals = last - next + 1;
-    for (Eigen::Index j = 0; j < n_individuals; ++j)
-        p->mutation->sample(next + j, evaluations + static_cast<size_t>(j), *p);
+    p->mutation->sample_batch(next, n_individuals, evaluations, *p);
 
     // The extra points of the step-size adaptation go with the last individuals: they do not
     // depend on the population

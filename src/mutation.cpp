@@ -71,11 +71,20 @@ void NoSigmaSampler::sample(const Float sigma, parameters::Parameters &p)
 
 void Strategy::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
 {
+    // The batches of ask() (ModularCMAES): individuals up to the first after which sequential
+    // selection can stop, then one at a time
     begin_population(n_offspring, p);
-    for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
+    const auto n = static_cast<Eigen::Index>(n_offspring);
+    for (Eigen::Index i = 0; i < n;)
     {
-        sample(i, p.stats.evaluations, p);
-        if (evaluated(i, objective(p.pop.X_transformed.col(i)), p))
+        const auto stop = first_stop(static_cast<size_t>(i), p);
+        const Eigen::Index last =
+            stop >= static_cast<size_t>(n) ? n - 1 : static_cast<Eigen::Index>(stop);
+        sample_batch(i, last - i + 1, p.stats.evaluations, p);
+        bool complete = false;
+        for (; i <= last && !complete; ++i)
+            complete = evaluated(i, objective(p.pop.X_transformed.col(i)), p);
+        if (complete)
             break;
     }
     end_population(p);
@@ -100,27 +109,52 @@ void Strategy::begin_population(const size_t n_offspring, parameters::Parameters
     p.repelling->prepare_sampling(p);
 }
 
-void Strategy::sample(const Eigen::Index i, const size_t evaluations, parameters::Parameters &p)
+void Strategy::sample_batch(const Eigen::Index begin,
+                            const Eigen::Index k,
+                            const size_t evaluations,
+                            parameters::Parameters &p)
 {
-    size_t n_rej = 0;
-    do
+    // Every step writes into the columns of the population: no allocation per sample
+    for (Eigen::Index j = 0; j < k; ++j)
     {
-        // Every step writes into the columns of the population: no allocation per sample
+        const Eigen::Index i = begin + j;
         p.pop.t(i) = p.stats.t;
         p.sampler->sample(p.pop.Z.col(i));
         p.mutation->tc->scale_inplace(
-            p.pop.Z.col(i), p.settings.diameter, p.settings.budget, evaluations);
-        p.adaptation->compute_y_into(p.pop.Z.col(i), p.pop.Y.col(i));
-        p.pop.X.col(i).array() =
-            p.pop.Y.col(i).array() * p.pop.S.col(i).array() + p.adaptation->m.array();
-        p.bounds->correct(i, p);
+            p.pop.Z.col(i), p.settings.diameter, p.settings.budget, evaluations + j);
+    }
+    p.adaptation->compute_y_batch(p.pop.Z.middleCols(begin, k), p.pop.Y.middleCols(begin, k));
 
-    } while ((p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
-              n_rej++ < 5 * p.settings.dim &&
-              bounds::any_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub)) ||
-             p.repelling->is_rejected(p.pop.X.col(i), p));
+    for (Eigen::Index j = 0; j < k; ++j)
+    {
+        const Eigen::Index i = begin + j;
+        finish_sample(i, p);
+        size_t n_rejections = 0;
+        while (rejected(i, n_rejections, p))
+        {
+            p.sampler->sample(p.pop.Z.col(i));
+            p.mutation->tc->scale_inplace(
+                p.pop.Z.col(i), p.settings.diameter, p.settings.budget, evaluations + j);
+            p.adaptation->compute_y_into(p.pop.Z.col(i), p.pop.Y.col(i));
+            finish_sample(i, p);
+        }
+        p.coordinate_mapping->transform_into(p.pop.X.col(i), p.pop.X_transformed.col(i));
+    }
+}
 
-    p.coordinate_mapping->transform_into(p.pop.X.col(i), p.pop.X_transformed.col(i));
+void Strategy::finish_sample(const Eigen::Index i, parameters::Parameters &p)
+{
+    p.pop.X.col(i).array() =
+        p.pop.Y.col(i).array() * p.pop.S.col(i).array() + p.adaptation->m.array();
+    p.bounds->correct(i, p);
+}
+
+bool Strategy::rejected(const Eigen::Index i, size_t &n_rejections, parameters::Parameters &p)
+{
+    return (p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
+            n_rejections++ < 5 * p.settings.dim &&
+            bounds::any_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub)) ||
+           p.repelling->is_rejected(p.pop.X.col(i), p);
 }
 
 size_t Strategy::first_stop(const size_t i, const parameters::Parameters &p) const

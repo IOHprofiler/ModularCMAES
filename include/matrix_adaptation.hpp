@@ -16,12 +16,12 @@ struct Adaptation
     Float dd;
     Float expected_length_z;
 
-    // Buffers reused by the updates, so that a generation does not allocate. Each update writes
-    // the same Eigen expression into a buffer that a temporary held before: the results are
-    // bit-identical.
+    // Buffers reused by the updates, so that a generation does not allocate
     Vector scratch_vector;
     Vector weights_scratch;
     Matrix square_scratch;
+    Matrix batch_scratch;  // d x n
+    Matrix batch_scratch2; // n x d
 
     Adaptation(const size_t dim,
                const Vector &x0,
@@ -79,6 +79,13 @@ struct Adaptation
 
     //! y = A z for the sampling transformation A, written into y (no allocation)
     virtual void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) = 0;
+
+    //! Y = A Z for a block of samples (the columns of Z): one matrix product (T2.8)
+    virtual void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
+    {
+        for (Eigen::Index j = 0; j < Z.cols(); ++j)
+            compute_y_into(Z.col(j), Y.col(j));
+    }
 
     //! y = A z as a new vector
     [[nodiscard]] Vector compute_y(const Vector &z)
@@ -158,6 +165,8 @@ struct None final : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
+    void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
+
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
@@ -166,8 +175,11 @@ struct CovarianceAdaptation : Adaptation
     Vector pc, d;
     Matrix B, C;
     Matrix A;
-    Matrix inv_root_C;
     bool hs = true;
+
+    //! C^-1/2 = B D^-1 B^T. Not kept up to date (an O(d^3) product per eigendecomposition): the
+    //! updates use B and d directly; this computes it.
+    [[nodiscard]] Matrix inv_root_C() const { return B * d.cwiseInverse().asDiagonal() * B.transpose(); }
 
     // Reused by the matrix update: the eigensolver with its workspace
     Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
@@ -178,8 +190,7 @@ struct CovarianceAdaptation : Adaptation
         d(Vector::Ones(dim)),
         B(Matrix::Identity(dim, dim)),
         C(Matrix::Identity(dim, dim)),
-        A(Matrix::Identity(dim, dim)),
-        inv_root_C(Matrix::Identity(dim, dim))
+        A(Matrix::Identity(dim, dim))
     {
     }
 
@@ -209,6 +220,8 @@ struct CovarianceAdaptation : Adaptation
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
+
+    void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
@@ -245,6 +258,8 @@ struct SeparableAdaptation : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
+    void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
+
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
@@ -278,6 +293,8 @@ struct MatrixAdaptation final : Adaptation
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
+
+    void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 
@@ -320,6 +337,8 @@ struct CholeskyAdaptation final : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
+    void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
+
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
@@ -353,6 +372,8 @@ struct SelfAdaptation final : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
+    void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
+
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
@@ -363,6 +384,11 @@ struct CovarianceNoEigvAdaptation : CovarianceAdaptation
     void adapt_ps(const parameters::Weights &w) override;
 
     bool perform_eigendecomposition(const parameters::Settings &settings) override;
+
+    //! A is the lower triangular Cholesky factor here
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
+
+    void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
@@ -411,6 +437,8 @@ struct NaturalGradientAdaptation final : Adaptation
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
+
+    void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 

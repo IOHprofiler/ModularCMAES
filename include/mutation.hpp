@@ -149,9 +149,16 @@ struct Strategy
     //! Start a population of n_offspring (pop.n): sigmas, bound and repelling state
     void begin_population(const size_t n_offspring, parameters::Parameters &p);
 
-    //! Sample individual i; evaluations is the number of evaluations when it is sampled in the
-    //! sequential order (threshold convergence depends on it)
-    void sample(const Eigen::Index i, const size_t evaluations, parameters::Parameters &p);
+    /**
+     * Sample individuals begin..begin+k-1. evaluations is the number of evaluations before the
+     * first of them (threshold convergence: individual begin + j sees evaluations + j). Their y
+     * are one matrix product, Y = A Z; an individual that bound correction (RESAMPLE) or repelling
+     * rejects is sampled again on its own.
+     */
+    void sample_batch(const Eigen::Index begin,
+                      const Eigen::Index k,
+                      const size_t evaluations,
+                      parameters::Parameters &p);
 
     //! The last individual of a batch sampled from i on: sequential selection can stop the
     //! population after it, but not before it
@@ -187,6 +194,13 @@ struct Strategy
   protected:
     //! Called by end_population
     virtual void on_population_complete(parameters::Parameters &p) {}
+
+  private:
+    //! x of individual i from its y and sigma, with bound correction
+    void finish_sample(const Eigen::Index i, parameters::Parameters &p);
+
+    //! Whether individual i must be sampled again (attempt n_rejections so far)
+    bool rejected(const Eigen::Index i, size_t &n_rejections, parameters::Parameters &p);
 };
 
 struct CSA : Strategy

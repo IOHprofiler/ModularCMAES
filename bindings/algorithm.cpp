@@ -228,7 +228,9 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("B", &CovarianceAdaptation::B)
         .def_rw("C", &CovarianceAdaptation::C)
         .def_rw("A", &CovarianceAdaptation::A)
-        .def_rw("inv_root_C", &CovarianceAdaptation::inv_root_C)
+        .def_prop_ro("inv_root_C",
+                     &CovarianceAdaptation::inv_root_C,
+                     "C^-1/2 = B D^-1 B^T, computed from B and d (the updates do not form it)")
         .def_rw("hs", &CovarianceAdaptation::hs)
         .def("adapt_covariance_matrix",
              &CovarianceAdaptation::adapt_covariance_matrix,
@@ -244,7 +246,7 @@ void define_matrix_adaptation(nb::module_ &main)
             return repr("CovarianceAdaptation", [&](std::stringstream &ss) {
                 adaptation_repr(ss, a);
                 ss << " pc: " << a.pc.transpose() << " d: " << a.d.transpose();
-                ss << " B: " << a.B << " C: " << a.C << " inv_root_C: " << a.inv_root_C;
+                ss << " B: " << a.B << " C: " << a.C << " inv_root_C: " << a.inv_root_C();
                 ss << " dd: " << a.dd << " expected_length_z: " << a.expected_length_z;
                 ss << " hs: " << a.hs;
             });
