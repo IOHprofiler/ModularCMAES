@@ -11,7 +11,8 @@
      [
       [
        "objective",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -19,23 +20,25 @@
    "__init__": {
     "kind": "function",
     "overloads": [
-     [],
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ],
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ]
      ],
      [
       [
        "settings",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -58,7 +61,8 @@
      [
       [
        "objective",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -79,7 +83,8 @@
      [
       [
        "objective",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -96,7 +101,8 @@
      [
       [
        "objective",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -112,17 +118,18 @@
    "__init__": {
     "kind": "function",
     "overloads": [
-     [],
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ]
      ],
      [
       [
        "settings",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -175,11 +182,13 @@
      [
       [
        "objective",
-       null
+       null,
+       ""
       ],
       [
        "sigma",
-       "None"
+       "None",
+       ""
       ]
      ]
     ]
@@ -198,11 +207,13 @@
      [
       [
        "new_mu",
-       null
+       null,
+       ""
       ],
       [
        "new_lambda",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -229,7 +240,8 @@
      [
       [
        "objective",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -276,7 +288,8 @@
      [
       [
        "other",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -284,37 +297,43 @@
    "__init__": {
     "kind": "function",
     "overloads": [
-     [],
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ],
       [
        "n",
-       null
+       null,
+       ""
       ]
      ],
      [
       [
        "X",
-       null
+       null,
+       ""
       ],
       [
        "Z",
-       null
+       null,
+       ""
       ],
       [
        "Y",
-       null
+       null,
+       ""
       ],
       [
        "f",
-       null
+       null,
+       ""
       ],
       [
        "S",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -337,7 +356,8 @@
      [
       [
        "idx",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -356,7 +376,8 @@
      [
       [
        "size",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -385,11 +406,13 @@
      [
       [
        "index",
-       null
+       null,
+       ""
       ],
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -400,19 +423,23 @@
      [
       [
        "xi",
-       null
+       null,
+       ""
       ],
       [
        "oob",
-       null
+       null,
+       ""
       ],
       [
        "sigma",
-       null
+       null,
+       ""
       ],
       [
        "settings",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -423,15 +450,18 @@
      [
       [
        "xi",
-       null
+       null,
+       ""
       ],
       [
        "oob",
-       null
+       null,
+       ""
       ],
       [
        "settings",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -442,11 +472,13 @@
      [
       [
        "xi",
-       null
+       null,
+       ""
       ],
       [
        "settings",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -469,7 +501,8 @@
      [
       [
        "dim",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -562,7 +595,8 @@
      [
       [
        "dim",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -623,7 +657,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -720,7 +755,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -731,27 +767,33 @@
      [
       [
        "d",
-       null
+       null,
+       ""
       ],
       [
        "x0",
-       null
+       null,
+       ""
       ],
       [
        "sigma0",
-       "1.0"
+       "1.0",
+       ""
       ],
       [
        "budget",
-       "10000"
+       "10000",
+       ""
       ],
       [
        "target",
-       "1e-08"
+       "1e-08",
+       ""
       ],
       [
        "modules",
-       "<Moduleselitist:falseactive:falseorthogonal:falsesequential_selection:falsethreshold_convergence:falsesample_sigma:falserepelling_type:NONErepelling_metric:EUCLIDEANweights:DEFAULTsampler:UNIFORMmirrored:NONEssa:CSAbound_correction:NONErestart_strategy:NONEmatrix_adaptation:COVARIANCEcenter_placement:X0sample_transformation:GAUSSIAN>"
+       "<Moduleselitist:falseactive:falseorthogonal:falsesequential_selection:falsethreshold_convergence:falsesample_sigma:falserepelling_type:NONErepelling_metric:EUCLIDEANweights:DEFAULTsampler:UNIFORMmirrored:NONEssa:CSAbound_correction:NONErestart_strategy:NONEmatrix_adaptation:COVARIANCEcenter_placement:X0sample_transformation:GAUSSIAN>",
+       ""
       ]
      ]
     ]
@@ -806,7 +848,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -829,7 +872,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -868,7 +912,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -879,31 +924,38 @@
      [
       [
        "d",
-       null
+       null,
+       ""
       ],
       [
        "x0",
-       null
+       null,
+       ""
       ],
       [
        "f0",
-       null
+       null,
+       ""
       ],
       [
        "sigma0",
-       "1.0"
+       "1.0",
+       ""
       ],
       [
        "budget",
-       "10000"
+       "10000",
+       ""
       ],
       [
        "target",
-       "1e-08"
+       "1e-08",
+       ""
       ],
       [
        "modules",
-       "<Moduleselitist:falseactive:falseorthogonal:falsesequential_selection:falsethreshold_convergence:falsesample_sigma:falserepelling_type:NONErepelling_metric:EUCLIDEANweights:DEFAULTsampler:UNIFORMmirrored:NONEssa:CSAbound_correction:NONErestart_strategy:NONEmatrix_adaptation:COVARIANCEcenter_placement:X0sample_transformation:GAUSSIAN>"
+       "<Moduleselitist:falseactive:falseorthogonal:falsesequential_selection:falsethreshold_convergence:falsesample_sigma:falserepelling_type:NONErepelling_metric:EUCLIDEANweights:DEFAULTsampler:UNIFORMmirrored:NONEssa:CSAbound_correction:NONErestart_strategy:NONEmatrix_adaptation:COVARIANCEcenter_placement:X0sample_transformation:GAUSSIAN>",
+       ""
       ]
      ]
     ]
@@ -952,7 +1004,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -989,27 +1042,33 @@
      [
       [
        "pop",
-       null
+       null,
+       ""
       ],
       [
        "weights",
-       null
+       null,
+       ""
       ],
       [
        "stats",
-       null
+       null,
+       ""
       ],
       [
        "settings",
-       null
+       null,
+       ""
       ],
       [
        "mu",
-       null
+       null,
+       ""
       ],
       [
        "lamb",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1020,27 +1079,33 @@
      [
       [
        "pop",
-       null
+       null,
+       ""
       ],
       [
        "weights",
-       null
+       null,
+       ""
       ],
       [
        "stats",
-       null
+       null,
+       ""
       ],
       [
        "settings",
-       null
+       null,
+       ""
       ],
       [
        "mu",
-       null
+       null,
+       ""
       ],
       [
        "lamb",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1051,27 +1116,33 @@
      [
       [
        "weights",
-       null
+       null,
+       ""
       ],
       [
        "modules",
-       null
+       null,
+       ""
       ],
       [
        "population",
-       null
+       null,
+       ""
       ],
       [
        "mu",
-       null
+       null,
+       ""
       ],
       [
        "settings",
-       null
+       null,
+       ""
       ],
       [
        "stats",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1082,7 +1153,8 @@
      [
       [
        "zi",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1101,11 +1173,13 @@
      [
       [
        "u",
-       null
+       null,
+       ""
       ],
       [
        "v",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1116,7 +1190,8 @@
      [
       [
        "x",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1139,11 +1214,13 @@
      [
       [
        "xi",
-       null
+       null,
+       ""
       ],
       [
        "sigma",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1154,7 +1231,8 @@
      [
       [
        "yi",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1177,11 +1255,13 @@
      [
       [
        "settings",
-       null
+       null,
+       ""
       ],
       [
        "sigma",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1204,15 +1284,18 @@
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ],
       [
        "x0",
-       null
+       null,
+       ""
       ],
       [
        "expected_length_z",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1247,15 +1330,18 @@
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ],
       [
        "x0",
-       null
+       null,
+       ""
       ],
       [
        "expected_length_z",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1272,19 +1358,23 @@
      [
       [
        "weights",
-       null
+       null,
+       ""
       ],
       [
        "modules",
-       null
+       null,
+       ""
       ],
       [
        "population",
-       null
+       null,
+       ""
       ],
       [
        "mu",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1295,7 +1385,8 @@
      [
       [
        "weights",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1322,7 +1413,8 @@
      [
       [
        "stats",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1356,15 +1448,18 @@
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ],
       [
        "x0",
-       null
+       null,
+       ""
       ],
       [
        "expected_length_z",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1401,19 +1496,23 @@
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ],
       [
        "x0",
-       null
+       null,
+       ""
       ],
       [
        "expected_length_z",
-       null
+       null,
+       ""
       ],
       [
        "sigma",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1424,27 +1523,33 @@
      [
       [
        "pop",
-       null
+       null,
+       ""
       ],
       [
        "weights",
-       null
+       null,
+       ""
       ],
       [
        "stats",
-       null
+       null,
+       ""
       ],
       [
        "settings",
-       null
+       null,
+       ""
       ],
       [
        "mu",
-       null
+       null,
+       ""
       ],
       [
        "lamb",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1467,15 +1572,18 @@
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ],
       [
        "x0",
-       null
+       null,
+       ""
       ],
       [
        "expected_length_z",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1508,15 +1616,18 @@
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ],
       [
        "x0",
-       null
+       null,
+       ""
       ],
       [
        "expected_length_z",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1535,15 +1646,18 @@
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ],
       [
        "x0",
-       null
+       null,
+       ""
       ],
       [
        "expected_length_z",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1608,11 +1722,13 @@
      [
       [
        "mirror",
-       null
+       null,
+       ""
       ],
       [
        "seq_cuttoff_factor",
-       "1.0"
+       "1.0",
+       ""
       ]
      ]
     ]
@@ -1631,7 +1747,8 @@
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1690,11 +1807,13 @@
      [
       [
        "mirror",
-       null
+       null,
+       ""
       ],
       [
        "seq_cuttoff_factor",
-       "1.0"
+       "1.0",
+       ""
       ]
      ]
     ]
@@ -1705,23 +1824,28 @@
      [
       [
        "i",
-       null
+       null,
+       ""
       ],
       [
        "f",
-       null
+       null,
+       ""
       ],
       [
        "fopt",
-       null
+       null,
+       ""
       ],
       [
        "mirror",
-       null
+       null,
+       ""
       ],
       [
        "mu",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1740,7 +1864,8 @@
      [
       [
        "dimension",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1751,7 +1876,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1762,11 +1888,13 @@
      [
       [
        "sigma",
-       null
+       null,
+       ""
       ],
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1785,19 +1913,23 @@
      [
       [
        "threshold_convergence",
-       null
+       null,
+       ""
       ],
       [
        "sequential_selection",
-       null
+       null,
+       ""
       ],
       [
        "sigma_sampler",
-       null
+       null,
+       ""
       ],
       [
        "sigma0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1808,27 +1940,33 @@
      [
       [
        "weights",
-       null
+       null,
+       ""
       ],
       [
        "dynamic",
-       null
+       null,
+       ""
       ],
       [
        "population",
-       null
+       null,
+       ""
       ],
       [
        "old_population",
-       null
+       null,
+       ""
       ],
       [
        "stats",
-       null
+       null,
+       ""
       ],
       [
        "lamb",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1839,15 +1977,18 @@
      [
       [
        "objective",
-       null
+       null,
+       ""
       ],
       [
        "n_offspring",
-       null
+       null,
+       ""
       ],
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -1920,19 +2061,23 @@
      [
       [
        "population",
-       null
+       null,
+       ""
       ],
       [
        "diameter",
-       null
+       null,
+       ""
       ],
       [
        "budget",
-       null
+       null,
+       ""
       ],
       [
        "evaluations",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2070,15 +2215,18 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ],
       [
        "arg1",
-       null
+       null,
+       ""
       ],
       [
        "arg2",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2089,7 +2237,8 @@
      [
       [
        "x",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2196,83 +2345,103 @@
      [
       [
        "dim",
-       null
+       null,
+       ""
       ],
       [
        "modules",
-       "None"
+       "None",
+       ""
       ],
       [
        "target",
-       "None"
+       "None",
+       ""
       ],
       [
        "max_generations",
-       "None"
+       "None",
+       ""
       ],
       [
        "budget",
-       "None"
+       "None",
+       ""
       ],
       [
        "sigma0",
-       "None"
+       "None",
+       ""
       ],
       [
        "lambda0",
-       "None"
+       "None",
+       ""
       ],
       [
        "mu0",
-       "None"
+       "None",
+       ""
       ],
       [
        "x0",
-       "None"
+       "None",
+       ""
       ],
       [
        "lb",
-       "None"
+       "None",
+       ""
       ],
       [
        "ub",
-       "None"
+       "None",
+       ""
       ],
       [
        "integer_variables",
-       "None"
+       "None",
+       ""
       ],
       [
        "cs",
-       "None"
+       "None",
+       ""
       ],
       [
        "cc",
-       "None"
+       "None",
+       ""
       ],
       [
        "cmu",
-       "None"
+       "None",
+       ""
       ],
       [
        "c1",
-       "None"
+       "None",
+       ""
       ],
       [
        "damps",
-       "None"
+       "None",
+       ""
       ],
       [
        "acov",
-       "None"
+       "None",
+       ""
       ],
       [
        "verbose",
-       "False"
+       "False",
+       ""
       ],
       [
        "always_compute_eigv",
-       "False"
+       "False",
+       ""
       ]
      ]
     ]
@@ -2493,11 +2662,13 @@
      [
       [
        "Settings",
-       null
+       null,
+       ""
       ],
       [
        "expected_length_z",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2546,7 +2717,8 @@
      [
       [
        "n",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2611,7 +2783,8 @@
      [
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2638,7 +2811,8 @@
      [
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2665,7 +2839,8 @@
      [
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2734,7 +2909,8 @@
      [
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2757,11 +2933,13 @@
      [
       [
        "xi",
-       null
+       null,
+       ""
       ],
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2772,7 +2950,8 @@
      [
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2783,11 +2962,13 @@
      [
       [
        "objective",
-       null
+       null,
+       ""
       ],
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2803,41 +2984,48 @@
    "__init__": {
     "kind": "function",
     "overloads": [
-     [],
      [
       [
        "solution",
-       null
+       null,
+       ""
       ],
       [
        "radius",
-       null
+       null,
+       ""
       ],
       [
        "metric",
-       "array([],shape=(0,0),dtype=float64)"
+       "array([],shape=(0,0),dtype=float64)",
+       ""
       ]
      ],
      [
       [
        "solution",
-       null
+       null,
+       ""
       ],
       [
        "radius",
-       null
+       null,
+       ""
       ],
       [
        "min_radius",
-       null
+       null,
+       ""
       ],
       [
        "max_radius",
-       null
+       null,
+       ""
       ],
       [
        "metric",
-       "array([],shape=(0,0),dtype=float64)"
+       "array([],shape=(0,0),dtype=float64)",
+       ""
       ]
      ]
     ]
@@ -2854,7 +3042,8 @@
      [
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2879,11 +3068,13 @@
      [
       [
        "x",
-       null
+       null,
+       ""
       ],
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2926,15 +3117,18 @@
      [
       [
        "xi",
-       null
+       null,
+       ""
       ],
       [
        "p",
-       null
+       null,
+       ""
       ],
       [
        "attempts",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2945,15 +3139,18 @@
      [
       [
        "objective",
-       null
+       null,
+       ""
       ],
       [
        "xi",
-       null
+       null,
+       ""
       ],
       [
        "p",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -2974,7 +3171,8 @@
    [
     [
      "p",
-     null
+     null,
+     ""
     ]
    ]
   ]
@@ -2985,11 +3183,13 @@
    [
     [
      "u",
-     null
+     null,
+     ""
     ],
     [
      "v",
-     null
+     null,
+     ""
     ]
    ]
   ]
@@ -3000,19 +3200,23 @@
    [
     [
      "u",
-     null
+     null,
+     ""
     ],
     [
      "v",
-     null
+     null,
+     ""
     ],
     [
      "f",
-     null
+     null,
+     ""
     ],
     [
      "n_evals",
-     null
+     null,
+     ""
     ]
    ]
   ]
@@ -3023,15 +3227,18 @@
    [
     [
      "u",
-     null
+     null,
+     ""
     ],
     [
      "v",
-     null
+     null,
+     ""
     ],
     [
      "C_inv",
-     null
+     null,
+     ""
     ]
    ]
   ]
@@ -3042,11 +3249,13 @@
    [
     [
      "u",
-     null
+     null,
+     ""
     ],
     [
      "v",
-     null
+     null,
+     ""
     ]
    ]
   ]
@@ -3143,7 +3352,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3154,7 +3364,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3171,17 +3382,18 @@
     "kind": "function",
     "overloads": [
      [],
-     [],
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ],
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3189,7 +3401,6 @@
    "__repr__": {
     "kind": "function",
     "overloads": [
-     [],
      [],
      []
     ]
@@ -3200,7 +3411,8 @@
      [
       [
        "x",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3217,7 +3429,8 @@
      [
       [
        "x",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3225,17 +3438,18 @@
    "extend": {
     "kind": "function",
     "overloads": [
-     [],
      [
       [
        "L",
-       null
+       null,
+       ""
       ]
      ],
      [
       [
        "L",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3246,11 +3460,13 @@
      [
       [
        "i",
-       null
+       null,
+       ""
       ],
       [
        "x",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3259,11 +3475,11 @@
     "kind": "function",
     "overloads": [
      [],
-     [],
      [
       [
        "i",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3274,7 +3490,8 @@
      [
       [
        "x",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3293,7 +3510,8 @@
      [
       [
        "name",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3322,7 +3540,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3333,7 +3552,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3344,7 +3564,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3579,7 +3800,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3655,21 +3877,23 @@
    "__init__": {
     "kind": "function",
     "overloads": [
-     [],
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ]
      ],
      [
       [
        "cache",
-       null
+       null,
+       ""
       ],
       [
        "transform_ppf",
-       "False"
+       "False",
+       ""
       ]
      ]
     ]
@@ -3706,7 +3930,8 @@
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3723,7 +3948,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3748,7 +3974,8 @@
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3765,7 +3992,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3790,7 +4018,8 @@
      [
       [
        "d",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3815,7 +4044,8 @@
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3832,7 +4062,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3857,11 +4088,13 @@
      [
       [
        "d",
-       null
+       null,
+       ""
       ],
       [
        "scrambled",
-       "True"
+       "True",
+       ""
       ]
      ]
     ]
@@ -3886,7 +4119,8 @@
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3903,7 +4137,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3928,7 +4163,8 @@
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3945,7 +4181,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3970,7 +4207,8 @@
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -3987,7 +4225,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4012,7 +4251,8 @@
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4037,11 +4277,13 @@
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ],
       [
        "n_samples",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4066,11 +4308,13 @@
      [
       [
        "d",
-       null
+       null,
+       ""
       ],
       [
        "function",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4113,11 +4357,13 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ],
       [
        "arg1",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4142,7 +4388,8 @@
      [
       [
        "d",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4171,7 +4418,8 @@
      [
       [
        "d",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4196,7 +4444,8 @@
      [
       [
        "sampler",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4213,7 +4462,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4232,7 +4482,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4257,7 +4508,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4282,7 +4534,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4307,7 +4560,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4332,7 +4586,8 @@
      [
       [
        "modules",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4351,7 +4606,8 @@
      [
       [
        "parameters",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4370,7 +4626,8 @@
      [
       [
        "dim",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4381,7 +4638,8 @@
      [
       [
        "arg0",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4392,7 +4650,8 @@
      [
       [
        "index",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4414,21 +4673,23 @@
    "__init__": {
     "kind": "function",
     "overloads": [
-     [],
      [
       [
        "start",
-       null
+       null,
+       ""
       ],
       [
        "stop",
-       null
+       null,
+       ""
       ]
      ],
      [
       [
        "stop",
-       null
+       null,
+       ""
       ]
      ]
     ]
@@ -4485,7 +4746,8 @@
    [
     [
      "x",
-     null
+     null,
+     ""
     ]
    ]
   ]
@@ -4496,11 +4758,13 @@
    [
     [
      "running_times",
-     null
+     null,
+     ""
     ],
     [
      "budget",
-     null
+     null,
+     ""
     ]
    ]
   ]
@@ -4511,15 +4775,18 @@
    [
     [
      "dim_num",
-     null
+     null,
+     ""
     ],
     [
      "seed",
-     null
+     null,
+     ""
     ],
     [
      "quasi",
-     null
+     null,
+     ""
     ]
    ]
   ]
@@ -4530,7 +4797,8 @@
    [
     [
      "x",
-     null
+     null,
+     ""
     ]
    ]
   ]
@@ -4553,7 +4821,8 @@
    [
     [
      "seed",
-     null
+     null,
+     ""
     ]
    ]
   ]

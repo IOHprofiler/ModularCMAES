@@ -3,6 +3,7 @@ change (TASKS.md, T1.1). Pinned on the pybind11 bindings; the nanobind port must
 change a test here deliberately (with a note in the changelog)."""
 
 import enum
+import gc
 import unittest
 
 import numpy as np
@@ -32,7 +33,9 @@ class TestArraySemantics(unittest.TestCase):
         f[0] = -1.0
         self.assertEqual(self.p.pop.f[0], -1.0)
 
-    def test_other_eigen_members_are_read_only_views(self):
+    def test_other_eigen_members_are_writable_views(self):
+        # pybind11 returned read-only views; nanobind's are writable and writes reach the C++
+        # object (a deliberate change, in the changelog: nothing that worked before breaks)
         for get in (
             lambda: self.p.adaptation.C,
             lambda: self.p.adaptation.m,
@@ -42,8 +45,11 @@ class TestArraySemantics(unittest.TestCase):
         ):
             a = get()
             self.assertIsInstance(a, np.ndarray)
-            self.assertFalse(a.flags.writeable)
             self.assertTrue(np.shares_memory(a, get()))
+            old = a.flat[0]
+            a.flat[0] = old + 1.0
+            self.assertEqual(get().flat[0], old + 1.0)
+            a.flat[0] = old
 
     def test_eigen_members_are_assignable(self):
         a = self.p.adaptation
@@ -127,8 +133,10 @@ class TestObjectSemantics(unittest.TestCase):
         cma = c_maes.ModularCMAES(c_maes.Settings(3, modules, verbose=False))
         criterion = AfterGenerations(5)
         cma.p.criteria.items.append(criterion)
-        # pybind11: the caller must keep a reference (the shared_ptr in C++ does not keep the
-        # Python part alive: 'Tried to call pure virtual function'). nanobind should lift this.
+        # The vector keeps the Python object alive (with pybind11 the caller had to keep a
+        # reference, or the next update raised 'Tried to call pure virtual function')
+        del criterion
+        gc.collect()
         for _ in range(8):
             cma.step(sphere)
         item = cma.p.criteria.items[-1]

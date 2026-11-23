@@ -1,13 +1,45 @@
 [build-system]
-requires = [
-    "configspace",
-    "ioh",
-    "numpy",
-    "mypy",
-    "pybind11",
-    "setuptools>=42",
-    "scipy",
-    "wheel",
+# nanobind is pinned: its version shapes the extension and the generated stubs
+requires = ["scikit-build-core>=1.1", "nanobind==3.1.0"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "modcma"
+version = "1.2.0"
+description = "Package Containing Modular CMA-ES optimizer"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Jacob de Nobel", email = "jacobdenobel@gmail.com" }]
+requires-python = ">=3.10"
+dependencies = ["configspace", "numpy>=2.0", "scipy", "ioh"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: C++",
+    "Operating System :: OS Independent",
 ]
 
-build-backend = "setuptools.build_meta"
+[project.urls]
+Repository = "https://github.com/IOHprofiler/ModularCMAES"
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+# FindPython's Development.Module (CMakeLists.txt); for a CMake older than 3.26 scikit-build-core
+# brings the FindPython that has Development.SABIModule (the abi3 wheel)
+cmake.version = ">=3.18"
+# kept between builds: a rebuild (pip install --no-build-isolation -e .) compiles only what changed
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["modcma"]
+# one wheel for CPython 3.12 and later on the stable ABI (CMakeLists.txt: STABLE_ABI); 3.10 and
+# 3.11 get a wheel of their own
+wheel.py-api = "cp312"
+sdist.exclude = [
+    "scripts/",
+    "docs/",
+    "bench/",
+    "build/",
+    ".github/",
+    "external/unsupported/Eigen/CXX11/",
+    "banner.png",
+    "*.so",
+]

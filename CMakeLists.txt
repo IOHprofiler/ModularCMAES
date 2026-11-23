@@ -12,8 +12,9 @@ endif()
 file(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 list(FILTER SRC_FILES EXCLUDE REGEX ".*(interface|main)\\.cpp$")
 
-# The library code, shared by the executables below
+# The library code, shared by the Python extension and the executables below
 add_library(modcma_core STATIC ${SRC_FILES})
+set_target_properties(modcma_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(modcma_core PUBLIC
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/external
@@ -28,6 +29,30 @@ else()
   if (MODCMA_NATIVE)
     target_compile_options(modcma_core PUBLIC -march=native)
   endif()
+endif()
+
+# The Python extension modcma.c_maes.cmaescpp (nanobind). scikit-build-core (pyproject.toml) sets
+# SKBUILD and builds only this; MODCMA_PYTHON=ON builds it next to the C++ targets.
+option(MODCMA_PYTHON "Build the Python extension" OFF)
+if (SKBUILD OR MODCMA_PYTHON)
+  # For an abi3 wheel (wheel.py-api in pyproject.toml) scikit-build-core sets
+  # SKBUILD_SABI_COMPONENT to Development.SABIModule
+  find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT})
+  execute_process(
+    COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+    OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
+  find_package(nanobind CONFIG REQUIRED)
+  file(GLOB BINDING_SOURCES ${PROJECT_SOURCE_DIR}/bindings/*.cpp)
+  # NOMINSIZE: keep -O3 (nanobind's default -Os slows the bindings down, measured in
+  # IOHexperimenter). STABLE_ABI: one wheel for CPython 3.12+ (ignored for older versions).
+  # Not FREE_THREADED: the random generator and other state are global (TASKS.md, T4.1).
+  nanobind_add_module(cmaescpp NOMINSIZE STABLE_ABI ${BINDING_SOURCES})
+  target_link_libraries(cmaescpp PRIVATE modcma_core)
+  install(TARGETS cmaescpp LIBRARY DESTINATION modcma/c_maes)
+endif()
+
+if (SKBUILD)
+  return()
 endif()
 
 # Example/experiment driver

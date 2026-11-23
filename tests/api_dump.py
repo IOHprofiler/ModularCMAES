@@ -26,6 +26,12 @@ from modcma.c_maes import cmaescpp
 
 DEFAULT_OUTPUT = os.path.join(os.path.dirname(__file__), "data", "api", "pybind11.json")
 
+#: Differences from the pybind11 reference that are accepted, with the reason
+ACCEPTED = {
+    "overload not accepted: cmaescpp.restart.CriteriaVector.pop(i)":
+        "nanobind's bind_vector names the argument index (pop(i=...) by keyword is not supported)",
+}
+
 
 def split_top_level(text: str) -> list:
     parts, depth, current = [], 0, []
@@ -45,7 +51,9 @@ def split_top_level(text: str) -> list:
 
 
 def parse_signatures(name: str, doc: str) -> list:
-    """All overloads of ``name`` in a pybind11/nanobind docstring, as lists of [arg, default]."""
+    """All overloads of ``name`` in a pybind11/nanobind docstring, as lists of
+    [arg, default, kind] with kind "positional" (before a ``/``), "keyword" (after a ``*``) or ""
+    (either). The generic ``name(*args, **kwargs)`` line of overloaded functions is skipped."""
     signatures = []
     for line in (doc or "").splitlines():
         line = re.sub(r"^\s*\d+\.\s*", "", line.strip())
@@ -60,10 +68,20 @@ def parse_signatures(name: str, doc: str) -> list:
                 break
         if end is None:
             continue
-        args = []
+        args, generic, keyword_only = [], False, False
         for part in split_top_level(line[len(name) + 1 : end]):
             part = part.strip()
-            if part in ("*", "/", "") or part.startswith(("*args", "**kwargs")):
+            if part.startswith(("*args", "**kwargs")):
+                generic = True
+                continue
+            if part == "/":
+                for arg in args:
+                    arg[2] = "positional"
+                continue
+            if part == "*":
+                keyword_only = True
+                continue
+            if not part:
                 continue
             arg_name = re.split(r"[:=]", part, maxsplit=1)[0].strip()
             default = None
@@ -71,8 +89,9 @@ def parse_signatures(name: str, doc: str) -> list:
                 default = re.sub(r"\s+", "", part.split("=", 1)[1])
             if arg_name == "self":
                 continue
-            args.append([arg_name, default])
-        signatures.append(args)
+            args.append([arg_name, default, "keyword" if keyword_only else ""])
+        if not generic:
+            signatures.append(args)
     return signatures
 
 
@@ -122,16 +141,59 @@ def dump() -> dict:
     return dump_module(cmaescpp, "cmaescpp")
 
 
+def same_name(ref: list, cur: list) -> bool:
+    # pybind11 names unnamed arguments arg0, arg1, ...: they can only be passed by position
+    return ref[0] == cur[0] or re.fullmatch(r"arg\d+", ref[0]) is not None or cur[2] == "positional"
+
+
 def accepts(current: list, reference: list) -> bool:
-    """Whether the current overload accepts every call the reference overload accepts."""
-    cur_names = [a for a, _ in current]
-    ref_names = [a for a, _ in reference]
-    if cur_names[: len(ref_names)] != ref_names:
-        return False
-    # extra current arguments must be optional; optional reference arguments must stay optional
-    if any(d is None for _, d in current[len(ref_names) :]):
-        return False
-    return all(not (r is not None and c is None) for (_, r), (_, c) in zip(reference, current))
+    """Whether the current overload accepts the calls of the reference overload: the same
+    arguments (by position; keyword-only arguments by name, in any order), the optional ones
+    still optional, any extra arguments optional."""
+    positional = [a for a in current if a[2] != "keyword"]
+    keyword = {a[0]: a for a in current if a[2] == "keyword"}
+    matched = 0
+    for i, ref in enumerate(reference):
+        if i < len(positional) and same_name(ref, positional[i]):
+            cur = positional[i]
+            matched += 1
+        elif ref[0] in keyword:
+            cur = keyword.pop(ref[0])
+        else:
+            return False
+        if ref[1] is not None and cur[1] is None:
+            return False
+    extra = positional[matched:] + list(keyword.values())
+    return all(a[1] is not None for a in extra)
+
+
+def notes(reference: dict, current: dict) -> list:
+    """Accepted differences that change how a call can be written: an argument that became
+    positional-only or keyword-only, or was renamed where it is positional-only."""
+    out = []
+    for name, ref in reference.items():
+        cur = current.get(name, {})
+        members = ref.get("members", {}) if ref["kind"] == "class" else {"": ref}
+        for member, ref_member in members.items():
+            cur_member = cur.get("members", {}).get(member) if member else cur
+            if not cur_member or ref_member.get("kind") != "function":
+                continue
+            for overload in ref_member["overloads"]:
+                for cur_overload in cur_member["overloads"]:
+                    if accepts(cur_overload, overload):
+                        keyword = [c[0] for c in cur_overload if c[2] == "keyword"]
+                        changed = [
+                            f"{r[0]}->{c[0]} (positional-only)" if c[2] == "positional" else f"{r[0]}->{c[0]}"
+                            for r, c in zip(overload, cur_overload)
+                            if c[2] != "keyword" and (c[2] == "positional" or r[0] != c[0])
+                        ]
+                        changed = [c for c in changed if not re.match(r"arg\d+->", c)]
+                        if keyword:
+                            changed.append("keyword-only: " + ", ".join(keyword))
+                        if changed:
+                            out.append(f"{name}{'.' + member if member else ''}: {', '.join(changed)}")
+                        break
+    return sorted(set(out))
 
 
 def compare(reference: dict, current: dict) -> list:
@@ -161,7 +223,7 @@ def compare_entry(name: str, ref: dict, cur: dict) -> list:
         return [f"became read-only: {name}"]
     if ref["kind"] == "function":
         return [
-            f"overload not accepted: {name}({', '.join(a + ('=' + d if d else '') for a, d in overload)})"
+            f"overload not accepted: {name}({', '.join(a[0] + ('=' + a[1] if a[1] else '') for a in overload)})"
             for overload in ref["overloads"]
             if not any(accepts(c, overload) for c in cur["overloads"])
         ]
@@ -173,6 +235,7 @@ def main():
     parser.add_argument("command", choices=("write", "compare"))
     parser.add_argument("reference", nargs="?", default=DEFAULT_OUTPUT)
     parser.add_argument("--output", default=DEFAULT_OUTPUT)
+    parser.add_argument("--notes", action="store_true", help="also list accepted call-style changes")
     args = parser.parse_args()
     if args.command == "write":
         os.makedirs(os.path.dirname(args.output), exist_ok=True)
@@ -182,7 +245,20 @@ def main():
         print(f"wrote {args.output}")
     else:
         with open(args.reference) as f:
-            problems = compare(json.load(f), dump())
+            reference = json.load(f)
+        # dumps written before the kind field was recorded
+        for entry in reference.values():
+            members = entry["members"].values() if entry["kind"] == "class" else []
+            for member in [entry, *members]:
+                for overload in member.get("overloads", []):
+                    for arg in overload:
+                        if len(arg) == 2:
+                            arg.append("")
+        current = dump()
+        problems = [p for p in compare(reference, current) if p not in ACCEPTED]
+        if args.notes:
+            for note in notes(reference, current):
+                print(f"note: {note}")
         for problem in problems:
             print(problem)
         print(f"{len(problems)} incompatibilities with {args.reference}")

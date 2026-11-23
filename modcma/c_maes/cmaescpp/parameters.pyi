@@ -1,101 +1,466 @@
-import modcma.c_maes.cmaescpp.options
+from collections.abc import Sequence
+from typing import Annotated
+
 import numpy
+from numpy.typing import NDArray
+
+import modcma.c_maes.cmaescpp.options
+
 
 class Modules:
-    active: bool
-    bound_correction: modcma.c_maes.cmaescpp.options.CorrectionMethod
-    center_placement: modcma.c_maes.cmaescpp.options.CenterPlacement
-    elitist: bool
-    matrix_adaptation: modcma.c_maes.cmaescpp.options.MatrixAdaptationType
-    mirrored: modcma.c_maes.cmaescpp.options.Mirror
-    orthogonal: bool
-    repelling_restart: bool
-    restart_strategy: modcma.c_maes.cmaescpp.options.RestartStrategy
-    sample_sigma: bool
-    sampler: modcma.c_maes.cmaescpp.options.BaseSampler
-    sequential_selection: bool
-    ssa: modcma.c_maes.cmaescpp.options.StepSizeAdaptation
-    threshold_convergence: bool
-    weights: modcma.c_maes.cmaescpp.options.RecombinationWeights
-    sample_transformation: modcma.c_maes.cmaescpp.options.SampleTranformerType
     def __init__(self) -> None: ...
 
-class Settings:
-    budget: int
-    c1: float | None
-    cc: float | None
-    cmu: float | None
-    cs: float | None
-    dim: int
-    lambda0: int
-    lb: numpy.ndarray
-    max_generations: int | None
-    modules: Modules
-    mu0: int
-    sigma0: float
-    target: float | None
-    ub: numpy.ndarray
-    verbose: bool
-    volume: float
-    x0: numpy.ndarray | None
-    def __init__(
-        self,
-        dim: int,
-        modules: Modules | None = ...,
-        target: float | None = ...,
-        max_generations: int | None = ...,
-        budget: int | None = ...,
-        sigma0: float | None = ...,
-        lambda0: int | None = ...,
-        mu0: int | None = ...,
-        x0: numpy.ndarray | None = ...,
-        lb: numpy.ndarray | None = ...,
-        ub: numpy.ndarray | None = ...,
-        cs: float | None = ...,
-        cc: float | None = ...,
-        cmu: float | None = ...,
-        c1: float | None = ...,
-        verbose: bool = ...,
-        always_compute_eigv: bool | False = ...,
-    ) -> None: ...
+    @property
+    def elitist(self) -> bool: ...
+
+    @elitist.setter
+    def elitist(self, arg: object, /) -> None: ...
+
+    @property
+    def active(self) -> bool: ...
+
+    @active.setter
+    def active(self, arg: object, /) -> None: ...
+
+    @property
+    def orthogonal(self) -> bool: ...
+
+    @orthogonal.setter
+    def orthogonal(self, arg: object, /) -> None: ...
+
+    @property
+    def sequential_selection(self) -> bool: ...
+
+    @sequential_selection.setter
+    def sequential_selection(self, arg: object, /) -> None: ...
+
+    @property
+    def threshold_convergence(self) -> bool: ...
+
+    @threshold_convergence.setter
+    def threshold_convergence(self, arg: object, /) -> None: ...
+
+    @property
+    def sample_sigma(self) -> bool: ...
+
+    @sample_sigma.setter
+    def sample_sigma(self, arg: object, /) -> None: ...
+
+    @property
+    def weights(self) -> modcma.c_maes.cmaescpp.options.RecombinationWeights: ...
+
+    @weights.setter
+    def weights(self, arg: modcma.c_maes.cmaescpp.options.RecombinationWeights, /) -> None: ...
+
+    @property
+    def sampler(self) -> modcma.c_maes.cmaescpp.options.BaseSampler: ...
+
+    @sampler.setter
+    def sampler(self, arg: modcma.c_maes.cmaescpp.options.BaseSampler, /) -> None: ...
+
+    @property
+    def mirrored(self) -> modcma.c_maes.cmaescpp.options.Mirror: ...
+
+    @mirrored.setter
+    def mirrored(self, arg: modcma.c_maes.cmaescpp.options.Mirror, /) -> None: ...
+
+    @property
+    def ssa(self) -> modcma.c_maes.cmaescpp.options.StepSizeAdaptation: ...
+
+    @ssa.setter
+    def ssa(self, arg: modcma.c_maes.cmaescpp.options.StepSizeAdaptation, /) -> None: ...
+
+    @property
+    def bound_correction(self) -> modcma.c_maes.cmaescpp.options.CorrectionMethod: ...
+
+    @bound_correction.setter
+    def bound_correction(self, arg: modcma.c_maes.cmaescpp.options.CorrectionMethod, /) -> None: ...
+
+    @property
+    def restart_strategy(self) -> modcma.c_maes.cmaescpp.options.RestartStrategy: ...
+
+    @restart_strategy.setter
+    def restart_strategy(self, arg: modcma.c_maes.cmaescpp.options.RestartStrategy, /) -> None: ...
+
+    @property
+    def repelling_type(self) -> modcma.c_maes.cmaescpp.options.RepellingType: ...
+
+    @repelling_type.setter
+    def repelling_type(self, arg: modcma.c_maes.cmaescpp.options.RepellingType, /) -> None: ...
+
+    @property
+    def repelling_metric(self) -> modcma.c_maes.cmaescpp.options.RepellingMetric: ...
+
+    @repelling_metric.setter
+    def repelling_metric(self, arg: modcma.c_maes.cmaescpp.options.RepellingMetric, /) -> None: ...
+
+    @property
+    def matrix_adaptation(self) -> modcma.c_maes.cmaescpp.options.MatrixAdaptationType: ...
+
+    @matrix_adaptation.setter
+    def matrix_adaptation(self, arg: modcma.c_maes.cmaescpp.options.MatrixAdaptationType, /) -> None: ...
+
+    @property
+    def center_placement(self) -> modcma.c_maes.cmaescpp.options.CenterPlacement: ...
+
+    @center_placement.setter
+    def center_placement(self, arg: modcma.c_maes.cmaescpp.options.CenterPlacement, /) -> None: ...
+
+    @property
+    def sample_transformation(self) -> modcma.c_maes.cmaescpp.options.SampleTranformerType: ...
+
+    @sample_transformation.setter
+    def sample_transformation(self, arg: modcma.c_maes.cmaescpp.options.SampleTranformerType, /) -> None: ...
+
+    def __repr__(self) -> str: ...
 
 class Solution:
-    e: int
-    t: int
-    x: numpy.ndarray
-    y: float
     def __init__(self) -> None: ...
+
+    @property
+    def x(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @x.setter
+    def x(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def y(self) -> float: ...
+
+    @y.setter
+    def y(self, arg: float, /) -> None: ...
+
+    @property
+    def t(self) -> int: ...
+
+    @t.setter
+    def t(self, arg: int, /) -> None: ...
+
+    @property
+    def e(self) -> int: ...
+
+    @e.setter
+    def e(self, arg: int, /) -> None: ...
+
+    def __repr__(self) -> str: ...
 
 class Stats:
-    t: int
-    evaluations: int
-    current_avg: float
-    solutions: list[Solution]
-    centers: list[Solution]
-    global_best: Solution
-    current_best: Solution
-    has_improved: bool
-    success_ratio: float
-    cs: float
-    last_update: int
-    n_updates: int
     def __init__(self) -> None: ...
 
+    @property
+    def t(self) -> int: ...
+
+    @t.setter
+    def t(self, arg: int, /) -> None: ...
+
+    @property
+    def evaluations(self) -> int: ...
+
+    @evaluations.setter
+    def evaluations(self, arg: int, /) -> None: ...
+
+    @property
+    def current_avg(self) -> float: ...
+
+    @current_avg.setter
+    def current_avg(self, arg: float, /) -> None: ...
+
+    @property
+    def solutions(self) -> list[Solution]: ...
+
+    @solutions.setter
+    def solutions(self, arg: Sequence[Solution], /) -> None: ...
+
+    @property
+    def centers(self) -> list[Solution]: ...
+
+    @centers.setter
+    def centers(self, arg: Sequence[Solution], /) -> None: ...
+
+    @property
+    def current_best(self) -> Solution: ...
+
+    @current_best.setter
+    def current_best(self, arg: Solution, /) -> None: ...
+
+    @property
+    def global_best(self) -> Solution: ...
+
+    @global_best.setter
+    def global_best(self, arg: Solution, /) -> None: ...
+
+    @property
+    def has_improved(self) -> bool: ...
+
+    @has_improved.setter
+    def has_improved(self, arg: bool, /) -> None: ...
+
+    @property
+    def success_ratio(self) -> float: ...
+
+    @success_ratio.setter
+    def success_ratio(self, arg: float, /) -> None: ...
+
+    @property
+    def last_update(self) -> int: ...
+
+    @last_update.setter
+    def last_update(self, arg: int, /) -> None: ...
+
+    @property
+    def n_updates(self) -> int: ...
+
+    @n_updates.setter
+    def n_updates(self, arg: int, /) -> None: ...
+
+    def __repr__(self) -> str: ...
+
 class Weights:
-    mueff: float
-    mueff_neg: float
-    c1: float
-    cmu: float
-    cc: float
-    cs: float
-    damps: float
-    sqrt_cc_mueff: float
-    sqrt_cs_mueff: float
-    lazy_update_interval: float
-    expected_length_z: float
-    expected_length_ps: float
-    beta: float
-    negative: numpy.ndarray
-    positive: numpy.ndarray
-    weights: numpy.ndarray
-    def __init__(self, dimension: int, mu0: int, lambda0: int, modules) -> None: ...
+    def __init__(self, Settings: Settings, expected_length_z: float) -> None: ...
+
+    @property
+    def mueff(self) -> float: ...
+
+    @mueff.setter
+    def mueff(self, arg: float, /) -> None: ...
+
+    @property
+    def mueff_neg(self) -> float: ...
+
+    @mueff_neg.setter
+    def mueff_neg(self, arg: float, /) -> None: ...
+
+    @property
+    def c1(self) -> float: ...
+
+    @c1.setter
+    def c1(self, arg: float, /) -> None: ...
+
+    @property
+    def cmu(self) -> float: ...
+
+    @cmu.setter
+    def cmu(self, arg: float, /) -> None: ...
+
+    @property
+    def cc(self) -> float: ...
+
+    @cc.setter
+    def cc(self, arg: float, /) -> None: ...
+
+    @property
+    def cs(self) -> float: ...
+
+    @cs.setter
+    def cs(self, arg: float, /) -> None: ...
+
+    @property
+    def damps(self) -> float: ...
+
+    @damps.setter
+    def damps(self, arg: float, /) -> None: ...
+
+    @property
+    def sqrt_cc_mueff(self) -> float: ...
+
+    @sqrt_cc_mueff.setter
+    def sqrt_cc_mueff(self, arg: float, /) -> None: ...
+
+    @property
+    def sqrt_cs_mueff(self) -> float: ...
+
+    @sqrt_cs_mueff.setter
+    def sqrt_cs_mueff(self, arg: float, /) -> None: ...
+
+    @property
+    def lazy_update_interval(self) -> float: ...
+
+    @lazy_update_interval.setter
+    def lazy_update_interval(self, arg: float, /) -> None: ...
+
+    @property
+    def expected_length_z(self) -> float: ...
+
+    @expected_length_z.setter
+    def expected_length_z(self, arg: float, /) -> None: ...
+
+    @property
+    def expected_length_ps(self) -> float: ...
+
+    @expected_length_ps.setter
+    def expected_length_ps(self, arg: float, /) -> None: ...
+
+    @property
+    def beta(self) -> float: ...
+
+    @beta.setter
+    def beta(self, arg: float, /) -> None: ...
+
+    @property
+    def weights(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @weights.setter
+    def weights(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def positive(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @positive.setter
+    def positive(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def negative(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @negative.setter
+    def negative(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    def for_population(self, n: int) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """
+        The weights for n evaluated individuals (n < lambda after a sequential selection stop): the negative weights are scaled to keep their total
+        """
+
+    def __repr__(self) -> str: ...
+
+class Settings:
+    def __init__(self, dim: int, modules: Modules | None = None, *, target: float | None = None, max_generations: int | None = None, budget: int | None = None, sigma0: float | None = None, mu0: int | None = None, lambda0: int | None = None, x0: Sequence[float] | None = None, lb: Sequence[float] | None = None, ub: Sequence[float] | None = None, integer_variables: Sequence[int] | None = None, cs: float | None = None, cc: float | None = None, cmu: float | None = None, c1: float | None = None, damps: float | None = None, acov: float | None = None, verbose: bool = False, always_compute_eigv: bool = False) -> None: ...
+
+    @property
+    def dim(self) -> int: ...
+
+    @property
+    def modules(self) -> Modules: ...
+
+    @property
+    def target(self) -> float | None: ...
+
+    @target.setter
+    def target(self, arg: float | None, /) -> None: ...
+
+    @property
+    def max_generations(self) -> int | None: ...
+
+    @max_generations.setter
+    def max_generations(self, arg: int | None, /) -> None: ...
+
+    @property
+    def budget(self) -> int: ...
+
+    @budget.setter
+    def budget(self, arg: int, /) -> None: ...
+
+    @property
+    def sigma0(self) -> float: ...
+
+    @sigma0.setter
+    def sigma0(self, arg: float, /) -> None: ...
+
+    @property
+    def mu0(self) -> int: ...
+
+    @mu0.setter
+    def mu0(self, arg: int, /) -> None: ...
+
+    @property
+    def lambda0(self) -> int: ...
+
+    @lambda0.setter
+    def lambda0(self, arg: int, /) -> None: ...
+
+    @property
+    def x0(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')] | None: ...
+
+    @x0.setter
+    def x0(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')] | None, /) -> None: ...
+
+    @property
+    def lb(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @lb.setter
+    def lb(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def ub(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @ub.setter
+    def ub(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def db(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @db.setter
+    def db(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def center(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @center.setter
+    def center(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def diameter(self) -> float: ...
+
+    @diameter.setter
+    def diameter(self, arg: float, /) -> None: ...
+
+    @property
+    def volume(self) -> float: ...
+
+    @property
+    def has_bounds(self) -> bool: ...
+
+    @has_bounds.setter
+    def has_bounds(self, arg: object, /) -> None: ...
+
+    @property
+    def integer_variables(self) -> Annotated[NDArray[numpy.int32], dict(shape=(None,), order='C')]: ...
+
+    @property
+    def cs(self) -> float | None: ...
+
+    @cs.setter
+    def cs(self, arg: float | None, /) -> None: ...
+
+    @property
+    def cc(self) -> float | None: ...
+
+    @cc.setter
+    def cc(self, arg: float | None, /) -> None: ...
+
+    @property
+    def cmu(self) -> float | None: ...
+
+    @cmu.setter
+    def cmu(self, arg: float | None, /) -> None: ...
+
+    @property
+    def c1(self) -> float | None: ...
+
+    @c1.setter
+    def c1(self, arg: float | None, /) -> None: ...
+
+    @property
+    def damps(self) -> float | None: ...
+
+    @damps.setter
+    def damps(self, arg: float | None, /) -> None: ...
+
+    @property
+    def acov(self) -> float | None: ...
+
+    @acov.setter
+    def acov(self, arg: float | None, /) -> None: ...
+
+    @property
+    def verbose(self) -> bool: ...
+
+    @verbose.setter
+    def verbose(self, arg: object, /) -> None: ...
+
+    @property
+    def one_plus_one(self) -> bool: ...
+
+    def __repr__(self) -> str: ...
+
+class CoordinateMapping:
+    def __init__(self, integer_variables: Sequence[int], d: int, mueff: float) -> None: ...
+
+    def transform(self, x: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
