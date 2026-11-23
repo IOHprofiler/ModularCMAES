@@ -33,6 +33,13 @@ bool hill_valley_test_p(const Solution &u,
                         parameters::Parameters &p);
 } // namespace distance
 
+/**
+ * @brief The metric that RepellingMetric::ARCHIVED stores with a new taboo point: A^-1 of the
+ * current run (from Adaptation::invert_y, so for every matrix adaptation), scaled to unit
+ * determinant. Empty when another metric is selected.
+ */
+Matrix archived_metric(parameters::Parameters &p);
+
 struct TabooPoint
 {
     Solution solution;
@@ -50,14 +57,16 @@ struct TabooPoint
     int checked_count = 0;
     Float last_rejection_rate = 0.0;
 
-    Matrix M; // Metric matrix
+    //! For RepellingMetric::ARCHIVED: A^-1 of the run that found the point, scaled to unit
+    //! determinant (only the shape of its basin). Empty for the other metrics.
+    Matrix metric;
 
     // Adaptive constructor: radius bounds are used by adaptive repelling.
     TabooPoint(const Solution &s,
                const Float radius,
                const Float min_radius,
                const Float max_radius,
-               const Matrix &M) :
+               const Matrix &metric = Matrix()) :
         solution(s),
         radius(radius),
         shrinkage(std::pow(0.95, 1.0 / static_cast<Float>(s.x.size()))),
@@ -69,15 +78,19 @@ struct TabooPoint
         rejected_count(0),
         checked_count(0),
         last_rejection_rate(0.0),
-        M(M)
+        metric(metric)
     {
     }
 
     // Old-style/default constructor: useful for coverage-based repelling.
-    TabooPoint(const Solution &s, const Float radius, const Matrix &M) :
-        TabooPoint(s, radius, 0.0, std::numeric_limits<Float>::infinity(), M)
+    TabooPoint(const Solution &s, const Float radius, const Matrix &metric = Matrix()) :
+        TabooPoint(s, radius, 0.0, std::numeric_limits<Float>::infinity(), metric)
     {
     }
+
+    //! The distance from x to this point in the metric of p.settings.modules.repelling_metric,
+    //! divided by the current sigma
+    Float distance(const Vector &x, const parameters::Parameters &p) const;
 
     bool rejects(const Vector &xi, const parameters::Parameters &p, const int attempts) const;
 

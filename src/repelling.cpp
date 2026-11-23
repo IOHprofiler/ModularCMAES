@@ -76,13 +76,54 @@ bool hill_valley_test(const Solution &u, const Solution &v, FunctionType &f, con
 
 } // namespace distance
 
+Matrix archived_metric(parameters::Parameters &p)
+{
+    if (p.settings.modules.repelling_metric != parameters::RepellingMetric::ARCHIVED)
+        return Matrix();
+
+    const Eigen::Index d = static_cast<Eigen::Index>(p.settings.dim);
+    Matrix inverse(d, d);
+    for (Eigen::Index j = 0; j < d; j++)
+        inverse.col(j) = p.adaptation->invert_y(Vector::Unit(d, j));
+
+    // Unit determinant: keep the shape of the basin; the current sigma sets the scale
+    const Eigen::PartialPivLU<Matrix> lu(inverse);
+    const Float log_abs_det = lu.matrixLU().diagonal().array().abs().log().sum();
+    if (!std::isfinite(log_abs_det) || !inverse.allFinite())
+        return Matrix(); // degenerate: this point falls back to the Euclidean distance
+    return inverse * std::exp(-log_abs_det / static_cast<Float>(d));
+}
+
+Float TabooPoint::distance(const Vector &x, const parameters::Parameters &p) const
+{
+    Float delta;
+    switch (p.settings.modules.repelling_metric)
+    {
+    case parameters::RepellingMetric::CURRENT:
+        delta = p.adaptation->distance(x, solution.x);
+        break;
+    case parameters::RepellingMetric::ARCHIVED:
+        if (metric.size() != 0)
+        {
+            delta = (metric * (x - solution.x)).norm();
+            break;
+        }
+        [[fallthrough]];
+    case parameters::RepellingMetric::EUCLIDEAN:
+    default:
+        delta = distance::euclidian(x, solution.x);
+        break;
+    }
+    return delta / p.mutation->sigma;
+}
+
 bool TabooPoint::rejects(const Vector &xi,
                          const parameters::Parameters &p,
                          const int attempts) const
 {
     const Float rejection_radius = std::pow(shrinkage, attempts) * radius;
 
-    const Float delta_xi = distance::quadratic(xi, solution.x, M) / p.mutation->sigma;
+    const Float delta_xi = distance(xi, p);
 
     return delta_xi < rejection_radius;
 }
@@ -96,7 +137,7 @@ bool TabooPoint::shares_basin(FunctionType &objective,
 
 void TabooPoint::calculate_criticality(const parameters::Parameters &p)
 {
-    const Float delta_m = distance::quadratic(p.adaptation->m, solution.x, M) / p.mutation->sigma;
+    const Float delta_m = distance(p.adaptation->m, p);
 
     const auto u = delta_m + radius;
     const auto l = delta_m - radius;
@@ -221,7 +262,7 @@ void CoverageRepelling::update_archive(FunctionType &objective, parameters::Para
 
     if (accept_candidate)
     {
-        archive.emplace_back(candidate_point, 1.0, p.adaptation->M);
+        archive.emplace_back(candidate_point, 1.0, archived_metric(p));
     }
 
     const Float n_solutions = static_cast<Float>(std::max<size_t>(1, p.stats.solutions.size()));
@@ -362,7 +403,7 @@ void AdaptiveRepelling::update_archive(FunctionType &objective, parameters::Para
     if (accept_candidate)
     {
         archive.emplace_back(
-            candidate_point, initial_radius(p), min_radius(p), max_radius(p), p.adaptation->M);
+            candidate_point, initial_radius(p), min_radius(p), max_radius(p), archived_metric(p));
     }
 }
 

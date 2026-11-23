@@ -15,7 +15,6 @@ struct Adaptation
 
     Float dd;
     Float expected_length_z;
-    Matrix M; // Metric matrix
 
     Adaptation(const size_t dim,
                const Vector &x0,
@@ -27,8 +26,7 @@ struct Adaptation
         ps(ps),
         coordinate_wise_variances(Vector::Ones(dim)),
         dd(static_cast<Float>(dim)),
-        expected_length_z(expected_length_z),
-        M(Matrix::Identity(dim, dim))
+        expected_length_z(expected_length_z)
     {
     }
 
@@ -86,7 +84,6 @@ struct Adaptation
         ps.setZero();
         dz.setZero();
         coordinate_wise_variances.setOnes();
-        M = Matrix::Identity(settings.dim, settings.dim);
     }
 
     Float distance(const Vector u, const Vector &v)

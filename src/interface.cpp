@@ -108,6 +108,12 @@ void define_options(py::module &main)
         .value("COVERAGE", RepellingType::COVERAGE)
         .value("ADAPTIVE", RepellingType::ADAPTIVE)
         .finalize();
+
+    py::native_enum<RepellingMetric>(m, "RepellingMetric", "enum.Enum")
+        .value("EUCLIDEAN", RepellingMetric::EUCLIDEAN)
+        .value("CURRENT", RepellingMetric::CURRENT)
+        .value("ARCHIVED", RepellingMetric::ARCHIVED)
+        .finalize();
 }
 
 struct PySampler : sampling::Sampler
@@ -328,13 +334,15 @@ void define_repelling(py::module &main)
         .def(py::init<const Solution &, Float, const Matrix &>(),
              py::arg("solution"),
              py::arg("radius"),
-             py::arg("M"))
+             py::arg("metric") = Matrix())
         .def(py::init<const Solution &, Float, Float, Float, const Matrix &>(),
              py::arg("solution"),
              py::arg("radius"),
              py::arg("min_radius"),
              py::arg("max_radius"),
-             py::arg("M"))
+             py::arg("metric") = Matrix())
+        .def("distance", &TabooPoint::distance, py::arg("x"), py::arg("p"))
+        .def_readwrite("metric", &TabooPoint::metric)
 
         .def("rejects", &TabooPoint::rejects, py::arg("xi"), py::arg("p"), py::arg("attempts"))
         .def("shares_basin",
@@ -417,6 +425,12 @@ void define_repelling(py::module &main)
     m.def("euclidian", &distance::euclidian, py::arg("u"), py::arg("v"));
     m.def("manhattan", &distance::manhattan, py::arg("u"), py::arg("v"));
     m.def("mahanolobis", &distance::mahanolobis, py::arg("u"), py::arg("v"), py::arg("C_inv"));
+
+    m.def("archived_metric",
+          &archived_metric,
+          py::arg("p"),
+          "The metric RepellingMetric.ARCHIVED stores with a new taboo point (empty for the "
+          "other metrics)");
 
     m.def("hill_valley_test",
           &distance::hill_valley_test,
@@ -656,6 +670,7 @@ void define_parameters(py::module &main)
         .def_readwrite("bound_correction", &Modules::bound_correction)
         .def_readwrite("restart_strategy", &Modules::restart_strategy)
         .def_readwrite("repelling_type", &Modules::repelling_type)
+        .def_readwrite("repelling_metric", &Modules::repelling_metric)
         .def_readwrite("matrix_adaptation", &Modules::matrix_adaptation)
         .def_readwrite("center_placement", &Modules::center_placement)
         .def_readwrite("sample_transformation", &Modules::sample_transformation)

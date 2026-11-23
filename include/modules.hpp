@@ -97,6 +97,17 @@ enum class RepellingType
     ADAPTIVE,
 };
 
+//! The distance between a sample and a taboo point of repelling, divided by the current sigma
+enum class RepellingMetric
+{
+    //! ||x - x_t||: the behaviour since July 2026 (78ddafe)
+    EUCLIDEAN,
+    //! ||A^-1 (x - x_t)||, with A of the current run (Mahalanobis in the current search distribution)
+    CURRENT,
+    //! ||A_t^-1 (x - x_t)||, with A_t of the run that found x_t, scaled to unit determinant
+    ARCHIVED,
+};
+
 struct Modules
 {
     bool elitist = false;
@@ -115,5 +126,6 @@ struct Modules
     CenterPlacement center_placement = CenterPlacement::X0;
     SampleTranformerType sample_transformation = SampleTranformerType::GAUSSIAN;
     RepellingType repelling_type = RepellingType::NONE;
+    RepellingMetric repelling_metric = RepellingMetric::EUCLIDEAN;
 };
 } // namespace parameters

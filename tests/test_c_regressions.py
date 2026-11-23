@@ -35,36 +35,46 @@ class TestIntegerMapping(unittest.TestCase):
 
 class TestActiveCovarianceUpdate(unittest.TestCase):
     """B2: the negative weights of active CMA were never rescaled by d / ||C^-1/2 y||^2 when
-    lambda = 2 mu (the default), because the loop ran over [mu, lambda - mu)."""
+    lambda = 2 mu (the default), because the loop ran over [mu, lambda - mu). Once it ran, the
+    rescaling also had to use invert_y: COVARIANCE_NO_EIGV never computes inv_root_C."""
 
     def test_rank_mu_update_matches_reference(self):
+        for name in ("COVARIANCE", "COVARIANCE_NO_EIGV"):
+            with self.subTest(matrix_adaptation=name):
+                self.check_rank_mu_update(name)
+
+    def check_rank_mu_update(self, name):
         c_maes.utils.set_seed(3)
         modules = c_maes.Modules()
         modules.active = True
+        modules.matrix_adaptation = getattr(c_maes.options.MatrixAdaptationType, name)
         d = 5
         settings = c_maes.Settings(d, modules, lambda0=10, mu0=5, verbose=False)
         cma = c_maes.ModularCMAES(settings)
-        cma.step(sphere)  # the first generation does not update C (lazy update)
+        for _ in range(3):  # the first generation does not update C; then C moves away from I
+            cma.step(sphere)
 
         cma.mutate(sphere)
         cma.select()
         cma.recombine()
         p, a = cma.p, cma.p.adaptation
-        a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.lamb, p.mu)
-        C0, pc, inv_root_C = a.C.copy(), a.pc.copy(), a.inv_root_C.copy()
+        a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+        C0, pc = a.C.copy(), a.pc.copy()
+        self.assertGreater(np.abs(C0 - np.diag(np.diag(C0))).max(), 1e-3)
         Y, hs = p.pop.Y.copy(), a.hs
         w = np.array(p.weights.weights[: Y.shape[1]])
         c1, cmu, cc = p.weights.c1, p.weights.cmu, p.weights.cc
         self.assertTrue(a.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats))
 
+        # ||C^-1/2 y||^2 = y^T C^-1 y, with C the matrix before this update
         rank_mu_w = w.copy()
         for i in range(p.mu, len(w)):
-            rank_mu_w[i] *= d / np.sum((inv_root_C @ Y[:, i]) ** 2)
+            rank_mu_w[i] *= d / (Y[:, i] @ np.linalg.solve(C0, Y[:, i]))
         dhs = (1 - hs) * cc * (2 - cc)
         decay = 1 - c1 * dhs - c1 - cmu * w.sum()
         expected = decay * C0 + c1 * np.outer(pc, pc) + cmu * (Y * rank_mu_w) @ Y.T
         expected = 0.5 * (expected + expected.T)
-        np.testing.assert_allclose(a.C, expected, rtol=1e-12, atol=1e-14)
+        np.testing.assert_allclose(a.C, expected, rtol=1e-10, atol=1e-12)
         # and the rescaling made a difference for this sample
         unscaled = decay * C0 + c1 * np.outer(pc, pc) + cmu * (Y * w) @ Y.T
         self.assertGreater(np.abs(a.C - 0.5 * (unscaled + unscaled.T)).max(), 1e-6)
@@ -116,6 +126,132 @@ class TestNoSharedSamplerState(unittest.TestCase):
             np.testing.assert_array_equal(sample(3), fresh)
         finally:
             c_maes.constants.use_box_muller = default
+
+
+def rastrigin(x):
+    return float(10 * len(x) + np.sum(x * x - 10 * np.cos(2 * np.pi * x)))
+
+
+class TestRepellingMetric(unittest.TestCase):
+    """B4: taboo points used a never-updated identity matrix (Euclidean distance). The metric is
+    now an explicit option: EUCLIDEAN (default, the behaviour since July 2026), CURRENT (the
+    current search distribution, as before July 2026) and ARCHIVED (the shape of the basin's
+    own run)."""
+
+    def make(self, metric):
+        c_maes.utils.set_seed(5)
+        modules = c_maes.Modules()
+        modules.repelling_type = c_maes.options.RepellingType.COVERAGE
+        modules.restart_strategy = c_maes.options.RestartStrategy.RESTART
+        modules.repelling_metric = getattr(c_maes.options.RepellingMetric, metric)
+        cma = c_maes.ModularCMAES(c_maes.Settings(3, modules, verbose=False))
+        for _ in range(30):  # long enough for C to be far from the identity
+            cma.step(rastrigin)
+        return cma
+
+    def taboo(self, cma, metric=None):
+        solution = c_maes.parameters.Solution()
+        solution.x = np.array([0.5, -1.0, 2.0])
+        solution.y = 1.0
+        if metric is None:
+            return c_maes.repelling.TabooPoint(solution, 1.0)
+        return c_maes.repelling.TabooPoint(solution, 1.0, metric)
+
+    def test_default_is_euclidean(self):
+        self.assertEqual(
+            c_maes.Modules().repelling_metric, c_maes.options.RepellingMetric.EUCLIDEAN
+        )
+
+    def test_euclidean(self):
+        cma = self.make("EUCLIDEAN")
+        point, x = self.taboo(cma), np.array([1.0, 2.0, 3.0])
+        expected = np.linalg.norm(x - point.solution.x) / cma.p.mutation.sigma
+        self.assertAlmostEqual(point.distance(x, cma.p), expected, places=12)
+        self.assertEqual(c_maes.repelling.archived_metric(cma.p).size, 0)
+
+    def test_current(self):
+        cma = self.make("CURRENT")
+        point, x = self.taboo(cma), np.array([1.0, 2.0, 3.0])
+        A = np.array(cma.p.adaptation.A)
+        self.assertGreater(np.abs(A - np.eye(3) * A[0, 0]).max(), 1e-3)  # not isotropic
+        expected = np.linalg.norm(np.linalg.solve(A, x - point.solution.x)) / cma.p.mutation.sigma
+        self.assertAlmostEqual(point.distance(x, cma.p), expected, places=10)
+
+    def test_archived(self):
+        cma = self.make("ARCHIVED")
+        metric = c_maes.repelling.archived_metric(cma.p)
+        A = np.array(cma.p.adaptation.A)
+        self.assertAlmostEqual(abs(np.linalg.det(metric)), 1.0, places=10)
+        product = metric @ A  # proportional to the identity: metric = A^-1 / |det A^-1|^(1/d)
+        np.testing.assert_allclose(product, np.eye(3) * product[0, 0], atol=1e-10)
+
+        point, x = self.taboo(cma, metric), np.array([1.0, 2.0, 3.0])
+        expected = np.linalg.norm(metric @ (x - point.solution.x)) / cma.p.mutation.sigma
+        self.assertAlmostEqual(point.distance(x, cma.p), expected, places=12)
+        # frozen: later adaptation does not change the stored metric
+        for _ in range(5):
+            cma.step(rastrigin)
+        self.assertAlmostEqual(
+            point.distance(x, cma.p),
+            np.linalg.norm(metric @ (x - point.solution.x)) / cma.p.mutation.sigma,
+            places=12,
+        )
+
+    def test_archive_stores_metric_only_for_archived(self):
+        for metric, stored in (("EUCLIDEAN", False), ("CURRENT", False), ("ARCHIVED", True)):
+            cma = self.make(metric)
+            while not cma.p.repelling.archive and cma.step(rastrigin):
+                pass
+            self.assertTrue(cma.p.repelling.archive, metric)
+            self.assertEqual(cma.p.repelling.archive[0].metric.size > 0, stored, metric)
+
+
+class TestNonFiniteMatrixRestarts(unittest.TestCase):
+    """B11: a NaN/inf matrix was reported as a successful adaptation, so the run continued with
+    NaN samples. Now it is unsuccessful, which triggers the UnableToAdapt restart criterion."""
+
+    def test_non_finite_matrix_is_unsuccessful(self):
+        for name in ("COVARIANCE", "MATRIX", "SEPARABLE", "CHOLESKY", "CMSA",
+                     "COVARIANCE_NO_EIGV", "NATURAL_GRADIENT"):
+            c_maes.utils.set_seed(1)
+            modules = c_maes.Modules()
+            modules.matrix_adaptation = getattr(c_maes.options.MatrixAdaptationType, name)
+            cma = c_maes.ModularCMAES(c_maes.Settings(4, modules, verbose=False))
+            cma.step(sphere)
+            cma.mutate(sphere)
+            cma.select()
+            cma.recombine()
+            p = cma.p
+            p.pop.Y = np.full_like(np.array(p.pop.Y), np.nan)
+            p.pop.Z = np.full_like(np.array(p.pop.Z), np.nan)
+            p.stats.t = 10**6  # past any lazy-update interval
+            p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+            ok = p.adaptation.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats)
+            self.assertFalse(ok, name)
+
+
+class TestBindingArgumentNames(unittest.TestCase):
+    """B12: the keyword names of Adaptation.adapt_evolution_paths were (mu, lamb) for the C++
+    order (lambda, mu). The C++ order is now (mu, lambda), as everywhere else."""
+
+    def test_keywords_match_positional(self):
+        results = []
+        for keywords in (False, True):
+            c_maes.utils.set_seed(2)
+            cma = c_maes.ModularCMAES(c_maes.Settings(4, lambda0=12, mu0=3, verbose=False))
+            cma.mutate(sphere)
+            cma.select()
+            cma.recombine()
+            p = cma.p
+            if keywords:
+                p.adaptation.adapt_evolution_paths(
+                    pop=p.pop, weights=p.weights, stats=p.stats, settings=p.settings,
+                    mu=p.mu, lamb=p.lamb,
+                )
+            else:
+                p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+            results.append(np.array(p.adaptation.dz))
+        np.testing.assert_array_equal(results[0], results[1])
 
 
 if __name__ == "__main__":
