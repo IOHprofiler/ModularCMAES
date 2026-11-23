@@ -31,6 +31,7 @@ Modern Evolution Strategies* is documented in
   - [C++ Backend ](#c-backend-)
     - [High Level interface ](#high-level-interface-)
     - [Low Level interface ](#low-level-interface-)
+    - [Ask–tell and vectorized evaluation ](#asktell-and-vectorized-evaluation-)
   - [Tuning ](#tuning-)
     - [Configuration Space Generation](#configuration-space-generation)
     - [Creating Settings from a Configuration](#creating-settings-from-a-configuration)
@@ -169,6 +170,50 @@ while not cma.break_conditions():
 
 This modularity allows experimentation with specific parts of the evolution strategy, 
 such as custom selection, recombination, or adaptation routines.
+
+#### Ask–tell and vectorized evaluation <a name="cpp-ask-tell"></a>
+
+When the objective is evaluated outside the optimizer (in parallel, on a cluster, by a simulator),
+use `ask()` and `tell()`. `ask()` returns the points to evaluate as a `(k, d)` array; `tell(f)` takes
+their objective values in the same order and returns `True` when it completed a generation:
+
+```python
+from concurrent.futures import ProcessPoolExecutor
+
+import numpy as np
+from modcma import c_maes
+
+def func(x):
+    return float(np.sum(x**2))
+
+if __name__ == "__main__":
+    cma = c_maes.ModularCMAES(c_maes.Settings(10, budget=10_000))
+    with ProcessPoolExecutor() as pool:
+        while True:
+            X = cma.ask()
+            f = list(pool.map(func, X))
+            if cma.tell(f) and cma.break_conditions():
+                break
+    print(cma.p.stats.global_best)
+```
+
+Every module works with ask–tell, and the results are identical to `cma.run(func)`, bit for bit.
+`k` depends on the configuration: usually it is λ (λ + 2 with TPA step-size adaptation). With
+sequential selection, `ask()` first returns the points up to the first one after which the
+generation may stop, then one point at a time (two with pairwise mirroring). A restart asks for the
+center first and, with repelling restarts, for the points of the hill-valley tests, one at a time.
+`ask()` returns the same points until `tell()` is called.
+
+To evaluate solutions other than the asked ones (for example after a repair, or to inject a known
+good solution), pass them as `tell(f, X)`: each row of `X` that differs from the asked point replaces
+it in the population.
+
+A vectorized objective, which takes a `(k, d)` array and returns `k` values, can be passed to `run`
+and `step` directly. It saves a Python call per evaluation:
+
+```python
+cma.run(lambda X: np.sum(X**2, axis=1), vectorized=True)
+```
 
 
 

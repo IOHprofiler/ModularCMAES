@@ -344,7 +344,43 @@ counter. Everything here is bit-exact except T2.8.
 * `NaturalGradientAdaptation::compute_gradients`: `G = Z·diag(w)·Zᵀ − Σw·I` in one GEMM instead of λ
   outer products with d×d temporaries.
 
-## WP3: Ask-tell interface (C++ first, then Python)
+## WP3: Ask-tell interface (C++ first, then Python): implemented on branch `wp3-ask-tell`
+
+Status (2026-11-23), on top of WP2 (PR #61 has WP0–WP2; WP3 is a PR stacked on it):
+* **T3.1/T3.2 done.** An explicit state machine in `ModularCMAES` (phases: restart center, restart
+  hill-valley point, population batch, extra points). `step()`, `run()` and `mutate()` are loops
+  over it; `tell()` completes a generation with select, recombine, adapt. The resumable pieces:
+  `mutation::Strategy` (begin_population / sample / evaluated / end_population, TPA's two points
+  as `extra_points`, SA's mean sigma as a hook), `Parameters` (begin_generation / begin_restart /
+  tell_restart_center / finish_restart) and `Repelling` (begin_update / query_point / answer, with
+  hooks for coverage and adaptive repelling). The objective-taking functions (`perform_restart`,
+  `start`, `update_archive`, `Strategy::mutate`) remain, as loops over the same pieces.
+  Batches, as designed: λ (+2 for TPA); with sequential selection up to `first_stop` (the first
+  individual after which it can stop; with PAIRWISE the odd one), then one point or one pair; the
+  TPA pair on its own after a stopped population; restart center and hill-valley points one at a
+  time. Threshold convergence gets `evaluations + j` for the j-th sample of a batch.
+* **Golden:** 1016/1016 bit-exact on darwin-arm64: the 254 runs with four drivers (`step()`,
+  ask/tell from Python, ask/tell passing the points back, vectorized objective); the golden test
+  runs all four (`python -m tests.golden check --drivers all`). `tests/test_c_ask_tell.py` adds
+  configurations the golden runs do not reach (pairwise sequential stops, TPA after a stopped
+  population, restarts with both repelling types, integer + RESAMPLE, BIPOP), batch sizes, errors,
+  injection. The C++ test checks ask/tell against the classic loop; ASan/UBSan clean.
+* **T3.3 done:** `ask() -> (k, d)` (a copy), `tell(f, X=None) -> bool` (any array-like),
+  `has_pending`; `tell` without `ask` → RuntimeError, a wrong length/shape → ValueError (nothing
+  consumed). Decided: methods on `ModularCMAES`, no separate wrapper class.
+* **T3.4 done:** `run/step/__call__(objective, *, vectorized=False)`. Per evaluation (SEPARABLE,
+  sphere): d=2 0.75 → 0.29 µs, d=10 0.82 → 0.27 µs, d=10 λ=100 0.79 → 0.16 µs. The C++ benchmark is
+  unchanged (the state machine costs nothing measurable).
+* **T3.5 done:** a row of `X` that differs from the asked point replaces it: `X` and
+  `X_transformed` are set to it (no integer rounding: it is the point that was evaluated), `y` and
+  `z` derived with the individual's own sigma (`S` unchanged), as elitism does. For TPA, center and
+  hill-valley points the given point is what is recorded (best solution, centers). Unchanged rows
+  are left alone, so passing the asked points back is bit-exact.
+* **T3.6 done:** README section with a `ProcessPoolExecutor` example and the vectorized form.
+* Also: the C++ `Settings` constructor takes (mu, lambda) now (the bindings were already
+  keyword-only); the verbose restart message prints (mu, lambda, sigma) in that order.
+* Open: delete `origin/ask-tell` and `origin/inplace-sampling` after merge (your call).
+
 
 ### Where the algorithm evaluates the objective today
 1. `Strategy::mutate`: λ samples, one at a time. **Sequential selection** stops early depending on
