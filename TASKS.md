@@ -258,7 +258,41 @@ Status (2026-11-23), on top of WP0:
 * Per-evaluation overhead (Python lambda, `ioh` problem), attribute access (`cma.p.stats.global_best.y`,
   `cma.p.pop.X`), clean build time, wheel size, `import` time; pybind11 vs nanobind, in the PR.
 
-## WP2: Memory: preallocated, in-place population and allocation-free sampling
+## WP2: Memory: preallocated, in-place population and allocation-free sampling: bit-exact part on branch `wp2-memory`
+
+Status (2026-11-23), on top of WP1, every step bit-exact (254/254 golden runs on darwin-arm64;
+ASan/UBSan clean):
+
+* T2.1: `Population::n` = active columns, separate from the capacity (done with B13 in WP0);
+  `resize_cols` only changes `n` (no reallocation).
+* T2.2: `Parameters::start` swaps `pop` and `old_pop` (no copy).
+* T2.3: `Population::sort` with a kept order vector (`std::sort` + index tie-break = the stable order,
+  NaN last) and a kept scratch buffer, gathering column by column.
+* T2.4/T2.5: `Sampler::sample(Eigen::Ref<Vector>)`, in-place transformers, `scale_inplace`,
+  `compute_y_into`, `invert_x_into`/`invert_y_into`, bound check without a mask, repelling and the
+  integer mapping by reference.
+* T2.6: `FunctionType = std::function<Float(Eigen::Ref<const Vector>)>`; Python objectives still
+  get an array of their own (a dedicated nanobind caster).
+* T2.7 (partly): recombination, evolution paths, the natural gradient's G, the covariance update's
+  eigensolver and buffers. Kept (T2.8): the temporaries of `C = decay C + c1 pc pcᵀ + cmu Y W Yᵀ`
+  and of the `MATRIX`/`CHOLESKY`/`CMSA` updates (4–6 allocations per generation) and the natural
+  gradient's matrix exponential.
+* Lessons for bit-exactness (in the commit messages): Eigen's vectorized `log` differs from `std::log`
+  in the last bit (an unaligned destination mixes them: Logistic evaluates into an aligned scratch);
+  Eigen evaluates `dst = a + A x` as `dst = a; dst += A x`, and a product with an expression as
+  left operand as a coefficient loop; the in-place code reproduces those orders.
+
+modcma_bench, before WP2 → now (µs/gen, min of 5; malloc/evaluation 13–25 → 0.09–0.7):
+
+| config | d=2 | d=10 | d=40 | d=100 |
+|---|---|---|---|---|
+| default | 2.98 → 0.91 | 8.12 → 5.00 | 64.4 → 57.8 | 265 → 256 |
+| matrix | 2.21 → 0.53 | 4.65 → 1.75 | 15.4 → 10.1 | 48.9 → 38.3 |
+| separable | 2.08 → 0.42 | 4.20 → 1.40 | 12.5 → 7.19 | 28.6 → 19.5 |
+| active | 2.77 → 0.70 | 8.63 → 5.22 | 66.3 → 60.0 | 273 → 261 |
+| elitist | 3.52 → 0.82 | 10.3 → 5.64 | 70.2 → 61.4 | 284 → 268 |
+
+The default configuration at d ≥ 10 is bounded by the eigendecomposition (70–90 %, D5).
 
 Goal: **0 heap allocations per generation** in steady state (λ unchanged), measured with the T0.2
 counter. Everything here is bit-exact except T2.8.
