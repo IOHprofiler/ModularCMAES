@@ -108,6 +108,35 @@ class TestObjectSemantics(unittest.TestCase):
         cma.step(sphere)
         np.testing.assert_array_equal(cma.p.pop.X_transformed[1], np.round(cma.p.pop.X[1]))
 
+    def test_python_restart_criterion(self):
+        """A Python subclass of restart.Criterion, appended to p.criteria.items (as in
+        scripts/competetions/cec26/main.py), is called from C++ and can trigger a restart."""
+
+        class AfterGenerations(c_maes.restart.Criterion):
+            def __init__(self, generations):
+                super().__init__("AfterGenerations")
+                self.generations = generations
+                self.calls = 0
+
+            def update(self, par):
+                self.calls += 1
+                self.met = par.stats.t == self.generations
+
+        modules = c_maes.Modules()
+        modules.restart_strategy = c_maes.options.RestartStrategy.RESTART
+        cma = c_maes.ModularCMAES(c_maes.Settings(3, modules, verbose=False))
+        criterion = AfterGenerations(5)
+        cma.p.criteria.items.append(criterion)
+        # pybind11: the caller must keep a reference (the shared_ptr in C++ does not keep the
+        # Python part alive: 'Tried to call pure virtual function'). nanobind should lift this.
+        for _ in range(8):
+            cma.step(sphere)
+        item = cma.p.criteria.items[-1]
+        self.assertIsInstance(item, AfterGenerations)
+        self.assertGreaterEqual(item.calls, 5)
+        self.assertEqual(len(cma.p.stats.centers), 1)  # one restart, by this criterion
+        self.assertIn("AfterGenerations", [c.name for c in cma.p.criteria.items])
+
     def test_constants_are_module_level_properties(self):
         default = c_maes.constants.use_box_muller
         try:
