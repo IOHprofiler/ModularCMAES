@@ -146,7 +146,7 @@ void CachedShuffleSequence::next(Eigen::Ref<Vector> out)
 
 namespace functions
 {
-Float sphere(const Vector &x)
+Float sphere(Eigen::Ref<const Vector> x)
 {
     Float res = 0;
     for (auto &xi : x)
@@ -154,7 +154,7 @@ Float sphere(const Vector &x)
     return res;
 }
 
-Float rastrigin(const Vector &x)
+Float rastrigin(Eigen::Ref<const Vector> x)
 {
     constexpr Float a = 10.;
     constexpr Float pi2 = 2. * M_PI;
@@ -164,7 +164,7 @@ Float rastrigin(const Vector &x)
     return a * static_cast<Float>(x.size()) + res;
 }
 
-Float ellipse(const Vector &x)
+Float ellipse(Eigen::Ref<const Vector> x)
 {
     Float res = 0;
     for (auto i = 0; i < x.size(); ++i)
@@ -172,7 +172,7 @@ Float ellipse(const Vector &x)
     return res;
 }
 
-Float rosenbrock(const Vector &x)
+Float rosenbrock(Eigen::Ref<const Vector> x)
 {
     Float sum = 0.0;
     for (auto i = 0; i < x.size() - 1; ++i)

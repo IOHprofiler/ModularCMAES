@@ -36,7 +36,7 @@ struct Result
     double allocations_per_evaluation = -1;
 };
 
-Float sphere(const Vector &x) { return x.squaredNorm(); }
+Float sphere(Eigen::Ref<const Vector> x) { return x.squaredNorm(); }
 
 parameters::Modules make_modules(const std::string &name)
 {

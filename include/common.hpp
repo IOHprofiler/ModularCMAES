@@ -33,7 +33,10 @@ using Indices = Eigen::ArrayXi;
 
 template <typename T> std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);
 
-using FunctionType = std::function<Float(const Vector &)>;
+//! An objective function. It gets the point by reference (a column of the population): a C++
+//! objective reads it without a copy; the Python bindings give Python objectives an array of
+//! their own.
+using FunctionType = std::function<Float(Eigen::Ref<const Vector>)>;
 
 namespace constants
 {
@@ -83,7 +86,7 @@ struct Solution
     //! Evaluations
     size_t e;
 
-    Solution(const Vector &x, const Float y, const size_t t = 0, const size_t e = 0) :
+    Solution(Eigen::Ref<const Vector> x, const Float y, const size_t t = 0, const size_t e = 0) :
         x(x),
         y(y),
         t(t),
@@ -92,7 +95,10 @@ struct Solution
     }
 
     Solution() :
-        Solution({}, std::numeric_limits<Float>::infinity())
+        x(),
+        y(std::numeric_limits<Float>::infinity()),
+        t(0),
+        e(0)
     {
     }
 
@@ -354,10 +360,10 @@ template <typename T = Float> struct normal
 
 namespace functions
 {
-Float sphere(const Vector &x);
-Float ellipse(const Vector &x);
-Float rastrigin(const Vector &x);
-Float rosenbrock(const Vector &x);
+Float sphere(Eigen::Ref<const Vector> x);
+Float ellipse(Eigen::Ref<const Vector> x);
+Float rastrigin(Eigen::Ref<const Vector> x);
+Float rosenbrock(Eigen::Ref<const Vector> x);
 Matrix random_rotation_matrix(int n, int seed);
 
 enum ObjectiveFunction

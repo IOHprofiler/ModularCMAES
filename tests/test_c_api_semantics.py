@@ -74,6 +74,21 @@ class TestArraySemantics(unittest.TestCase):
         self.cma.step(objective)
         self.assertEqual(seen[0], (np.ndarray, (4,), np.float64))
 
+    def test_objective_may_keep_its_argument(self):
+        # The objective gets an array of its own: one stored across evaluations is not
+        # overwritten by later samples (no view of the population's buffers)
+        kept, values = [], []
+
+        def objective(x):
+            kept.append(x)
+            values.append(x.copy())
+            return float(x @ x)
+
+        for _ in range(3):
+            self.cma.step(objective)
+        for x, v in zip(kept, values):
+            np.testing.assert_array_equal(x, v)
+
     def test_objective_accepts_numpy_scalars_and_ints(self):
         for value in (np.float64(1.5), np.float32(1.5), 3):
             c_maes.ModularCMAES(c_maes.Settings(2, verbose=False)).step(lambda x, v=value: v)

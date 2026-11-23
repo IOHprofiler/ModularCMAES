@@ -21,6 +21,37 @@
 // (p.criteria.items.append(...)), so it is bound as a list-like object, not converted.
 NB_MAKE_OPAQUE(restart::vCriteria)
 
+namespace nanobind::detail
+{
+/**
+ * A Python callable as an objective function (FunctionType). The C++ side passes the point by
+ * reference (a column of the population); the generic std::function caster would hand Python a
+ * view of that column, which later samples overwrite. This caster gives the function a new array
+ * for every call, so a Python objective may keep the point it was given.
+ */
+template <> struct type_caster<FunctionType>
+{
+    NB_TYPE_CASTER(FunctionType,
+                   const_name("collections.abc.Callable[[numpy.typing.NDArray[numpy.float64]], "
+                              "float]"))
+
+    bool from_python(handle src, uint8_t, cleanup_list *) noexcept
+    {
+        if (!PyCallable_Check(src.ptr()))
+            return false;
+        value = [f = borrow<object>(src)](Eigen::Ref<const Vector> x) -> Float {
+            return cast<Float>(f(cast(Vector(x), rv_policy::move)));
+        };
+        return true;
+    }
+
+    static handle from_cpp(const FunctionType &, rv_policy, cleanup_list *) noexcept
+    {
+        return none().release();
+    }
+};
+} // namespace nanobind::detail
+
 namespace modcma_python
 {
 namespace nb = nanobind;

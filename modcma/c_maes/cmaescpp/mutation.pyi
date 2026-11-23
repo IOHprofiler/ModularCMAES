@@ -2,6 +2,7 @@ from collections.abc import Callable
 from typing import Annotated
 
 import numpy
+import numpy.typing
 from numpy.typing import NDArray
 
 import modcma.c_maes.cmaescpp
@@ -53,7 +54,7 @@ class Strategy:
 
     def adapt(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, dynamic: modcma.c_maes.cmaescpp.matrix_adaptation.Adaptation, population: modcma.c_maes.cmaescpp.Population, old_population: modcma.c_maes.cmaescpp.Population, stats: modcma.c_maes.cmaescpp.parameters.Stats, lamb: int) -> None: ...
 
-    def mutate(self, objective: Callable[[Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]], float], n_offspring: int, parameters: modcma.c_maes.cmaescpp.Parameters) -> None: ...
+    def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], n_offspring: int, parameters: modcma.c_maes.cmaescpp.Parameters) -> None: ...
 
     @property
     def threshold_convergence(self) -> ThresholdConvergence: ...
