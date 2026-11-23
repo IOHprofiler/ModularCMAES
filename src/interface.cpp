@@ -241,9 +241,33 @@ void define_samplers(py::module &main)
         .def("expected_length", &DoubleWeibullTransformer::expected_length);
 }
 
+//! The compiler that built the extension, e.g. "gcc 13.3.0" or "clang 17.0.0"
+static std::string compiler_version()
+{
+#if defined(__clang__)
+#if defined(__apple_build_version__)
+    return "appleclang " + std::to_string(__clang_major__) + "." + std::to_string(__clang_minor__) +
+           "." + std::to_string(__clang_patchlevel__);
+#else
+    return "clang " + std::to_string(__clang_major__) + "." + std::to_string(__clang_minor__) + "." +
+           std::to_string(__clang_patchlevel__);
+#endif
+#elif defined(__GNUC__)
+    return "gcc " + std::to_string(__GNUC__) + "." + std::to_string(__GNUC_MINOR__) + "." +
+           std::to_string(__GNUC_PATCHLEVEL__);
+#elif defined(_MSC_VER)
+    return "msvc " + std::to_string(_MSC_FULL_VER);
+#else
+    return "unknown";
+#endif
+}
+
 void define_utils(py::module &main)
 {
     auto m = main.def_submodule("utils");
+    m.def("build_info",
+          []() { return std::map<std::string, std::string>{{"compiler", compiler_version()}}; },
+          "How the extension was built (compiler)");
     m.def("cdf", &cdf, py::arg("x"));
     m.def("ppf", &ppf, py::arg("x"));
     m.def("i8_sobol", &i8_sobol, py::arg("dim_num"), py::arg("seed"), py::arg("quasi"));

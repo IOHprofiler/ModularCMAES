@@ -7,10 +7,13 @@ tight bounds, restarts, repelling, the global ``constants``). For each run it st
 checkpoint (``pop.X``, ``pop.f``, ``m``, ``sigma``, evaluations) plus a few readable numbers, so that a
 mismatch shows where a trajectory starts to differ.
 
-Trajectories are compared bitwise, so a fixture is only valid on the platform (OS, CPU, compiler,
-libm) that produced it: ``std::shuffle``/``std::uniform_*_distribution`` differ between libc++,
-libstdc++ and MSVC, and libm, FMA contraction and SIMD reductions change the last bits. Fixtures are
-stored per platform in ``tests/data/golden/<platform>.json``; a platform without one is skipped.
+Trajectories are compared bitwise, so a fixture is only valid for the toolchain that produced it
+(OS, CPU, compiler version, C library): ``std::shuffle``/``std::uniform_*_distribution`` differ
+between libc++, libstdc++ and MSVC, and libm, FMA contraction and SIMD reductions change the last
+bits (a newer gcc or glibc on the same OS is enough). Fixtures are stored as
+``tests/data/golden/<os>-<cpu>-<compiler>-<libc>.json`` (``platform_name()``); a toolchain without
+one is skipped. CI runners update their toolchain, so CI only checks when a fixture for exactly its
+toolchain is committed.
 
 Usage (each run executes in this process, so call it in a fresh interpreter, as the test does):
     python -m tests.golden write [--platform NAME]     # (re)generate the fixture of this platform
@@ -268,7 +271,17 @@ def execute(run: Dict) -> Dict:
 
 
 def platform_name() -> str:
-    return f"{sys.platform}-{platform.machine().lower()}"
+    """OS, CPU, the compiler that built the extension and the C library (glibc version, or the
+    macOS major version): bitwise trajectories only reproduce with exactly this toolchain."""
+    compiler = c_maes.utils.build_info()["compiler"].replace(" ", "")
+    if sys.platform.startswith("linux"):
+        libc, version = platform.libc_ver()
+        runtime = f"{libc}{version}" if libc else "libc"
+    elif sys.platform == "darwin":
+        runtime = "macos" + platform.mac_ver()[0].split(".")[0]
+    else:
+        runtime = platform.release().replace(" ", "")
+    return f"{sys.platform}-{platform.machine().lower()}-{compiler}-{runtime}"
 
 
 def fixture_path(name: str) -> str:

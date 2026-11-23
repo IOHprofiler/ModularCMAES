@@ -1,6 +1,6 @@
 {
  "description": "Golden trajectories of the C++ ModularCMAES; see tests/golden.py",
- "platform": "linux-x86_64",
+ "platform": "linux-x86_64-gcc13.3.0-glibc2.39",
  "generated_from_commit": "a0b3167",
  "python": "3.12.3",
  "seed": 42,
