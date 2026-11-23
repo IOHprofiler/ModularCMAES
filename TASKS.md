@@ -192,7 +192,33 @@ Status (2026-11-23):
   update with λ = 2µ; B3: count of pseudo-inverse calls; B5: no infinite samples at the extremes; B6:
   seeded center placement is reproducible).
 
-## WP1: Bindings to nanobind, build & CI (as IOHexperimenter WP1/WP5/WP6)
+## WP1: Bindings to nanobind, build & CI (as IOHexperimenter WP1/WP5/WP6): implemented on branch `wp1-nanobind`
+
+Status (2026-11-23), on top of WP0:
+
+* T1.1 done: `tests/api_dump.py` (API dump of the pybind11 bindings in `tests/data/api/pybind11.json`,
+  `compare` against the build) and `tests/test_c_api_semantics.py`.
+* T1.2 done: scikit-build-core + nanobind 3.1.0 (pinned), `NOMINSIZE`, `STABLE_ABI` (one cp312-abi3
+  wheel); `setup.py`, `MANIFEST.in`, `src/interface.cpp` removed. Python ≥ 3.10, numpy ≥ 2.0.
+* T1.3 done: `bindings/*.cpp`. API compare: 0 incompatibilities. Golden trajectories bit-identical to
+  the pybind11 build. Deliberate changes, in the commit message for the changelog: `Settings` arguments
+  after `dim, modules` are keyword-only (mu0 before lambda0), Eigen members are writable views,
+  Python criteria are kept alive by the vector, `i8_sobol` callable, stricter scalar/array arguments
+  of low-level methods (lists still accepted where users pass them: `Settings`, `CachedSampler`),
+  `CriteriaVector` methods positional-only.
+* T1.4: tests on ubuntu/macos/windows × 3.10–3.14 (3.14: only the C++-version tests), a C++ job
+  (ctest, harness), wheels via cibuildwheel 4.3.3 on six runners (upload only on a published
+  release). Stubs: `tools/gen_stubs.py` (nanobind.stubgen).
+* T1.5 measured (this Mac, Python 3.14, min of 7; pybind11 → nanobind):
+  * per evaluation, Python lambda objective: d=2 0.65 → 0.77 µs, d=10 1.06 → 1.19 µs, d=100 15.8 → 16.1 µs;
+    ioh problem: 0.69 → 0.79, 1.20 → 1.32, 17.7 → 18.0 µs. **Slower by ~0.12 µs per evaluation**: nanobind
+    exports each numpy array through a Python call (`numpy.asarray`); the same holds for any vector
+    returned to Python (`Gaussian()`: 0.24 → 0.36 µs). A numpy-C-API fast path is incompatible with the
+    stable ABI; WP3's batch evaluation (T3.4) removes the per-evaluation crossing instead.
+  * attribute access: `cma.p.stats.global_best.y` 0.51 → 0.15 µs, `cma.p.mutation.sigma` 0.30 → 0.12,
+    `cma.p.pop.X` 0.47 → 0.26, `cma.p.adaptation.C` 0.45 → 0.27.
+  * editable build 38.6 s → 15.5 s wall; extension 3.7 MB → 1.3 MB; import time unchanged (268 ms, the
+    package's own imports).
 
 ### T1.1 Pin the current Python API first
 * API dump of `modcma.c_maes.cmaescpp` (modules, classes, members, signatures, defaults), compared
