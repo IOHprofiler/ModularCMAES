@@ -159,8 +159,9 @@ class TestBatches(unittest.TestCase):
         X = cma.ask()
         self.assertEqual(X.shape, (8, 4))
         a, sigma = cma.p.adaptation, cma.p.mutation.sigma
-        np.testing.assert_array_equal(X[-2], a.m + sigma * a.dm)
-        np.testing.assert_array_equal(X[-1], a.m + sigma * -a.dm)
+        # not bitwise: a compiler may fuse m + sigma * dm into one multiply-add
+        np.testing.assert_allclose(X[-2], a.m + sigma * a.dm, rtol=1e-14, atol=1e-15)
+        np.testing.assert_allclose(X[-1], a.m + sigma * -a.dm, rtol=1e-14, atol=1e-15)
 
     def test_restart_asks_center(self):
         cma = make(modules={"restart_strategy": "RESTART"})
