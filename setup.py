@@ -28,13 +28,10 @@ if platform.system() in ("Linux", "Darwin"):
     ]
     if platform.system() == "Darwin":
         c_flags.append("-mmacosx-version-min=10.15")
-    else:
-        c_flags.extend(
-            [
-                "-march=native",
-                "-mtune=native",
-            ]
-        )
+    # -march=native makes a binary for the build machine's CPU only: wheels built on CI could
+    # crash (SIGILL) on other CPUs. Opt in for local builds with MODCMA_NATIVE=1.
+    if os.environ.get("MODCMA_NATIVE") == "1":
+        c_flags.extend(["-march=native", "-mtune=native"])
 else:
     c_flags = ["/O2"]
     l_flags = []
