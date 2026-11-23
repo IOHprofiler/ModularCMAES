@@ -58,6 +58,7 @@ struct Population
     {
     }
 
+    //! Sort the active columns by f (ties in index order, NaN last), without allocating
     void sort();
 
     Population &operator+=(const Population &other);
@@ -67,6 +68,12 @@ struct Population
     void keep_only(const std::vector<size_t> &idx);
 
     size_t n_finite() const;
+
+  private:
+    // Reused by sort(): the order of the columns and a buffer to gather them into
+    std::vector<size_t> order;
+    Matrix scratch;
+    Vector scratch_vector;
 };
 
 std::ostream &operator<<(std::ostream &os, const Population &dt);

@@ -137,6 +137,13 @@ void sort_index_inplace(const Vector &v, std::vector<size_t> &idx);
 void sort_index_inplace(const std::vector<size_t> &v, std::vector<size_t> &idx);
 
 /**
+ * @brief The indices 0..n-1 of v in ascending order of v, into idx (reused, no allocation once it
+ * has the capacity). Ties keep their index order (the order of a stable sort); NaN values come
+ * last. Uses std::sort, which, unlike std::stable_sort, needs no temporary buffer.
+ */
+void sort_order(Eigen::Ref<const Vector> v, std::vector<size_t> &idx);
+
+/**
  * @brief Return an array of indexes of the sorted array
  * sort indexes based on comparing values in v using std::stable_sort instead
  * of std::sort  to avoid unnecessary index re-orderings

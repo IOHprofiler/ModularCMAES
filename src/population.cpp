@@ -17,14 +17,24 @@ void Population::reserve(const size_t columns)
 void Population::sort()
 {
     const Eigen::Index k = static_cast<Eigen::Index>(n);
-    const auto idx = utils::sort_indexes(f.head(k).eval());
-    X.leftCols(k) = X(Eigen::all, idx).eval();
-    X_transformed.leftCols(k) = X_transformed(Eigen::all, idx).eval();
-    Z.leftCols(k) = Z(Eigen::all, idx).eval();
-    Y.leftCols(k) = Y(Eigen::all, idx).eval();
-    S.leftCols(k) = S(Eigen::all, idx).eval();
-    f.head(k) = f(idx).eval();
-    t.head(k) = t(idx).eval();
+    utils::sort_order(f.head(k), order);
+
+    // Gather each array into the scratch buffer, then copy it back
+    if (scratch.rows() != X.rows() || scratch.cols() < k)
+        scratch.resize(X.rows(), static_cast<Eigen::Index>(capacity()));
+    if (scratch_vector.size() < k)
+        scratch_vector.resize(static_cast<Eigen::Index>(capacity()));
+
+    for (Matrix *m : {&X, &X_transformed, &Z, &Y, &S})
+    {
+        scratch.leftCols(k) = (*m)(Eigen::all, order);
+        m->leftCols(k) = scratch.leftCols(k);
+    }
+    for (Vector *v : {&f, &t})
+    {
+        scratch_vector.head(k) = (*v)(order);
+        v->head(k) = scratch_vector.head(k);
+    }
 }
 
 Population &Population::operator+=(const Population &other)
@@ -45,17 +55,9 @@ Population &Population::operator+=(const Population &other)
 
 void Population::resize_cols(const size_t size)
 {
-    // Keeps at least the active columns; shrinking the buffers below their capacity only when
-    // they hold more than size columns (elitism appends the parents; WP2 keeps them instead)
+    // Only the number of active columns changes; the buffers keep their capacity (elitism appends
+    // the parents every generation, which would otherwise reallocate twice per generation)
     n = std::min(size, n);
-    const auto c = static_cast<Eigen::Index>(std::max(n, std::min(size, capacity())));
-    X.conservativeResize(d, c);
-    X_transformed.conservativeResize(d, c);
-    Y.conservativeResize(d, c);
-    Z.conservativeResize(d, c);
-    S.conservativeResize(d, c);
-    f.conservativeResize(c);
-    t.conservativeResize(c);
 }
 
 void Population::keep_only(const std::vector<size_t> &idx)

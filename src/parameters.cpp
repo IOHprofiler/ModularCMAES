@@ -98,7 +98,9 @@ void Parameters::adapt()
 
 void Parameters::start(FunctionType &objective)
 {
-    old_pop = pop;
+    // The previous generation becomes old_pop: a swap of the buffers (no copy). The next mutate
+    // writes every active column of pop.
+    std::swap(old_pop, pop);
     if (criteria.any())
     {
         const auto sig = restart_strategy->update(*this);

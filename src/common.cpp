@@ -28,6 +28,22 @@ void sort_index_inplace(const std::vector<size_t> &v, std::vector<size_t> &idx)
     std::stable_sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
 }
 
+void sort_order(Eigen::Ref<const Vector> v, std::vector<size_t> &idx)
+{
+    idx.resize(static_cast<size_t>(v.size()));
+    std::iota(idx.begin(), idx.end(), size_t{0});
+    std::sort(idx.begin(), idx.end(), [&v](const size_t a, const size_t b) {
+        const Float fa = v(static_cast<Eigen::Index>(a));
+        const Float fb = v(static_cast<Eigen::Index>(b));
+        const bool nan_a = std::isnan(fa), nan_b = std::isnan(fb);
+        if (nan_a != nan_b)
+            return nan_b;
+        if (!nan_a && fa != fb)
+            return fa < fb;
+        return a < b;
+    });
+}
+
 std::vector<size_t> sort_indexes(const Vector &v)
 {
     std::vector<size_t> idx(v.size());
