@@ -43,3 +43,16 @@ sdist.exclude = [
     "banner.png",
     "*.so",
 ]
+
+[tool.cibuildwheel]
+# CPython 3.10 and 3.11 get their own wheels; the cp312 abi3 wheel serves 3.12 and later
+build = ["cp310-*", "cp311-*", "cp312-*"]
+# no 32-bit and no musl wheels; numpy has no Windows ARM64 wheels for 3.10
+skip = ["*-win32", "*_i686", "*-musllinux*", "cp310-win_arm64"]
+# the C++-version tests, including the golden trajectories (skipped without a fixture for the
+# wheel's toolchain), from a copy of tests/ outside the source tree
+test-sources = ["tests"]
+test-command = "python -m unittest discover -s tests -t . -p \"test_c_*.py\""
+
+[tool.cibuildwheel.macos]
+environment = { MACOSX_DEPLOYMENT_TARGET = "10.15" }
