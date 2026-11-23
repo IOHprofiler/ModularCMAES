@@ -97,5 +97,37 @@ class TestGeneratorPerOptimizer(unittest.TestCase):
             assert_same(self, result, reference)
 
 
+
+class TestFastSampling(unittest.TestCase):
+    """T4.2: Settings.fast_sampling, xoshiro256++ with a ziggurat"""
+
+    def test_standard_normal(self):
+        c_maes.utils.set_seed(4)
+        sampler = c_maes.sampling.FastGaussian(50)
+        x = np.concatenate([sampler() for _ in range(4000)])  # 200000 numbers
+        self.assertLess(abs(x.mean()), 0.01)
+        self.assertLess(abs(x.var() - 1.0), 0.01)
+        self.assertLess(abs(np.mean(x**4) - 3.0), 0.06)
+        xs = np.sort(x)
+        phi = lambda t: 0.5 * (1.0 + math.erf(t / math.sqrt(2.0)))  # noqa: E731
+        deviation = max(
+            abs(np.searchsorted(xs, t) / len(x) - phi(t)) for t in np.linspace(-4, 4, 401)
+        )
+        self.assertLess(deviation, 1.63 / math.sqrt(len(x)))  # Kolmogorov-Smirnov, 1 %
+        # the tail beyond r = 3.654 (the ziggurat's base strip)
+        self.assertGreater(np.mean(np.abs(x) > 3.7), 0)
+
+    def test_optimizer(self):
+        def run(**kwargs):
+            cma = c_maes.ModularCMAES(c_maes.Settings(6, budget=4000, **kwargs))
+            cma.run(sphere)
+            return cma.p.stats.global_best.y, cma.p.stats.evaluations
+
+        fast = run(seed=2, fast_sampling=True)
+        self.assertEqual(fast, run(seed=2, fast_sampling=True))
+        self.assertNotEqual(fast, run(seed=2))
+        self.assertLess(fast[0], 1e-10)
+
+
 if __name__ == "__main__":
     unittest.main()

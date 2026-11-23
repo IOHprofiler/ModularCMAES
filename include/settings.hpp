@@ -43,6 +43,11 @@ struct Settings
     //! the global generator (rng::set_seed) when it is created (rng::fork).
     std::optional<int> seed = std::nullopt;
 
+    //! Opt-in: draw the samples with xoshiro256++ and a ziggurat (sampling::FastGaussian) instead
+    //! of mt19937 and the inverse normal CDF, for the default UNIFORM + GAUSSIAN sampler. Faster,
+    //! but a different random stream than the default.
+    bool fast_sampling = false;
+
     Settings(size_t dim,
              std::optional<Modules> mod = std::nullopt,
              std::optional<Float> target = std::nullopt,

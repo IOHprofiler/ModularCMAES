@@ -38,8 +38,16 @@ struct Result
 
 Float sphere(Eigen::Ref<const Vector> x) { return x.squaredNorm(); }
 
-parameters::Modules make_modules(const std::string &name)
+//! A configuration name with the suffix "-fast" uses Settings.fast_sampling
+bool is_fast(const std::string &name)
 {
+    return name.size() > 5 && name.compare(name.size() - 5, 5, "-fast") == 0;
+}
+
+parameters::Modules make_modules(std::string name)
+{
+    if (is_fast(name))
+        name.resize(name.size() - 5);
     parameters::Modules m;
     if (name == "default")
         return m;
@@ -74,6 +82,7 @@ Result run_once(const std::string &config, const int dim, const size_t generatio
     parameters::Settings settings(dim, make_modules(config), std::nullopt, generations,
                                   std::numeric_limits<size_t>::max() / 2, 2.0);
     settings.verbose = false;
+    settings.fast_sampling = is_fast(config);
     auto p = std::make_shared<parameters::Parameters>(settings);
     ModularCMAES cma(p);
     FunctionType objective = sphere;

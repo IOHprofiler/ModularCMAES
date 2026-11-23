@@ -26,6 +26,15 @@ class Gaussian(Sampler):
 
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
 
+class FastGaussian(Sampler):
+    """
+    Standard normal samples from xoshiro256++ and a ziggurat (Settings.fast_sampling)
+    """
+
+    def __init__(self, d: int) -> None: ...
+
+    def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
 class Uniform(Sampler):
     def __init__(self, d: int) -> None: ...
 

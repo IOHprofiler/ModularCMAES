@@ -201,6 +201,8 @@ def make_runs() -> List[Dict]:
         ("tpa_threshold_sequential", {"ssa": "TPA", "threshold_convergence": True, "sequential_selection": True}, {}),
         ("pairwise_sequential", {"mirrored": "PAIRWISE", "sequential_selection": True}, {}),
         ("orthogonal_mirrored_halton", {"orthogonal": True, "mirrored": "MIRRORED", "sampler": "HALTON"}, {}),
+        ("fast_sampling", {}, {"fast_sampling": True}),
+        ("fast_sampling_mirrored_orthogonal", {"orthogonal": True, "mirrored": "MIRRORED"}, {"fast_sampling": True}),
     ]
     for run_id, modules, settings in special:
         add(f"special/{run_id}", modules=modules, settings=settings, budget=None)

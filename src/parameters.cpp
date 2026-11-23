@@ -9,7 +9,8 @@ Parameters::Parameters(const Settings &settings) :
     settings(settings),
     stats{},
     generator(settings.seed ? std::make_shared<rng::Generator>(*settings.seed) : rng::fork()),
-    sampler(sampling::get(settings.dim, settings.modules, settings.lambda0, generator)),
+    sampler(sampling::get(
+        settings.dim, settings.modules, settings.lambda0, generator, settings.fast_sampling)),
     weights(settings, sampler->expected_length()),
     pop(settings.dim, settings.lambda0),
     old_pop(settings.dim, settings.lambda0),

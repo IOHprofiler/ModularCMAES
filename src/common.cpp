@@ -128,6 +128,91 @@ int random_integer(const int l, const int h, Generator &gen)
     return distrib(gen);
 }
 
+Xoshiro256pp::Xoshiro256pp(uint64_t seed)
+{
+    // splitmix64 spreads one seed over the four words (never all zero)
+    for (auto &word : s)
+    {
+        uint64_t z = (seed += 0x9e3779b97f4a7c15ULL);
+        z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+        z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+        word = z ^ (z >> 31);
+    }
+}
+
+namespace
+{
+//! The tables of the 256-layer ziggurat for the standard normal density f(x) = exp(-x^2 / 2)
+struct ZigguratTables
+{
+    static constexpr double r = 3.6541528853610087963519472518; // start of the tail
+    static constexpr double v = 4.92867323399e-3;              // area of every layer
+    static constexpr double scale = 0x1.0p52;                   // 52 random bits per number
+
+    uint64_t k[256]; // accept x directly when the 52 bits are below k[i]
+    double w[256];   // x = bits * w[i]
+    double f[256];   // f at the layer boundaries
+
+    ZigguratTables()
+    {
+        double dn = r, tn = r;
+        const double q = v / std::exp(-0.5 * dn * dn);
+        k[0] = static_cast<uint64_t>((dn / q) * scale);
+        k[1] = 0;
+        w[0] = q / scale;
+        w[255] = dn / scale;
+        f[0] = 1.0;
+        f[255] = std::exp(-0.5 * dn * dn);
+        for (int i = 254; i >= 1; i--)
+        {
+            dn = std::sqrt(-2.0 * std::log(v / dn + std::exp(-0.5 * dn * dn)));
+            k[i + 1] = static_cast<uint64_t>((dn / tn) * scale);
+            tn = dn;
+            f[i] = std::exp(-0.5 * dn * dn);
+            w[i] = dn / scale;
+        }
+    }
+};
+
+const ZigguratTables &ziggurat()
+{
+    static const ZigguratTables tables; // thread-safe initialisation
+    return tables;
+}
+} // namespace
+
+double ziggurat_normal(Xoshiro256pp &gen)
+{
+    const ZigguratTables &z = ziggurat();
+    for (;;)
+    {
+        uint64_t bits = gen();
+        const auto i = static_cast<int>(bits & 0xff);
+        bits >>= 8;
+        const bool negative = bits & 0x1;
+        const uint64_t mantissa = (bits >> 1) & 0x000fffffffffffffULL;
+        double x = static_cast<double>(mantissa) * z.w[i];
+        if (negative)
+            x = -x;
+        if (mantissa < z.k[i])
+            return x; // inside the layer's rectangle
+        if (i == 0)
+        {
+            // the tail beyond r (Marsaglia's method)
+            for (;;)
+            {
+                const double xx = -std::log1p(-gen.uniform()) / ZigguratTables::r;
+                const double yy = -std::log1p(-gen.uniform());
+                if (yy + yy > xx * xx)
+                    return negative ? -(ZigguratTables::r + xx) : ZigguratTables::r + xx;
+            }
+        }
+        // the wedge between the rectangle and the density
+        if ((z.f[i - 1] - z.f[i]) * gen.uniform() + z.f[i] < std::exp(-0.5 * x * x))
+            return x;
+    }
+}
+
 void Shuffler::advance()
 {
     do

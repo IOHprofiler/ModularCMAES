@@ -95,6 +95,37 @@ template <typename Distribution = rng::normal<Float>> struct Random : Sampler
 // //! Gaussian distribution sampler
 using Gaussian = Random<rng::normal<Float>>;
 
+/**
+ * Opt-in fast Gaussian sampler (Settings.fast_sampling): standard normal numbers from xoshiro256++
+ * and a ziggurat, instead of mt19937 and the inverse normal CDF of the default
+ * UNIFORM + GAUSSIAN sampler. A different random stream: results differ from the default sampler.
+ */
+struct FastGaussian : Sampler
+{
+    //! The generator is seeded with two numbers drawn from seed_source
+    FastGaussian(const size_t d, rng::Generator &seed_source) :
+        Sampler(d),
+        generator((static_cast<uint64_t>(seed_source()) << 32) | seed_source())
+    {
+    }
+
+    void sample(Eigen::Ref<Vector> out) override
+    {
+        for (auto &xi : out)
+            xi = rng::ziggurat_normal(generator);
+    }
+
+    //! The expected length of a d-dimensional standard normal vector
+    Float expected_length() override
+    {
+        const Float dd = static_cast<Float>(d);
+        return sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)));
+    }
+
+  private:
+    rng::Xoshiro256pp generator;
+};
+
 //! Uniform distribution sampler
 using Uniform = Random<rng::uniform<Float>>;
 
@@ -467,10 +498,14 @@ struct DoubleWeibullTransformer : SampleTransformer
     }
 };
 
-//! The sampler of the modules; its random numbers come from generator
+/**
+ * The sampler of the modules; its random numbers come from generator. fast_normal: the default
+ * UNIFORM + GAUSSIAN sampler is replaced by FastGaussian (ignored for other samplers).
+ */
 std::shared_ptr<Sampler> get(const size_t dim,
                              const parameters::Modules &mod,
                              const size_t lambda,
-                             const std::shared_ptr<rng::Generator> &generator = rng::global());
+                             const std::shared_ptr<rng::Generator> &generator = rng::global(),
+                             const bool fast_normal = false);
 
 } // namespace sampling

@@ -186,7 +186,8 @@ void define_parameters(nb::module_ &main)
                std::optional<Float> acov,
                bool verbose,
                bool always_compute_eigv,
-               std::optional<int> seed) {
+               std::optional<int> seed,
+               bool fast_sampling) {
                 new (self) Settings(dim,
                                     modules,
                                     target,
@@ -208,6 +209,7 @@ void define_parameters(nb::module_ &main)
                                     verbose,
                                     always_compute_eigv);
                 self->seed = seed;
+                self->fast_sampling = fast_sampling;
             },
             nb::arg("dim"),
             nb::arg("modules") = nb::none(),
@@ -230,12 +232,18 @@ void define_parameters(nb::module_ &main)
             nb::arg("acov") = nb::none(),
             nb::arg("verbose") = false,
             nb::arg("always_compute_eigv") = false,
-            nb::arg("seed") = nb::none())
+            nb::arg("seed") = nb::none(),
+            nb::arg("fast_sampling") = false)
         .def_ro("dim", &Settings::dim)
         .def_rw("seed",
                 &Settings::seed,
                 "The seed of the optimizer's own random generator; None: the optimizer starts "
                 "from the global generator (utils.set_seed) when it is created")
+        .def_rw("fast_sampling",
+                &Settings::fast_sampling,
+                "Opt-in: sample with xoshiro256++ and a ziggurat instead of mt19937 and the inverse "
+                "normal CDF (the default UNIFORM + GAUSSIAN sampler only). Faster, but a different "
+                "random stream. Set it before the optimizer is created.")
         .def_ro("modules", &Settings::modules)
         .def_rw("target", &Settings::target)
         .def_rw("max_generations", &Settings::max_generations)

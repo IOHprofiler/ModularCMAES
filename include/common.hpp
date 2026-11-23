@@ -246,6 +246,47 @@ void set_seed(int seed);
 int random_integer(const int l, const int h, Generator &gen = GENERATOR);
 
 /**
+ * xoshiro256++ (Blackman and Vigna, 2019): a small, fast 64-bit generator, for the opt-in fast
+ * normal sampler (Settings.fast_sampling). Seeded with splitmix64.
+ */
+struct Xoshiro256pp
+{
+    using result_type = uint64_t;
+
+    explicit Xoshiro256pp(uint64_t seed);
+
+    static constexpr result_type min() { return 0; }
+    static constexpr result_type max() { return ~result_type{0}; }
+
+    result_type operator()()
+    {
+        const uint64_t result = rotl(s[0] + s[3], 23) + s[0];
+        const uint64_t t = s[1] << 17;
+        s[2] ^= s[0];
+        s[3] ^= s[1];
+        s[1] ^= s[2];
+        s[0] ^= s[3];
+        s[2] ^= t;
+        s[3] = rotl(s[3], 45);
+        return result;
+    }
+
+    //! A uniform number in [0, 1) with 53 random bits
+    double uniform() { return static_cast<double>((*this)() >> 11) * 0x1.0p-53; }
+
+  private:
+    uint64_t s[4];
+
+    static uint64_t rotl(const uint64_t x, const int k) { return (x << k) | (x >> (64 - k)); }
+};
+
+/**
+ * A standard normal number with the 256-layer ziggurat of Marsaglia and Tsang (2000), in the 64-bit
+ * form of numpy's Generator.standard_normal: one 64-bit draw for about 99 % of the numbers.
+ */
+double ziggurat_normal(Xoshiro256pp &gen);
+
+/**
  * @brief a shuffler that generates a random permutation of a
  * sequence of integers from start to stop using an lcg.
  */

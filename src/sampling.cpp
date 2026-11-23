@@ -167,11 +167,12 @@ Sobol::Sobol(const size_t dim, const std::shared_ptr<rng::Generator> &generator)
     // cache.transform(ppf);
 }
 
-std::shared_ptr<Sampler>
-get(const size_t dim,
-    const parameters::Modules &modules,
-    const size_t lambda,
-    const std::shared_ptr<rng::Generator> &generator)
+namespace
+{
+//! The base sampler and its transformation
+std::shared_ptr<Sampler> base_sampler(const size_t dim,
+                                      const parameters::Modules &modules,
+                                      const std::shared_ptr<rng::Generator> &generator)
 {
     using namespace parameters;
     std::shared_ptr<Sampler> sampler;
@@ -194,27 +195,37 @@ get(const size_t dim,
     switch (modules.sample_transformation)
     {
     case SampleTranformerType::GAUSSIAN:
-        sampler = std::make_shared<GaussianTransformer>(sampler);
-        break;
+        return std::make_shared<GaussianTransformer>(sampler);
     case SampleTranformerType::SCALED_UNIFORM:
-        sampler = std::make_shared<UniformScaler>(sampler);
-        break;
+        return std::make_shared<UniformScaler>(sampler);
     case SampleTranformerType::LAPLACE:
-        sampler = std::make_shared<LaplaceTransformer>(sampler);
-        break;
+        return std::make_shared<LaplaceTransformer>(sampler);
     case SampleTranformerType::LOGISTIC:
-        sampler = std::make_shared<LogisticTransformer>(sampler);
-        break;
+        return std::make_shared<LogisticTransformer>(sampler);
     case SampleTranformerType::CAUCHY:
-        sampler = std::make_shared<CauchyTransformer>(sampler);
-        break;
+        return std::make_shared<CauchyTransformer>(sampler);
     case SampleTranformerType::DOUBLE_WEIBULL:
-        sampler = std::make_shared<DoubleWeibullTransformer>(sampler);
-        break;
+        return std::make_shared<DoubleWeibullTransformer>(sampler);
     case SampleTranformerType::NONE:
-        sampler = std::make_shared<IdentityTransformer>(sampler);
-        break;
+    default:
+        return std::make_shared<IdentityTransformer>(sampler);
     }
+}
+} // namespace
+
+std::shared_ptr<Sampler> get(const size_t dim,
+                             const parameters::Modules &modules,
+                             const size_t lambda,
+                             const std::shared_ptr<rng::Generator> &generator,
+                             const bool fast_normal)
+{
+    using namespace parameters;
+    std::shared_ptr<Sampler> sampler;
+    if (fast_normal && modules.sampler == BaseSampler::UNIFORM &&
+        modules.sample_transformation == SampleTranformerType::GAUSSIAN)
+        sampler = std::make_shared<FastGaussian>(dim, *generator);
+    else
+        sampler = base_sampler(dim, modules, generator);
 
     if (modules.orthogonal)
         sampler = std::make_shared<Orthogonal>(sampler, Orthogonal::get_n_samples(modules, lambda));

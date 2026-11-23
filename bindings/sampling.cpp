@@ -51,6 +51,17 @@ void define_samplers(nb::module_ &main)
         .def(nb::init<size_t>(), nb::arg("d"))
         .def("__call__", &Gaussian::operator());
 
+    nb::class_<FastGaussian, Sampler>(
+        m,
+        "FastGaussian",
+        "Standard normal samples from xoshiro256++ and a ziggurat (Settings.fast_sampling)")
+        .def(
+            "__init__",
+            // seeded from a fork of the global generator (utils.set_seed)
+            [](FastGaussian *self, const size_t d) { new (self) FastGaussian(d, *rng::fork()); },
+            nb::arg("d"))
+        .def("__call__", &FastGaussian::operator());
+
     nb::class_<Uniform, Sampler>(m, "Uniform")
         .def(nb::init<size_t>(), nb::arg("d"))
         .def("__call__", &Uniform::operator());

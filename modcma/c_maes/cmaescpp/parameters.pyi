@@ -321,7 +321,7 @@ class Weights:
     def __repr__(self) -> str: ...
 
 class Settings:
-    def __init__(self, dim: int, modules: Modules | None = None, *, target: float | None = None, max_generations: int | None = None, budget: int | None = None, sigma0: float | None = None, mu0: int | None = None, lambda0: int | None = None, x0: Sequence[float] | None = None, lb: Sequence[float] | None = None, ub: Sequence[float] | None = None, integer_variables: Sequence[int] | None = None, cs: float | None = None, cc: float | None = None, cmu: float | None = None, c1: float | None = None, damps: float | None = None, acov: float | None = None, verbose: bool = False, always_compute_eigv: bool = False, seed: int | None = None) -> None: ...
+    def __init__(self, dim: int, modules: Modules | None = None, *, target: float | None = None, max_generations: int | None = None, budget: int | None = None, sigma0: float | None = None, mu0: int | None = None, lambda0: int | None = None, x0: Sequence[float] | None = None, lb: Sequence[float] | None = None, ub: Sequence[float] | None = None, integer_variables: Sequence[int] | None = None, cs: float | None = None, cc: float | None = None, cmu: float | None = None, c1: float | None = None, damps: float | None = None, acov: float | None = None, verbose: bool = False, always_compute_eigv: bool = False, seed: int | None = None, fast_sampling: bool = False) -> None: ...
 
     @property
     def dim(self) -> int: ...
@@ -334,6 +334,15 @@ class Settings:
 
     @seed.setter
     def seed(self, arg: int | None, /) -> None: ...
+
+    @property
+    def fast_sampling(self) -> bool:
+        """
+        Opt-in: sample with xoshiro256++ and a ziggurat instead of mt19937 and the inverse normal CDF (the default UNIFORM + GAUSSIAN sampler only). Faster, but a different random stream. Set it before the optimizer is created.
+        """
+
+    @fast_sampling.setter
+    def fast_sampling(self, arg: bool, /) -> None: ...
 
     @property
     def modules(self) -> Modules: ...
