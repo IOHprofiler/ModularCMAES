@@ -141,6 +141,36 @@ The original options, for reference:
 
 ---
 
+## WP0: Safety net (prerequisite for everything): implemented on branch `wp0-safety-net`, not pushed
+
+Status (2026-11-23):
+
+* Done: T0.2 (`modcma_bench`, `bench/bench_python.py`), T0.1 (`tests/golden.py`, `tests/test_c_golden.py`,
+  fixtures for darwin-arm64 and linux-x86_64 from a0b3167), T0.3: B1, B2 (+ follow-up: the rescaling
+  uses `invert_y`, since `COVARIANCE_NO_EIGV` never computes `inv_root_C`), B3, B4 (as an option:
+  `Modules.repelling_metric` = EUCLIDEAN (default, unchanged) / CURRENT / ARCHIVED with unit determinant),
+  B5, B7, B8, B9, plus new bugs:
+  * B11: a non-finite matrix counted as a successful adaptation, so runs evaluated NaN until the budget
+    was used up (natural gradient). Now `UnableToAdapt` restarts.
+  * B12: `adapt_evolution_paths` had `(lambda, mu)` in C++ and `(mu, lamb)` in Python. Now `(mu, lambda)`
+    everywhere internally; maintainer preference: **always (mu, lambda)**.
+  * B13: sequential selection kept unevaluated columns (stale or uninitialized) in the population. Now
+    `Population::n` holds the active columns (separate from the capacity, no reallocation); with
+    PAIRWISE, stops only after complete pairs; `Weights::for_population(n)` keeps the total negative
+    weight. Python's `Population.X/f/...` are views of the active columns.
+  * Three C++ tests (`test_keeponly`: a view that dangles after a reallocation; the Halton/Sobol sums
+    depend on the standard library) are fixed.
+* B6 was wrong in the review: `set_seed` also calls `srand`, so center placement is reproducible on one
+  platform. Moving it to `rng::GENERATOR` (it changes results) is now part of T4.1.
+* Open for WP1:
+  * The `Settings` constructor takes `(..., lambda0, mu0, ...)`. Switching to (mu, lambda) positionally
+    would silently swap two ints, so make the arguments after `dim` keyword-only in the nanobind port.
+  * The `.pyi` stubs are stale (no `integer_variables`, `X_transformed`).
+  * The tests of the stale Python implementation fail on Python 3.14 (31 failures, unrelated to the C++
+    version). Decide whether CI skips them on ≥ 3.14.
+  * The first CI run checks the Docker-generated linux-x86_64 fixture against GitHub's runners.
+* Not doing (WP4): a LAPACK eigensolver. Revisit only for users at d ≥ 500 (opt-in via scipy's LAPACK).
+
 ## WP0: Safety net (prerequisite for everything)
 
 ### T0.1 Golden trajectory tests
