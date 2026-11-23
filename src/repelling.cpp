@@ -172,10 +172,14 @@ void Repelling::adapt_radii_after_sampling(parameters::Parameters & /*p*/)
     // Base implementation intentionally does nothing.
 }
 
-void Repelling::update_archive(FunctionType & /*objective*/, parameters::Parameters & /*p*/
-)
+void Repelling::update_archive(FunctionType &objective, parameters::Parameters &p)
 {
-    // Base implementation intentionally does nothing.
+    begin_update(p);
+    while (has_query())
+    {
+        const Vector x = query.x;
+        answer(objective(x), x, p);
+    }
 }
 
 bool Repelling::is_rejected(Eigen::Ref<const Vector> xi, parameters::Parameters &p)
@@ -232,34 +236,88 @@ static std::optional<Solution> get_candidate(const parameters::Parameters &p)
 }
 
 // -----------------------------------------------------------------------------
+// The resumable archive update: hill-valley tests of the candidate against every taboo point
+// (the same evaluations, in the same order, as distance::hill_valley_test_p)
+// -----------------------------------------------------------------------------
+
+void Repelling::begin_update(parameters::Parameters &p)
+{
+    query = Query{};
+    if (!updates_archive())
+        return;
+
+    query.candidate = get_candidate(p);
+    if (!query.candidate.has_value())
+        return;
+
+    on_update_begin(*query.candidate, p);
+    query.active = true;
+    next_query(p);
+}
+
+void Repelling::next_query(parameters::Parameters &p)
+{
+    if (query.j >= archive.size())
+    {
+        query.active = false;
+        on_update_end(*query.candidate, query.accept, p);
+        query.candidate.reset();
+        return;
+    }
+    const Solution &u = *query.candidate;
+    const Solution &v = archive[query.j].solution;
+    const Float a =
+        static_cast<Float>(query.k) / (static_cast<Float>(hill_valley_points) + 1.0);
+    query.x = p.coordinate_mapping->transform(v.x + a * (u.x - v.x));
+}
+
+void Repelling::answer(const Float y, Eigen::Ref<const Vector> x, parameters::Parameters &p)
+{
+    if (!query.active)
+        throw std::logic_error("Repelling::answer: no hill-valley point is pending");
+
+    const Solution &u = *query.candidate;
+    TabooPoint &point = archive[query.j];
+    const Float max_f = std::max(u.y, point.solution.y);
+
+    p.stats.evaluations++;
+    if (max_f < y)
+    {
+        // A hill between them: not the same basin, test the next point
+        query.j++;
+        query.k = 1;
+    }
+    else
+    {
+        p.stats.update_best(x, y);
+        if (++query.k > hill_valley_points)
+        {
+            query.accept = false;
+            query.j = on_shared_basin(point, u, p) ? query.j + 1 : archive.size();
+            query.k = 1;
+        }
+    }
+    next_query(p);
+}
+
+// -----------------------------------------------------------------------------
 // CoverageRepelling: previous implementation
 // -----------------------------------------------------------------------------
 
-void CoverageRepelling::update_archive(FunctionType &objective, parameters::Parameters &p)
+bool CoverageRepelling::on_shared_basin(TabooPoint &point,
+                                        const Solution &candidate,
+                                        parameters::Parameters &)
 {
-    const auto candidate = get_candidate(p);
+    point.n_rep++;
+    if (point.solution > candidate)
+        point.solution = candidate;
+    return true;
+}
 
-    if (!candidate.has_value())
-        return;
-
-    const auto candidate_point = candidate.value();
-
-    bool accept_candidate = true;
-
-    for (auto &point : archive)
-    {
-        if (point.shares_basin(objective, candidate_point, p))
-        {
-            point.n_rep++;
-            accept_candidate = false;
-
-            if (point.solution > candidate_point)
-            {
-                point.solution = candidate_point;
-            }
-        }
-    }
-
+void CoverageRepelling::on_update_end(const Solution &candidate_point,
+                                      const bool accept_candidate,
+                                      parameters::Parameters &p)
+{
     if (accept_candidate)
     {
         archive.emplace_back(candidate_point, 1.0, archived_metric(p));
@@ -346,18 +404,11 @@ void AdaptiveRepelling::adapt_radii_after_sampling(parameters::Parameters &p)
     }
 }
 
-void AdaptiveRepelling::update_archive(FunctionType &objective, parameters::Parameters &p)
+void AdaptiveRepelling::on_update_begin(const Solution &, parameters::Parameters &p)
 {
-    const auto candidate = get_candidate(p);
-
-    if (!candidate.has_value())
-        return;
-
-    const auto candidate_point = candidate.value();
-
     const int current_evaluations = p.stats.evaluations;
 
-    Float restart_evals = 0.0;
+    restart_evals = 0.0;
 
     if (last_restart_evaluations > 0)
     {
@@ -369,37 +420,38 @@ void AdaptiveRepelling::update_archive(FunctionType &objective, parameters::Para
 
     average_restart_evaluations = (1.0 - restart_eval_alpha) * average_restart_evaluations +
                                   restart_eval_alpha * restart_evals;
+}
 
-    bool accept_candidate = true;
+bool AdaptiveRepelling::on_shared_basin(TabooPoint &point,
+                                        const Solution &candidate_point,
+                                        parameters::Parameters &)
+{
+    point.n_rep++;
 
-    for (auto &point : archive)
+    point.duplicate_evaluations += restart_evals;
+
+    const Float waste_ratio = restart_evals / std::max<Float>(1.0, average_restart_evaluations);
+
+    const Float capped_waste_ratio = std::min<Float>(waste_ratio, max_waste_ratio);
+
+    const Float growth = std::exp(grow_eta * capped_waste_ratio);
+
+    point.radius *= growth;
+    point.clamp_radius();
+
+    if (point.solution > candidate_point)
     {
-        if (point.shares_basin(objective, candidate_point, p))
-        {
-            point.n_rep++;
-            accept_candidate = false;
-
-            point.duplicate_evaluations += restart_evals;
-
-            const Float waste_ratio =
-                restart_evals / std::max<Float>(1.0, average_restart_evaluations);
-
-            const Float capped_waste_ratio = std::min<Float>(waste_ratio, max_waste_ratio);
-
-            const Float growth = std::exp(grow_eta * capped_waste_ratio);
-
-            point.radius *= growth;
-            point.clamp_radius();
-
-            if (point.solution > candidate_point)
-            {
-                point.solution = candidate_point;
-            }
-
-            break;
-        }
+        point.solution = candidate_point;
     }
 
+    // Only the first point that shares the basin
+    return false;
+}
+
+void AdaptiveRepelling::on_update_end(const Solution &candidate_point,
+                                      const bool accept_candidate,
+                                      parameters::Parameters &p)
+{
     if (accept_candidate)
     {
         archive.emplace_back(

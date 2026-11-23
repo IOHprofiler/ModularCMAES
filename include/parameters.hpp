@@ -46,13 +46,43 @@ struct Parameters
 
     Parameters(const Settings &settings);
 
+    //! The start of a generation, with an objective for a restart (begin_generation, and the
+    //! restart evaluations when it starts one)
     void start(FunctionType &objective);
 
     void adapt();
 
+    //! A restart with an objective function: begin_restart, the evaluations, finish_restart
     void perform_restart(FunctionType &objective, const std::optional<Float> &sigma = std::nullopt);
 
+    /*
+     * The same, resumable (ask-tell). begin_generation makes the previous population old_pop and
+     * decides whether to restart. A restart then evaluates the center (restart_center(),
+     * tell_restart_center), and the hill-valley points of the repelling archive update
+     * (repelling->has_query()), and finish_restart resets the modules.
+     */
+
+    //! Returns whether a restart started (then restart_center() waits for its objective value)
+    bool begin_generation();
+
+    void begin_restart(const std::optional<Float> &sigma = std::nullopt);
+
+    //! The point at which a restart evaluates the objective (the center, in objective space)
+    [[nodiscard]] const Vector &restart_center() const { return pending_restart_center; }
+
+    //! The objective value y of the center x; starts the repelling archive update
+    void tell_restart_center(const Float y, Eigen::Ref<const Vector> x);
+
+    void finish_restart();
+
     void resize_population(const size_t new_mu, const size_t new_lambda);
+
+  private:
+    std::optional<Float> restart_sigma;
+    Vector pending_restart_center;
+
+    //! The evaluations of a started restart with an objective function, then finish_restart
+    void complete_restart(FunctionType &objective);
 };
 
 } // namespace parameters

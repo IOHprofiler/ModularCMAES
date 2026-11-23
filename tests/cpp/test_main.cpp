@@ -3,8 +3,10 @@
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <stdexcept>
 #include <vector>
 
+#include "c_maes.hpp"
 #include "common.hpp"
 #include "sampling.hpp"
 
@@ -59,10 +61,144 @@ static void test_uniform_values_unchanged()
     }
 }
 
+// WP3: ask/tell with an objective evaluated by the caller gives the trajectory of the classic loop
+// (mutate, select, recombine, adapt with the objective), bit for bit
+static Float rastrigin(Eigen::Ref<const Vector> x)
+{
+    return 10.0 * static_cast<Float>(x.size()) +
+           (x.array().square() - 10.0 * (2.0 * M_PI * x.array()).cos()).sum();
+}
+
+static parameters::Settings ask_tell_settings(const int config)
+{
+    parameters::Modules m;
+    size_t mu = 0, lambda = 0;
+    switch (config)
+    {
+    case 0: // sequential selection, stopped after complete pairs; TPA after a stopped population
+        m.sequential_selection = true;
+        m.mirrored = parameters::Mirror::PAIRWISE;
+        m.ssa = parameters::StepSizeAdaptation::TPA;
+        mu = 2;
+        lambda = 10;
+        break;
+    case 1: // restarts with hill-valley tests of the repelling archive
+        m.restart_strategy = parameters::RestartStrategyType::IPOP;
+        m.repelling_type = parameters::RepellingType::COVERAGE;
+        break;
+    default: // elitism, threshold convergence, bounds
+        m.elitist = true;
+        m.threshold_convergence = true;
+        m.bound_correction = parameters::CorrectionMethod::SATURATE;
+        break;
+    }
+    parameters::Settings s(5,
+                           m,
+                           std::nullopt,
+                           std::nullopt,
+                           size_t{6000},
+                           2.0,
+                           mu ? std::optional<size_t>(lambda) : std::nullopt,
+                           mu ? std::optional<size_t>(mu) : std::nullopt);
+    s.verbose = false;
+    return s;
+}
+
+static void test_ask_tell_matches_classic_loop()
+{
+    for (int config = 0; config < 3; config++)
+    {
+        rng::set_seed(7);
+        ModularCMAES classic(ask_tell_settings(config));
+        FunctionType f = rastrigin;
+        std::vector<Vector> trajectory;
+        for (bool running = true; running;)
+        {
+            classic.mutate(f);
+            classic.select();
+            classic.recombine();
+            classic.adapt();
+            running = !classic.break_conditions();
+            trajectory.push_back(classic.p->adaptation->m);
+            trajectory.back().conservativeResize(trajectory.back().size() + 2);
+            trajectory.back().tail(2) << classic.p->mutation->sigma,
+                static_cast<Float>(classic.p->stats.evaluations);
+        }
+
+        rng::set_seed(7);
+        ModularCMAES ask_tell(ask_tell_settings(config));
+        size_t generation = 0;
+        bool same = true;
+        for (bool running = true; running; generation++)
+        {
+            bool complete = false;
+            while (!complete)
+            {
+                const Matrix X = ask_tell.ask();
+                Vector values(X.cols());
+                for (Eigen::Index j = 0; j < X.cols(); j++)
+                    values(j) = rastrigin(X.col(j));
+                complete = ask_tell.tell(values);
+            }
+            running = !ask_tell.break_conditions();
+            if (generation >= trajectory.size())
+            {
+                same = false;
+                break;
+            }
+            const Vector &expected = trajectory[generation];
+            const auto d = ask_tell.p->adaptation->m.size();
+            same = same && expected.head(d) == ask_tell.p->adaptation->m &&
+                   expected(d) == ask_tell.p->mutation->sigma &&
+                   expected(d + 1) == static_cast<Float>(ask_tell.p->stats.evaluations);
+        }
+        CHECK(same);
+        CHECK(generation == trajectory.size());
+    }
+    // config 1 restarts: the test above covers the restart phases only if it does
+    rng::set_seed(7);
+    ModularCMAES cma(ask_tell_settings(1));
+    FunctionType f = rastrigin;
+    cma(f);
+    CHECK(cma.p->stats.centers.size() >= 1);
+}
+
+static void test_tell_errors()
+{
+    ModularCMAES cma(parameters::Settings(3));
+    bool raised = false;
+    try
+    {
+        cma.tell(Vector::Zero(1));
+    }
+    catch (const std::logic_error &)
+    {
+        raised = true;
+    }
+    CHECK(raised);
+
+    const auto k = cma.ask().cols();
+    raised = false;
+    try
+    {
+        cma.tell(Vector::Zero(k + 1));
+    }
+    catch (const std::invalid_argument &)
+    {
+        raised = true;
+    }
+    CHECK(raised);
+    CHECK(cma.has_pending());
+    CHECK(cma.tell(Vector::Ones(k)));
+    CHECK(!cma.has_pending());
+}
+
 int main()
 {
     test_uniform_is_open_interval();
     test_uniform_values_unchanged();
+    test_ask_tell_matches_classic_loop();
+    test_tell_errors();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

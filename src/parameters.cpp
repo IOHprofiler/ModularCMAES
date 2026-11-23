@@ -52,20 +52,51 @@ void Parameters::resize_population(const size_t new_mu, const size_t new_lambda)
 
 void Parameters::perform_restart(FunctionType &objective, const std::optional<Float> &sigma)
 {
+    begin_restart(sigma);
+    complete_restart(objective);
+}
+
+void Parameters::complete_restart(FunctionType &objective)
+{
+    {
+        const Vector x = restart_center();
+        tell_restart_center(objective(x), x);
+    }
+    while (repelling->has_query())
+    {
+        const Vector x = repelling->query_point();
+        repelling->answer(objective(x), x, *this);
+    }
+    finish_restart();
+}
+
+void Parameters::begin_restart(const std::optional<Float> &sigma)
+{
     if (settings.verbose)
     {
         std::cout << "performing restart. t(" << stats.t << ", " << stats.evaluations
                   << ") reason: " << criteria.reason() << std::endl;
-        std::cout << "setting parameters (mu, lambda, sigma): (" << sigma.value_or(settings.sigma0)
-                  << ", " << mu << ", " << lambda << ")\n";
+        std::cout << "setting parameters (mu, lambda, sigma): (" << mu << ", " << lambda << ", "
+                  << sigma.value_or(settings.sigma0) << ")\n";
     }
+    restart_sigma = sigma;
     stats.solutions.push_back(stats.current_best);
+    pending_restart_center = coordinate_mapping->transform(adaptation->m);
+}
+
+void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
+{
     stats.evaluations++;
-    const auto mean = coordinate_mapping->transform(adaptation->m);
-    stats.centers.emplace_back(mean, objective(mean), stats.t - 1, stats.evaluations);
+    stats.centers.emplace_back(x, y, stats.t - 1, stats.evaluations);
     stats.update_best(stats.centers.back().x, stats.centers.back().y);
     stats.has_improved = false;
-    repelling->update_archive(objective, *this);
+    repelling->begin_update(*this);
+}
+
+void Parameters::finish_restart()
+{
+    const std::optional<Float> sigma = restart_sigma;
+    restart_sigma.reset();
 
     sampler->reset(settings.modules, lambda);
     weights.init(mu, lambda, settings);
@@ -96,16 +127,21 @@ void Parameters::adapt()
     stats.t++;
 }
 
-void Parameters::start(FunctionType &objective)
+bool Parameters::begin_generation()
 {
     // The previous generation becomes old_pop: a swap of the buffers (no copy). The next mutate
     // writes every active column of pop.
     std::swap(old_pop, pop);
-    if (criteria.any())
-    {
-        const auto sig = restart_strategy->update(*this);
-        perform_restart(objective, sig);
-    }
+    if (!criteria.any())
+        return false;
+    begin_restart(restart_strategy->update(*this));
+    return true;
+}
+
+void Parameters::start(FunctionType &objective)
+{
+    if (begin_generation())
+        complete_restart(objective);
 }
 } // namespace parameters
 
