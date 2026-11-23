@@ -152,6 +152,21 @@ void FlatFitness::on_reset(const parameters::Parameters &p)
     flat_fitness_index = static_cast<size_t>(std::round(.1 + static_cast<Float>(p.lambda) / 4));
 }
 
+namespace
+{
+/**
+ * The covariance adaptation, when B and d hold the eigendecomposition of C; null otherwise. B14:
+ * COVARIANCE_NO_EIGV is a CovarianceAdaptation but never computes B and d, and the criteria read
+ * their initial values (identity, ones) instead.
+ */
+const matrix_adaptation::CovarianceAdaptation *eigendecomposition(const parameters::Parameters &p)
+{
+    const auto *covariance =
+        dynamic_cast<const matrix_adaptation::CovarianceAdaptation *>(p.adaptation.get());
+    return covariance != nullptr && covariance->has_eigendecomposition() ? covariance : nullptr;
+}
+} // namespace
+
 void TolX::update(const parameters::Parameters &p)
 {
     // TODO: This should be another sigma0, the one that has been used to restart
@@ -175,8 +190,7 @@ void MaxDSigma::update(const parameters::Parameters &p)
 {
     const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
     Float root_max_d = 1.0;
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
+    if (const auto *dynamic = eigendecomposition(p))
     {
         root_max_d = std::sqrt(dynamic->d.maxCoeff());
     }
@@ -188,8 +202,7 @@ void MinDSigma::update(const parameters::Parameters &p)
     const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
 
     Float root_min_d = 1.0;
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
+    if (const auto *dynamic = eigendecomposition(p))
     {
         root_min_d = std::sqrt(dynamic->d.minCoeff());
     }
@@ -198,8 +211,7 @@ void MinDSigma::update(const parameters::Parameters &p)
 
 void ConditionC::update(const parameters::Parameters &p)
 {
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
+    if (const auto *dynamic = eigendecomposition(p))
     {
         const Float condition_c = pow(dynamic->d.maxCoeff(), 2.0) / pow(dynamic->d.minCoeff(), 2);
         met = condition_c > tolerance;
@@ -208,8 +220,7 @@ void ConditionC::update(const parameters::Parameters &p)
 
 void NoEffectAxis::update(const parameters::Parameters &p)
 {
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
+    if (const auto *dynamic = eigendecomposition(p))
     {
         const Eigen::Index t = p.stats.t % p.settings.dim;
         const auto effect_axis =

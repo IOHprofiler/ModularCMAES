@@ -349,5 +349,44 @@ class TestBindingArgumentNames(unittest.TestCase):
         np.testing.assert_array_equal(results[0], results[1])
 
 
+class TestCriteriaWithoutEigendecomposition(unittest.TestCase):
+    """B14: COVARIANCE_NO_EIGV is a CovarianceAdaptation, but it factorizes C with a Cholesky
+    decomposition and never computes B and d. The criteria that read the eigendecomposition used
+    their initial values (identity, ones); they now treat it like any adaptation without one.
+    Criteria.get only adds ConditionC and NoEffectAxis for COVARIANCE, so this matters when they
+    are added by hand."""
+
+    NEEDS_EIGENDECOMPOSITION = ("ConditionC", "NoEffectAxis")
+
+    def criteria_after_ill_conditioned_d(self, name):
+        modules = c_maes.Modules()
+        modules.matrix_adaptation = getattr(c_maes.options.MatrixAdaptationType, name)
+        modules.restart_strategy = c_maes.options.RestartStrategy.RESTART
+        cma = c_maes.ModularCMAES(c_maes.Settings(4, modules, seed=1))
+        cma.step(sphere)
+        p = cma.p
+        names = [item.name for item in p.criteria.items]
+        if "ConditionC" not in names:
+            p.criteria.items.append(c_maes.restart.ConditionC())
+            p.criteria.items.append(c_maes.restart.NoEffectAxis())
+        # a condition of 1e20 and a vanishing axis, if the criteria read d and B
+        p.adaptation.d[:] = [1e10, 1.0, 1.0, 1.0]
+        p.adaptation.d[p.stats.t % 4] = 1e-30
+        for item in p.criteria.items:
+            if item.name in self.NEEDS_EIGENDECOMPOSITION:
+                item.update(p)
+        return {item.name: item.met for item in p.criteria.items}
+
+    def test_covariance_reads_the_eigendecomposition(self):
+        met = self.criteria_after_ill_conditioned_d("COVARIANCE")
+        self.assertTrue(met["ConditionC"])
+        self.assertTrue(met["NoEffectAxis"])
+
+    def test_no_eigv_does_not_read_it(self):
+        met = self.criteria_after_ill_conditioned_d("COVARIANCE_NO_EIGV")
+        self.assertFalse(met["ConditionC"])
+        self.assertFalse(met["NoEffectAxis"])
+
+
 if __name__ == "__main__":
     unittest.main()

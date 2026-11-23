@@ -177,6 +177,10 @@ struct CovarianceAdaptation : Adaptation
     Matrix A;
     bool hs = true;
 
+    //! Whether B and d hold the eigendecomposition of C (false for COVARIANCE_NO_EIGV, which
+    //! factorizes C with a Cholesky decomposition and leaves B and d at their initial values)
+    [[nodiscard]] virtual bool has_eigendecomposition() const { return true; }
+
     //! C^-1/2 = B D^-1 B^T. Not kept up to date (an O(d^3) product per eigendecomposition): the
     //! updates use B and d directly; this computes it.
     [[nodiscard]] Matrix inv_root_C() const { return B * d.cwiseInverse().asDiagonal() * B.transpose(); }
@@ -384,6 +388,8 @@ struct CovarianceNoEigvAdaptation : CovarianceAdaptation
     void adapt_ps(const parameters::Weights &w) override;
 
     bool perform_eigendecomposition(const parameters::Settings &settings) override;
+
+    bool has_eigendecomposition() const override { return false; }
 
     //! A is the lower triangular Cholesky factor here
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
