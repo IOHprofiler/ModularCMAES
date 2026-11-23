@@ -16,6 +16,13 @@ struct Adaptation
     Float dd;
     Float expected_length_z;
 
+    // Buffers reused by the updates, so that a generation does not allocate. Each update writes
+    // the same Eigen expression into a buffer that a temporary held before: the results are
+    // bit-identical.
+    Vector scratch_vector;
+    Vector weights_scratch;
+    Matrix square_scratch;
+
     Adaptation(const size_t dim,
                const Vector &x0,
                const Vector &ps,
@@ -81,9 +88,30 @@ struct Adaptation
         return y;
     }
 
-    virtual Vector invert_x(const Vector &, Vector sigma);
+    //! y = (x - m) / sigma, written into y
+    void invert_x_into(Eigen::Ref<const Vector> x,
+                       Eigen::Ref<const Vector> sigma,
+                       Eigen::Ref<Vector> y) const
+    {
+        y = ((x - m).array() / sigma.array()).matrix();
+    }
 
-    virtual Vector invert_y(const Vector &) = 0;
+    [[nodiscard]] Vector invert_x(const Vector &x, const Vector &sigma) const
+    {
+        Vector y(x.size());
+        invert_x_into(x, sigma, y);
+        return y;
+    }
+
+    //! z = A^-1 y for the sampling transformation A, written into z (no allocation)
+    virtual void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) = 0;
+
+    [[nodiscard]] Vector invert_y(const Vector &y)
+    {
+        Vector z(y.size());
+        invert_y_into(y, z);
+        return z;
+    }
 
     virtual void restart(const parameters::Settings &settings, const Float sigma)
     {
@@ -130,7 +158,7 @@ struct None final : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct CovarianceAdaptation : Adaptation
@@ -179,7 +207,7 @@ struct CovarianceAdaptation : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct SeparableAdaptation : Adaptation
@@ -214,7 +242,7 @@ struct SeparableAdaptation : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct MatrixAdaptation final : Adaptation
@@ -248,7 +276,7 @@ struct MatrixAdaptation final : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 
   private:
     bool outdated_M_inv;
@@ -289,7 +317,7 @@ struct CholeskyAdaptation final : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct SelfAdaptation final : Adaptation
@@ -322,7 +350,7 @@ struct SelfAdaptation final : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct CovarianceNoEigvAdaptation : CovarianceAdaptation
@@ -333,7 +361,7 @@ struct CovarianceNoEigvAdaptation : CovarianceAdaptation
 
     bool perform_eigendecomposition(const parameters::Settings &settings) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct NaturalGradientAdaptation final : Adaptation
@@ -381,7 +409,7 @@ struct NaturalGradientAdaptation final : Adaptation
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 
   private:
     bool outdated_A_inv;

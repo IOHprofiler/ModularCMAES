@@ -37,6 +37,9 @@ struct Weights
      */
     Vector for_population(const size_t n) const;
 
+    //! for_population into out (no allocation once out has the capacity)
+    void for_population_into(const size_t n, Vector &out) const;
+
     void init_weights(const Settings &settings);
 
     void init_vectors(const size_t mu, const size_t lambda, const Settings &settings);

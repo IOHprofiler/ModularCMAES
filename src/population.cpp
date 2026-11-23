@@ -25,14 +25,17 @@ void Population::sort()
     if (scratch_vector.size() < k)
         scratch_vector.resize(static_cast<Eigen::Index>(capacity()));
 
+    // Column by column: an Eigen index view would copy the order vector (an allocation)
     for (Matrix *m : {&X, &X_transformed, &Z, &Y, &S})
     {
-        scratch.leftCols(k) = (*m)(Eigen::all, order);
+        for (Eigen::Index j = 0; j < k; ++j)
+            scratch.col(j) = m->col(static_cast<Eigen::Index>(order[j]));
         m->leftCols(k) = scratch.leftCols(k);
     }
     for (Vector *v : {&f, &t})
     {
-        scratch_vector.head(k) = (*v)(order);
+        for (Eigen::Index j = 0; j < k; ++j)
+            scratch_vector(j) = (*v)(static_cast<Eigen::Index>(order[j]));
         v->head(k) = scratch_vector.head(k);
     }
 }

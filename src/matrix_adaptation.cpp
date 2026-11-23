@@ -4,10 +4,7 @@ namespace matrix_adaptation
 {
 using namespace parameters;
 
-Vector Adaptation::invert_x(const Vector &xi, const Vector sigma)
-{
-    return ((xi - m).array() / sigma.array()).matrix();
-}
+
 
 static void one_plus_one_path_update(Vector &path,
                                      const Population &pop,
@@ -34,7 +31,7 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
 {
     const auto sigma = pop.S.leftCols(pop.n).mean();
     dm = (m - m_old) / sigma;
-    dz = pop.Z.leftCols(mu) * w.positive.head(mu);
+    dz.noalias() = pop.Z.leftCols(mu) * w.positive.head(mu);
     adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);
 }
 
@@ -56,11 +53,14 @@ void None::adapt_evolution_paths_inner(const Population &pop,
 
 void None::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) { y = z; }
 
-Vector None::invert_y(const Vector &yi) { return yi; }
+void None::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) { z = y; }
 
 void CovarianceAdaptation::adapt_ps(const Weights &w)
 {
-    ps = (1.0 - w.cs) * ps + (w.sqrt_cs_mueff * inv_root_C * dm);
+    // Eigen evaluates dst = a + A x as dst = a; dst += A x (the product accumulates into a);
+    // done here without its temporary, with the same rounding
+    ps *= (1.0 - w.cs);
+    ps.noalias() += w.sqrt_cs_mueff * inv_root_C * dm;
 }
 
 void CovarianceAdaptation::adapt_evolution_paths_inner(const Population &pop,
@@ -187,9 +187,10 @@ void CovarianceAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref
     y.noalias() = A * z;
 }
 
-Vector CovarianceAdaptation::invert_y(const Vector &yi)
+void CovarianceAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
 {
-    return (B.transpose() * yi).cwiseQuotient(d);
+    z.noalias() = B.transpose() * y;
+    z.array() /= d.array();
 }
 
 void SeparableAdaptation::adapt_evolution_paths_inner(const Population &pop,
@@ -256,7 +257,10 @@ void SeparableAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<
     y = d.array() * z.array();
 }
 
-Vector SeparableAdaptation::invert_y(const Vector &yi) { return yi.array() / d.array(); }
+void SeparableAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
+{
+    z = y.array() / d.array();
+}
 
 void MatrixAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                    const Weights &w,
@@ -325,14 +329,14 @@ void MatrixAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vec
     y.noalias() = M * z;
 }
 
-Vector MatrixAdaptation::invert_y(const Vector &yi)
+void MatrixAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
 {
     if (outdated_M_inv)
     {
         M_inv = M.completeOrthogonalDecomposition().pseudoInverse();
         outdated_M_inv = false;
     }
-    return M_inv * yi;
+    z.noalias() = M_inv * y;
 }
 
 void CholeskyAdaptation::adapt_evolution_paths_inner(const Population &pop,
@@ -392,9 +396,10 @@ void CholeskyAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<V
     y.noalias() = A * z;
 }
 
-Vector CholeskyAdaptation::invert_y(const Vector &yi)
+void CholeskyAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
 {
-    return A.triangularView<Eigen::Lower>().solve(yi);
+    z = y;
+    A.triangularView<Eigen::Lower>().solveInPlace(z);
 }
 
 void SelfAdaptation::adapt_evolution_paths_inner(const Population &pop,
@@ -456,9 +461,10 @@ void SelfAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vecto
     y.noalias() = A * z;
 }
 
-Vector SelfAdaptation::invert_y(const Vector &yi)
+void SelfAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
 {
-    return A.triangularView<Eigen::Lower>().solve(yi);
+    z = y;
+    A.triangularView<Eigen::Lower>().solveInPlace(z);
 }
 
 void CovarianceNoEigvAdaptation::adapt_ps(const Weights &w) { Adaptation::adapt_ps(w); }
@@ -480,9 +486,10 @@ bool CovarianceNoEigvAdaptation::perform_eigendecomposition(const parameters::Se
     return true;
 }
 
-Vector CovarianceNoEigvAdaptation::invert_y(const Vector &yi)
+void CovarianceNoEigvAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
 {
-    return A.triangularView<Eigen::Lower>().solve(yi);
+    z = y;
+    A.triangularView<Eigen::Lower>().solveInPlace(z);
 }
 
 void NaturalGradientAdaptation::adapt_evolution_paths_inner(const Population &pop,
@@ -513,15 +520,20 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
                                                   size_t mu,
                                                   size_t lambda)
 {
-    const size_t dim = pop.Z.rows();
+    if (settings.modules.active)
+        w.for_population_into(pop.n, weights_scratch);
+    else
+        weights_scratch = w.positive;
+    const Vector &weights = weights_scratch;
 
-    const auto &weights = settings.modules.active ? w.for_population(pop.n) : w.positive;
-
+    // G += w_i (z_i z_i^T - I), with z_i z_i^T - I evaluated into a buffer
     G.setZero();
     for (int i = 0; i < weights.rows(); ++i)
     {
         const auto &z = pop.Z.col(i);
-        G.noalias() += weights(i) * (z * z.transpose() - Matrix::Identity(dim, dim));
+        square_scratch.noalias() = z * z.transpose();
+        square_scratch.diagonal().array() -= 1.0;
+        G.noalias() += weights(i) * square_scratch;
     }
 
     // Remove isotropic (sigma-related) component: make G trace-free
@@ -531,7 +543,8 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
         G.diagonal().array() -= sigma_g;
 
     // Ensure symmetry for numerical stability
-    G = 0.5 * (G + G.transpose().eval());
+    square_scratch = G.transpose();
+    G = 0.5 * (G + square_scratch);
 }
 
 bool NaturalGradientAdaptation::adapt_matrix_inner(const parameters::Weights &w,
@@ -567,13 +580,13 @@ void NaturalGradientAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen
     y.noalias() = A * z;
 }
 
-Vector NaturalGradientAdaptation::invert_y(const Vector &yi)
+void NaturalGradientAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
 {
     if (outdated_A_inv)
     {
         A_inv = A.completeOrthogonalDecomposition().pseudoInverse();
         outdated_A_inv = false;
     }
-    return A_inv * yi;
+    z.noalias() = A_inv * y;
 }
 } // namespace matrix_adaptation

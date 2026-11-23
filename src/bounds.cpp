@@ -45,8 +45,8 @@ void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters &p)
     const Mask oob = bounds::is_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub);
     p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob, p.mutation->sigma, p.settings);
     p.pop.X_transformed.col(i) = p.pop.X.col(i);
-    p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.pop.S.col(i));
-    p.pop.Z.col(i) = p.adaptation->invert_y(p.pop.Y.col(i));
+    p.adaptation->invert_x_into(p.pop.X.col(i), p.pop.S.col(i), p.pop.Y.col(i));
+    p.adaptation->invert_y_into(p.pop.Y.col(i), p.pop.Z.col(i));
 }
 
 Vector COTN::correct_x(const Vector &xi,

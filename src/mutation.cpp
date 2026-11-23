@@ -32,7 +32,8 @@ bool SequentialSelection::break_conditions(const size_t i,
 
 void SigmaSampler::apply_integer_bounds(parameters::Parameters &p)
 {
-    const Array &Cdiag = p.adaptation->coordinate_wise_variances;
+    // .array() is a view; binding the Vector to const Array & made a temporary copy
+    const auto Cdiag = p.adaptation->coordinate_wise_variances.array();
     for (const auto &iidx : p.settings.integer_variables)
     {
         const Float Cii = std::max(Cdiag[iidx], Float(1e-16));
