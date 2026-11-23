@@ -189,10 +189,12 @@ void TolX::on_reset(const parameters::Parameters &p)
 void MaxDSigma::update(const parameters::Parameters &p)
 {
     const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
+    // B15: d holds the square roots of the eigenvalues of C (pycma's D): tolupsigma compares with
+    // max(D) itself, not its square root
     Float root_max_d = 1.0;
     if (const auto *dynamic = eigendecomposition(p))
     {
-        root_max_d = std::sqrt(dynamic->d.maxCoeff());
+        root_max_d = dynamic->d.maxCoeff();
     }
     met = d_sigma > (tolerance * root_max_d);
 }
@@ -201,10 +203,11 @@ void MinDSigma::update(const parameters::Parameters &p)
 {
     const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
 
+    // B15: as MaxDSigma, with min(D)
     Float root_min_d = 1.0;
     if (const auto *dynamic = eigendecomposition(p))
     {
-        root_min_d = std::sqrt(dynamic->d.minCoeff());
+        root_min_d = dynamic->d.minCoeff();
     }
     met = d_sigma < (tolerance * root_min_d);
 }
@@ -223,8 +226,8 @@ void NoEffectAxis::update(const parameters::Parameters &p)
     if (const auto *dynamic = eigendecomposition(p))
     {
         const Eigen::Index t = p.stats.t % p.settings.dim;
-        const auto effect_axis =
-            0.1 * p.mutation->sigma * std::sqrt(dynamic->d(t)) * dynamic->B.col(t);
+        // B15: as pycma, 0.1 sigma D_t b_t with D_t = d(t) the square root of the eigenvalue
+        const auto effect_axis = 0.1 * p.mutation->sigma * dynamic->d(t) * dynamic->B.col(t);
         met = (effect_axis.array().abs() < tolerance).all();
     }
 }

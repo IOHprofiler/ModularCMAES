@@ -388,5 +388,50 @@ class TestCriteriaWithoutEigendecomposition(unittest.TestCase):
         self.assertFalse(met["NoEffectAxis"])
 
 
+
+class TestCriteriaUseSquareRootOfEigenvalues(unittest.TestCase):
+    """B15: d holds the square roots of the eigenvalues of C (pycma's D). MaxDSigma (tolupsigma),
+    MinDSigma and NoEffectAxis took its square root again (the fourth root of the eigenvalues)."""
+
+    def setup(self):
+        modules = c_maes.Modules()
+        modules.restart_strategy = c_maes.options.RestartStrategy.RESTART
+        cma = c_maes.ModularCMAES(c_maes.Settings(4, modules, seed=1, sigma0=1.0))
+        cma.step(sphere)
+        return cma.p, {item.name: item for item in cma.p.criteria.items}
+
+    def test_max_d_sigma(self):
+        p, items = self.setup()
+        p.adaptation.d[:] = [1e4, 1.0, 1.0, 1.0]
+        tolerance = 1e20  # MaxDSigma.tolerance
+        p.mutation.sigma = tolerance * 1e3  # above tolerance * sqrt(max D), below tolerance * max D
+        items["MaxDSigma"].update(p)
+        self.assertFalse(items["MaxDSigma"].met)
+        p.mutation.sigma = tolerance * 1e5
+        items["MaxDSigma"].update(p)
+        self.assertTrue(items["MaxDSigma"].met)
+
+    def test_min_d_sigma(self):
+        p, items = self.setup()
+        p.adaptation.d[:] = [1e-4, 1.0, 1.0, 1.0]
+        tolerance = 1e-20  # MinDSigma.tolerance
+        p.mutation.sigma = tolerance * 1e-3  # below tolerance * sqrt(min D), above tolerance * min D
+        items["MinDSigma"].update(p)
+        self.assertFalse(items["MinDSigma"].met)
+        p.mutation.sigma = tolerance * 1e-5
+        items["MinDSigma"].update(p)
+        self.assertTrue(items["MinDSigma"].met)
+
+    def test_no_effect_axis(self):
+        p, items = self.setup()
+        t = p.stats.t % 4
+        p.adaptation.B[:] = np.eye(4)
+        p.mutation.sigma = 1.0
+        # 0.1 * D_t = 1e-16 has no effect (< 10 eps); 0.1 * sqrt(D_t) = 1e-9 would have
+        p.adaptation.d[t] = 1e-15
+        items["NoEffectAxis"].update(p)
+        self.assertTrue(items["NoEffectAxis"].met)
+
+
 if __name__ == "__main__":
     unittest.main()
