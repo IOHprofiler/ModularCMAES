@@ -13,7 +13,15 @@ struct Population
     Vector t;
 
     size_t d;
+    //! The number of active columns: individuals 0..n-1 belong to the population. The buffers
+    //! can hold more (capacity()), e.g. after sequential selection stopped a generation early;
+    //! the columns from n on hold no population data and must not be read.
     size_t n;
+
+    [[nodiscard]] size_t capacity() const { return static_cast<size_t>(X.cols()); }
+
+    //! Grow the buffers to at least the given number of columns, keeping their contents
+    void reserve(const size_t columns);
 
     Population(const size_t d, const size_t n) :
         X(d, n),

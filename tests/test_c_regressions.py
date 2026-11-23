@@ -132,6 +132,101 @@ def rastrigin(x):
     return float(10 * len(x) + np.sum(x * x - 10 * np.cos(2 * np.pi * x)))
 
 
+class TestSequentialSelectionPopulation(unittest.TestCase):
+    """B13: when sequential selection stopped a generation at individual i, the unevaluated
+    columns stayed in the population: individuals of earlier generations with their old f, and
+    uninitialized memory in the first generation. Now the population is 0..i (pop.n), with
+    pairwise mirroring only complete pairs, and the weights are renormalised for n < lambda."""
+
+    def run_until_stop(self, mirrored="NONE", active=False, generations=200):
+        c_maes.utils.set_seed(1)
+        modules = c_maes.Modules()
+        modules.sequential_selection = True
+        modules.active = active
+        modules.mirrored = getattr(c_maes.options.Mirror, mirrored)
+        cma = c_maes.ModularCMAES(c_maes.Settings(5, modules, lambda0=12, mu0=3, verbose=False))
+        generation = [0]
+        evaluated = {}
+
+        def objective(x):
+            y = float(x @ x)
+            evaluated[y] = generation[0]
+            return y
+
+        for g in range(1, generations):
+            generation[0] = g
+            before = cma.p.stats.evaluations
+            cma.mutate(objective)
+            n = cma.p.stats.evaluations - before
+            if n < cma.p.lamb:
+                yield g, n, cma, evaluated
+            cma.select()
+            cma.recombine()
+            cma.adapt()
+
+    def test_population_holds_only_this_generation(self):
+        stops = 0
+        for g, n, cma, evaluated in self.run_until_stop():
+            pop = cma.p.pop
+            self.assertEqual(pop.n, n)
+            self.assertEqual(pop.f.shape, (n,))
+            self.assertEqual(pop.X.shape, (5, n))
+            self.assertEqual(pop.capacity, cma.p.lamb)
+            self.assertEqual({evaluated.get(v) for v in pop.f}, {g})
+            stops += 1
+            if stops == 5:
+                break
+        self.assertEqual(stops, 5)
+
+    def test_pairwise_stops_after_complete_pairs(self):
+        stops = 0
+        for g, n, cma, _ in self.run_until_stop(mirrored="PAIRWISE"):
+            self.assertEqual(n % 2, 0, f"generation {g} stopped after {n} individuals")
+            cma.select()  # pairwise selection needs complete pairs
+            stops += 1
+            if stops == 5:
+                break
+        self.assertEqual(stops, 5)
+
+    def test_weights_for_population(self):
+        modules = c_maes.Modules()
+        modules.active = True
+        w = c_maes.Parameters(c_maes.Settings(5, modules, lambda0=12, mu0=3, verbose=False)).weights
+        full = np.array(w.weights)
+        np.testing.assert_array_equal(w.for_population(12), full)
+        for n in (4, 7, 11):
+            part = np.array(w.for_population(n))
+            self.assertEqual(len(part), n)
+            np.testing.assert_array_equal(part[:3], full[:3])
+            self.assertAlmostEqual(part[3:].sum(), full[3:].sum(), places=12)
+            np.testing.assert_allclose(part[3:] / full[3:n], part[3] / full[3])
+
+    def test_active_update_uses_renormalised_weights(self):
+        for g, n, cma, _ in self.run_until_stop(active=True):
+            if g < 3:
+                continue
+            cma.select()
+            cma.recombine()
+            p, a = cma.p, cma.p.adaptation
+            self.assertEqual(p.pop.n, n)
+            a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+            C0, pc, hs = a.C.copy(), a.pc.copy(), a.hs
+            Y = p.pop.Y.copy()
+            w = np.array(p.weights.for_population(n))
+            c1, cmu, cc = p.weights.c1, p.weights.cmu, p.weights.cc
+            p.stats.t = 10**6  # past the lazy-update interval
+            self.assertTrue(a.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats))
+            rank_mu_w = w.copy()
+            for i in range(p.mu, n):
+                rank_mu_w[i] *= 5 / (Y[:, i] @ np.linalg.solve(C0, Y[:, i]))
+            dhs = (1 - hs) * cc * (2 - cc)
+            decay = 1 - c1 * dhs - c1 - cmu * w.sum()
+            expected = decay * C0 + c1 * np.outer(pc, pc) + cmu * (Y * rank_mu_w) @ Y.T
+            np.testing.assert_allclose(a.C, 0.5 * (expected + expected.T), rtol=1e-10, atol=1e-12)
+            return
+        self.fail("no sequential selection stop")
+
+
 class TestRepellingMetric(unittest.TestCase):
     """B4: taboo points used a never-updated identity matrix (Euclidean distance). The metric is
     now an explicit option: EUCLIDEAN (default, the behaviour since July 2026), CURRENT (the

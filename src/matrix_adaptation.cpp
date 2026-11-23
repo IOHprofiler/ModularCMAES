@@ -32,7 +32,7 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
                                        const size_t mu,
                                        const size_t lambda)
 {
-    const auto sigma = pop.S.mean();
+    const auto sigma = pop.S.leftCols(pop.n).mean();
     dm = (m - m_old) / sigma;
     dz = pop.Z.leftCols(mu) * w.positive.head(mu);
     adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);
@@ -92,8 +92,8 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
     const auto &rank_one = w.c1 * pc * pc.transpose();
 
-    const auto &weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
-    const auto &popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+    const auto &weights = m.active ? w.for_population(pop.n) : w.positive;
+    const auto &popY = pop.Y.leftCols(m.active ? pop.n : mu);
 
     const Float decay = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
     const auto &old_c = decay * C;
@@ -224,8 +224,8 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 
     const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
 
-    const auto &weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
-    const auto &popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+    const auto &weights = m.active ? w.for_population(pop.n) : w.positive;
+    const auto &popY = pop.Y.leftCols(m.active ? pop.n : mu);
     const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
 
     for (size_t j = 0; j < settings.dim; j++)
@@ -275,9 +275,9 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     stats.last_update = stats.t;
     stats.n_updates++;
 
-    const auto &weights = m.active ? w.weights.topRows(pop.Z.cols()) : w.positive;
-    const auto &popZ = m.active ? pop.Z : pop.Z.leftCols(mu);
-    const auto &popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+    const auto &weights = m.active ? w.for_population(pop.n) : w.positive;
+    const auto &popZ = pop.Z.leftCols(m.active ? pop.n : mu);
+    const auto &popY = pop.Y.leftCols(m.active ? pop.n : mu);
 
     // Normal MA-ES -> O(n^3)
     //
@@ -361,8 +361,11 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
         Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * w.positive(i));
 
     if (m.active)
-        for (size_t i = 0; i < pop.Y.cols() - mu; i++)
-            Eigen::internal::llt_rank_update_lower(A, pop.Y.col(mu + i), w.cmu * w.negative(i));
+    {
+        const Vector weights = w.for_population(pop.n);
+        for (size_t i = mu; i < pop.n; i++)
+            Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * weights(i));
+    }
 
     coordinate_wise_variances.noalias() = (A.array().square().rowwise().sum()).matrix();
     return true;
@@ -407,8 +410,8 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     const Float tc = 1.0 + (dd * (dd + 1)) / (2.0 * w.mueff);
     const Float tc_inv = 1.0 / tc;
 
-    const auto &weights = m.active ? w.weights.topRows(pop.Y.cols()) : w.positive;
-    const auto &popY = m.active ? pop.Y : pop.Y.leftCols(mu);
+    const auto &weights = m.active ? w.for_population(pop.n) : w.positive;
+    const auto &popY = pop.Y.leftCols(m.active ? pop.n : mu);
     const auto &Y = popY * weights.asDiagonal() * popY.transpose();
 
     C = (1.0 - tc_inv) * C + (tc_inv * Y);
@@ -497,7 +500,7 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
 {
     const size_t dim = pop.Z.rows();
 
-    const auto &weights = settings.modules.active ? w.weights.topRows(pop.Z.cols()) : w.positive;
+    const auto &weights = settings.modules.active ? w.for_population(pop.n) : w.positive;
 
     G.setZero();
     for (int i = 0; i < weights.rows(); ++i)

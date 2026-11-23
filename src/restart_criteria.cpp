@@ -232,7 +232,7 @@ void Stagnation::update(const parameters::Parameters &p)
 {
     const size_t time_since_restart = p.stats.t - last_restart;
 
-    median_fitnesses.push_back(median_vector(p.pop.f));
+    median_fitnesses.push_back(median_vector(p.pop.f.head(p.pop.n)));
     best_fitnesses.push_back(p.pop.f(0));
 
     met = false;

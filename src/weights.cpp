@@ -204,6 +204,21 @@ void Weights::weights_exponential(const size_t mu, const size_t lambda)
         negative(negative.size() - i) = (1.0 / pow(2.0, static_cast<Float>(i)) + base2) * -1.0;
 }
 
+Vector Weights::for_population(const size_t n) const
+{
+    const auto total = weights.size();
+    const auto k = std::min<Eigen::Index>(static_cast<Eigen::Index>(n), total);
+    Vector w = weights.head(k);
+    const auto mu = positive.size();
+    if (k < total && k > mu)
+    {
+        const Float used = w.tail(k - mu).sum();
+        if (used != 0.0)
+            w.tail(k - mu) *= negative.sum() / used;
+    }
+    return w;
+}
+
 Vector Weights::clipped() const
 {
     return (weights.array() > 0).select(weights, Vector::Zero(weights.size()));

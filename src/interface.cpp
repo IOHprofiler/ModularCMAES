@@ -727,6 +727,11 @@ void define_parameters(py::module &main)
         .def_readwrite("weights", &Weights::weights)
         .def_readwrite("positive", &Weights::positive)
         .def_readwrite("negative", &Weights::negative)
+        .def("for_population",
+             &Weights::for_population,
+             py::arg("n"),
+             "The weights for n evaluated individuals (n < lambda after a sequential selection "
+             "stop): the negative weights are scaled to keep their total")
         .def("__repr__", [](Weights &weights) {
             std::stringstream ss;
             ss << std::boolalpha;
@@ -1056,6 +1061,31 @@ void define_mutation(py::module &main)
     py::class_<SA, Strategy, std::shared_ptr<SA>>(m, "SA");
 }
 
+template <typename T = void> auto active_columns(Matrix Population::*member)
+{
+    return py::cpp_function(
+        [member](Population &p) -> Eigen::Ref<Matrix> {
+            Matrix &m = p.*member;
+            return m.leftCols(std::min<Eigen::Index>(static_cast<Eigen::Index>(p.n), m.cols()));
+        },
+        py::return_value_policy::reference_internal);
+}
+
+template <typename T = void> auto active_entries(Vector Population::*member)
+{
+    return py::cpp_function(
+        [member](Population &p) -> Eigen::Ref<Vector> {
+            Vector &v = p.*member;
+            return v.head(std::min<Eigen::Index>(static_cast<Eigen::Index>(p.n), v.size()));
+        },
+        py::return_value_policy::reference_internal);
+}
+
+template <typename Buffer> auto assign_buffer(Buffer Population::*member)
+{
+    return [member](Population &p, const Buffer &value) { p.*member = value; };
+}
+
 void define_population(py::module &main)
 {
     py::class_<Population>(main, "Population")
@@ -1071,15 +1101,20 @@ void define_population(py::module &main)
         .def("keep_only", &Population::keep_only, py::arg("idx"))
         .def_property_readonly("n_finite", &Population::n_finite)
         .def("__add__", &Population::operator+=, py::arg("other"))
-        .def_readwrite("X", &Population::X)
-        .def_readwrite("X_transformed", &Population::X_transformed)
-        .def_readwrite("Z", &Population::Z)
-        .def_readwrite("Y", &Population::Y)
-        .def_readwrite("S", &Population::S)
-        .def_readwrite("f", &Population::f)
+        // The arrays are views of the active columns 0..n-1 (fewer than the buffers hold after
+        // sequential selection stopped a generation early); assigning replaces the buffer.
+        .def_property("X", active_columns(&Population::X), assign_buffer(&Population::X))
+        .def_property("X_transformed",
+                      active_columns(&Population::X_transformed),
+                      assign_buffer(&Population::X_transformed))
+        .def_property("Z", active_columns(&Population::Z), assign_buffer(&Population::Z))
+        .def_property("Y", active_columns(&Population::Y), assign_buffer(&Population::Y))
+        .def_property("S", active_columns(&Population::S), assign_buffer(&Population::S))
+        .def_property("f", active_entries(&Population::f), assign_buffer(&Population::f))
+        .def_property("t", active_entries(&Population::t), assign_buffer(&Population::t))
         .def_readwrite("d", &Population::d)
         .def_readwrite("n", &Population::n)
-        .def_readwrite("t", &Population::t);
+        .def_property_readonly("capacity", &Population::capacity);
 }
 
 class constants_w
