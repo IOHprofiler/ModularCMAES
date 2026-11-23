@@ -48,32 +48,43 @@ CHECKPOINT_FIELDS = ("t", "evaluations", "sigma", "f0", "restarts", "digest")
 # ---------------------------------------------------------------------------------------------------
 # Objective functions: plain Python arithmetic, so that they give the same bits on every platform
 # (apart from math.cos in rastrigin, which is libm's, as is everything the optimizer computes).
+# Sums use math.fsum (correctly rounded): the built-in sum() of floats changed in Python 3.12
+# (compensated summation), which made the fixtures depend on the Python version.
 # ---------------------------------------------------------------------------------------------------
 
 
+def fsum(terms) -> float:
+    """math.fsum; inf or nan (as the built-in sum on every version) when a term overflows."""
+    terms = list(terms)
+    try:
+        return math.fsum(terms)
+    except (OverflowError, ValueError):
+        return float(sum(terms))
+
+
 def sphere(x) -> float:
-    return sum(float(xi) * float(xi) for xi in x)
+    return fsum(float(xi) * float(xi) for xi in x)
 
 
 def ellipsoid(x) -> float:
     n = len(x)
     if n == 1:
         return float(x[0]) ** 2
-    return sum(
+    return fsum(
         10.0 ** (6.0 * i / (n - 1)) * float(xi) * float(xi) for i, xi in enumerate(x)
     )
 
 
 def rosenbrock(x) -> float:
     x = [float(xi) for xi in x]
-    return sum(
+    return fsum(
         100.0 * (x[i + 1] - x[i] * x[i]) ** 2 + (1.0 - x[i]) ** 2
         for i in range(len(x) - 1)
     )
 
 
 def rastrigin(x) -> float:
-    return 10.0 * len(x) + sum(
+    return 10.0 * len(x) + fsum(
         float(xi) * float(xi) - 10.0 * math.cos(2.0 * math.pi * float(xi)) for xi in x
     )
 
