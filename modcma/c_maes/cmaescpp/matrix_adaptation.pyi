@@ -115,10 +115,10 @@ class CovarianceAdaptation(Adaptation):
     def A(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
 
     @property
-    def inv_root_C(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]: ...
-
-    @inv_root_C.setter
-    def inv_root_C(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+    def inv_root_C(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
+        """
+        C^-1/2 = B D^-1 B^T, computed from B and d (the updates do not form it)
+        """
 
     @property
     def hs(self) -> bool: ...

@@ -180,7 +180,7 @@ generation without Python.
   200 generations at d = 200, 22–24 times at d = 1000), but one eigendecomposition with Eigen's
   `SelfAdjointEigenSolver` takes about 165 ms at d = 1000, against 48 ms for LAPACK's `dsyevd`
   (Apple Accelerate, one thread) that pycma calls through numpy. A LAPACK backend for the
-  eigendecomposition would close this gap; it would add a BLAS/LAPACK dependency to the build.
+  eigendecomposition closes this gap: WP5 in [`TASKS.md`](TASKS.md).
 * **One thread per optimizer.** modcma does not parallelize the linear algebra of a single
   optimizer; numpy, JAX and torch can use several threads for large matrices, which would favour them
   at d ≥ 500 on a machine with idle cores.

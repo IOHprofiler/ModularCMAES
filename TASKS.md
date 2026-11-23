@@ -475,6 +475,15 @@ Status (2026-11-23), on top of WP3, one PR with T2.8 (third PR of the stack):
   after Bonferroni (392 tests), 2 raw p < 0.05 (0.5 %), median evaluations new/old geometric mean
   1.004 over 131 solved cells: **met**.
 * Golden fixtures regenerated from 4892d8e for macOS, gcc 13 and the CI runner (gcc 15).
+* **PERFORMANCE.md** (`scripts/performance/`): modcma against pycma, cmaes (Optuna), evosax (JAX)
+  and EvoTorch on the ellipsoid, d = 2..1000, one thread, Apple M5; every matrix adaptation;
+  vectorized vs per-point objectives; threads on free-threaded 3.14t (10 threads: 4.3x). Up to
+  d = 10 modcma is 20-45x faster than pycma; above d ~ 200 the default is slower than pycma
+  (Eigen's eigensolver vs LAPACK dsyevd) -> WP5.
+* **xNES (`NATURAL_GRADIENT`)**: exact low-rank matrix exponential for A <- A expm(eta G)
+  (G = Z diag(u) Z^T - alpha I: thin QR + lambda x lambda eigendecomposition), O(d^2 lambda)
+  instead of O(d^3): d = 1000 224 ms -> 2.8 ms per generation. For lambda >= d or d < 16 the dense
+  exponential, bit-identical to before. `G` is a computed read-only property.
 
 
 * **T4.1** (D3a) Generator per optimizer instance, passed down instead of the global `rng::GENERATOR`.
