@@ -4473,6 +4473,12 @@
    }
   }
  },
+ "cmaescpp.utils.build_info": {
+  "kind": "function",
+  "overloads": [
+   []
+  ]
+ },
  "cmaescpp.utils.cdf": {
   "kind": "function",
   "overloads": [
