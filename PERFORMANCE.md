@@ -94,18 +94,27 @@ How many times longer each library takes than modcma (above 1: modcma is faster)
 | MATRIX (MA-ES) | 1.7 µs | 3.0 µs | 14 µs | 42 µs | 129 µs | 644 µs | 2.3 ms |
 | CHOLESKY | 1.8 µs | 3.5 µs | 18 µs | 47 µs | 132 µs | 691 µs | 2.6 ms |
 | CMSA | 1.8 µs | 3.3 µs | 18 µs | 56 µs | 182 µs | 1.4 ms | 9.1 ms |
-| NATURAL_GRADIENT (xNES) | 2.0 µs | 4.4 µs | 56 µs | 311 µs | 2.1 ms | 28.7 ms | 224.0 ms |
+| NATURAL_GRADIENT (xNES) | 2.0 µs | 4.4 µs | 19 µs | 51 µs | 159 µs | 833 µs | 2.8 ms |
 | SEPARABLE | 1.6 µs | 2.7 µs | 10 µs | 26 µs | 51 µs | 135 µs | 285 µs |
 | NONE (step size only) | 1.6 µs | 2.7 µs | 10 µs | 26 µs | 50 µs | 132 µs | 280 µs |
 
-* The cost per generation follows the update: O(d²λ) for MA-ES, Cholesky-CMA-ES and the
-  Cholesky-based `COVARIANCE_NO_EIGV`, O(d³) for the eigendecomposition of the default (amortized
-  over several generations) and for the matrix exponential of `NATURAL_GRADIENT` (every generation),
-  and O(dλ) for `SEPARABLE` and `NONE`.
-* MA-ES, Cholesky-CMA-ES and `COVARIANCE_NO_EIGV` are level with the fastest other implementation
-  (evosax) at d ≤ 3 and faster than every other implementation from d = 5 to d = 1000, where they
-  are **3–4× faster than pycma** (1.7–2.6 ms vs 7.0 ms). They are different algorithms, though, not
-  a faster default.
+* The cost per generation follows the update: O(d²λ) for MA-ES, Cholesky-CMA-ES and xNES
+  (`NATURAL_GRADIENT`, see below); O(d³) for the eigendecomposition of the default and the Cholesky
+  factorization of `COVARIANCE_NO_EIGV` (both amortized over several generations) and of CMSA
+  (every generation); O(dλ) for `SEPARABLE` and `NONE`.
+* MA-ES, Cholesky-CMA-ES, xNES and `COVARIANCE_NO_EIGV` are level with the fastest other
+  implementation (evosax) at d ≤ 3 and faster than every other implementation from d = 5 to
+  d = 1000, where they are **2.5–4× faster than pycma** (1.7–2.8 ms vs 7.0 ms). They are different
+  algorithms, though, not a faster default.
+* **xNES with a low-rank matrix exponential.** The xNES update A ← A·expm(η G) used a dense
+  d × d matrix exponential every generation (224 ms at d = 1000). G = Z diag(u) Zᵀ − α I has
+  rank λ plus a multiple of I, so with a thin QR Z = Q R and the eigendecomposition of the
+  small λ × λ matrix R diag(u) Rᵀ = V diag(ℓ) Vᵀ, expm(η G) = e^(−ηα) (I + U diag(expm1(η ℓ)) Uᵀ)
+  with U = Q V: exact, O(d²λ). It is used for λ < d and d ≥ 16 (below, the dense exponential is
+  cheaper and gives bit-identical results to before): **80× faster at d = 1000, 6× at d = 100**,
+  the same trajectories up to rounding (statistically indistinguishable on BBOB; equal to the dense
+  exponential to 1e-10 in `tests/cpp/test_main.cpp`). The d < 16 rows above are from the main run;
+  the d ≥ 20 rows were measured after this change.
 * `fast_sampling` (xoshiro256++ and a ziggurat instead of mt19937 and the inverse normal CDF; a
   different random stream, so off by default) saves up to 10 % here; for the cheap adaptations, where
   sampling dominates, it halves the time (the [C++ benchmark](bench/bench.cpp): `SEPARABLE`,

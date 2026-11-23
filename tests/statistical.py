@@ -85,10 +85,10 @@ def run_one(task):
     return config, fid, dim, seed, int(cma.p.stats.evaluations), precision
 
 
-def run(output: str, processes: int):
+def run(output: str, processes: int, configs=None):
     from modcma import c_maes
 
-    tasks = [(c, f, d, s) for c, f, d in cells() for s in SEEDS]
+    tasks = [(c, f, d, s) for c, f, d in cells() for s in SEEDS if not configs or c in configs]
     with multiprocessing.Pool(processes) as pool:
         results = pool.map(run_one, tasks, chunksize=4)
     data = {"build": c_maes.utils.build_info(), "runs": {}}
@@ -105,6 +105,7 @@ def compare(old_path: str, new_path: str) -> int:
     old = json.load(open(old_path))["runs"]
     new = json.load(open(new_path))["runs"]
     tests = []
+    old = {cell: runs for cell, runs in old.items() if cell in new}
     for cell in old:
         a, b = np.array(old[cell]), np.array(new[cell])
         for column, name in ((1, "evaluations"), (2, "precision")):
@@ -143,12 +144,13 @@ def main():
     r = sub.add_parser("run")
     r.add_argument("--output", required=True)
     r.add_argument("--processes", type=int, default=multiprocessing.cpu_count())
+    r.add_argument("--configs", default="", help="comma-separated subset of the configurations")
     c = sub.add_parser("compare")
     c.add_argument("old")
     c.add_argument("new")
     args = parser.parse_args()
     if args.command == "run":
-        run(args.output, args.processes)
+        run(args.output, args.processes, [c for c in args.configs.split(",") if c])
     else:
         sys.exit(compare(args.old, args.new))
 

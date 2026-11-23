@@ -239,6 +239,38 @@ static void test_split_median()
     CHECK(sm.tail_median() == 2.0);
 }
 
+// xNES: the low-rank update of A equals A expm(eta G) with a dense matrix exponential
+static void test_natural_gradient_low_rank_update()
+{
+    std::mt19937 gen(9);
+    std::normal_distribution<double> normal;
+    // the low-rank path: lambda < d and d >= 16 (below, the update is the dense matrix exponential)
+    for (const auto [d, n] : {std::pair{16, 5}, std::pair{40, 12}, std::pair{64, 30}})
+    {
+        matrix_adaptation::NaturalGradientAdaptation a(d, Vector::Zero(d), std::sqrt(d), 1.0);
+        CHECK(!a.dense_update(n));
+        for (auto &x : a.A.reshaped())
+            x = 0.3 * normal(gen);
+        a.A.diagonal().array() += 1.0;
+        a.gradient_samples.resize(d, n);
+        for (auto &x : a.gradient_samples.reshaped())
+            x = normal(gen);
+        a.gradient_weights.resize(n);
+        for (int i = 0; i < n; i++)
+            a.gradient_weights(i) = i < n / 2 ? 1.0 / (i + 1) : -0.2 / (i + 1); // active: negative
+        a.gradient_shift = 0.7;
+
+        const Matrix expected = a.A * (0.3 * a.G()).exp();
+        parameters::Weights w(parameters::Settings(d), std::sqrt(d));
+        w.cc = 0.3;
+        Population pop(d, n);
+        parameters::Settings settings(d);
+        parameters::Stats stats;
+        CHECK(a.adapt_matrix_inner(w, settings.modules, pop, n / 2, settings, stats));
+        CHECK((a.A - expected).norm() < 1e-10 * expected.norm());
+    }
+}
+
 int main()
 {
     test_uniform_is_open_interval();
@@ -246,6 +278,7 @@ int main()
     test_ask_tell_matches_classic_loop();
     test_tell_errors();
     test_split_median();
+    test_natural_gradient_low_rank_update();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

@@ -402,9 +402,33 @@ struct CovarianceNoEigvAdaptation : CovarianceAdaptation
 struct NaturalGradientAdaptation final : Adaptation
 {
     Matrix A;
-    Matrix G;
     Matrix A_inv;
     Float sigma_g;
+
+    /**
+     * The natural gradient G = Z diag(u) Z^T - alpha I, kept as its low-rank factor: the samples Z
+     * (d x k, k <= lambda), their weights u and the shift alpha. The update A <- A expm(eta G) then
+     * costs O(d^2 k) instead of a dense O(d^3) matrix exponential.
+     */
+    Matrix gradient_samples;
+    Vector gradient_weights;
+    Float gradient_shift = 0.0;
+    //! G as a dense matrix, formed only when the update uses the dense matrix exponential
+    Matrix gradient_matrix;
+
+    //! Whether the update uses the dense matrix exponential (lambda >= d, or d < 16)
+    [[nodiscard]] bool dense_update(Eigen::Index n_samples) const;
+
+    //! G = Z diag(u) Z^T - alpha I as a dense matrix (computed; the updates do not form it)
+    [[nodiscard]] Matrix G() const
+    {
+        const auto d = A.rows();
+        Matrix g = -gradient_shift * Matrix::Identity(d, d);
+        if (gradient_samples.cols() > 0)
+            g.noalias() += gradient_samples * gradient_weights.asDiagonal() *
+                           gradient_samples.transpose();
+        return g;
+    }
 
     NaturalGradientAdaptation(const size_t dim,
                               const Vector &x0,
@@ -412,9 +436,10 @@ struct NaturalGradientAdaptation final : Adaptation
                               const Float sigma0) :
         Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
         A(Matrix::Identity(dim, dim) / sigma0),
-        G(Matrix::Zero(dim, dim)),
         A_inv(Matrix::Identity(dim, dim)),
         sigma_g(0),
+        gradient_samples(dim, 0),
+        gradient_matrix(Matrix::Zero(dim, dim)),
         outdated_A_inv(false)
     {
     }

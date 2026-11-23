@@ -27,7 +27,7 @@
 | MATRIX (MA-ES) | 1.7 µs | 3.0 µs | 14 µs | 42 µs | 129 µs | 644 µs | 2.3 ms |
 | CHOLESKY | 1.8 µs | 3.5 µs | 18 µs | 47 µs | 132 µs | 691 µs | 2.6 ms |
 | CMSA | 1.8 µs | 3.3 µs | 18 µs | 56 µs | 182 µs | 1.4 ms | 9.1 ms |
-| NATURAL_GRADIENT (xNES) | 2.0 µs | 4.4 µs | 56 µs | 311 µs | 2.1 ms | 28.7 ms | 224.0 ms |
+| NATURAL_GRADIENT (xNES) | 2.0 µs | 4.4 µs | 19 µs | 51 µs | 159 µs | 833 µs | 2.8 ms |
 | SEPARABLE | 1.6 µs | 2.7 µs | 10 µs | 26 µs | 51 µs | 135 µs | 285 µs |
 | NONE (step size only) | 1.6 µs | 2.7 µs | 10 µs | 26 µs | 50 µs | 132 µs | 280 µs |
 

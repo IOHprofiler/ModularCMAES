@@ -296,7 +296,13 @@ void define_matrix_adaptation(nb::module_ &main)
              nb::arg("sigma"))
         .def_rw("A", &NaturalGradientAdaptation::A)
         .def_rw("A_inv", &NaturalGradientAdaptation::A_inv)
-        .def_rw("G", &NaturalGradientAdaptation::G)
+        .def_prop_ro("G",
+                     &NaturalGradientAdaptation::G,
+                     "The natural gradient Z diag(u) Z^T - alpha I (computed from its low-rank "
+                     "factor; the update does not form it)")
+        .def_rw("gradient_samples", &NaturalGradientAdaptation::gradient_samples)
+        .def_rw("gradient_weights", &NaturalGradientAdaptation::gradient_weights)
+        .def_rw("gradient_shift", &NaturalGradientAdaptation::gradient_shift)
         .def_rw("sigma_g", &NaturalGradientAdaptation::sigma_g)
         .def("compute_gradients",
              &NaturalGradientAdaptation::compute_gradients,
