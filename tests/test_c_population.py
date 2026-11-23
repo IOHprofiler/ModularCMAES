@@ -45,7 +45,8 @@ class TestPopulation(unittest.TestCase):
     def test_keeponly(self):
         """Test keeponly behaviour."""
         f1 = self.pop.f[1]
-        x1 = self.pop.X[:, 1]
+        # a copy: pop.X is a view of the C++ buffer, which keep_only reallocates
+        x1 = self.pop.X[:, 1].copy()
         self.pop.keep_only([1])
         self.assertEqual(self.pop.f[0], f1)
         self.assertTrue(np.all(self.pop.X[:, 0] == x1))
