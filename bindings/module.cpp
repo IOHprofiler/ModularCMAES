@@ -150,9 +150,20 @@ void define_options(nb::module_ &main)
 void define_utils(nb::module_ &main)
 {
     auto m = main.def_submodule("utils");
-    m.def("build_info",
-          []() { return std::map<std::string, std::string>{{"compiler", compiler_version()}}; },
-          "How the extension was built (compiler)");
+    m.def(
+        "build_info",
+        []() {
+            return std::map<std::string, std::string>{
+                {"compiler", compiler_version()},
+#if defined(__FMA__) || defined(__ARM_FEATURE_FMA)
+                {"fma", "yes"},
+#else
+                {"fma", "no"},
+#endif
+            };
+        },
+        "How the extension was built: compiler, and whether it may use fused multiply-add "
+        "instructions (which change the last bits of results)");
     m.def("cdf", &cdf, nb::arg("x"));
     m.def("ppf", &ppf, nb::arg("x"));
     m.def(
