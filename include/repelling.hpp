@@ -90,9 +90,9 @@ struct TabooPoint
 
     //! The distance from x to this point in the metric of p.settings.modules.repelling_metric,
     //! divided by the current sigma
-    Float distance(const Vector &x, const parameters::Parameters &p) const;
+    Float distance(Eigen::Ref<const Vector> x, const parameters::Parameters &p) const;
 
-    bool rejects(const Vector &xi, const parameters::Parameters &p, const int attempts) const;
+    bool rejects(Eigen::Ref<const Vector> xi, const parameters::Parameters &p, const int attempts) const;
 
     bool
     shares_basin(FunctionType &objective, const Solution &sol, parameters::Parameters &p) const;
@@ -113,7 +113,7 @@ struct Repelling
 
     virtual ~Repelling() = default;
 
-    virtual bool is_rejected(const Vector &xi, parameters::Parameters &p);
+    virtual bool is_rejected(Eigen::Ref<const Vector> xi, parameters::Parameters &p);
     virtual void update_archive(FunctionType &objective, parameters::Parameters &p);
     virtual void prepare_sampling(parameters::Parameters &p);
     virtual void adapt_radii_after_sampling(parameters::Parameters &p);
@@ -160,7 +160,7 @@ struct CoverageRepelling : Repelling
 
 struct NoRepelling final : Repelling
 {
-    bool is_rejected(const Vector &xi, parameters::Parameters &p) override { return false; }
+    bool is_rejected(Eigen::Ref<const Vector>, parameters::Parameters &) override { return false; }
 
     void update_archive(FunctionType &objective, parameters::Parameters &p) override {}
     void prepare_sampling(parameters::Parameters &p) override {}

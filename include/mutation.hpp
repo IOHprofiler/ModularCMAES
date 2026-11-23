@@ -29,19 +29,27 @@ struct ThresholdConvergence
 {
     Float init_threshold = 0.1;
     Float decay_factor = 0.995;
-    virtual Vector
-    scale(const Vector &zi, const Float diameter, const size_t budget, const size_t evaluations);
+    virtual ~ThresholdConvergence() = default;
+
+    //! Scale zi in place up to the threshold length
+    virtual void scale_inplace(Eigen::Ref<Vector> zi,
+                               const Float diameter,
+                               const size_t budget,
+                               const size_t evaluations);
+
+    //! The scaled zi as a new vector
+    [[nodiscard]] Vector
+    scale(const Vector &zi, const Float diameter, const size_t budget, const size_t evaluations)
+    {
+        Vector z = zi;
+        scale_inplace(z, diameter, budget, evaluations);
+        return z;
+    }
 };
 
 struct NoThresholdConvergence : ThresholdConvergence
 {
-    Vector scale(const Vector &zi,
-                 const Float diameter,
-                 const size_t budget,
-                 const size_t evaluations) override
-    {
-        return zi;
-    }
+    void scale_inplace(Eigen::Ref<Vector>, const Float, const size_t, const size_t) override {}
 };
 
 class SequentialSelection

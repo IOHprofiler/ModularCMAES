@@ -266,6 +266,9 @@ struct CachedShuffleSequence
     Vector get_index(const size_t idx);
 
     Vector next();
+
+    //! The next point, written into out (no allocation)
+    void next(Eigen::Ref<Vector> out);
 };
 
 /**

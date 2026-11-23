@@ -204,7 +204,7 @@ void define_utils(nb::module_ &main)
         .def(nb::init<size_t>(), nb::arg("dim"))
         .def("fill", &rng::CachedShuffleSequence::fill, nb::arg("c"))
         .def("get_index", &rng::CachedShuffleSequence::get_index, nb::arg("index"))
-        .def("next", &rng::CachedShuffleSequence::next);
+        .def("next", static_cast<Vector (rng::CachedShuffleSequence::*)()>(&rng::CachedShuffleSequence::next));
 }
 } // namespace modcma_python
 

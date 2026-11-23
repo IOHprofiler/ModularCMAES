@@ -15,12 +15,10 @@ struct PySampler : sampling::Sampler
     {
     }
 
-    Vector operator()() override
+    void sample(Eigen::Ref<Vector> out) override
     {
-        Vector res(d);
         for (size_t j = 0; j < d; ++j)
-            res(j) = func();
-        return res;
+            out(j) = func();
     }
 };
 
@@ -47,7 +45,7 @@ void define_samplers(nb::module_ &main)
 
     nb::class_<PySampler, Sampler>(m, "PySampler")
         .def(nb::init<size_t, std::function<Float()>>(), nb::arg("d"), nb::arg("function"))
-        .def("__call__", &PySampler::operator());
+        .def("__call__", &Sampler::operator());
 
     nb::class_<Gaussian, Sampler>(m, "Gaussian")
         .def(nb::init<size_t>(), nb::arg("d"))

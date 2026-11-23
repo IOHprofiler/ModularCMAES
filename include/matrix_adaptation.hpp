@@ -70,7 +70,16 @@ struct Adaptation
                                     const parameters::Settings &settings,
                                     parameters::Stats &stats) = 0;
 
-    virtual Vector compute_y(const Vector &) = 0;
+    //! y = A z for the sampling transformation A, written into y (no allocation)
+    virtual void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) = 0;
+
+    //! y = A z as a new vector
+    [[nodiscard]] Vector compute_y(const Vector &z)
+    {
+        Vector y(z.size());
+        compute_y_into(z, y);
+        return y;
+    }
 
     virtual Vector invert_x(const Vector &, Vector sigma);
 
@@ -119,7 +128,7 @@ struct None final : Adaptation
                                      size_t mu,
                                      size_t lambda) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     Vector invert_y(const Vector &) override;
 };
@@ -168,7 +177,7 @@ struct CovarianceAdaptation : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     Vector invert_y(const Vector &) override;
 };
@@ -203,7 +212,7 @@ struct SeparableAdaptation : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     Vector invert_y(const Vector &) override;
 };
@@ -237,7 +246,7 @@ struct MatrixAdaptation final : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     Vector invert_y(const Vector &) override;
 
@@ -278,7 +287,7 @@ struct CholeskyAdaptation final : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     Vector invert_y(const Vector &) override;
 };
@@ -311,7 +320,7 @@ struct SelfAdaptation final : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     Vector invert_y(const Vector &) override;
 };
@@ -370,7 +379,7 @@ struct NaturalGradientAdaptation final : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     Vector invert_y(const Vector &) override;
 

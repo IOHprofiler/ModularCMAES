@@ -136,6 +136,12 @@ Vector CachedShuffleSequence::get_index(const size_t idx)
 }
 
 Vector CachedShuffleSequence::next() { return get_index(shuffler.next()); }
+
+void CachedShuffleSequence::next(Eigen::Ref<Vector> out)
+{
+    const size_t idx = shuffler.next();
+    out = Eigen::Map<const Vector>(cache.data() + (idx * dim), static_cast<Eigen::Index>(dim));
+}
 } // namespace rng
 
 namespace functions

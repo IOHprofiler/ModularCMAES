@@ -54,7 +54,7 @@ void None::adapt_evolution_paths_inner(const Population &pop,
         adapt_ps(w);
 }
 
-Vector None::compute_y(const Vector &zi) { return zi; }
+void None::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) { y = z; }
 
 Vector None::invert_y(const Vector &yi) { return yi; }
 
@@ -182,7 +182,10 @@ void CovarianceAdaptation::restart(const Settings &settings, const Float sigma)
     pc.setZero();
 }
 
-Vector CovarianceAdaptation::compute_y(const Vector &zi) { return A * zi; }
+void CovarianceAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
+{
+    y.noalias() = A * z;
+}
 
 Vector CovarianceAdaptation::invert_y(const Vector &yi)
 {
@@ -248,7 +251,10 @@ void SeparableAdaptation::restart(const parameters::Settings &settings, const Fl
     pc.setZero();
 }
 
-Vector SeparableAdaptation::compute_y(const Vector &zi) { return d.array() * zi.array(); }
+void SeparableAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
+{
+    y = d.array() * z.array();
+}
 
 Vector SeparableAdaptation::invert_y(const Vector &yi) { return yi.array() / d.array(); }
 
@@ -314,7 +320,10 @@ void MatrixAdaptation::restart(const Settings &settings, const Float sigma)
     outdated_M_inv = false;
 }
 
-Vector MatrixAdaptation::compute_y(const Vector &zi) { return M * zi; }
+void MatrixAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
+{
+    y.noalias() = M * z;
+}
 
 Vector MatrixAdaptation::invert_y(const Vector &yi)
 {
@@ -378,7 +387,10 @@ void CholeskyAdaptation::restart(const parameters::Settings &settings, const Flo
     pc.setZero();
 }
 
-Vector CholeskyAdaptation::compute_y(const Vector &zi) { return A * zi; }
+void CholeskyAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
+{
+    y.noalias() = A * z;
+}
 
 Vector CholeskyAdaptation::invert_y(const Vector &yi)
 {
@@ -439,7 +451,10 @@ void SelfAdaptation::restart(const parameters::Settings &settings, const Float s
     C = Matrix::Identity(settings.dim, settings.dim);
 }
 
-Vector SelfAdaptation::compute_y(const Vector &zi) { return A * zi; }
+void SelfAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
+{
+    y.noalias() = A * z;
+}
 
 Vector SelfAdaptation::invert_y(const Vector &yi)
 {
@@ -547,7 +562,10 @@ void NaturalGradientAdaptation::restart(const parameters::Settings &settings, co
     sigma_g = 0.;
 }
 
-Vector NaturalGradientAdaptation::compute_y(const Vector &zi) { return A * zi; }
+void NaturalGradientAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
+{
+    y.noalias() = A * z;
+}
 
 Vector NaturalGradientAdaptation::invert_y(const Vector &yi)
 {

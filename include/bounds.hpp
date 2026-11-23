@@ -14,8 +14,9 @@ struct Settings;
 
 namespace bounds
 {
-Mask is_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub);
-bool any_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub);
+Mask is_out_of_bounds(Eigen::Ref<const Vector> xi, const Vector &lb, const Vector &ub);
+//! Whether any coordinate of xi is outside [lb, ub] (without allocating a mask)
+bool any_out_of_bounds(Eigen::Ref<const Vector> xi, const Vector &lb, const Vector &ub);
 
 struct BoundCorrection
 {

@@ -11,8 +11,10 @@ struct Strategy;
 namespace sampling
 {
 /**
- * @brief Sampler generic class, functor return a vector of random
- * numbers for a given size.
+ * @brief Sampler generic class: generates vectors of random numbers of size d.
+ *
+ * Subclasses implement sample(out), which writes one sample into out (a vector or a column of a
+ * matrix, without allocating). operator()() returns a new vector, for code that wants one.
  */
 struct Sampler
 {
@@ -20,12 +22,24 @@ struct Sampler
         d(d)
     {
     }
+    virtual ~Sampler() = default;
+
     size_t d;
 
     virtual void reset(const parameters::Modules &, const size_t) {}
 
     virtual Float expected_length() { return std::sqrt(static_cast<Float>(d)); }
-    [[nodiscard]] virtual Vector operator()() = 0;
+
+    //! Write one sample into out (out.size() == d)
+    virtual void sample(Eigen::Ref<Vector> out) = 0;
+
+    //! One sample as a new vector
+    [[nodiscard]] Vector operator()()
+    {
+        Vector x(d);
+        sample(x);
+        return x;
+    }
 };
 
 /**
@@ -38,7 +52,7 @@ struct Tester : Sampler
     {
     }
 
-    [[nodiscard]] Vector operator()() override;
+    void sample(Eigen::Ref<Vector> out) override;
 
   private:
     size_t i = 0;
@@ -62,12 +76,10 @@ template <typename Distribution = rng::normal<Float>> struct Random : Sampler
     {
     }
 
-    [[nodiscard]] Vector operator()() override
+    void sample(Eigen::Ref<Vector> out) override
     {
-        Vector x(d);
-        for (auto &xi : x)
+        for (auto &xi : out)
             xi = dist(rng::GENERATOR);
-        return x;
     }
 
   private:
@@ -89,11 +101,12 @@ struct Mirrored : Sampler
 {
     Mirrored(const std::shared_ptr<Sampler> sampler) :
         Sampler(sampler->d),
-        sampler(sampler)
+        sampler(sampler),
+        previous(sampler->d)
     {
     }
 
-    [[nodiscard]] Vector operator()() override;
+    void sample(Eigen::Ref<Vector> out) override;
 
     void reset(const parameters::Modules &m, const size_t l) override
     {
@@ -128,7 +141,7 @@ struct Orthogonal : Sampler
     {
     }
 
-    [[nodiscard]] Vector operator()() override;
+    void sample(Eigen::Ref<Vector> out) override;
 
     void reset(const parameters::Modules &mod, const size_t lambda) override;
 
@@ -151,7 +164,7 @@ struct Halton : Sampler
 {
     Halton(const size_t d, const bool scramble = true);
 
-    [[nodiscard]] Vector operator()() override;
+    void sample(Eigen::Ref<Vector> out) override;
 
   private:
     int index_;
@@ -181,7 +194,7 @@ struct Sobol : Sampler
 
     Sobol(const size_t dim);
 
-    [[nodiscard]] Vector operator()() override { return cache.next(); }
+    void sample(Eigen::Ref<Vector> out) override { cache.next(out); }
 };
 
 /**
@@ -218,13 +231,13 @@ struct CachedSampler : Sampler
                     si = ppf(si);
     }
 
-    [[nodiscard]] Vector operator()() override
+    void sample(Eigen::Ref<Vector> out) override
     {
-        Vector sample;
+        // The first n_samples samples fill the cache (allocating); later ones only copy
         if (index < n_samples)
-            cache.emplace_back(sampler->operator()());
+            cache.emplace_back((*sampler)());
 
-        return cache[index++ % n_samples];
+        out = cache[index++ % n_samples];
     }
 };
 
@@ -239,12 +252,26 @@ struct SampleTransformer : Sampler
         sampler(sampler)
     {
     }
-    /**
-     * Should be overwritten, transforms U(0,1) indep samples into something else
-     */
-    [[nodiscard]] virtual Vector transform(const Vector &x) = 0;
 
-    [[nodiscard]] virtual Vector operator()() override { return transform((*sampler)()); }
+    /**
+     * Should be overwritten: transforms U(0,1) independent samples into something else, in
+     * place
+     */
+    virtual void transform_inplace(Eigen::Ref<Vector> x) = 0;
+
+    //! The transformation of x, as a new vector
+    [[nodiscard]] Vector transform(const Vector &x)
+    {
+        Vector y = x;
+        transform_inplace(y);
+        return y;
+    }
+
+    void sample(Eigen::Ref<Vector> out) override
+    {
+        sampler->sample(out);
+        transform_inplace(out);
+    }
 
     void reset(const parameters::Modules &m, const size_t l) override { sampler->reset(m, l); }
 
@@ -260,7 +287,7 @@ struct IdentityTransformer : SampleTransformer
     {
     }
 
-    [[nodiscard]] virtual Vector transform(const Vector &x) { return x; }
+    void transform_inplace(Eigen::Ref<Vector>) override {}
 };
 
 //! Adds ppf to transform into gaussian
@@ -291,49 +318,49 @@ struct GaussianTransformer : SampleTransformer
     bool needs_new_sample = true;
     Float extra_sample = 0;
 
-    [[nodiscard]] inline Vector box_muller(const Vector &u)
+    //! Box-Muller in place: pairs (u_2i, u_2i+1) become two standard normal numbers
+    inline void box_muller_inplace(Eigen::Ref<Vector> u)
     {
-        size_t n = u.size();
-        size_t m = n / 2;
+        const Eigen::Index n = u.size();
+        const Eigen::Index m = n / 2;
 
-        Vector z(n);
-        for (size_t i = 0; i < m; ++i)
+        for (Eigen::Index i = 0; i < m; ++i)
         {
-            const auto &[n1, n2] = box_muller(u(2 * i), u(2 * i + 1));
-            z(2 * i) = n1;
-            z(2 * i + 1) = n2;
+            const auto [n1, n2] = box_muller(u(2 * i), u(2 * i + 1));
+            u(2 * i) = n1;
+            u(2 * i + 1) = n2;
         }
 
         if (n % 2 != 0)
         {
             if (u_extra.size() <= n_extra_used)
             {
-                u_extra = (*sampler)();
+                u_extra.resize(static_cast<Eigen::Index>(sampler->d));
+                sampler->sample(u_extra);
                 n_extra_used = 0;
             }
 
             if (needs_new_sample)
             {
-                const auto &[n1, n2] = box_muller(u(n - 1), u_extra(n_extra_used++));
-                z(n - 1) = n1;
+                const auto [n1, n2] = box_muller(u(n - 1), u_extra(n_extra_used++));
+                u(n - 1) = n1;
                 extra_sample = n2;
                 needs_new_sample = false;
             }
             else
             {
-                z(n - 1) = extra_sample;
+                u(n - 1) = extra_sample;
                 needs_new_sample = true;
             }
         }
-
-        return z;
     }
 
-    [[nodiscard]] virtual Vector transform(const Vector &x) override
+    void transform_inplace(Eigen::Ref<Vector> x) override
     {
         if (constants::use_box_muller)
-            return box_muller(x);
-        return x.unaryExpr(&ppf);
+            box_muller_inplace(x);
+        else
+            x = x.unaryExpr(&ppf);
     }
 };
 
@@ -346,9 +373,9 @@ struct UniformScaler : SampleTransformer
     {
     }
 
-    [[nodiscard]] virtual Vector transform(const Vector &x) override
+    void transform_inplace(Eigen::Ref<Vector> x) override
     {
-        return (-scale + (2.0 * scale) * x.array()).matrix();
+        x = (-scale + (2.0 * scale) * x.array()).matrix();
     }
 };
 
@@ -361,11 +388,11 @@ struct LaplaceTransformer : SampleTransformer
     {
     }
 
-    [[nodiscard]] virtual Vector transform(const Vector &x) override
+    void transform_inplace(Eigen::Ref<Vector> x) override
     {
-        return ((x.array() < 0.5)
-                    .select(b * (2.0 * x.array()).log(), -b * (2.0 * (1.0 - x.array())).log()))
-            .matrix();
+        x = ((x.array() < 0.5)
+                 .select(b * (2.0 * x.array()).log(), -b * (2.0 * (1.0 - x.array())).log()))
+                .matrix();
     }
 };
 
@@ -378,10 +405,17 @@ struct LogisticTransformer : SampleTransformer
     {
     }
 
-    [[nodiscard]] virtual Vector transform(const Vector &x) override
+    void transform_inplace(Eigen::Ref<Vector> x) override
     {
-        return (s * (x.array() / (1.0 - x.array())).log()).matrix();
+        // Evaluated into an aligned vector: Eigen's vectorized log (plog) and std::log differ in
+        // the last bit, and an unaligned destination (a column of the population) would compute
+        // its first coefficients with std::log, changing the samples' bits.
+        scratch = (s * (x.array() / (1.0 - x.array())).log()).matrix();
+        x = scratch;
     }
+
+  private:
+    Vector scratch;
 };
 
 struct CauchyTransformer : SampleTransformer
@@ -403,9 +437,9 @@ struct CauchyTransformer : SampleTransformer
         return median_z;
     }
 
-    [[nodiscard]] virtual Vector transform(const Vector &x) override
+    void transform_inplace(Eigen::Ref<Vector> x) override
     {
-        return (gamma * (M_PI * (x.array() - 0.5)).tan()).matrix();
+        x = (gamma * (M_PI * (x.array() - 0.5)).tan()).matrix();
     }
 };
 
@@ -416,12 +450,12 @@ struct DoubleWeibullTransformer : SampleTransformer
     {
     }
 
-    [[nodiscard]] virtual Vector transform(const Vector &x) override
+    void transform_inplace(Eigen::Ref<Vector> x) override
     {
-        return ((x.array() < 0.5)
-                    .select(-(-((2.0 * x.array()).log())).sqrt(),
-                            (-((2.0 * (1.0 - x.array())).log())).sqrt()))
-            .matrix();
+        x = ((x.array() < 0.5)
+                 .select(-(-((2.0 * x.array()).log())).sqrt(),
+                         (-((2.0 * (1.0 - x.array())).log())).sqrt()))
+                .matrix();
     }
 };
 

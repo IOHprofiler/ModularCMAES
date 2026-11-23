@@ -94,7 +94,7 @@ Matrix archived_metric(parameters::Parameters &p)
     return inverse * std::exp(-log_abs_det / static_cast<Float>(d));
 }
 
-Float TabooPoint::distance(const Vector &x, const parameters::Parameters &p) const
+Float TabooPoint::distance(Eigen::Ref<const Vector> x, const parameters::Parameters &p) const
 {
     Float delta;
     switch (p.settings.modules.repelling_metric)
@@ -111,13 +111,13 @@ Float TabooPoint::distance(const Vector &x, const parameters::Parameters &p) con
         [[fallthrough]];
     case parameters::RepellingMetric::EUCLIDEAN:
     default:
-        delta = distance::euclidian(x, solution.x);
+        delta = (x - solution.x).norm();
         break;
     }
     return delta / p.mutation->sigma;
 }
 
-bool TabooPoint::rejects(const Vector &xi,
+bool TabooPoint::rejects(Eigen::Ref<const Vector> xi,
                          const parameters::Parameters &p,
                          const int attempts) const
 {
@@ -178,7 +178,7 @@ void Repelling::update_archive(FunctionType & /*objective*/, parameters::Paramet
     // Base implementation intentionally does nothing.
 }
 
-bool Repelling::is_rejected(const Vector &xi, parameters::Parameters &p)
+bool Repelling::is_rejected(Eigen::Ref<const Vector> xi, parameters::Parameters &p)
 {
     static constexpr Float criticality_threshold = 0.01;
 

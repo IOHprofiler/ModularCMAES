@@ -6,18 +6,17 @@
 
 namespace mutation
 {
-Vector ThresholdConvergence::scale(const Vector &zi,
-                                   const Float diameter,
-                                   const size_t budget,
-                                   const size_t evaluations)
+void ThresholdConvergence::scale_inplace(Eigen::Ref<Vector> zi,
+                                         const Float diameter,
+                                         const size_t budget,
+                                         const size_t evaluations)
 {
     const Float t =
         init_threshold * diameter *
         pow(static_cast<Float>(budget - evaluations) / static_cast<Float>(budget), decay_factor);
 
     if (const auto norm = zi.norm(); norm < t)
-        return zi.array() * ((t + (t - norm)) / norm);
-    return zi;
+        zi.array() *= ((t + (t - norm)) / norm);
 }
 
 bool SequentialSelection::break_conditions(const size_t i,
@@ -73,22 +72,22 @@ void Strategy::mutate(FunctionType &objective, const size_t n_offspring, paramet
         size_t n_rej = 0;
         do
         {
+            // Every step writes into the columns of the population: no allocation per sample
             p.pop.t(i) = p.stats.t;
-            const auto &zi = (*p.sampler)();
-            const auto &zi_scaled = p.mutation->tc->scale(
-                zi, p.settings.diameter, p.settings.budget, p.stats.evaluations);
-            p.pop.Z.col(i).noalias() = zi_scaled;
-            p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));
+            p.sampler->sample(p.pop.Z.col(i));
+            p.mutation->tc->scale_inplace(
+                p.pop.Z.col(i), p.settings.diameter, p.settings.budget, p.stats.evaluations);
+            p.adaptation->compute_y_into(p.pop.Z.col(i), p.pop.Y.col(i));
             p.pop.X.col(i).array() =
                 p.pop.Y.col(i).array() * p.pop.S.col(i).array() + p.adaptation->m.array();
             p.bounds->correct(i, p);
 
         } while ((p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
                   n_rej++ < 5 * p.settings.dim &&
-                  p.bounds->is_out_of_bounds(p.pop.X.col(i), p.settings).any()) ||
+                  bounds::any_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub)) ||
                  p.repelling->is_rejected(p.pop.X.col(i), p));
 
-        p.pop.X_transformed.col(i) = p.coordinate_mapping->transform(p.pop.X.col(i));
+        p.coordinate_mapping->transform_into(p.pop.X.col(i), p.pop.X_transformed.col(i));
 
         p.pop.f(i) = objective(p.pop.X_transformed.col(i));
         p.stats.evaluations++;
