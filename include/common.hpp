@@ -205,11 +205,18 @@ template <typename T> T nearest_power_of_2(const T value)
 
 namespace rng
 {
+//! The random generator of the library
+using Generator = std::mt19937;
+
 //! The global seed value
 extern int SEED;
 
-//! The random generator
-extern std::mt19937 GENERATOR;
+/**
+ * The global random generator. Every optimizer draws from a generator of its own (see fork());
+ * objects that are created outside an optimizer (a sampler on its own, the ES baselines) draw from
+ * this one.
+ */
+extern Generator GENERATOR;
 
 /**
  * @brief Set the global seed and reseed the random generator (mt19937)
@@ -217,14 +224,26 @@ extern std::mt19937 GENERATOR;
  * @param seed
  */
 void set_seed(int seed);
+
+//! The global generator as a shared pointer (not owning it), the default generator of objects
+[[nodiscard]] std::shared_ptr<Generator> global();
+
 /**
- * @brief random integer generator using global GENERATOR in the half open interval [l, h)
+ * A generator for a new optimizer: a copy of the global generator, after which the global generator
+ * moves on to a different state. After set_seed(s), the first optimizer draws exactly the numbers
+ * the global generator would have drawn; a second one draws different numbers. Thread-safe.
+ */
+[[nodiscard]] std::shared_ptr<Generator> fork();
+
+/**
+ * @brief random integer in the half open interval [l, h)
  *
  * @param l lower bound
  * @param h upper bound
+ * @param gen the generator to draw from
  * @return int a random integer
  */
-int random_integer(const int l, const int h);
+int random_integer(const int l, const int h, Generator &gen = GENERATOR);
 
 /**
  * @brief a shuffler that generates a random permutation of a
@@ -241,20 +260,21 @@ struct Shuffler
     size_t modulus;
     size_t found;
 
-    Shuffler(const size_t start, const size_t stop) :
+    Shuffler(const size_t start, const size_t stop, Generator &gen = GENERATOR) :
         start(start),
         stop(stop),
         n(stop - start),
-        seed(static_cast<size_t>(random_integer(0, static_cast<int>(stop - start)))),
-        offset(static_cast<size_t>(random_integer(0, static_cast<int>(stop - start)) * 2 + 1)),
+        seed(static_cast<size_t>(random_integer(0, static_cast<int>(stop - start), gen))),
+        offset(
+            static_cast<size_t>(random_integer(0, static_cast<int>(stop - start), gen) * 2 + 1)),
         multiplier(4 * ((stop - start) / 4) + 1),
         modulus(static_cast<size_t>(pow(2, std::ceil(std::log2(stop - start))))),
         found(0)
     {
     }
 
-    Shuffler(const size_t stop) :
-        Shuffler(0, stop)
+    Shuffler(const size_t stop, Generator &gen = GENERATOR) :
+        Shuffler(0, stop, gen)
     {
     }
 
@@ -270,7 +290,7 @@ struct CachedShuffleSequence
     std::vector<Float> cache;
     Shuffler shuffler;
 
-    CachedShuffleSequence(const size_t d);
+    CachedShuffleSequence(const size_t d, Generator &gen = GENERATOR);
 
     void fill(const std::vector<Float> &c);
 

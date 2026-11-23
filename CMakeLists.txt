@@ -44,9 +44,11 @@ if (SKBUILD OR MODCMA_PYTHON)
   find_package(nanobind CONFIG REQUIRED)
   file(GLOB BINDING_SOURCES ${PROJECT_SOURCE_DIR}/bindings/*.cpp)
   # NOMINSIZE: keep -O3 (nanobind's default -Os slows the bindings down, measured in
-  # IOHexperimenter). STABLE_ABI: one wheel for CPython 3.12+ (ignored for older versions).
-  # Not FREE_THREADED: the random generator and other state are global (TASKS.md, T4.1).
-  nanobind_add_module(cmaescpp NOMINSIZE STABLE_ABI ${BINDING_SOURCES})
+  # IOHexperimenter). STABLE_ABI: one wheel for CPython 3.12+ (ignored for older versions and
+  # free-threaded builds). FREE_THREADED: on a free-threaded interpreter the module does not
+  # re-enable the GIL; every optimizer has its own random generator (TASKS.md, T4.1), so
+  # optimizers can run in parallel threads (ignored on other interpreters).
+  nanobind_add_module(cmaescpp NOMINSIZE STABLE_ABI FREE_THREADED ${BINDING_SOURCES})
   target_link_libraries(cmaescpp PRIVATE modcma_core)
   install(TARGETS cmaescpp LIBRARY DESTINATION modcma/c_maes)
 endif()

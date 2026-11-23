@@ -1,5 +1,7 @@
 #include "common.hpp"
 
+#include <mutex>
+
 template <typename T> std::ostream &operator<<(std::ostream &os, const std::vector<T> &x)
 {
     for (auto &xi : x)
@@ -95,19 +97,35 @@ std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, c
 namespace rng
 {
 int SEED = std::random_device()();
-std::mt19937 GENERATOR(SEED);
+Generator GENERATOR(SEED);
+
+namespace
+{
+std::mutex global_mutex;
+}
 
 void set_seed(const int seed)
 {
+    const std::lock_guard<std::mutex> lock(global_mutex);
     SEED = seed;
     GENERATOR.seed(seed);
     srand(seed);
 }
 
-int random_integer(const int l, const int h)
+std::shared_ptr<Generator> global() { return std::shared_ptr<Generator>(std::shared_ptr<void>{}, &GENERATOR); }
+
+std::shared_ptr<Generator> fork()
+{
+    const std::lock_guard<std::mutex> lock(global_mutex);
+    auto generator = std::make_shared<Generator>(GENERATOR);
+    GENERATOR.seed(GENERATOR());
+    return generator;
+}
+
+int random_integer(const int l, const int h, Generator &gen)
 {
     std::uniform_int_distribution<> distrib(l, std::max(l, h - 1));
-    return distrib(GENERATOR);
+    return distrib(gen);
 }
 
 void Shuffler::advance()
@@ -126,12 +144,12 @@ size_t Shuffler::next()
     return start + seed;
 }
 
-CachedShuffleSequence::CachedShuffleSequence(const size_t d) :
+CachedShuffleSequence::CachedShuffleSequence(const size_t d, Generator &gen) :
     dim(d),
     n_samples(std::max(constants::cache_min_samples,
                        utils::nearest_power_of_2(constants::cache_max_doubles / d))),
     cache(n_samples * d, 0.0),
-    shuffler(n_samples)
+    shuffler(n_samples, gen)
 {
 }
 

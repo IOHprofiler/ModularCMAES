@@ -39,6 +39,10 @@ struct Settings
     bool verbose;
     bool one_plus_one;
 
+    //! The seed of the optimizer's own random generator. Without one, the optimizer starts from
+    //! the global generator (rng::set_seed) when it is created (rng::fork).
+    std::optional<int> seed = std::nullopt;
+
     Settings(size_t dim,
              std::optional<Modules> mod = std::nullopt,
              std::optional<Float> target = std::nullopt,

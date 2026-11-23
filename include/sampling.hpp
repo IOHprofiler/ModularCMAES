@@ -65,25 +65,31 @@ struct Tester : Sampler
 template <typename Distribution = rng::normal<Float>> struct Random : Sampler
 {
 
-    Random(const size_t d) :
+    Random(const size_t d, std::shared_ptr<rng::Generator> generator = rng::global()) :
         Sampler(d),
-        dist{}
+        dist{},
+        generator(std::move(generator))
     {
     }
-    Random(const size_t d, const Distribution &dist) :
+    Random(const size_t d,
+           const Distribution &dist,
+           std::shared_ptr<rng::Generator> generator = rng::global()) :
         Sampler(d),
-        dist(dist)
+        dist(dist),
+        generator(std::move(generator))
     {
     }
 
     void sample(Eigen::Ref<Vector> out) override
     {
+        rng::Generator &gen = *generator;
         for (auto &xi : out)
-            xi = dist(rng::GENERATOR);
+            xi = dist(gen);
     }
 
   private:
     Distribution dist;
+    std::shared_ptr<rng::Generator> generator;
 };
 
 // //! Gaussian distribution sampler
@@ -162,7 +168,9 @@ struct Orthogonal : Sampler
  */
 struct Halton : Sampler
 {
-    Halton(const size_t d, const bool scramble = true);
+    Halton(const size_t d,
+           const bool scramble = true,
+           const std::shared_ptr<rng::Generator> &generator = rng::global());
 
     void sample(Eigen::Ref<Vector> out) override;
 
@@ -179,7 +187,7 @@ struct Halton : Sampler
     static std::vector<int> sieve(const int n);
 
     static std::vector<std::vector<std::vector<int>>>
-    get_permutations(const std::vector<int> &primes);
+    get_permutations(const std::vector<int> &primes, rng::Generator &gen);
 
     static std::vector<int> n_primes(const size_t d);
 };
@@ -192,7 +200,7 @@ struct Sobol : Sampler
 {
     rng::CachedShuffleSequence cache;
 
-    Sobol(const size_t dim);
+    Sobol(const size_t dim, const std::shared_ptr<rng::Generator> &generator = rng::global());
 
     void sample(Eigen::Ref<Vector> out) override { cache.next(out); }
 };
@@ -459,6 +467,10 @@ struct DoubleWeibullTransformer : SampleTransformer
     }
 };
 
-std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules &mod, const size_t lambda);
+//! The sampler of the modules; its random numbers come from generator
+std::shared_ptr<Sampler> get(const size_t dim,
+                             const parameters::Modules &mod,
+                             const size_t lambda,
+                             const std::shared_ptr<rng::Generator> &generator = rng::global());
 
 } // namespace sampling

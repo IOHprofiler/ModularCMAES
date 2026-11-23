@@ -25,6 +25,10 @@ struct Parameters
 
     Settings settings;
     Stats stats;
+
+    //! The random generator of this optimizer: every module draws from it
+    std::shared_ptr<rng::Generator> generator;
+
     std::shared_ptr<sampling::Sampler> sampler;
 
     Weights weights;

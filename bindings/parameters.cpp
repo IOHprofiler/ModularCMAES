@@ -185,7 +185,8 @@ void define_parameters(nb::module_ &main)
                std::optional<Float> damps,
                std::optional<Float> acov,
                bool verbose,
-               bool always_compute_eigv) {
+               bool always_compute_eigv,
+               std::optional<int> seed) {
                 new (self) Settings(dim,
                                     modules,
                                     target,
@@ -206,6 +207,7 @@ void define_parameters(nb::module_ &main)
                                     acov,
                                     verbose,
                                     always_compute_eigv);
+                self->seed = seed;
             },
             nb::arg("dim"),
             nb::arg("modules") = nb::none(),
@@ -227,8 +229,13 @@ void define_parameters(nb::module_ &main)
             nb::arg("damps") = nb::none(),
             nb::arg("acov") = nb::none(),
             nb::arg("verbose") = false,
-            nb::arg("always_compute_eigv") = false)
+            nb::arg("always_compute_eigv") = false,
+            nb::arg("seed") = nb::none())
         .def_ro("dim", &Settings::dim)
+        .def_rw("seed",
+                &Settings::seed,
+                "The seed of the optimizer's own random generator; None: the optimizer starts "
+                "from the global generator (utils.set_seed) when it is created")
         .def_ro("modules", &Settings::modules)
         .def_rw("target", &Settings::target)
         .def_rw("max_generations", &Settings::max_generations)

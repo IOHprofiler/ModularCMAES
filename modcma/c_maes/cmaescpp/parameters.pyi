@@ -321,10 +321,19 @@ class Weights:
     def __repr__(self) -> str: ...
 
 class Settings:
-    def __init__(self, dim: int, modules: Modules | None = None, *, target: float | None = None, max_generations: int | None = None, budget: int | None = None, sigma0: float | None = None, mu0: int | None = None, lambda0: int | None = None, x0: Sequence[float] | None = None, lb: Sequence[float] | None = None, ub: Sequence[float] | None = None, integer_variables: Sequence[int] | None = None, cs: float | None = None, cc: float | None = None, cmu: float | None = None, c1: float | None = None, damps: float | None = None, acov: float | None = None, verbose: bool = False, always_compute_eigv: bool = False) -> None: ...
+    def __init__(self, dim: int, modules: Modules | None = None, *, target: float | None = None, max_generations: int | None = None, budget: int | None = None, sigma0: float | None = None, mu0: int | None = None, lambda0: int | None = None, x0: Sequence[float] | None = None, lb: Sequence[float] | None = None, ub: Sequence[float] | None = None, integer_variables: Sequence[int] | None = None, cs: float | None = None, cc: float | None = None, cmu: float | None = None, c1: float | None = None, damps: float | None = None, acov: float | None = None, verbose: bool = False, always_compute_eigv: bool = False, seed: int | None = None) -> None: ...
 
     @property
     def dim(self) -> int: ...
+
+    @property
+    def seed(self) -> int | None:
+        """
+        The seed of the optimizer's own random generator; None: the optimizer starts from the global generator (utils.set_seed) when it is created
+        """
+
+    @seed.setter
+    def seed(self, arg: int | None, /) -> None: ...
 
     @property
     def modules(self) -> Modules: ...

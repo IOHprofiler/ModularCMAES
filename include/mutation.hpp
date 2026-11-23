@@ -96,8 +96,9 @@ struct SigmaSampler
 {
     sampling::GaussianTransformer sampler;
 
-    SigmaSampler(const Float d) :
-        sampler{std::make_shared<sampling::Uniform>(d)}
+    SigmaSampler(const Float d,
+                 const std::shared_ptr<rng::Generator> &generator = rng::global()) :
+        sampler{std::make_shared<sampling::Uniform>(static_cast<size_t>(d), generator)}
     {
     }
 
@@ -322,6 +323,10 @@ struct SA : Strategy
     Float mean_sigma;
 };
 
-std::shared_ptr<Strategy> get(const parameters::Modules &m, const Float d, const Float sigma);
+//! The step-size adaptation of the modules; the sigma sampler draws from generator
+std::shared_ptr<Strategy> get(const parameters::Modules &m,
+                              const Float d,
+                              const Float sigma,
+                              const std::shared_ptr<rng::Generator> &generator = rng::global());
 
 } // namespace mutation

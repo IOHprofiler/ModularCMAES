@@ -21,7 +21,7 @@ Float IPOP::update(parameters::Parameters &p)
 
 Float BIPOP::update(parameters::Parameters &p)
 {
-    static std::uniform_real_distribution<> dist;
+    std::uniform_real_distribution<> dist;
 
     const auto last_used_budget = p.stats.evaluations - used_budget;
     used_budget += last_used_budget;
@@ -46,7 +46,7 @@ Float BIPOP::update(parameters::Parameters &p)
     lambda_small =
         static_cast<size_t>(std::floor(static_cast<Float>(lambda_init) *
                                        std::pow(.5 / static_cast<Float>(lambda_large) / lambda_init,
-                                                std::pow(dist(rng::GENERATOR), 2))));
+                                                std::pow(dist(*p.generator), 2))));
 
     if (lambda_small % 2 != 0)
         lambda_small++;
@@ -54,6 +54,6 @@ Float BIPOP::update(parameters::Parameters &p)
     p.lambda = std::max(size_t{2}, large() ? lambda_large : lambda_small);
     p.mu = std::max(Float{1.0}, p.lambda * mu_factor);
     return large() ? p.settings.sigma0
-                   : p.settings.sigma0 * std::pow(10, -2 * dist(rng::GENERATOR));
+                   : p.settings.sigma0 * std::pow(10, -2 * dist(*p.generator));
 }
 } // namespace restart

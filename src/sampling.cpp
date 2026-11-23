@@ -58,7 +58,9 @@ void Orthogonal::reset(const parameters::Modules &mod, const size_t lambda)
     current = 0;
 }
 
-Halton::Halton(const size_t d, const bool scramble) :
+Halton::Halton(const size_t d,
+               const bool scramble,
+               const std::shared_ptr<rng::Generator> &generator) :
     Sampler(d),
     index_(6),
     scramble_(scramble),
@@ -66,7 +68,7 @@ Halton::Halton(const size_t d, const bool scramble) :
     permutations_(d)
 {
     if (scramble_)
-        permutations_ = get_permutations(primes_);
+        permutations_ = get_permutations(primes_, *generator);
 }
 
 void Halton::sample(Eigen::Ref<Vector> out)
@@ -125,7 +127,8 @@ std::vector<int> Halton::sieve(const int n)
     return primes;
 }
 
-std::vector<std::vector<std::vector<int>>> Halton::get_permutations(const std::vector<int> &primes)
+std::vector<std::vector<std::vector<int>>> Halton::get_permutations(const std::vector<int> &primes,
+                                                                    rng::Generator &gen)
 {
     std::vector<std::vector<std::vector<int>>> permutations(primes.size());
     for (size_t i = 0; i < primes.size(); i++)
@@ -138,7 +141,7 @@ std::vector<std::vector<std::vector<int>>> Halton::get_permutations(const std::v
 
         for (size_t j = 0; j < count; j++)
         {
-            std::shuffle(order.begin(), order.end(), rng::GENERATOR);
+            std::shuffle(order.begin(), order.end(), gen);
             permutations[i][j] = order;
         }
     }
@@ -154,9 +157,9 @@ std::vector<int> Halton::n_primes(const size_t d)
     return primes;
 }
 
-Sobol::Sobol(const size_t dim) :
+Sobol::Sobol(const size_t dim, const std::shared_ptr<rng::Generator> &generator) :
     Sampler(dim),
-    cache(dim)
+    cache(dim, *generator)
 {
     long long seed = 2;
     for (size_t i = 0; i < cache.n_samples; i++)
@@ -165,20 +168,23 @@ Sobol::Sobol(const size_t dim) :
 }
 
 std::shared_ptr<Sampler>
-get(const size_t dim, const parameters::Modules &modules, const size_t lambda)
+get(const size_t dim,
+    const parameters::Modules &modules,
+    const size_t lambda,
+    const std::shared_ptr<rng::Generator> &generator)
 {
     using namespace parameters;
     std::shared_ptr<Sampler> sampler;
     switch (modules.sampler)
     {
     case BaseSampler::UNIFORM:
-        sampler = std::make_shared<Uniform>(dim);
+        sampler = std::make_shared<Uniform>(dim, generator);
         break;
     case BaseSampler::SOBOL:
-        sampler = std::make_shared<Sobol>(dim);
+        sampler = std::make_shared<Sobol>(dim, generator);
         break;
     case BaseSampler::HALTON:
-        sampler = std::make_shared<Halton>(dim);
+        sampler = std::make_shared<Halton>(dim, true, generator);
         break;
     case BaseSampler::TESTER:
         sampler = std::make_shared<Tester>(dim);

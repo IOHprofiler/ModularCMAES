@@ -360,7 +360,10 @@ void SA::adapt(const parameters::Weights &w,
     sigma *= selected_mean_sigma / mean_sigma;
 }
 
-std::shared_ptr<Strategy> get(const parameters::Modules &m, const Float d, const Float sigma)
+std::shared_ptr<Strategy> get(const parameters::Modules &m,
+                              const Float d,
+                              const Float sigma,
+                              const std::shared_ptr<rng::Generator> &generator)
 {
     using namespace parameters;
 
@@ -372,8 +375,8 @@ std::shared_ptr<Strategy> get(const parameters::Modules &m, const Float d, const
 
     auto ss =
         (m.sample_sigma or m.ssa == StepSizeAdaptation::LPXNES or m.ssa == StepSizeAdaptation::SA)
-            ? std::make_shared<SigmaSampler>(d)
-            : std::make_shared<NoSigmaSampler>(d);
+            ? std::make_shared<SigmaSampler>(d, generator)
+            : std::make_shared<NoSigmaSampler>(d, generator);
 
     switch (m.ssa)
     {

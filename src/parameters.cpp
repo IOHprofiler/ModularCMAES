@@ -8,7 +8,8 @@ Parameters::Parameters(const Settings &settings) :
     mu(settings.mu0),
     settings(settings),
     stats{},
-    sampler(sampling::get(settings.dim, settings.modules, settings.lambda0)),
+    generator(settings.seed ? std::make_shared<rng::Generator>(*settings.seed) : rng::fork()),
+    sampler(sampling::get(settings.dim, settings.modules, settings.lambda0, generator)),
     weights(settings, sampler->expected_length()),
     pop(settings.dim, settings.lambda0),
     old_pop(settings.dim, settings.lambda0),
@@ -18,13 +19,14 @@ Parameters::Parameters(const Settings &settings) :
                                       settings.x0.value_or(Vector::Zero(settings.dim)),
                                       sampler->expected_length(),
                                       settings.sigma0)),
-    mutation(mutation::get(settings.modules, static_cast<Float>(settings.dim), settings.sigma0)),
+    mutation(mutation::get(
+        settings.modules, static_cast<Float>(settings.dim), settings.sigma0, generator)),
     selection(std::make_shared<selection::Strategy>(settings.modules)),
     restart_strategy(restart::strategy::get(settings.modules,
                                             static_cast<Float>(settings.mu0),
                                             static_cast<Float>(settings.lambda0),
                                             settings.budget)),
-    bounds(bounds::get(settings.modules.bound_correction, settings.dim)),
+    bounds(bounds::get(settings.modules.bound_correction, settings.dim, generator)),
     repelling(repelling::get(settings.modules)),
     center_placement(center::get(settings.modules.center_placement)),
     coordinate_mapping(mapping::get(settings.integer_variables, settings.dim, weights.mueff))
@@ -104,8 +106,10 @@ void Parameters::finish_restart()
     pop = Population(settings.dim, lambda);
     old_pop = Population(settings.dim, lambda);
 
-    mutation = mutation::get(
-        settings.modules, static_cast<Float>(settings.dim), sigma.value_or(settings.sigma0));
+    mutation = mutation::get(settings.modules,
+                             static_cast<Float>(settings.dim),
+                             sigma.value_or(settings.sigma0),
+                             generator);
     adaptation->restart(settings, sigma.value_or(settings.sigma0));
     (*center_placement)(*this);
     criteria.reset(*this);
