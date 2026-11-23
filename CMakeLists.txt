@@ -34,6 +34,12 @@ endif()
 add_executable(main ${PROJECT_SOURCE_DIR}/src/main.cpp)
 target_link_libraries(main PRIVATE modcma_core)
 
+# C++ unit tests for what Python cannot reach (ctest)
+enable_testing()
+add_executable(modcma_tests ${PROJECT_SOURCE_DIR}/tests/cpp/test_main.cpp)
+target_link_libraries(modcma_tests PRIVATE modcma_core)
+add_test(NAME modcma_tests COMMAND modcma_tests)
+
 # Benchmark harness (TASKS.md, T0.2): time per generation and heap allocations per evaluation
 add_executable(modcma_bench ${PROJECT_SOURCE_DIR}/bench/bench.cpp)
 target_link_libraries(modcma_bench PRIVATE modcma_core)

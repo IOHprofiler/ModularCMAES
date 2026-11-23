@@ -275,7 +275,11 @@ struct CachedShuffleSequence
 template <typename T = Float> struct uniform
 {
     /**
-     * @brief Generate a random uniform number in the closed interval [0, 1]
+     * @brief Generate a random uniform number in the open interval (0, 1)
+     *
+     * The two extreme outputs of the generator, which would give exactly 0 and 1, are rejected:
+     * the transformations of the samplers (ppf, Box-Muller, Laplace, ...) map them to +-infinity.
+     * Every other output gives the same number as before (u = (g - min) / (max - min)).
      *
      * @tparam G the type of the generator
      * @param gen the generator instance
@@ -283,7 +287,10 @@ template <typename T = Float> struct uniform
      */
     template <typename G> T operator()(G &gen)
     {
-        return static_cast<T>(gen() - gen.min()) / gen.max() - gen.min();
+        auto g = gen();
+        while (g == gen.min() || g == gen.max())
+            g = gen();
+        return static_cast<T>(g - gen.min()) / static_cast<T>(gen.max() - gen.min());
     }
 };
 
