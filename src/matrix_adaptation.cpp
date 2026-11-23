@@ -90,33 +90,43 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
                                                    const size_t mu)
 {
     const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
-    const auto &rank_one = w.c1 * pc * pc.transpose();
 
-    const auto &weights = m.active ? w.for_population(pop.n) : w.positive;
-    const auto &popY = pop.Y.leftCols(m.active ? pop.n : mu);
+    if (m.active)
+        w.for_population_into(pop.n, weights_scratch);
+    else
+        weights_scratch = w.positive;
+    Vector &rank_mu_w = weights_scratch;
+    const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
 
-    const Float decay = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
-    const auto &old_c = decay * C;
+    const Float decay = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * rank_mu_w.sum()));
 
-    Vector rank_mu_w = weights.eval();
     // Negative weights are rescaled by d / ||C^-1/2 y_i||^2 (Hansen, The CMA Evolution Strategy: A
     // Tutorial, 2016, eq. 46); the positive ones, i < mu, are used as they are.
     // ||C^-1/2 y||^2 = y^T C^-1 y = ||A^-1 y||^2 for any factor C = A A^T, so invert_y serves both
     // the eigendecomposition (A = B D) and the Cholesky variant (COVARIANCE_NO_EIGV, which never
     // computes inv_root_C).
-    for (Eigen::Index i = static_cast<Eigen::Index>(mu); i < weights.size(); i++)
-        rank_mu_w(i) *= dd / invert_y(popY.col(i)).squaredNorm();
+    scratch_vector.resize(popY.rows()); // invert_y_into writes through a Ref: it cannot resize
+    for (Eigen::Index i = static_cast<Eigen::Index>(mu); i < rank_mu_w.size(); i++)
+    {
+        invert_y_into(popY.col(i), scratch_vector);
+        rank_mu_w(i) *= dd / scratch_vector.squaredNorm();
+    }
 
-    const auto &rank_mu = w.cmu * (popY * rank_mu_w.asDiagonal() * popY.transpose());
-    C = old_c + rank_one + rank_mu;
+    // C = decay C + c1 pc pc^T + cmu Y diag(w) Y^T as one expression: Eigen's evaluation order of
+    // it (accumulating the products into a temporary, by GEMM or coefficient-wise depending on the
+    // size) is not reproduced by any sequence of in-place steps tried, so it keeps its temporaries
+    // (bit-exact); removing them belongs to T2.8 (D2: results may change in the last bits).
+    C = decay * C + w.c1 * pc * pc.transpose() +
+        w.cmu * (popY * rank_mu_w.asDiagonal() * popY.transpose());
 
-    C = 0.5 * (C + C.transpose().eval());
+    square_scratch = C.transpose();
+    C = 0.5 * (C + square_scratch);
     coordinate_wise_variances.noalias() = C.diagonal();
 }
 
 bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
 {
-    const Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver(C);
+    eigen_solver.compute(C);
 
     if (eigen_solver.info() != Eigen::Success)
     {
@@ -139,8 +149,10 @@ bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
         return false;
     }
 
-    d.noalias() = d.cwiseSqrt().eval();
-    inv_root_C.noalias() = B * d.cwiseInverse().asDiagonal() * B.transpose();
+    d = d.cwiseSqrt();
+    // B D^-1 into a buffer (Eigen's temporary for the product), then the product
+    square_scratch.noalias() = B * d.cwiseInverse().asDiagonal();
+    inv_root_C.noalias() = square_scratch * B.transpose();
     A.noalias() = B * d.asDiagonal();
 
     return true;

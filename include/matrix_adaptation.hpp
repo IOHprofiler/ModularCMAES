@@ -169,6 +169,9 @@ struct CovarianceAdaptation : Adaptation
     Matrix inv_root_C;
     bool hs = true;
 
+    // Reused by the matrix update: the eigensolver with its workspace
+    Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
+
     CovarianceAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
         Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
         pc(Vector::Zero(dim)),
