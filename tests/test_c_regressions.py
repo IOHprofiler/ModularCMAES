@@ -90,5 +90,33 @@ class TestNaturalGradientInverse(unittest.TestCase):
         np.testing.assert_array_equal(a.invert_y(y), z)
 
 
+class TestNoSharedSamplerState(unittest.TestCase):
+    """B7: rng::normal and the Box-Muller transform kept their state in function statics, so one
+    sampler object (or optimizer) changed the numbers of the next one."""
+
+    def test_normal_does_not_leak_between_objects(self):
+        c_maes.utils.set_seed(1)
+        fresh = c_maes.sampling.Gaussian(4)()
+        c_maes.sampling.Gaussian(3)()  # an odd number of draws leaves half a Box-Muller pair
+        c_maes.utils.set_seed(1)
+        np.testing.assert_array_equal(c_maes.sampling.Gaussian(4)(), fresh)
+
+    def test_box_muller_does_not_leak_between_objects(self):
+        default = c_maes.constants.use_box_muller
+        c_maes.constants.use_box_muller = True
+        try:
+
+            def sample(d):
+                return c_maes.sampling.GaussianTransformer(c_maes.sampling.Uniform(d))()
+
+            c_maes.utils.set_seed(1)
+            fresh = sample(3)
+            sample(3)  # odd dimension: keeps an extra uniform and half a pair
+            c_maes.utils.set_seed(1)
+            np.testing.assert_array_equal(sample(3), fresh)
+        finally:
+            c_maes.constants.use_box_muller = default
+
+
 if __name__ == "__main__":
     unittest.main()

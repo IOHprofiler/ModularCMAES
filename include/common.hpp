@@ -323,17 +323,13 @@ template <typename T = Float> struct normal
      */
     template <typename G> T operator()(G &gen)
     {
-        static uniform<Float> rng;
-        static T r1, r2;
-        static bool generate = true;
-
         if (generate)
         {
             T u1 = rng(gen);
             T u2 = rng(gen);
             const T root_log_u1 = std::sqrt(-2.0 * std::log(u1));
             const T two_pi_u2 = 2.0 * M_PI * u2;
-            r1 = (sigma * (root_log_u1 * std::sin(two_pi_u2))) + mu;
+            const T r1 = (sigma * (root_log_u1 * std::sin(two_pi_u2))) + mu;
             r2 = (sigma * (root_log_u1 * std::cos(two_pi_u2))) + mu;
 
             generate = false;
@@ -342,6 +338,14 @@ template <typename T = Float> struct normal
         generate = true;
         return r2;
     }
+
+  private:
+    // The second number of each Box-Muller pair, kept per distribution object. It used to be a
+    // function static, shared by all objects: one object returned the cached number of another
+    // (with that one's mu and sigma), and optimizers in one process influenced each other.
+    uniform<Float> rng;
+    T r2 = 0;
+    bool generate = true;
 };
 } // namespace rng
 

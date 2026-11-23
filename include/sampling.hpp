@@ -284,13 +284,15 @@ struct GaussianTransformer : SampleTransformer
         return {r * std::cos(theta), r * std::sin(theta)};
     }
 
+    // State of the Box-Muller transform for odd dimensions, per transformer object (these used to
+    // be function statics shared by all objects and threads).
+    Vector u_extra;
+    Eigen::Index n_extra_used = 0;
+    bool needs_new_sample = true;
+    Float extra_sample = 0;
+
     [[nodiscard]] inline Vector box_muller(const Vector &u)
     {
-        static Vector u_extra;
-        static int n_extra_used = 0;
-        static bool needs_new_sample = true;
-        static Float extra_sample;
-
         size_t n = u.size();
         size_t m = n / 2;
 
