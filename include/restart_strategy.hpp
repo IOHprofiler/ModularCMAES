@@ -34,7 +34,7 @@ struct BIPOP : Strategy
     size_t budget_large = 0;
     size_t used_budget = 0;
 
-    BIPOP(const Float lambda, const Float mu, const size_t budget) :
+    BIPOP(const Float mu, const Float lambda, const size_t budget) :
         Strategy(),
         lambda_init(static_cast<size_t>(lambda)),
         mu_factor(mu / lambda),
@@ -50,7 +50,7 @@ struct BIPOP : Strategy
 namespace strategy
 {
 inline std::shared_ptr<Strategy>
-get(const parameters::Modules modules, const Float lambda, const Float mu, const size_t budget)
+get(const parameters::Modules modules, const Float mu, const Float lambda, const size_t budget)
 {
     using namespace parameters;
     switch (modules.restart_strategy)
@@ -58,7 +58,7 @@ get(const parameters::Modules modules, const Float lambda, const Float mu, const
     case RestartStrategyType::IPOP:
         return std::make_shared<IPOP>();
     case RestartStrategyType::BIPOP:
-        return std::make_shared<BIPOP>(lambda, mu, budget);
+        return std::make_shared<BIPOP>(mu, lambda, budget);
     default:
     case RestartStrategyType::STOP:
     case RestartStrategyType::NONE:

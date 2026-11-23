@@ -29,8 +29,8 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
                                        const Weights &w,
                                        const Stats &stats,
                                        const parameters::Settings &settings,
-                                       const size_t lambda,
-                                       const size_t mu)
+                                       const size_t mu,
+                                       const size_t lambda)
 {
     const auto sigma = pop.S.mean();
     dm = (m - m_old) / sigma;

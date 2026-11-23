@@ -38,8 +38,8 @@ struct Adaptation
                                const parameters::Weights &w,
                                const parameters::Stats &stats,
                                const parameters::Settings &settings,
-                               size_t lambda,
-                               size_t mu);
+                               size_t mu,
+                               size_t lambda);
 
     virtual void adapt_evolution_paths_inner(const Population &pop,
                                              const parameters::Weights &w,
