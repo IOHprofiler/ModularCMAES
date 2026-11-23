@@ -173,11 +173,13 @@ int main(int argc, char **argv)
             repetitions = std::stoi(value());
         else if (arg == "--csv")
             csv = true;
+        else if (arg == "--eigen-solver")
+            constants::eigen_solver = std::stoi(value()); // 0 Eigen, 1 dsyevd, 2 dsyevr (LAPACK)
         else
         {
             std::fprintf(stderr,
                          "usage: %s [--dims 2,10,40,100] [--generations 2000] [--repetitions 5] "
-                         "[--configs default,matrix,separable] [--csv]\n",
+                         "[--configs default,matrix,separable] [--eigen-solver 0|1|2] [--csv]\n",
                          argv[0]);
             return arg == "--help" ? 0 : 2;
         }

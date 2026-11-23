@@ -166,19 +166,37 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
 
 bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
 {
-    eigen_solver.compute(C);
-
-    if (eigen_solver.info() != Eigen::Success)
+    const int solver =
+        constants::eigen_solver >= 0
+            ? constants::eigen_solver
+            : (lapack::available() && static_cast<size_t>(C.rows()) >= constants::lapack_min_dim ? 1 : 0);
+    if (solver != 0)
     {
-        if (settings.verbose)
+        // LAPACK (constants::eigen_solver: 1 dsyevd, 2 dsyevr)
+        const auto method = solver == 2 ? lapack::Method::SYEVR : lapack::Method::SYEVD;
+        if (!lapack::symmetric_eigen(C, d, B, method, lapack_workspace))
         {
-            std::cout << "Eigenvalue solver failed, we need to restart reason:"
-                      << eigen_solver.info() << '\n';
+            if (settings.verbose)
+                std::cout << "LAPACK eigenvalue solver failed, we need to restart\n";
+            return false;
         }
-        return false;
     }
-    d = eigen_solver.eigenvalues();
-    B = eigen_solver.eigenvectors();
+    else
+    {
+        eigen_solver.compute(C);
+
+        if (eigen_solver.info() != Eigen::Success)
+        {
+            if (settings.verbose)
+            {
+                std::cout << "Eigenvalue solver failed, we need to restart reason:"
+                          << eigen_solver.info() << '\n';
+            }
+            return false;
+        }
+        d = eigen_solver.eigenvalues();
+        B = eigen_solver.eigenvectors();
+    }
 
     if (!d.allFinite() || !B.allFinite() || d.minCoeff() < 0.0)
     {
@@ -531,16 +549,14 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
                           batch_scratch);
     coordinate_wise_variances.noalias() = C.diagonal();
 
-    const Eigen::LLT<Matrix> chol(C);
-    if (chol.info() != Eigen::Success)
+    // Eigen's LLT, or LAPACK dpotrf in high dimension (constants::cholesky_solver)
+    if (!lapack::cholesky_factor(C, A))
     {
         if (settings.verbose)
             std::cout << "t: " << stats.t
-                      << "Cholesky solver failed, we need to restart reason:" << chol.info()
-                      << '\n';
+                      << " Cholesky decomposition failed, we need to restart\n";
         return false;
     }
-    A = chol.matrixL();
 
     return true;
 }
@@ -572,18 +588,13 @@ void CovarianceNoEigvAdaptation::adapt_ps(const Weights &w) { Adaptation::adapt_
 
 bool CovarianceNoEigvAdaptation::perform_eigendecomposition(const parameters::Settings &settings)
 {
-    const Eigen::LLT<Matrix> chol(C);
-    if (chol.info() != Eigen::Success)
+    // Eigen's LLT, or LAPACK dpotrf in high dimension (constants::cholesky_solver)
+    if (!lapack::cholesky_factor(C, A))
     {
         if (settings.verbose)
-        {
-            std::cout << "Cholesky solver failed, we need to restart reason:" << chol.info()
-                      << '\n';
-        }
+            std::cout << "Cholesky decomposition failed, we need to restart\n";
         return false;
     }
-
-    A = chol.matrixL();
     return true;
 }
 

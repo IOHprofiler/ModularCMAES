@@ -45,6 +45,16 @@ extern size_t cache_min_samples;
 extern bool cache_samples;
 extern bool clip_sigma;
 extern bool use_box_muller;
+//! The eigendecomposition of the covariance matrix: 0 Eigen's SelfAdjointEigenSolver, 1 LAPACK
+//! dsyevd, 2 LAPACK dsyevr (1 and 2 need a build with MODCMA_LAPACK), -1 (default) automatic:
+//! dsyevd from lapack_min_dim on when the build has LAPACK, Eigen otherwise
+extern int eigen_solver;
+//! The dimension from which the automatic choice uses LAPACK (Eigen is faster below: Accelerate
+//! dsyevd on an Apple M5 is 2x slower at d = 50, even at d ~ 115, 3.4x faster at d = 1000)
+extern size_t lapack_min_dim;
+//! The Cholesky factorization of CMSA and COVARIANCE_NO_EIGV: 0 Eigen's LLT, 1 LAPACK dpotrf,
+//! -1 (default) automatic: dpotrf from lapack_min_dim on when LAPACK is available
+extern int cholesky_solver;
 } // namespace constants
 
 /**

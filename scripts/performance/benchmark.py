@@ -60,7 +60,12 @@ def ellipsoid_weights(d: int) -> np.ndarray:
 # Each factory returns run(generations) -> None for a fresh optimizer of dimension d.
 
 
-def modcma_factory(matrix_adaptation: str, fast_sampling: bool = False, vectorized: bool = True):
+def modcma_factory(
+    matrix_adaptation: str,
+    fast_sampling: bool = False,
+    vectorized: bool = True,
+    lapack: bool = True,
+):
     def factory(d: int, seed: int) -> Callable[[int], None]:
         from modcma import c_maes
 
@@ -73,6 +78,9 @@ def modcma_factory(matrix_adaptation: str, fast_sampling: bool = False, vectoriz
             return float((x * x) @ w)
 
         def run(generations: int) -> None:
+            # -1 (default): LAPACK (eigendecomposition, Cholesky) from d = 120; 0: Eigen only
+            c_maes.constants.eigen_solver = -1 if lapack else 0
+            c_maes.constants.cholesky_solver = -1 if lapack else 0
             modules = c_maes.Modules()
             modules.matrix_adaptation = getattr(
                 c_maes.options.MatrixAdaptationType, matrix_adaptation
@@ -216,6 +224,7 @@ def evotorch_factory(d: int, seed: int) -> Callable[[int], None]:
 
 IMPLEMENTATIONS = {
     "modcma": modcma_factory("COVARIANCE"),
+    "modcma (Eigen only)": modcma_factory("COVARIANCE", lapack=False),
     "modcma (fast sampling)": modcma_factory("COVARIANCE", fast_sampling=True),
     "modcma (per-point callback)": modcma_factory("COVARIANCE", vectorized=False),
     "modcma MATRIX": modcma_factory("MATRIX"),

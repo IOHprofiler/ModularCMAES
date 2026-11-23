@@ -16,6 +16,9 @@ size_t cache_min_samples = 128;
 bool cache_samples = false;
 bool clip_sigma = false;
 bool use_box_muller = false;
+int eigen_solver = -1;
+size_t lapack_min_dim = 120;
+int cholesky_solver = -1;
 } // namespace constants
 
 namespace utils

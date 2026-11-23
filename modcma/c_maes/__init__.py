@@ -36,6 +36,27 @@ from .cmaescpp.parameters import (  # pyright: ignore[reportMissingModuleSource]
 )  # pyright: ignore[reportMissingModuleSource]
 
 
+def _use_scipy_lapack() -> None:
+    """Give the C++ library scipy's LAPACK for the eigendecomposition in high dimension.
+
+    The macOS wheels link Apple Accelerate themselves; the Linux and Windows wheels have no LAPACK
+    of their own and use scipy's (a dependency of modcma, already imported by modcma). Without it
+    the library falls back to Eigen's eigensolver. See PERFORMANCE.md.
+    """
+    if utils.build_info()["lapack"] != "none":
+        return
+    try:
+        from scipy.linalg import cython_lapack
+
+        capi = cython_lapack.__pyx_capi__
+        utils._set_lapack(capi["dsyevd"], capi["dsyevr"], capi["dpotrf"], "scipy")
+    except Exception as error:  # pragma: no cover - depends on the scipy build
+        warnings.warn(f"modcma: scipy's LAPACK is not usable ({error}); using Eigen", stacklevel=2)
+
+
+_use_scipy_lapack()
+
+
 def _get_module_options(name: str) -> tuple:
     if not hasattr(Modules, name):
         raise NameError(f"Modules has no member {name}")

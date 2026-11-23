@@ -8,6 +8,7 @@
 #include <vector>
 
 #include "c_maes.hpp"
+#include "lapack.hpp"
 #include "restart_criteria.hpp"
 #include "common.hpp"
 #include "sampling.hpp"
@@ -239,6 +240,49 @@ static void test_split_median()
     CHECK(sm.tail_median() == 2.0);
 }
 
+// LAPACK eigendecomposition (build option MODCMA_LAPACK): the same decomposition as Eigen's
+static void test_lapack_eigen()
+{
+    if (!lapack::available())
+    {
+        std::printf("(no LAPACK in this build: test_lapack_eigen skipped)\n");
+        return;
+    }
+    std::mt19937 gen(5);
+    std::normal_distribution<double> normal;
+    for (const int n : {1, 7, 60, 150})
+    {
+        Matrix A(n, n);
+        for (auto &a : A.reshaped())
+            a = normal(gen);
+        const Matrix C = A * A.transpose() + Matrix::Identity(n, n);
+        const Eigen::SelfAdjointEigenSolver<Matrix> reference(C);
+        {
+            Matrix L;
+            CHECK(lapack::cholesky(C, L));
+            const Matrix reference_L = Eigen::LLT<Matrix>(C).matrixL();
+            CHECK((L - reference_L).norm() < 1e-12 * reference_L.norm());
+            CHECK(L.triangularView<Eigen::StrictlyUpper>().toDenseMatrix().isZero(0));
+            Matrix not_pd = -C;
+            CHECK(!lapack::cholesky(not_pd, L));
+        }
+        for (const auto method : {lapack::Method::SYEVD, lapack::Method::SYEVR})
+        {
+            lapack::Workspace ws;
+            Vector d;
+            Matrix B;
+            for (int call = 0; call < 2; call++) // the second call reuses the workspace
+            {
+                CHECK(lapack::symmetric_eigen(C, d, B, method, ws));
+                const double scale = C.norm();
+                CHECK((d - reference.eigenvalues()).cwiseAbs().maxCoeff() < 1e-12 * scale);
+                CHECK((B * d.asDiagonal() * B.transpose() - C).norm() < 1e-12 * scale);
+                CHECK((B.transpose() * B - Matrix::Identity(n, n)).norm() < 1e-12 * n);
+            }
+        }
+    }
+}
+
 // xNES: the low-rank update of A equals A expm(eta G) with a dense matrix exponential
 static void test_natural_gradient_low_rank_update()
 {
@@ -278,6 +322,7 @@ int main()
     test_ask_tell_matches_classic_loop();
     test_tell_errors();
     test_split_median();
+    test_lapack_eigen();
     test_natural_gradient_low_rank_update();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);

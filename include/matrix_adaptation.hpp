@@ -1,5 +1,7 @@
 #pragma once
 
+#include "lapack.hpp"
+
 #include "mutation.hpp"
 #include "population.hpp"
 #include "settings.hpp"
@@ -187,6 +189,7 @@ struct CovarianceAdaptation : Adaptation
 
     // Reused by the matrix update: the eigensolver with its workspace
     Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
+    lapack::Workspace lapack_workspace;
 
     CovarianceAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
         Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),

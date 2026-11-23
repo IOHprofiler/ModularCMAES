@@ -77,3 +77,10 @@ jobs:
       run: ctest --test-dir build --output-on-failure
     - name: Benchmark (smoke test)
       run: ./build/modcma_bench --dims 2,10 --generations 200 --repetitions 1
+    - name: Build and test with LAPACK (MODCMA_LAPACK)
+      run: |
+        sudo apt-get update -qq && sudo apt-get install -y -qq liblapack-dev
+        cmake -S . -B build-lapack -DCMAKE_BUILD_TYPE=Release -DMODCMA_LAPACK=ON
+        cmake --build build-lapack --parallel 4
+        ctest --test-dir build-lapack --output-on-failure
+        ./build-lapack/modcma_bench --dims 150,300 --generations 50 --repetitions 1 --eigen-solver 1

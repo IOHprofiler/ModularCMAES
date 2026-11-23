@@ -498,3 +498,42 @@ Status (2026-11-23), on top of WP3, one PR with T2.8 (third PR of the stack):
   calls become per-batch calls, so measure first; this is likely not worth more than that.
 * **Not doing** (with evidence in §0): a LAPACK/Accelerate eigensolver; PCH; changing
   `lazy_update_interval` (D5).
+
+
+## WP5: LAPACK/BLAS for the linear algebra in high dimension: branch `wp5-lapack` (on WP4)
+
+Eigen's dense kernels are portable but not the fastest: its eigensolver is unblocked, and the
+wheels compile it without AVX (no `-march`), while LAPACK/BLAS choose their kernels at run time.
+Where LAPACK/BLAS comes from, without a new build dependency for the wheels:
+* macOS: Apple Accelerate, linked (`MODCMA_LAPACK`, on by default on Apple);
+* Linux/Windows: scipy's (`scipy.linalg.cython_lapack` / `cython_blas` capsules, handed to the C++
+  library at import of `modcma.c_maes`; scipy is a dependency) -> OpenBLAS, MKL in some conda builds;
+* C++ programs: `MODCMA_LAPACK` links `find_package(LAPACK)`; without it Eigen only.
+Results for d >= `lapack_min_dim` (120) are not bit-identical to Eigen's and depend on the LAPACK;
+the golden runs (d <= 10) are unchanged. OpenBLAS's own threads: `OPENBLAS_NUM_THREADS=1` for
+parallel runs (documented).
+
+Status (2026-11-24):
+* **T5.1 done.** Eigendecomposition with `dsyevd` from d = 120 (`constants.eigen_solver`, -1 auto,
+  0 Eigen, 1 dsyevd, 2 dsyevr). One decomposition, d = 1000: Eigen 289 ms, Accelerate 50 ms,
+  OpenBLAS 57 ms (one thread). COVARIANCE per generation: d=200 855 -> 575 us, d=500 5.1 -> 2.0 ms,
+  d=1000 18.5 -> 5.4 ms; modcma is then faster than pycma, cmaes, evosax and EvoTorch at every d
+  from 10 to 1000. pycma does no approximation in high d (full C, no diagonal mode); 75 % of its
+  time is the same `dsyevd` (via numpy), the same number of decompositions as modcma.
+* **T5.2 done.** Cholesky with `dpotrf` from d = 120 (`constants.cholesky_solver`) for CMSA (every
+  generation) and COVARIANCE_NO_EIGV. One factorization, d = 1000: Eigen 7.4 ms, Accelerate 1.0,
+  OpenBLAS 2.2. CMSA d=1000 9.1 -> 2.4 ms per generation; NO_EIGV 1.7 -> 1.0 ms.
+* **T5.3 done.** Wheels: Accelerate on macOS (no size), scipy's LAPACK on Linux/Windows (no size, no
+  build change); `build_info()["lapack"]`: linked / scipy / none. CI: tests on every platform
+  (`tests/test_c_lapack.py`), a C++ build with LAPACK on Linux. PERFORMANCE.md re-measured.
+* **T5.4 open: BLAS-3 products** (`dgemm`, `dsyrk`, `dtrmm`) through the same function pointers
+  (scipy: `cython_blas`), at the hot spots: the batch `Y = A Z`, the rank updates of C (COVARIANCE,
+  CMSA, xNES), the MA-ES update `M += Y diag(w) Z^T`, `A U` in xNES. One operation, one thread,
+  d = 1000 (lambda = 24), ms: `Y = A Z` Eigen 1.13, Accelerate 0.095, OpenBLAS 0.104;
+  `dsyrk` Eigen 0.47, Accelerate 0.066, OpenBLAS 0.135; `M += Y Z^T` Eigen 0.91, Accelerate 0.14,
+  OpenBLAS 0.13. Expected: MATRIX/CHOLESKY/xNES several times faster at d >= 200, COVARIANCE ~25 %.
+  At d = 100 OpenBLAS's `dsyrk` is slower than Eigen's: per-operation thresholds, measured.
+* **T5.5 open: the inverse of M (MA-ES) and A (xNES).** Computed with Eigen's complete orthogonal
+  decomposition (pseudo-inverse) whenever `invert_y` is needed after an update (bound correction,
+  elitism, repelling): d = 1000 150 ms (!), Eigen LU 56 ms, LAPACK `getrf`+`getri` 6.5 ms
+  (Accelerate) / 14.9 ms (OpenBLAS). LU with a fallback to the pseudo-inverse when M is singular.

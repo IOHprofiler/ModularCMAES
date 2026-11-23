@@ -24,6 +24,16 @@ def compute_ert(running_times: Sequence[int], budget: int) -> tuple[float, int]:
 def set_seed(seed: int) -> None:
     """Set the random seed"""
 
+def lapack_eigh(C: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], method: int = 1) -> tuple[Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]]:
+    """
+    Eigenvalues and eigenvectors of the symmetric matrix C with the LAPACK routines the covariance adaptation uses (method 1: dsyevd, 2: dsyevr)
+    """
+
+def lapack_cholesky(C: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
+    """
+    The lower triangular Cholesky factor of C with LAPACK dpotrf (as CMSA and COVARIANCE_NO_EIGV use it)
+    """
+
 def random_uniform() -> float:
     """Generate a uniform random number in (0, 1)"""
 

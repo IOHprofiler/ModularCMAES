@@ -21,6 +21,22 @@ target_include_directories(modcma_core PUBLIC
 )
 
 option(MODCMA_NATIVE "Compile for the host CPU (-march=native); not for distributed binaries" OFF)
+# LAPACK for the eigendecomposition (constants.eigen_solver): on by default on macOS, where Apple
+# Accelerate is part of the system. Elsewhere the Python package uses scipy's LAPACK at run time
+# (src/lapack.cpp), so the wheels need no LAPACK of their own.
+if (APPLE)
+  set(MODCMA_LAPACK_DEFAULT ON)
+else()
+  set(MODCMA_LAPACK_DEFAULT OFF)
+endif()
+option(MODCMA_LAPACK "Link LAPACK for the eigendecomposition" ${MODCMA_LAPACK_DEFAULT})
+
+if (MODCMA_LAPACK)
+  # Accelerate on macOS; OpenBLAS or the reference LAPACK elsewhere
+  find_package(LAPACK REQUIRED)
+  target_link_libraries(modcma_core PUBLIC ${LAPACK_LIBRARIES})
+  target_compile_definitions(modcma_core PUBLIC MODCMA_LAPACK)
+endif()
 
 if (MSVC)
   target_compile_options(modcma_core PUBLIC /bigobj)

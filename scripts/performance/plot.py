@@ -20,6 +20,7 @@ HERE = Path(__file__).resolve().parent
 # Other implementations: one colour each; modcma in a strong colour
 IMPLEMENTATIONS = {
     "modcma": ("modcma (C++)", "#d62728", "o"),
+    "modcma (Eigen only)": ("modcma (C++, Eigen only, no LAPACK)", "#ff9896", "o"),
     "pycma": ("pycma", "#1f77b4", "s"),
     "cmaes": ("cmaes (Optuna)", "#2ca02c", "^"),
     "evosax": ("evosax (JAX, jit + scan)", "#9467bd", "D"),
@@ -28,6 +29,7 @@ IMPLEMENTATIONS = {
 
 MATRIX = {
     "modcma": "COVARIANCE (default)",
+    "modcma (Eigen only)": "COVARIANCE, Eigen only (no LAPACK)",
     "modcma (fast sampling)": "COVARIANCE, fast_sampling",
     "modcma COVARIANCE_NO_EIGV": "COVARIANCE_NO_EIGV",
     "modcma MATRIX": "MATRIX (MA-ES)",
@@ -37,8 +39,12 @@ MATRIX = {
     "modcma SEPARABLE": "SEPARABLE",
     "modcma NONE": "NONE (step size only)",
 }
-MATRIX_COLORS = ["#d62728", "#ff9896", "#2ca02c", "#1f77b4", "#9467bd", "#8c564b",
+MATRIX_COLORS = ["#d62728", "#ff9896", "#ff7f0e", "#2ca02c", "#1f77b4", "#9467bd", "#8c564b",
                  "#e377c2", "#7f7f7f", "#bcbd22"]
+
+
+# The modcma variant the others are compared with (the default: LAPACK from d = 120)
+BASELINE = "modcma"
 
 
 def summary(df: pd.DataFrame) -> pd.DataFrame:
@@ -75,9 +81,9 @@ def plot_implementations(s: pd.DataFrame, out: Path) -> None:
     left.set_ylabel("µs per generation (median, IQR shaded)")
     left.legend(frameon=False)
 
-    base = s[s.implementation == "modcma"].set_index("dim")["median"]
+    base = s[s.implementation == BASELINE].set_index("dim")["median"]
     for name, (label, color, marker) in IMPLEMENTATIONS.items():
-        if name == "modcma":
+        if name.startswith("modcma"):
             continue
         other = s[s.implementation == name].set_index("dim")["median"]
         ratio = (other / base).dropna()
@@ -135,18 +141,18 @@ def table(s: pd.DataFrame, names: dict, dims) -> str:
         if part.empty:
             continue
         cells = [fmt(part.get(d, np.nan)) for d in dims]
-        if name == "modcma":
+        if name == BASELINE:
             cells = [f"**{c}**" for c in cells]
         rows.append("| " + " | ".join([label] + cells) + " |")
     return "\n".join(rows)
 
 
 def speedup_table(s: pd.DataFrame, dims) -> str:
-    base = s[s.implementation == "modcma"].set_index("dim")["median"]
+    base = s[s.implementation == BASELINE].set_index("dim")["median"]
     rows = ["| time / time of modcma | " + " | ".join(f"d={d}" for d in dims) + " |",
             "|---" * (len(dims) + 1) + "|"]
     for name, (label, *_rest) in IMPLEMENTATIONS.items():
-        if name == "modcma":
+        if name.startswith("modcma"):
             continue
         other = s[s.implementation == name].set_index("dim")["median"]
         cells = []

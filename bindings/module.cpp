@@ -60,7 +60,35 @@ void define_constants(nb::module_ &m)
         .def_prop_rw_static(
             "use_box_muller",
             [](nb::handle) { return constants::use_box_muller; },
-            [](nb::handle, nb::handle a) { constants::use_box_muller = to_bool(a); });
+            [](nb::handle, nb::handle a) { constants::use_box_muller = to_bool(a); })
+        .def_prop_rw_static(
+            "eigen_solver",
+            [](nb::handle) { return constants::eigen_solver; },
+            [](nb::handle, int a) {
+                if (a < -1 || a > 2)
+                    throw nb::value_error("eigen_solver: -1 (automatic), 0 (Eigen), 1 (LAPACK "
+                                          "dsyevd) or 2 (LAPACK dsyevr)");
+                if (a > 0 && !lapack::available())
+                    throw nb::value_error("eigen_solver: no LAPACK available (not linked, and "
+                                          "scipy's was not found)");
+                constants::eigen_solver = a;
+            })
+        .def_prop_rw_static(
+            "cholesky_solver",
+            [](nb::handle) { return constants::cholesky_solver; },
+            [](nb::handle, int a) {
+                if (a < -1 || a > 1)
+                    throw nb::value_error(
+                        "cholesky_solver: -1 (automatic), 0 (Eigen) or 1 (LAPACK dpotrf)");
+                if (a == 1 && !lapack::available())
+                    throw nb::value_error("cholesky_solver: no LAPACK available (not linked, and "
+                                          "scipy's was not found)");
+                constants::cholesky_solver = a;
+            })
+        .def_prop_rw_static(
+            "lapack_min_dim",
+            [](nb::handle) { return constants::lapack_min_dim; },
+            [](nb::handle, size_t a) { constants::lapack_min_dim = a; });
 }
 
 void define_options(nb::module_ &main)
@@ -160,6 +188,9 @@ void define_utils(nb::module_ &main)
 #else
                 {"fma", "no"},
 #endif
+                // "linked" (a build with MODCMA_LAPACK: Accelerate on macOS), "scipy" (scipy's
+                // LAPACK, given at import), or "none"
+                {"lapack", lapack::source()},
             };
         },
         "How the extension was built: compiler, and whether it may use fused multiply-add "
@@ -180,6 +211,56 @@ void define_utils(nb::module_ &main)
         "Write the next point of the Sobol sequence into quasi and return the next seed");
     m.def("compute_ert", &utils::compute_ert, nb::arg("running_times"), nb::arg("budget"));
     m.def("set_seed", &rng::set_seed, nb::arg("seed"), "Set the random seed");
+    m.def(
+        "_set_lapack",
+        [](nb::handle syevd, nb::handle syevr, nb::handle potrf, const std::string &source) {
+            // PyCapsules of scipy.linalg.cython_lapack.__pyx_capi__ (the name is the C signature)
+            const auto pointer = [](nb::handle capsule) -> void * {
+                if (!PyCapsule_CheckExact(capsule.ptr()))
+                    throw nb::type_error("expected a PyCapsule");
+                void *p = PyCapsule_GetPointer(capsule.ptr(), PyCapsule_GetName(capsule.ptr()));
+                if (p == nullptr)
+                    throw nb::python_error();
+                return p;
+            };
+            lapack::set_routines(reinterpret_cast<lapack::syevd_fn>(pointer(syevd)),
+                                 reinterpret_cast<lapack::syevr_fn>(pointer(syevr)),
+                                 reinterpret_cast<lapack::potrf_fn>(pointer(potrf)),
+                                 source);
+        },
+        nb::arg("syevd"),
+        nb::arg("syevr"),
+        nb::arg("potrf"),
+        nb::arg("source"),
+        "Use these LAPACK routines (capsules of scipy.linalg.cython_lapack) for the "
+        "eigendecomposition; ignored when the library has its own (build_info()['lapack'] == "
+        "'linked'). modcma.c_maes calls it at import.");
+    m.def(
+        "lapack_eigh",
+        [](const Matrix &C, int method) {
+            Vector w;
+            Matrix V;
+            lapack::Workspace ws;
+            if (!lapack::symmetric_eigen(
+                    C, w, V, method == 2 ? lapack::Method::SYEVR : lapack::Method::SYEVD, ws))
+                throw std::runtime_error("LAPACK eigendecomposition failed or not available");
+            return std::make_pair(w, V);
+        },
+        nb::arg("C"),
+        nb::arg("method") = 1,
+        "Eigenvalues and eigenvectors of the symmetric matrix C with the LAPACK routines the "
+        "covariance adaptation uses (method 1: dsyevd, 2: dsyevr)");
+    m.def(
+        "lapack_cholesky",
+        [](const Matrix &C) {
+            Matrix L;
+            if (!lapack::cholesky(C, L))
+                throw std::runtime_error("LAPACK Cholesky failed or not available");
+            return L;
+        },
+        nb::arg("C"),
+        "The lower triangular Cholesky factor of C with LAPACK dpotrf (as CMSA and "
+        "COVARIANCE_NO_EIGV use it)");
     m.def("random_uniform",
           &random_double<rng::uniform<Float>>,
           "Generate a uniform random number in (0, 1)");
