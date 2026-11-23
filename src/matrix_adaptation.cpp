@@ -101,8 +101,11 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     Vector rank_mu_w = weights.eval();
     // Negative weights are rescaled by d / ||C^-1/2 y_i||^2 (Hansen, The CMA Evolution Strategy: A
     // Tutorial, 2016, eq. 46); the positive ones, i < mu, are used as they are.
+    // ||C^-1/2 y||^2 = y^T C^-1 y = ||A^-1 y||^2 for any factor C = A A^T, so invert_y serves both
+    // the eigendecomposition (A = B D) and the Cholesky variant (COVARIANCE_NO_EIGV, which never
+    // computes inv_root_C).
     for (Eigen::Index i = static_cast<Eigen::Index>(mu); i < weights.size(); i++)
-        rank_mu_w(i) *= dd / (inv_root_C * popY.col(i)).squaredNorm();
+        rank_mu_w(i) *= dd / invert_y(popY.col(i)).squaredNorm();
 
     const auto &rank_mu = w.cmu * (popY * rank_mu_w.asDiagonal() * popY.transpose());
     C = old_c + rank_one + rank_mu;
@@ -127,11 +130,11 @@ bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
     d = eigen_solver.eigenvalues();
     B = eigen_solver.eigenvectors();
 
-    if (d.minCoeff() < 0.0)
+    if (!d.allFinite() || !B.allFinite() || d.minCoeff() < 0.0)
     {
         if (settings.verbose)
         {
-            std::cout << "Negative eigenvalues after decomposition, we need to restart.\n";
+            std::cout << "Negative or non-finite eigenvalues after decomposition, we need to restart.\n";
         }
         return false;
     }

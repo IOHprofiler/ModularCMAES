@@ -57,7 +57,12 @@ struct Adaptation
     {
         if (settings.one_plus_one and !stats.has_improved)
             return true;
-        return adapt_matrix_inner(w, m, pop, mu, settings, stats);
+        const bool success = adapt_matrix_inner(w, m, pop, mu, settings, stats);
+        // Every matrix adaptation derives coordinate_wise_variances from all entries of its
+        // matrix (row sums of squares, or the diagonal of C, whose decomposition is checked
+        // separately), so a NaN or inf anywhere in the matrix shows up here. Without this check
+        // a run continued with NaN samples until its budget was used up.
+        return success && coordinate_wise_variances.allFinite();
     }
 
     virtual bool adapt_matrix_inner(const parameters::Weights &w,
