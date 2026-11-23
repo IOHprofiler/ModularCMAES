@@ -15,6 +15,8 @@ The **Modular CMA-ES** is a Python and C++ package that provides a modular imple
 
 This implementation is based on the algorithm introduced in the paper "[Evolving the Structure of Evolution Strategies. (2016)](https://ieeexplore.ieee.org/document/7850138)" by Sander van Rijn et. al. If you would like to cite this work in your research, please cite the paper: "[Tuning as a Means of Assessing the Benefits of New Ideas in Interplay with Existing Algorithmic Modules (2021)](https://doi.org/10.1145/3449726.3463167)" by Jacob de Nobel, Diederick Vermetten, Hao Wang, Carola Doerr and Thomas Bäck.
 
+**Fast.** The C++ backend runs a CMA-ES generation in a few microseconds: up to d = 10, 20–45× faster than pycma, 14–23× faster than `cmaes` (Optuna) and on par with a fully JIT-compiled evosax; independent optimizers run in parallel threads on free-threaded Python. See [`PERFORMANCE.md`](PERFORMANCE.md) for the benchmark against other CMA-ES implementations and for every matrix adaptation.
+
 This README provides a high level overview of the implemented modules, and provides some usage examples for both the Python-only and the C++-based versions of the framework. 
 
 The experiment and figure workflow for *The Modular CMA-ES: A Framework for
