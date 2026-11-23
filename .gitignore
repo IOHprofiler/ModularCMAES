@@ -122,3 +122,8 @@ scripts/tuning/data*
 script/tuning/data_new/*
 solutions_*/*
 data_old
+
+# golden trajectory fixtures (tests/golden.py)
+!tests/data/
+tests/data/*
+!tests/data/golden/
