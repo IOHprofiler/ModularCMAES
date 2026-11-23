@@ -1,7 +1,7 @@
 {
  "description": "Golden trajectories of the C++ ModularCMAES; see tests/golden.py",
  "platform": "darwin-arm64-appleclang21.0.0-macos27",
- "generated_from_commit": "a0b3167",
+ "generated_from_commit": "730f210",
  "python": "3.14.7",
  "seed": 42,
  "checkpoint_every": 10,
