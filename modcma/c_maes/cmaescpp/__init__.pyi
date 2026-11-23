@@ -1,5 +1,5 @@
 from collections.abc import Callable, Sequence
-from typing import Annotated, ClassVar, overload
+from typing import Annotated, Any, ClassVar, overload
 
 import numpy
 import numpy.typing
@@ -247,11 +247,31 @@ class ModularCMAES:
 
     def adapt(self) -> None: ...
 
-    def step(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> bool: ...
+    def step(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> bool:
+        """
+        One generation. Returns False when a break condition holds. A vectorized objective is called with every batch of points as a (k, d) array and returns k values.
+        """
 
-    def __call__(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None: ...
+    def __call__(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> None: ...
 
-    def run(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None: ...
+    def run(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> None:
+        """
+        Run until a break condition holds. A vectorized objective is called with every batch of points as a (k, d) array and returns k values.
+        """
+
+    def ask(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='C')]:
+        """
+        The points to evaluate next, a new (k, d) array (row i is point i). Starts a generation when none is in progress; until tell(), it returns the same points.
+        """
+
+    def tell(self, f: numpy.typing.ArrayLike, X: numpy.typing.ArrayLike | None = None) -> bool:
+        """
+        The objective values of the points of ask(), in order. X (k, d): the points that were evaluated, when they differ from the asked ones (repaired or injected). Returns True when this completed a generation.
+        """
+
+    @property
+    def has_pending(self) -> bool:
+        """Whether ask() has points that wait for tell()"""
 
     def break_conditions(self) -> bool: ...
 

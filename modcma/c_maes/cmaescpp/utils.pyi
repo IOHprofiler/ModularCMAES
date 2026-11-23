@@ -6,7 +6,9 @@ from numpy.typing import NDArray
 
 
 def build_info() -> dict[str, str]:
-    """How the extension was built (compiler)"""
+    """
+    How the extension was built: compiler, and whether it may use fused multiply-add instructions (which change the last bits of results)
+    """
 
 def cdf(x: float) -> float: ...
 

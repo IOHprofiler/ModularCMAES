@@ -321,6 +321,65 @@ void define_parameters(nb::module_ &main)
         .def_rw("coordinate_mapping", &Parameters::coordinate_mapping);
 }
 
+namespace
+{
+using RowMatrix = Eigen::Matrix<Float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+//! Objective values from Python (an array, a sequence or a number) as a vector of float64
+Vector to_values(nb::handle f)
+{
+    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
+    return nb::cast<Vector>(asarray(f, nb::arg("dtype") = "float64").attr("reshape")(-1));
+}
+
+//! Points from Python, (k, d) (or (d,) for one point), as the columns of a d x k matrix
+Matrix to_points(nb::handle X)
+{
+    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
+    nb::object a = asarray(X, nb::arg("dtype") = "float64");
+    if (nb::cast<size_t>(a.attr("ndim")) == 1)
+        a = a.attr("reshape")(1, -1);
+    return nb::cast<RowMatrix>(a).transpose();
+}
+
+//! ask() as a new (k, d) array: row i is point i
+RowMatrix ask(ModularCMAES &c) { return c.ask().transpose(); }
+
+bool tell(ModularCMAES &c, nb::handle f, nb::handle X)
+{
+    const Vector values = to_values(f);
+    if (X.is_none())
+        return c.tell(values);
+    const Matrix points = to_points(X);
+    return c.tell(values, points);
+}
+
+//! One generation; a vectorized objective gets every batch of ask() as a (k, d) array
+bool step(ModularCMAES &c, nb::handle objective, const bool vectorized)
+{
+    if (!vectorized)
+    {
+        auto f = nb::cast<FunctionType>(objective);
+        return c.step(f);
+    }
+    while (!c.tell(to_values(objective(nb::cast(ask(c), nb::rv_policy::move)))))
+        ;
+    return !c.break_conditions();
+}
+
+void run(ModularCMAES &c, nb::handle objective, const bool vectorized)
+{
+    if (!vectorized)
+    {
+        auto f = nb::cast<FunctionType>(objective);
+        c(f);
+        return;
+    }
+    while (step(c, objective, true))
+        ;
+}
+} // namespace
+
 void define_cmaes(nb::module_ &m)
 {
     nb::class_<ModularCMAES>(m, "ModularCMAES")
@@ -334,18 +393,47 @@ void define_cmaes(nb::module_ &m)
             nb::arg("objective"))
         .def("select", &ModularCMAES::select)
         .def("adapt", &ModularCMAES::adapt)
-        .def(
-            "step",
-            [](ModularCMAES &c, FunctionType objective) { return c.step(objective); },
-            nb::arg("objective"))
-        .def(
-            "__call__",
-            [](ModularCMAES &c, FunctionType objective) { c(objective); },
-            nb::arg("objective"))
-        .def(
-            "run",
-            [](ModularCMAES &c, FunctionType objective) { c(objective); },
-            nb::arg("objective"))
+        .def("step",
+             &step,
+             nb::sig("def step(self, objective: collections.abc.Callable[[numpy.typing.NDArray["
+                     "numpy.float64]], typing.Any], *, vectorized: bool = False) -> bool"),
+             nb::arg("objective"),
+             nb::kw_only(),
+             nb::arg("vectorized") = false,
+             "One generation. Returns False when a break condition holds. A vectorized objective "
+             "is called with every batch of points as a (k, d) array and returns k values.")
+        .def("__call__",
+             &run,
+             nb::sig("def __call__(self, objective: collections.abc.Callable[[numpy.typing."
+                     "NDArray[numpy.float64]], typing.Any], *, vectorized: bool = False) -> None"),
+             nb::arg("objective"),
+             nb::kw_only(),
+             nb::arg("vectorized") = false)
+        .def("run",
+             &run,
+             nb::sig("def run(self, objective: collections.abc.Callable[[numpy.typing.NDArray["
+                     "numpy.float64]], typing.Any], *, vectorized: bool = False) -> None"),
+             nb::arg("objective"),
+             nb::kw_only(),
+             nb::arg("vectorized") = false,
+             "Run until a break condition holds. A vectorized objective is called with every "
+             "batch of points as a (k, d) array and returns k values.")
+        .def("ask",
+             &ask,
+             "The points to evaluate next, a new (k, d) array (row i is point i). Starts a "
+             "generation when none is in progress; until tell(), it returns the same points.")
+        .def("tell",
+             &tell,
+             nb::sig("def tell(self, f: numpy.typing.ArrayLike, X: numpy.typing.ArrayLike | None "
+                     "= None) -> bool"),
+             nb::arg("f"),
+             nb::arg("X") = nb::none(),
+             "The objective values of the points of ask(), in order. X (k, d): the points that "
+             "were evaluated, when they differ from the asked ones (repaired or injected). "
+             "Returns True when this completed a generation.")
+        .def_prop_ro("has_pending",
+                     &ModularCMAES::has_pending,
+                     "Whether ask() has points that wait for tell()")
         .def("break_conditions", &ModularCMAES::break_conditions)
         .def_ro("p", &ModularCMAES::p);
 }

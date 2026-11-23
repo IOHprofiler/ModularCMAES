@@ -10,9 +10,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 class TestGoldenTrajectories(unittest.TestCase):
     def test_trajectories_match_fixture(self):
-        # A fresh interpreter: other tests change module-level state (constants, tolerances, seeds)
+        # A fresh interpreter: other tests change module-level state (constants, tolerances, seeds).
+        # Every driver (step, ask/tell from Python, vectorized) must match the same fixture.
         result = subprocess.run(
-            [sys.executable, "-m", "tests.golden", "check"],
+            [sys.executable, "-m", "tests.golden", "check", "--drivers", "all"],
             cwd=ROOT,
             capture_output=True,
             text=True,
