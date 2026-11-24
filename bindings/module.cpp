@@ -451,9 +451,9 @@ void define_options(nb::module_ &main)
                "xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is "
                "updated with the matrix exponential of the natural gradient, A <- A expm(eta G); "
                "a low-rank form keeps it O(d^2 lambda) for lambda < d. With "
-               "StepSizeAdaptation.XNES also xNES's update of sigma; the mean and the weights "
-               "remain those of the framework (no utility baseline), and the active update does "
-               "not give xNES's utilities (see the deep dive on matrix adaptations).");
+               "StepSizeAdaptation.XNES also xNES's update of sigma, and with "
+               "RecombinationWeights.UTILITY (also selected by `Modules.active` with the default "
+               "weights) xNES's utilities for the mean and the matrix: then it is xNES.");
 
     nb::enum_<CenterPlacement>(
         m,

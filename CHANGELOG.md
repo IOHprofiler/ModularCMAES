@@ -108,6 +108,8 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * `MaxDSigma`, `MinDSigma` and `NoEffectAxis` used the fourth root of the eigenvalues instead of
   the square root (now as pycma).
 * The stagnation criterion took O(t) per generation (5× slower long BIPOP runs).
+* `NATURAL_GRADIENT` with `active` used CMA-ES's negative weights, which made σ shrink even on a
+  linear function; it now uses xNES's utilities (`weights=UTILITY`).
 * `fmin` ignored `x0` (it used only its length) and started at the origin.
 * Type hints: `Settings(x0=, lb=, ub=)` accept numpy arrays (the stubs said sequences), and the
   annotations of `fmin`, `settings_from_dict`, `settings_from_config` and `get_configspace` were

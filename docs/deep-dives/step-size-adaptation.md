@@ -84,7 +84,7 @@ per point.
 | `CSA` (default) | the path p_σ | every matrix adaptation | `COVARIANCE` uses C^-1/2 Δm, the others the weighted z |
 | `TPA` | two extra evaluations | every | avoid with elitism [F15] |
 | `MSR`, `PSR` | the f-values of two generations | every | not `MSR` with pairwise selection [F9] |
-| `XNES` | the natural gradient, or the lengths of z | `NATURAL_GRADIENT` (xNES's rule) | slow elsewhere [F27] |
+| `XNES` | the natural gradient, or the lengths of z | `NATURAL_GRADIENT` (xNES's rule; with `weights=UTILITY` all of xNES) | slow elsewhere [F27] |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
 | `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | per coordinate [F1] |
 | `SR` | successes against the best of the run | λ = 1 (automatic) | one success per generation for λ > 1 |

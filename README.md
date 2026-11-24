@@ -16,7 +16,7 @@ Adaptation Evolution Strategy (CMA-ES) for derivative-free black-box optimizatio
 and used from Python. Its modules (the covariance update, step-size adaptation, sampling,
 selection, restarts, bound handling, ...) can be switched independently, giving millions of
 distinct variants, so the same optimizer is
-CMA-ES, IPOP- or BIPOP-CMA-ES, sep-CMA-ES, MA-ES, Cholesky-CMA-ES, an xNES-like natural-gradient ES,
+CMA-ES, IPOP- or BIPOP-CMA-ES, sep-CMA-ES, MA-ES, Cholesky-CMA-ES, xNES,
 or any combination in between.
 
 * **Fast**: a generation takes microseconds; up to d = 10, 20–47× faster than pycma and level with

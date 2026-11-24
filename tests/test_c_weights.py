@@ -36,6 +36,13 @@ class TestUtilityWeights(unittest.TestCase):
         none = modcma.settings_from_dict(5, weights="UTILITY", matrix_adaptation="NONE")
         self.assertFalse(none.modules.active)
 
+    def test_natural_gradient_with_active_uses_the_utilities(self):
+        # CMA-ES's negative weights broke the natural gradient (TASKS.md F2)
+        settings = modcma.settings_from_dict(5, matrix_adaptation="NATURAL_GRADIENT", active=True)
+        self.assertEqual(settings.modules.weights, modcma.options.RecombinationWeights.UTILITY)
+        other = modcma.settings_from_dict(5, matrix_adaptation="MATRIX", active=True)
+        self.assertEqual(other.modules.weights, modcma.options.RecombinationWeights.DEFAULT)
+
     def test_the_mean_uses_all_points(self):
         # m <- m + sum_k u_k (x_k - m) over the lambda sorted points
         es = modcma.ModularCMAES(modcma.settings_from_dict(5, weights="UTILITY", seed=1))

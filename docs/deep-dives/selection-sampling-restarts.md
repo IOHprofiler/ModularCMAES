@@ -26,7 +26,7 @@ recombined from the µ positive weights.
 | `MATRIX` | yes | no | no [F7] | faster |
 | `CHOLESKY` | as rank-one downdates | no | no [F7] | faster; failed downdates undetected [F5] |
 | `CMSA` | yes | no | no | breaks [F6] |
-| `NATURAL_GRADIENT` | all λ, CMA-ES weights | no | (trace-free) | premature convergence [F2] |
+| `NATURAL_GRADIENT` | all λ, the utilities (`active` selects `UTILITY`) | no (unscaled, as xNES) | (trace-free) | xNES |
 | `NONE` | switched off | | | |
 
 With pairwise selection the losers (f = +inf) receive the negative weights in index order, and a

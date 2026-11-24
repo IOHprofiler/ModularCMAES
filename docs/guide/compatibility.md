@@ -25,6 +25,7 @@ used.
 | `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART` (*known issue* with PAIRWISE: NaN weights [F17]) |
 | `ssa=SA` or `LPXNES` | sampled step sizes (`sample_sigma`) are always on |
 | `weights=UTILITY` | `active` on (the utilities of the worse half are negative; every matrix update uses all of them) |
+| `matrix_adaptation=NATURAL_GRADIENT` with `active` and the default weights | `weights=UTILITY`: xNES's active form (CMA-ES's negative weights broke it) |
 | `mirrored=PAIRWISE` with `sequential_selection` | the generation stops only after complete pairs, at 2µ points at the earliest |
 | `matrix_adaptation=NATURAL_GRADIENT` | the learning rate `cs` of the step-size rule is xNES's (*known issue*: for every step-size rule, not only `XNES` [F3]) |
 | `matrix_adaptation=SEPARABLE` | `cmu` × (d + 2)/3 (Ros & Hansen 2008) |
@@ -96,7 +97,6 @@ noted; with the current version. Most are recorded for fixing.
 | `sample_transformation=NONE` | uniform samples with mean 0.5: fails everywhere [F22] |
 | `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `MSR`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | σ diverges or collapses: the step-size rules assume finite variance |
 | `active` with `CMSA` | C becomes indefinite: restarts every few generations [F6] |
-| `active` with `NATURAL_GRADIENT` | premature convergence (σ shrinks even on a linear function) [F2] |
 | `sample_sigma`, `SA` or `LPXNES` on rotated, ill-conditioned problems | one sampled step size per coordinate breaks rotation invariance: CMSA with `SA` fails on a rotated ellipsoid [F1] |
 | `MSR` with `PAIRWISE` | σ shrinks every generation [F9] |
 | `TPA` with `elitist` | σ diverges [F15] |

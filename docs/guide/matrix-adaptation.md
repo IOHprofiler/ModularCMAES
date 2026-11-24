@@ -11,7 +11,7 @@ efficient on ill-conditioned problems. `matrix_adaptation` chooses how C, or a f
 |---|---|---|---|---|
 | `COVARIANCE` | full C | O(d²λ) + an O(d³) eigendecomposition every few generations | 6.0 ms | the default: the most robust choice up to a few hundred dimensions |
 | `MATRIX` (MA-ES) | full M, C = M Mᵀ | O(d²λ) | 0.95 ms | high dimension, when the full covariance matters but CMA-ES is too slow |
-| `NATURAL_GRADIENT` (xNES-like) | full A | O(d²λ) (exact low-rank update) | 0.87 ms | as MA-ES; natural-gradient based |
+| `NATURAL_GRADIENT` (xNES) | full A | O(d²λ) (exact low-rank update) | 0.87 ms | as MA-ES; xNES itself with `ssa=XNES` and `weights=UTILITY` |
 | `CHOLESKY` | Cholesky factor | O(d²λ) | 2.2 ms | as MA-ES |
 | `COVARIANCE_NO_EIGV` | full C, Cholesky factor | O(d²λ) + O(d³) every few generations | 1.1 ms | step-size adaptations other than CSA (chosen automatically) |
 | `CMSA` | full C, self-adapted | O(d²λ) + an O(d³) Cholesky factorization every generation | 2.0 ms | with `ssa=SA` (CMSA-ES) |
@@ -64,5 +64,5 @@ matrix (`C` and its eigendecomposition `B`, `d` for `COVARIANCE`; `M` for `MATRI
 | `CHOLESKY` | Cholesky-CMA-ES (Krause et al. 2016): adapts the lower triangular Cholesky factor of C with rank-one updates of the factor, without decomposing C; O(d^2 lambda) per generation. |
 | `CMSA` | CMSA-ES (Beyer & Sendhoff 2008), covariance matrix self-adaptation: C is an exponential average of the selected y y^T with time constant 1 + d (d + 1) / (2 mueff), factorized with a Cholesky decomposition every generation. Meant for StepSizeAdaptation.SA; makes the default mu lambda / 4. |
 | `COVARIANCE_NO_EIGV` | The covariance update of COVARIANCE, with C factorized by a Cholesky decomposition instead of an eigendecomposition (cheaper). The path p_sigma uses the inverse Cholesky factor instead of C^-1/2 (the same up to a rotation), which worked as well as COVARIANCE with CSA in tests. Chosen automatically when COVARIANCE is combined with a step-size adaptation other than CSA. |
-| `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is updated with the matrix exponential of the natural gradient, A <- A expm(eta G); a low-rank form keeps it O(d^2 lambda) for lambda < d. With StepSizeAdaptation.XNES also xNES's update of sigma; the mean and the weights remain those of the framework (no utility baseline), and the active update does not give xNES's utilities (see the deep dive on matrix adaptations). |
+| `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is updated with the matrix exponential of the natural gradient, A <- A expm(eta G); a low-rank form keeps it O(d^2 lambda) for lambda < d. With StepSizeAdaptation.XNES also xNES's update of sigma, and with RecombinationWeights.UTILITY (also selected by `Modules.active` with the default weights) xNES's utilities for the mean and the matrix: then it is xNES. |
 <!-- /options -->

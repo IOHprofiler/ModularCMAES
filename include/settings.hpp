@@ -115,6 +115,15 @@ struct Settings
             modules.matrix_adaptation = MatrixAdaptationType::COVARIANCE_NO_EIGV;
         }
 
+        // xNES's active form is its utilities (summing to zero) over all lambda points; CMA-ES's
+        // negative weights, scaled for CMA-ES, made the natural gradient shrink sigma even on a
+        // linear function (TASKS.md F2). So NATURAL_GRADIENT with active uses the utilities.
+        if (modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT && modules.active &&
+            modules.weights == RecombinationWeights::DEFAULT)
+        {
+            modules.weights = RecombinationWeights::UTILITY;
+        }
+
         // The utilities of NES/xNES are negative for the worse half: every matrix update uses all
         // of them, as the active update does
         if (modules.weights == RecombinationWeights::UTILITY)

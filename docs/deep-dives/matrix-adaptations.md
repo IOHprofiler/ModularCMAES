@@ -105,23 +105,36 @@ factorized by a Cholesky decomposition every generation; µ = λ/4 by default.
 all λ points that sum to zero, uᵢ = max(0, ln(λ/2 + 1) − ln i)/Σ − 1/λ, for the mean, for σ and for
 the shape B, with the learning rates η_σ = η_B = (9 + 3 ln d)/(5 d √d).
 
-**What modcma does.**
+**What modcma does.** It depends on the weights:
 
-* The gradient G = Σ wᵢ (zᵢ zᵢᵀ − I) uses the µ positive weights by default; its trace sets σ (with
-  `ssa=XNES`, σ ← σ exp((η_σ/2)·tr G/d)), the trace-free part updates A ← A exp(η_B/2 · G)
-  (exactly, by a low-rank formula when λ < d).
-* The mean is the usual weighted recombination of the µ best: no −1/λ baseline.
-* With `ssa` other than `XNES` (CSA by default) the step size comes from that rule instead.
-* With the active update all λ weights are used, which looks closer to xNES, but they are CMA-ES's
-  active weights, not utilities summing to zero: *known issue* [F2], σ shrinks even on a linear
-  function and runs converge prematurely. Use `weights=UTILITY` instead.
+* **With `weights=UTILITY`** (also chosen when `active=True` with the default weights) it uses xNES's
+  utilities: the mean moves by Σ uᵢ(xᵢ − m) over all λ points, the natural gradient is
+  G = Σ uᵢ zᵢ zᵢᵀ, its trace sets σ (with `ssa=XNES`: σ ← σ·exp((η_σ/2)·tr G/d)) and its trace-free
+  part updates A ← A·exp((η_B/2)·G) (exactly, by a low-rank formula when λ < d). This is xNES.
+* **With the default weights** G = Σ wᵢ(zᵢzᵢᵀ − I) uses the µ positive CMA-ES weights and the mean
+  is the usual recombination of the µ best: no −1/λ baseline. It needs about as many evaluations as
+  xNES (2–6 % fewer at d = 5, 7–8 % more at d = 20; 10 runs, not tested for significance).
+* With `ssa` other than `XNES` (CSA by default) the step size comes from that rule instead of the
+  trace of G.
 * *Known issue* [F3]: `NATURAL_GRADIENT` sets the learning rate of every step-size rule to η_σ.
 
-**Closest configuration:** `matrix_adaptation=NATURAL_GRADIENT`, `ssa=XNES`, `weights=UTILITY`:
-the utilities of xNES (summing to zero) for the mean, σ and A. It needs the same number of
-evaluations as `cmaes`' `XNES` within 1 % (median of 10 runs, sphere and ellipsoid, d = 5 to 20) and,
-unlike the active update, increases σ on a linear function. The step-size path of CSA is still
-computed (unused).
+Before 2.0, `active=True` used CMA-ES's negative weights, which do not sum to zero and are scaled
+for CMA-ES: σ shrank even on a linear function and runs converged prematurely (F2, fixed by using
+the utilities).
+
+**Closest configuration:** `matrix_adaptation=NATURAL_GRADIENT`, `ssa=XNES`, `weights=UTILITY` (or
+`active=True`). Median evaluations to 1e-8 over 10 runs, against `cmaes`' `XNES`:
+
+| | modcma, UTILITY | `cmaes` XNES | modcma, DEFAULT weights |
+|---|---|---|---|
+| sphere, d = 5 | 1528 | 1532 | 1492 |
+| sphere, d = 10 | 6180 | 6084 | 6220 |
+| sphere, d = 20 | 26094 | 26114 | 28182 |
+| ellipsoid, d = 5 | 2276 | 2304 | 2160 |
+| ellipsoid, d = 10 | 8935 | 8904 | 8965 |
+| ellipsoid, d = 20 | 37122 | 36824 | 39618 |
+
+The step-size path of CSA is still computed with `ssa=XNES` (unused).
 
 ## NONE: CSA-ES
 
@@ -138,5 +151,5 @@ damps; the active update is off. The same as pycma with `CMA_on=False`.
 | `MATRIX` | MA-ES (Beyer & Sendhoff 2017) | defaults | CMA-ES learning rates |
 | `CHOLESKY` | Cholesky-CMA-ES (Krause et al. 2016) | defaults | no h_σ |
 | `CMSA` | CMSA-ES (Beyer & Sendhoff 2008) | `ssa=SA`, `weights=EQUAL` | sampled step sizes per coordinate [F1] |
-| `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010) | `ssa=XNES`, `weights=UTILITY` | none measurable; not with `active` [F2] |
+| `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010) | `ssa=XNES`, `weights=UTILITY` | none measurable |
 | `NONE` | CSA-ES | defaults | |

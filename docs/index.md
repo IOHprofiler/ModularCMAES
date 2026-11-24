@@ -5,7 +5,7 @@ Adaptation Evolution Strategy (CMA-ES) for derivative-free, continuous (and mixe
 black-box optimization. It is written in C++ and used from Python. Its modules (the
 covariance update, step-size adaptation, sampling, selection, restarts, bound handling, ...) can be
 switched independently, so the same optimizer is CMA-ES, IPOP- or BIPOP-CMA-ES, sep-CMA-ES, MA-ES,
-Cholesky-CMA-ES, an xNES-like natural-gradient ES, or any combination in between.
+Cholesky-CMA-ES, xNES, or any combination in between.
 
 ```python
 import numpy as np
