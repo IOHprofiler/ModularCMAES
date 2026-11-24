@@ -770,3 +770,81 @@ d = 20); the elitist step stays as the paper defines it (Sec. 4.1, Eq. 1-3).
 evaluations can stay unused (pycma may exceed `maxfevals` instead); `AdaptiveRepelling.target_rejection_rate`/`local_target_rejection_rate` are not used;
 the step-size classes have no Python constructor.
 
+---
+
+## Planned features (WP9-WP14, later; not started)
+
+From the comparison with pycma (2026-11-24). Each is a module or an option of the modular design,
+works with ask-tell, is off by default (no change of results), and is validated on BBOB (or the
+problem class it is for) against pycma where pycma has it. Not planned: surrogates (lq-CMA-ES), the
+options that shape the search distribution (per-coordinate sigma0, fixed variables, min/max std,
+condition alleviation, mean learning rate, arbitrary weights, selective mirroring, CSA variants).
+
+### WP9: Noisy objectives
+
+* **T9.1 Uncertainty handling (UH-CMA-ES; Hansen et al. 2009, "A method for handling uncertainty in
+  evolutionary optimization with an application to feedback control of combustion"; pycma's
+  `NoiseHandler`).** A module `noise_handling` (NONE, UH): each generation a few solutions are
+  re-evaluated, the change of their ranks measures the noise, and when it exceeds a threshold sigma
+  is increased (or the number of evaluations per point). Ask-tell: the re-evaluations are extra
+  points of the generation, as TPA's (the state machine of WP3 already has them).
+* **T9.2 Adaptive re-evaluation** (Dinu et al. 2025, cited in the framework paper) as a second option,
+  after T9.1.
+* **T9.3** The guide page on noise: `xfavorite` (#24), larger populations, the restart criteria that
+  misfire under noise (flat fitness, no improvement), with a BBOB-noisy example (ioh has the noisy
+  functions).
+
+### WP10: Constraints
+
+* **T10.1 Augmented Lagrangian** (Atamna, Auger & Hansen 2016; Dufossé & Hansen 2021, cited in the
+  paper; pycma's `ConstrainedFitnessAL`/`fmin_con2`). The objective returns f and the constraint
+  values g (g <= 0 feasible); the Lagrange multipliers and penalty factors adapt every generation;
+  `tell(f, g)` for ask-tell. The best *feasible* solution is tracked separately.
+* **T10.2 Infeasible points** (pycma's `is_feasible`): an objective value of NaN (or None) means
+  infeasible; the point is resampled (bounded number of times), as RESAMPLE does for the box.
+* **T10.3** Examples: a linearly constrained sphere, a design problem with nonlinear constraints.
+
+### WP11: Bounds by transformation, and a normalized search space
+
+* **T11.1 Bound transformation** (pycma's default `BoundTransform`: a piecewise linear-quadratic
+  map, the identity in the interior of the box, onto [lb, ub]). The search distribution lives in an
+  unbounded space and the objective sees x = T(x'): no repair, so the update needs no recomputed
+  y and z. As a `bound_correction` option (TRANSFORM) or in the coordinate mapping (which already
+  rounds the integer variables), so it composes with integer variables.
+* **T11.2 Normalized space**: `Settings(normalize=True)` optimizes in [0, 1]^d (or [-1, 1]^d) and maps
+  to [lb, ub] for the objective, with sigma0 relative to the box; for problems whose variables have
+  different scales known a priori. With T11.1 the map is smooth at the bounds.
+* **T11.3** The guide page on bounds compares repair and transformation (BBOB with bounds, SBOX-COST).
+
+### WP12: Large scale: matrix adaptations
+
+* **T12.1 dd-CMA-ES** (diagonal decoding; Akimoto & Hansen 2020, "Diagonal acceleration for covariance
+  matrix adaptation evolution strategies", Evolutionary Computation; pycma's `CMA_diagonal_decoding`):
+  a diagonal scaling adapted alongside C, fast on separable and ill-scaled problems without losing
+  rotation invariance. `MatrixAdaptationType.DIAGONAL_DECODING`.
+* **T12.2 VkD-CMA** (Akimoto & Hansen 2016, "Projection-based restricted covariance matrix
+  adaptation for high dimension", cited in the paper; pycma's `restricted_gaussian_sampler`):
+  C = D (I + V V^T) D with k vectors, O(d k) memory and time per sample; k adapted. VD-CMA is k = 1.
+  `MatrixAdaptationType.VKD`.
+* **T12.3** The benchmarks of the docs extended to d = 10 000 for SEPARABLE, VKD, MATRIX; the guide
+  page on matrix adaptation with these two.
+
+### WP13: Restarts and stopping
+
+* **T13.1 Restart from the best point**: `CenterPlacement.BEST` (pycma's `restart_from_best`), the
+  best solution so far as the center of a new run.
+* **T13.2 The missing stopping criteria of pycma**, as `Criterion` classes (they restart, or stop with
+  `restart_strategy=STOP`): `TolFun` (range of the recent and current values below tolfun),
+  `TolFunRel` (relative to the first values), `TolFacUpX` (sigma grew by a factor 1e3 against
+  sigma0: sigma0 too small), `TolXStagnation` (the mean stops moving), `Timeout` (wall-clock time).
+  Each against pycma's definition; the guide page on restarts lists them with pycma's names.
+
+### WP14: Saving and resuming a run
+
+* **T14.1** Pickling of the optimizer: `ModularCMAES`, `Parameters`, `Settings` and every module
+  (`__getstate__`/`__setstate__` in the bindings, from a serialization of the C++ state, including
+  the random generators and the samplers' positions, e.g. Sobol and cached sequences).
+* **T14.2** A run that is pickled and resumed continues bit for bit (a test over the golden
+  configurations); the ask-tell state included (a pending batch).
+* **T14.3** A how-to: checkpointing a long run every n generations.
+
