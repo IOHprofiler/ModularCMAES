@@ -48,10 +48,10 @@ class TestTuning(unittest.TestCase):
 
     def test_fmin(self):
         xopt, fopt, evals, es = c_maes.fmin(
-            sphere, [1, 2], 0.2, 100, active=True, matrix_adaptation="NONE"
+            sphere, [1, 2], 0.2, 300, active=True, matrix_adaptation="NONE"
         )
         self.assertLess(fopt, 1e-4)
-        self.assertLessEqual(evals, 100)
+        self.assertLessEqual(evals, 300)
         self.assertEqual(sphere(xopt), fopt)
 
 

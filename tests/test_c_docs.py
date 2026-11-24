@@ -60,6 +60,8 @@ class TestDocs(unittest.TestCase):
                     env={**os.environ, "MODCMA_EXAMPLE_QUICK": "1"},
                     timeout=600,
                 )
+                if result.returncode != 0 and "pip install" in result.stderr[-200:]:
+                    self.skipTest(result.stderr.strip())  # an optional dependency is missing
                 self.assertEqual(result.returncode, 0, result.stderr[-3000:])
 
 

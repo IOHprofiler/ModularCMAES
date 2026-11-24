@@ -9,9 +9,10 @@ import ast
 import os
 import unittest
 
-STUBS = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "modcma", "c_maes", "cmaescpp"
-)
+import modcma.c_maes
+
+# The stubs next to the extension (the source tree, or an installed wheel)
+STUBS = os.path.join(os.path.dirname(os.path.abspath(modcma.c_maes.__file__)), "cmaescpp")
 
 
 def undocumented(path):
@@ -45,6 +46,7 @@ def undocumented(path):
     return missing
 
 
+@unittest.skipUnless(os.path.isdir(STUBS), "stubs not installed")
 class TestStubs(unittest.TestCase):
     def test_every_public_name_has_a_docstring(self):
         for name in sorted(os.listdir(STUBS)):

@@ -6,6 +6,7 @@ them there); the site shows the same files. A page in docs/ that contains only t
 corresponding page of the site, to a figure of the site, or to the file on GitHub.
 """
 
+import ast
 import os
 import re
 
@@ -24,6 +25,10 @@ PAGES = {
 # Directories of figures the root pages show, copied into the site at the same path
 FIGURES = ["scripts/performance/figures"]
 MARKER = re.compile(r"<!--\s*root:\s*([A-Z]+\.md)\s*-->")
+# <!-- options: EnumName --> becomes a table of the values of modcma.options.EnumName and their
+# docstrings, read from the stubs (the reference has the same text, with its own anchors)
+OPTIONS = re.compile(r"<!--\s*options:\s*([A-Za-z]+)\s*-->")
+OPTIONS_STUB = os.path.join(ROOT, "modcma", "c_maes", "cmaescpp", "options.pyi")
 LINK = re.compile(r"(!?\[[^\]]*\]\()([^)\s]+)(\))")
 
 
@@ -56,7 +61,28 @@ def _rewrite(match, page_dir):
     return f"{prefix}{GITHUB}{path}{anchor}{suffix}"
 
 
+def _enum_table(name):
+    with open(OPTIONS_STUB, encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    for node in tree.body:
+        if isinstance(node, ast.ClassDef) and node.name == name:
+            rows = []
+            for i, item in enumerate(node.body):
+                if isinstance(item, ast.Assign) and isinstance(item.targets[0], ast.Name):
+                    doc = ""
+                    if i + 1 < len(node.body) and isinstance(node.body[i + 1], ast.Expr):
+                        doc = " ".join(str(node.body[i + 1].value.value).split())
+                    doc = doc.replace("|", "\\|")
+                    rows.append(f"| `{item.targets[0].id}` | {doc} |")
+            intro = " ".join((ast.get_docstring(node) or "").split())
+            return "\n".join(
+                [f"**`modcma.options.{name}`**: {intro}", "", "| value | |", "|---|---|", *rows]
+            )
+    raise KeyError(f"no enum {name} in {OPTIONS_STUB}")
+
+
 def on_page_markdown(markdown, page, config, files):
+    markdown = OPTIONS.sub(lambda m: _enum_table(m.group(1)), markdown)
     match = MARKER.search(markdown)
     if match is None:
         return markdown

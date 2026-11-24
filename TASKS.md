@@ -594,6 +594,26 @@ the package. Nothing in `modcma.c_maes` or `scripts/` imports it.
 
 ## WP7: Documentation (D10): branch `wp7-docs` (on WP6)
 
+**Status: done**, except where noted.
+* T7.1: every class, method, property, enum value and submodule documented in the bindings (written
+  in three parts, by file); stubs regenerated; `tests/test_c_stubs.py` fails on any undocumented
+  public name.
+* T7.2: `mkdocs.yml` (Material, mkdocstrings reading the stubs, no build of the extension needed),
+  `docs/hooks.py` (the root documents and their figures as pages; option tables from the stubs),
+  `.readthedocs.yml`, `docs/requirements.txt` (pinned), a `docs` CI job (`mkdocs build --strict`).
+  Material for MkDocs announces its end of life for May 2027 (successor: Zensical, which reads the
+  same `mkdocs.yml`): a later move.
+* T7.3–T7.6: getting started (4 pages), user guide (13 pages), examples (6 scripts in `examples/`
+  plus the C++ program `examples/cpp`, built in CI), reference (15 pages), migration guide,
+  changelog, citing. `tests/test_c_docs.py` runs every python block of the docs and README and every
+  example (the BBOB example is skipped without `ioh`).
+* T7.7, T7.8: README (641 -> about 150 lines), `CITATION.cff`, `CHANGELOG.md`, `CONTRIBUTING.md`,
+  pyproject metadata (keywords, classifiers incl. free-threading, URLs).
+* Besides documentation: `fmin` ignored `x0` (fixed, a test), `str(Modules)` printed `unknown` for
+  `CENTER` (fixed), `modcma_core` declares C++17 for the programs that link it.
+* Open for the maintainer: the bibliographic entry of the framework paper (only its title is cited);
+  references for MXNES, LPXNES and COTN (left out of the docstrings).
+
 No change of behaviour. Today: about 450 bound functions, classes and properties have one docstring
 between them (the stubs: 31 of 732 definitions), so `help()`, IDE hovers and any API reference are
 empty; the Read the Docs site documents only the pure-Python implementation and its configuration

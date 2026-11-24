@@ -1,0 +1,40 @@
+cff-version: 1.2.0
+message: "If you use modcma in your research, please cite the paper below."
+title: "Modular CMA-ES"
+type: software
+repository-code: "https://github.com/IOHprofiler/ModularCMAES"
+url: "https://modularcmaes.readthedocs.io"
+license: MIT
+version: 2.0.0
+authors:
+  - family-names: de Nobel
+    given-names: Jacob
+  - family-names: Vermetten
+    given-names: Diederick
+  - family-names: Wang
+    given-names: Hao
+  - family-names: Doerr
+    given-names: Carola
+  - family-names: Bäck
+    given-names: Thomas
+preferred-citation:
+  type: conference-paper
+  title: "Tuning as a Means of Assessing the Benefits of New Ideas in Interplay with Existing Algorithmic Modules"
+  authors:
+    - family-names: de Nobel
+      given-names: Jacob
+    - family-names: Vermetten
+      given-names: Diederick
+    - family-names: Wang
+      given-names: Hao
+    - family-names: Doerr
+      given-names: Carola
+    - family-names: Bäck
+      given-names: Thomas
+  collection-title: "Proceedings of the Genetic and Evolutionary Computation Conference Companion (GECCO '21)"
+  publisher:
+    name: "Association for Computing Machinery"
+  year: 2021
+  start: 1375
+  end: 1384
+  doi: "10.1145/3449726.3463167"

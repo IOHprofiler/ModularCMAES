@@ -6,10 +6,15 @@ they can be compared at https://iohanalyzer.liacs.nl, and summarized here: the f
 """
 
 import os
+import sys
 import tempfile
 
-import ioh
 import numpy as np
+
+try:
+    import ioh
+except ImportError:
+    sys.exit("This example needs IOHexperimenter: pip install ioh")
 
 import modcma
 
