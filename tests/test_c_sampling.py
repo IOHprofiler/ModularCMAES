@@ -2,14 +2,14 @@ import unittest
 
 import numpy as np
 
-from modcma.c_maes import sampling, utils, ModularCMAES, Settings
+from modcma.c_maes import sampling, set_seed, ModularCMAES, Settings
 
 
 class TestSampling(unittest.TestCase):
     """Test case for sampling methods of C++ version Modular CMA-ES."""
 
     def setUp(self):
-        utils.set_seed(10)
+        set_seed(10)
 
     def sampler_test(self, sampler, expected):
         sample = sampler()
@@ -25,9 +25,9 @@ class TestSampling(unittest.TestCase):
         # Halton and Sobol scramble with std::shuffle/std::uniform_int_distribution, whose
         # results differ between standard libraries, so there is no portable expected value
         # (the golden fixtures pin them per platform). Check range and reproducibility instead.
-        utils.set_seed(10)
+        set_seed(10)
         first = np.array([make_sampler()() for _ in range(3)])
-        utils.set_seed(10)
+        set_seed(10)
         second = np.array([make_sampler()() for _ in range(3)])
         np.testing.assert_array_equal(first, second)
         self.assertEqual(first.shape, (3, 5))

@@ -1,5 +1,5 @@
 """
-Helpers: the global random generator, build information, the normal CDF and its inverse, the Sobol sequence, the LAPACK/BLAS routines the library uses, and the permutation generators of the samplers.
+Internals of the library, exposed for the tests: the LAPACK/BLAS routines, the Sobol sequence and the permutation generators of the samplers. Not part of the API: they may change without notice.
 """
 
 from collections.abc import Sequence
@@ -8,32 +8,6 @@ from typing import Annotated, overload
 import numpy
 from numpy.typing import NDArray
 
-
-def build_info() -> dict[str, str]:
-    """
-    How the extension was built.
-
-    Returns
-    -------
-    dict[str, str]
-        'compiler': the compiler and its version, e.g. 'gcc 13.3.0';
-        'fma': 'yes' when the code may use fused multiply-add instructions (which change
-        the last bits of results), 'no' otherwise;
-        'lapack': where LAPACK and BLAS come from: 'linked' (built with them, Accelerate
-        on macOS), 'scipy' (scipy's, handed over at import) or 'none' (Eigen only).
-    """
-
-def cdf(x: float) -> float:
-    """
-    The cumulative distribution function of the standard normal distribution at x.
-    """
-
-def ppf(x: float) -> float:
-    """
-    The inverse of `cdf` (percent point function): the standard normal quantile of the probability x in (0, 1).
-
-    The GAUSSIAN sample transformation maps uniform numbers to normal ones with it.
-    """
 
 def i8_sobol(dim_num: int, seed: int, quasi: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> int:
     """
@@ -54,28 +28,11 @@ def i8_sobol(dim_num: int, seed: int, quasi: Annotated[NDArray[numpy.float64], d
         The seed of the point after this one.
     """
 
-def compute_ert(running_times: Sequence[int], budget: int) -> tuple[float, int]:
+def set_lapack(capsules: dict, source: str) -> None:
     """
-    The expected running time (ERT) of a set of runs.
+    Use these LAPACK/BLAS routines (internal).
 
-    Parameters
-    ----------
-    running_times : list[int]
-        The evaluations each run used; a run succeeded when it used fewer than budget.
-    budget : int
-        The budget of each run.
-
-    Returns
-    -------
-    tuple[float, int]
-        The sum of all running times divided by the number of successful runs (inf when no run succeeded), and the number of successful runs.
-    """
-
-def set_seed(seed: int) -> None:
-    """
-    Seed the global random generator (mt19937).
-
-    An optimizer without `Settings.seed` copies the global generator when it is created and advances it, so that after set_seed(s) the optimizers created in the same order draw the same numbers. Samplers, bound corrections and functions of this module that are used on their own draw from the global generator directly.
+    capsules maps the names dsyevd, dsyevr, dpotrf, dgetrf, dgetri and dgemm to the PyCapsules of scipy.linalg.cython_lapack and cython_blas; source is what build_info()['lapack'] reports afterwards. Ignored when the library has its own (build_info()['lapack'] == 'linked'). modcma.c_maes calls it at import.
     """
 
 def lapack_eigh(C: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], method: int = 1) -> tuple[Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]]:
@@ -119,16 +76,6 @@ def blas_gemm(A: Annotated[NDArray[numpy.float64], dict(shape=(None, None), orde
     The product op(A) op(B) with BLAS dgemm, as the matrix adaptations compute it (for tests).
 
     op(X) is X, or X^T when transpose_a (transpose_b) is True. Raises RuntimeError when BLAS is not available.
-    """
-
-def random_uniform() -> float:
-    """
-    A uniform random number in the open interval (0, 1) from the global generator.
-    """
-
-def random_normal() -> float:
-    """
-    A standard normal random number from the global generator (Box-Muller).
     """
 
 class Shuffler:

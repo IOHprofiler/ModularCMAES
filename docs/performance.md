@@ -165,7 +165,7 @@ LAPACK, so the choice is visible and adjustable:
 
 ```python
 from modcma import c_maes
-c_maes.utils.build_info()["lapack"]   # "linked" (macOS), "scipy" (Linux, Windows) or "none"
+c_maes.build_info()["lapack"]   # "linked" (macOS), "scipy" (Linux, Windows) or "none"
 c_maes.constants.eigen_solver         # -1 automatic (default), 0 Eigen, 1 dsyevd, 2 dsyevr
 c_maes.constants.cholesky_solver      # -1 automatic (default), 0 Eigen, 1 dpotrf
 c_maes.constants.lapack_min_dim       # 120: eigendecomposition and Cholesky use LAPACK from here on

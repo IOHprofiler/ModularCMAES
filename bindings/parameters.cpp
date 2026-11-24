@@ -646,7 +646,7 @@ void define_parameters(nb::module_ &main)
             "CSA.\n"
             "seed : int, optional\n"
             "    The seed of the optimizer's own random generator. Default None: the optimizer "
-            "starts from a copy of the global generator (utils.set_seed) when it is created.\n"
+            "starts from a copy of the global generator (set_seed) when it is created.\n"
             "fast_sampling : bool, default False\n"
             "    Sample with xoshiro256++ and a ziggurat instead of mt19937 and the inverse "
             "normal CDF (the default UNIFORM + GAUSSIAN sampler only): faster, but a different "
@@ -655,7 +655,7 @@ void define_parameters(nb::module_ &main)
         .def_rw("seed",
                 &Settings::seed,
                 "The seed of the optimizer's own random generator, or None.\n\n"
-                "None: the optimizer starts from a copy of the global generator (utils.set_seed) "
+                "None: the optimizer starts from a copy of the global generator (set_seed) "
                 "when it is created. Set it before the optimizer is created.")
         .def_rw("fast_sampling",
                 &Settings::fast_sampling,
@@ -818,7 +818,7 @@ void define_parameters(nb::module_ &main)
         "Settings.modules is an object here (adaptation, mutation, selection, sampler, bounds, "
         "...), which can be inspected and, for experiments, changed. Every Parameters object has "
         "its own random generator: seeded with Settings.seed, or a copy of the global generator "
-        "(utils.set_seed) at creation.")
+        "(set_seed) at creation.")
         .def(nb::init<size_t>(),
              nb::arg("dimension"),
              "Parameters with the default settings of the C++ library for this dimension.\n\n"
@@ -1186,7 +1186,7 @@ void define_es(nb::module_ &main)
         "OnePlusOneES is a (1+1)-ES with a success rule, MuCommaLambdaES a (mu, lambda)-ES with "
         "self-adapted coordinate-wise step sizes. Of the Modules they use only the sampler "
         "(sampler, sample_transformation, mirrored, orthogonal) and bound_correction, with the "
-        "fixed box [-5, 5]^d. They draw from the global random generator (utils.set_seed).");
+        "fixed box [-5, 5]^d. They draw from the global random generator (set_seed).");
     using namespace es;
     nb::class_<OnePlusOneES>(
         m,

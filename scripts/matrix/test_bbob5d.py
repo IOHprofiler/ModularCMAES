@@ -87,7 +87,7 @@ def place_legend_below(
 
 
 if __name__ == "__main__":
-    # modcma.utils.set_seed(43)
+    # modcma.set_seed(43)
     # modcma.constants.calc_eigv = True
     # name = f"CMA-ES eig={modcma.constants.calc_eigv}"
 

@@ -15,7 +15,6 @@ from ConfigSpace import (
 
 from .cmaescpp import (
     constants,
-    utils,  # pyright: ignore[reportMissingModuleSource]
     sampling,  # pyright: ignore[reportMissingModuleSource]
     mutation,  # pyright: ignore[reportMissingModuleSource]
     selection,  # pyright: ignore[reportMissingModuleSource]
@@ -29,7 +28,12 @@ from .cmaescpp import (
     ModularCMAES,
     center,  # pyright: ignore[reportMissingModuleSource]
     es,  # pyright: ignore[reportMissingModuleSource]
+    set_seed,
+    build_info,
+    compute_ert,
+    _internal,  # pyright: ignore[reportMissingModuleSource]
 )
+from . import utils  # deprecated: set_seed, build_info and compute_ert are in this namespace
 
 from .cmaescpp.parameters import (  # pyright: ignore[reportMissingModuleSource]
     Settings,
@@ -44,7 +48,7 @@ def _use_scipy_lapack() -> None:
     of their own and use scipy's (a dependency of modcma, already imported by modcma). Without it
     the library falls back to Eigen's eigensolver. See docs/performance.md.
     """
-    if utils.build_info()["lapack"] != "none":
+    if build_info()["lapack"] != "none":
         return
     try:
         from scipy.linalg import cython_blas, cython_lapack  # pyright: ignore
@@ -52,7 +56,7 @@ def _use_scipy_lapack() -> None:
         lapack, blas = cython_lapack.__pyx_capi__, cython_blas.__pyx_capi__
         capsules = {name: lapack[name] for name in ("dsyevd", "dsyevr", "dpotrf", "dgetrf", "dgetri")}
         capsules["dgemm"] = blas["dgemm"]
-        utils._set_lapack(capsules, "scipy")  # pyright: ignore[reportAttributeAccessIssue]
+        _internal.set_lapack(capsules, "scipy")
     except Exception as error:  # pragma: no cover - depends on the scipy build
         warnings.warn(f"modcma: scipy's LAPACK is not usable ({error}); using Eigen", stacklevel=2)
 
@@ -343,7 +347,9 @@ __all__ = (
     "Settings",
     "Modules",
     "constants",
-    "utils",
+    "set_seed",
+    "build_info",
+    "compute_ert",
     "sampling",
     "mutation",
     "selection",

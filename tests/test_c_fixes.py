@@ -316,15 +316,8 @@ class TestSettingsAndHelpers(unittest.TestCase):
         a += b
         self.assertEqual(a.n, 5)
 
-    def test_random_normal_after_set_seed(self):
-        c_maes.utils.set_seed(7)
-        first = [c_maes.utils.random_normal() for _ in range(3)]
-        c_maes.utils.set_seed(7)
-        self.assertEqual(first, [c_maes.utils.random_normal() for _ in range(3)])
-
     def test_bounds_checks(self):
-        sequence = c_maes.CachedShuffleSequence(2) if hasattr(c_maes, "CachedShuffleSequence") \
-            else c_maes.utils.CachedShuffleSequence(2)
+        sequence = c_maes._internal.CachedShuffleSequence(2)
         with self.assertRaises((IndexError, ValueError)):
             sequence.get_index(10**9)
         with self.assertRaises(ValueError):

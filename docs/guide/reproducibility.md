@@ -6,8 +6,8 @@ Every optimizer has its own random number generator.
 
 * `Settings(..., seed=s)` seeds the optimizer's own generator: the same seed gives the same run.
 * Without a seed, the optimizer copies the global generator when it is created, so
-  `modcma.utils.set_seed(s)` before creating it has the same effect (the way modcma 1.x and
-  most scripts did it).
+  `modcma.set_seed(s)` before creating it has the same effect (the way modcma 1.x and most
+  scripts did it, as `c_maes.utils.set_seed(s)`).
 
 ```python
 import numpy as np

@@ -202,7 +202,7 @@ void concat(Vector &x, const Vector &y);
  *
  * @param running_times the vector of measured running times
  * @param budget the maximum budget allocated to each run
- * @return std::pair<Float, size_t> (ERT, number of successfull runs)
+ * @return std::pair<Float, size_t> (ERT, number of successful runs)
  */
 std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, size_t budget);
 

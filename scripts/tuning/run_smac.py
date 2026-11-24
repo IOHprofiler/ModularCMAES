@@ -80,7 +80,7 @@ def get_bbob_performance(
 ):
     iid = 1 + (seed % 10)
     np.random.seed(seed + iid)
-    c_maes.utils.set_seed(seed + iid)
+    c_maes.set_seed(seed + iid)
     BUDGET = dim * 10_000
 
     problem = ioh.get_problem(fid, iid, dim)

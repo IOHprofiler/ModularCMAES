@@ -35,7 +35,10 @@ from .c_maes import (
     selection,
     settings_from_config,
     settings_from_dict,
-    utils,
+    set_seed,
+    build_info,
+    compute_ert,
+    utils,  # deprecated
 )
 
 try:
@@ -82,7 +85,9 @@ __all__ = (
     "Population",
     "options",
     "constants",
-    "utils",
+    "set_seed",
+    "build_info",
+    "compute_ert",
     "parameters",
     "sampling",
     "mutation",

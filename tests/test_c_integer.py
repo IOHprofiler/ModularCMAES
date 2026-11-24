@@ -22,7 +22,7 @@ class TestInteger(unittest.TestCase):
             ssa="SA",
         )
         cma = c_maes.ModularCMAES(settings)
-        c_maes.utils.set_seed(100)
+        c_maes.set_seed(100)
         while not cma.break_conditions():
             cma.mutate(sphere)
             cma.select()

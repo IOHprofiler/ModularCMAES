@@ -24,6 +24,12 @@ def main():
             check=True,
         )
         generated = os.path.join(out, "cmaescpp")
+        # -r skips private submodules: _internal (the test hooks) separately, for type checkers
+        subprocess.run(
+            [sys.executable, "-m", "nanobind.stubgen", "-m", "modcma.c_maes.cmaescpp._internal",
+             "-o", os.path.join(generated, "_internal.pyi"), "-q"],
+            check=True,
+        )
         for name in os.listdir(TARGET):
             if name.endswith(".pyi"):
                 os.remove(os.path.join(TARGET, name))

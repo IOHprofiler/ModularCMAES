@@ -251,7 +251,7 @@ def himmelblau_exp():
     mng.resize(1000, 800)
     problem.reset()
 
-    c_cmaes.utils.set_seed(42)
+    c_cmaes.set_seed(42)
     modules = c_cmaes.parameters.Modules()
     modules.restart_strategy = c_cmaes.options.RESTART
     modules.bound_correction = c_cmaes.options.SATURATE
@@ -358,7 +358,7 @@ def calc_taboo_potential(fid=3, instance=6, dim=2, n_trials=1):
 
     ## Setting this greatly increases the number of restarts
     c_cmaes.constants.tol_min_sigma = 0.05
-    c_cmaes.utils.set_seed(42)
+    c_cmaes.set_seed(42)
 
     problem = ioh.get_problem(fid, instance, dim)
     modules = c_cmaes.parameters.Modules()
@@ -489,7 +489,7 @@ def interactive(fid=21, instance=6, dim=2, rep=True, coverage=5, save_frames=Fal
     lb = -5
     ub = 5
 
-    c_cmaes.utils.set_seed(42)
+    c_cmaes.set_seed(42)
 
     problem = ioh.get_problem(fid, instance, dim)
 
@@ -617,7 +617,7 @@ def collect(
             hitting_times = []
             for instance in range(1, n_instances + 1):
                 problem = ioh.get_problem(fid, instance, dim)
-                c_cmaes.utils.set_seed(42)
+                c_cmaes.set_seed(42)
 
                 # if instance == 1:
                 #     print(problem.meta_data)
@@ -728,7 +728,7 @@ def collect(
 #                     problem.attach_logger(logger)
 
 #                 for run in range(n_runs):
-#                     c_cmaes.utils.set_seed(42 * run)
+#                     c_cmaes.set_seed(42 * run)
 
 #                     settings = c_cmaes.parameters.Settings(
 #                         dim,
@@ -888,7 +888,7 @@ if __name__ == "__main__":
     #                 problem.attach_logger(logger)
 
     #             for run in range(n_runs):
-    #                 c_cmaes.utils.set_seed(42 * run)
+    #                 c_cmaes.set_seed(42 * run)
 
     #                 settings = c_cmaes.parameters.Settings(
     #                     dim,

@@ -59,14 +59,14 @@ class TestGeneratorPerOptimizer(unittest.TestCase):
         self.assertGreater(len(a.p.stats.centers), 0)  # restarts: BIPOP and center placement
 
     def test_global_seed_before_creation(self):
-        c_maes.utils.set_seed(11)
+        c_maes.set_seed(11)
         first = trajectory(c_maes.ModularCMAES(settings()), 30)
-        c_maes.utils.set_seed(11)
+        c_maes.set_seed(11)
         again = trajectory(c_maes.ModularCMAES(settings()), 30)
         assert_same(self, first, again)
 
     def test_optimizers_created_after_one_seed_differ(self):
-        c_maes.utils.set_seed(11)
+        c_maes.set_seed(11)
         a = c_maes.ModularCMAES(settings())
         b = c_maes.ModularCMAES(settings())
         self.assertFalse(
@@ -74,9 +74,9 @@ class TestGeneratorPerOptimizer(unittest.TestCase):
         )
 
     def test_seed_is_independent_of_the_global_generator(self):
-        c_maes.utils.set_seed(1)
+        c_maes.set_seed(1)
         a = trajectory(c_maes.ModularCMAES(settings(seed=5)), 20)
-        c_maes.utils.set_seed(2)
+        c_maes.set_seed(2)
         c_maes.sampling.Gaussian(4)()  # draws from the global generator
         b = trajectory(c_maes.ModularCMAES(settings(seed=5)), 20)
         assert_same(self, a, b)
@@ -102,7 +102,7 @@ class TestFastSampling(unittest.TestCase):
     """T4.2: Settings.fast_sampling, xoshiro256++ with a ziggurat"""
 
     def test_standard_normal(self):
-        c_maes.utils.set_seed(4)
+        c_maes.set_seed(4)
         sampler = c_maes.sampling.FastGaussian(50)
         x = np.concatenate([sampler() for _ in range(4000)])  # 200000 numbers
         self.assertLess(abs(x.mean()), 0.01)

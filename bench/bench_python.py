@@ -26,7 +26,7 @@ except ImportError:  # pragma: no cover
 
 
 def us_per_evaluation(objective, dim: int, generations: int) -> float:
-    c_maes.utils.set_seed(1)
+    c_maes.set_seed(1)
     settings = c_maes.parameters.Settings(
         dim, max_generations=generations, budget=10**12, sigma0=2.0, verbose=False
     )

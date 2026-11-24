@@ -1,7 +1,7 @@
 """
 The samplers that generate the vectors z of the mutations y = A z.
 
-The optimizer builds its sampler from the modules: a base sampler of uniform numbers in (0, 1)^d (`Uniform`, `Sobol` or `Halton`; `options.BaseSampler`), a transformer to the distribution of the mutations (`GaussianTransformer` and the others; `options.SampleTranformerType`), then optionally `Orthogonal`, `Mirrored` and `CachedSampler` around it. Calling a sampler returns one sample, a vector of length d. The samplers created here draw from the global generator (`utils.set_seed`); the ones of an optimizer draw from its own.
+The optimizer builds its sampler from the modules: a base sampler of uniform numbers in (0, 1)^d (`Uniform`, `Sobol` or `Halton`; `options.BaseSampler`), a transformer to the distribution of the mutations (`GaussianTransformer` and the others; `options.SampleTranformerType`), then optionally `Orthogonal`, `Mirrored` and `CachedSampler` around it. Calling a sampler returns one sample, a vector of length d. The samplers created here draw from the global generator (`set_seed`); the ones of an optimizer draw from its own.
 """
 
 from collections.abc import Callable, Sequence
@@ -11,7 +11,6 @@ import numpy
 from numpy.typing import NDArray
 
 import modcma.c_maes.cmaescpp.parameters
-import modcma.c_maes.cmaescpp.utils
 
 
 class Sampler:
@@ -61,9 +60,7 @@ class FastGaussian(Sampler):
     """
 
     def __init__(self, d: int) -> None:
-        """
-        Samples of dimension d, seeded from the global generator (`utils.set_seed`).
-        """
+        """Samples of dimension d, seeded from the global generator (`set_seed`)."""
 
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """One sample."""
@@ -83,15 +80,11 @@ class Sobol(Sampler):
     """
     Points of the Sobol sequence in (0, 1)^d, in a random order; BaseSampler.SOBOL.
 
-    The points (from seed 2 of `utils.i8_sobol` on) are computed when the sampler is created, as many as `constants.cache_max_doubles` allows, and drawn through a `utils.Shuffler`.
+    The points (from the second point of the sequence on) are computed when the sampler is created, as many as `constants.cache_max_doubles` allows, and drawn in a random order that repeats after all of them.
     """
 
     def __init__(self, d: int) -> None:
         """Samples of dimension d."""
-
-    @property
-    def cache(self) -> modcma.c_maes.cmaescpp.utils.CachedShuffleSequence:
-        """The points, a `utils.CachedShuffleSequence`."""
 
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """One sample: the next point in the random order."""
@@ -138,7 +131,7 @@ class CachedSampler(Sampler):
         """
         Cycle through the given points (a non-empty list of equally long vectors).
 
-        With transform_ppf, every coordinate is first mapped through `utils.ppf`, turning uniform numbers in (0, 1) into standard normal ones.
+        With transform_ppf, every coordinate is first mapped through the inverse normal CDF, turning uniform numbers in (0, 1) into standard normal ones.
         """
 
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
@@ -206,7 +199,7 @@ class IdentityTransformer(SampleTransformer):
 
 class GaussianTransformer(SampleTransformer):
     """
-    Standard normal numbers: the inverse normal CDF (`utils.ppf`) of each uniform number, or the Box-Muller transform of pairs with `constants.use_box_muller` (SampleTranformerType.GAUSSIAN, the default).
+    Standard normal numbers: the inverse normal CDF of each uniform number, or the Box-Muller transform of pairs with `constants.use_box_muller` (SampleTranformerType.GAUSSIAN, the default).
 
     Its expected length is that of a d-dimensional standard normal vector, sqrt(d) (1 - 1/(4 d) + 1/(21 d^2)).
     """

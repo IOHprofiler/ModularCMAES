@@ -75,7 +75,7 @@ def run_one(task):
     for name, value in CONFIGS[config].items():
         if not c_maes.set_module(modules, name, value):
             raise ValueError(f"unknown module option {name}={value}")
-    c_maes.utils.set_seed(seed)
+    c_maes.set_seed(seed)
     settings = c_maes.Settings(
         dim,
         modules,
@@ -97,7 +97,7 @@ def run(output: str, processes: int, configs=None, dims=DIMS):
     tasks = [(c, f, d, s) for c, f, d in cells(dims) for s in SEEDS if not configs or c in configs]
     with multiprocessing.Pool(processes) as pool:
         results = pool.map(run_one, tasks, chunksize=4)
-    data = {"build": c_maes.utils.build_info(), "runs": {}}
+    data = {"build": c_maes.build_info(), "runs": {}}
     for config, fid, dim, seed, evaluations, precision in results:
         data["runs"].setdefault(f"{config}/f{fid}/d{dim}", []).append([seed, evaluations, precision])
     with open(output, "w") as f:

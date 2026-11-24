@@ -64,7 +64,7 @@ if __name__ == "__main__":
             problem.attach_logger(logger)
 
         for run in range(args.n_runs):
-            c_cmaes.utils.set_seed(42 * run)
+            c_cmaes.set_seed(42 * run)
             settings = c_cmaes.parameters.Settings(
                 problem.meta_data.n_variables,
                 modules,

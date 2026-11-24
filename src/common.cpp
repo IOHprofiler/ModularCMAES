@@ -97,7 +97,7 @@ std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, c
             successful_runs++;
         total_rt += rt;
     }
-    return {static_cast<Float>(total_rt) / successful_runs, successful_runs};
+    return {static_cast<Float>(total_rt) / static_cast<Float>(successful_runs), successful_runs};
 }
 } // namespace utils
 

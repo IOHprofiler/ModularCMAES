@@ -15,7 +15,7 @@ class TestIntegerMapping(unittest.TestCase):
     """B1: integer variables were mapped by loop index instead of by the given index."""
 
     def test_noncontiguous_integer_indices(self):
-        c_maes.utils.set_seed(1)
+        c_maes.set_seed(1)
         settings = c_maes.Settings(5, integer_variables=[1, 3], verbose=False)
         cma = c_maes.ModularCMAES(settings)
         cma.step(sphere)
@@ -44,7 +44,7 @@ class TestActiveCovarianceUpdate(unittest.TestCase):
                 self.check_rank_mu_update(name)
 
     def check_rank_mu_update(self, name):
-        c_maes.utils.set_seed(3)
+        c_maes.set_seed(3)
         modules = c_maes.Modules()
         modules.active = True
         modules.matrix_adaptation = getattr(c_maes.options.MatrixAdaptationType, name)
@@ -84,7 +84,7 @@ class TestNaturalGradientInverse(unittest.TestCase):
     """B3: NaturalGradientAdaptation::invert_y recomputed the pseudo-inverse on every call."""
 
     def test_inverse_is_cached_and_correct(self):
-        c_maes.utils.set_seed(1)
+        c_maes.set_seed(1)
         modules = c_maes.Modules()
         modules.matrix_adaptation = c_maes.options.MatrixAdaptationType.NATURAL_GRADIENT
         cma = c_maes.ModularCMAES(c_maes.Settings(4, modules, verbose=False))
@@ -105,10 +105,10 @@ class TestNoSharedSamplerState(unittest.TestCase):
     sampler object (or optimizer) changed the numbers of the next one."""
 
     def test_normal_does_not_leak_between_objects(self):
-        c_maes.utils.set_seed(1)
+        c_maes.set_seed(1)
         fresh = c_maes.sampling.Gaussian(4)()
         c_maes.sampling.Gaussian(3)()  # an odd number of draws leaves half a Box-Muller pair
-        c_maes.utils.set_seed(1)
+        c_maes.set_seed(1)
         np.testing.assert_array_equal(c_maes.sampling.Gaussian(4)(), fresh)
 
     def test_box_muller_does_not_leak_between_objects(self):
@@ -119,10 +119,10 @@ class TestNoSharedSamplerState(unittest.TestCase):
             def sample(d):
                 return c_maes.sampling.GaussianTransformer(c_maes.sampling.Uniform(d))()
 
-            c_maes.utils.set_seed(1)
+            c_maes.set_seed(1)
             fresh = sample(3)
             sample(3)  # odd dimension: keeps an extra uniform and half a pair
-            c_maes.utils.set_seed(1)
+            c_maes.set_seed(1)
             np.testing.assert_array_equal(sample(3), fresh)
         finally:
             c_maes.constants.use_box_muller = default
@@ -139,7 +139,7 @@ class TestSequentialSelectionPopulation(unittest.TestCase):
     pairwise mirroring only complete pairs, and the weights are renormalised for n < lambda."""
 
     def run_until_stop(self, mirrored="NONE", active=False, generations=200):
-        c_maes.utils.set_seed(1)
+        c_maes.set_seed(1)
         modules = c_maes.Modules()
         modules.sequential_selection = True
         modules.active = active
@@ -234,7 +234,7 @@ class TestRepellingMetric(unittest.TestCase):
     own run)."""
 
     def make(self, metric):
-        c_maes.utils.set_seed(5)
+        c_maes.set_seed(5)
         modules = c_maes.Modules()
         modules.repelling_type = c_maes.options.RepellingType.COVERAGE
         modules.restart_strategy = c_maes.options.RestartStrategy.RESTART
@@ -308,7 +308,7 @@ class TestNonFiniteMatrixRestarts(unittest.TestCase):
     def test_non_finite_matrix_is_unsuccessful(self):
         for name in ("COVARIANCE", "MATRIX", "SEPARABLE", "CHOLESKY", "CMSA",
                      "COVARIANCE_NO_EIGV", "NATURAL_GRADIENT"):
-            c_maes.utils.set_seed(1)
+            c_maes.set_seed(1)
             modules = c_maes.Modules()
             modules.matrix_adaptation = getattr(c_maes.options.MatrixAdaptationType, name)
             cma = c_maes.ModularCMAES(c_maes.Settings(4, modules, verbose=False))
@@ -332,7 +332,7 @@ class TestBindingArgumentNames(unittest.TestCase):
     def test_keywords_match_positional(self):
         results = []
         for keywords in (False, True):
-            c_maes.utils.set_seed(2)
+            c_maes.set_seed(2)
             cma = c_maes.ModularCMAES(c_maes.Settings(4, lambda0=12, mu0=3, verbose=False))
             cma.mutate(sphere)
             cma.select()

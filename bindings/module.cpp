@@ -6,14 +6,6 @@ namespace modcma_python
 {
 namespace
 {
-//! A fresh distribution object per call: a static one (as before) kept the second number of a
-//! Box-Muller pair across calls of utils.set_seed
-template <typename RNG> Float random_double()
-{
-    RNG gen;
-    return gen(rng::GENERATOR);
-}
-
 //! The compiler that built the extension, e.g. "gcc 13.3.0" or "appleclang 21.0.0"
 std::string compiler_version()
 {
@@ -87,7 +79,7 @@ void define_constants(nb::module_ &m)
             "Whether the GAUSSIAN sample transformation uses the Box-Muller transform (default "
             "False).\n\n"
             "False: every uniform number is mapped to a normal one with the inverse normal CDF "
-            "(`utils.ppf`). True: pairs of uniform numbers are mapped with Box-Muller, a different "
+            "(the inverse normal CDF). True: pairs of uniform numbers are mapped with Box-Muller, a different "
             "random stream.")
         .def_prop_rw_static(
             "eigen_solver",
@@ -105,7 +97,7 @@ void define_constants(nb::module_ &m)
             "-1: automatic, LAPACK dsyevd from `lapack_min_dim` on when LAPACK is available, "
             "Eigen below; 0: Eigen's SelfAdjointEigenSolver; 1: LAPACK dsyevd (divide and "
             "conquer); 2: LAPACK dsyevr (MRRR). 1 and 2 raise ValueError without LAPACK "
-            "(`utils.build_info()['lapack'] == 'none'`). LAPACK is several times faster in high "
+            "(`build_info()['lapack'] == 'none'`). LAPACK is several times faster in high "
             "dimension (d = 1000: 5.5 ms against 18.6 ms per generation, docs/performance.md); the "
             "results are not bit-identical to Eigen's.")
         .def_prop_rw_static(
@@ -524,12 +516,9 @@ void define_options(nb::module_ &main)
 
 void define_utils(nb::module_ &main)
 {
-    auto m = main.def_submodule(
-        "utils",
-        "Helpers: the global random generator, build information, the normal CDF and its "
-        "inverse, the Sobol sequence, the LAPACK/BLAS routines the library uses, and the "
-        "permutation generators of the samplers.");
-    m.def(
+    // The public helpers live in the main module (modcma.set_seed, build_info, compute_ert); the
+    // deprecated modcma.c_maes.utils (Python) forwards to them
+    main.def(
         "build_info",
         []() {
             return std::map<std::string, std::string>{
@@ -553,16 +542,36 @@ void define_utils(nb::module_ &main)
         "    the last bits of results), 'no' otherwise;\n"
         "    'lapack': where LAPACK and BLAS come from: 'linked' (built with them, Accelerate\n"
         "    on macOS), 'scipy' (scipy's, handed over at import) or 'none' (Eigen only).");
-    m.def("cdf",
-          &cdf,
-          nb::arg("x"),
-          "The cumulative distribution function of the standard normal distribution at x.");
-    m.def("ppf",
-          &ppf,
-          nb::arg("x"),
-          "The inverse of `cdf` (percent point function): the standard normal quantile of the "
-          "probability x in (0, 1).\n\n"
-          "The GAUSSIAN sample transformation maps uniform numbers to normal ones with it.");
+    main.def("set_seed",
+             &rng::set_seed,
+             nb::arg("seed"),
+             "Seed the global random generator (mt19937).\n\n"
+             "An optimizer without `Settings.seed` copies the global generator when it is "
+             "created and advances it, so that after set_seed(s) the optimizers created in the "
+             "same order draw the same numbers. Samplers and bound corrections that are used on "
+             "their own draw from the global generator directly.");
+    main.def("compute_ert",
+             &utils::compute_ert,
+             nb::arg("running_times"),
+             nb::arg("budget"),
+             "The expected running time (ERT) of a set of runs.\n\n"
+             "Parameters\n"
+             "----------\n"
+             "running_times : list[int]\n"
+             "    The evaluations each run used; a run succeeded when it used fewer than budget.\n"
+             "budget : int\n"
+             "    The budget of each run.\n\n"
+             "Returns\n"
+             "-------\n"
+             "tuple[float, int]\n"
+             "    The sum of all running times divided by the number of successful runs (inf when "
+             "no run succeeded), and the number of successful runs.");
+
+    auto m = main.def_submodule(
+        "_internal",
+        "Internals of the library, exposed for the tests: the LAPACK/BLAS routines, the Sobol "
+        "sequence and the permutation generators of the samplers. Not part of the API: they may "
+        "change without notice.");
     m.def(
         "i8_sobol",
         [](int dim_num, long long seed, nb::ndarray<double, nb::ndim<1>, nb::c_contig> quasi) {
@@ -588,32 +597,8 @@ void define_utils(nb::module_ &main)
         "-------\n"
         "int\n"
         "    The seed of the point after this one.");
-    m.def("compute_ert",
-          &utils::compute_ert,
-          nb::arg("running_times"),
-          nb::arg("budget"),
-          "The expected running time (ERT) of a set of runs.\n\n"
-          "Parameters\n"
-          "----------\n"
-          "running_times : list[int]\n"
-          "    The evaluations each run used; a run succeeded when it used fewer than budget.\n"
-          "budget : int\n"
-          "    The budget of each run.\n\n"
-          "Returns\n"
-          "-------\n"
-          "tuple[float, int]\n"
-          "    The sum of all running times divided by the number of successful runs (inf when "
-          "no run succeeded), and the number of successful runs.");
-    m.def("set_seed",
-          &rng::set_seed,
-          nb::arg("seed"),
-          "Seed the global random generator (mt19937).\n\n"
-          "An optimizer without `Settings.seed` copies the global generator when it is created "
-          "and advances it, so that after set_seed(s) the optimizers created in the same order "
-          "draw the same numbers. Samplers, bound corrections and functions of this module that "
-          "are used on their own draw from the global generator directly.");
     m.def(
-        "_set_lapack",
+        "set_lapack",
         [](nb::dict capsules, const std::string &source) {
             // PyCapsules of scipy.linalg.cython_lapack.__pyx_capi__ (the name is the C signature)
             const auto pointer = [](nb::handle capsule) -> void * {
@@ -712,13 +697,6 @@ void define_utils(nb::module_ &main)
         "tests).\n\n"
         "op(X) is X, or X^T when transpose_a (transpose_b) is True. Raises RuntimeError when "
         "BLAS is not available.");
-    m.def("random_uniform",
-          &random_double<rng::uniform<Float>>,
-          "A uniform random number in the open interval (0, 1) from the global generator.");
-    m.def("random_normal",
-          &random_double<rng::normal<Float>>,
-          "A standard normal random number from the global generator (Box-Muller).");
-
     nb::class_<rng::Shuffler>(
         m,
         "Shuffler",
@@ -793,8 +771,8 @@ NB_MODULE(cmaescpp, m)
         "options in `options`. Submodules: `options` (the module options), `parameters` "
         "(settings, modules, weights, statistics), `sampling`, `mutation` (step-size "
         "adaptation), `matrix_adaptation`, `selection`, `bounds`, `center`, `repelling`, "
-        "`restart` (criteria and strategies), `es` (a (1+1)-ES and a (mu, lambda)-ES), "
-        "`utils`, and `constants` (global switches).";
+        "`restart` (criteria and strategies), `es` (a (1+1)-ES and a (mu, lambda)-ES) and "
+        "`constants` (global switches); `set_seed`, `build_info` and `compute_ert`.";
 
     define_constants(m);
     define_options(m);
