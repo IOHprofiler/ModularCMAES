@@ -75,6 +75,20 @@ jobs:
         python tools/gen_docs.py --check
         zensical build --strict
 
+  types:
+    # The package and its stubs type-check, and so does typical use of the API (numpy arrays where
+    # vectors are expected): the wheels ship py.typed
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Pyright
+      run: |
+        python -m pip install numpy scipy configspace pyright==1.1.414
+        pyright modcma tests/typing_usage.py
+
   cpp:
     # The C++ targets: library, main, benchmark harness and the C++ unit tests (ctest)
     runs-on: ubuntu-latest

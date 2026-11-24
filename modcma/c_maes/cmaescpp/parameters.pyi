@@ -8,6 +8,7 @@ from collections.abc import Sequence
 from typing import Annotated
 
 import numpy
+import numpy.typing
 from numpy.typing import NDArray
 
 import modcma.c_maes.cmaescpp.options
@@ -383,6 +384,24 @@ class Weights:
     def mueff(self, arg: float, /) -> None: ...
 
     @property
+    def mueff_mean(self) -> float:
+        """
+        The variance effective selection mass of the weights of the mean, 1 / sum(w**2): `mueff`, except for UTILITY, where the mean uses all lambda utilities. Normalizes the evolution paths.
+        """
+
+    @mueff_mean.setter
+    def mueff_mean(self, arg: float, /) -> None: ...
+
+    @property
+    def utility(self) -> bool:
+        """
+        Whether the weights are the NES utilities (`RecombinationWeights.UTILITY`).
+        """
+
+    @utility.setter
+    def utility(self, arg: bool, /) -> None: ...
+
+    @property
     def mueff_neg(self) -> float:
         """
         The variance effective selection mass of the negative weights, sum(negative)**2 / sum(negative**2).
@@ -553,10 +572,10 @@ class Settings:
     """
     The settings of a run: dimension, modules, stopping conditions, search space and strategy parameters.
 
-    A strategy parameter left None gets its default when the Parameters are created (see Weights). The constructor computes the derived values (db, center, diameter, volume, has_bounds) and adjusts the modules; changing lb, ub or modules afterwards does not update them.
+    A strategy parameter left None gets its default when the Parameters are created (see Weights). The constructor computes the derived values (db, center, diameter, volume, has_bounds) and adjusts the modules; setting lb or ub afterwards updates the derived values, changing the modules afterwards does not adjust them.
     """
 
-    def __init__(self, dim: int, modules: Modules | None = None, *, target: float | None = None, max_generations: int | None = None, budget: int | None = None, sigma0: float | None = None, mu0: int | None = None, lambda0: int | None = None, x0: Sequence[float] | None = None, lb: Sequence[float] | None = None, ub: Sequence[float] | None = None, integer_variables: Sequence[int] | None = None, cs: float | None = None, cc: float | None = None, cmu: float | None = None, c1: float | None = None, damps: float | None = None, acov: float | None = None, verbose: bool = False, always_compute_eigv: bool = False, seed: int | None = None, fast_sampling: bool = False) -> None:
+    def __init__(self, dim: int, modules: Modules | None = None, *, target: float | None = None, max_generations: int | None = None, budget: int | None = None, sigma0: float | None = None, mu0: int | None = None, lambda0: int | None = None, x0: numpy.typing.ArrayLike | None = None, lb: numpy.typing.ArrayLike | None = None, ub: numpy.typing.ArrayLike | None = None, integer_variables: numpy.typing.ArrayLike | None = None, cs: float | None = None, cc: float | None = None, cmu: float | None = None, c1: float | None = None, damps: float | None = None, acov: float | None = None, verbose: bool = False, always_compute_eigv: bool = False, seed: int | None = None, fast_sampling: bool = False) -> None:
         """
         Settings for a problem of dimension dim.
 

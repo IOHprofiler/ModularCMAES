@@ -322,7 +322,7 @@ void MXNES::adapt(const parameters::Weights &w,
                   const parameters::Stats &stats,
                   const size_t lambda)
 {
-    const Float delta = (w.mueff * adaptation->dz.squaredNorm() - adaptation->dd);
+    const Float delta = (w.mueff_mean * adaptation->dz.squaredNorm() - adaptation->dd);
 
     sigma *= std::exp((w.cs / adaptation->dd) * delta);
 }

@@ -10,6 +10,15 @@ void ModularCMAES::recombine() const
     // expression, not a matrix) as dst = m_old; dst += w_k (x_k - m_old) for k = 0..mu-1; the same
     // loop, without the temporary, gives the same bits.
     a.m = a.m_old;
+    if (p->weights.utility)
+    {
+        // UTILITY (NES/xNES): every evaluated point, with the utilities (which sum to zero)
+        Vector u;
+        p->weights.mean_weights_into(p->pop.n, u);
+        for (Eigen::Index k = 0; k < u.size(); ++k)
+            a.m.noalias() += u(k) * (p->pop.X.col(k) - a.m_old);
+        return;
+    }
     for (Eigen::Index k = 0; k < static_cast<Eigen::Index>(p->mu); ++k)
         a.m.noalias() += (1.0 * p->weights.positive(k)) * (p->pop.X.col(k) - a.m_old);
 }

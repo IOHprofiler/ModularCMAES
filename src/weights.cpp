@@ -132,7 +132,33 @@ void Weights::init_vectors(const size_t mu, const size_t lambda, const Settings 
     case RecombinationWeights::DEFAULT:
         weights_default(mu, lambda);
         break;
+    case RecombinationWeights::UTILITY:
+        // weights: the utilities themselves; positive: their non-negative part among the mu best
+        // (normalized in init_weights), for the modules that need convex weights (SA, LPXNES)
+        utilities_into(lambda, weights);
+        positive = weights.head(mu).cwiseMax(0.0);
+        negative = weights.tail(lambda - mu);
+        break;
     }
+    utility = settings.modules.weights == RecombinationWeights::UTILITY;
+}
+
+void Weights::utilities_into(const size_t n, Vector &out)
+{
+    out.resize(static_cast<Eigen::Index>(n));
+    const Float base = std::log(static_cast<Float>(n) / 2.0 + 1.0);
+    for (Eigen::Index k = 0; k < out.size(); ++k)
+        out(k) = std::max(Float{0.0}, base - std::log(static_cast<Float>(k + 1)));
+    out /= out.sum();
+    out.array() -= 1.0 / static_cast<Float>(n);
+}
+
+void Weights::mean_weights_into(const size_t n, Vector &out) const
+{
+    if (utility)
+        utilities_into(n, out);
+    else
+        out = positive;
 }
 
 void Weights::init_weights(const Settings &settings)
@@ -142,6 +168,9 @@ void Weights::init_weights(const Settings &settings)
     positive /= positive.sum();
     mueff = 1.0 / positive.dot(positive);
     mueff_neg = std::pow(negative.sum(), 2) / negative.dot(negative);
+    // The mean of UTILITY is recombined from all lambda utilities (which sum to zero): the paths are
+    // normalized with their selection mass, so that they stay N(0, I) under random selection
+    mueff_mean = utility ? 1.0 / weights.dot(weights) : mueff;
 
     acov = settings.acov.value_or(2.0);
     c1 = settings.c1.value_or(get_default_c1(settings, d, mueff, acov));
@@ -151,16 +180,20 @@ void Weights::init_weights(const Settings &settings)
 
     damps = settings.damps.value_or(get_default_damps(settings, mueff, d, cs));
 
-    sqrt_cs_mueff = std::sqrt(cs * (2.0 - cs) * mueff);
-    sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff);
+    sqrt_cs_mueff = std::sqrt(cs * (2.0 - cs) * mueff_mean);
+    sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff_mean);
 
     // alpha_mu^- = 1 + c1 / cmu (Hansen 2016; pycma)
     const Float amu_neg = 1.0 + (c1 / cmu);
     const Float amueff_neg = 1.0 + ((2.0 * mueff_neg) / (mueff + 2.0));
     const Float aposdef_neg = (1.0 - c1 - cmu) / (d * cmu);
     const Float neg_scaler = std::min(amu_neg, std::min(amueff_neg, aposdef_neg));
-    negative *= (neg_scaler / negative.cwiseAbs().sum());
-    weights << positive, negative;
+    if (!utility)
+    {
+        // UTILITY keeps the utilities as they are (they sum to zero, as in NES)
+        negative *= (neg_scaler / negative.cwiseAbs().sum());
+        weights << positive, negative;
+    }
 
     lazy_update_interval = 1.0 / (c1 + cmu + 1e-23) / d / 10.0;
     expected_length_ps = (1.4 + (2.0 / (d + 1.0))) * expected_length_z;
@@ -216,6 +249,12 @@ Vector Weights::for_population(const size_t n) const
 
 void Weights::for_population_into(const size_t n, Vector &out) const
 {
+    if (utility)
+    {
+        // The utilities of the n evaluated points (sequential selection), again summing to zero
+        utilities_into(std::min<size_t>(n, static_cast<size_t>(weights.size())), out);
+        return;
+    }
     const auto total = weights.size();
     const auto k = std::min<Eigen::Index>(static_cast<Eigen::Index>(n), total);
     out = weights.head(k);

@@ -115,6 +115,13 @@ struct Settings
             modules.matrix_adaptation = MatrixAdaptationType::COVARIANCE_NO_EIGV;
         }
 
+        // The utilities of NES/xNES are negative for the worse half: every matrix update uses all
+        // of them, as the active update does
+        if (modules.weights == RecombinationWeights::UTILITY)
+        {
+            modules.active = true;
+        }
+
         if (modules.matrix_adaptation == MatrixAdaptationType::NONE)
         {
             modules.active = false;

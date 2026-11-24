@@ -12,7 +12,7 @@ matrix, or a factor of it). Each module replaces one of those parts:
 | `active` | off, on | negative weights for the worst points in the covariance update | [selection](selection.md) |
 | `elitist` | off, on | (µ + λ) instead of (µ, λ) selection | [selection](selection.md) |
 | `sequential_selection` | off, on | stop a generation early once it has enough improvements | [selection](selection.md) |
-| `weights` | `DEFAULT`, `EQUAL`, `EXPONENTIAL` | the recombination weights | [selection](selection.md) |
+| `weights` | `DEFAULT`, `EQUAL`, `EXPONENTIAL`, `UTILITY` | the recombination weights (`UTILITY`: NES's, also for the mean) | [selection](selection.md) |
 | `mirrored` | `NONE`, `MIRRORED`, `PAIRWISE` | sample points in mirrored pairs (and select one of each pair) | [sampling](sampling.md) |
 | `orthogonal` | off, on | orthogonalize the samples of a generation | [sampling](sampling.md) |
 | `sampler` | `UNIFORM`, `SOBOL`, `HALTON` | pseudo-random or quasi-random (low-discrepancy) base samples | [sampling](sampling.md) |
@@ -108,6 +108,7 @@ Many published CMA-ES variants are a combination of modules:
 | CMSA-ES (Beyer & Sendhoff 2008) | `matrix_adaptation=CMSA`, `ssa=SA` |
 | (1+1)-ES with the 1/5th success rule | `lambda0=1` (sets elitism and `ssa=SR`, see below) |
 | mirrored sampling with sequential selection (Brockhoff et al. 2010) | `mirrored=MIRRORED`, `sequential_selection=True` |
+| xNES (Glasmachers et al. 2010) | `matrix_adaptation=NATURAL_GRADIENT`, `ssa=XNES`, `weights=UTILITY` |
 
 ## Combinations that are adjusted
 

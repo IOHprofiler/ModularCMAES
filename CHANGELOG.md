@@ -40,6 +40,9 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * `ModularCMAES.xfavorite`: the mean of the search distribution as a solution, as pycma's
   `xfavorite`; with noise and a large population often closer to the optimum than the best
   evaluated point, whose recorded value is biased low (#24).
+* `RecombinationWeights.UTILITY`: the utilities of NES/xNES (summing to zero) for the mean and every
+  matrix update; with `NATURAL_GRADIENT` and `ssa=XNES` it is xNES (the same evaluations as
+  `cmaes`' XNES within 1 %).
 * Correctly spelled names next to the old ones: `selection.Elitism`, `NoElitism`,
   `repelling.euclidean`, `mahalanobis`, `Adaptation.adapt_evolution_paths_inner`.
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
@@ -106,5 +109,8 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   the square root (now as pycma).
 * The stagnation criterion took O(t) per generation (5× slower long BIPOP runs).
 * `fmin` ignored `x0` (it used only its length) and started at the origin.
+* Type hints: `Settings(x0=, lb=, ub=)` accept numpy arrays (the stubs said sequences), and the
+  annotations of `fmin`, `settings_from_dict`, `settings_from_config` and `get_configspace` were
+  wrong (`**config: dict`); a type check in CI.
 * `str(Modules)` printed `center_placement: unknown` for `CENTER`.
 * Linux wheels were compiled for the CPU of the build machine (`-march=native`).

@@ -375,6 +375,14 @@ void define_parameters(nb::module_ &main)
                 &Weights::mueff,
                 "The variance effective selection mass of the positive weights, "
                 "1 / sum(positive**2).")
+        .def_rw("mueff_mean",
+                &Weights::mueff_mean,
+                "The variance effective selection mass of the weights of the mean, "
+                "1 / sum(w**2): `mueff`, except for UTILITY, where the mean uses all lambda "
+                "utilities. Normalizes the evolution paths.")
+        .def_rw("utility",
+                &Weights::utility,
+                "Whether the weights are the NES utilities (`RecombinationWeights.UTILITY`).")
         .def_rw("mueff_neg",
                 &Weights::mueff_neg,
                 "The variance effective selection mass of the negative weights, "
@@ -477,8 +485,8 @@ void define_parameters(nb::module_ &main)
         "strategy parameters.\n\n"
         "A strategy parameter left None gets its default when the Parameters are created (see "
         "Weights). The constructor computes the derived values (db, center, diameter, volume, "
-        "has_bounds) and adjusts the modules; changing lb, ub or modules afterwards does not "
-        "update them.")
+        "has_bounds) and adjusts the modules; setting lb or ub afterwards updates the derived "
+        "values, changing the modules afterwards does not adjust them.")
         .def(
             "__init__",
             [](Settings *self,
@@ -527,6 +535,20 @@ void define_parameters(nb::module_ &main)
                 self->seed = seed;
                 self->fast_sampling = fast_sampling;
             },
+            // array_like for the vectors (numpy arrays, lists, ...), as accepted at run time
+            nb::sig("def __init__(self, dim: int, modules: Modules | None = None, *, "
+                    "target: float | None = None, max_generations: int | None = None, "
+                    "budget: int | None = None, sigma0: float | None = None, "
+                    "mu0: int | None = None, lambda0: int | None = None, "
+                    "x0: numpy.typing.ArrayLike | None = None, "
+                    "lb: numpy.typing.ArrayLike | None = None, "
+                    "ub: numpy.typing.ArrayLike | None = None, "
+                    "integer_variables: numpy.typing.ArrayLike | None = None, "
+                    "cs: float | None = None, cc: float | None = None, cmu: float | None = None, "
+                    "c1: float | None = None, damps: float | None = None, "
+                    "acov: float | None = None, verbose: bool = False, "
+                    "always_compute_eigv: bool = False, seed: int | None = None, "
+                    "fast_sampling: bool = False) -> None"),
             nb::arg("dim"),
             nb::arg("modules") = nb::none(),
             nb::kw_only(),

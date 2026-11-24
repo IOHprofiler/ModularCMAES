@@ -6,6 +6,12 @@
   pycma. *Known issue* [F8]: for µ > λ/2 some of the "negative" weights come out positive.
 * `EQUAL`: 1/µ (intermediate recombination); the negative ones −1/µ.
 * `EXPONENTIAL`: wᵢ = 2⁻ⁱ + 1/(µ 2^µ), summing to 1 (the framework paper).
+* `UTILITY`: the utilities of NES/xNES (Wierstra et al. 2014; Glasmachers et al. 2010),
+  uₖ = max(0, ln(λ/2 + 1) − ln k)/Σⱼ max(0, ln(λ/2 + 1) − ln j) − 1/λ, summing to zero; identical to
+  `cmaes`' XNES. The mean moves by Σ uₖ(xₖ − m) over all λ points, the paths are normalized with
+  1/Σuₖ², every matrix update uses all of them, unscaled (`active` is set), and the modules that need
+  convex weights (SA, LPXNES) use their non-negative part. With sequential selection the utilities of
+  the n evaluated points are used.
 
 The negative weights (active update) are scaled so that their absolute values sum to
 min(1 + c1/cµ, 1 + 2µ_eff⁻/(µ_eff + 2), (1 − c1 − cµ)/(d cµ)) (Hansen 2016). The mean is always

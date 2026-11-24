@@ -29,6 +29,11 @@ class RecombinationWeights(enum.Enum):
     Exponentially decaying weights, w_i = 2^-i + 1 / (mu 2^mu), which sum to 1: they halve with every rank, more weight on the best individuals than DEFAULT (de Nobel et al. 2026); the negative ones the same for lambda - mu.
     """
 
+    UTILITY = 3
+    """
+    The utilities of NES and xNES (Wierstra et al. 2014; Glasmachers et al. 2010), u_k = max(0, ln(lambda/2 + 1) - ln k) / sum - 1/lambda: log-shaped for the better half, minus a baseline, summing to zero. Unlike the other options they are not only the weights of the mu parents: the mean moves by the utility-weighted sum of all lambda steps, and every matrix update uses all of them (so `Modules.active` is set). With NATURAL_GRADIENT and StepSizeAdaptation.XNES this is xNES.
+    """
+
 class BaseSampler(enum.Enum):
     """
     The source of the uniform numbers in (0, 1)^d that become the samples (`Modules.sampler`; default UNIFORM).

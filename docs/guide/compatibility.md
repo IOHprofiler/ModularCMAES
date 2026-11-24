@@ -24,6 +24,7 @@ used.
 | `mirrored=PAIRWISE` and an odd λ | λ + 1 |
 | `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART` (*known issue* with PAIRWISE: NaN weights [F17]) |
 | `ssa=SA` or `LPXNES` | sampled step sizes (`sample_sigma`) are always on |
+| `weights=UTILITY` | `active` on (the utilities of the worse half are negative; every matrix update uses all of them) |
 | `mirrored=PAIRWISE` with `sequential_selection` | the generation stops only after complete pairs, at 2µ points at the earliest |
 | `matrix_adaptation=NATURAL_GRADIENT` | the learning rate `cs` of the step-size rule is xNES's (*known issue*: for every step-size rule, not only `XNES` [F3]) |
 | `matrix_adaptation=SEPARABLE` | `cmu` × (d + 2)/3 (Ros & Hansen 2008) |
@@ -61,6 +62,9 @@ algorithms.
   With the active update the negative weights then go to the losers in index order, not by
   fitness; `MSR` compares with an infinite median (*known issue*: σ only shrinks [F9]); `PSR` uses
   only the finite values.
+* **`weights=UTILITY`** recombines the mean from all λ points: the worse points move the mean too
+  (away from themselves), so outliers matter, unlike with the other weights, where only the µ best
+  do. The evolution paths are normalized with the utilities' selection mass (`mueff_mean`).
 * **Elitism** keeps all λ survivors of the previous selection, so it is (λ+λ) selection; the
   survivors' steps are recomputed in the current distribution, each with its own step size.
   `MSR`, `PSR` and `TPA` then compare against the elite.
@@ -103,6 +107,8 @@ noted; with the current version. Most are recorded for fixing.
 | `active` + `elitist` with a step-size rule other than `CSA` | poor convergence; with `CHOLESKY` or `SEPARABLE` and `XNES`/`MXNES`, σ diverges |
 | `UNIFORM`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` with infinite bounds | NaN restart centers [F19] |
 | `ssa=XNES` without `NATURAL_GRADIENT`, or with `matrix_adaptation=NONE` | slow (a small default learning rate) [F27] |
+| `weights=UTILITY` with `elitist` | the mean drifts away: the utilities contrast the better and worse halves around the population's center, which with elitism is not the distribution's |
+| `weights=UTILITY` with `bound_correction=TOROIDAL` or `sample_transformation=CAUCHY` | far points (wrapped around, heavy tails) pull the mean through their negative utilities |
 
 For tuning, `get_configspace` currently has no conditions for inactive options and passes the
 numeric defaults of CSA with COVARIANCE explicitly, which overrides the module-specific defaults

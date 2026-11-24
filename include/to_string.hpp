@@ -13,6 +13,8 @@ inline std::string to_string(RecombinationWeights w)
         return "DEFAULT";
     case RecombinationWeights::EQUAL:
         return "EQUAL";
+    case RecombinationWeights::UTILITY:
+        return "UTILITY";
     case RecombinationWeights::EXPONENTIAL:
         return "EXPONENTIAL";
     }

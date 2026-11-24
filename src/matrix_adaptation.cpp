@@ -59,6 +59,15 @@ static void symmetric_rank_update(Matrix &S,
 
 
 
+//! The number of leading non-negative weights (the weights decrease with the rank)
+static Eigen::Index count_non_negative(const Vector &w)
+{
+    Eigen::Index n = 0;
+    while (n < w.size() && w(n) >= 0.0)
+        ++n;
+    return n;
+}
+
 static void one_plus_one_path_update(Vector &path,
                                      const Population &pop,
                                      const parameters::Stats &stats,
@@ -84,7 +93,14 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
 {
     const auto sigma = pop.S.leftCols(pop.n).mean();
     dm = (m - m_old) / sigma;
-    dz.noalias() = pop.Z.leftCols(mu) * w.positive.head(mu);
+    if (w.utility)
+    {
+        // The z of the mean shift: all evaluated points with their utilities
+        w.mean_weights_into(pop.n, weights_scratch);
+        dz.noalias() = pop.Z.leftCols(weights_scratch.size()) * weights_scratch;
+    }
+    else
+        dz.noalias() = pop.Z.leftCols(mu) * w.positive.head(mu);
     adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);
 }
 
@@ -168,7 +184,10 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     // the eigendecomposition (A = B D) and the Cholesky variant (COVARIANCE_NO_EIGV, which never
     // computes inv_root_C).
     scratch_vector.resize(popY.rows()); // invert_y_into writes through a Ref: it cannot resize
-    for (Eigen::Index i = static_cast<Eigen::Index>(mu); i < rank_mu_w.size(); i++)
+    // The negative weights follow the non-negative ones (the weights decrease with the rank): mu
+    // for the usual weights, fewer for UTILITY, whose last parents can have negative utilities
+    const Eigen::Index n_positive = count_non_negative(rank_mu_w);
+    for (Eigen::Index i = n_positive; i < rank_mu_w.size(); i++)
     {
         invert_y_into(popY.col(i), scratch_vector);
         rank_mu_w(i) *= dd / scratch_vector.squaredNorm();
@@ -181,7 +200,7 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
                           w.c1,
                           popY,
                           rank_mu_w,
-                          static_cast<Eigen::Index>(mu),
+                          n_positive,
                           w.cmu,
                           batch_scratch);
     coordinate_wise_variances.noalias() = C.diagonal();
@@ -409,7 +428,9 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     // Fast MA-ES -> O(n^2)
     const Float tau_1 = w.c1 / 2.0;
     const Float tau_m = w.cmu / 2.0;
-    const Float decay_m = (1.0 - tau_1 - tau_m);
+    // M (I + tau_1 (ps ps^T - I) + tau_m (sum w z z^T - sum(w) I)): sum(w) = 1 for the positive
+    // weights; UTILITY sums to zero
+    const Float decay_m = (1.0 - tau_1 - tau_m * (w.utility ? weights.sum() : 1.0));
 
     // M = decay M + tau_1 (M ps) ps^T + Y diag(tau_m w) Z^T, in place
     batch_scratch.noalias() = popY * (tau_m * weights).asDiagonal();
@@ -505,6 +526,19 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     stats.last_update = stats.t;
     stats.n_updates++;
 
+    if (w.utility)
+    {
+        // UTILITY: all evaluated points with their utilities (summing to zero): rank-one updates
+        // for the positive ones, downdates for the negative ones
+        w.for_population_into(pop.n, weights_scratch);
+        A *= std::sqrt(1 - w.c1 - w.cmu * weights_scratch.sum());
+        Eigen::internal::llt_rank_update_lower(A, pc, w.c1);
+        for (Eigen::Index i = 0; i < weights_scratch.size(); i++)
+            Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * weights_scratch(i));
+        coordinate_wise_variances.noalias() = (A.array().square().rowwise().sum()).matrix();
+        return true;
+    }
+
     A *= std::sqrt(1 - w.c1 - w.cmu);
 
     Eigen::internal::llt_rank_update_lower(A, pc, w.c1);
@@ -583,7 +617,7 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
                           0.0,
                           popY,
                           weights_scratch,
-                          static_cast<Eigen::Index>(mu),
+                          count_non_negative(weights_scratch),
                           tc_inv,
                           batch_scratch);
     coordinate_wise_variances.noalias() = C.diagonal();

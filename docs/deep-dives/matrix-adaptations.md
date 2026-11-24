@@ -114,13 +114,14 @@ the shape B, with the learning rates η_σ = η_B = (9 + 3 ln d)/(5 d √d).
 * With `ssa` other than `XNES` (CSA by default) the step size comes from that rule instead.
 * With the active update all λ weights are used, which looks closer to xNES, but they are CMA-ES's
   active weights, not utilities summing to zero: *known issue* [F2], σ shrinks even on a linear
-  function and runs converge prematurely. Use the default weights.
+  function and runs converge prematurely. Use `weights=UTILITY` instead.
 * *Known issue* [F3]: `NATURAL_GRADIENT` sets the learning rate of every step-size rule to η_σ.
 
-**Closest configuration:** `matrix_adaptation=NATURAL_GRADIENT`, `ssa=XNES`, `active=False`. It
-needs about as many evaluations as `cmaes`' `XNES` (sphere and ellipsoid, d = 5 to 20, within 10 %);
-the remaining differences are the missing baseline in the mean and in G and the shape of the
-weights.
+**Closest configuration:** `matrix_adaptation=NATURAL_GRADIENT`, `ssa=XNES`, `weights=UTILITY`:
+the utilities of xNES (summing to zero) for the mean, σ and A. It needs the same number of
+evaluations as `cmaes`' `XNES` within 1 % (median of 10 runs, sphere and ellipsoid, d = 5 to 20) and,
+unlike the active update, increases σ on a linear function. The step-size path of CSA is still
+computed (unused).
 
 ## NONE: CSA-ES
 
@@ -137,5 +138,5 @@ damps; the active update is off. The same as pycma with `CMA_on=False`.
 | `MATRIX` | MA-ES (Beyer & Sendhoff 2017) | defaults | CMA-ES learning rates |
 | `CHOLESKY` | Cholesky-CMA-ES (Krause et al. 2016) | defaults | no h_σ |
 | `CMSA` | CMSA-ES (Beyer & Sendhoff 2008) | `ssa=SA`, `weights=EQUAL` | sampled step sizes per coordinate [F1] |
-| `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010) | `ssa=XNES` | no utility baseline; not with `active` [F2] |
+| `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010) | `ssa=XNES`, `weights=UTILITY` | none measurable; not with `active` [F2] |
 | `NONE` | CSA-ES | defaults | |

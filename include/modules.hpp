@@ -6,7 +6,8 @@ enum class RecombinationWeights
 {
     DEFAULT,
     EQUAL,
-    EXPONENTIAL
+    EXPONENTIAL,
+    UTILITY
 };
 
 enum class BaseSampler

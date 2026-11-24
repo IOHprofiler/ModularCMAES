@@ -1,6 +1,7 @@
 import warnings
+from collections.abc import Callable
 from enum import Enum
-from typing import Union
+from typing import Any, Optional, Union, cast
 
 import numpy as np
 from ConfigSpace import (
@@ -46,12 +47,12 @@ def _use_scipy_lapack() -> None:
     if utils.build_info()["lapack"] != "none":
         return
     try:
-        from scipy.linalg import cython_blas, cython_lapack
+        from scipy.linalg import cython_blas, cython_lapack  # pyright: ignore
 
         lapack, blas = cython_lapack.__pyx_capi__, cython_blas.__pyx_capi__
         capsules = {name: lapack[name] for name in ("dsyevd", "dsyevr", "dpotrf", "dgetrf", "dgetri")}
         capsules["dgemm"] = blas["dgemm"]
-        utils._set_lapack(capsules, "scipy")
+        utils._set_lapack(capsules, "scipy")  # pyright: ignore[reportAttributeAccessIssue]
     except Exception as error:  # pragma: no cover - depends on the scipy build
         warnings.warn(f"modcma: scipy's LAPACK is not usable ({error}); using Eigen", stacklevel=2)
 
@@ -116,7 +117,7 @@ def _make_numeric_parameter(
 
 
 def get_configspace(
-    dim: int = None,
+    dim: Optional[int] = None,
     add_popsize: bool = True,
     add_sigma: bool = True,
     add_learning_rates: bool = True,
@@ -157,11 +158,12 @@ def get_configspace(
     for name, options in get_all_module_options().items():
         cspace.add(Categorical(name, options, default=options[0]))
 
-    if dim is None and (add_popsize or add_sigma or add_learning_rates):
-        warnings.warn(
-            "Filling configspace with default numeric values for dim=2, since no dim was "
-            "provided and add_popsize, add_sigma or add_learning_rates is True"
-        )
+    if dim is None:
+        if add_popsize or add_sigma or add_learning_rates:
+            warnings.warn(
+                "Filling configspace with default numeric values for dim=2, since no dim was "
+                "provided and add_popsize, add_sigma or add_learning_rates is True"
+            )
         dim = 2
 
     if add_popsize:
@@ -203,13 +205,13 @@ def set_module(modules: Modules, name: str, value: Union[str, bool, Enum]) -> bo
     if hasattr(modules, name):
         attr_class = type(getattr(modules, name))
         if issubclass(attr_class, Enum) and not isinstance(value, attr_class):
-            value = getattr(attr_class, value)
+            value = getattr(attr_class, cast(str, value))
         setattr(modules, name, value)
         return True
     return False
 
 
-def settings_from_dict(dim: int, **config: dict) -> Settings:
+def settings_from_dict(dim: int, **config: Any) -> Settings:
     """`Settings` from keyword arguments that mix module options and settings.
 
     A keyword that names a `Modules` attribute sets that module (an enum option by its name,
@@ -242,7 +244,7 @@ def settings_from_dict(dim: int, **config: dict) -> Settings:
     return settings
 
 
-def settings_from_config(dim: int, config: Configuration, **kwargs) -> Settings:
+def settings_from_config(dim: int, config: Configuration, **kwargs: Any) -> Settings:
     """`Settings` from a configuration of the space of `get_configspace`.
 
     The module hyperparameters set the modules. A numeric hyperparameter is passed to
@@ -276,7 +278,13 @@ def settings_from_config(dim: int, config: Configuration, **kwargs) -> Settings:
     return settings
 
 
-def fmin(func: callable, x0: np.ndarray, sigma0: float, budget: int, **kwargs):
+def fmin(
+    func: Callable[[np.ndarray], float],
+    x0: Any,
+    sigma0: float,
+    budget: int,
+    **kwargs: Any,
+) -> tuple[np.ndarray, float, int, ModularCMAES]:
     """Minimize a function with the modular CMA-ES.
 
     Builds `Settings` with `settings_from_dict`, runs a `ModularCMAES` until a break condition

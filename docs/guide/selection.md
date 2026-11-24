@@ -4,7 +4,14 @@ Each generation the µ best of the λ points are selected, and the new mean is t
 average. The modules of this page change which points are selected and how they are weighted.
 
 * `weights`: the recombination weights of the µ selected points. `DEFAULT`: decreasing with the
-  rank, log-shaped (Hansen 2016); `EQUAL`: all 1/µ; `EXPONENTIAL`: halving with the rank.
+  rank, log-shaped (Hansen 2016); `EQUAL`: all 1/µ; `EXPONENTIAL`: halving with the rank;
+  `UTILITY`: the utilities of NES and xNES, log-shaped for the better half minus a baseline, summing
+  to zero. `UTILITY` is more than a set of weights: the mean moves by the utility-weighted sum of
+  *all* λ steps (the worse half pulls it away from the worse points), and every matrix update uses
+  all of them (it sets `active`). With `NATURAL_GRADIENT` and `ssa=XNES` it is xNES; with the
+  CMA-ES updates it needs 20–35 % more evaluations than `DEFAULT` on the sphere, a rotated ellipsoid
+  and Rosenbrock (d = 10), and with CMSA fewer. Avoid it with elitism and outlier-prone sampling
+  ([compatibility](compatibility.md#combinations-to-avoid)).
 * `active=True`: the active covariance update (Jastrebski & Arnold 2006): the worst points get
   negative weights in the update of C, which shrinks the variance in unpromising directions. It
   often speeds up the adaptation (pycma uses it by default); not used with
@@ -46,4 +53,5 @@ for name, modules in {"default": {}, "active": {"active": True}, "elitist": {"el
 | `DEFAULT` | Log-linear weights, the default: w_i proportional to ln((lambda + 1) / floor(lambda / mu)) - ln(i); with mu = lambda / 2 the weights of the standard CMA-ES (Hansen 2016, "The CMA Evolution Strategy: A Tutorial"). |
 | `EQUAL` | Equal weights 1/mu (intermediate recombination): every selected individual counts the same. |
 | `EXPONENTIAL` | Exponentially decaying weights, w_i = 2^-i + 1 / (mu 2^mu), which sum to 1: they halve with every rank, more weight on the best individuals than DEFAULT (de Nobel et al. 2026); the negative ones the same for lambda - mu. |
+| `UTILITY` | The utilities of NES and xNES (Wierstra et al. 2014; Glasmachers et al. 2010), u_k = max(0, ln(lambda/2 + 1) - ln k) / sum - 1/lambda: log-shaped for the better half, minus a baseline, summing to zero. Unlike the other options they are not only the weights of the mu parents: the mean moves by the utility-weighted sum of all lambda steps, and every matrix update uses all of them (so `Modules.active` is set). With NATURAL_GRADIENT and StepSizeAdaptation.XNES this is xNES. |
 <!-- /options -->

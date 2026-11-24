@@ -10,6 +10,12 @@ struct Weights
     Vector positive;
     Vector negative;
     Float mueff, mueff_neg;
+    //! The variance effective selection mass of the weights the mean is recombined with,
+    //! 1 / sum(w_i^2): mueff, except for UTILITY, where the mean uses all lambda utilities
+    Float mueff_mean;
+    //! RecombinationWeights::UTILITY: the utilities of NES/xNES, which sum to zero, recombine the
+    //! mean from all evaluated points and are the weights of every matrix update
+    bool utility = false;
     Float c1, cmu, cc, cs;
     Float damps, acov;
     Float sqrt_cc_mueff, sqrt_cs_mueff;
@@ -26,6 +32,17 @@ struct Weights
     void weights_equal(const size_t mu);
 
     void weights_exponential(const size_t mu, const size_t lambda);
+
+    /**
+     * The utilities of NES/xNES for n ranked points (Wierstra et al. 2014; Glasmachers et al.
+     * 2010): u_k = max(0, ln(n/2 + 1) - ln k) / sum_j max(0, ln(n/2 + 1) - ln j) - 1/n, k = 1..n.
+     * They decrease with the rank and sum to zero.
+     */
+    static void utilities_into(const size_t n, Vector &out);
+
+    //! The weights the mean is recombined with for n evaluated points: the mu positive weights, or
+    //! with UTILITY the utilities of all n points
+    void mean_weights_into(const size_t n, Vector &out) const;
 
     Vector clipped() const;
 
