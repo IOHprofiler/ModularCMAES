@@ -141,7 +141,7 @@ void Weights::init_vectors(const size_t mu, const size_t lambda, const Settings 
 void Weights::utilities_into(const size_t n, Vector &out)
 {
     out.resize(static_cast<Eigen::Index>(n));
-    const Float base = std::log(static_cast<Float>(n) / 2.0 + 1.0);
+    const Float base = std::log1p(static_cast<Float>(n) / 2.0);
     for (Eigen::Index k = 0; k < out.size(); ++k)
         out(k) = std::max(Float{0.0}, base - std::log(static_cast<Float>(k + 1)));
     out /= out.sum();
@@ -158,7 +158,6 @@ void Weights::mean_weights_into(const size_t n, Vector &out) const
 
 void Weights::init_weights(const Settings &settings)
 {
-    const size_t mu = positive.size();
     const Float d = static_cast<Float>(settings.dim);
     positive /= positive.sum();
     mueff = 1.0 / positive.dot(positive);
