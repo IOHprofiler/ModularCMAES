@@ -772,15 +772,17 @@ the step-size classes have no Python constructor.
 
 ---
 
-## Planned features (WP9-WP16, later; not started)
+## Planned features (WP9-WP18, later; not started)
 
-From the comparison with pycma (2026-11-24). Each is a module or an option of the modular design,
-works with ask-tell, is off by default (no change of results), and is validated on BBOB (or the
+From the comparison with pycma (2026-11-24). Some are modules of the modular design (HE-ES, dd-CMA,
+VkD, LRA, the noise handling, the bound transformation), others are features around the optimizer
+(constraints, warm starting, gradient injection, saving runs); all work with ask-tell, are off by
+default (no change of results), and is validated on BBOB (or the
 problem class it is for) against pycma or `cmaes` where they have it. Not planned: surrogates
 (lq-CMA-ES), the options that shape the search distribution (per-coordinate sigma0, fixed variables,
 min/max std, condition alleviation, mean learning rate, arbitrary weights, selective mirroring, CSA
-variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, gradient injection,
-confidence intervals (libcmaes), DX-NES-IC and MAP-CMA, GPU or distributed evaluation.
+variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, confidence intervals
+(libcmaes), DX-NES-IC and MAP-CMA, GPU or distributed evaluation.
 
 ### WP9: Noisy objectives
 
@@ -878,4 +880,41 @@ confidence intervals (libcmaes), DX-NES-IC and MAP-CMA, GPU or distributed evalu
   estimated from good solutions of a related task (a list of (x, f) pairs).
   `modcma.warm_start(solutions, ...)` returns the `Settings` (x0, sigma0) and the initial C; the
   optimizer accepts an initial C (or A).
+
+### WP17: Gradient injection
+
+For users who have a gradient (analytic, automatic differentiation, adjoint simulations) and come
+from gradient-based optimization. A feature around the optimizer, built on `tell(f, X)` and the
+clipping of injected points (WP8, Hansen 2011).
+
+* **T17.1** Each generation one candidate along the negative gradient from the mean, x = m - sigma
+  c C grad / sqrt(grad^T C grad) with the step length of a typical sample, replaces a sampled point
+  (Hansen 2011, "Injecting external solutions into CMA-ES"; libcmaes' GI-CMA-ES). The gradient comes
+  from a callable `gradient(x)` (`run(f, gradient=...)`, `fmin(..., gradient=...)`) or, with ask-tell,
+  from `es.inject_gradient(g)` before `tell`. A bad gradient costs nothing but the replaced sample:
+  the injected point is only selected when it is good.
+* **T17.2** Compared with CMA-ES without injection on smooth, ill-conditioned functions (BBOB f2,
+  f10, f12; d up to 100) with exact gradients, and with libcmaes' results; a guide page ("Coming
+  from gradient-based optimization").
+
+### WP18: Hessian Estimation Evolution Strategy (HE-ES)
+
+* **T18.1 HE-ES** (Glasmachers & Krause 2020, "The Hessian Estimation Evolution Strategy", PPSN XVI;
+  arXiv:2003.13256): a covariance adaptation that estimates curvature directly. Each generation it
+  samples mirrored pairs of orthogonal directions, evaluates f at the mean as well, and from
+  f(m + sigma b), f(m - sigma b) and f(m) estimates the curvature along each direction; the factor A
+  (an estimate of the inverse square root of the Hessian) is updated from these estimates.
+  `MatrixAdaptationType.HESSIAN_ESTIMATION`; it needs orthogonal mirrored sampling (set by the
+  Settings, as other combinations are adjusted) and the evaluation at the mean (an extra point of
+  the generation, as TPA's: the state machine of WP3 supports it). Details (the update and its
+  learning rate, the step-size adaptation, the treatment of negative curvature) from the paper;
+  the authors' reference code where available.
+* **T18.2** The elitist (1+4)-HE-ES (Glasmachers & Krause 2022, "Convergence analysis of the Hessian
+  estimation evolution strategy", Evolutionary Computation 30(1)), for which linear convergence on
+  convex quadratic functions is proven, as the lambda = 4 elitist configuration.
+* **T18.3** Validated against the paper's results (convex quadratic and BBOB functions) and against
+  COVARIANCE.
+* Later, to decide: QN-ES (Glasmachers 2025, "A superlinearly convergent evolution strategy",
+  arXiv:2505.10987), a quasi-Newton successor built on HE-ES that outperforms it on quadratic
+  problems.
 
