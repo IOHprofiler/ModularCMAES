@@ -81,6 +81,10 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * Without `x0` the first run started at the origin, restarts at the center of the bounds.
 * A run stopped one generation early when the budget was a multiple of lambda (budget 5000, lambda
   10: 4990 evaluations); with TPA it could exceed the budget.
+* A restart near the end of the budget could exceed it: by up to lambda + 1 (the restart center, and
+  the population that IPOP and BIPOP had grown), and by the hill-valley tests of repelling, which had
+  no budget check. The first generation after a restart now takes at most the rest of the budget,
+  and the hill-valley tests stop when the budget runs short.
 * Points given to `tell(f, X)` far outside the distribution enter the update clipped (Hansen 2011,
   as pycma).
 * COTN could place a coordinate outside the bounds for a large sigma.

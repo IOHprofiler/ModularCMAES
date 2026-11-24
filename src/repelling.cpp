@@ -257,7 +257,10 @@ void Repelling::begin_update(parameters::Parameters &p)
 
 void Repelling::next_query(parameters::Parameters &p)
 {
-    if (query.j >= archive.size())
+    // The remaining tests are skipped when the next point would leave too little budget for the
+    // first generation after the restart (the run ends soon after: the archive keeps the candidate
+    // unless a test so far found a shared basin)
+    if (query.j >= archive.size() || !p.restart_fits(1))
     {
         query.active = false;
         on_update_end(*query.candidate, query.accept, p);

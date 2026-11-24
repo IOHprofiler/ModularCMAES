@@ -18,6 +18,10 @@ namespace parameters
 {
 struct Parameters
 {
+    //! The smallest first generation after a restart that fits the rest of the budget (lambda = 1
+    //! is the (1+1)-ES): the budget check and the hill-valley tests of repelling keep this much
+    static constexpr size_t min_lambda_after_restart = 2;
+
     bool successful_adaptation;
 
     size_t lambda;
@@ -78,6 +82,11 @@ struct Parameters
     void tell_restart_center(const Float y, Eigen::Ref<const Vector> x);
 
     void finish_restart();
+    //! Caps lambda (and mu, in proportion) at the remaining budget; called by finish_restart
+    void fit_lambda_to_budget();
+    //! Whether a restart that starts now still fits: n more evaluations (the center, or a hill-valley
+    //! point), then the smallest first generation (and the extra points of TPA)
+    [[nodiscard]] bool restart_fits(size_t n) const;
 
     void resize_population(const size_t new_mu, const size_t new_lambda);
 

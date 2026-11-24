@@ -100,6 +100,7 @@ void Parameters::finish_restart()
 {
     const std::optional<Float> sigma = restart_sigma;
     restart_sigma.reset();
+    fit_lambda_to_budget();
 
     sampler->reset(settings.modules, lambda);
     weights.init(mu, lambda, settings);
@@ -115,6 +116,33 @@ void Parameters::finish_restart()
     (*center_placement)(*this);
     criteria.reset(*this);
     stats.current_best = {};
+}
+
+void Parameters::fit_lambda_to_budget()
+{
+    // The first generation after a restart takes at most the remaining budget (the center and the
+    // repelling queries are evaluated by now; TPA adds its two points): a restart near the end of
+    // the budget, where IPOP and BIPOP may also have grown lambda, would otherwise exceed it.
+    // At least min_lambda_after_restart points; pairwise selection needs an even lambda.
+    const size_t extra = mutation->n_extra_points();
+    const size_t used = stats.evaluations + extra;
+    const size_t remaining = settings.budget > used ? settings.budget - used : 0;
+    if (lambda <= remaining)
+        return;
+    size_t capped = std::max(min_lambda_after_restart, remaining);
+    if (settings.modules.mirrored == parameters::Mirror::PAIRWISE)
+        capped -= capped % 2;
+    mu = std::clamp<size_t>(static_cast<size_t>(std::round(static_cast<Float>(mu) *
+                                                           static_cast<Float>(capped) /
+                                                           static_cast<Float>(lambda))),
+                            1, capped);
+    lambda = capped;
+}
+
+bool Parameters::restart_fits(const size_t n) const
+{
+    return stats.evaluations + n + min_lambda_after_restart + mutation->n_extra_points() <=
+           settings.budget;
 }
 
 void Parameters::adapt()

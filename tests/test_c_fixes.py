@@ -53,6 +53,53 @@ class TestBudget(unittest.TestCase):
             es.run(sphere)
             self.assertLessEqual(es.p.stats.evaluations, budget)
 
+    def test_a_restart_does_not_exceed_the_budget(self):
+        # F30: the generation after a restart evaluates the center first, and IPOP/BIPOP grow
+        # lambda; it now takes at most the rest of the budget. A criterion forces the restart
+        # where lambda more points still fit, but the center and the grown lambda do not.
+        class BeforeTheEnd(c_maes.restart.Criterion):
+            def __init__(self):
+                super().__init__("BeforeTheEnd")
+
+            def update(self, par):
+                remaining = par.settings.budget - par.stats.evaluations
+                self.met = par.lamb <= remaining < 1 + 2 * par.lamb
+
+        configs = [
+            {"restart_strategy": "IPOP"},
+            {"restart_strategy": "BIPOP"},
+            {"restart_strategy": "RESTART"},
+            {"restart_strategy": "IPOP", "ssa": "TPA"},
+            {"restart_strategy": "IPOP", "mirrored": "PAIRWISE"},
+            {"restart_strategy": "IPOP", "repelling_type": "COVERAGE"},
+        ]
+        for config in configs:
+            for budget in (1000, 1003, 1017):
+                settings = modcma.settings_from_dict(3, budget=budget, seed=1, target=-1.0, **config)
+                es = modcma.ModularCMAES(settings)
+                es.p.criteria.items.append(BeforeTheEnd())
+                es.run(rastrigin)
+                self.assertGreaterEqual(len(es.p.stats.centers), 1, (config, budget))
+                self.assertLessEqual(es.p.stats.evaluations, budget, (config, budget))
+                # the capped generation is still run: little of the budget is left
+                self.assertGreater(es.p.stats.evaluations, budget - 2 * es.p.lamb - 3,
+                                   (config, budget))
+
+    def test_repelling_does_not_exceed_the_budget(self):
+        # F30: the hill-valley tests of repelling evaluate points at every restart; they stop when
+        # the budget runs short. CMSA with active restarts every few generations (F6).
+        for repelling_type in ("ADAPTIVE", "COVERAGE"):
+            for restart_strategy in ("NONE", "IPOP"):
+                for seed in range(5):
+                    settings = modcma.settings_from_dict(
+                        3, budget=1000, seed=seed, target=-1.0, repelling_type=repelling_type,
+                        restart_strategy=restart_strategy, matrix_adaptation="CMSA", active=True,
+                    )
+                    es = modcma.ModularCMAES(settings)
+                    es.run(rastrigin)
+                    self.assertLessEqual(es.p.stats.evaluations, 1000,
+                                         (repelling_type, restart_strategy, seed))
+
 
 class TestInjection(unittest.TestCase):
     def test_injected_point_enters_the_update_clipped(self):

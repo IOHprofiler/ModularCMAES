@@ -69,9 +69,16 @@ bool ModularCMAES::break_conditions() const
     const auto target_reached =
         p->settings.target and p->settings.target.value() >= p->stats.global_best.y;
     // Stop when the next generation (lambda points, plus the extra points of TPA) would exceed the
-    // budget; a generation that ends exactly at the budget is still run
-    const auto budget_used_up = (p->stats.evaluations + p->lambda + p->mutation->n_extra_points()) >
-                                p->settings.budget;
+    // budget; a generation that ends exactly at the budget is still run. A generation that starts
+    // with a restart evaluates the center first (and hill-valley points of repelling, while the
+    // budget allows) and takes at most the rest of the budget (fit_lambda_to_budget).
+    const auto restart_due =
+        p->settings.modules.restart_strategy != parameters::RestartStrategyType::STOP &&
+        p->criteria.any();
+    const auto budget_used_up =
+        restart_due ? !p->restart_fits(1)
+                    : (p->stats.evaluations + p->lambda + p->mutation->n_extra_points()) >
+                          p->settings.budget;
     const auto exceed_gens =
         p->settings.max_generations and p->stats.t >= p->settings.max_generations;
     const auto restart_strategy_criteria =
