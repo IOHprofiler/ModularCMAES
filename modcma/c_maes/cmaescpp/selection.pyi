@@ -4,15 +4,17 @@ Selection of the evaluated population: pairwise selection, elitism and sorting.
 The optimizer holds a `Strategy` as `es.p.selection`; it is built from `Modules.mirrored` and `Modules.elitist`.
 """
 
+from typing import TypeAlias
+
 import modcma.c_maes.cmaescpp
 import modcma.c_maes.cmaescpp.parameters
 
 
-class Elitsm:
+class Elitism:
     """
     Elitist (mu + lambda) selection: the parents compete with the offspring.
 
-    Selected by `Modules.elitist = True` (always on for a (1+1)-ES); `NoElitsm` otherwise. From the second generation on, the previous population (`es.p.old_pop`, the lambda best of the previous selection) is appended to the offspring before sorting, so the best points found so far survive; their y and z are recomputed in the current distribution. Can speed up convergence on unimodal functions, at the cost of diversity.
+    Selected by `Modules.elitist = True` (always on for a (1+1)-ES); `NoElitism` otherwise. From the second generation on, the previous population (`es.p.old_pop`, the lambda best of the previous selection) is appended to the offspring before sorting, so the best points found so far survive; their y and z are recomputed in the current distribution. Can speed up convergence on unimodal functions, at the cost of diversity.
     """
 
     def __init__(self) -> None:
@@ -28,7 +30,7 @@ class Elitsm:
             The state of the optimizer (`es.p`); its `pop` is changed in place.
         """
 
-class NoElitsm(Elitsm):
+class NoElitism(Elitism):
     """
     No elitism, (mu, lambda) selection: only the offspring are selected (the default).
     """
@@ -119,8 +121,19 @@ class Strategy:
     def pairwise(self, arg: Pairwise, /) -> None: ...
 
     @property
-    def elitsm(self) -> Elitsm:
-        """The elitism: `Elitsm` with `Modules.elitist`, `NoElitsm` otherwise."""
+    def elitism(self) -> Elitism:
+        """The elitism: `Elitism` with `Modules.elitist`, `NoElitism` otherwise."""
+
+    @elitism.setter
+    def elitism(self, arg: Elitism, /) -> None: ...
+
+    @property
+    def elitsm(self) -> Elitism:
+        """The old (misspelled) name of `elitism`."""
 
     @elitsm.setter
-    def elitsm(self, arg: Elitsm, /) -> None: ...
+    def elitsm(self, arg: Elitism, /) -> None: ...
+
+Elitsm: TypeAlias = Elitism
+
+NoElitsm: TypeAlias = NoElitism

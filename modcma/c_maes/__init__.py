@@ -159,8 +159,8 @@ def get_configspace(
 
     if dim is None and (add_popsize or add_sigma or add_learning_rates):
         warnings.warn(
-            "Filling configspace with default numeric values for dim=2, "
-            "since no dim was provided and only_modules was set to False"
+            "Filling configspace with default numeric values for dim=2, since no dim was "
+            "provided and add_popsize, add_sigma or add_learning_rates is True"
         )
         dim = 2
 
@@ -182,7 +182,7 @@ def get_configspace(
     return cspace
 
 
-def set_module(modules: Modules, name: str, value: Enum) -> bool:
+def set_module(modules: Modules, name: str, value: Union[str, bool, Enum]) -> bool:
     """Set one module of a `Modules` object by name, if it is a module.
 
     Parameters
@@ -191,8 +191,9 @@ def set_module(modules: Modules, name: str, value: Enum) -> bool:
         The configuration to change (in place).
     name : str
         The name of a `Modules` attribute, e.g. `"matrix_adaptation"`.
-    value : str or bool
-        For an enum module, the name of the option, e.g. `"MATRIX"`; for a bool module, a bool.
+    value : str, enum member or bool
+        For an enum module, the option, by name (e.g. `"MATRIX"`) or as a member of its enum
+        (e.g. `options.MatrixAdaptationType.MATRIX`); for a bool module, a bool.
 
     Returns
     -------
@@ -201,7 +202,7 @@ def set_module(modules: Modules, name: str, value: Enum) -> bool:
     """
     if hasattr(modules, name):
         attr_class = type(getattr(modules, name))
-        if issubclass(attr_class, Enum):
+        if issubclass(attr_class, Enum) and not isinstance(value, attr_class):
             value = getattr(attr_class, value)
         setattr(modules, name, value)
         return True

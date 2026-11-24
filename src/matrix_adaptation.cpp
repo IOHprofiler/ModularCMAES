@@ -157,7 +157,10 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     Vector &rank_mu_w = weights_scratch;
     const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
 
-    const Float decay = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * rank_mu_w.sum()));
+    // 1 + c1 delta(h_sigma) - c1 - cmu sum(w): when h_sigma = 0 (the update of pc was stalled), the
+    // variance lost by pc is compensated (Hansen, The CMA Evolution Strategy: A Tutorial, 2016;
+    // pycma: c1a = c1 (1 - delta(h_sigma)))
+    const Float decay = (1 + (w.c1 * dhs) - w.c1 - (w.cmu * rank_mu_w.sum()));
 
     // Negative weights are rescaled by d / ||C^-1/2 y_i||^2 (Hansen, The CMA Evolution Strategy: A
     // Tutorial, 2016, eq. 46); the positive ones, i < mu, are used as they are.
@@ -240,13 +243,14 @@ bool CovarianceAdaptation::adapt_matrix_inner(const Weights &w,
                                               const Settings &settings,
                                               parameters::Stats &stats)
 {
-
+    // C is updated every generation; only its decomposition is done every lazy_update_interval
+    // generations (Hansen 2016, as pycma), which keeps the O(d^3) cost off most generations
+    adapt_covariance_matrix(w, m, pop, mu);
     if (static_cast<Float>(stats.t) >=
         static_cast<Float>(stats.last_update) + w.lazy_update_interval)
     {
         stats.last_update = stats.t;
         stats.n_updates++;
-        adapt_covariance_matrix(w, m, pop, mu);
         auto succ = perform_eigendecomposition(settings);
         if (!succ and settings.verbose)
         {
@@ -325,7 +329,7 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
         weights_scratch = w.positive;
     const Vector &weights = weights_scratch;
     const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
-    const auto decay_c = (1 - (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
+    const auto decay_c = (1 + (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
 
     for (size_t j = 0; j < settings.dim; j++)
     {
@@ -800,7 +804,7 @@ bool NaturalGradientAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 void NaturalGradientAdaptation::restart(const parameters::Settings &settings, const Float sigma)
 {
     Adaptation::restart(settings, sigma);
-    A = Matrix::Identity(settings.dim, settings.dim) / sigma;
+    A = Matrix::Identity(settings.dim, settings.dim);
     A_inv = Matrix::Identity(settings.dim, settings.dim);
     gradient_samples.resize(settings.dim, 0);
     gradient_weights.resize(0);

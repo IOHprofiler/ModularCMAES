@@ -703,3 +703,70 @@ centred; `utils.random_normal` keeps a static Box–Muller state across `set_see
 Follow-up, not in WP7 (code): named presets (`"sep-cma"`, `"ma-es"`, `"bipop"`, `"xnes"`, ...) as
 starting points for people who know the algorithms by name.
 
+---
+
+## WP8: Bug fixes: branch `wp8-fixes` (on WP7)
+
+The bugs found while writing the docstrings (WP7: B16-B23 and the smaller ones), the open GitHub
+issues, and a report about elitism. Each was checked against its source before fixing: Hansen
+(2016, the tutorial), pycma 4.6, Glasmachers et al. (2010, xNES), Hansen (2009, BIPOP), Wang et al.
+(2014), Hansen (2011, injecting solutions), the framework paper (arXiv:2610.09699) and the Python
+implementation (branch `legacy-python`). Most change results, so the golden fixtures are regenerated
+(with this list as the reason) and the affected configurations are compared on BBOB (tier 2).
+
+**The elitism report** (`compute_algos.py`: the number of logged evaluations differs between runs
+with `elitist=True`). Reproduced: on a random objective, 4994 or 4995 of 5001, against 5000 for
+every non-elitist run. Cause: a lucky parent stays in the population while sigma shrinks (to 1e-11);
+its step y = (x - m) / sigma, recomputed when it is re-inserted, grows without bound and blows up C
+(largest eigenvalue 4e13, then a negative one), so `UnableToAdapt` restarts the run, and each restart
+evaluates its new center once. pycma behaves the same way on this function: its elitist runs stop
+by `tolx` after about 1850 evaluations, as sigma collapses; modcma with `restart_strategy=NONE` has
+no such stop and continues until the update of C breaks (about 1800 evaluations). So the counts
+vary with the number of restarts, which is expected on a noise function; what was wrong is the
+budget off-by-one (T8.20: a budget of 5000 gave 4990; hence the 5001 of the report). Clipping the
+step of the re-inserted parents (Hansen 2011) or rescaling it to a random length (pycma's
+`CMA_elitist`) did not prevent the breakdown on noise, and broke MATRIX, CHOLESKY with elitism on
+BBOB (their mean comes from x but their step size from the clipped z: 25 -> 16 of 25 runs on f10,
+d = 20); the elitist step stays as the paper defines it (Sec. 4.1, Eq. 1-3).
+
+| # | Fix | Source |
+|---|---|---|
+| T8.1 | Points injected with `tell(f, X)`: the Mahalanobis length of their step is clipped at sqrt(d) + 2d / (d + 2), for the mean as for the paths and the matrix (the evaluated point stays the best solution) | Hansen (2011), pycma |
+| T8.2 | B16: covariance decay 1 + c1 delta(h_sigma) - c1 - cmu sum(w) | Hansen (2016), pycma `c1a` |
+| T8.3 | B17: C is updated every generation; only the eigendecomposition is lazy | Hansen (2016), pycma, the paper (Sec. 5.2), the Python implementation |
+| T8.4 | B18: xNES learning rate (9 + 3 ln d) / (5 d sqrt d) | Glasmachers et al. (2010) |
+| T8.5 | B19: xNES starts with A = I (sigma0 sets the spread) | Glasmachers et al. (2010): x = m + sigma B z |
+| T8.6 | B20: BIPOP small population lambda_def (lambda_large / (2 lambda_def))^(U^2) | Hansen (2009), pycma |
+| T8.7 | B21: orthogonal sampling: the norms are evaluated before the samples are overwritten; blocks of d samples when lambda > d | Wang et al. (2014) |
+| T8.8 | B22: IPOP limit (d lambda_0)^2 from the initial lambda; non-integer `ipop_factor` | the Python implementation |
+| T8.9 | B23: the mirrored, orthogonal and cached samplers pass on the expected length of their sampler | E||N(0, I)|| (Hansen 2016) |
+| T8.10 | Negative weights scaled with 1 + c1 / cmu (not 1 + c1 / mu) | Hansen (2016), pycma |
+| T8.11 | EXPONENTIAL weights w_i = 2^-i + 1 / (mu 2^mu) (sum 1); the negative ones mirrored | the paper (Sec. 4.2) |
+| T8.12 | TolX: sigma sqrt(C_ii) < tol sigma_0 and sigma |p_c| < tol sigma_0, with sigma_0 of the current run | Hansen (2016) App. B.3, pycma |
+| T8.13 | p_sigma starts at 0 for every adaptation (MATRIX, CHOLESKY, CMSA, NATURAL_GRADIENT and NONE started at ones) | Hansen (2016) |
+| T8.14 | The first run starts at x0, or at the center of the bounds (as restarts with X0 placement), not at the origin | consistency with `CenterPlacement.X0` |
+| T8.15 | `OnePlusOneES` checks the bounds of the candidate (it checked the parent); `MuCommaLambdaES` has its own sampler (a function static, shared by instances and threads) | |
+| T8.16 | COTN places the coordinate inside the box (resampled when sigma |n| > 1) | Caraffini et al. (2019), the paper (Sec. 3.6) |
+| T8.17 | Settings: `mu0 > lambda0` corrected also with SA and CMSA; C++ `verbose` defaults to false (as in Python; `ModularCMAES(d)` printed at every restart); changing `lb`/`ub` updates the derived values | |
+| T8.18 | `set_module` accepts enum members; the `get_configspace` warning names the right arguments | |
+| T8.20 | The budget: a run stopped when `evaluations + lambda >= budget`, so a generation that ends exactly at the budget was not run (budget 5000, lambda 10: 4990 evaluations); now `>` (`max_generations` was already right) | |
+| T8.19 | Bindings: `Population.__add__` returns a new population (it modified the left one); `NoImprovement.tolerance` bound; one `CriteriaVector.__repr__`; `utils.random_normal` without a static state; bounds checks in `CachedShuffleSequence` and `CachedSampler`; correctly spelled names next to the old ones (`Elitism`, `NoElitism`, `seq_cutoff_factor`, `euclidean`, `mahalanobis`) | |
+
+**Issues**
+
+* #42 (sequential selection with active update breaks the eigendecomposition): reproduced with
+  modcma 1.2.0 (230 failures in 216 BBOB runs with active, none without); none with the current
+  code (fixed by B2 and B13 in WP0). A regression test.
+* #35 (stubs not in the pip package): 1.2.0 installs no `.pyi`, the current wheels install 13 (WP1).
+  Adds `py.typed` (PEP 561), without which type checkers ignore them; the stub test requires them.
+* #59 (an allocation per sample): allocation-free since WP2 (`modcma_bench`: 0.03-0.22 mallocs per
+  evaluation).
+* #24 (the favorite candidate, as pycma's `xfavorite`): `ModularCMAES.xfavorite`, the mean of the
+  search distribution as a point of the objective (integer variables rounded, inside the bounds
+  when a bound correction is used): with noise, a better estimate of the optimum than the best
+  evaluated point.
+
+**Not changed** (for the maintainer): a run never exceeds the budget, so up to lambda - 1
+evaluations can stay unused (pycma may exceed `maxfevals` instead); `AdaptiveRepelling.target_rejection_rate`/`local_target_rejection_rate` are not used;
+the step-size classes have no Python constructor.
+

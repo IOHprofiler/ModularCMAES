@@ -21,4 +21,5 @@ Differences to keep in mind:
   criteria (`tolx`, `tolfun`, ...) are modcma's restart criteria, which stop the run with
   `restart_strategy="STOP"` and restart it with `RESTART`, `IPOP` or `BIPOP`
   ([restarts](../guide/restarts.md)).
-* **Results.** The best solution is `es.p.stats.global_best` (`.x`, `.y`); the state is in `es.p`.
+* **Results.** The best solution is `es.p.stats.global_best` (`.x`, `.y`), the favorite solution (the
+  mean, pycma's `xfavorite`) is `es.xfavorite`; the state is in `es.p`.

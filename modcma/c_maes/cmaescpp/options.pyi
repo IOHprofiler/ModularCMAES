@@ -26,7 +26,7 @@ class RecombinationWeights(enum.Enum):
 
     EXPONENTIAL = 2
     """
-    Exponentially decaying weights that about halve with every rank (w_i proportional to 2^-i): more weight on the best individuals than DEFAULT.
+    Exponentially decaying weights, w_i = 2^-i + 1 / (mu 2^mu), which sum to 1: they halve with every rank, more weight on the best individuals than DEFAULT (de Nobel et al. 2026); the negative ones the same for lambda - mu.
     """
 
 class BaseSampler(enum.Enum):

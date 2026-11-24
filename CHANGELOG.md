@@ -35,7 +35,12 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * `Modules.repelling_metric` (`EUCLIDEAN`, the previous behaviour; `CURRENT`; `ARCHIVED`).
 * Wheels for Linux aarch64, Windows ARM64 and macOS x86_64 as well; CPython 3.10–3.14 and 3.14t,
   one abi3 wheel for 3.12+.
-* Docstrings for the whole API (`help()`, editors), type stubs, and a new documentation site.
+* Docstrings for the whole API (`help()`, editors), type stubs (with `py.typed`), and a new
+  documentation site.
+* `ModularCMAES.xfavorite`: the mean of the search distribution as a solution, as pycma's
+  `xfavorite`; with noise a better estimate of the optimum than the best evaluated point (#24).
+* Correctly spelled names next to the old ones: `selection.Elitism`, `NoElitism`,
+  `repelling.euclidean`, `mahalanobis`, `Adaptation.adapt_evolution_paths_inner`.
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
 
 ### Changed
@@ -50,6 +55,40 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   where bugs were fixed (below); the differences are statistically indistinguishable on BBOB.
 
 ### Fixed
+
+Checked against the original sources (Hansen's tutorial, pycma, the papers of each module); most
+change results, compared on BBOB before and after (`tests/statistical.py`):
+
+* The covariance update had the h_sigma correction with the wrong sign (Hansen 2016, pycma).
+* With a lazy eigendecomposition (large d), the covariance matrix itself was only updated every few
+  generations, losing the updates in between; now every generation, as pycma.
+* The negative weights of the active update were scaled with 1 + c1 / mu instead of 1 + c1 / cmu.
+* `NATURAL_GRADIENT` ignored `sigma0` (A started at I / sigma) and its learning rate was
+  (9 + 3 + ln d) / (5 d sqrt d) instead of xNES's (9 + 3 ln d) / (5 d sqrt d).
+* BIPOP's small populations were at most the initial lambda (Hansen 2009: up to half of the large
+  one); IPOP's growth limit never applied, and a non-integer `ipop_factor` acted as its integer part.
+* Orthogonal sampling did not produce orthogonal samples (the norms were read while overwritten),
+  and with lambda > d it now orthogonalizes groups of d.
+* With mirrored or orthogonal sampling CSA normalized with sqrt(d) instead of E||N(0, I)||.
+* `EXPONENTIAL` weights follow the paper, w_i = 2^-i + 1 / (mu 2^mu).
+* `TolX` compared with tolerance * sigma0^2 instead of tolerance * sigma0, and used the signed path.
+* p_sigma started at ones for MATRIX, CHOLESKY, CMSA, NATURAL_GRADIENT and NONE (zero after a
+  restart).
+* Without `x0` the first run started at the origin, restarts at the center of the bounds.
+* A run stopped one generation early when the budget was a multiple of lambda (budget 5000, lambda
+  10: 4990 evaluations); with TPA it could exceed the budget.
+* Points given to `tell(f, X)` far outside the distribution enter the update clipped (Hansen 2011,
+  as pycma).
+* COTN could place a coordinate outside the bounds for a large sigma.
+* `OnePlusOneES` checked the bounds of the parent, not of the candidate; `MuCommaLambdaES` shared a
+  sampler between instances.
+* `Settings`: `mu0 > lambda0` was not corrected with SA or CMSA; the C++ default `verbose = true`
+  made `ModularCMAES(d)` print at every restart; changing `lb`/`ub` left `center`, `db`, ... stale.
+* `set_module` did not accept enum members; `Population.__add__` changed its left operand;
+  `utils.random_normal` could return a number from before `set_seed`; out-of-range indices in
+  `CachedShuffleSequence` and an empty `CachedSampler` were not checked.
+* Sequential selection with the active update broke the eigendecomposition (#42; fixed by the
+  sequential-selection and active-update fixes below, now tested).
 
 * `integer_variables` rounded the coordinates 0, 1, ... instead of the listed indices.
 * Active update: the negative weights of the default µ = λ/2 were not rescaled.

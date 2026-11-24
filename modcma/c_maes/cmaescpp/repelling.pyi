@@ -496,7 +496,7 @@ class NoRepelling(Repelling):
     def __init__(self) -> None:
         """Create the no-op repelling."""
 
-def euclidian(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], v: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> float:
+def euclidean(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], v: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> float:
     """
     The Euclidean distance ||u - v||.
 
@@ -524,7 +524,7 @@ def manhattan(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C'
     float
     """
 
-def mahanolobis(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], v: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], C_inv: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]) -> float:
+def mahalanobis(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], v: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], C_inv: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]) -> float:
     """
     The Mahalanobis distance sqrt((u - v)^T C_inv (u - v)).
 
@@ -539,6 +539,10 @@ def mahanolobis(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='
     -------
     float
     """
+
+euclidian = euclidean
+
+mahanolobis = mahalanobis
 
 def archived_metric(p: modcma.c_maes.cmaescpp.Parameters) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
     """

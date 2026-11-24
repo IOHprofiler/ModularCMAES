@@ -18,7 +18,8 @@ static Float get_default_cs(const Settings &settings, const Float mueff, const F
     // TODO: check whether the value of cs needs to be increased when CMA is NONE
 
     if (settings.modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT)
-        return (9.0 + 3.0 + std::log(d)) / (5.0 * d * std::sqrt(d));
+        // the learning rate of xNES, eta_sigma = eta_B (Glasmachers et al. 2010)
+        return (9.0 + 3.0 * std::log(d)) / (5.0 * d * std::sqrt(d));
 
     switch (settings.modules.ssa)
     {
@@ -153,8 +154,8 @@ void Weights::init_weights(const Settings &settings)
     sqrt_cs_mueff = std::sqrt(cs * (2.0 - cs) * mueff);
     sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff);
 
-    // const Float amu_neg = 1.0 + (c1 / cmu);
-    const Float amu_neg = 1.0 + (c1 / static_cast<Float>(mu));
+    // alpha_mu^- = 1 + c1 / cmu (Hansen 2016; pycma)
+    const Float amu_neg = 1.0 + (c1 / cmu);
     const Float amueff_neg = 1.0 + ((2.0 * mueff_neg) / (mueff + 2.0));
     const Float aposdef_neg = (1.0 - c1 - cmu) / (d * cmu);
     const Float neg_scaler = std::min(amu_neg, std::min(amueff_neg, aposdef_neg));
@@ -197,8 +198,10 @@ void Weights::weights_exponential(const size_t mu, const size_t lambda)
     const Float delta = static_cast<Float>(lambda - mu);
     const Float base2 = (1.0 / pow(2.0, delta)) / delta;
 
+    // w_i = 2^-i + 1 / (mu 2^mu), i = 1..mu, which sum to 1 (de Nobel et al., The Modular CMA-ES,
+    // 2026, Sec. 4.2); the negative weights are the same for lambda - mu, reversed, with a minus sign
     for (auto i = 0; i < positive.size(); ++i)
-        positive(i) = dmu / pow(2.0, static_cast<Float>(i + 1)) + base;
+        positive(i) = 1.0 / pow(2.0, static_cast<Float>(i + 1)) + base;
 
     for (auto i = 1; i < (negative.size() + 1); ++i)
         negative(negative.size() - i) = (1.0 / pow(2.0, static_cast<Float>(i)) + base2) * -1.0;

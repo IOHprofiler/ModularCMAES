@@ -32,10 +32,18 @@ void Orthogonal::sample(Eigen::Ref<Vector> out)
         for (size_t i = 0; i < n; ++i)
             sampler->sample(samples.col(i));
 
-        const auto norm = samples.colwise().norm().asDiagonal();
-
-        qr.compute(samples.transpose());
-        samples = ((qr.householderQ() * I).transpose() * norm);
+        // Blocks of (at most) d samples are orthonormalized (more than d vectors cannot be
+        // orthogonal), then given the lengths of the samples they came from (Wang et al. 2014). The
+        // lengths are computed first: the samples are overwritten below.
+        lengths = samples.colwise().norm().transpose();
+        for (size_t start = 0; start < n; start += d)
+        {
+            const auto k = static_cast<Eigen::Index>(std::min(d, n - start));
+            auto block = samples.middleCols(static_cast<Eigen::Index>(start), k);
+            qr.compute(block);
+            block = qr.householderQ() * Matrix::Identity(static_cast<Eigen::Index>(d), k);
+            block *= lengths.segment(static_cast<Eigen::Index>(start), k).asDiagonal();
+        }
     }
     out = samples.col(current++);
 }
@@ -52,9 +60,9 @@ void Orthogonal::reset(const parameters::Modules &mod, const size_t lambda)
 {
     sampler->reset(mod, lambda);
     n = std::max(d, Orthogonal::get_n_samples(mod, lambda));
-    qr = Eigen::HouseholderQR<Matrix>(n, d);
+    qr = Eigen::HouseholderQR<Matrix>(d, std::min(d, n));
     samples = Matrix(d, n);
-    I = Matrix::Identity(n, d);
+    lengths = Vector(n);
     current = 0;
 }
 

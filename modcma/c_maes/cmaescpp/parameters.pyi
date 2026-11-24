@@ -467,9 +467,9 @@ class Weights:
     @property
     def lazy_update_interval(self) -> float:
         """
-        The number of generations between two updates of the covariance matrix and its eigendecomposition (COVARIANCE), 1 / (c1 + cmu) / d / 10.
+        The number of generations between two eigendecompositions of the covariance matrix (COVARIANCE), 1 / (c1 + cmu) / d / 10; the matrix itself is updated every generation.
 
-        Below 1, the matrix is updated every generation.
+        Below 1, the matrix is decomposed every generation.
         """
 
     @lazy_update_interval.setter
@@ -523,7 +523,7 @@ class Weights:
         """
         (lambda - mu,) array: the weights of the other individuals, for the active update.
 
-        Scaled so that their absolute values sum to min(1 + c1 / mu, 1 + 2 mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu)).
+        Scaled so that their absolute values sum to min(1 + c1 / cmu, 1 + 2 mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu)) (Hansen 2016).
         """
 
     @negative.setter
@@ -723,14 +723,18 @@ class Settings:
 
     @property
     def lb(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
-        """(dim,) array: the lower bounds, default -5."""
+        """
+        (dim,) array: the lower bounds, default -5. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`.
+        """
 
     @lb.setter
     def lb(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
 
     @property
     def ub(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
-        """(dim,) array: the upper bounds, default 5."""
+        """
+        (dim,) array: the upper bounds, default 5. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`.
+        """
 
     @ub.setter
     def ub(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...

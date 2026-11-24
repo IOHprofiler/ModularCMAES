@@ -64,10 +64,10 @@ void define_selection(nb::module_ &main)
     using namespace selection;
     nb::class_<Elitsm>(
         m,
-        "Elitsm",
+        "Elitism",
         "Elitist (mu + lambda) selection: the parents compete with the offspring.\n\n"
         "Selected by `Modules.elitist = True` (always on for a (1+1)-ES); "
-        "`NoElitsm` otherwise. From the second generation on, the previous "
+        "`NoElitism` otherwise. From the second generation on, the previous "
         "population (`es.p.old_pop`, the lambda best of the previous selection) is "
         "appended to the offspring before sorting, so the best points found so "
         "far survive; their y and z are recomputed in the current distribution. "
@@ -84,7 +84,7 @@ void define_selection(nb::module_ &main)
              "    The state of the optimizer (`es.p`); its `pop` is changed in place.");
 
     nb::class_<NoElitsm, Elitsm>(
-        m, "NoElitsm", "No elitism, (mu, lambda) selection: only the offspring are selected "
+        m, "NoElitism", "No elitism, (mu, lambda) selection: only the offspring are selected "
                        "(the default).")
         .def(nb::init<>(), "Create the non-elitist selection.")
         .def("__call__",
@@ -154,9 +154,14 @@ void define_selection(nb::module_ &main)
                 &Strategy::pairwise,
                 "The pairwise selection: `Pairwise` with `Mirror.PAIRWISE`, `NoPairwise` "
                 "otherwise.")
-        .def_rw("elitsm",
+        .def_rw("elitism",
                 &Strategy::elitsm,
-                "The elitism: `Elitsm` with `Modules.elitist`, `NoElitsm` otherwise.");
+                "The elitism: `Elitism` with `Modules.elitist`, `NoElitism` otherwise.")
+        .def_rw("elitsm", &Strategy::elitsm, "The old (misspelled) name of `elitism`.");
+
+    // The old, misspelled names of 1.x stay available
+    m.attr("Elitsm") = m.attr("Elitism");
+    m.attr("NoElitsm") = m.attr("NoElitism");
 }
 
 void define_center_placement(nb::module_ &main)
@@ -166,7 +171,8 @@ void define_center_placement(nb::module_ &main)
         "Center placement: where the mean of the search distribution is placed at a restart.\n\n"
         "The optimizer holds one as `es.p.center_placement`, selected by "
         "`Modules.center_placement` (`options.CenterPlacement`). It is applied at every restart; "
-        "the first run starts at `Settings.x0` (the origin when x0 is not given).");
+        "the first run starts at `Settings.x0`, or at the center of the bounds when x0 is not "
+        "given.");
     using namespace center;
     nb::class_<Placement>(
         m, "Placement", "Base class of the center placements: sets the mean `es.p.adaptation.m`.")
@@ -585,7 +591,7 @@ void define_repelling(nb::module_ &main)
         "archive stays empty.")
         .def(nb::init<>(), "Create the no-op repelling.");
 
-    m.def("euclidian",
+    m.def("euclidean",
           &distance::euclidian,
           nb::arg("u"),
           nb::arg("v"),
@@ -609,7 +615,7 @@ void define_repelling(nb::module_ &main)
           "Returns\n"
           "-------\n"
           "float");
-    m.def("mahanolobis",
+    m.def("mahalanobis",
           &distance::mahanolobis,
           nb::arg("u"),
           nb::arg("v"),
@@ -624,6 +630,10 @@ void define_repelling(nb::module_ &main)
           "Returns\n"
           "-------\n"
           "float");
+    // The old, misspelled names of 1.x
+    m.attr("euclidian") = m.attr("euclidean");
+    m.attr("mahanolobis") = m.attr("mahalanobis");
+
     m.def("archived_metric",
           &archived_metric,
           nb::arg("p"),
@@ -725,7 +735,7 @@ void define_matrix_adaptation(nb::module_ &main)
              "one). Called by `es.adapt()` before the step-size and matrix "
              "updates.\n\n"
              ADAPT_PARAMS_DOC)
-        .def("adapt_evolution_paths_innner",
+        .def("adapt_evolution_paths_inner",
              &Adaptation::adapt_evolution_paths_inner,
              nb::arg("pop"),
              nb::arg("weights"),
@@ -879,8 +889,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "default).\n\n"
         "C receives a rank-one update from the evolution path pc and a rank-mu update from the "
         "selected steps (with `Modules.active`, negative weights for the worst steps), and is "
-        "decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. The update and the "
-        "eigendecomposition run every `es.p.weights.lazy_update_interval` = "
+        "decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every "
+        "generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = "
         "1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The "
         "eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the "
         "rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the "
@@ -1102,7 +1112,7 @@ void define_matrix_adaptation(nb::module_ &main)
              nb::arg("x0"),
              nb::arg("expected_length_z"),
              nb::arg("sigma"),
-             "Create the adaptation with mean x0 and A = I / sigma.\n\n"
+             "Create the adaptation with mean x0 and A = I (sigma sets the spread).\n\n"
              "Parameters\n"
              "----------\n"
              "dimension : int\n"
@@ -1116,7 +1126,7 @@ void define_matrix_adaptation(nb::module_ &main)
              "    The initial step size sigma0.")
         .def_rw("A",
                 &NaturalGradientAdaptation::A,
-                "The sampling matrix, y = A z, shape (d, d) (I / sigma0 at the start).")
+                "The sampling matrix, y = A z, shape (d, d) (I at the start).")
         .def_rw("A_inv",
                 &NaturalGradientAdaptation::A_inv,
                 "The inverse of A, shape (d, d). Recomputed only when `invert_y` needs it (an "
@@ -1157,6 +1167,10 @@ void define_matrix_adaptation(nb::module_ &main)
              "`gradient_samples`, `gradient_weights`, `gradient_shift` and "
              "`sigma_g`. Called by `adapt_evolution_paths`.\n\n"
              ADAPT_PARAMS_DOC);
+
+    // The old, misspelled name of 1.x
+    m.attr("Adaptation").attr("adapt_evolution_paths_innner") =
+        m.attr("Adaptation").attr("adapt_evolution_paths_inner");
 }
 
 void define_bounds(nb::module_ &main)

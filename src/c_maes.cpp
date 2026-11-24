@@ -46,11 +46,23 @@ void ModularCMAES::operator()(FunctionType &objective)
         ;
 }
 
+Vector ModularCMAES::xfavorite() const
+{
+    Vector x = p->coordinate_mapping->transform(p->adaptation->m);
+    if (p->settings.has_bounds &&
+        p->settings.modules.bound_correction != parameters::CorrectionMethod::NONE)
+        x = x.cwiseMax(p->settings.lb).cwiseMin(p->settings.ub);
+    return x;
+}
+
 bool ModularCMAES::break_conditions() const
 {
     const auto target_reached =
         p->settings.target and p->settings.target.value() >= p->stats.global_best.y;
-    const auto budget_used_up = (p->stats.evaluations + p->lambda) >= p->settings.budget;
+    // Stop when the next generation (lambda points, plus the extra points of TPA) would exceed the
+    // budget; a generation that ends exactly at the budget is still run
+    const auto budget_used_up = (p->stats.evaluations + p->lambda + p->mutation->n_extra_points()) >
+                                p->settings.budget;
     const auto exceed_gens =
         p->settings.max_generations and p->stats.t >= p->settings.max_generations;
     const auto restart_strategy_criteria =
@@ -174,6 +186,10 @@ void ModularCMAES::inject(const Eigen::Index i, Eigen::Ref<const Vector> x) cons
     pop.X_transformed.col(i) = x;
     p->adaptation->invert_x_into(pop.X.col(i), pop.S.col(i), pop.Y.col(i));
     p->adaptation->invert_y_into(pop.Y.col(i), pop.Z.col(i));
+    // A point far outside the distribution enters the update clipped (as pycma): X, from which the
+    // mean is recombined, moves with y; X_transformed keeps the evaluated point for the statistics
+    if (matrix_adaptation::clip_injected_step(pop.Y.col(i), pop.Z.col(i)))
+        pop.X.col(i) = p->adaptation->m + pop.S.col(i).cwiseProduct(pop.Y.col(i));
 }
 
 void ModularCMAES::consume(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X)

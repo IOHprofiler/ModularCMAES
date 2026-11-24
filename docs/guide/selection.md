@@ -45,5 +45,5 @@ for name, modules in {"default": {}, "active": {"active": True}, "elitist": {"el
 |---|---|
 | `DEFAULT` | Log-linear weights, the default: w_i proportional to ln((lambda + 1) / floor(lambda / mu)) - ln(i); with mu = lambda / 2 the weights of the standard CMA-ES (Hansen 2016, "The CMA Evolution Strategy: A Tutorial"). |
 | `EQUAL` | Equal weights 1/mu (intermediate recombination): every selected individual counts the same. |
-| `EXPONENTIAL` | Exponentially decaying weights that about halve with every rank (w_i proportional to 2^-i): more weight on the best individuals than DEFAULT. |
+| `EXPONENTIAL` | Exponentially decaying weights, w_i = 2^-i + 1 / (mu 2^mu), which sum to 1: they halve with every rank, more weight on the best individuals than DEFAULT (de Nobel et al. 2026); the negative ones the same for lambda - mu. |
 <!-- /options -->

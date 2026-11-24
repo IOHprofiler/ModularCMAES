@@ -100,12 +100,20 @@ void define_population(nb::module_ &main)
                      "The number of active individuals whose f is not +inf.\n\n"
                      "Unevaluated individuals, and the worse individual of each pair under "
                      "pairwise selection, have f = +inf.")
-        .def("__add__",
+        .def(
+            "__add__",
+            [](const Population &self, const Population &other) {
+                Population result = self;
+                result += other;
+                return result;
+            },
+            nb::arg("other"),
+            "A new population with the active individuals of this one, then those of other.")
+        .def("__iadd__",
              &Population::operator+=,
              nb::arg("other"),
-             "Append the active individuals of other to this population and return a copy.\n\n"
-             "Unlike the usual +, this changes the left operand in place: its n grows by "
-             "other.n. The return value is a copy of the result, not the same object.")
+             nb::rv_policy::none,
+             "Append the active individuals of other to this population (in place).")
         // The arrays are views of the active columns 0..n-1 (fewer than the buffers hold after
         // sequential selection stopped a generation early); assigning replaces the buffer.
         .def_prop_rw("X",
@@ -405,9 +413,10 @@ void define_parameters(nb::module_ &main)
                 "sqrt(cs (2 - cs) mueff): the normalisation of the update of the path ps.")
         .def_rw("lazy_update_interval",
                 &Weights::lazy_update_interval,
-                "The number of generations between two updates of the covariance matrix and its "
-                "eigendecomposition (COVARIANCE), 1 / (c1 + cmu) / d / 10.\n\n"
-                "Below 1, the matrix is updated every generation.")
+                "The number of generations between two eigendecompositions of the covariance "
+                "matrix (COVARIANCE), 1 / (c1 + cmu) / d / 10; the matrix itself is updated "
+                "every generation.\n\n"
+                "Below 1, the matrix is decomposed every generation.")
         .def_rw("expected_length_z",
                 &Weights::expected_length_z,
                 "The expected length of a sample of the sampler, E||z||.")
@@ -429,8 +438,8 @@ void define_parameters(nb::module_ &main)
                 &Weights::negative,
                 "(lambda - mu,) array: the weights of the other individuals, for the active "
                 "update.\n\n"
-                "Scaled so that their absolute values sum to min(1 + c1 / mu, 1 + 2 mueff_neg / "
-                "(mueff + 2), (1 - c1 - cmu) / (d cmu)).")
+                "Scaled so that their absolute values sum to min(1 + c1 / cmu, 1 + 2 mueff_neg / "
+                "(mueff + 2), (1 - c1 - cmu) / (d cmu)) (Hansen 2016).")
         .def("for_population",
              &Weights::for_population,
              nb::arg("n"),
@@ -665,8 +674,24 @@ void define_parameters(nb::module_ &main)
                 &Settings::x0,
                 "(dim,) array: the initial mean of the search distribution, or None (default) "
                 "for the zero vector.")
-        .def_rw("lb", &Settings::lb, "(dim,) array: the lower bounds, default -5.")
-        .def_rw("ub", &Settings::ub, "(dim,) array: the upper bounds, default 5.")
+        .def_prop_rw(
+            "lb",
+            [](const Settings &s) { return s.lb; },
+            [](Settings &s, const Vector &lb) {
+                s.lb = lb;
+                s.update_bounds();
+            },
+            "(dim,) array: the lower bounds, default -5. Setting it updates `db`, `center`, "
+            "`diameter`, `volume` and `has_bounds`.")
+        .def_prop_rw(
+            "ub",
+            [](const Settings &s) { return s.ub; },
+            [](Settings &s, const Vector &ub) {
+                s.ub = ub;
+                s.update_bounds();
+            },
+            "(dim,) array: the upper bounds, default 5. Setting it updates `db`, `center`, "
+            "`diameter`, `volume` and `has_bounds`.")
         .def_rw("db", &Settings::db, "(dim,) array: the widths of the box, ub - lb.")
         .def_rw("center",
                 &Settings::center,
@@ -994,6 +1019,14 @@ void define_cmaes(nb::module_ &m)
             nb::arg("args"),
             nb::arg("kwargs"),
             "The signature of modcma 1.x (the pure-Python implementation): raises TypeError.")
+        .def_prop_ro("xfavorite",
+                     &ModularCMAES::xfavorite,
+                     "The favorite solution, (d,) array: the mean of the search distribution as "
+                     "a point of the objective (integer variables rounded; inside the bounds "
+                     "when a bound correction is used), as pycma's `xfavorite`.\n\n"
+                     "Not evaluated. With a noisy objective it is a better estimate of the "
+                     "optimum than `p.stats.global_best`, whose value was selected for being "
+                     "low.")
         .def("recombine",
              &ModularCMAES::recombine,
              "Move the mean to the weighted mean of the mu best individuals.\n\n"
@@ -1114,9 +1147,9 @@ void define_cmaes(nb::module_ &m)
              &ModularCMAES::break_conditions,
              "Whether the run should stop.\n\n"
              "True when one of these holds: p.stats.t reached settings.max_generations; the "
-             "best objective value is at most settings.target; the evaluations plus lambda "
-             "reach settings.budget; or restart_strategy is STOP and a restart criterion "
-             "holds.")
+             "best objective value is at most settings.target; the next generation (lambda "
+             "points, and the 2 extra points of TPA) would exceed settings.budget; or "
+             "restart_strategy is STOP and a restart criterion holds.")
         .def_ro("p",
                 &ModularCMAES::p,
                 "The Parameters: the state of the optimizer (settings, modules, population, "

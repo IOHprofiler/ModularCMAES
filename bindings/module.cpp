@@ -6,9 +6,11 @@ namespace modcma_python
 {
 namespace
 {
+//! A fresh distribution object per call: a static one (as before) kept the second number of a
+//! Box-Muller pair across calls of utils.set_seed
 template <typename RNG> Float random_double()
 {
-    static RNG gen;
+    RNG gen;
     return gen(rng::GENERATOR);
 }
 
@@ -177,8 +179,9 @@ void define_options(nb::module_ &main)
                "counts the same.")
         .value("EXPONENTIAL",
                RecombinationWeights::EXPONENTIAL,
-               "Exponentially decaying weights that about halve with every rank (w_i "
-               "proportional to 2^-i): more weight on the best individuals than DEFAULT.");
+               "Exponentially decaying weights, w_i = 2^-i + 1 / (mu 2^mu), which sum to 1: they "
+               "halve with every rank, more weight on the best individuals than DEFAULT (de "
+               "Nobel et al. 2026); the negative ones the same for lambda - mu.");
 
     nb::enum_<BaseSampler>(
         m,

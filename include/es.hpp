@@ -84,6 +84,7 @@ struct MuCommaLambdaES
         target(target),
         sampler(sampling::get(d, modules, lambda)),
         sigma_sampler(std::make_shared<sampling::Gaussian>(d)),
+        global_sigma_sampler(std::make_shared<sampling::Gaussian>(1)),
         rejection_sampling(modules.bound_correction == parameters::CorrectionMethod::RESAMPLE),
         corrector(bounds::get(modules.bound_correction, d)),
         settings(d)
@@ -125,6 +126,8 @@ struct MuCommaLambdaES
 
     std::shared_ptr<sampling::Sampler> sampler;
     std::shared_ptr<sampling::Sampler> sigma_sampler;
+    //! The common factor of the step sizes of an individual (one per instance)
+    std::shared_ptr<sampling::Sampler> global_sigma_sampler;
 
     bool rejection_sampling;
     std::shared_ptr<bounds::BoundCorrection> corrector;

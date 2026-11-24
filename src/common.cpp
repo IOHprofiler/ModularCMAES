@@ -1,4 +1,6 @@
 #include "common.hpp"
+#include <stdexcept>
+#include <string>
 
 #include <mutex>
 
@@ -245,6 +247,9 @@ CachedShuffleSequence::CachedShuffleSequence(const size_t d, Generator &gen) :
 
 void CachedShuffleSequence::fill(const std::vector<Float> &c)
 {
+    if (c.size() > cache.size())
+        throw std::invalid_argument("CachedShuffleSequence.fill: " + std::to_string(c.size()) +
+                                    " values, the cache holds " + std::to_string(cache.size()));
     std::copy(c.begin(), c.end(), cache.begin());
 }
 
@@ -256,6 +261,9 @@ void CachedShuffleSequence::transform(const std::function<Float(Float)> &f)
 
 Vector CachedShuffleSequence::get_index(const size_t idx)
 {
+    if (idx >= n_samples)
+        throw std::out_of_range("CachedShuffleSequence.get_index: index " + std::to_string(idx) +
+                                " of " + std::to_string(n_samples) + " points");
     return Eigen::Map<Vector>(cache.data() + (idx * dim), static_cast<Eigen::Index>(dim));
 }
 

@@ -17,7 +17,7 @@ Parameters::Parameters(const Settings &settings) :
     criteria(restart::Criteria::get(settings.modules, settings.lambda0)),
     adaptation(matrix_adaptation::get(settings.modules,
                                       settings.dim,
-                                      settings.x0.value_or(Vector::Zero(settings.dim)),
+                                      settings.x0.value_or(settings.center),
                                       sampler->expected_length(),
                                       settings.sigma0)),
     mutation(mutation::get(

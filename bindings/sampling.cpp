@@ -174,13 +174,14 @@ void define_samplers(nb::module_ &main)
         m,
         "Orthogonal",
         "Orthogonalized samples (Modules.orthogonal).\n\n"
-        "Draws a block of n = max(d, n_samples) samples of the wrapped sampler, orthonormalizes "
-        "them with a Householder QR decomposition, gives each the length of the sample it "
-        "came from, and returns them one by one before drawing the next block.")
+        "Draws n = max(d, n_samples) samples of the wrapped sampler, orthonormalizes them in "
+        "groups of (at most) d with a Householder QR decomposition (more than d vectors cannot "
+        "be orthogonal), gives each the length of the sample it came from, and returns them one "
+        "by one before drawing the next n (Wang et al. 2014).")
         .def(nb::init<const std::shared_ptr<Sampler>, size_t>(),
              nb::arg("sampler"),
              nb::arg("n_samples"),
-             "Orthogonalize the samples of sampler in blocks of max(d, n_samples). The "
+             "Orthogonalize the samples of sampler, max(d, n_samples) at a time. The "
              "optimizer uses n_samples = lambda (lambda / 2 with mirroring), minus 2 with TPA.")
         .def("__call__", &Orthogonal::operator(), "One sample: the next of the block.");
 

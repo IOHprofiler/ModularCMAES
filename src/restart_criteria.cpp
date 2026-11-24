@@ -233,14 +233,15 @@ const matrix_adaptation::CovarianceAdaptation *eigendecomposition(const paramete
 
 void TolX::update(const parameters::Parameters &p)
 {
-    // TODO: This should be another sigma0, the one that has been used to restart
+    // Met when sigma sqrt(C_ii) < tol sigma_0 and sigma |pc_i| < tol sigma_0 for every i, with
+    // sigma_0 the step size at the start of the run (Hansen 2016, Appendix B; pycma's tolx)
     if (const auto dynamic =
             std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
     {
-        const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
-        const Float tolx_condition = tolerance * p.settings.sigma0;
-        tolx_vector.head(p.settings.dim) = dynamic->C.diagonal().cwiseSqrt() * d_sigma;
-        tolx_vector.tail(p.settings.dim) = dynamic->pc * d_sigma;
+        const Float sigma = p.mutation->sigma;
+        const Float tolx_condition = tolerance * sigma_start;
+        tolx_vector.head(p.settings.dim) = dynamic->C.diagonal().cwiseSqrt() * sigma;
+        tolx_vector.tail(p.settings.dim) = dynamic->pc.cwiseAbs() * sigma;
         met = (tolx_vector.array() < tolx_condition).all();
     }
 }
@@ -248,6 +249,7 @@ void TolX::update(const parameters::Parameters &p)
 void TolX::on_reset(const parameters::Parameters &p)
 {
     tolx_vector = Vector::Ones(p.settings.dim * 2);
+    sigma_start = p.mutation->sigma;
 }
 
 void MaxDSigma::update(const parameters::Parameters &p)

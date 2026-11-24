@@ -1,7 +1,7 @@
 """
 Center placement: where the mean of the search distribution is placed at a restart.
 
-The optimizer holds one as `es.p.center_placement`, selected by `Modules.center_placement` (`options.CenterPlacement`). It is applied at every restart; the first run starts at `Settings.x0` (the origin when x0 is not given).
+The optimizer holds one as `es.p.center_placement`, selected by `Modules.center_placement` (`options.CenterPlacement`). It is applied at every restart; the first run starts at `Settings.x0`, or at the center of the bounds when x0 is not given.
 """
 
 import modcma.c_maes.cmaescpp

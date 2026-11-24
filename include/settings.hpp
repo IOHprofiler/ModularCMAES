@@ -66,7 +66,7 @@ struct Settings
              std::optional<Float> c1 = std::nullopt,
              std::optional<Float> damps = std::nullopt,
              std::optional<Float> acov = std::nullopt,
-             bool verbose = true,
+             bool verbose = false,
              bool always_compute_eigv = false) :
         dim(dim),
         modules(mod.value_or(Modules())),
@@ -97,15 +97,15 @@ struct Settings
         if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
             lambda0++;
 
-        if (mu0 > lambda0)
-        {
-            mu0 = lambda0 / 2;
-        }
-
         if (modules.ssa == StepSizeAdaptation::SA ||
             modules.matrix_adaptation == MatrixAdaptationType::CMSA)
         {
-            mu0 = mu.value_or(lambda0 / 4);
+            mu0 = mu.value_or(std::max<size_t>(1, lambda0 / 4));
+        }
+
+        if (mu0 > lambda0)
+        {
+            mu0 = lambda0 / 2;
         }
 
         if (modules.ssa != StepSizeAdaptation::CSA and
@@ -135,6 +135,17 @@ struct Settings
                 modules.restart_strategy = RestartStrategyType::RESTART;
         }
 
+        update_bounds();
+    }
+
+    //! Recompute the values derived from lb and ub (after a change of the bounds)
+    void update_bounds()
+    {
+        db = ub - lb;
+        center = lb + (db * 0.5);
+        diameter = db.norm();
+        volume = db.prod();
+        has_bounds = true;
         if (!std::isfinite(diameter))
         {
             has_bounds = false;

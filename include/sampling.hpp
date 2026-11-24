@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdexcept>
+
 #include "common.hpp"
 
 namespace parameters
@@ -151,6 +153,9 @@ struct Mirrored : Sampler
         mirror = false;
     }
 
+    //! A mirrored sample has the length of the sample it mirrors
+    Float expected_length() override { return sampler->expected_length(); }
+
   private:
     std::shared_ptr<Sampler> sampler;
     Vector previous;
@@ -172,9 +177,9 @@ struct Orthogonal : Sampler
         Sampler(sampler->d),
         sampler(sampler),
         n(std::max(d, n_samples)),
-        qr(n, d),
+        qr(d, std::min(d, n)),
         samples(d, n),
-        I(Matrix::Identity(n, d))
+        lengths(n)
     {
     }
 
@@ -184,12 +189,15 @@ struct Orthogonal : Sampler
 
     static size_t get_n_samples(const parameters::Modules &modules, const size_t lambda);
 
+    //! The samples keep the lengths of the samples of the wrapped sampler
+    Float expected_length() override { return sampler->expected_length(); }
+
   private:
     std::shared_ptr<Sampler> sampler;
     size_t n;
     Eigen::HouseholderQR<Matrix> qr;
     Matrix samples;
-    Matrix I;
+    Vector lengths;
     size_t current = 0;
 };
 
@@ -258,8 +266,8 @@ struct CachedSampler : Sampler
     }
 
     CachedSampler(const std::vector<Vector> &cache, const bool transform_ppf = false) :
-        Sampler(cache[0].size()),
-        sampler(std::make_shared<Tester>(cache[0].size())),
+        Sampler(first_size(cache)),
+        sampler(std::make_shared<Tester>(first_size(cache))),
         cache(cache),
         index(cache.size()),
         n_samples(cache.size())
@@ -277,6 +285,17 @@ struct CachedSampler : Sampler
             cache.emplace_back((*sampler)());
 
         out = cache[index++ % n_samples];
+    }
+
+    //! The cached samples are those of the wrapped sampler
+    Float expected_length() override { return sampler->expected_length(); }
+
+  private:
+    static size_t first_size(const std::vector<Vector> &cache)
+    {
+        if (cache.empty())
+            throw std::invalid_argument("CachedSampler: the cache is empty");
+        return static_cast<size_t>(cache[0].size());
     }
 };
 

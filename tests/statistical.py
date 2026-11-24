@@ -48,6 +48,12 @@ CONFIGS = {
         "sequential_selection": True,
         "bound_correction": "RESAMPLE",
     },
+    # WP8: the fixed modules on their own
+    "exponential_weights_active": {"weights": "EXPONENTIAL", "active": True},
+    "mirrored_pairwise": {"mirrored": "PAIRWISE"},
+    "orthogonal": {"orthogonal": True},
+    "ipop": {"restart_strategy": "IPOP"},
+    "sequential_active": {"sequential_selection": True, "active": True},
 }
 
 

@@ -33,6 +33,20 @@ class TestArraySemantics(unittest.TestCase):
         f[0] = -1.0
         self.assertEqual(self.p.pop.f[0], -1.0)
 
+    def test_bounds_are_copies_and_setting_them_updates_the_derived_values(self):
+        # lb and ub are returned as copies: writing into a view would leave db, center, ... stale
+        settings = c_maes.Settings(3)
+        lb = settings.lb
+        lb[0] = -1.0
+        self.assertEqual(settings.lb[0], -5.0)
+        settings.lb = np.array([0.0, 0.0, 0.0])
+        settings.ub = np.array([2.0, 4.0, 6.0])
+        np.testing.assert_allclose(settings.db, [2.0, 4.0, 6.0])
+        np.testing.assert_allclose(settings.center, [1.0, 2.0, 3.0])
+        self.assertTrue(settings.has_bounds)
+        settings.ub = np.full(3, np.inf)
+        self.assertFalse(settings.has_bounds)
+
     def test_other_eigen_members_are_writable_views(self):
         # pybind11 returned read-only views; nanobind's are writable and writes reach the C++
         # object (a deliberate change, in the changelog: nothing that worked before breaks)
@@ -40,7 +54,6 @@ class TestArraySemantics(unittest.TestCase):
             lambda: self.p.adaptation.C,
             lambda: self.p.adaptation.m,
             lambda: self.p.weights.positive,
-            lambda: self.p.settings.lb,
             lambda: self.p.stats.global_best.x,
         ):
             a = get()

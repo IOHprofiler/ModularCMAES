@@ -10,6 +10,26 @@
 
 namespace matrix_adaptation
 {
+/**
+ * Shorten the step of a solution that was not sampled from the current distribution (a point given
+ * to tell) to a Mahalanobis length of at most sqrt(d) + 2d / (d + 2) (Hansen 2011, "Injecting
+ * external solutions into CMA-ES"; pycma). Returns whether it was shortened. The caller moves the
+ * point used for the update accordingly (pycma clips the solution itself), so the mean and the
+ * paths stay consistent; the evaluated point and its value are kept for the statistics.
+ */
+inline bool clip_injected_step(Eigen::Ref<Vector> y, Eigen::Ref<Vector> z)
+{
+    const Float d = static_cast<Float>(z.size());
+    const Float max_length = std::sqrt(d) + 2.0 * d / (d + 2.0);
+    const Float length = z.norm();
+    if (length <= max_length)
+        return false;
+    const Float factor = max_length / length;
+    z *= factor;
+    y *= factor;
+    return true;
+}
+
 struct Adaptation
 {
     Vector m, m_old, dm, ps, dz;
@@ -124,7 +144,7 @@ struct Adaptation
 
     virtual void restart(const parameters::Settings &settings, const Float sigma)
     {
-        m = settings.x0.value_or(Vector::Zero(settings.dim));
+        m = settings.x0.value_or(settings.center);
         m_old.setZero();
         dm.setZero();
         ps.setZero();
@@ -144,7 +164,7 @@ struct Adaptation
 struct None final : Adaptation
 {
     None(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Ones(dim), expected_length_z)
+        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z)
     {
     }
 
@@ -276,7 +296,7 @@ struct MatrixAdaptation final : Adaptation
     Matrix M_inv;
 
     MatrixAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
+        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
         M(Matrix::Identity(dim, dim)),
         M_inv(Matrix::Identity(dim, dim)),
         outdated_M_inv(false)
@@ -320,7 +340,7 @@ struct CholeskyAdaptation final : Adaptation
     for free*/
 
     CholeskyAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
+        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
         A(Matrix::Identity(dim, dim)),
         pc(Vector::Zero(dim))
     {
@@ -355,7 +375,7 @@ struct SelfAdaptation final : Adaptation
     Matrix C;
 
     SelfAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
+        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
         A(Matrix::Identity(dim, dim)),
         C(Matrix::Identity(dim, dim))
     {
@@ -436,9 +456,11 @@ struct NaturalGradientAdaptation final : Adaptation
     NaturalGradientAdaptation(const size_t dim,
                               const Vector &x0,
                               const Float expected_length_z,
-                              const Float sigma0) :
-        Adaptation(dim, x0, Vector::Ones(dim), expected_length_z),
-        A(Matrix::Identity(dim, dim) / sigma0),
+                              [[maybe_unused]] const Float sigma0) :
+        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
+        // x = m + sigma A z with A = I at the start: sigma0 sets the spread (xNES: A = sigma B
+        // with det B = 1, Glasmachers et al. 2010)
+        A(Matrix::Identity(dim, dim)),
         A_inv(Matrix::Identity(dim, dim)),
         sigma_g(0),
         gradient_samples(dim, 0),

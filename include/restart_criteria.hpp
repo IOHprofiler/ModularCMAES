@@ -151,6 +151,8 @@ struct TolX : Criterion
 {
     static inline Float tolerance = 1e-11;
     Vector tolx_vector;
+    //! The step size at the start of the current run (sigma0, or the sigma of the restart)
+    Float sigma_start = 1.0;
     TolX() :
         Criterion("TolX")
     {

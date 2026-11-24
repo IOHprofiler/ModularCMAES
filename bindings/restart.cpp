@@ -93,7 +93,7 @@ void define_restart_criteria(nb::module_ &main)
         "Met when the best fitness of a generation has not changed over the last `n_bin` "
         "generations.\n\n"
         "Checked from n_bin generations after a restart on: met when the range (max - min) of "
-        "the best fitness of the last n_bin generations is at most 1e-20.")
+        "the best fitness of the last n_bin generations is at most `NoImprovement.tolerance`.")
         .def(nb::init<>(), "The criterion; `n_bin` is set by the first reset.")
         .def_rw("n_bin",
                 &NoImprovement::n_bin,
@@ -101,7 +101,11 @@ void define_restart_criteria(nb::module_ &main)
                 "10 + ceil(30 d / lambda).")
         .def_rw("best_fitnesses",
                 &NoImprovement::best_fitnesses,
-                "The best fitness of every generation since the last reset.");
+                "The best fitness of every generation since the last reset.")
+        .def_rw_static("tolerance",
+                       &NoImprovement::tolerance,
+                       "The largest range of the best fitness that counts as no improvement "
+                       "(default 1e-20).");
 
     nb::class_<MaxSigma, Criterion>(
         m, "MaxSigma", "Met when the step size sigma is larger than `MaxSigma.tolerance`.")
@@ -151,8 +155,9 @@ void define_restart_criteria(nb::module_ &main)
         m,
         "TolX",
         "Met when the search distribution has become very small in every coordinate.\n\n"
-        "Met when every entry of `tolx_vector` (sigma / sigma0 times the standard deviations "
-        "sqrt(C_ii) and the evolution path p_c) is smaller than tolerance * sigma0. Only "
+        "Met when every entry of `tolx_vector` (sigma times the standard deviations sqrt(C_ii) "
+        "and the absolute values of the evolution path p_c) is smaller than tolerance times the "
+        "step size at the start of the run (Hansen 2016; pycma's tolx). Only "
         "applies to the covariance matrix adaptations (COVARIANCE, COVARIANCE_NO_EIGV); by "
         "default used with COVARIANCE.")
         .def(nb::init<>(), "The criterion.")
@@ -257,20 +262,7 @@ void define_restart_criteria(nb::module_ &main)
     nb::bind_vector<vCriteria>(m,
                                "CriteriaVector",
                                "The list of restart criteria of `Criteria.items` (a mutable "
-                               "sequence of `Criterion` objects).")
-        .def(
-            "__repr__",
-            [](const vCriteria &v) {
-                std::string s = "CriteriaVector[";
-                for (size_t i = 0; i < v.size(); ++i)
-                {
-                    if (i)
-                        s += ", ";
-                    s += v[i] ? nb::cast<std::string>(nb::repr(nb::cast(v[i]))) : "None";
-                }
-                return s + "]";
-            },
-            "CriteriaVector[<criterion>, ...].");
+                               "sequence of `Criterion` objects).");
 
     nb::class_<Criteria>(
         m,

@@ -13,7 +13,7 @@ Vector OnePlusOneES::sample()
         const Vector z = (*sampler)();
         x1 = x + sigma * z;
 
-        const auto mask = corrector->is_out_of_bounds(x, settings);
+        const auto mask = corrector->is_out_of_bounds(x1, settings);
         if (mask.any())
             x1 = corrector->correct_x(x1, mask, sigma, settings);
 
@@ -61,11 +61,9 @@ Vector MuCommaLambdaES::sample(const Vector si)
 
 void MuCommaLambdaES::step(FunctionType &objective)
 {
-    static sampling::Gaussian g_sigma_sampler(1);
-
     for (size_t i = 0; i < lambda; i++)
     {
-        const Float psi_k = std::exp(tau * g_sigma_sampler()[0]);
+        const Float psi_k = std::exp(tau * (*global_sigma_sampler)()[0]);
         const Vector psi_kv = (tau_i * (*sigma_sampler)()).array().exp().matrix();
         S.col(i) = sigma.array() * psi_kv.array() * psi_k;
         X.col(i) = sample(S.col(i));

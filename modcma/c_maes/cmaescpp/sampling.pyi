@@ -162,12 +162,12 @@ class Orthogonal(Sampler):
     """
     Orthogonalized samples (Modules.orthogonal).
 
-    Draws a block of n = max(d, n_samples) samples of the wrapped sampler, orthonormalizes them with a Householder QR decomposition, gives each the length of the sample it came from, and returns them one by one before drawing the next block.
+    Draws n = max(d, n_samples) samples of the wrapped sampler, orthonormalizes them in groups of (at most) d with a Householder QR decomposition (more than d vectors cannot be orthogonal), gives each the length of the sample it came from, and returns them one by one before drawing the next n (Wang et al. 2014).
     """
 
     def __init__(self, sampler: Sampler, n_samples: int) -> None:
         """
-        Orthogonalize the samples of sampler in blocks of max(d, n_samples). The optimizer uses n_samples = lambda (lambda / 2 with mirroring), minus 2 with TPA.
+        Orthogonalize the samples of sampler, max(d, n_samples) at a time. The optimizer uses n_samples = lambda (lambda / 2 with mirroring), minus 2 with TPA.
         """
 
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:

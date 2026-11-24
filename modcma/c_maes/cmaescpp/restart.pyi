@@ -94,7 +94,7 @@ class NoImprovement(Criterion):
     """
     Met when the best fitness of a generation has not changed over the last `n_bin` generations.
 
-    Checked from n_bin generations after a restart on: met when the range (max - min) of the best fitness of the last n_bin generations is at most 1e-20.
+    Checked from n_bin generations after a restart on: met when the range (max - min) of the best fitness of the last n_bin generations is at most `NoImprovement.tolerance`.
     """
 
     def __init__(self) -> None:
@@ -115,6 +115,11 @@ class NoImprovement(Criterion):
 
     @best_fitnesses.setter
     def best_fitnesses(self, arg: Sequence[float], /) -> None: ...
+
+    tolerance: ClassVar[float] = ...
+    """
+    The largest range of the best fitness that counts as no improvement (default 1e-20).
+    """
 
 class MaxSigma(Criterion):
     """Met when the step size sigma is larger than `MaxSigma.tolerance`."""
@@ -189,7 +194,7 @@ class TolX(Criterion):
     """
     Met when the search distribution has become very small in every coordinate.
 
-    Met when every entry of `tolx_vector` (sigma / sigma0 times the standard deviations sqrt(C_ii) and the evolution path p_c) is smaller than tolerance * sigma0. Only applies to the covariance matrix adaptations (COVARIANCE, COVARIANCE_NO_EIGV); by default used with COVARIANCE.
+    Met when every entry of `tolx_vector` (sigma times the standard deviations sqrt(C_ii) and the absolute values of the evolution path p_c) is smaller than tolerance times the step size at the start of the run (Hansen 2016; pycma's tolx). Only applies to the covariance matrix adaptations (COVARIANCE, COVARIANCE_NO_EIGV); by default used with COVARIANCE.
     """
 
     def __init__(self) -> None:
@@ -347,12 +352,7 @@ class CriteriaVector:
     def __bool__(self) -> bool:
         """Check whether the vector is nonempty"""
 
-    @overload
     def __repr__(self) -> str: ...
-
-    @overload
-    def __repr__(self) -> str:
-        """CriteriaVector[<criterion>, ...]."""
 
     def __iter__(self) -> Iterator[Criterion]: ...
 

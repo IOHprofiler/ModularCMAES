@@ -53,6 +53,14 @@ struct ModularCMAES
     bool break_conditions() const;
 
     /**
+     * The favorite solution: the mean of the search distribution as a point of the objective
+     * (integer variables rounded; inside the bounds when a bound correction is used), as pycma's
+     * xfavorite. With a noisy objective it estimates the optimum better than the best evaluated
+     * point, whose value was selected for being low. Not evaluated.
+     */
+    Vector xfavorite() const;
+
+    /**
      * The points to evaluate next, the columns of a d x k matrix (k >= 1, in the space of the
      * objective). Starts a generation when none is in progress. Until tell(), it returns the same
      * points. The view is valid until the next tell().

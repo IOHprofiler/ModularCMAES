@@ -35,6 +35,8 @@ def undocumented(path):
                 if not (setter or dunder or private) and ast.get_docstring(node) is None:
                     missing.append(prefix + node.name)
             elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                if isinstance(node.value, ast.Name):
+                    continue  # an alias of a documented name (an old spelling)
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
                 names = [t.id for t in targets if isinstance(t, ast.Name)]
                 follows = i + 1 < len(body) and isinstance(body[i + 1], ast.Expr) and isinstance(

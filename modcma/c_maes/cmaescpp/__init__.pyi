@@ -174,10 +174,11 @@ class Population:
 
     def __add__(self, other: Population) -> Population:
         """
-        Append the active individuals of other to this population and return a copy.
-
-        Unlike the usual +, this changes the left operand in place: its n grows by other.n. The return value is a copy of the result, not the same object.
+        A new population with the active individuals of this one, then those of other.
         """
+
+    def __iadd__(self, other: Population) -> Population:
+        """Append the active individuals of other to this population (in place)."""
 
     @property
     def X(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
@@ -509,6 +510,14 @@ class ModularCMAES:
         The signature of modcma 1.x (the pure-Python implementation): raises TypeError.
         """
 
+    @property
+    def xfavorite(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """
+        The favorite solution, (d,) array: the mean of the search distribution as a point of the objective (integer variables rounded; inside the bounds when a bound correction is used), as pycma's `xfavorite`.
+
+        Not evaluated. With a noisy objective it is a better estimate of the optimum than `p.stats.global_best`, whose value was selected for being low.
+        """
+
     def recombine(self) -> None:
         """
         Move the mean to the weighted mean of the mu best individuals.
@@ -617,7 +626,7 @@ class ModularCMAES:
         """
         Whether the run should stop.
 
-        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the evaluations plus lambda reach settings.budget; or restart_strategy is STOP and a restart criterion holds.
+        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the next generation (lambda points, and the 2 extra points of TPA) would exceed settings.budget; or restart_strategy is STOP and a restart criterion holds.
         """
 
     @property
