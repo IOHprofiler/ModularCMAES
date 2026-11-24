@@ -4,9 +4,7 @@ engines:
   cppcheck:
     language: c++
 exclude_paths:
-  # benchmarks and developer tools: not part of the package
+  # benchmarks, developer tools and the local build: not part of the package
   - "bench/**"
   - "tools/**"
-  # third-party and build output
-  - "external/**"
   - "build/**"
