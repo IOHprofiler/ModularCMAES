@@ -528,17 +528,21 @@ Status (2026-11-24):
   (`tests/test_c_lapack.py`), a C++ build with LAPACK on Linux. PERFORMANCE.md re-measured.
 * **T5.4 done: BLAS `dgemm`** (linked, or scipy's `cython_blas`) from `constants.blas_min_dim` = 100
   (`constants.blas`: -1 auto, 0 Eigen, 1 always) for the batch `Y = A Z` (also the triangular
-  factors: `dtrmm` and `dsyrk` of OpenBLAS are slower than Eigen up to d ~ 200, `dgemm` is not),
-  the rank updates of C (COVARIANCE, CMSA, xNES: one `dgemm` with signed weights, then the lower
-  triangle mirrored), the MA-ES update of M and M^-1, `A U` in xNES. One operation, d = 1000:
-  `Y = A Z` Eigen 1.13 ms, Accelerate 0.095, OpenBLAS 0.104. A single `dgemm` wins from d ~ 30, but
-  whole generations were 6-32 % slower at d = 50, so the threshold is 100.
+  factors: `dtrmm` of OpenBLAS is slower than Eigen up to d ~ 200, `dgemm` is not), the MA-ES
+  update of M and M^-1, `A U` in xNES. One operation, d = 1000: `Y = A Z` Eigen 1.13 ms,
+  Accelerate 0.095, OpenBLAS 0.104. The rank updates of C (COVARIANCE, CMSA, xNES) stay with
+  Eigen's `rankUpdate` on the lower triangle: with lambda columns they are bound by the passes over
+  S, and `dgemm` on all of S plus decay and mirroring was slower at every d (d = 1000: 1.0 vs
+  0.60 ms; CMSA generation 2.4 vs 1.9 ms). That rank update caused the 6-32 % slowdown at d = 50;
+  without it BLAS breaks even at d ~ 50-75 (the call itself costs 20-50 ns), threshold 100.
 * **T5.5 done: LU inverse** (`dgetrf` + `dgetri`) for M (MA-ES) and A (xNES) from `blas_min_dim`,
   with the pseudo-inverse (complete orthogonal decomposition) as the fallback when singular; d =
   1000: 150 ms -> 6.5 ms (Accelerate) / 14.9 ms (OpenBLAS) whenever `invert_y` is needed.
 * **Timing re-run** (all implementations, one session): per generation at d = 1000, before T5.4/T5.5
-  -> after: COVARIANCE 5.4 -> 4.4 ms (Eigen only 19.0; pycma 7.1), MATRIX 2.3 -> 0.95, xNES 2.8 ->
-  0.87, COVARIANCE_NO_EIGV 1.0 -> 0.60, CHOLESKY 2.6 -> 2.2, CMSA 2.4 -> 2.2; d <= 50 unchanged.
+  -> after: COVARIANCE 5.4 -> 4.2 ms (Eigen only 18.4; pycma 7.1), MATRIX 2.3 -> 0.95, xNES 2.8 ->
+  0.87, COVARIANCE_NO_EIGV 1.0 -> 0.55, CHOLESKY 2.6 -> 2.2, CMSA 2.4 -> 1.9; d <= 50 unchanged
+  (modcma rows re-measured after the rank updates went back to Eigen; the other libraries are from
+  the full run).
   Tier 2 at d = 40 (blas forced on there through the threshold at the time: 8 configurations x 7
   functions x 25 seeds) against 81cb955: no difference (1 of 112 raw p < 0.05, none after
   Bonferroni; median evaluations ratio 0.998).

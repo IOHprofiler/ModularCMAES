@@ -26,6 +26,8 @@ static void sample_product(const Matrix &A,
  * S = decay S + c1 v v^T + cmu Y diag(w) Y^T on the lower triangle of S, as rank updates (half the
  * flops of the full products), then mirrored to the upper triangle. The weights of the first
  * n_positive columns are >= 0, the others <= 0 (the order of a sorted population). v may be null.
+ * Eigen only: with the few columns of Y (lambda) the update is bound by the passes over S, and a
+ * BLAS dgemm on all of S plus the mirroring was slower at every dimension (PERFORMANCE.md).
  */
 static void symmetric_rank_update(Matrix &S,
                                   const Float decay,
@@ -37,22 +39,6 @@ static void symmetric_rank_update(Matrix &S,
                                   const Float cmu,
                                   Matrix &scratch)
 {
-    if (lapack::use_blas(S.rows()))
-    {
-        // One dgemm with the signed weights (twice the flops of a rank update, but faster than
-        // Eigen's; OpenBLAS's dsyrk is slower than Eigen's up to d ~ 200), then the lower
-        // triangle mirrored for exact symmetry
-        S *= decay;
-        if (v != nullptr)
-            S.noalias() += (c1 * *v) * v->transpose();
-        scratch.resize(Y.rows(), Y.cols());
-        for (Eigen::Index i = 0; i < Y.cols(); ++i)
-            scratch.col(i) = w(i) * Y.col(i);
-        lapack::gemm(cmu, scratch, false, Y, true, 1.0, S);
-        S.triangularView<Eigen::StrictlyUpper>() = S.transpose();
-        return;
-    }
-
     S.triangularView<Eigen::Lower>() *= decay;
     auto lower = S.selfadjointView<Eigen::Lower>();
     if (v != nullptr)
