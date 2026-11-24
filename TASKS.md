@@ -772,13 +772,15 @@ the step-size classes have no Python constructor.
 
 ---
 
-## Planned features (WP9-WP14, later; not started)
+## Planned features (WP9-WP16, later; not started)
 
 From the comparison with pycma (2026-11-24). Each is a module or an option of the modular design,
 works with ask-tell, is off by default (no change of results), and is validated on BBOB (or the
-problem class it is for) against pycma where pycma has it. Not planned: surrogates (lq-CMA-ES), the
-options that shape the search distribution (per-coordinate sigma0, fixed variables, min/max std,
-condition alleviation, mean learning rate, arbitrary weights, selective mirroring, CSA variants).
+problem class it is for) against pycma or `cmaes` where they have it. Not planned: surrogates
+(lq-CMA-ES), the options that shape the search distribution (per-coordinate sigma0, fixed variables,
+min/max std, condition alleviation, mean learning rate, arbitrary weights, selective mirroring, CSA
+variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, gradient injection,
+confidence intervals (libcmaes), DX-NES-IC and MAP-CMA, GPU or distributed evaluation.
 
 ### WP9: Noisy objectives
 
@@ -790,6 +792,12 @@ condition alleviation, mean learning rate, arbitrary weights, selective mirrorin
   points of the generation, as TPA's (the state machine of WP3 already has them).
 * **T9.2 Adaptive re-evaluation** (Dinu et al. 2025, cited in the framework paper) as a second option,
   after T9.1.
+* **T9.4 Learning-rate adaptation** (LRA-CMA-ES; Nomura, Akimoto & Ono 2023, "CMA-ES with learning
+  rate adaptation: can CMA-ES with default population size solve multimodal and noisy problems?";
+  `cmaes`' `CMA(lr_adapt=True)`): the learning rates of the mean and of C are adapted to keep a
+  target signal-to-noise ratio of the update, so the default population size copes with noise and
+  multimodality. A boolean module `lr_adapt`; for every matrix adaptation that has the two rates,
+  first COVARIANCE. Compared with `cmaes` on the noisy and multimodal BBOB functions.
 * **T9.3** The guide page on noise: `xfavorite` (#24), larger populations, the restart criteria that
   misfire under noise (flat fitness, no improvement), with a BBOB-noisy example (ioh has the noisy
   functions).
@@ -811,9 +819,11 @@ condition alleviation, mean learning rate, arbitrary weights, selective mirrorin
   unbounded space and the objective sees x = T(x'): no repair, so the update needs no recomputed
   y and z. As a `bound_correction` option (TRANSFORM) or in the coordinate mapping (which already
   rounds the integer variables), so it composes with integer variables.
-* **T11.2 Normalized space**: `Settings(normalize=True)` optimizes in [0, 1]^d (or [-1, 1]^d) and maps
-  to [lb, ub] for the objective, with sigma0 relative to the box; for problems whose variables have
-  different scales known a priori. With T11.1 the map is smooth at the bounds.
+* **T11.2 Normalized space**: `Settings(normalize=True)` optimizes in [-1, 1]^d (centered at 0, the
+  natural space of CMA-ES: sigma0 relative to a box of width 2) and maps to [lb, ub] for the
+  objective; for problems whose variables have different scales known a priori. With T11.1 the map
+  is smooth at the bounds. The results (best solution, `xfavorite`, the logged x) are in the space
+  of the objective.
 * **T11.3** The guide page on bounds compares repair and transformation (BBOB with bounds, SBOX-COST).
 
 ### WP12: Large scale: matrix adaptations
@@ -847,4 +857,25 @@ condition alleviation, mean learning rate, arbitrary weights, selective mirrorin
 * **T14.2** A run that is pickled and resumed continues bit for bit (a test over the golden
   configurations); the ask-tell state included (a pending batch).
 * **T14.3** A how-to: checkpointing a long run every n generations.
+
+### WP15: Mixed-integer and categorical variables
+
+* **T15.1 CMA-ES with Margin** (Hamano, Saito, Nomura & Shirakawa 2022, "CMA-ES with margin:
+  lower-bounding marginal probability for mixed-integer black-box optimization"; `cmaes`' `CMAwM`):
+  keeps the probability that an integer variable changes its value above a margin, by correcting the
+  mean and the diagonal of C. Replaces the lower bound on the step size of the integer variables
+  (Marty et al. 2024, the current mechanism) as an option; compared on mixed-integer benchmarks.
+* **T15.2 CatCMA** (Hamano et al. 2024, "CatCMA: stochastic optimization for mixed-category
+  problems"; `cmaes`' `CatCMA`, `CatCMAwM`): categorical variables with a categorical distribution
+  next to the Gaussian, updated jointly. `Settings(categorical_variables=...)` (the number of
+  categories per variable); the objective receives the category indices. Useful for algorithm
+  configuration (the modules of modcma itself are categorical).
+
+### WP16: Warm starting
+
+* **T16.1 WS-CMA-ES** (Nomura, Watanabe, Akimoto, Ozaki & Onishi 2021, "Warm starting CMA-ES for
+  hyperparameter optimization"; `cmaes`' `get_warm_start_mgd`): the initial mean, sigma and C
+  estimated from good solutions of a related task (a list of (x, f) pairs).
+  `modcma.warm_start(solutions, ...)` returns the `Settings` (x0, sigma0) and the initial C; the
+  optimizer accepts an initial C (or A).
 
