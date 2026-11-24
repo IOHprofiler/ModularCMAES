@@ -537,8 +537,8 @@ Status (2026-11-24):
   with the pseudo-inverse (complete orthogonal decomposition) as the fallback when singular; d =
   1000: 150 ms -> 6.5 ms (Accelerate) / 14.9 ms (OpenBLAS) whenever `invert_y` is needed.
 * **Timing re-run** (all implementations, one session): per generation at d = 1000, before T5.4/T5.5
-  -> after: COVARIANCE 5.4 -> 4.4 ms (Eigen only 19.0; pycma 7.1), MATRIX 2.3 -> 0.98, xNES 2.8 ->
-  0.87, COVARIANCE_NO_EIGV 1.0 -> 0.61, CHOLESKY 2.6 -> 2.2, CMSA 2.4 -> 2.2; d <= 50 unchanged.
+  -> after: COVARIANCE 5.4 -> 4.4 ms (Eigen only 19.0; pycma 7.1), MATRIX 2.3 -> 0.95, xNES 2.8 ->
+  0.87, COVARIANCE_NO_EIGV 1.0 -> 0.60, CHOLESKY 2.6 -> 2.2, CMSA 2.4 -> 2.2; d <= 50 unchanged.
   Tier 2 at d = 40 (blas forced on there through the threshold at the time: 8 configurations x 7
   functions x 25 seeds) against 81cb955: no difference (1 of 112 raw p < 0.05, none after
   Bonferroni; median evaluations ratio 0.998).

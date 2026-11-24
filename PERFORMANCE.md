@@ -147,8 +147,8 @@ pseudo-inverse as the fallback when M is singular. One operation, one thread, d 
 
 A single `dgemm` is faster than Eigen from d ≈ 30, but in whole generations BLAS was 6–32 % slower
 at d = 50 (the fixed cost of a call), so it is used from `constants.blas_min_dim` = 100. Per
-generation, Eigen-only products → BLAS: MA-ES d = 1000 2.3 → 0.98 ms, xNES 2.8 → 0.87 ms,
-`COVARIANCE_NO_EIGV` 1.0 → 0.61 ms, the default 5.4 → 4.4 ms; unchanged up to d = 50.
+generation, Eigen-only products → BLAS: MA-ES d = 1000 2.3 → 0.95 ms, xNES 2.8 → 0.87 ms,
+`COVARIANCE_NO_EIGV` 1.0 → 0.60 ms, the default 5.4 → 4.4 ms; unchanged up to d = 50.
 
 The decompositions are the same (eigenvalues to 1e-12 relative, `tests/cpp/test_main.cpp`,
 `tests/test_c_lapack.py`), and the optimizer converges alike (ellipsoid, d = 130, 1e-8: 956 000–
