@@ -24,7 +24,7 @@ static Float get_default_cs(const Settings &settings, const Float mueff, const F
     switch (settings.modules.ssa)
     {
     case StepSizeAdaptation::XNES:
-        // return mueff / (2.0 * std::log(std::max(Float{ 2. }, d)) * sqrt(d));
+        // (the Python implementation used mueff / (2 ln(max(2, d)) sqrt(d)); TASKS.md F27)
         return 0.01;
     case StepSizeAdaptation::MXNES:
         return 1.0;
@@ -35,7 +35,7 @@ static Float get_default_cs(const Settings &settings, const Float mueff, const F
     case StepSizeAdaptation::SR:
         return 2.0 / (d + 2.0);
     case StepSizeAdaptation::CSA:
-        // return (mueff + 2.0) / (d + mueff + 5.0);
+        // pycma's value; the tutorial (Hansen 2016) has d + mueff + 5
         return (mueff + 2) / (d + (mueff + 3.0));
     default:
         return 0.3;
@@ -87,11 +87,6 @@ static Float get_default_cmu(const Settings &settings,
 {
     Float cmu_default = std::min(
         1.0 - c1, acov * (mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (acov * mueff / 2)));
-
-    // Float cmu_default = std::min(1.0 - c1,
-    //	acov *
-    //	(0.25 + mueff + 1.0 / mueff - 2.0) /
-    //	(pow(d + 2., 2.0) + acov * mueff / 2.0));
 
     if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPARABLE)
         cmu_default *= ((d + 2.0) / 3.0);

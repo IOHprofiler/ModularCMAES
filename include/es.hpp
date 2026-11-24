@@ -89,8 +89,6 @@ struct MuCommaLambdaES
         corrector(bounds::get(modules.bound_correction, d)),
         settings(d)
     {
-        // tau = 1.0 / sampler->expected_length();
-        // tau_i = 1.0 / std::sqrt(sampler->expected_length());
 
         settings.modules = modules;
         settings.x0 = x0;

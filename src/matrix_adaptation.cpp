@@ -416,15 +416,7 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     const auto popZ = pop.Z.leftCols(m.active ? pop.n : mu);
     const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
 
-    // Normal MA-ES -> O(n^3)
-    //
-    // constexpr Float epsilon = 1e-10;
-    // const auto& Z = popZ * weights.asDiagonal() * popZ.transpose();
-    // ZwI.noalias() = (w.cmu / 2.0) * (Z - I);
-    // ssI.noalias() = (w.c1 / 2.0) * (ps * ps.transpose() - I);
-    // M = M * (I + ssI + ZwI);
-    // M_inv = (I - ssI - ZwI + epsilon * I) * M_inv;
-
+    // MA-ES: M <- M (I + c1/2 (ps ps^T - I) + cmu/2 (sum w z z^T - I)), computed in O(d^2 lambda):
     // Fast MA-ES -> O(n^2)
     const Float tau_1 = w.c1 / 2.0;
     const Float tau_m = w.cmu / 2.0;
@@ -762,8 +754,7 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
 
         // Remove the isotropic (sigma-related) component: make G trace-free
         sigma_g = (gradient_matrix.trace() / dd);
-        if (!settings.one_plus_one)
-            gradient_matrix.diagonal().array() -= sigma_g;
+        gradient_matrix.diagonal().array() -= sigma_g;
     }
     else
     {
@@ -772,7 +763,8 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
         sigma_g = (weighted_square_norms - weights.sum() * dd) / dd;
     }
     // The trace-free G = Z diag(w) Z^T - (sum_i w_i + sigma_g) I
-    gradient_shift = weights.sum() + (settings.one_plus_one ? 0.0 : sigma_g);
+    // (only called for lambda > 1: the (1+1) case is adapt_evolution_paths_inner's)
+    gradient_shift = weights.sum() + sigma_g;
 }
 
 bool NaturalGradientAdaptation::adapt_matrix_inner(const parameters::Weights &w,

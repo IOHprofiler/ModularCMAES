@@ -10,7 +10,6 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 file(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
-list(FILTER SRC_FILES EXCLUDE REGEX ".*(interface|main)\\.cpp$")
 
 # The library code, shared by the Python extension and the executables below
 add_library(modcma_core STATIC ${SRC_FILES})
@@ -76,8 +75,6 @@ if (SKBUILD)
 endif()
 
 # Example/experiment driver
-add_executable(main ${PROJECT_SOURCE_DIR}/src/main.cpp)
-target_link_libraries(main PRIVATE modcma_core)
 
 # C++ unit tests for what Python cannot reach (ctest)
 enable_testing()

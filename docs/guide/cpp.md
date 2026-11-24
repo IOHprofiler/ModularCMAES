@@ -34,7 +34,7 @@ The dependencies are bundled (Eigen in `external/`). CMake options:
 | `MODCMA_NATIVE` | OFF | compile for the host CPU (`-march=native`) |
 | `MODCMA_PYTHON` | OFF | also build the Python extension (needs Python and nanobind) |
 
-The repository also builds `main` (a small driver), `modcma_tests` (the C++ unit tests, `ctest`) and
+The repository also builds `modcma_tests` (the C++ unit tests, `ctest`) and
 `modcma_bench` (the benchmark harness of [the benchmarks](../performance.md)).
 
 ## Notes

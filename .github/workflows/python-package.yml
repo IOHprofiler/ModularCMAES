@@ -90,7 +90,7 @@ jobs:
         pyright modcma tests/typing_usage.py
 
   cpp:
-    # The C++ targets: library, main, benchmark harness and the C++ unit tests (ctest)
+    # The C++ targets: library, benchmark harness and the C++ unit tests (ctest)
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
