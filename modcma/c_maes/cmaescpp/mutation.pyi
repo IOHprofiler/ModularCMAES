@@ -354,14 +354,14 @@ class MXNES(Strategy):
     """
     A variant of the xNES step-size update on the mean step (`StepSizeAdaptation.MXNES`).
 
-    sigma *= exp((cs / d) (mueff ||dz||^2 - d)), with dz the weighted mean of the selected z: sigma grows when the mean step is longer than under random selection.
+    sigma *= exp((cs / d) (mueff ||dz||^2 - d)), with dz the weighted mean of the selected z: sigma grows when the mean step is longer than under random selection. m-xNES of Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules".
     """
 
 class LPXNES(Strategy):
     """
     A variant of the xNES step-size update on sampled step sizes (`StepSizeAdaptation.LPXNES`).
 
-    Every individual samples its own step sizes (a `SigmaSampler` is always used, with beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i mean_j ln(S_ij / sigma)) over the positive weights, which moves sigma towards the step sizes of the better individuals.
+    Every individual samples its own step sizes (a `SigmaSampler` is always used, with beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i mean_j ln(S_ij / sigma)) over the positive weights, which moves sigma towards the step sizes of the better individuals. lp-xNES of Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules".
     """
 
 class SR(Strategy):
@@ -375,5 +375,5 @@ class SA(Strategy):
     """
     Self-adaptation of the step size (`StepSizeAdaptation.SA`).
 
-    Every individual samples its own step sizes (a `SigmaSampler` is always used); sigma is multiplied by the weighted geometric mean of the step sizes of the mu selected individuals divided by the geometric mean over the whole population. With SA the default mu is lambda / 4.
+    Every individual samples its own step sizes (a `SigmaSampler` is always used); sigma is multiplied by the weighted geometric mean of the step sizes of the mu selected individuals divided by the geometric mean over the whole population (Beyer & Sendhoff 2008, with the correction of Ahrari et al. 2017). With SA the default mu is lambda / 4.
     """

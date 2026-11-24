@@ -117,7 +117,7 @@ class NoCorrection(BoundCorrection):
 
 class COTN(BoundCorrection):
     """
-    COTN (`CorrectionMethod.COTN`): a coordinate outside the bounds is moved inside, at a random distance from the violated bound.
+    Complete one-tailed normal correction (`CorrectionMethod.COTN`; Caraffini et al. 2019): a coordinate outside the bounds is moved inside, at a random distance from the violated bound.
 
     In coordinates normalized to [0, 1], the new value is |b - sigma |n||, with b the violated bound (0 or 1) and n normal with mean 0 and standard deviation 1/3.
     """

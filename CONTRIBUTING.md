@@ -35,10 +35,10 @@ ctest --test-dir build --output-on-failure
 | `bindings/` | the Python bindings (nanobind), with the docstrings of the whole API |
 | `modcma/` | the Python package; `modcma/c_maes/cmaescpp/*.pyi` are the generated type stubs |
 | `tests/` | Python tests (`test_c_*.py`), C++ tests (`tests/cpp`), golden trajectories, the statistical comparison |
-| `docs/`, `mkdocs.yml` | the documentation site |
+| `docs/`, `zensical.toml` | the documentation site ([Zensical](https://zensical.org)) |
 | `examples/` | the examples of the documentation, run by the tests |
-| `bench/`, `scripts/performance/` | benchmarks ([`PERFORMANCE.md`](PERFORMANCE.md)) |
-| `scripts/` | experiment scripts of the papers ([`REPRODUCIBILITY.md`](REPRODUCIBILITY.md)) |
+| `bench/`, `scripts/performance/` | benchmarks ([the benchmarks](https://modularcmaes.readthedocs.io/en/latest/performance/)) |
+| `scripts/` | experiment scripts of the papers ([reproducing the paper](https://modularcmaes.readthedocs.io/en/latest/reproducibility/)) |
 
 ## What a change needs
 
@@ -55,10 +55,11 @@ ctest --test-dir build --output-on-failure
   `tests/test_c_stubs.py` checks that nothing is undocumented.
 * **Documentation.** Every Python block in `docs/` and `README.md` is run by `tests/test_c_docs.py`
   (skip one with `<!-- no-test -->` on the line before it); the examples in `examples/` too. Build
-  the site with `pip install -r docs/requirements.txt && mkdocs serve`.
+  the site with `pip install -r docs/requirements.txt && zensical serve`. The option tables of
+  the guide are generated from the stubs: `python tools/gen_docs.py` after `tools/gen_stubs.py`.
 * **Performance.** Changes in the hot path report before/after timings of `modcma_bench` (min of at
   least 5 repetitions).
 * **Style.** C++: `.clang-format` (100 columns). Python: PEP 8, 100 columns.
-* **Changelog.** User-visible changes get a line in [`CHANGELOG.md`](CHANGELOG.md).
+* **Changelog.** User-visible changes get a line in [`CHANGELOG.md`](https://github.com/IOHprofiler/ModularCMAES/blob/master/CHANGELOG.md).
 
-The plan of the larger work packages is [`TASKS.md`](TASKS.md).
+The plan of the larger work packages is [`TASKS.md`](https://github.com/IOHprofiler/ModularCMAES/blob/master/TASKS.md).

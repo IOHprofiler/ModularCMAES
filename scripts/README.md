@@ -3,7 +3,7 @@
 This directory contains both maintained paper-reproduction entry points and
 historical exploratory scripts.
 
-See [`../REPRODUCIBILITY.md`](../REPRODUCIBILITY.md) for the supported command
+See [`docs/reproducibility.md`](../docs/reproducibility.md) for the supported command
 order, expected data layout, and the mapping from scripts to paper figures.
 
 The maintained entry points are:

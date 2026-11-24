@@ -1,7 +1,7 @@
 """
 Matrix adaptations: the mean and the shape of the search distribution.
 
-The optimizer holds one as `es.p.adaptation`, selected by `Modules.matrix_adaptation` (`options.MatrixAdaptationType`). A sample is x = m + sigma * y with y = A z, z drawn by the sampler, and A the sampling matrix of the adaptation (C = A A^T). They differ in what they learn and in their cost per generation: O(d^3) with a decomposition (COVARIANCE, COVARIANCE_NO_EIGV, CMSA), O(d^2 lambda) for MA-ES, Cholesky-CMA-ES and xNES, O(d lambda) for SEPARABLE and NONE (see PERFORMANCE.md).
+The optimizer holds one as `es.p.adaptation`, selected by `Modules.matrix_adaptation` (`options.MatrixAdaptationType`). A sample is x = m + sigma * y with y = A z, z drawn by the sampler, and A the sampling matrix of the adaptation (C = A A^T). They differ in what they learn and in their cost per generation: O(d^3) with a decomposition (COVARIANCE, COVARIANCE_NO_EIGV, CMSA), O(d^2 lambda) for MA-ES, Cholesky-CMA-ES and xNES, O(d lambda) for SEPARABLE and NONE (see docs/performance.md).
 """
 
 from typing import Annotated

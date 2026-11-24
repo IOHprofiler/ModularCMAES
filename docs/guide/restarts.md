@@ -101,9 +101,23 @@ They change what `ask()` returns: the points of the hill–valley tests are aske
 ## The options
 
 <!-- options: RestartStrategy -->
+**`modcma.options.RestartStrategy`**: When the optimizer restarts, and with which population size (`Modules.restart_strategy`; default NONE). A restart happens when a restart criterion (`Parameters.criteria`, module `restart`) is met: the mean is placed again (`CenterPlacement`), sigma is reset to sigma0 (BIPOP: possibly smaller) and the adaptation starts over. Except for NONE, the strategies use the full set of criteria (see `restart.Criteria`). With lambda = 1, IPOP and BIPOP become RESTART.
 
-<!-- options: CenterPlacement -->
+| value | |
+|---|---|
+| `NONE` | No restart criteria other than `restart.UnableToAdapt`, the default: the optimizer only restarts (with the same population size) when its adaptation fails. |
+| `STOP` | Use the restart criteria as stopping criteria: the run ends when one of them is met, without a restart. |
+| `RESTART` | Restart with the same population size whenever a restart criterion is met. |
+| `IPOP` | IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies mu and lambda by `restart.IPOP.ipop_factor` (2). Larger populations help on multimodal functions with a global structure. |
+| `BIPOP` | BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used, and a small one with a random size and a smaller initial sigma, giving both regimes about half of the budget (`Settings.budget`). See `restart.BIPOP`. |
+<!-- /options -->
 
 <!-- options: RepellingType -->
+**`modcma.options.RepellingType`**: Repelling restarts (`Modules.repelling_type`; default NONE). After a restart, the result of the run joins an archive of taboo points, unless hill-valley tests (which evaluate the objective) show that it lies in the basin of a point already there. New samples too close to a taboo point are rejected and drawn again, which steers later runs away from the basins already found (paper: doi:10.1007/978-3-031-70068-2_17). Only useful with a restart strategy; adds the restart criterion `restart.TooMuchRepelling`.
 
-<!-- options: RepellingMetric -->
+| value | |
+|---|---|
+| `NONE` | No repelling, the default. |
+| `COVERAGE` | Radii from a coverage of the search volume: the radius of a taboo point grows with the number of runs that ended in its basin and shrinks as the total number of runs grows. |
+| `ADAPTIVE` | Radii adapted from the rejection rate of the samples and the evaluations the runs need, between a minimum and a maximum radius. |
+<!-- /options -->

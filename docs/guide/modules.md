@@ -1,6 +1,6 @@
 # Modules
 
-The Modular CMA-ES is one evolution strategy in which seventeen parts can be swapped
+The Modular CMA-ES is one evolution strategy in which its parts can be swapped
 independently. Each generation it samples λ points around a mean, evaluates them, selects the best
 µ, and updates the mean, the step size σ and the shape of the search distribution (a covariance
 matrix, or a factor of it). Each module replaces one of those parts:
@@ -24,6 +24,11 @@ matrix, or a factor of it). Each module replaces one of those parts:
 | `repelling_type` | `NONE`, `COVERAGE`, `ADAPTIVE` | keep restarts away from the optima found before | [restarts](restarts.md) |
 | `repelling_metric` | `EUCLIDEAN`, `CURRENT`, `ARCHIVED` | the distance used by repelling restarts | [restarts](restarts.md) |
 | `bound_correction` | `NONE`, `MIRROR`, `COTN`, `UNIFORM_RESAMPLE`, `SATURATE`, `TOROIDAL`, `RESAMPLE` | what happens to points outside the bounds | [bound correction](bound-correction.md) |
+
+Not every combination is a different algorithm (`active` has no effect without a matrix
+adaptation, repelling none without restarts); taking this into account, the fourteen modules of the
+framework paper (de Nobel et al. 2026, [citing](../citing.md)) give 14,859,936 distinct variants
+with the default parameters.
 
 The defaults are the standard CMA-ES (Hansen & Ostermeier 2001; Hansen 2016): full covariance
 matrix, cumulative step-size adaptation, (µ/µ_w, λ) selection with the default weights.

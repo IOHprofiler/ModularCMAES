@@ -672,7 +672,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "by the sampler, and A the sampling matrix of the adaptation (C = A A^T). They differ "
         "in what they learn and in their cost per generation: O(d^3) with a decomposition "
         "(COVARIANCE, COVARIANCE_NO_EIGV, CMSA), O(d^2 lambda) for MA-ES, Cholesky-CMA-ES and "
-        "xNES, O(d lambda) for SEPARABLE and NONE (see PERFORMANCE.md).");
+        "xNES, O(d lambda) for SEPARABLE and NONE (see docs/performance.md).");
     nb::class_<Adaptation>(
         m,
         "Adaptation",
@@ -1268,8 +1268,9 @@ void define_bounds(nb::module_ &main)
     nb::class_<COTN, BoundCorrection>(
         m,
         "COTN",
-        "COTN (`CorrectionMethod.COTN`): a coordinate outside the bounds is moved inside, at a "
-        "random distance from the violated bound.\n\n"
+        "Complete one-tailed normal correction (`CorrectionMethod.COTN`; Caraffini et al. "
+        "2019): a coordinate outside the bounds is moved inside, at a random distance from the "
+        "violated bound.\n\n"
         "In coordinates normalized to [0, 1], the new value is |b - sigma |n||, with b the "
         "violated bound (0 or 1) and n normal with mean 0 and standard deviation 1/3.")
         .def(nb::init<size_t>(),
@@ -1621,7 +1622,10 @@ void define_mutation(nb::module_ &main)
         "A variant of the xNES step-size update on the mean step "
         "(`StepSizeAdaptation.MXNES`).\n\n"
         "sigma *= exp((cs / d) (mueff ||dz||^2 - d)), with dz the weighted mean of the "
-        "selected z: sigma grows when the mean step is longer than under random selection.");
+        "selected z: sigma grows when the mean step is longer than under random selection. "
+        "m-xNES of Krause, Glasmachers & Igel (2017), "
+        "\"Qualitative and quantitative assessment of step size adaptation "
+        "rules\".");
     nb::class_<LPXNES, Strategy>(
         m,
         "LPXNES",
@@ -1630,7 +1634,9 @@ void define_mutation(nb::module_ &main)
         "Every individual samples its own step sizes (a `SigmaSampler` is always used, with "
         "beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i mean_j ln(S_ij / sigma)) "
         "over the positive weights, which moves sigma towards the step sizes of the better "
-        "individuals.");
+        "individuals. lp-xNES of Krause, Glasmachers & Igel (2017), "
+        "\"Qualitative and quantitative assessment of step size adaptation "
+        "rules\".");
     nb::class_<SR, Strategy>(
         m,
         "SR",
@@ -1645,7 +1651,8 @@ void define_mutation(nb::module_ &main)
         "Self-adaptation of the step size (`StepSizeAdaptation.SA`).\n\n"
         "Every individual samples its own step sizes (a `SigmaSampler` is always used); "
         "sigma is multiplied by the weighted geometric mean of the step sizes of the mu "
-        "selected individuals divided by the geometric mean over the whole population. With SA "
-        "the default mu is lambda / 4.");
+        "selected individuals divided by the geometric mean over the whole population (Beyer & "
+        "Sendhoff 2008, with the correction of Ahrari et al. 2017). With SA the default mu is "
+        "lambda / 4.");
 }
 } // namespace modcma_python

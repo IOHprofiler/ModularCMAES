@@ -57,7 +57,7 @@ jobs:
       env:
         CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
       run: |
-        coverage xml -o cobertura.xml
+        coverage xml --include="modcma/*" -o cobertura.xml
         bash <(curl -Ls https://coverage.codacy.com/get.sh) report
 
   docs:
@@ -72,7 +72,8 @@ jobs:
     - name: Build
       run: |
         python -m pip install -r docs/requirements.txt
-        mkdocs build --strict
+        python tools/gen_docs.py --check
+        zensical build --strict
 
   cpp:
     # The C++ targets: library, main, benchmark harness and the C++ unit tests (ctest)

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="banner.png" alt="Modular CMA-ES"/>
+  <img src="docs/assets/banner.png" alt="Modular CMA-ES"/>
 </p>
 
 <p align="center">
@@ -13,14 +13,15 @@
 
 **One CMA-ES, many algorithms.** `modcma` is a fast, modular implementation of the Covariance Matrix
 Adaptation Evolution Strategy (CMA-ES) for derivative-free black-box optimization, written in C++
-and used from Python. Seventeen modules (the covariance update, step-size adaptation, sampling,
-selection, restarts, bound handling, ...) can be switched independently, so the same optimizer is
+and used from Python. Its modules (the covariance update, step-size adaptation, sampling,
+selection, restarts, bound handling, ...) can be switched independently, giving millions of
+distinct variants, so the same optimizer is
 CMA-ES, IPOP- or BIPOP-CMA-ES, sep-CMA-ES, MA-ES, Cholesky-CMA-ES, an xNES-like natural-gradient ES,
 or any combination in between.
 
 * **Fast**: a generation takes microseconds; up to d = 10, 20–46× faster than pycma and level with
   a fully JIT-compiled JAX implementation, and faster than pycma, `cmaes`, evosax and EvoTorch from
-  d = 10 to 1000 ([benchmarks](PERFORMANCE.md)).
+  d = 10 to 1000 ([benchmarks](docs/performance.md)).
 * **Ask–tell for every module**, with the same results as `run()`, bit for bit; vectorized
   objectives; parallel threads on free-threaded Python.
 * **Ready for experiments**: reproducible seeds per optimizer, restarts and stopping criteria you can
@@ -79,10 +80,10 @@ while True:
 
 ## Speed
 
-![Time per generation of CMA-ES implementations](scripts/performance/figures/implementations.png)
+![Time per generation of CMA-ES implementations](docs/assets/performance/implementations.png)
 
 Time per generation on the ellipsoid, one thread (Apple M5); details and the other matrix
-adaptations in [`PERFORMANCE.md`](PERFORMANCE.md).
+adaptations in [the benchmarks](docs/performance.md).
 
 ## Modules
 
@@ -112,7 +113,22 @@ Upgrading from 1.x: version 2.0 removed the pure-Python implementation (`AskTell
 
 ## Citation
 
-If you use modcma in your research, please cite:
+If you use modcma in your research, please cite the paper that describes the framework (under
+review; its arXiv version until it is published):
+
+```bibtex
+@misc{denobel2026modcma,
+  author        = {de Nobel, Jacob and Vermetten, Diederick and Kononova, Anna V. and Doerr, Carola and B\"{a}ck, Thomas},
+  title         = {The Modular {CMA-ES}: A Framework for Modern Evolution Strategies},
+  year          = {2026},
+  eprint        = {2610.09699},
+  archivePrefix = {arXiv},
+  doi           = {10.48550/arXiv.2610.09699},
+  url           = {https://arxiv.org/abs/2610.09699},
+}
+```
+
+and, for the study of the modules with algorithm configuration:
 
 ```bibtex
 @inproceedings{denobel2021,
@@ -127,8 +143,8 @@ If you use modcma in your research, please cite:
 }
 ```
 
-The experiments of *The Modular CMA-ES: A Framework for Modern Evolution Strategies* are reproduced
-with [`REPRODUCIBILITY.md`](REPRODUCIBILITY.md).
+The experiments of the framework paper are reproduced with
+[`docs/reproducibility.md`](docs/reproducibility.md).
 
 ## Contributing and license
 

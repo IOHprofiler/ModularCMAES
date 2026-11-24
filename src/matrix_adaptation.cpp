@@ -27,7 +27,7 @@ static void sample_product(const Matrix &A,
  * flops of the full products), then mirrored to the upper triangle. The weights of the first
  * n_positive columns are >= 0, the others <= 0 (the order of a sorted population). v may be null.
  * Eigen only: with the few columns of Y (lambda) the update is bound by the passes over S, and a
- * BLAS dgemm on all of S plus the mirroring was slower at every dimension (PERFORMANCE.md).
+ * BLAS dgemm on all of S plus the mirroring was slower at every dimension (docs/performance.md).
  */
 static void symmetric_rank_update(Matrix &S,
                                   const Float decay,

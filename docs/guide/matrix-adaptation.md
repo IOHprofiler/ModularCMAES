@@ -53,3 +53,16 @@ matrix (`C` and its eigendecomposition `B`, `d` for `COVARIANCE`; `M` for `MATRI
 ## The options
 
 <!-- options: MatrixAdaptationType -->
+**`modcma.options.MatrixAdaptationType`**: The adaptation of the shape of the search distribution (`Modules.matrix_adaptation`; default COVARIANCE). The mutations are y = A z, with z from the sampler and A a factor of the covariance matrix, C = A A^T. The options differ in how A is adapted and in their cost per generation (docs/performance.md, "ModularCMAES matrix adaptations").
+
+| value | |
+|---|---|
+| `COVARIANCE` | The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with rank-one and rank-mu update, the default. C is eigendecomposed every few generations (O(d^3), with LAPACK from `constants.lapack_min_dim` on). The only option for which the restart criteria TolX, ConditionC, NoEffectAxis and NoEffectCoord are used. |
+| `NONE` | No matrix adaptation (C = I): only the step size is adapted. Disables `Modules.active`. O(d lambda) per generation. |
+| `MATRIX` | MA-ES (Beyer & Sendhoff 2017): adapts a matrix M with C = M M^T directly, without the evolution path p_c and without eigendecomposition; O(d^2 lambda) per generation, about 4x faster than COVARIANCE at d = 1000. |
+| `SEPARABLE` | sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per generation. For separable problems and very high dimension; it cannot learn correlations between variables. |
+| `CHOLESKY` | Cholesky-CMA-ES (Krause et al. 2016): adapts the lower triangular Cholesky factor of C with rank-one updates of the factor, without decomposing C; O(d^2 lambda) per generation. |
+| `CMSA` | CMSA-ES (Beyer & Sendhoff 2008), covariance matrix self-adaptation: C is an exponential average of the selected y y^T with time constant 1 + d (d + 1) / (2 mueff), factorized with a Cholesky decomposition every generation. Meant for StepSizeAdaptation.SA; makes the default mu lambda / 4. |
+| `COVARIANCE_NO_EIGV` | The covariance update of COVARIANCE, with C factorized by a Cholesky decomposition instead of an eigendecomposition (cheaper). The path p_sigma does not use C^-1/2, so CSA does not suit it. Chosen automatically when COVARIANCE is combined with a step-size adaptation other than CSA. |
+| `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is updated with the matrix exponential of the natural gradient, A <- A expm(eta G); a low-rank form keeps it O(d^2 lambda) for lambda < d. With StepSizeAdaptation.XNES the full xNES. |
+<!-- /options -->

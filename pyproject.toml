@@ -65,7 +65,6 @@ sdist.exclude = [
     "build/",
     ".github/",
     "external/unsupported/Eigen/CXX11/",
-    "banner.png",
     "*.so",
 ]
 

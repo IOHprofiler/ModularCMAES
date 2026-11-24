@@ -1,4 +1,4 @@
-"""LAPACK for the eigendecomposition (PERFORMANCE.md): linked (macOS: Accelerate) or scipy's."""
+"""LAPACK for the eigendecomposition (docs/performance.md): linked (macOS: Accelerate) or scipy's."""
 
 import unittest
 

@@ -39,3 +39,11 @@ for name, modules in {"default": {}, "active": {"active": True}, "elitist": {"el
 ## The options
 
 <!-- options: RecombinationWeights -->
+**`modcma.options.RecombinationWeights`**: The recombination weights (`Modules.weights`; default DEFAULT). The weights of the mu best individuals are positive and sum to 1; with `Modules.active`, the other lambda - mu individuals get negative weights.
+
+| value | |
+|---|---|
+| `DEFAULT` | Log-linear weights, the default: w_i proportional to ln((lambda + 1) / floor(lambda / mu)) - ln(i); with mu = lambda / 2 the weights of the standard CMA-ES (Hansen 2016, "The CMA Evolution Strategy: A Tutorial"). |
+| `EQUAL` | Equal weights 1/mu (intermediate recombination): every selected individual counts the same. |
+| `EXPONENTIAL` | Exponentially decaying weights that about halve with every rank (w_i proportional to 2^-i): more weight on the best individuals than DEFAULT. |
+<!-- /options -->

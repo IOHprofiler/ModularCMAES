@@ -33,7 +33,7 @@ class BaseSampler(enum.Enum):
     """
     The source of the uniform numbers in (0, 1)^d that become the samples (`Modules.sampler`; default UNIFORM).
 
-    The `SampleTranformerType` (`Modules.sample_transformation`) maps them to the distribution of the mutations, by default the standard normal one. SOBOL and HALTON are quasi-random (low-discrepancy) sequences: their points cover the space more evenly than random ones.
+    The `SampleTranformerType` (`Modules.sample_transformation`) maps them to the distribution of the mutations, by default the standard normal one. SOBOL and HALTON are quasi-random (low-discrepancy) sequences: their points cover the space more evenly than random ones (de Nobel et al. 2024, "Sampling in CMA-ES: low numbers of low discrepancy points").
     """
 
     UNIFORM = 0
@@ -43,19 +43,19 @@ class BaseSampler(enum.Enum):
 
     SOBOL = 1
     """
-    Points of the Sobol sequence. A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order.
+    Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order.
     """
 
     HALTON = 2
     """
-    Points of the Halton sequence, scrambled with random digit permutations.
+    Points of the Halton sequence (Halton 1960), scrambled with random digit permutations.
     """
 
 class SampleTranformerType(enum.Enum):
     """
     The distribution of the mutation vectors (`Modules.sample_transformation`; default GAUSSIAN).
 
-    Each coordinate of a uniform sample of the `BaseSampler` is mapped through the inverse CDF of a symmetric distribution. Except for CAUCHY, the distributions have unit variance. See the paper at doi:10.1145/3712256.3726479.
+    Each coordinate of a uniform sample of the `BaseSampler` is mapped through the inverse CDF of a symmetric distribution. Except for CAUCHY, the distributions have unit variance. de Nobel et al. (2025), "Abnormal mutations: evolution strategies don't require Gaussianity" (doi:10.1145/3712256.3726479).
     """
 
     NONE = 0
@@ -140,12 +140,12 @@ class StepSizeAdaptation(enum.Enum):
 
     MXNES = 4
     """
-    A variant of the xNES update from the length of the weighted mean of the selected samples, mueff ||sum w_i z_i||^2 - d, instead of their individual lengths.
+    A variant of the xNES update from the length of the weighted mean of the selected samples, mueff ||sum w_i z_i||^2 - d, instead of their individual lengths (m-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules").
     """
 
     LPXNES = 5
     """
-    An xNES-like update from the logarithms of the individual step sizes of the samples, weighted by rank; samples a step size per individual (as `Modules.sample_sigma`).
+    An xNES-like update from the logarithms of the individual step sizes of the samples, weighted by rank; samples a step size per individual (as `Modules.sample_sigma`) (lp-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules").
     """
 
     PSR = 6
@@ -155,19 +155,19 @@ class StepSizeAdaptation(enum.Enum):
 
     SR = 7
     """
-    Success rule of the (1+1)-ES: sigma grows when the success ratio is above the target 2/11 and shrinks when it is below. Used automatically when lambda = 1.
+    Success rule of the (1+1)-ES: sigma grows when the success ratio is above the target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically when lambda = 1.
     """
 
     SA = 8
     """
-    Self-adaptation: every individual gets its own step size, sampled log-normally around sigma, and sigma moves to the weighted geometric mean of the step sizes of the selected individuals. Meant for CMSA; makes the default mu lambda / 4.
+    Self-adaptation: every individual gets its own step size, sampled log-normally around sigma, and sigma moves to the weighted geometric mean of the step sizes of the selected individuals, divided by that of the population (the CMSA-ES operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of Ahrari et al. 2017). Meant for CMSA; makes the default mu lambda / 4.
     """
 
 class CorrectionMethod(enum.Enum):
     """
     What happens to a sample outside the box bounds (`Modules.bound_correction`; default NONE).
 
-    The bounds are `Settings.lb` and `Settings.ub` (default [-5, 5] in every coordinate). The methods other than RESAMPLE move each coordinate that is out of bounds into [lb, ub]; the mutation vector of the sample is then recomputed from the corrected point, so the adaptation learns from the point that was evaluated.
+    The bounds are `Settings.lb` and `Settings.ub` (default [-5, 5] in every coordinate). The methods other than RESAMPLE move each coordinate that is out of bounds into [lb, ub]; the mutation vector of the sample is then recomputed from the corrected point, so the adaptation learns from the point that was evaluated. The methods are those of Caraffini, Kononova & Corne (2019), "Infeasibility and structural bias in differential evolution".
     """
 
     NONE = 0
@@ -182,7 +182,7 @@ class CorrectionMethod(enum.Enum):
 
     COTN = 2
     """
-    Place the coordinate inside the violated bound, at a random distance sigma * |N(0, 1/3^2)| times the domain width ub - lb.
+    Complete one-tailed normal correction: place the coordinate inside the violated bound, at a random distance sigma * |N(0, 1/3^2)| times the domain width ub - lb.
     """
 
     UNIFORM_RESAMPLE = 3
@@ -239,7 +239,7 @@ class MatrixAdaptationType(enum.Enum):
     """
     The adaptation of the shape of the search distribution (`Modules.matrix_adaptation`; default COVARIANCE).
 
-    The mutations are y = A z, with z from the sampler and A a factor of the covariance matrix, C = A A^T. The options differ in how A is adapted and in their cost per generation (PERFORMANCE.md, "ModularCMAES matrix adaptations").
+    The mutations are y = A z, with z from the sampler and A a factor of the covariance matrix, C = A A^T. The options differ in how A is adapted and in their cost per generation (docs/performance.md, "ModularCMAES matrix adaptations").
     """
 
     COVARIANCE = 1

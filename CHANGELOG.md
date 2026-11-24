@@ -36,7 +36,7 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * Wheels for Linux aarch64, Windows ARM64 and macOS x86_64 as well; CPython 3.10–3.14 and 3.14t,
   one abi3 wheel for 3.12+.
 * Docstrings for the whole API (`help()`, editors), type stubs, and a new documentation site.
-* `PERFORMANCE.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
+* `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
 
 ### Changed
 

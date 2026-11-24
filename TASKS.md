@@ -134,7 +134,8 @@ The original options, for reference:
   exposes its API directly (`modcma.fmin`, `modcma.ModularCMAES`, ...), `modcma.c_maes` stays as an
   alias; the release is 2.0.0. Constructing `ModularCMAES` the 1.x way raises an error that points to
   the migration guide (WP6).
-* **D10: documentation (signed off).** MkDocs Material + mkdocstrings (reads the `.pyi` stubs, no
+* **D10: documentation (signed off; since 2026-11-24 Zensical instead of MkDocs Material, whose
+  end of life is announced).** MkDocs Material + mkdocstrings (reads the `.pyi` stubs, no
   build needed) on Read the Docs, the same URL. The docstrings are written once, in the bindings, and
   reach `help()`, IDEs, the stubs and the reference from there (WP7). WP6 and WP7 are two PRs,
   stacked on WP5.
@@ -485,7 +486,7 @@ Status (2026-11-23), on top of WP3, one PR with T2.8 (third PR of the stack):
   after Bonferroni (392 tests), 2 raw p < 0.05 (0.5 %), median evaluations new/old geometric mean
   1.004 over 131 solved cells: **met**.
 * Golden fixtures regenerated from 4892d8e for macOS, gcc 13 and the CI runner (gcc 15).
-* **PERFORMANCE.md** (`scripts/performance/`): modcma against pycma, cmaes (Optuna), evosax (JAX)
+* **docs/performance.md** (`scripts/performance/`): modcma against pycma, cmaes (Optuna), evosax (JAX)
   and EvoTorch on the ellipsoid, d = 2..1000, one thread, Apple M5; every matrix adaptation;
   vectorized vs per-point objectives; threads on free-threaded 3.14t (10 threads: 4.3x). Up to
   d = 10 modcma is 20-45x faster than pycma; above d ~ 200 the default is slower than pycma
@@ -535,7 +536,7 @@ Status (2026-11-24):
   OpenBLAS 2.2. CMSA d=1000 9.1 -> 2.4 ms per generation; NO_EIGV 1.7 -> 1.0 ms.
 * **T5.3 done.** Wheels: Accelerate on macOS (no size), scipy's LAPACK on Linux/Windows (no size, no
   build change); `build_info()["lapack"]`: linked / scipy / none. CI: tests on every platform
-  (`tests/test_c_lapack.py`), a C++ build with LAPACK on Linux. PERFORMANCE.md re-measured.
+  (`tests/test_c_lapack.py`), a C++ build with LAPACK on Linux. docs/performance.md re-measured.
 * **T5.4 done: BLAS `dgemm`** (linked, or scipy's `cython_blas`) from `constants.blas_min_dim` = 100
   (`constants.blas`: -1 auto, 0 Eigen, 1 always) for the batch `Y = A Z` (also the triangular
   factors: `dtrmm` of OpenBLAS is slower than Eigen up to d ~ 200, `dgemm` is not), the MA-ES
@@ -598,11 +599,21 @@ the package. Nothing in `modcma.c_maes` or `scripts/` imports it.
 * T7.1: every class, method, property, enum value and submodule documented in the bindings (written
   in three parts, by file); stubs regenerated; `tests/test_c_stubs.py` fails on any undocumented
   public name.
-* T7.2: `mkdocs.yml` (Material, mkdocstrings reading the stubs, no build of the extension needed),
-  `docs/hooks.py` (the root documents and their figures as pages; option tables from the stubs),
-  `.readthedocs.yml`, `docs/requirements.txt` (pinned), a `docs` CI job (`mkdocs build --strict`).
-  Material for MkDocs announces its end of life for May 2027 (successor: Zensical, which reads the
-  same `mkdocs.yml`): a later move.
+* T7.2: Zensical (`zensical.toml`; Material for MkDocs announced its end of life for May 2027),
+  mkdocstrings reading the stubs (no build of the extension needed); `tools/gen_docs.py` writes the
+  option tables of the guide from the stubs (checked by `tests/test_c_stubs.py` and CI);
+  `.readthedocs.yml` (build commands), `docs/requirements.txt` (pinned), a `docs` CI job
+  (`zensical build --strict`). `CHANGELOG.md` and `CONTRIBUTING.md` are included as pages
+  (snippets).
+* Source tree: `PERFORMANCE.md` and `REPRODUCIBILITY.md` moved to `docs/` (figures to
+  `docs/assets/performance`, the banner to `docs/assets`), `requirements-experiments.txt` to
+  `scripts/`; `CMakeSettings.json` (Visual Studio) and `.prospector.yaml` (lint configuration of the
+  Python implementation) removed.
+* References checked against the paper (arXiv:2610.09699, and its LaTeX): m-xNES and lp-xNES are
+  Krause, Glasmachers & Igel (2017); COTN is the complete one-tailed normal correction, and the
+  bound corrections follow Caraffini, Kononova & Corne (2019); SA is Beyer & Sendhoff (2008) with
+  the correction of Ahrari et al. (2017); PSR is Loshchilov (2014). The framework paper is cited
+  by its arXiv entry until the journal version.
 * T7.3–T7.6: getting started (4 pages), user guide (13 pages), examples (6 scripts in `examples/`
   plus the C++ program `examples/cpp`, built in CI), reference (15 pages), migration guide,
   changelog, citing. `tests/test_c_docs.py` runs every python block of the docs and README and every
@@ -639,7 +650,7 @@ example (`fmin`: a missing comma, `func` undefined, no import); there is no chan
 * **T7.5 Examples**, executed in CI so they cannot rot: a multimodal problem with BIPOP and repelling
   restarts; parallel evaluation through ask-tell (processes); BBOB with IOHexperimenter; tuning a
   configuration; a mixed-integer problem; from pycma (the equivalent calls).
-* **T7.6 Reference pages**: API reference (generated), PERFORMANCE.md and REPRODUCIBILITY.md as pages,
+* **T7.6 Reference pages**: API reference (generated), docs/performance.md and docs/reproducibility.md as pages,
   changelog, migration guide 1.x -> 2.0 (the Python implementation, nanobind, `Settings(mu, lambda)`
   order, ask-tell, constants, removed or renamed names from `tests/data/api/pybind11.json`), citing.
 * **T7.7 README** of about 150 lines: what it is and why (modular, fast, ask-tell, tunable), a
@@ -655,7 +666,7 @@ statistical tier, D2):**
 | # | Where | What |
 |---|---|---|
 | B16 | `src/matrix_adaptation.cpp` (`CovarianceAdaptation`, `SeparableAdaptation`: `decay`) | The h_σ correction has the wrong sign: `1 - c1*dhs - c1 - cmu*sum(w)`, where Hansen (2016) and pycma have `1 + c1*δ(hσ) - c1 - cmu*sum(w)`. Only matters in the generations where hσ = 0 (mostly early). |
-| B17 | `src/matrix_adaptation.cpp` (`CovarianceAdaptation::adapt_matrix_inner`) | The lazy interval (`lazy_update_interval`) skips the whole update of C, not only the eigendecomposition: the rank-one and rank-µ information of the skipped generations is lost. pycma updates C every generation and decomposes lazily. Only for d large enough that the interval exceeds 1 (d ≳ 100); it is also part of the speed difference with pycma at d = 1000 (PERFORMANCE.md compares the two as they are). Related to D5. |
+| B17 | `src/matrix_adaptation.cpp` (`CovarianceAdaptation::adapt_matrix_inner`) | The lazy interval (`lazy_update_interval`) skips the whole update of C, not only the eigendecomposition: the rank-one and rank-µ information of the skipped generations is lost. pycma updates C every generation and decomposes lazily. Only for d large enough that the interval exceeds 1 (d ≳ 100); it is also part of the speed difference with pycma at d = 1000 (docs/performance.md compares the two as they are). Related to D5. |
 | B18 | `src/weights.cpp:21` | The default `cs` of `NATURAL_GRADIENT` is `(9 + 3 + ln d) / (5 d √d)`; the xNES learning rate is `(9 + 3 ln d) / (5 d √d)` (Glasmachers et al. 2010). |
 | B19 | `src/matrix_adaptation.cpp` (`NaturalGradientAdaptation`) | `A = I / σ` at the start and at restarts, so σ·A = I: the initial spread does not depend on `sigma0` (the first population has a spread of about 1 for σ₀ = 0.01 and for σ₀ = 1). `A_inv` starts at I, inconsistent with A until the first update. |
 | B20 | `src/restart_strategy.cpp:46-49` | BIPOP's small population is `λ_init · (0.5 / λ_large / λ_init)^(u²)`; Hansen (2009) has `λ_init · (½ λ_large / λ_init)^(u²)`, between λ_init and λ_large / 2. As coded the small regime gets λ ≤ λ_init (down to the floor of 2). Verified in the code. |

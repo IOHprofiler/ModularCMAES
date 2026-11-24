@@ -41,7 +41,7 @@ def _use_scipy_lapack() -> None:
 
     The macOS wheels link Apple Accelerate themselves; the Linux and Windows wheels have no LAPACK
     of their own and use scipy's (a dependency of modcma, already imported by modcma). Without it
-    the library falls back to Eigen's eigensolver. See PERFORMANCE.md.
+    the library falls back to Eigen's eigensolver. See docs/performance.md.
     """
     if utils.build_info()["lapack"] != "none":
         return

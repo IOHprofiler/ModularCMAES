@@ -62,7 +62,21 @@ for name, modules in configs.items():
 ## The options
 
 <!-- options: BaseSampler -->
+**`modcma.options.BaseSampler`**: The source of the uniform numbers in (0, 1)^d that become the samples (`Modules.sampler`; default UNIFORM). The `SampleTranformerType` (`Modules.sample_transformation`) maps them to the distribution of the mutations, by default the standard normal one. SOBOL and HALTON are quasi-random (low-discrepancy) sequences: their points cover the space more evenly than random ones (de Nobel et al. 2024, "Sampling in CMA-ES: low numbers of low discrepancy points").
 
-<!-- options: SampleTranformerType -->
+| value | |
+|---|---|
+| `UNIFORM` | Pseudo-random uniform numbers (mt19937, the optimizer's own generator), the default. With the GAUSSIAN transformation: ordinary random normal samples, which `Settings.fast_sampling` replaces by a faster generator. |
+| `SOBOL` | Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order. |
+| `HALTON` | Points of the Halton sequence (Halton 1960), scrambled with random digit permutations. |
+<!-- /options -->
 
 <!-- options: Mirror -->
+**`modcma.options.Mirror`**: Mirrored sampling (`Modules.mirrored`; default NONE). With mirroring, every second mutation vector is the negation of the one before it, which spreads the samples more evenly around the mean.
+
+| value | |
+|---|---|
+| `NONE` | Independent samples, the default. |
+| `MIRRORED` | Mirrored sampling (Brockhoff et al. 2010): the samples come in pairs z, -z. |
+| `PAIRWISE` | Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored pair only the better one can be selected, so that the two do not cancel out in the recombination. Makes lambda even. |
+<!-- /options -->

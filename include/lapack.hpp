@@ -7,7 +7,7 @@
 /**
  * LAPACK and BLAS for the dense linear algebra in high dimension: the eigendecomposition of the
  * covariance matrix, Cholesky factorizations, the inverse of M (MA-ES) and A (xNES), and matrix
- * products. They are several times faster than Eigen's kernels in high dimension (PERFORMANCE.md),
+ * products. They are several times faster than Eigen's kernels in high dimension (docs/performance.md),
  * so they are used from a threshold dimension on; below, Eigen is used and the results are
  * unchanged.
  *

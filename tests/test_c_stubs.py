@@ -55,5 +55,22 @@ class TestStubs(unittest.TestCase):
                     self.assertEqual(undocumented(os.path.join(STUBS, name)), [])
 
 
+GEN_DOCS = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools", "gen_docs.py"
+)
+
+
+@unittest.skipUnless(os.path.isfile(GEN_DOCS), "documentation not available")
+class TestDocsTables(unittest.TestCase):
+    def test_option_tables_are_up_to_date(self):
+        import subprocess
+        import sys
+
+        result = subprocess.run(
+            [sys.executable, GEN_DOCS, "--check"], capture_output=True, text=True
+        )
+        self.assertEqual(result.returncode, 0, "run python tools/gen_docs.py:\n" + result.stdout)
+
+
 if __name__ == "__main__":
     unittest.main()

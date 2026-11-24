@@ -18,23 +18,44 @@ authors:
   - family-names: Bäck
     given-names: Thomas
 preferred-citation:
-  type: conference-paper
-  title: "Tuning as a Means of Assessing the Benefits of New Ideas in Interplay with Existing Algorithmic Modules"
+  type: article
+  title: "The Modular CMA-ES: A Framework for Modern Evolution Strategies"
   authors:
     - family-names: de Nobel
       given-names: Jacob
     - family-names: Vermetten
       given-names: Diederick
-    - family-names: Wang
-      given-names: Hao
+    - family-names: Kononova
+      given-names: Anna V.
     - family-names: Doerr
       given-names: Carola
     - family-names: Bäck
       given-names: Thomas
-  collection-title: "Proceedings of the Genetic and Evolutionary Computation Conference Companion (GECCO '21)"
-  publisher:
-    name: "Association for Computing Machinery"
-  year: 2021
-  start: 1375
-  end: 1384
-  doi: "10.1145/3449726.3463167"
+  year: 2026
+  journal: "arXiv preprint"
+  identifiers:
+    - type: other
+      value: "arXiv:2610.09699"
+  doi: "10.48550/arXiv.2610.09699"
+  url: "https://arxiv.org/abs/2610.09699"
+references:
+  - type: conference-paper
+    title: "Tuning as a Means of Assessing the Benefits of New Ideas in Interplay with Existing Algorithmic Modules"
+    authors:
+      - family-names: de Nobel
+        given-names: Jacob
+      - family-names: Vermetten
+        given-names: Diederick
+      - family-names: Wang
+        given-names: Hao
+      - family-names: Doerr
+        given-names: Carola
+      - family-names: Bäck
+        given-names: Thomas
+    collection-title: "Proceedings of the Genetic and Evolutionary Computation Conference Companion (GECCO '21)"
+    publisher:
+      name: "Association for Computing Machinery"
+    year: 2021
+    start: 1375
+    end: 1384
+    doi: "10.1145/3449726.3463167"

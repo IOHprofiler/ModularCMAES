@@ -41,3 +41,17 @@ The current step size is `es.p.mutation.sigma`; the method's state and parameter
 ## The options
 
 <!-- options: StepSizeAdaptation -->
+**`modcma.options.StepSizeAdaptation`**: The adaptation of the global step size sigma (`Modules.ssa`; default CSA). With the matrix adaptation COVARIANCE, any method other than CSA switches it to COVARIANCE_NO_EIGV (no eigendecomposition), unless `Settings(always_compute_eigv=True)`. A population of one (lambda = 1, the (1+1)-ES) always uses SR. For a comparison of the methods see de Nobel et al. 2021 (doi:10.1145/3449726.3463167).
+
+| value | |
+|---|---|
+| `CSA` | Cumulative step-size adaptation (Hansen & Ostermeier 2001), the default: sigma grows when the evolution path p_sigma is longer than expected under random selection and shrinks when it is shorter. |
+| `TPA` | Two-point step-size adaptation (Hansen 2008): two extra points m +- sigma * dm along the last step dm of the mean are evaluated every generation (two more evaluations); sigma grows when the point ahead is the better one. |
+| `MSR` | Median success rule (Ait Elhara et al. 2013): counts the individuals that are better than the median of the previous generation; sigma grows when more than half are. |
+| `XNES` | The step-size update of xNES (Glasmachers et al. 2010), from the weighted squared lengths of the samples; with NATURAL_GRADIENT, from its natural gradient. |
+| `MXNES` | A variant of the xNES update from the length of the weighted mean of the selected samples, mueff \|\|sum w_i z_i\|\|^2 - d, instead of their individual lengths (m-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules"). |
+| `LPXNES` | An xNES-like update from the logarithms of the individual step sizes of the samples, weighted by rank; samples a step size per individual (as `Modules.sample_sigma`) (lp-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules"). |
+| `PSR` | Population success rule (Loshchilov 2014, LM-CMA-ES): ranks the current and the previous generation together and adapts sigma towards a target success ratio of 0.25. |
+| `SR` | Success rule of the (1+1)-ES: sigma grows when the success ratio is above the target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically when lambda = 1. |
+| `SA` | Self-adaptation: every individual gets its own step size, sampled log-normally around sigma, and sigma moves to the weighted geometric mean of the step sizes of the selected individuals, divided by that of the population (the CMSA-ES operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of Ahrari et al. 2017). Meant for CMSA; makes the default mu lambda / 4. |
+<!-- /options -->

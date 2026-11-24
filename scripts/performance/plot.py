@@ -1,4 +1,4 @@
-"""Figures and tables for PERFORMANCE.md from the output of benchmark.py and threads.py.
+"""Figures and tables for docs/performance.md from the output of benchmark.py and threads.py.
 
     python scripts/performance/plot.py
 """
@@ -167,7 +167,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--timing", default=str(HERE / "results" / "timing.csv"))
     parser.add_argument("--threads", default=str(HERE / "results" / "threads.csv"))
-    parser.add_argument("--figures", default=str(HERE / "figures"))
+    parser.add_argument("--figures", default=str(HERE.parent.parent / "docs" / "assets" / "performance"))
     args = parser.parse_args()
 
     figures = Path(args.figures)

@@ -104,7 +104,7 @@ void define_constants(nb::module_ &m)
             "Eigen below; 0: Eigen's SelfAdjointEigenSolver; 1: LAPACK dsyevd (divide and "
             "conquer); 2: LAPACK dsyevr (MRRR). 1 and 2 raise ValueError without LAPACK "
             "(`utils.build_info()['lapack'] == 'none'`). LAPACK is several times faster in high "
-            "dimension (d = 1000: 5.5 ms against 18.6 ms per generation, PERFORMANCE.md); the "
+            "dimension (d = 1000: 5.5 ms against 18.6 ms per generation, docs/performance.md); the "
             "results are not bit-identical to Eigen's.")
         .def_prop_rw_static(
             "cholesky_solver",
@@ -139,7 +139,7 @@ void define_constants(nb::module_ &m)
             [](nb::handle) { return constants::blas_min_dim; },
             [](nb::handle, size_t a) { constants::blas_min_dim = a; },
             "The dimension from which `blas` = -1 uses BLAS and LAPACK (default 100).\n\n"
-            "Below it, Eigen's products are faster (PERFORMANCE.md, \"LAPACK and BLAS in high "
+            "Below it, Eigen's products are faster (docs/performance.md, \"LAPACK and BLAS in high "
             "dimension\").")
         .def_prop_rw_static(
             "lapack_min_dim",
@@ -147,7 +147,7 @@ void define_constants(nb::module_ &m)
             [](nb::handle, size_t a) { constants::lapack_min_dim = a; },
             "The dimension from which `eigen_solver` = -1 and `cholesky_solver` = -1 use LAPACK "
             "(default 120).\n\n"
-            "Below it, Eigen's decompositions are faster (PERFORMANCE.md, \"LAPACK and BLAS in "
+            "Below it, Eigen's decompositions are faster (docs/performance.md, \"LAPACK and BLAS in "
             "high dimension\").");
 }
 
@@ -188,7 +188,8 @@ void define_options(nb::module_ &main)
         "The `SampleTranformerType` (`Modules.sample_transformation`) maps them to the "
         "distribution of the mutations, by default the standard normal one. SOBOL and HALTON "
         "are quasi-random (low-discrepancy) sequences: their points cover the space more evenly "
-        "than random ones.")
+        "than random ones (de Nobel et al. 2024, \"Sampling in CMA-ES: low numbers of low "
+        "discrepancy points\").")
         .value("UNIFORM",
                BaseSampler::UNIFORM,
                "Pseudo-random uniform numbers (mt19937, the optimizer's own generator), the "
@@ -196,12 +197,13 @@ void define_options(nb::module_ &main)
                "`Settings.fast_sampling` replaces by a faster generator.")
         .value("SOBOL",
                BaseSampler::SOBOL,
-               "Points of the Sobol sequence. A cache of points (see "
+               "Points of the Sobol sequence (Sobol' 1967). A cache of points (see "
                "`constants.cache_max_doubles`) is computed when the sampler is created and drawn "
                "in a random order.")
         .value("HALTON",
                BaseSampler::HALTON,
-               "Points of the Halton sequence, scrambled with random digit permutations.");
+               "Points of the Halton sequence (Halton 1960), scrambled with random digit "
+               "permutations.");
 
     nb::enum_<SampleTranformerType>(
         m,
@@ -210,7 +212,8 @@ void define_options(nb::module_ &main)
         "GAUSSIAN).\n\n"
         "Each coordinate of a uniform sample of the `BaseSampler` is mapped through the inverse "
         "CDF of a symmetric distribution. Except for CAUCHY, the distributions have unit "
-        "variance. See the paper at doi:10.1145/3712256.3726479.")
+        "variance. de Nobel et al. (2025), \"Abnormal mutations: evolution strategies don't "
+        "require Gaussianity\" (doi:10.1145/3712256.3726479).")
         .value("NONE",
                SampleTranformerType::NONE,
                "No transformation: the uniform numbers of the base sampler, in (0, 1) with mean "
@@ -285,12 +288,16 @@ void define_options(nb::module_ &main)
                StepSizeAdaptation::MXNES,
                "A variant of the xNES update from the length of the weighted mean of the "
                "selected samples, mueff ||sum w_i z_i||^2 - d, instead of their individual "
-               "lengths.")
+               "lengths (m-xNES, Krause, Glasmachers & Igel (2017), "
+               "\"Qualitative and quantitative assessment of step size adaptation "
+               "rules\").")
         .value("LPXNES",
                StepSizeAdaptation::LPXNES,
                "An xNES-like update from the logarithms of the individual step sizes of the "
                "samples, weighted by rank; samples a step size per individual (as "
-               "`Modules.sample_sigma`).")
+               "`Modules.sample_sigma`) (lp-xNES, Krause, Glasmachers & Igel (2017), "
+               "\"Qualitative and quantitative assessment of step size adaptation "
+               "rules\").")
         .value("PSR",
                StepSizeAdaptation::PSR,
                "Population success rule (Loshchilov 2014, LM-CMA-ES): ranks the current and the "
@@ -299,12 +306,15 @@ void define_options(nb::module_ &main)
         .value("SR",
                StepSizeAdaptation::SR,
                "Success rule of the (1+1)-ES: sigma grows when the success ratio is above the "
-               "target 2/11 and shrinks when it is below. Used automatically when lambda = 1.")
+               "target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically "
+               "when lambda = 1.")
         .value("SA",
                StepSizeAdaptation::SA,
                "Self-adaptation: every individual gets its own step size, sampled log-normally "
                "around sigma, and sigma moves to the weighted geometric mean of the step sizes "
-               "of the selected individuals. Meant for CMSA; makes the default mu lambda / 4.");
+               "of the selected individuals, divided by that of the population (the CMSA-ES "
+               "operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of "
+               "Ahrari et al. 2017). Meant for CMSA; makes the default mu lambda / 4.");
 
     nb::enum_<CorrectionMethod>(
         m,
@@ -314,7 +324,9 @@ void define_options(nb::module_ &main)
         "The bounds are `Settings.lb` and `Settings.ub` (default [-5, 5] in every coordinate). "
         "The methods other than RESAMPLE move each coordinate that is out of bounds into "
         "[lb, ub]; the mutation vector of the sample is then recomputed from the corrected "
-        "point, so the adaptation learns from the point that was evaluated.")
+        "point, so the adaptation learns from the point that was evaluated. The methods are "
+        "those of Caraffini, Kononova & Corne (2019), \"Infeasibility and structural bias in "
+        "differential evolution\".")
         .value("NONE",
                CorrectionMethod::NONE,
                "No correction, the default: points outside the bounds are evaluated as they are "
@@ -325,8 +337,8 @@ void define_options(nb::module_ &main)
                "a domain width outside).")
         .value("COTN",
                CorrectionMethod::COTN,
-               "Place the coordinate inside the violated bound, at a random distance sigma * "
-               "|N(0, 1/3^2)| times the domain width ub - lb.")
+               "Complete one-tailed normal correction: place the coordinate inside the violated "
+               "bound, at a random distance sigma * |N(0, 1/3^2)| times the domain width ub - lb.")
         .value("UNIFORM_RESAMPLE",
                CorrectionMethod::UNIFORM_RESAMPLE,
                "Replace the coordinate by a uniform random value in [lb, ub].")
@@ -383,7 +395,7 @@ void define_options(nb::module_ &main)
         "default COVARIANCE).\n\n"
         "The mutations are y = A z, with z from the sampler and A a factor of the covariance "
         "matrix, C = A A^T. The options differ in how A is adapted and in their cost per "
-        "generation (PERFORMANCE.md, \"ModularCMAES matrix adaptations\").")
+        "generation (docs/performance.md, \"ModularCMAES matrix adaptations\").")
         .value("COVARIANCE",
                MatrixAdaptationType::COVARIANCE,
                "The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with "

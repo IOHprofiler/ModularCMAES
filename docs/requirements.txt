@@ -1,7 +1,5 @@
-# The documentation site (mkdocs.yml): mkdocs build --strict
-mkdocs==1.6.1
-mkdocs-material==9.8.2
+# The documentation site (zensical.toml): zensical build --strict
 mkdocstrings==1.0.8
 mkdocstrings-python==2.0.11
-pymdown-extensions==13.1.2
 ruff==0.17.6  # formats the signatures in the API reference
+zensical==0.1.3

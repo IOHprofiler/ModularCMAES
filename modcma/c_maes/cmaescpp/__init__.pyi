@@ -71,7 +71,7 @@ class constants:
     """
     The eigendecomposition of the covariance matrix (COVARIANCE) (default -1).
 
-    -1: automatic, LAPACK dsyevd from `lapack_min_dim` on when LAPACK is available, Eigen below; 0: Eigen's SelfAdjointEigenSolver; 1: LAPACK dsyevd (divide and conquer); 2: LAPACK dsyevr (MRRR). 1 and 2 raise ValueError without LAPACK (`utils.build_info()['lapack'] == 'none'`). LAPACK is several times faster in high dimension (d = 1000: 5.5 ms against 18.6 ms per generation, PERFORMANCE.md); the results are not bit-identical to Eigen's.
+    -1: automatic, LAPACK dsyevd from `lapack_min_dim` on when LAPACK is available, Eigen below; 0: Eigen's SelfAdjointEigenSolver; 1: LAPACK dsyevd (divide and conquer); 2: LAPACK dsyevr (MRRR). 1 and 2 raise ValueError without LAPACK (`utils.build_info()['lapack'] == 'none'`). LAPACK is several times faster in high dimension (d = 1000: 5.5 ms against 18.6 ms per generation, docs/performance.md); the results are not bit-identical to Eigen's.
     """
 
     cholesky_solver: ClassVar[int] = ...
@@ -92,14 +92,14 @@ class constants:
     """
     The dimension from which `blas` = -1 uses BLAS and LAPACK (default 100).
 
-    Below it, Eigen's products are faster (PERFORMANCE.md, "LAPACK and BLAS in high dimension").
+    Below it, Eigen's products are faster (docs/performance.md, "LAPACK and BLAS in high dimension").
     """
 
     lapack_min_dim: ClassVar[int] = ...
     """
     The dimension from which `eigen_solver` = -1 and `cholesky_solver` = -1 use LAPACK (default 120).
 
-    Below it, Eigen's decompositions are faster (PERFORMANCE.md, "LAPACK and BLAS in high dimension").
+    Below it, Eigen's decompositions are faster (docs/performance.md, "LAPACK and BLAS in high dimension").
     """
 
 class Population:
