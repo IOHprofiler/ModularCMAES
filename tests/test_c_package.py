@@ -23,6 +23,17 @@ class TestPackage(unittest.TestCase):
         self.assertLessEqual(evaluations, 2000)
         self.assertIsInstance(es, modcma.ModularCMAES)
 
+    def test_fmin_starts_at_x0(self):
+        start = []
+
+        def record(x):
+            if not start:
+                start.append(np.array(x))
+            return float(np.sum((x - 3) ** 2))
+
+        modcma.fmin(record, [3.0, 3.0, 3.0], 1e-6, 50, seed=1)
+        np.testing.assert_allclose(start[0], 3.0, atol=1e-4)
+
     def test_version(self):
         self.assertRegex(modcma.__version__, r"^\d+\.\d+")
 

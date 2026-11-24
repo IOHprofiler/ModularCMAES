@@ -1,0 +1,57 @@
+"""Every public name of the extension has a docstring in its type stubs.
+
+The docstrings are written in the bindings (bindings/*.cpp) and reach help(), editors and the API
+reference of the documentation through the stubs (tools/gen_stubs.py). This test reads the stubs
+committed in modcma/c_maes/cmaescpp/*.pyi.
+"""
+
+import ast
+import os
+import unittest
+
+STUBS = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "modcma", "c_maes", "cmaescpp"
+)
+
+
+def undocumented(path):
+    with open(path, encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    missing = []
+
+    def visit(body, prefix):
+        for i, node in enumerate(body):
+            if isinstance(node, ast.ClassDef):
+                if not node.name.startswith("_") and ast.get_docstring(node) is None:
+                    missing.append(prefix + node.name)
+                visit(node.body, f"{prefix}{node.name}.")
+            elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                setter = any(
+                    isinstance(d, ast.Attribute) and d.attr == "setter" for d in node.decorator_list
+                )
+                dunder = node.name.startswith("__") and node.name != "__init__"
+                private = node.name.startswith("_") and not node.name.startswith("__")
+                if not (setter or dunder or private) and ast.get_docstring(node) is None:
+                    missing.append(prefix + node.name)
+            elif isinstance(node, (ast.Assign, ast.AnnAssign)):
+                targets = node.targets if isinstance(node, ast.Assign) else [node.target]
+                names = [t.id for t in targets if isinstance(t, ast.Name)]
+                follows = i + 1 < len(body) and isinstance(body[i + 1], ast.Expr) and isinstance(
+                    getattr(body[i + 1], "value", None), ast.Constant
+                )
+                missing.extend(prefix + n for n in names if not n.startswith("_") and not follows)
+
+    visit(tree.body, "")
+    return missing
+
+
+class TestStubs(unittest.TestCase):
+    def test_every_public_name_has_a_docstring(self):
+        for name in sorted(os.listdir(STUBS)):
+            if name.endswith(".pyi"):
+                with self.subTest(stub=name):
+                    self.assertEqual(undocumented(os.path.join(STUBS, name)), [])
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -65,5 +65,6 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * `MaxDSigma`, `MinDSigma` and `NoEffectAxis` used the fourth root of the eigenvalues instead of
   the square root (now as pycma).
 * The stagnation criterion took O(t) per generation (5× slower long BIPOP runs).
+* `fmin` ignored `x0` (it used only its length) and started at the origin.
 * `str(Modules)` printed `center_placement: unknown` for `CENTER`.
 * Linux wheels were compiled for the CPU of the build machine (`-march=native`).

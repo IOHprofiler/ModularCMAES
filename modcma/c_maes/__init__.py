@@ -286,8 +286,7 @@ def fmin(func: callable, x0: np.ndarray, sigma0: float, budget: int, **kwargs):
     func : callable
         The objective function, called with a (d,) numpy array; returns a float.
     x0 : array_like
-        The starting point; its length is the dimension d. Note: in this version only its
-        length is used; the search starts from the default mean of `Settings` (the zero vector).
+        The starting point; its length is the dimension d.
     sigma0 : float
         The initial step size (rule of thumb: 0.3 * (ub - lb)).
     budget : int
@@ -313,7 +312,8 @@ def fmin(func: callable, x0: np.ndarray, sigma0: float, budget: int, **kwargs):
     >>> from modcma.c_maes import fmin
     >>> xopt, fopt, evals, es = fmin(lambda x: float(np.sum(x**2)), np.ones(5), 0.5, 2000)
     """
-    settings = settings_from_dict(len(x0), sigma0=sigma0, budget=budget, **kwargs)
+    x0 = np.asarray(x0, dtype=float)
+    settings = settings_from_dict(len(x0), x0=x0, sigma0=sigma0, budget=budget, **kwargs)
     es = ModularCMAES(settings)
     es(func)
 

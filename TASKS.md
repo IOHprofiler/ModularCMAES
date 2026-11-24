@@ -638,6 +638,10 @@ statistical tier, D2):**
 | B17 | `src/matrix_adaptation.cpp` (`CovarianceAdaptation::adapt_matrix_inner`) | The lazy interval (`lazy_update_interval`) skips the whole update of C, not only the eigendecomposition: the rank-one and rank-µ information of the skipped generations is lost. pycma updates C every generation and decomposes lazily. Only for d large enough that the interval exceeds 1 (d ≳ 100); it is also part of the speed difference with pycma at d = 1000 (PERFORMANCE.md compares the two as they are). Related to D5. |
 | B18 | `src/weights.cpp:21` | The default `cs` of `NATURAL_GRADIENT` is `(9 + 3 + ln d) / (5 d √d)`; the xNES learning rate is `(9 + 3 ln d) / (5 d √d)` (Glasmachers et al. 2010). |
 | B19 | `src/matrix_adaptation.cpp` (`NaturalGradientAdaptation`) | `A = I / σ` at the start and at restarts, so σ·A = I: the initial spread does not depend on `sigma0` (the first population has a spread of about 1 for σ₀ = 0.01 and for σ₀ = 1). `A_inv` starts at I, inconsistent with A until the first update. |
+| B20 | `src/restart_strategy.cpp:46-49` | BIPOP's small population is `λ_init · (0.5 / λ_large / λ_init)^(u²)`; Hansen (2009) has `λ_init · (½ λ_large / λ_init)^(u²)`, between λ_init and λ_large / 2. As coded the small regime gets λ ≤ λ_init (down to the floor of 2). Verified in the code. |
+| B21 | `src/sampling.cpp` (`Orthogonal::sample`) | Orthogonal sampling is not orthogonal: with λ = d = 10, the samples of one generation have cosines up to 0.07 (measured). Likely aliasing: the norms for the rescaling are a lazy expression read while `samples` is overwritten. |
+| B22 | `src/restart_strategy.cpp` (IPOP) | The growth limit `(dim * lambda)^2` uses the current λ, so it never binds; `ipop_factor` is cast to an integer (1.5 acts as 1). |
+| B23 | `include/sampling.hpp` (`Mirrored`, `Orthogonal`, `CachedSampler`) | `expected_length` is not forwarded to the wrapped sampler: with mirrored or orthogonal sampling CSA normalizes with √d instead of E‖N(0, I)‖. |
 
 Smaller, also not fixed: the first run starts at the origin when `x0` is not given, a restart with
 `X0` placement at the center of the box (they differ for asymmetric bounds); COTN can return a point
@@ -645,7 +649,25 @@ outside the box for a large σ; `AdaptiveRepelling.target_rejection_rate` and
 `local_target_rejection_rate` are not used; misspelled bound names (`Elitsm`, `euclidian`,
 `mahanolobis`, `seq_cuttoff_factor`, `adapt_evolution_paths_innner`); the step-size classes and
 `CovarianceNoEigvAdaptation` have no Python constructor. `str(Modules)` printed `unknown` for
-`center_placement=CENTER`: fixed (display only).
+`center_placement=CENTER`: fixed (display only). `fmin` ignored `x0` and started at the origin:
+fixed (it is what the documentation leads with).
+
+Also found, not fixed: `Parameters(d)` / `ModularCMAES(d)` print at every restart (they build the
+C++ `Settings` whose `verbose` defaults to true; Python's `Settings(d)` defaults to false);
+`Population.__add__` is bound to `+=` and modifies its left operand; `OnePlusOneES::sample` checks
+the bounds of the parent instead of the candidate; the scaling of the negative weights uses
+`1 + c1/mu` where Hansen (2016) has `1 + c1/cmu` (commented out in `weights.cpp`); with `ssa=SA` or
+CMSA an explicit `mu0 > lambda0` is not corrected; `set_module` takes only option names, not enum
+members; a `get_configspace` warning names a parameter `only_modules` that does not exist;
+`MuCommaLambdaES::step` keeps a sampler in a function static (shared by instances and threads); the
+derived bounds values (`db`, `center`, ...) go stale when `lb`/`ub` are changed after construction;
+a run stops when `evaluations + lambda >= budget`, so up to λ evaluations of the budget are never
+used.
+Also: `TolX` compares √Cᵢᵢ·σ/σ₀ with tol·σ₀ (pycma: σ√Cᵢᵢ < tolx; a TODO in the code);
+`NoImprovement.tolerance` is not bound; `SampleTranformerType.NONE` gives U(0, 1) mutations, not
+centred; `utils.random_normal` keeps a static Box–Muller state across `set_seed`;
+`CachedShuffleSequence.fill`/`get_index` and `CachedSampler([])` have no bounds checks;
+`utils.compute_ert` divides by zero without successes; `CriteriaVector` has two `__repr__`.
 
 Follow-up, not in WP7 (code): named presets (`"sep-cma"`, `"ma-es"`, `"bipop"`, `"xnes"`, ...) as
 starting points for people who know the algorithms by name.
