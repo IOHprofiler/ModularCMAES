@@ -34,14 +34,8 @@ jobs:
     - name: Test with coverage
       shell: bash
       run: |
-        # The tests of the pure-Python implementation (no longer maintained) fail on Python 3.14
-        # for reasons unrelated to the C++ version; there only the C++ version is tested.
-        if [[ "${{ matrix.python-version }}" == 3.14* ]]; then
-          coverage run -m unittest discover -p "test_c_*.py"
-        else
-          coverage run -m unittest discover
-        fi
-        coverage report -m modcma/[a-z]*.py
+        coverage run -m unittest discover
+        coverage report -m --include="modcma/*"
     - name: Golden fixture for this runner's toolchain
       if: ${{ always() && matrix.python-version == '3.12' }}
       shell: bash

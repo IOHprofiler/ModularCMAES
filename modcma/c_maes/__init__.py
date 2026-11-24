@@ -216,6 +216,8 @@ def fmin(func: callable, x0: np.ndarray, sigma0: float, budget: int, **kwargs):
 
 
 __all__ = (
+    "fmin",
+    "settings_from_dict",
     "settings_from_config",
     "get_configspace",
     "get_all_module_options",

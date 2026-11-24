@@ -401,6 +401,21 @@ void define_cmaes(nb::module_ &m)
         .def(nb::init<std::shared_ptr<parameters::Parameters>>(), nb::arg("parameters"))
         .def(nb::init<size_t>(), nb::arg("dimension"))
         .def(nb::init<parameters::Settings>(), nb::arg("settings"))
+        .def(
+            "__init__",
+            [](ModularCMAES *, const nb::callable &, const nb::args &, const nb::kwargs &) {
+                throw nb::type_error(
+                    "ModularCMAES(fitness_func, d, ...) is the signature of the pure-Python "
+                    "implementation, which modcma 2.0 no longer contains. Use "
+                    "modcma.fmin(func, x0, sigma0, budget), or "
+                    "modcma.ModularCMAES(modcma.Settings(d, ...)).run(func); see "
+                    "https://modularcmaes.readthedocs.io/en/latest/migration/. The pure-Python "
+                    "implementation remains in modcma 1.x: pip install \"modcma<2\".");
+            },
+            nb::arg("fitness_func"),
+            nb::arg("args"),
+            nb::arg("kwargs"),
+            "The signature of modcma 1.x (the pure-Python implementation): raises TypeError.")
         .def("recombine", &ModularCMAES::recombine)
         .def(
             "mutate",

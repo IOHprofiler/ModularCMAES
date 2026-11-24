@@ -254,6 +254,12 @@ class ModularCMAES:
     @overload
     def __init__(self, settings: parameters.Settings) -> None: ...
 
+    @overload
+    def __init__(self, fitness_func: Callable, *args, **kwargs) -> None:
+        """
+        The signature of modcma 1.x (the pure-Python implementation): raises TypeError.
+        """
+
     def recombine(self) -> None: ...
 
     def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None: ...

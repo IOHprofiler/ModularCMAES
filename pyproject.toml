@@ -5,14 +5,14 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "modcma"
-version = "1.2.0"
+version = "2.0.0"
 description = "Package Containing Modular CMA-ES optimizer"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Jacob de Nobel", email = "jacobdenobel@gmail.com" }]
 requires-python = ">=3.10"
-dependencies = ["configspace", "numpy>=2.0", "scipy", "ioh"]
+dependencies = ["configspace", "numpy>=2.0", "scipy"]
 classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: C++",

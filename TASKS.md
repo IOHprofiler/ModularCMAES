@@ -2,7 +2,8 @@
 
 Draft for sign-off. Nothing here is implemented yet. Scope: the C++ implementation (`src/`, `include/`,
 `modcma/c_maes/`) and its packaging. The pure-Python implementation (`modcma/*.py`, incl.
-`modcma/asktellcmaes.py`) is stale and is **not touched**; its tests only have to keep running.
+`modcma/asktellcmaes.py`) is stale and is **not touched**; its tests only have to keep running (until
+WP6 moves it to a branch, D9).
 
 Work packages (WPs) are merged in order unless §2 says otherwise; one branch + PR per WP (or per task
 for the big ones). Decisions that need the maintainer are marked **D1–D8** (§2).
@@ -128,6 +129,15 @@ The original options, for reference:
   x86_64/aarch64, Windows x64/ARM64, macOS arm64/x86_64; abi3 for 3.12+, free-threaded wheels once
   D3a is done)?
 * **D8: releases.** One release at the end (as IOH), or a release after each WP?
+* **D9: the pure-Python implementation (signed off).** Moved to the branch `legacy-python` (it stays
+  installable as `pip install "modcma<2"`); master keeps only the C++ version. `import modcma`
+  exposes its API directly (`modcma.fmin`, `modcma.ModularCMAES`, ...), `modcma.c_maes` stays as an
+  alias; the release is 2.0.0. Constructing `ModularCMAES` the 1.x way raises an error that points to
+  the migration guide (WP6).
+* **D10: documentation (signed off).** MkDocs Material + mkdocstrings (reads the `.pyi` stubs, no
+  build needed) on Read the Docs, the same URL. The docstrings are written once, in the bindings, and
+  reach `help()`, IDEs, the stubs and the reference from there (WP7). WP6 and WP7 are two PRs,
+  stacked on WP5.
 
 ## 3. Invariants
 
@@ -546,3 +556,79 @@ Status (2026-11-24):
   Tier 2 at d = 40 (blas forced on there through the threshold at the time: 8 configurations x 7
   functions x 25 seeds) against 81cb955: no difference (1 of 112 raw p < 0.05, none after
   Bonferroni; median evaluations ratio 0.998).
+
+---
+
+## WP6: The pure-Python implementation to a branch (D9): branch `wp6-legacy` (on WP5)
+
+**Status: done.** `legacy-python` (c24606e: v1.2.0's master plus a notice in the README) is pushed.
+On master: the Python implementation, its 7 test files, `expected.json`, `create_expected.py`, the
+Sphinx sources and `.readthedocs.yml` are gone (WP7 brings the new site); `test_c_mutation` no longer
+cross-checks against `modcma.modularcmaes.scale_with_threshold` (its expected value is computed in the
+test). `modcma` re-exports the API of `modcma.c_maes` (`__all__`, plus `fmin` and
+`settings_from_dict`, also added to `c_maes.__all__`), `__version__` from the package metadata; a
+`ModularCMAES.__init__(fitness_func, *args, **kwargs)` overload in the bindings raises the TypeError of
+D9, and a module `__getattr__` names the removed 1.x names (`AskTellCMAES`, `evaluate_bbob`, ...).
+`tests/test_c_package.py`. CI runs every test on every Python version. README: the Python-only
+sections, the Python column of the module table and the Python examples per module are removed (the
+rewrite is WP7). Version 2.0.0, ioh no longer a dependency.
+
+The pure-Python implementation (`modcma/{modularcmaes,asktellcmaes,parameters,population,sampling,
+utils,__main__}.py`) has not been developed for several releases: it lacks most modules (the module
+table of the README), fails its tests on Python 3.14 and is documented on Read the Docs as if it were
+the package. Nothing in `modcma.c_maes` or `scripts/` imports it.
+
+* **T6.1** Branch `legacy-python` from master (the state of v1.2.0 plus the 1.x fixes), with a README
+  note that it is not maintained; tag `v1.2.0` and PyPI 1.2.0 keep it installable.
+* **T6.2** Remove it from master: the modules above, their tests (`test_asktellcmaes`, `test_fmin`,
+  `test_modularcmaes`, `test_parameters`, `test_population`, `test_sampling`, `test_utils`),
+  `tests/expected.json`, `tests/create_expected.py`, the Sphinx pages of `docs/source/`; CI runs all
+  tests on every Python version, coverage of the C++ module's Python part only.
+* **T6.3** `modcma/__init__.py` exposes the API of `modcma.c_maes` (`from modcma import fmin,
+  ModularCMAES, Settings, Modules, ...`); `modcma.c_maes` stays. Constructing `ModularCMAES` with a
+  callable first argument (the 1.x signature) raises a `TypeError` that names the 2.0 equivalent and
+  the migration guide. `__version__`.
+* **T6.4** Version 2.0.0. Dependencies: numpy, scipy (LAPACK/BLAS on Linux and Windows) and
+  configspace (`c_maes` tuning) stay; ioh was only used by the Python implementation (`evaluate_bbob`)
+  and is dropped (`tests/statistical.py`, `scripts/` and the examples install it themselves).
+
+## WP7: Documentation (D10): branch `wp7-docs` (on WP6)
+
+No change of behaviour. Today: about 450 bound functions, classes and properties have one docstring
+between them (the stubs: 31 of 732 definitions), so `help()`, IDE hovers and any API reference are
+empty; the Read the Docs site documents only the pure-Python implementation and its configuration
+(`python.version: 3.8`, no `build.os`) no longer builds; the README is 821 lines with a broken first
+example (`fmin`: a missing comma, `func` undefined, no import); there is no changelog, migration guide,
+`CITATION.cff` or contributing guide.
+
+* **T7.1 Docstrings in the bindings**, the one source for `help()`, IDEs, the stubs and the reference.
+  Every class, method, property and enum value; for each module option what it does, when to use it,
+  its default and the paper. Stubs regenerated (`tools/gen_stubs.py`); a test that every public name
+  in the stubs has a docstring.
+* **T7.2 Site skeleton**: MkDocs Material + mkdocstrings-python on the stubs; `.readthedocs.yml`
+  (version 2, `build.os`); `mkdocs build --strict` in CI.
+* **T7.3 Getting started**: installation (wheels, LAPACK per platform, from source); a first
+  optimization with `fmin`; the `ModularCMAES` object; ask-tell and vectorized evaluation; bounds;
+  restarts; stopping criteria; reading the result.
+* **T7.4 User guide**: the idea of modules (one optimizer, many variants; the default is CMA-ES with
+  CSA); one page per module family (matrix adaptation, step-size adaptation, sampling, selection and
+  weights, restarts and repelling, bounds, center placement) with options, defaults, when to use them
+  and references; `Settings` (every parameter); integer variables; reproducibility (seeds,
+  `Settings(seed=)`, threads, `fast_sampling`); performance (LAPACK/BLAS, constants); tuning
+  (configspace); using the C++ library from CMake.
+* **T7.5 Examples**, executed in CI so they cannot rot: a multimodal problem with BIPOP and repelling
+  restarts; parallel evaluation through ask-tell (processes); BBOB with IOHexperimenter; tuning a
+  configuration; a mixed-integer problem; from pycma (the equivalent calls).
+* **T7.6 Reference pages**: API reference (generated), PERFORMANCE.md and REPRODUCIBILITY.md as pages,
+  changelog, migration guide 1.x -> 2.0 (the Python implementation, nanobind, `Settings(mu, lambda)`
+  order, ask-tell, constants, removed or renamed names from `tests/data/api/pybind11.json`), citing.
+* **T7.7 README** of about 150 lines: what it is and why (modular, fast, ask-tell, tunable), a
+  quickstart that runs (tested), the speed figure, a short module table, links to the site.
+* **T7.8 Repository files**: `CITATION.cff` (both papers), `CHANGELOG.md`, `CONTRIBUTING.md` (build,
+  tests, golden fixtures, statistical tier, stubs), pyproject metadata (description, keywords,
+  classifiers incl. Python versions and free-threading, Documentation/Issues/Changelog URLs), badges
+  (CI, wheels, PyPI, docs, Python versions).
+
+Follow-up, not in WP7 (code): named presets (`"sep-cma"`, `"ma-es"`, `"bipop"`, `"xnes"`, ...) as
+starting points for people who know the algorithms by name.
+

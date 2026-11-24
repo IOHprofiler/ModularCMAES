@@ -10,7 +10,6 @@ from modcma.c_maes import (
     options,
     ModularCMAES,
 )
-from modcma.modularcmaes import scale_with_threshold
 
 
 class TestMutation(unittest.TestCase):
@@ -49,9 +48,6 @@ class TestMutation(unittest.TestCase):
         self.par.pop.Z = Z
         expected_z = 0.5 * ((t + (t - norm)) / norm)
         self.assertTrue(np.isclose(self.par.pop.Z, expected_z).all())
-        self.assertTrue(
-            np.isclose(self.par.pop.Z, scale_with_threshold(np.ones(2) * 0.5, t)).all()
-        )
 
     def get_cma(self, ssa, adapt_sigma=True):
         modules = parameters.Modules()
