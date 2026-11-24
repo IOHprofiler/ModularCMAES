@@ -41,6 +41,16 @@ class TestPackage(unittest.TestCase):
         with self.assertRaises(AttributeError):
             modcma.does_not_exist  # noqa: B018
 
+    def test_modules_str_names_every_option(self):
+        for name, choices in modcma.get_all_module_options().items():
+            default = getattr(modcma.Modules(), name)
+            if isinstance(default, bool):
+                continue
+            for choice in choices:
+                modules = modcma.Modules()
+                setattr(modules, name, getattr(type(default), choice))
+                self.assertIn(f"{name}: {choice}", str(modules))
+
     def test_constructors_still_work(self):
         self.assertEqual(modcma.ModularCMAES(3).p.settings.dim, 3)
         self.assertEqual(modcma.ModularCMAES(modcma.Settings(4)).p.settings.dim, 4)

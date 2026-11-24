@@ -171,6 +171,8 @@ inline std::string to_string(CenterPlacement s)
         return "ZERO";
     case CenterPlacement::UNIFORM:
         return "UNIFORM";
+    case CenterPlacement::CENTER:
+        return "CENTER";
     case CenterPlacement::NOVELTY_WEIGHTED:
         return "NOVELTY_WEIGHTED";
     case CenterPlacement::MAXIMIN_TABOO:

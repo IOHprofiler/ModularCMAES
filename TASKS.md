@@ -629,6 +629,24 @@ example (`fmin`: a missing comma, `func` undefined, no import); there is no chan
   classifiers incl. Python versions and free-threading, Documentation/Issues/Changelog URLs), badges
   (CI, wheels, PyPI, docs, Python versions).
 
+**Found while writing the docstrings (not fixed: they change results; each needs a decision and the
+statistical tier, D2):**
+
+| # | Where | What |
+|---|---|---|
+| B16 | `src/matrix_adaptation.cpp` (`CovarianceAdaptation`, `SeparableAdaptation`: `decay`) | The h_σ correction has the wrong sign: `1 - c1*dhs - c1 - cmu*sum(w)`, where Hansen (2016) and pycma have `1 + c1*δ(hσ) - c1 - cmu*sum(w)`. Only matters in the generations where hσ = 0 (mostly early). |
+| B17 | `src/matrix_adaptation.cpp` (`CovarianceAdaptation::adapt_matrix_inner`) | The lazy interval (`lazy_update_interval`) skips the whole update of C, not only the eigendecomposition: the rank-one and rank-µ information of the skipped generations is lost. pycma updates C every generation and decomposes lazily. Only for d large enough that the interval exceeds 1 (d ≳ 100); it is also part of the speed difference with pycma at d = 1000 (PERFORMANCE.md compares the two as they are). Related to D5. |
+| B18 | `src/weights.cpp:21` | The default `cs` of `NATURAL_GRADIENT` is `(9 + 3 + ln d) / (5 d √d)`; the xNES learning rate is `(9 + 3 ln d) / (5 d √d)` (Glasmachers et al. 2010). |
+| B19 | `src/matrix_adaptation.cpp` (`NaturalGradientAdaptation`) | `A = I / σ` at the start and at restarts, so σ·A = I: the initial spread does not depend on `sigma0` (the first population has a spread of about 1 for σ₀ = 0.01 and for σ₀ = 1). `A_inv` starts at I, inconsistent with A until the first update. |
+
+Smaller, also not fixed: the first run starts at the origin when `x0` is not given, a restart with
+`X0` placement at the center of the box (they differ for asymmetric bounds); COTN can return a point
+outside the box for a large σ; `AdaptiveRepelling.target_rejection_rate` and
+`local_target_rejection_rate` are not used; misspelled bound names (`Elitsm`, `euclidian`,
+`mahanolobis`, `seq_cuttoff_factor`, `adapt_evolution_paths_innner`); the step-size classes and
+`CovarianceNoEigvAdaptation` have no Python constructor. `str(Modules)` printed `unknown` for
+`center_placement=CENTER`: fixed (display only).
+
 Follow-up, not in WP7 (code): named presets (`"sep-cma"`, `"ma-es"`, `"bipop"`, `"xnes"`, ...) as
 starting points for people who know the algorithms by name.
 

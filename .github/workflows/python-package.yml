@@ -71,6 +71,11 @@ jobs:
       run: ctest --test-dir build --output-on-failure
     - name: Benchmark (smoke test)
       run: ./build/modcma_bench --dims 2,10 --generations 200 --repetitions 1
+    - name: The C++ example of the documentation (a program that links the library)
+      run: |
+        cmake -S examples/cpp -B build-example -DCMAKE_BUILD_TYPE=Release
+        cmake --build build-example --parallel 4
+        ./build-example/sphere
     - name: Build and test with LAPACK (MODCMA_LAPACK)
       run: |
         sudo apt-get update -qq && sudo apt-get install -y -qq liblapack-dev

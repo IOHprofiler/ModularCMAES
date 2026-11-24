@@ -1,0 +1,14 @@
+# Tuning a configuration
+
+The modules and the population size form a configuration space
+([tuning](../guide/tuning.md)). This example searches it at random for the configuration with the
+best results on three functions and compares it with the default.
+
+```python
+--8<-- "examples/tuning.py"
+```
+
+A random search of 60 configurations improved the mean log10 precision from −5.17 (the default) to
+−5.44 here. On real problem classes, use an algorithm configurator (SMAC, irace) with many more
+evaluations, separate training and test problems, and several seeds per configuration: modules
+that help on the training functions may not help on others.

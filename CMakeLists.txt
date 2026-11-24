@@ -15,6 +15,8 @@ list(FILTER SRC_FILES EXCLUDE REGEX ".*(interface|main)\\.cpp$")
 # The library code, shared by the Python extension and the executables below
 add_library(modcma_core STATIC ${SRC_FILES})
 set_target_properties(modcma_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# Programs that link the library compile its headers, which need C++17 too
+target_compile_features(modcma_core PUBLIC cxx_std_17)
 target_include_directories(modcma_core PUBLIC
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/external
