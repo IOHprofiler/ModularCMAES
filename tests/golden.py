@@ -259,7 +259,7 @@ def execute(run: Dict, driver: str = "step") -> Dict:
     for name, value in run["constants"].items():
         setattr(c_maes.constants, name, value)
 
-    c_maes.utils.set_seed(SEED)
+    c_maes.set_seed(SEED)
     cma = c_maes.ModularCMAES(make_settings(run))
     objective = FUNCTIONS[run["function"]]
 
@@ -305,7 +305,7 @@ def execute(run: Dict, driver: str = "step") -> Dict:
 def platform_name() -> str:
     """OS, CPU, the compiler that built the extension and the C library (glibc version, or the
     macOS major version): bitwise trajectories only reproduce with exactly this toolchain."""
-    compiler = c_maes.utils.build_info()["compiler"].replace(" ", "")
+    compiler = c_maes.build_info()["compiler"].replace(" ", "")
     if sys.platform.startswith("linux"):
         libc, version = platform.libc_ver()
         runtime = f"{libc}{version}" if libc else "libc"

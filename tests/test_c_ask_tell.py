@@ -37,7 +37,7 @@ def make(d=4, seed=12, **kwargs):
     for name, value in kwargs.pop("modules", {}).items():
         if not c_maes.set_module(modules, name, value):
             raise ValueError(name)
-    c_maes.utils.set_seed(seed)
+    c_maes.set_seed(seed)
     return c_maes.ModularCMAES(c_maes.Settings(d, modules, verbose=False, **kwargs))
 
 
@@ -109,12 +109,12 @@ class TestEquivalentToStep(unittest.TestCase):
             if restarts:
                 cma.p.criteria.items.append(RestartAt(*restarts))
         # set_seed sets the one global generator: run the two optimizers one after the other
-        c_maes.utils.set_seed(12)
+        c_maes.set_seed(12)
         states_a, running = [], True
         while running:
             running = a.step(objective)
             states_a.append(state(a))
-        c_maes.utils.set_seed(12)
+        c_maes.set_seed(12)
         states_b, running = [], True
         while running:
             running = ask_tell_generation(b, objective)
@@ -223,9 +223,9 @@ class TestInterface(unittest.TestCase):
 
     def test_mutate_continues_pending_generation(self):
         a, b = make(), make()
-        c_maes.utils.set_seed(5)
+        c_maes.set_seed(5)
         a.step(sphere)
-        c_maes.utils.set_seed(5)
+        c_maes.set_seed(5)
         b.ask()
         b.mutate(sphere)
         b.select()
@@ -274,10 +274,10 @@ class TestInjection(unittest.TestCase):
 
     def test_unchanged_points_are_not_injected(self):
         a, b = make(), make()
-        c_maes.utils.set_seed(8)
+        c_maes.set_seed(8)
         for _ in range(5):
             ask_tell_generation(a, sphere)
-        c_maes.utils.set_seed(8)
+        c_maes.set_seed(8)
         for _ in range(5):
             while True:
                 X = b.ask()

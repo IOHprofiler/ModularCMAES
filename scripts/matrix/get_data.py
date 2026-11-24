@@ -134,7 +134,7 @@ def collect(
             runs = []
 
             for repetition in range(experiment.repeats):
-                ccma.utils.set_seed(21 + fid * dim * repetition)
+                ccma.set_seed(21 + fid * dim * repetition)
                 collector.reset()
                 run_modcma(
                     problem,

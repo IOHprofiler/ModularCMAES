@@ -1,7 +1,7 @@
 """
 The C++ ModularCMAES library: a modular CMA-ES in which every module (matrix adaptation, step-size adaptation, sampling, selection, restarts, bound correction, ...) is an option that combines freely with the others.
 
-Use it through `modcma.c_maes`, which re-exports these names. The classes you need most are `ModularCMAES`, `parameters.Settings` and `parameters.Modules`, with the options in `options`. Submodules: `options` (the module options), `parameters` (settings, modules, weights, statistics), `sampling`, `mutation` (step-size adaptation), `matrix_adaptation`, `selection`, `bounds`, `center`, `repelling`, `restart` (criteria and strategies), `es` (a (1+1)-ES and a (mu, lambda)-ES), `utils`, and `constants` (global switches).
+Use it through `modcma.c_maes`, which re-exports these names. The classes you need most are `ModularCMAES`, `parameters.Settings` and `parameters.Modules`, with the options in `options`. Submodules: `options` (the module options), `parameters` (settings, modules, weights, statistics), `sampling`, `mutation` (step-size adaptation), `matrix_adaptation`, `selection`, `bounds`, `center`, `repelling`, `restart` (criteria and strategies), `es` (a (1+1)-ES and a (mu, lambda)-ES) and `constants` (global switches); `set_seed` and `build_info`.
 """
 
 from collections.abc import Callable, Sequence
@@ -22,8 +22,7 @@ from modcma.c_maes.cmaescpp import (
     repelling as repelling,
     restart as restart,
     sampling as sampling,
-    selection as selection,
-    utils as utils
+    selection as selection
 )
 
 
@@ -64,14 +63,14 @@ class constants:
     """
     Whether the GAUSSIAN sample transformation uses the Box-Muller transform (default False).
 
-    False: every uniform number is mapped to a normal one with the inverse normal CDF (`utils.ppf`). True: pairs of uniform numbers are mapped with Box-Muller, a different random stream.
+    False: every uniform number is mapped to a normal one with the inverse normal CDF (the inverse normal CDF). True: pairs of uniform numbers are mapped with Box-Muller, a different random stream.
     """
 
     eigen_solver: ClassVar[int] = ...
     """
     The eigendecomposition of the covariance matrix (COVARIANCE) (default -1).
 
-    -1: automatic, LAPACK dsyevd from `lapack_min_dim` on when LAPACK is available, Eigen below; 0: Eigen's SelfAdjointEigenSolver; 1: LAPACK dsyevd (divide and conquer); 2: LAPACK dsyevr (MRRR). 1 and 2 raise ValueError without LAPACK (`utils.build_info()['lapack'] == 'none'`). LAPACK is several times faster in high dimension (d = 1000: 5.5 ms against 18.6 ms per generation, docs/performance.md); the results are not bit-identical to Eigen's.
+    -1: automatic, LAPACK dsyevd from `lapack_min_dim` on when LAPACK is available, Eigen below; 0: Eigen's SelfAdjointEigenSolver; 1: LAPACK dsyevd (divide and conquer); 2: LAPACK dsyevr (MRRR). 1 and 2 raise ValueError without LAPACK (`build_info()['lapack'] == 'none'`). LAPACK is several times faster in high dimension (d = 1000: 5.5 ms against 18.6 ms per generation, docs/performance.md); the results are not bit-identical to Eigen's.
     """
 
     cholesky_solver: ClassVar[int] = ...
@@ -100,6 +99,27 @@ class constants:
     The dimension from which `eigen_solver` = -1 and `cholesky_solver` = -1 use LAPACK (default 120).
 
     Below it, Eigen's decompositions are faster (docs/performance.md, "LAPACK and BLAS in high dimension").
+    """
+
+def build_info() -> dict[str, str]:
+    """
+    How the extension was built.
+
+    Returns
+    -------
+    dict[str, str]
+        'compiler': the compiler and its version, e.g. 'gcc 13.3.0';
+        'fma': 'yes' when the code may use fused multiply-add instructions (which change
+        the last bits of results), 'no' otherwise;
+        'lapack': where LAPACK and BLAS come from: 'linked' (built with them, Accelerate
+        on macOS), 'scipy' (scipy's, handed over at import) or 'none' (Eigen only).
+    """
+
+def set_seed(seed: int) -> None:
+    """
+    Seed the global random generator (mt19937).
+
+    An optimizer without `Settings.seed` copies the global generator when it is created and advances it, so that after set_seed(s) the optimizers created in the same order draw the same numbers. Samplers and bound corrections that are used on their own draw from the global generator directly.
     """
 
 class Population:
@@ -271,7 +291,7 @@ class Parameters:
     """
     The state of an optimizer: settings, module objects, populations and statistics.
 
-    ModularCMAES works on a Parameters object (ModularCMAES.p). Every module choice of Settings.modules is an object here (adaptation, mutation, selection, sampler, bounds, ...), which can be inspected and, for experiments, changed. Every Parameters object has its own random generator: seeded with Settings.seed, or a copy of the global generator (utils.set_seed) at creation.
+    ModularCMAES works on a Parameters object (ModularCMAES.p). Every module choice of Settings.modules is an object here (adaptation, mutation, selection, sampler, bounds, ...), which can be inspected and, for experiments, changed. Every Parameters object has its own random generator: seeded with Settings.seed, or a copy of the global generator (set_seed) at creation.
     """
 
     @overload

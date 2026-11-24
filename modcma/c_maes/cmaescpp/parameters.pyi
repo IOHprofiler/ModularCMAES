@@ -634,7 +634,7 @@ class Settings:
         always_compute_eigv : bool, default False
             Keep matrix_adaptation COVARIANCE, with its eigendecomposition, when ssa is not CSA.
         seed : int, optional
-            The seed of the optimizer's own random generator. Default None: the optimizer starts from a copy of the global generator (utils.set_seed) when it is created.
+            The seed of the optimizer's own random generator. Default None: the optimizer starts from a copy of the global generator (set_seed) when it is created.
         fast_sampling : bool, default False
             Sample with xoshiro256++ and a ziggurat instead of mt19937 and the inverse normal CDF (the default UNIFORM + GAUSSIAN sampler only): faster, but a different random stream.
         """
@@ -648,7 +648,7 @@ class Settings:
         """
         The seed of the optimizer's own random generator, or None.
 
-        None: the optimizer starts from a copy of the global generator (utils.set_seed) when it is created. Set it before the optimizer is created.
+        None: the optimizer starts from a copy of the global generator (set_seed) when it is created. Set it before the optimizer is created.
         """
 
     @seed.setter

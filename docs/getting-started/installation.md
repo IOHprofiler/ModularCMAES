@@ -14,7 +14,7 @@ Check the installation:
 import modcma
 
 print(modcma.__version__)
-print(modcma.utils.build_info())  # compiler, FMA, and where LAPACK comes from
+print(modcma.build_info())  # compiler, FMA, and where LAPACK comes from
 ```
 
 ## LAPACK and BLAS

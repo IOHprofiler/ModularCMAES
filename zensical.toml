@@ -64,7 +64,7 @@ nav = [
     { "repelling" = "reference/repelling.md" },
     { "center" = "reference/center.md" },
     { "es" = "reference/es.md" },
-    { "constants and utils" = "reference/utils.md" },
+    { "constants, seed, build info" = "reference/constants.md" },
   ] },
   { "Benchmarks" = "performance.md" },
   { "Reproducing the paper" = "reproducibility.md" },

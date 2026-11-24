@@ -22,7 +22,7 @@ def calc_aoc(logger, budget, fid, iid, dim):
 def get_bbob_performance(settings: c_maes.Settings, seed: int = 0, fid: int = 0):
     iid = 1 + (seed % 10)
     np.random.seed(seed + iid)
-    c_maes.utils.set_seed(seed + iid)
+    c_maes.set_seed(seed + iid)
 
     settings.budget = settings.dim * 10_000
     settings.target = problem.optimum.y + 9e-9
@@ -56,7 +56,7 @@ def get_ert(
 ):
     iid = 1 + (seed % 10)
     np.random.seed(seed + iid)
-    c_maes.utils.set_seed(seed + iid)
+    c_maes.set_seed(seed + iid)
 
     problem = ioh.get_problem(fid, iid, settings.dim)
     settings.budget = settings.dim * 10_000

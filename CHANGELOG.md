@@ -13,6 +13,11 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   for several releases; it remains in modcma 1.x (`pip install "modcma<2"`) and on the branch
   `legacy-python`. Its names raise an error that says where they went.
 * `ioh` is no longer a dependency (only the Python implementation used it).
+* `c_maes.utils`: `set_seed` and `build_info` moved to the main namespace (`modcma.set_seed`,
+  `modcma.build_info`; the old names still work, with a `DeprecationWarning`). Removed: `cdf`,
+  `ppf` (use `scipy.stats.norm`), `random_uniform`, `random_normal`, `compute_ert`; the internals of
+  the Sobol sampler (`i8_sobol`, `Shuffler`, `CachedShuffleSequence`, `sampling.Sobol.cache`) are
+  no longer exposed. A removed name raises an error that says what to use instead.
 
 ### Added
 

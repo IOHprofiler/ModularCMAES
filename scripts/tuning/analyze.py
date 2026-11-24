@@ -127,7 +127,7 @@ def evaluate_configuration(
     """Evaluate one configuration on one held-out BBOB instance."""
     run_seed = seed + instance
     np.random.seed(run_seed)
-    c_maes.utils.set_seed(run_seed)
+    c_maes.set_seed(run_seed)
 
     problem = ioh.get_problem(fid, instance, dim)
     settings = c_maes.settings_from_dict(
@@ -230,7 +230,7 @@ def evaluate_defaults(
         ):
             run_seed = seed + instance
             np.random.seed(run_seed)
-            c_maes.utils.set_seed(run_seed)
+            c_maes.set_seed(run_seed)
 
             problem = ioh.get_problem(fid, instance, dim)
             modules = c_maes.parameters.Modules()

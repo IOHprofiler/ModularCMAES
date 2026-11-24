@@ -247,7 +247,7 @@ def main():
     instances = tuple(range(1, 16))
     dimensions = (2,)  # 5, 10, 20)
 
-    c_maes.utils.set_seed(69)
+    c_maes.set_seed(69)
     settings = tuple(product(functions, instances, dimensions))
 
     with Pool(30) as p:

@@ -93,7 +93,7 @@ def collect_modcma(
     for dim in dims:
         for name, option in options.items():
             for repetition in range(repeats):
-                ccma.utils.set_seed(21 + dim * repetition)
+                ccma.set_seed(21 + dim * repetition)
                 problem = ioh.get_problem(2, 1, dim)
                 result = run_modcma(
                     problem,

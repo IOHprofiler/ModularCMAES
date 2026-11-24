@@ -42,7 +42,7 @@ jobs:
       if: ${{ always() && matrix.python-version == '3.12' }}
       shell: bash
       run: |
-        python -c 'from modcma import c_maes; print(c_maes.utils.build_info())'
+        python -c 'from modcma import c_maes; print(c_maes.build_info())'
         name=$(python -c 'from tests import golden; print(golden.platform_name())')
         echo "$name"
         python -m tests.golden write --fixture "golden-$name.json"

@@ -198,15 +198,6 @@ void vstack(Matrix &X, const Matrix &Y);
 void concat(Vector &x, const Vector &y);
 
 /**
- * @brief Compute the expected running time (ERT) of a set of runs
- *
- * @param running_times the vector of measured running times
- * @param budget the maximum budget allocated to each run
- * @return std::pair<Float, size_t> (ERT, number of successfull runs)
- */
-std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, size_t budget);
-
-/**
  * \brief calculate the nearest power of two
  * \tparam T numeric type
  * \param value the number to get the nearest power of two

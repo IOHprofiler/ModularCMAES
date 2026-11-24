@@ -39,7 +39,7 @@ matrix products use LAPACK and BLAS ([installation](../getting-started/installat
 The choice is visible and adjustable with the global `modcma.constants`:
 
 ```python
-print(modcma.utils.build_info()["lapack"])  # "linked", "scipy" or "none"
+print(modcma.build_info()["lapack"])  # "linked", "scipy" or "none"
 modcma.constants.eigen_solver      # -1 automatic (default), 0 Eigen, 1 dsyevd, 2 dsyevr
 modcma.constants.cholesky_solver   # -1 automatic (default), 0 Eigen, 1 dpotrf
 modcma.constants.lapack_min_dim    # 120: eigendecomposition and Cholesky with LAPACK from here on

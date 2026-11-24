@@ -6,10 +6,22 @@ implementation, and makes it the top-level package.
 
 ## From the C++ version (`modcma.c_maes`)
 
-Nothing needs to change: the API of `modcma.c_maes` is the same (it is checked against a dump of the
-1.x API), and the same names are now also available as `modcma.ModularCMAES`, `modcma.Settings`,
-... What is new is additive: [ask–tell](getting-started/ask-tell.md), vectorized objectives,
-`Settings(seed=...)`, `fast_sampling`, LAPACK in high dimension; see the [changelog](changelog.md).
+The API of `modcma.c_maes` is the same (it is checked against a dump of the 1.x API), and the same
+names are now also available as `modcma.ModularCMAES`, `modcma.Settings`, ... What is new is
+additive: [ask–tell](getting-started/ask-tell.md), vectorized objectives, `Settings(seed=...)`,
+`fast_sampling`, LAPACK in high dimension; see the [changelog](changelog.md).
+
+The exception is `c_maes.utils`:
+
+| 1.x | 2.0 |
+|---|---|
+| `c_maes.utils.set_seed(s)`, `c_maes.utils.build_info()` | `modcma.set_seed(s)`, `modcma.build_info()` (also in `modcma.c_maes`); the old names still work, with a `DeprecationWarning` |
+| `utils.cdf`, `utils.ppf` | `scipy.stats.norm.cdf`, `scipy.stats.norm.ppf` |
+| `utils.random_uniform`, `utils.random_normal` | removed: the global generator only seeds new optimizers |
+| `utils.compute_ert` | removed: IOHanalyzer or iohinspector compute ERT |
+| `utils.i8_sobol`, `utils.Shuffler`, `utils.CachedShuffleSequence`, `sampling.Sobol.cache` | removed: internals of the Sobol sampler (`scipy.stats.qmc.Sobol` for Sobol points) |
+
+A removed name raises an `AttributeError` that says what to use instead.
 
 Results are not bit-identical to 1.x: the linear algebra is batched, high dimensions use LAPACK,
 and several bugs were fixed that changed results (integer variables, the active update, restart
@@ -33,7 +45,7 @@ where a bug was fixed. Pin `modcma<2` to reproduce old results exactly.
 | `orthogonal=True`, `sequential=True` | `orthogonal=True`, `sequential_selection=True` |
 | `parameters.xopt`, `parameters.fopt` | `es.p.stats.global_best.x`, `.y` |
 | `parameters.sigma`, `parameters.m`, `parameters.C` | `es.p.mutation.sigma`, `es.p.adaptation.m`, `es.p.adaptation.C` |
-| `utils.set_seed(s)` / `np.random.seed(s)` | `modcma.utils.set_seed(s)`, or `Settings(seed=s)` |
+| `utils.set_seed(s)` / `np.random.seed(s)` | `modcma.set_seed(s)`, or `Settings(seed=s)` |
 | `python -m modcma` | the [examples](examples/index.md) |
 
 Module options are enums (`modcma.options`), or their names as strings in `fmin` and

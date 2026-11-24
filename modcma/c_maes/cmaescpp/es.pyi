@@ -1,7 +1,7 @@
 """
 Two simple evolution strategies, as baselines.
 
-OnePlusOneES is a (1+1)-ES with a success rule, MuCommaLambdaES a (mu, lambda)-ES with self-adapted coordinate-wise step sizes. Of the Modules they use only the sampler (sampler, sample_transformation, mirrored, orthogonal) and bound_correction, with the fixed box [-5, 5]^d. They draw from the global random generator (utils.set_seed).
+OnePlusOneES is a (1+1)-ES with a success rule, MuCommaLambdaES a (mu, lambda)-ES with self-adapted coordinate-wise step sizes. Of the Modules they use only the sampler (sampler, sample_transformation, mirrored, orthogonal) and bound_correction, with the fixed box [-5, 5]^d. They draw from the global random generator (set_seed).
 """
 
 from collections.abc import Callable

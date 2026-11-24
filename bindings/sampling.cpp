@@ -51,7 +51,7 @@ void define_samplers(nb::module_ &main)
         "the distribution of the mutations (`GaussianTransformer` and the others; "
         "`options.SampleTranformerType`), then optionally `Orthogonal`, `Mirrored` and "
         "`CachedSampler` around it. Calling a sampler returns one sample, a vector of length "
-        "d. The samplers created here draw from the global generator (`utils.set_seed`); the "
+        "d. The samplers created here draw from the global generator (`set_seed`); the "
         "ones of an optimizer draw from its own.");
 
     nb::class_<Sampler>(m,
@@ -94,10 +94,10 @@ void define_samplers(nb::module_ &main)
         "Faster than the default UNIFORM + GAUSSIAN sampler, but a different random stream.")
         .def(
             "__init__",
-            // seeded from a fork of the global generator (utils.set_seed)
+            // seeded from a fork of the global generator (set_seed)
             [](FastGaussian *self, const size_t d) { new (self) FastGaussian(d, *rng::fork()); },
             nb::arg("d"),
-            "Samples of dimension d, seeded from the global generator (`utils.set_seed`).")
+            "Samples of dimension d, seeded from the global generator (`set_seed`).")
         .def("__call__", &FastGaussian::operator(), "One sample.");
 
     nb::class_<Uniform, Sampler>(
@@ -109,11 +109,10 @@ void define_samplers(nb::module_ &main)
         m,
         "Sobol",
         "Points of the Sobol sequence in (0, 1)^d, in a random order; BaseSampler.SOBOL.\n\n"
-        "The points (from seed 2 of `utils.i8_sobol` on) are computed when the sampler is "
-        "created, as many as `constants.cache_max_doubles` allows, and drawn through a "
-        "`utils.Shuffler`.")
+        "The points (from the second point of the sequence on) are computed when the sampler "
+        "is created, as many as `constants.cache_max_doubles` allows, and drawn in a random "
+        "order that repeats after all of them.")
         .def(nb::init<size_t>(), nb::arg("d"), "Samples of dimension d.")
-        .def_ro("cache", &Sobol::cache, "The points, a `utils.CachedShuffleSequence`.")
         .def("__call__", &Sobol::operator(), "One sample: the next point in the random order.");
 
     nb::class_<Halton, Sampler>(m,
@@ -159,7 +158,7 @@ void define_samplers(nb::module_ &main)
             nb::arg("cache"),
             nb::arg("transform_ppf") = false,
             "Cycle through the given points (a non-empty list of equally long vectors).\n\n"
-            "With transform_ppf, every coordinate is first mapped through `utils.ppf`, turning "
+            "With transform_ppf, every coordinate is first mapped through the inverse normal CDF, turning "
             "uniform numbers in (0, 1) into standard normal ones.")
         .def("__call__", &CachedSampler::operator(), "One sample: the next point of the cycle.")
         .def_ro("index",
@@ -204,7 +203,7 @@ void define_samplers(nb::module_ &main)
     auto gaussian = nb::class_<GaussianTransformer, SampleTransformer>(
         m,
         "GaussianTransformer",
-        "Standard normal numbers: the inverse normal CDF (`utils.ppf`) of each uniform number, "
+        "Standard normal numbers: the inverse normal CDF of each uniform number, "
         "or the Box-Muller transform of pairs with `constants.use_box_muller` "
         "(SampleTranformerType.GAUSSIAN, the default).\n\n"
         "Its expected length is that of a d-dimensional standard normal vector, "
