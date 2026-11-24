@@ -3,6 +3,12 @@
   <img src="banner.png" alt="Modular CMA-ES Banner"/>
 </p>
 
+> [!WARNING]
+> **This branch holds the pure-Python implementation of the Modular CMA-ES (`modcma.ModularCMAES`,
+> `modcma.AskTellCMAES`, ...), which is no longer maintained.** It was removed from `master` in
+> version 2.0, where the C++ implementation (`modcma.c_maes`, now also `modcma`) is the package. The
+> last release that contains it is 1.2.0: `pip install "modcma<2"`.
+
 <hr>
  
 ![Unittest](https://github.com/IOHprofiler/ModularCMAES/workflows/Unittest/badge.svg) 
