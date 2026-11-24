@@ -31,6 +31,20 @@ class TestPopulation(unittest.TestCase):
         self.S = np.ones((self._dim, self._lambda)) * self._sigma
         self.pop = Population(self.X, self.Z, self.Y, self.f, self.S)
 
+    def test_sort_ties_keep_index_order_nan_last(self):
+        f = np.array([3.0, np.nan, 1.0, 3.0, -np.inf, 1.0, np.nan, 0.0])
+        X = np.arange(2 * len(f), dtype=float).reshape(2, len(f))
+        pop = Population(X, X.copy(), X.copy(), f, np.ones_like(X))
+        pop.sort()
+        np.testing.assert_array_equal(pop.X[0], X[0][[4, 7, 2, 5, 0, 3, 1, 6]])
+        self.assertTrue(np.isnan(pop.f[-2:]).all())
+
+    def test_resize_keeps_capacity(self):
+        self.pop.resize_cols(3)
+        self.assertEqual(self.pop.n, 3)
+        self.assertEqual(self.pop.X.shape, (self._dim, 3))
+        self.assertEqual(self.pop.capacity, self._lambda)
+
     def test_sort(self):
         """Test sorting behaviour."""
         self.pop.sort()
@@ -45,7 +59,8 @@ class TestPopulation(unittest.TestCase):
     def test_keeponly(self):
         """Test keeponly behaviour."""
         f1 = self.pop.f[1]
-        x1 = self.pop.X[:, 1]
+        # a copy: pop.X is a view of the C++ buffer, which keep_only reallocates
+        x1 = self.pop.X[:, 1].copy()
         self.pop.keep_only([1])
         self.assertEqual(self.pop.f[0], f1)
         self.assertTrue(np.all(self.pop.X[:, 0] == x1))

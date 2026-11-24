@@ -19,14 +19,14 @@ void Strategy::select(parameters::Parameters &p) const
     p.pop.sort();
     p.pop.resize_cols(p.lambda);
 
-    p.stats.current_avg = p.pop.f.array().mean();
+    p.stats.current_avg = p.pop.f.head(p.pop.n).array().mean();
     p.stats.update_best(p.pop.X_transformed(Eigen::all, 0), p.pop.f(0));
 }
 
 void Pairwise::operator()(parameters::Parameters &p) const
 {
-    assert(p.pop.f.size() % 2 == 0);
-    for (size_t i = 0; i < static_cast<size_t>(p.pop.f.size()); i += 2)
+    assert(p.pop.n % 2 == 0);
+    for (size_t i = 0; i + 1 < p.pop.n; i += 2)
     {
         Eigen::Index idx = i + (1 * (p.pop.f(i) < p.pop.f(i + 1)));
         p.pop.f(idx) = std::numeric_limits<Float>::infinity();
@@ -43,9 +43,9 @@ void Elitsm::operator()(parameters::Parameters &p) const
         {
             for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(p.old_pop.n); i++)
             {
-                p.old_pop.Y.col(i).noalias() =
-                    p.adaptation->invert_x(p.old_pop.X.col(i), p.old_pop.S.col(i));
-                p.old_pop.Z.col(i).noalias() = p.adaptation->invert_y(p.old_pop.Y.col(i));
+                p.adaptation->invert_x_into(
+                    p.old_pop.X.col(i), p.old_pop.S.col(i), p.old_pop.Y.col(i));
+                p.adaptation->invert_y_into(p.old_pop.Y.col(i), p.old_pop.Z.col(i));
             }
         }
         p.pop += p.old_pop;

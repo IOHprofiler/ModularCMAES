@@ -28,7 +28,7 @@ struct Ellipse
     {
     }
 
-    Float operator()(const Vector &x)
+    Float operator()(Eigen::Ref<const Vector> x)
     {
         evals++;
         const auto x_shift = R * (x.array() - 1.).matrix();

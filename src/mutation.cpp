@@ -6,18 +6,17 @@
 
 namespace mutation
 {
-Vector ThresholdConvergence::scale(const Vector &zi,
-                                   const Float diameter,
-                                   const size_t budget,
-                                   const size_t evaluations)
+void ThresholdConvergence::scale_inplace(Eigen::Ref<Vector> zi,
+                                         const Float diameter,
+                                         const size_t budget,
+                                         const size_t evaluations)
 {
     const Float t =
         init_threshold * diameter *
         pow(static_cast<Float>(budget - evaluations) / static_cast<Float>(budget), decay_factor);
 
     if (const auto norm = zi.norm(); norm < t)
-        return zi.array() * ((t + (t - norm)) / norm);
-    return zi;
+        zi.array() *= ((t + (t - norm)) / norm);
 }
 
 bool SequentialSelection::break_conditions(const size_t i,
@@ -27,12 +26,14 @@ bool SequentialSelection::break_conditions(const size_t i,
                                            const size_t mu)
 {
     const size_t seq_cutoff = static_cast<size_t>(mu * seq_cutoff_factor);
-    return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 0);
+    // With pairwise mirroring only stop after a complete pair (i odd: individuals 0..i are pairs)
+    return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 1);
 }
 
 void SigmaSampler::apply_integer_bounds(parameters::Parameters &p)
 {
-    const Array &Cdiag = p.adaptation->coordinate_wise_variances;
+    // .array() is a view; binding the Vector to const Array & made a temporary copy
+    const auto Cdiag = p.adaptation->coordinate_wise_variances.array();
     for (const auto &iidx : p.settings.integer_variables)
     {
         const Float Cii = std::max(Cdiag[iidx], Float(1e-16));
@@ -61,6 +62,8 @@ void NoSigmaSampler::sample(const Float sigma, parameters::Parameters &p)
 
 void Strategy::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
 {
+    p.pop.reserve(n_offspring);
+    p.pop.n = n_offspring;
     ss->sample(sigma, p);
     p.bounds->n_out_of_bounds = 0;
     p.repelling->prepare_sampling(p);
@@ -70,29 +73,32 @@ void Strategy::mutate(FunctionType &objective, const size_t n_offspring, paramet
         size_t n_rej = 0;
         do
         {
+            // Every step writes into the columns of the population: no allocation per sample
             p.pop.t(i) = p.stats.t;
-            const auto &zi = (*p.sampler)();
-            const auto &zi_scaled = p.mutation->tc->scale(
-                zi, p.settings.diameter, p.settings.budget, p.stats.evaluations);
-            p.pop.Z.col(i).noalias() = zi_scaled;
-            p.pop.Y.col(i).noalias() = p.adaptation->compute_y(p.pop.Z.col(i));
+            p.sampler->sample(p.pop.Z.col(i));
+            p.mutation->tc->scale_inplace(
+                p.pop.Z.col(i), p.settings.diameter, p.settings.budget, p.stats.evaluations);
+            p.adaptation->compute_y_into(p.pop.Z.col(i), p.pop.Y.col(i));
             p.pop.X.col(i).array() =
                 p.pop.Y.col(i).array() * p.pop.S.col(i).array() + p.adaptation->m.array();
             p.bounds->correct(i, p);
 
         } while ((p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
                   n_rej++ < 5 * p.settings.dim &&
-                  p.bounds->is_out_of_bounds(p.pop.X.col(i), p.settings).any()) ||
+                  bounds::any_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub)) ||
                  p.repelling->is_rejected(p.pop.X.col(i), p));
 
-        p.pop.X_transformed.col(i) = p.coordinate_mapping->transform(p.pop.X.col(i));
+        p.coordinate_mapping->transform_into(p.pop.X.col(i), p.pop.X_transformed.col(i));
 
         p.pop.f(i) = objective(p.pop.X_transformed.col(i));
         p.stats.evaluations++;
         if (sq->break_conditions(
                 i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored, p.mu))
         {
-            // TODO: We should renormalize the weights
+            // Sequential selection: the population is individuals 0..i. The columns after i keep
+            // their (stale) contents but are no longer part of it; the weights of the updates are
+            // renormalised for n < lambda (Weights::for_population).
+            p.pop.n = static_cast<size_t>(i) + 1;
             break;
         }
     }
@@ -158,8 +164,11 @@ void MSR::adapt(const parameters::Weights &w,
     const auto n = std::min(pop.n_finite(), old_pop.n_finite());
     if (n != 0)
     {
-        const Float lambda = static_cast<Float>(lamb);
-        const Float k = (pop.f.array() < median(old_pop.f)).cast<Float>().sum();
+        // The individuals of this generation (fewer than lambda after a sequential selection stop)
+        const Float lambda = static_cast<Float>(pop.n);
+        const Float k = (pop.f.head(pop.n).array() < median(old_pop.f.head(old_pop.n)))
+                            .cast<Float>()
+                            .sum();
         const auto z = (2.0 / lambda) * (k - ((lambda + 1.0) / 2.0));
         s = ((1.0 - w.cs) * s) + (w.cs * z);
         sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
@@ -219,7 +228,8 @@ void XNES::adapt(const parameters::Weights &w,
     }
 
     const Float z =
-        ((pop.Z).colwise().squaredNorm().array() - adaptation->dd).matrix() * w.clipped();
+        ((pop.Z.leftCols(pop.n)).colwise().squaredNorm().array() - adaptation->dd).matrix() *
+        w.clipped().head(pop.n);
     sigma *= std::exp((w.cs / std::sqrt(adaptation->dd)) * z);
 }
 
@@ -242,9 +252,9 @@ void LPXNES::adapt(const parameters::Weights &w,
                    const parameters::Stats &stats,
                    const size_t lambda)
 {
-    const auto logS = (pop.S.array() / sigma).log();
+    const auto logS = (pop.S.leftCols(pop.n).array() / sigma).log();
     const Vector per_sample = logS.colwise().mean().transpose();
-    const Float rel_log = per_sample.dot(w.clipped());
+    const Float rel_log = per_sample.dot(w.clipped().head(pop.n));
     sigma *= std::exp(w.cs * rel_log);
 }
 
@@ -262,7 +272,7 @@ void SR::adapt(const parameters::Weights &w,
 void SA::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
 {
     Strategy::mutate(objective, n_offspring, p);
-    mean_sigma = std::exp(p.pop.S.array().log().mean());
+    mean_sigma = std::exp(p.pop.S.leftCols(p.pop.n).array().log().mean());
 }
 
 void SA::adapt(const parameters::Weights &w,
@@ -274,9 +284,9 @@ void SA::adapt(const parameters::Weights &w,
 {
     const Eigen::Index mu = w.positive.size();
 
-    if (mu <= 0 || mu > pop.S.cols())
+    if (mu <= 0 || mu > static_cast<Eigen::Index>(pop.n))
     {
-        throw std::invalid_argument("SA::adapt: mu must be in [1, pop.S.cols()]");
+        throw std::invalid_argument("SA::adapt: mu must be in [1, pop.n]");
     }
 
     if (pop.S.rows() == 0)

@@ -7,14 +7,14 @@ static Float modulo2(const int x) { return (2 + x % 2) % 2; }
 namespace bounds
 {
 
-Mask is_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub)
+Mask is_out_of_bounds(Eigen::Ref<const Vector> xi, const Vector &lb, const Vector &ub)
 {
     return xi.array() < lb.array() || xi.array() > ub.array();
 }
 
-bool any_out_of_bounds(const Vector &xi, const Vector &lb, const Vector &ub)
+bool any_out_of_bounds(Eigen::Ref<const Vector> xi, const Vector &lb, const Vector &ub)
 {
-    return bounds::is_out_of_bounds(xi, lb, ub).any();
+    return ((xi.array() < lb.array()) || (xi.array() > ub.array())).any();
 }
 
 Mask BoundCorrection::is_out_of_bounds(const Vector &xi, const parameters::Settings &settings) const
@@ -34,18 +34,19 @@ void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters &p)
     if (!p.settings.has_bounds)
         return;
 
-    const auto oob = is_out_of_bounds(p.pop.X.col(i), p.settings);
-    if (oob.any())
-    {
-        n_out_of_bounds++;
-        if (p.settings.modules.bound_correction == parameters::CorrectionMethod::NONE)
-            return;
+    // The common case, inside the bounds, needs no mask
+    if (!bounds::any_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub))
+        return;
 
-        p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob, p.mutation->sigma, p.settings);
-        p.pop.X_transformed.col(i) = p.pop.X.col(i);
-        p.pop.Y.col(i) = p.adaptation->invert_x(p.pop.X.col(i), p.pop.S.col(i));
-        p.pop.Z.col(i) = p.adaptation->invert_y(p.pop.Y.col(i));
-    }
+    n_out_of_bounds++;
+    if (p.settings.modules.bound_correction == parameters::CorrectionMethod::NONE)
+        return;
+
+    const Mask oob = bounds::is_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub);
+    p.pop.X.col(i) = correct_x(p.pop.X.col(i), oob, p.mutation->sigma, p.settings);
+    p.pop.X_transformed.col(i) = p.pop.X.col(i);
+    p.adaptation->invert_x_into(p.pop.X.col(i), p.pop.S.col(i), p.pop.Y.col(i));
+    p.adaptation->invert_y_into(p.pop.Y.col(i), p.pop.Z.col(i));
 }
 
 Vector COTN::correct_x(const Vector &xi,

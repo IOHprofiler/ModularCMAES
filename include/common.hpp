@@ -33,7 +33,10 @@ using Indices = Eigen::ArrayXi;
 
 template <typename T> std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);
 
-using FunctionType = std::function<Float(const Vector &)>;
+//! An objective function. It gets the point by reference (a column of the population): a C++
+//! objective reads it without a copy; the Python bindings give Python objectives an array of
+//! their own.
+using FunctionType = std::function<Float(Eigen::Ref<const Vector>)>;
 
 namespace constants
 {
@@ -83,7 +86,7 @@ struct Solution
     //! Evaluations
     size_t e;
 
-    Solution(const Vector &x, const Float y, const size_t t = 0, const size_t e = 0) :
+    Solution(Eigen::Ref<const Vector> x, const Float y, const size_t t = 0, const size_t e = 0) :
         x(x),
         y(y),
         t(t),
@@ -92,7 +95,10 @@ struct Solution
     }
 
     Solution() :
-        Solution({}, std::numeric_limits<Float>::infinity())
+        x(),
+        y(std::numeric_limits<Float>::infinity()),
+        t(0),
+        e(0)
     {
     }
 
@@ -129,6 +135,13 @@ namespace utils
 void sort_index_inplace(const Vector &v, std::vector<size_t> &idx);
 
 void sort_index_inplace(const std::vector<size_t> &v, std::vector<size_t> &idx);
+
+/**
+ * @brief The indices 0..n-1 of v in ascending order of v, into idx (reused, no allocation once it
+ * has the capacity). Ties keep their index order (the order of a stable sort); NaN values come
+ * last. Uses std::sort, which, unlike std::stable_sort, needs no temporary buffer.
+ */
+void sort_order(Eigen::Ref<const Vector> v, std::vector<size_t> &idx);
 
 /**
  * @brief Return an array of indexes of the sorted array
@@ -266,6 +279,9 @@ struct CachedShuffleSequence
     Vector get_index(const size_t idx);
 
     Vector next();
+
+    //! The next point, written into out (no allocation)
+    void next(Eigen::Ref<Vector> out);
 };
 
 /**
@@ -275,7 +291,11 @@ struct CachedShuffleSequence
 template <typename T = Float> struct uniform
 {
     /**
-     * @brief Generate a random uniform number in the closed interval [0, 1]
+     * @brief Generate a random uniform number in the open interval (0, 1)
+     *
+     * The two extreme outputs of the generator, which would give exactly 0 and 1, are rejected:
+     * the transformations of the samplers (ppf, Box-Muller, Laplace, ...) map them to +-infinity.
+     * Every other output gives the same number as before (u = (g - min) / (max - min)).
      *
      * @tparam G the type of the generator
      * @param gen the generator instance
@@ -283,7 +303,10 @@ template <typename T = Float> struct uniform
      */
     template <typename G> T operator()(G &gen)
     {
-        return static_cast<T>(gen() - gen.min()) / gen.max() - gen.min();
+        auto g = gen();
+        while (g == gen.min() || g == gen.max())
+            g = gen();
+        return static_cast<T>(g - gen.min()) / static_cast<T>(gen.max() - gen.min());
     }
 };
 
@@ -316,17 +339,13 @@ template <typename T = Float> struct normal
      */
     template <typename G> T operator()(G &gen)
     {
-        static uniform<Float> rng;
-        static T r1, r2;
-        static bool generate = true;
-
         if (generate)
         {
             T u1 = rng(gen);
             T u2 = rng(gen);
             const T root_log_u1 = std::sqrt(-2.0 * std::log(u1));
             const T two_pi_u2 = 2.0 * M_PI * u2;
-            r1 = (sigma * (root_log_u1 * std::sin(two_pi_u2))) + mu;
+            const T r1 = (sigma * (root_log_u1 * std::sin(two_pi_u2))) + mu;
             r2 = (sigma * (root_log_u1 * std::cos(two_pi_u2))) + mu;
 
             generate = false;
@@ -335,15 +354,23 @@ template <typename T = Float> struct normal
         generate = true;
         return r2;
     }
+
+  private:
+    // The second number of each Box-Muller pair, kept per distribution object. It used to be a
+    // function static, shared by all objects: one object returned the cached number of another
+    // (with that one's mu and sigma), and optimizers in one process influenced each other.
+    uniform<Float> rng;
+    T r2 = 0;
+    bool generate = true;
 };
 } // namespace rng
 
 namespace functions
 {
-Float sphere(const Vector &x);
-Float ellipse(const Vector &x);
-Float rastrigin(const Vector &x);
-Float rosenbrock(const Vector &x);
+Float sphere(Eigen::Ref<const Vector> x);
+Float ellipse(Eigen::Ref<const Vector> x);
+Float rastrigin(Eigen::Ref<const Vector> x);
+Float rosenbrock(Eigen::Ref<const Vector> x);
 Matrix random_rotation_matrix(int n, int seed);
 
 enum ObjectiveFunction

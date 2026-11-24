@@ -20,7 +20,8 @@ struct Stats
     size_t last_update = 0;
     size_t n_updates = 0;
 
-    void update_best(const Vector &x, const Float y)
+    //! x by reference (a column of the population): copied only when it improves
+    void update_best(Eigen::Ref<const Vector> x, const Float y)
     {
         has_improved = false;
         if (y < current_best.y)

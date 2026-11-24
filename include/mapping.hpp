@@ -52,29 +52,36 @@ namespace mapping
 //     return effective_sigma;
 // }
 
-using CoordinateTransformType = std::function<Float(Float)>;
-
-inline Float identity(Float x) { return x; }
-inline Float iround(Float x) { return std::round(x); }
-
+//! Maps a sample to the point that is evaluated: the integer variables are rounded
 struct CoordinateMapping
 {
     size_t d;
-    std::vector<CoordinateTransformType> transformations;
+    std::vector<Eigen::Index> integer_idx;
 
-    CoordinateMapping(const Indices &integer_idx, const size_t d, const Float mueff) :
-        d(d),
-        transformations(d, identity)
+    CoordinateMapping(const Indices &integer_variables, const size_t d, const Float mueff) :
+        d(d)
     {
-        for (int i = 0; i < integer_idx.size(); i++)
-            transformations[i] = iround;
+        for (const auto idx : integer_variables)
+        {
+            if (idx < 0 || static_cast<size_t>(idx) >= d)
+                throw std::invalid_argument("integer variable index " + std::to_string(idx) +
+                                            " is out of range for dimension " + std::to_string(d));
+            integer_idx.push_back(idx);
+        }
     }
 
-    Vector transform(const Vector &x)
+    //! out = x with the integer variables rounded (no allocation)
+    void transform_into(Eigen::Ref<const Vector> x, Eigen::Ref<Vector> out) const
     {
-        Vector y = x;
-        for (size_t i = 0; i < d; i++)
-            y(i) = transformations[i](x(i));
+        out = x;
+        for (const auto idx : integer_idx)
+            out(idx) = std::round(out(idx));
+    }
+
+    [[nodiscard]] Vector transform(const Vector &x) const
+    {
+        Vector y(x.size());
+        transform_into(x, y);
         return y;
     }
 };

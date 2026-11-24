@@ -15,7 +15,13 @@ struct Adaptation
 
     Float dd;
     Float expected_length_z;
-    Matrix M; // Metric matrix
+
+    // Buffers reused by the updates, so that a generation does not allocate. Each update writes
+    // the same Eigen expression into a buffer that a temporary held before: the results are
+    // bit-identical.
+    Vector scratch_vector;
+    Vector weights_scratch;
+    Matrix square_scratch;
 
     Adaptation(const size_t dim,
                const Vector &x0,
@@ -27,8 +33,7 @@ struct Adaptation
         ps(ps),
         coordinate_wise_variances(Vector::Ones(dim)),
         dd(static_cast<Float>(dim)),
-        expected_length_z(expected_length_z),
-        M(Matrix::Identity(dim, dim))
+        expected_length_z(expected_length_z)
     {
     }
 
@@ -38,8 +43,8 @@ struct Adaptation
                                const parameters::Weights &w,
                                const parameters::Stats &stats,
                                const parameters::Settings &settings,
-                               size_t lambda,
-                               size_t mu);
+                               size_t mu,
+                               size_t lambda);
 
     virtual void adapt_evolution_paths_inner(const Population &pop,
                                              const parameters::Weights &w,
@@ -57,7 +62,12 @@ struct Adaptation
     {
         if (settings.one_plus_one and !stats.has_improved)
             return true;
-        return adapt_matrix_inner(w, m, pop, mu, settings, stats);
+        const bool success = adapt_matrix_inner(w, m, pop, mu, settings, stats);
+        // Every matrix adaptation derives coordinate_wise_variances from all entries of its
+        // matrix (row sums of squares, or the diagonal of C, whose decomposition is checked
+        // separately), so a NaN or inf anywhere in the matrix shows up here. Without this check
+        // a run continued with NaN samples until its budget was used up.
+        return success && coordinate_wise_variances.allFinite();
     }
 
     virtual bool adapt_matrix_inner(const parameters::Weights &w,
@@ -67,11 +77,41 @@ struct Adaptation
                                     const parameters::Settings &settings,
                                     parameters::Stats &stats) = 0;
 
-    virtual Vector compute_y(const Vector &) = 0;
+    //! y = A z for the sampling transformation A, written into y (no allocation)
+    virtual void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) = 0;
 
-    virtual Vector invert_x(const Vector &, Vector sigma);
+    //! y = A z as a new vector
+    [[nodiscard]] Vector compute_y(const Vector &z)
+    {
+        Vector y(z.size());
+        compute_y_into(z, y);
+        return y;
+    }
 
-    virtual Vector invert_y(const Vector &) = 0;
+    //! y = (x - m) / sigma, written into y
+    void invert_x_into(Eigen::Ref<const Vector> x,
+                       Eigen::Ref<const Vector> sigma,
+                       Eigen::Ref<Vector> y) const
+    {
+        y = ((x - m).array() / sigma.array()).matrix();
+    }
+
+    [[nodiscard]] Vector invert_x(const Vector &x, const Vector &sigma) const
+    {
+        Vector y(x.size());
+        invert_x_into(x, sigma, y);
+        return y;
+    }
+
+    //! z = A^-1 y for the sampling transformation A, written into z (no allocation)
+    virtual void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) = 0;
+
+    [[nodiscard]] Vector invert_y(const Vector &y)
+    {
+        Vector z(y.size());
+        invert_y_into(y, z);
+        return z;
+    }
 
     virtual void restart(const parameters::Settings &settings, const Float sigma)
     {
@@ -81,7 +121,6 @@ struct Adaptation
         ps.setZero();
         dz.setZero();
         coordinate_wise_variances.setOnes();
-        M = Matrix::Identity(settings.dim, settings.dim);
     }
 
     Float distance(const Vector u, const Vector &v)
@@ -117,9 +156,9 @@ struct None final : Adaptation
                                      size_t mu,
                                      size_t lambda) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct CovarianceAdaptation : Adaptation
@@ -129,6 +168,9 @@ struct CovarianceAdaptation : Adaptation
     Matrix A;
     Matrix inv_root_C;
     bool hs = true;
+
+    // Reused by the matrix update: the eigensolver with its workspace
+    Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
 
     CovarianceAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
         Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
@@ -166,9 +208,9 @@ struct CovarianceAdaptation : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct SeparableAdaptation : Adaptation
@@ -201,9 +243,9 @@ struct SeparableAdaptation : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct MatrixAdaptation final : Adaptation
@@ -235,9 +277,9 @@ struct MatrixAdaptation final : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 
   private:
     bool outdated_M_inv;
@@ -276,9 +318,9 @@ struct CholeskyAdaptation final : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct SelfAdaptation final : Adaptation
@@ -309,9 +351,9 @@ struct SelfAdaptation final : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct CovarianceNoEigvAdaptation : CovarianceAdaptation
@@ -322,7 +364,7 @@ struct CovarianceNoEigvAdaptation : CovarianceAdaptation
 
     bool perform_eigendecomposition(const parameters::Settings &settings) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 };
 
 struct NaturalGradientAdaptation final : Adaptation
@@ -368,9 +410,9 @@ struct NaturalGradientAdaptation final : Adaptation
 
     void restart(const parameters::Settings &settings, const Float sigma) override;
 
-    Vector compute_y(const Vector &) override;
+    void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
-    Vector invert_y(const Vector &) override;
+    void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 
   private:
     bool outdated_A_inv;

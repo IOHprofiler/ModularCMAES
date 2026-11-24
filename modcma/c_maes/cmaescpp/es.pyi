@@ -1,66 +1,221 @@
+from collections.abc import Callable
+from typing import Annotated
+
+import numpy
+import numpy.typing
+from numpy.typing import NDArray
+
 import modcma.c_maes.cmaescpp.bounds
 import modcma.c_maes.cmaescpp.parameters
 import modcma.c_maes.cmaescpp.sampling
-import numpy
-from typing import Callable
 
-class MuCommaLambdaES:
-    S: numpy.ndarray[numpy.float64[m, n]]
-    X: numpy.ndarray[numpy.float64[m, n]]
-    budget: int
-    corrector: modcma.c_maes.cmaescpp.bounds.BoundCorrection
-    d: int
-    e: int
-    f: numpy.ndarray
-    f_min: float
-    lamb: int
-    m: numpy.ndarray
-    mu: int
-    mu_inv: float
-    rejection_sampling: bool
-    sampler: modcma.c_maes.cmaescpp.sampling.Sampler
-    sigma: numpy.ndarray
-    sigma_sampler: modcma.c_maes.cmaescpp.sampling.Sampler
-    t: int
-    target: float
-    tau: float
-    tau_i: float
-    x_min: numpy.ndarray
-    def __init__(
-        self,
-        d: int,
-        x0: numpy.ndarray,
-        sigma0: float = ...,
-        budget: int = ...,
-        target: float = ...,
-        modules: modcma.c_maes.cmaescpp.parameters.Modules = ...,
-    ) -> None: ...
-    def sample(self, arg0: numpy.ndarray) -> numpy.ndarray: ...
-    def step(self, arg0: Callable[[numpy.ndarray], float]) -> None: ...
-    def __call__(self, arg0: Callable[[numpy.ndarray], float]) -> None: ...
 
 class OnePlusOneES:
-    budget: int
-    corrector: modcma.c_maes.cmaescpp.bounds.BoundCorrection
-    d: int
-    decay: float
-    f: float
-    rejection_sampling: bool
-    sampler: modcma.c_maes.cmaescpp.sampling.Sampler
-    sigma: float
-    t: int
-    target: float
-    x: numpy.ndarray
-    def __init__(
-        self,
-        d: int,
-        x0: numpy.ndarray,
-        f0: float,
-        sigma0: float = ...,
-        budget: int = ...,
-        target: float = ...,
-        modules: modcma.c_maes.cmaescpp.parameters.Modules = ...,
-    ) -> None: ...
-    def sample(self) -> numpy.ndarray: ...
-    def step(self, arg0: Callable[[numpy.ndarray], float]) -> None: ...
-    def __call__(self, arg0: Callable[[numpy.ndarray], float]) -> None: ...
+    def __init__(self, d: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], f0: float, sigma0: float = 1.0, budget: int = 10000, target: float = 1e-08, modules: modcma.c_maes.cmaescpp.parameters.Modules = ...) -> None: ...
+
+    def __call__(self, arg: Callable[[numpy.typing.NDArray[numpy.float64]], float], /) -> None: ...
+
+    def step(self, arg: Callable[[numpy.typing.NDArray[numpy.float64]], float], /) -> None: ...
+
+    def sample(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @property
+    def d(self) -> int: ...
+
+    @d.setter
+    def d(self, arg: int, /) -> None: ...
+
+    @property
+    def sigma(self) -> float: ...
+
+    @sigma.setter
+    def sigma(self, arg: float, /) -> None: ...
+
+    @property
+    def decay(self) -> float: ...
+
+    @decay.setter
+    def decay(self, arg: float, /) -> None: ...
+
+    @property
+    def x(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @x.setter
+    def x(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def f(self) -> float: ...
+
+    @f.setter
+    def f(self, arg: float, /) -> None: ...
+
+    @property
+    def t(self) -> int: ...
+
+    @t.setter
+    def t(self, arg: int, /) -> None: ...
+
+    @property
+    def budget(self) -> int: ...
+
+    @budget.setter
+    def budget(self, arg: int, /) -> None: ...
+
+    @property
+    def target(self) -> float: ...
+
+    @target.setter
+    def target(self, arg: float, /) -> None: ...
+
+    @property
+    def sampler(self) -> modcma.c_maes.cmaescpp.sampling.Sampler: ...
+
+    @sampler.setter
+    def sampler(self, arg: modcma.c_maes.cmaescpp.sampling.Sampler, /) -> None: ...
+
+    @property
+    def rejection_sampling(self) -> bool: ...
+
+    @rejection_sampling.setter
+    def rejection_sampling(self, arg: bool, /) -> None: ...
+
+    @property
+    def corrector(self) -> modcma.c_maes.cmaescpp.bounds.BoundCorrection: ...
+
+    @corrector.setter
+    def corrector(self, arg: modcma.c_maes.cmaescpp.bounds.BoundCorrection, /) -> None: ...
+
+class MuCommaLambdaES:
+    def __init__(self, d: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], sigma0: float = 1.0, budget: int = 10000, target: float = 1e-08, modules: modcma.c_maes.cmaescpp.parameters.Modules = ...) -> None: ...
+
+    def __call__(self, arg: Callable[[numpy.typing.NDArray[numpy.float64]], float], /) -> None: ...
+
+    def step(self, arg: Callable[[numpy.typing.NDArray[numpy.float64]], float], /) -> None: ...
+
+    def sample(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @property
+    def d(self) -> int: ...
+
+    @d.setter
+    def d(self, arg: int, /) -> None: ...
+
+    @property
+    def lamb(self) -> int: ...
+
+    @lamb.setter
+    def lamb(self, arg: int, /) -> None: ...
+
+    @property
+    def mu(self) -> int: ...
+
+    @mu.setter
+    def mu(self, arg: int, /) -> None: ...
+
+    @property
+    def sigma(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @sigma.setter
+    def sigma(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def m(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @m.setter
+    def m(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def X(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]: ...
+
+    @X.setter
+    def X(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+
+    @property
+    def S(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]: ...
+
+    @S.setter
+    def S(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+
+    @property
+    def f(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @f.setter
+    def f(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def tau(self) -> float: ...
+
+    @tau.setter
+    def tau(self, arg: float, /) -> None: ...
+
+    @property
+    def tau_i(self) -> float: ...
+
+    @tau_i.setter
+    def tau_i(self, arg: float, /) -> None: ...
+
+    @property
+    def mu_inv(self) -> float: ...
+
+    @mu_inv.setter
+    def mu_inv(self, arg: float, /) -> None: ...
+
+    @property
+    def f_min(self) -> float: ...
+
+    @f_min.setter
+    def f_min(self, arg: float, /) -> None: ...
+
+    @property
+    def x_min(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @x_min.setter
+    def x_min(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def t(self) -> int: ...
+
+    @t.setter
+    def t(self, arg: int, /) -> None: ...
+
+    @property
+    def e(self) -> int: ...
+
+    @e.setter
+    def e(self, arg: int, /) -> None: ...
+
+    @property
+    def budget(self) -> int: ...
+
+    @budget.setter
+    def budget(self, arg: int, /) -> None: ...
+
+    @property
+    def target(self) -> float: ...
+
+    @target.setter
+    def target(self, arg: float, /) -> None: ...
+
+    @property
+    def sampler(self) -> modcma.c_maes.cmaescpp.sampling.Sampler: ...
+
+    @sampler.setter
+    def sampler(self, arg: modcma.c_maes.cmaescpp.sampling.Sampler, /) -> None: ...
+
+    @property
+    def sigma_sampler(self) -> modcma.c_maes.cmaescpp.sampling.Sampler: ...
+
+    @sigma_sampler.setter
+    def sigma_sampler(self, arg: modcma.c_maes.cmaescpp.sampling.Sampler, /) -> None: ...
+
+    @property
+    def rejection_sampling(self) -> bool: ...
+
+    @rejection_sampling.setter
+    def rejection_sampling(self, arg: bool, /) -> None: ...
+
+    @property
+    def corrector(self) -> modcma.c_maes.cmaescpp.bounds.BoundCorrection: ...
+
+    @corrector.setter
+    def corrector(self, arg: modcma.c_maes.cmaescpp.bounds.BoundCorrection, /) -> None: ...

@@ -193,6 +193,20 @@ inline std::string to_string(RepellingType s)
     return "unknown";
 }
 
+inline std::string to_string(RepellingMetric s)
+{
+    switch (s)
+    {
+    case RepellingMetric::EUCLIDEAN:
+        return "EUCLIDEAN";
+    case RepellingMetric::CURRENT:
+        return "CURRENT";
+    case RepellingMetric::ARCHIVED:
+        return "ARCHIVED";
+    }
+    return "unknown";
+}
+
 inline std::string to_string(const Modules &mod)
 {
     std::stringstream ss;
@@ -205,6 +219,7 @@ inline std::string to_string(const Modules &mod)
     ss << " threshold_convergence: " << mod.threshold_convergence;
     ss << " sample_sigma: " << mod.sample_sigma;
     ss << " repelling_type: " << parameters::to_string(mod.repelling_type);
+    ss << " repelling_metric: " << parameters::to_string(mod.repelling_metric);
     ss << " weights: " << parameters::to_string(mod.weights);
     ss << " sampler: " << parameters::to_string(mod.sampler);
     ss << " mirrored: " << parameters::to_string(mod.mirrored);

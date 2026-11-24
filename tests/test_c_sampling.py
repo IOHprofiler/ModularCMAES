@@ -21,13 +21,23 @@ class TestSampling(unittest.TestCase):
         sampler = sampling.Gaussian(5)
         self.sampler_test(sampler, -1.88320896)
 
+    def quasi_random_test(self, make_sampler):
+        # Halton and Sobol scramble with std::shuffle/std::uniform_int_distribution, whose
+        # results differ between standard libraries, so there is no portable expected value
+        # (the golden fixtures pin them per platform). Check range and reproducibility instead.
+        utils.set_seed(10)
+        first = np.array([make_sampler()() for _ in range(3)])
+        utils.set_seed(10)
+        second = np.array([make_sampler()() for _ in range(3)])
+        np.testing.assert_array_equal(first, second)
+        self.assertEqual(first.shape, (3, 5))
+        self.assertTrue(np.all((first > 0) & (first < 1)))
+
     def test_base_sampler_halton(self):
-        sampler = sampling.Halton(5)
-        self.sampler_test(sampler, 2.373425998)
+        self.quasi_random_test(lambda: sampling.Halton(5))
 
     def test_base_sampler_sobol(self):
-        sampler = sampling.Sobol(5)
-        self.sampler_test(sampler, 2.2788658)
+        self.quasi_random_test(lambda: sampling.Sobol(5))
 
     def test_samplers_are_random(self):
         for sampler in (sampling.Halton, sampling.Sobol):

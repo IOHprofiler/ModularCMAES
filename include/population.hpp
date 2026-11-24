@@ -13,7 +13,15 @@ struct Population
     Vector t;
 
     size_t d;
+    //! The number of active columns: individuals 0..n-1 belong to the population. The buffers
+    //! can hold more (capacity()), e.g. after sequential selection stopped a generation early;
+    //! the columns from n on hold no population data and must not be read.
     size_t n;
+
+    [[nodiscard]] size_t capacity() const { return static_cast<size_t>(X.cols()); }
+
+    //! Grow the buffers to at least the given number of columns, keeping their contents
+    void reserve(const size_t columns);
 
     Population(const size_t d, const size_t n) :
         X(d, n),
@@ -50,6 +58,7 @@ struct Population
     {
     }
 
+    //! Sort the active columns by f (ties in index order, NaN last), without allocating
     void sort();
 
     Population &operator+=(const Population &other);
@@ -59,6 +68,12 @@ struct Population
     void keep_only(const std::vector<size_t> &idx);
 
     size_t n_finite() const;
+
+  private:
+    // Reused by sort(): the order of the columns and a buffer to gather them into
+    std::vector<size_t> order;
+    Matrix scratch;
+    Vector scratch_vector;
 };
 
 std::ostream &operator<<(std::ostream &os, const Population &dt);

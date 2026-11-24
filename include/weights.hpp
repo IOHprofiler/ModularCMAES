@@ -29,6 +29,17 @@ struct Weights
 
     Vector clipped() const;
 
+    /**
+     * @brief The weights for a population of n evaluated individuals, mu < n <= lambda (when
+     * sequential selection stopped a generation early). The positive weights are unchanged;
+     * the negative weights of ranks mu..n-1 are scaled so that their sum equals the sum of all
+     * lambda - mu negative weights. For n >= lambda these are the weights themselves.
+     */
+    Vector for_population(const size_t n) const;
+
+    //! for_population into out (no allocation once out has the capacity)
+    void for_population_into(const size_t n, Vector &out) const;
+
     void init_weights(const Settings &settings);
 
     void init_vectors(const size_t mu, const size_t lambda, const Settings &settings);

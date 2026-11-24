@@ -1,107 +1,259 @@
-from typing import Any, Callable, List, overload, ClassVar
+from collections.abc import Callable, Sequence
+from typing import Annotated, ClassVar, overload
 
 import numpy
-from . import (
-    matrix_adaptation,
-    sampling,
-    parameters,
-    mutation,
-    restart,
-    repelling,
-    center,
+import numpy.typing
+from numpy.typing import NDArray
+
+from modcma.c_maes.cmaescpp import (
+    bounds as bounds,
+    center as center,
+    es as es,
+    matrix_adaptation as matrix_adaptation,
+    mutation as mutation,
+    options as options,
+    parameters as parameters,
+    repelling as repelling,
+    restart as restart,
+    sampling as sampling,
+    selection as selection,
+    utils as utils
 )
 
-class Solution:
-    x: numpy.ndarray
-    y: float
-    t: int
-    e: int
 
 class constants:
     cache_max_doubles: ClassVar[int] = ...
+    """(arg: object, /) -> int"""
+
     cache_min_samples: ClassVar[int] = ...
+    """(arg: object, /) -> int"""
+
     cache_samples: ClassVar[bool] = ...
+    """(arg: object, /) -> bool"""
+
     clip_sigma: ClassVar[bool] = ...
-    def __init__(self, *args, **kwargs) -> None: ...
+    """(arg: object, /) -> bool"""
+
+    use_box_muller: ClassVar[bool] = ...
+    """(arg: object, /) -> bool"""
 
 class Population:
-    X: numpy.ndarray
-    Y: numpy.ndarray
-    Z: numpy.ndarray
-    d: int
-    f: numpy.ndarray
-    n: int
-    s: numpy.ndarray
-    t: numpy.ndarray
     @overload
     def __init__(self, dimension: int, n: int) -> None: ...
+
     @overload
-    def __init__(
-        self,
-        X: numpy.ndarray,
-        Z: numpy.ndarray,
-        Y: numpy.ndarray,
-        f: numpy.ndarray,
-        s: numpy.ndarray,
-    ) -> None: ...
-    def keep_only(self, idx: List[int]) -> None: ...
-    def resize_cols(self, size: int) -> None: ...
+    def __init__(self, X: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], Z: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], Y: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], f: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], S: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]) -> None: ...
+
     def sort(self) -> None: ...
-    def __add__(self, other: "Population") -> "Population": ...
+
+    def resize_cols(self, size: int) -> None: ...
+
+    def keep_only(self, idx: Sequence[int]) -> None: ...
+
     @property
     def n_finite(self) -> int: ...
 
+    def __add__(self, other: Population) -> Population: ...
+
+    @property
+    def X(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]: ...
+
+    @X.setter
+    def X(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+
+    @property
+    def X_transformed(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]: ...
+
+    @X_transformed.setter
+    def X_transformed(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+
+    @property
+    def Z(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]: ...
+
+    @Z.setter
+    def Z(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+
+    @property
+    def Y(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]: ...
+
+    @Y.setter
+    def Y(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+
+    @property
+    def S(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]: ...
+
+    @S.setter
+    def S(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+
+    @property
+    def f(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @f.setter
+    def f(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def t(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+
+    @t.setter
+    def t(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def d(self) -> int: ...
+
+    @d.setter
+    def d(self, arg: int, /) -> None: ...
+
+    @property
+    def n(self) -> int: ...
+
+    @n.setter
+    def n(self, arg: int, /) -> None: ...
+
+    @property
+    def capacity(self) -> int: ...
+
 class Parameters:
-    adaptation: (
-        matrix_adaptation.MatrixAdaptation
-        | matrix_adaptation.CovarianceAdaptation
-        | matrix_adaptation.SeparableAdaptation
-        | matrix_adaptation.OnePlusOneAdaptation
-        | matrix_adaptation.NoAdaptation
-    )
-    bounds: Any
-    center_placement: center.Placement
-    criteria: restart.Criteria
-    lamb: int
-    mu: int
-    mutation: mutation.Strategy
-    old_pop: Population
-    pop: Population
-    repelling: repelling.Repelling
-    restart_strategy: restart.Strategy
-    sampler: sampling.Sampler
-    selection: Any
-    settings: parameters.Settings
-    stats: parameters.Stats
-    weights: parameters.Weights
     @overload
     def __init__(self, dimension: int) -> None: ...
+
     @overload
     def __init__(self, settings: parameters.Settings) -> None: ...
+
     def adapt(self) -> None: ...
-    def perform_restart(
-        self,
-        objective: Callable[[numpy.ndarray[numpy.float64[m, 1]]], float],
-        sigma: float | None = ...,
-    ) -> None: ...
-    def start(
-        self, objective: Callable[[numpy.ndarray[numpy.float64[m, 1]]], float]
-    ) -> None: ...
+
+    def start(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None: ...
+
+    def perform_restart(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], sigma: float | None = None) -> None: ...
+
+    def resize_population(self, new_mu: int, new_lambda: int) -> None: ...
+
+    @property
+    def settings(self) -> parameters.Settings: ...
+
+    @settings.setter
+    def settings(self, arg: parameters.Settings, /) -> None: ...
+
+    @property
+    def mu(self) -> int: ...
+
+    @mu.setter
+    def mu(self, arg: int, /) -> None: ...
+
+    @property
+    def lamb(self) -> int: ...
+
+    @lamb.setter
+    def lamb(self, arg: int, /) -> None: ...
+
+    @property
+    def adaptation(self) -> matrix_adaptation.Adaptation: ...
+
+    @adaptation.setter
+    def adaptation(self, arg: matrix_adaptation.Adaptation, /) -> None: ...
+
+    @property
+    def criteria(self) -> restart.Criteria: ...
+
+    @criteria.setter
+    def criteria(self, arg: restart.Criteria, /) -> None: ...
+
+    @property
+    def stats(self) -> parameters.Stats: ...
+
+    @stats.setter
+    def stats(self, arg: parameters.Stats, /) -> None: ...
+
+    @property
+    def weights(self) -> parameters.Weights: ...
+
+    @weights.setter
+    def weights(self, arg: parameters.Weights, /) -> None: ...
+
+    @property
+    def pop(self) -> Population: ...
+
+    @pop.setter
+    def pop(self, arg: Population, /) -> None: ...
+
+    @property
+    def old_pop(self) -> Population: ...
+
+    @old_pop.setter
+    def old_pop(self, arg: Population, /) -> None: ...
+
+    @property
+    def sampler(self) -> sampling.Sampler: ...
+
+    @sampler.setter
+    def sampler(self, arg: sampling.Sampler, /) -> None: ...
+
+    @property
+    def mutation(self) -> mutation.Strategy: ...
+
+    @mutation.setter
+    def mutation(self, arg: mutation.Strategy, /) -> None: ...
+
+    @property
+    def selection(self) -> selection.Strategy: ...
+
+    @selection.setter
+    def selection(self, arg: selection.Strategy, /) -> None: ...
+
+    @property
+    def restart_strategy(self) -> restart.Strategy: ...
+
+    @restart_strategy.setter
+    def restart_strategy(self, arg: restart.Strategy, /) -> None: ...
+
+    @property
+    def repelling(self) -> repelling.Repelling: ...
+
+    @repelling.setter
+    def repelling(self, arg: repelling.Repelling, /) -> None: ...
+
+    @property
+    def bounds(self) -> bounds.BoundCorrection: ...
+
+    @bounds.setter
+    def bounds(self, arg: bounds.BoundCorrection, /) -> None: ...
+
+    @property
+    def center_placement(self) -> center.Placement: ...
+
+    @center_placement.setter
+    def center_placement(self, arg: center.Placement, /) -> None: ...
+
+    @property
+    def coordinate_mapping(self) -> parameters.CoordinateMapping: ...
+
+    @coordinate_mapping.setter
+    def coordinate_mapping(self, arg: parameters.CoordinateMapping, /) -> None: ...
 
 class ModularCMAES:
     @overload
     def __init__(self, parameters: Parameters) -> None: ...
+
     @overload
     def __init__(self, dimension: int) -> None: ...
+
     @overload
     def __init__(self, settings: parameters.Settings) -> None: ...
-    def adapt(self) -> None: ...
-    def break_conditions(self) -> bool: ...
-    def mutate(self, arg0: Callable[[numpy.ndarray], float]) -> None: ...
+
     def recombine(self) -> None: ...
-    def run(self, objective: Callable[[numpy.ndarray], float]) -> None: ...
+
+    def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None: ...
+
     def select(self) -> None: ...
-    def step(self, objective: Callable[[numpy.ndarray], float]) -> bool: ...
-    def __call__(self, objective: Callable[[numpy.ndarray], float]) -> None: ...
+
+    def adapt(self) -> None: ...
+
+    def step(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> bool: ...
+
+    def __call__(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None: ...
+
+    def run(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None: ...
+
+    def break_conditions(self) -> bool: ...
+
     @property
     def p(self) -> Parameters: ...

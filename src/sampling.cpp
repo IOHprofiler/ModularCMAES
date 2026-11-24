@@ -3,27 +3,26 @@
 
 namespace sampling
 {
-[[nodiscard]] Vector Tester::operator()()
+void Tester::sample(Eigen::Ref<Vector> out)
 {
-    Vector x(d);
     ++i;
-    x.array() = static_cast<Float>(i);
-    return x;
-};
+    out.array() = static_cast<Float>(i);
+}
 
-[[nodiscard]] Vector Mirrored::operator()()
+void Mirrored::sample(Eigen::Ref<Vector> out)
 {
     if (!mirror)
     {
-        previous = (*sampler)();
+        sampler->sample(out);
+        previous = out;
         mirror = true;
-        return previous;
+        return;
     }
     mirror = false;
-    return -previous;
+    out = -previous;
 }
 
-[[nodiscard]] Vector Orthogonal::operator()()
+void Orthogonal::sample(Eigen::Ref<Vector> out)
 {
     if (current >= n)
         current = 0;
@@ -31,14 +30,14 @@ namespace sampling
     if (!current)
     {
         for (size_t i = 0; i < n; ++i)
-            samples.col(i) = (*sampler)();
+            sampler->sample(samples.col(i));
 
         const auto norm = samples.colwise().norm().asDiagonal();
 
         qr.compute(samples.transpose());
         samples = ((qr.householderQ() * I).transpose() * norm);
     }
-    return samples.col(current++);
+    out = samples.col(current++);
 }
 
 size_t Orthogonal::get_n_samples(const parameters::Modules &modules, const size_t lambda)
@@ -70,19 +69,16 @@ Halton::Halton(const size_t d, const bool scramble) :
         permutations_ = get_permutations(primes_);
 }
 
-[[nodiscard]] Vector Halton::operator()()
+void Halton::sample(Eigen::Ref<Vector> out)
 {
-    Vector res(d);
-
     if (scramble_)
         for (size_t j = 0; j < d; ++j)
-            res(j) = next(index_, primes_[j], permutations_[j]);
+            out(j) = next(index_, primes_[j], permutations_[j]);
     else
         for (size_t j = 0; j < d; ++j)
-            res(j) = next(index_, primes_[j]);
+            out(j) = next(index_, primes_[j]);
 
     index_++;
-    return res;
 }
 
 Float Halton::next(int index, const int base)

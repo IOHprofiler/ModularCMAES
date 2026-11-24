@@ -1,26 +1,77 @@
 cmake_minimum_required(VERSION 3.12)
 
-# Assign a name to the global project
-project(modcma)
+project(modcma C CXX)
 
-# Set the version of C/C++ (here C++17)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-file(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
-list(FILTER  SRC_FILES  EXCLUDE REGEX ".*interface.cpp$")
- 
-add_executable(main ${SRC_FILES}) 
+if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
 
-target_include_directories(main PUBLIC 
-	${PROJECT_SOURCE_DIR}/include
-	${PROJECT_SOURCE_DIR}/external 
+file(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
+list(FILTER SRC_FILES EXCLUDE REGEX ".*(interface|main)\\.cpp$")
+
+# The library code, shared by the Python extension and the executables below
+add_library(modcma_core STATIC ${SRC_FILES})
+set_target_properties(modcma_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(modcma_core PUBLIC
+  ${PROJECT_SOURCE_DIR}/include
+  ${PROJECT_SOURCE_DIR}/external
 )
 
-if (MSVC)
-  target_compile_options(main PRIVATE /bigobj)
+option(MODCMA_NATIVE "Compile for the host CPU (-march=native); not for distributed binaries" OFF)
 
+if (MSVC)
+  target_compile_options(modcma_core PUBLIC /bigobj)
 else()
-  target_compile_options(main PRIVATE -march=native)
-endif() 
- 
+  target_compile_options(modcma_core PUBLIC -fno-math-errno)
+  if (MODCMA_NATIVE)
+    target_compile_options(modcma_core PUBLIC -march=native)
+  endif()
+endif()
+
+# The Python extension modcma.c_maes.cmaescpp (nanobind). scikit-build-core (pyproject.toml) sets
+# SKBUILD and builds only this; MODCMA_PYTHON=ON builds it next to the C++ targets.
+option(MODCMA_PYTHON "Build the Python extension" OFF)
+if (SKBUILD OR MODCMA_PYTHON)
+  # For an abi3 wheel (wheel.py-api in pyproject.toml) scikit-build-core sets
+  # SKBUILD_SABI_COMPONENT to Development.SABIModule
+  find_package(Python 3.10 REQUIRED COMPONENTS Interpreter Development.Module ${SKBUILD_SABI_COMPONENT})
+  execute_process(
+    COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+    OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
+  find_package(nanobind CONFIG REQUIRED)
+  file(GLOB BINDING_SOURCES ${PROJECT_SOURCE_DIR}/bindings/*.cpp)
+  # NOMINSIZE: keep -O3 (nanobind's default -Os slows the bindings down, measured in
+  # IOHexperimenter). STABLE_ABI: one wheel for CPython 3.12+ (ignored for older versions).
+  # Not FREE_THREADED: the random generator and other state are global (TASKS.md, T4.1).
+  nanobind_add_module(cmaescpp NOMINSIZE STABLE_ABI ${BINDING_SOURCES})
+  target_link_libraries(cmaescpp PRIVATE modcma_core)
+  install(TARGETS cmaescpp LIBRARY DESTINATION modcma/c_maes)
+endif()
+
+if (SKBUILD)
+  return()
+endif()
+
+# Example/experiment driver
+add_executable(main ${PROJECT_SOURCE_DIR}/src/main.cpp)
+target_link_libraries(main PRIVATE modcma_core)
+
+# C++ unit tests for what Python cannot reach (ctest)
+enable_testing()
+add_executable(modcma_tests ${PROJECT_SOURCE_DIR}/tests/cpp/test_main.cpp)
+target_link_libraries(modcma_tests PRIVATE modcma_core)
+add_test(NAME modcma_tests COMMAND modcma_tests)
+
+# Benchmark harness (TASKS.md, T0.2): time per generation and heap allocations per evaluation
+add_executable(modcma_bench ${PROJECT_SOURCE_DIR}/bench/bench.cpp)
+target_link_libraries(modcma_bench PRIVATE modcma_core)
+if (APPLE)
+  # dyld only honours __interpose tuples from a dylib, not from the executable itself
+  add_library(modcma_malloc_count SHARED ${PROJECT_SOURCE_DIR}/bench/malloc_count.c)
+  target_link_libraries(modcma_bench PRIVATE modcma_malloc_count)
+else()
+  target_sources(modcma_bench PRIVATE ${PROJECT_SOURCE_DIR}/bench/malloc_count.c)
+endif()

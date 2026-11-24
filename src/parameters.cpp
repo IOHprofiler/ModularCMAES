@@ -21,8 +21,8 @@ Parameters::Parameters(const Settings &settings) :
     mutation(mutation::get(settings.modules, static_cast<Float>(settings.dim), settings.sigma0)),
     selection(std::make_shared<selection::Strategy>(settings.modules)),
     restart_strategy(restart::strategy::get(settings.modules,
-                                            static_cast<Float>(settings.lambda0),
                                             static_cast<Float>(settings.mu0),
+                                            static_cast<Float>(settings.lambda0),
                                             settings.budget)),
     bounds(bounds::get(settings.modules.bound_correction, settings.dim)),
     repelling(repelling::get(settings.modules)),
@@ -83,7 +83,7 @@ void Parameters::perform_restart(FunctionType &objective, const std::optional<Fl
 
 void Parameters::adapt()
 {
-    adaptation->adapt_evolution_paths(pop, weights, stats, settings, lambda, mu);
+    adaptation->adapt_evolution_paths(pop, weights, stats, settings, mu, lambda);
     mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
 
     if (constants::clip_sigma)
@@ -98,7 +98,9 @@ void Parameters::adapt()
 
 void Parameters::start(FunctionType &objective)
 {
-    old_pop = pop;
+    // The previous generation becomes old_pop: a swap of the buffers (no copy). The next mutate
+    // writes every active column of pop.
+    std::swap(old_pop, pop);
     if (criteria.any())
     {
         const auto sig = restart_strategy->update(*this);
