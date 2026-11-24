@@ -258,6 +258,23 @@ static void test_lapack_eigen()
         const Matrix C = A * A.transpose() + Matrix::Identity(n, n);
         const Eigen::SelfAdjointEigenSolver<Matrix> reference(C);
         {
+            // LU inverse, and dgemm on blocks (outer stride) with both transposes
+            Matrix inv;
+            CHECK(lapack::inverse(C, inv));
+            CHECK((C * inv - Matrix::Identity(n, n)).norm() < 1e-10 * n);
+            Matrix singular = Matrix::Zero(n, n);
+            CHECK(!lapack::inverse(singular, inv));
+            Matrix big = Matrix::Random(n + 3, n + 5);
+            const auto block = big.middleCols(2, n).topRows(n);
+            Matrix out = Matrix::Zero(n, n);
+            lapack::gemm(1.0, C, false, block, true, 0.0, out);
+            CHECK((out - C * block.transpose()).norm() < 1e-12 * (C.norm() * block.norm() + 1));
+            Matrix acc = Matrix::Ones(n, n);
+            lapack::gemm(0.5, block, true, C, false, 2.0, acc);
+            const Matrix expected = 2.0 * Matrix::Ones(n, n) + 0.5 * block.transpose() * C;
+            CHECK((acc - expected).norm() < 1e-12 * (expected.norm() + 1));
+        }
+        {
             Matrix L;
             CHECK(lapack::cholesky(C, L));
             const Matrix reference_L = Eigen::LLT<Matrix>(C).matrixL();

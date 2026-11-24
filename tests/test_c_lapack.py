@@ -14,6 +14,7 @@ class TestLapack(unittest.TestCase):
         self.assertIn(source, ("linked", "scipy"))
         self.assertEqual(c_maes.constants.eigen_solver, -1)  # automatic
         self.assertEqual(c_maes.constants.cholesky_solver, -1)
+        self.assertEqual(c_maes.constants.blas, -1)
 
     def test_eigendecomposition(self):
         rng = np.random.default_rng(1)
@@ -61,6 +62,57 @@ class TestLapack(unittest.TestCase):
                         self.assertLess(cma.p.stats.global_best.y, reaches)
         finally:
             c_maes.constants.cholesky_solver = -1
+
+    def test_inverse_and_products(self):
+        rng = np.random.default_rng(3)
+        for n in (1, 7, 64):
+            M = rng.normal(size=(n, n)) + n * np.eye(n)
+            np.testing.assert_allclose(c_maes.utils.lapack_inverse(M) @ M, np.eye(n), atol=1e-10)
+            B = rng.normal(size=(n, 5))
+            np.testing.assert_allclose(c_maes.utils.blas_gemm(M, B), M @ B, rtol=1e-12, atol=1e-12)
+            np.testing.assert_allclose(
+                c_maes.utils.blas_gemm(B, M, transpose_a=True), B.T @ M, rtol=1e-12, atol=1e-12
+            )
+            np.testing.assert_allclose(
+                c_maes.utils.blas_gemm(B, B, transpose_b=True), B @ B.T, rtol=1e-12, atol=1e-12
+            )
+        with self.assertRaises(RuntimeError):
+            c_maes.utils.lapack_inverse(np.zeros((3, 3)))
+
+    def test_blas_in_the_adaptations(self):
+        # BLAS products and the LU inverse (forced on, d = 40) reach what Eigen reaches; MATRIX
+        # with tight bounds and saturation inverts M after every update
+        d = 40
+        w = 10.0 ** (6.0 * np.arange(d) / (d - 1))
+        cases = [
+            ("COVARIANCE", {}, 1e-8),
+            ("MATRIX", {"bound_correction": "SATURATE"}, 1e-8),
+            ("CHOLESKY", {}, 1e-8),
+            ("NATURAL_GRADIENT", {}, 1e-8),
+            ("COVARIANCE_NO_EIGV", {"active": True}, 1e-8),
+            ("CMSA", {}, 1e2),
+        ]
+        try:
+            for name, extra, reaches in cases:
+                for blas in (0, 1):
+                    with self.subTest(matrix_adaptation=name, blas=blas):
+                        c_maes.constants.blas = blas
+                        modules = c_maes.Modules()
+                        modules.matrix_adaptation = getattr(
+                            c_maes.options.MatrixAdaptationType, name
+                        )
+                        for option, value in extra.items():
+                            self.assertTrue(c_maes.set_module(modules, option, value))
+                        settings = c_maes.Settings(
+                            d, modules, budget=200_000, seed=7,
+                            lb=np.full(d, -3.0), ub=np.full(d, 3.0),
+                        )
+                        settings.target = 1e-8
+                        cma = c_maes.ModularCMAES(settings)
+                        cma.run(lambda X: (X * X) @ w, vectorized=True)
+                        self.assertLess(cma.p.stats.global_best.y, reaches)
+        finally:
+            c_maes.constants.blas = -1
 
     def test_optimizer_with_lapack(self):
         d = 30

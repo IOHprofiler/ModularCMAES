@@ -19,6 +19,8 @@ bool use_box_muller = false;
 int eigen_solver = -1;
 size_t lapack_min_dim = 120;
 int cholesky_solver = -1;
+int blas = -1;
+size_t blas_min_dim = 100;
 } // namespace constants
 
 namespace utils

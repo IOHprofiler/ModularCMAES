@@ -526,14 +526,19 @@ Status (2026-11-24):
 * **T5.3 done.** Wheels: Accelerate on macOS (no size), scipy's LAPACK on Linux/Windows (no size, no
   build change); `build_info()["lapack"]`: linked / scipy / none. CI: tests on every platform
   (`tests/test_c_lapack.py`), a C++ build with LAPACK on Linux. PERFORMANCE.md re-measured.
-* **T5.4 open: BLAS-3 products** (`dgemm`, `dsyrk`, `dtrmm`) through the same function pointers
-  (scipy: `cython_blas`), at the hot spots: the batch `Y = A Z`, the rank updates of C (COVARIANCE,
-  CMSA, xNES), the MA-ES update `M += Y diag(w) Z^T`, `A U` in xNES. One operation, one thread,
-  d = 1000 (lambda = 24), ms: `Y = A Z` Eigen 1.13, Accelerate 0.095, OpenBLAS 0.104;
-  `dsyrk` Eigen 0.47, Accelerate 0.066, OpenBLAS 0.135; `M += Y Z^T` Eigen 0.91, Accelerate 0.14,
-  OpenBLAS 0.13. Expected: MATRIX/CHOLESKY/xNES several times faster at d >= 200, COVARIANCE ~25 %.
-  At d = 100 OpenBLAS's `dsyrk` is slower than Eigen's: per-operation thresholds, measured.
-* **T5.5 open: the inverse of M (MA-ES) and A (xNES).** Computed with Eigen's complete orthogonal
-  decomposition (pseudo-inverse) whenever `invert_y` is needed after an update (bound correction,
-  elitism, repelling): d = 1000 150 ms (!), Eigen LU 56 ms, LAPACK `getrf`+`getri` 6.5 ms
-  (Accelerate) / 14.9 ms (OpenBLAS). LU with a fallback to the pseudo-inverse when M is singular.
+* **T5.4 done: BLAS `dgemm`** (linked, or scipy's `cython_blas`) from `constants.blas_min_dim` = 100
+  (`constants.blas`: -1 auto, 0 Eigen, 1 always) for the batch `Y = A Z` (also the triangular
+  factors: `dtrmm` and `dsyrk` of OpenBLAS are slower than Eigen up to d ~ 200, `dgemm` is not),
+  the rank updates of C (COVARIANCE, CMSA, xNES: one `dgemm` with signed weights, then the lower
+  triangle mirrored), the MA-ES update of M and M^-1, `A U` in xNES. One operation, d = 1000:
+  `Y = A Z` Eigen 1.13 ms, Accelerate 0.095, OpenBLAS 0.104. A single `dgemm` wins from d ~ 30, but
+  whole generations were 6-32 % slower at d = 50, so the threshold is 100.
+* **T5.5 done: LU inverse** (`dgetrf` + `dgetri`) for M (MA-ES) and A (xNES) from `blas_min_dim`,
+  with the pseudo-inverse (complete orthogonal decomposition) as the fallback when singular; d =
+  1000: 150 ms -> 6.5 ms (Accelerate) / 14.9 ms (OpenBLAS) whenever `invert_y` is needed.
+* **Timing re-run** (all implementations, one session): per generation at d = 1000, before T5.4/T5.5
+  -> after: COVARIANCE 5.4 -> 4.4 ms (Eigen only 19.0; pycma 7.1), MATRIX 2.3 -> 0.98, xNES 2.8 ->
+  0.87, COVARIANCE_NO_EIGV 1.0 -> 0.61, CHOLESKY 2.6 -> 2.2, CMSA 2.4 -> 2.2; d <= 50 unchanged.
+  Tier 2 at d = 40 (blas forced on there through the threshold at the time: 8 configurations x 7
+  functions x 25 seeds) against 81cb955: no difference (1 of 112 raw p < 0.05, none after
+  Bonferroni; median evaluations ratio 0.998).

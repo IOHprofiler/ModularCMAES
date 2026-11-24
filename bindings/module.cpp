@@ -86,6 +86,18 @@ void define_constants(nb::module_ &m)
                 constants::cholesky_solver = a;
             })
         .def_prop_rw_static(
+            "blas",
+            [](nb::handle) { return constants::blas; },
+            [](nb::handle, int a) {
+                if (a < -1 || a > 1)
+                    throw nb::value_error("blas: -1 (automatic), 0 (Eigen) or 1 (BLAS/LAPACK)");
+                constants::blas = a;
+            })
+        .def_prop_rw_static(
+            "blas_min_dim",
+            [](nb::handle) { return constants::blas_min_dim; },
+            [](nb::handle, size_t a) { constants::blas_min_dim = a; })
+        .def_prop_rw_static(
             "lapack_min_dim",
             [](nb::handle) { return constants::lapack_min_dim; },
             [](nb::handle, size_t a) { constants::lapack_min_dim = a; });
@@ -213,7 +225,7 @@ void define_utils(nb::module_ &main)
     m.def("set_seed", &rng::set_seed, nb::arg("seed"), "Set the random seed");
     m.def(
         "_set_lapack",
-        [](nb::handle syevd, nb::handle syevr, nb::handle potrf, const std::string &source) {
+        [](nb::dict capsules, const std::string &source) {
             // PyCapsules of scipy.linalg.cython_lapack.__pyx_capi__ (the name is the C signature)
             const auto pointer = [](nb::handle capsule) -> void * {
                 if (!PyCapsule_CheckExact(capsule.ptr()))
@@ -223,18 +235,21 @@ void define_utils(nb::module_ &main)
                     throw nb::python_error();
                 return p;
             };
-            lapack::set_routines(reinterpret_cast<lapack::syevd_fn>(pointer(syevd)),
-                                 reinterpret_cast<lapack::syevr_fn>(pointer(syevr)),
-                                 reinterpret_cast<lapack::potrf_fn>(pointer(potrf)),
-                                 source);
+            const auto get = [&](const char *name) { return pointer(capsules[name]); };
+            lapack::Routines r;
+            r.syevd = reinterpret_cast<lapack::syevd_fn>(get("dsyevd"));
+            r.syevr = reinterpret_cast<lapack::syevr_fn>(get("dsyevr"));
+            r.potrf = reinterpret_cast<lapack::potrf_fn>(get("dpotrf"));
+            r.getrf = reinterpret_cast<lapack::getrf_fn>(get("dgetrf"));
+            r.getri = reinterpret_cast<lapack::getri_fn>(get("dgetri"));
+            r.gemm = reinterpret_cast<lapack::gemm_fn>(get("dgemm"));
+            lapack::set_routines(r, source);
         },
-        nb::arg("syevd"),
-        nb::arg("syevr"),
-        nb::arg("potrf"),
+        nb::arg("capsules"),
         nb::arg("source"),
-        "Use these LAPACK routines (capsules of scipy.linalg.cython_lapack) for the "
-        "eigendecomposition; ignored when the library has its own (build_info()['lapack'] == "
-        "'linked'). modcma.c_maes calls it at import.");
+        "Use these LAPACK/BLAS routines ({name: capsule} of scipy.linalg.cython_lapack and "
+        "cython_blas: dsyevd, dsyevr, dpotrf, dgetrf, dgetri, dgemm); ignored when the library has "
+        "its own (build_info()['lapack'] == 'linked'). modcma.c_maes calls it at import.");
     m.def(
         "lapack_eigh",
         [](const Matrix &C, int method) {
@@ -261,6 +276,31 @@ void define_utils(nb::module_ &main)
         nb::arg("C"),
         "The lower triangular Cholesky factor of C with LAPACK dpotrf (as CMSA and "
         "COVARIANCE_NO_EIGV use it)");
+    m.def(
+        "lapack_inverse",
+        [](const Matrix &M) {
+            Matrix inverse;
+            if (!lapack::inverse(M, inverse))
+                throw std::runtime_error("LAPACK inverse failed (singular) or not available");
+            return inverse;
+        },
+        nb::arg("M"),
+        "The inverse of M with LAPACK dgetrf/dgetri (as MA-ES and xNES use it)");
+    m.def(
+        "blas_gemm",
+        [](const Matrix &A, const Matrix &B, bool transpose_a, bool transpose_b) {
+            if (!lapack::available())
+                throw std::runtime_error("BLAS not available");
+            Matrix C = Matrix::Zero(transpose_a ? A.cols() : A.rows(),
+                                    transpose_b ? B.rows() : B.cols());
+            lapack::gemm(1.0, A, transpose_a, B, transpose_b, 0.0, C);
+            return C;
+        },
+        nb::arg("A"),
+        nb::arg("B"),
+        nb::arg("transpose_a") = false,
+        nb::arg("transpose_b") = false,
+        "op(A) op(B) with BLAS dgemm, as the matrix adaptations use it (for tests)");
     m.def("random_uniform",
           &random_double<rng::uniform<Float>>,
           "Generate a uniform random number in (0, 1)");

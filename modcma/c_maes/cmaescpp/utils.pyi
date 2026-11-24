@@ -34,6 +34,14 @@ def lapack_cholesky(C: Annotated[NDArray[numpy.float64], dict(shape=(None, None)
     The lower triangular Cholesky factor of C with LAPACK dpotrf (as CMSA and COVARIANCE_NO_EIGV use it)
     """
 
+def lapack_inverse(M: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
+    """The inverse of M with LAPACK dgetrf/dgetri (as MA-ES and xNES use it)"""
+
+def blas_gemm(A: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], B: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], transpose_a: bool = False, transpose_b: bool = False) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
+    """
+    op(A) op(B) with BLAS dgemm, as the matrix adaptations use it (for tests)
+    """
+
 def random_uniform() -> float:
     """Generate a uniform random number in (0, 1)"""
 

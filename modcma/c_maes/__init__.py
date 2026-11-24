@@ -46,10 +46,12 @@ def _use_scipy_lapack() -> None:
     if utils.build_info()["lapack"] != "none":
         return
     try:
-        from scipy.linalg import cython_lapack
+        from scipy.linalg import cython_blas, cython_lapack
 
-        capi = cython_lapack.__pyx_capi__
-        utils._set_lapack(capi["dsyevd"], capi["dsyevr"], capi["dpotrf"], "scipy")
+        lapack, blas = cython_lapack.__pyx_capi__, cython_blas.__pyx_capi__
+        capsules = {name: lapack[name] for name in ("dsyevd", "dsyevr", "dpotrf", "dgetrf", "dgetri")}
+        capsules["dgemm"] = blas["dgemm"]
+        utils._set_lapack(capsules, "scipy")
     except Exception as error:  # pragma: no cover - depends on the scipy build
         warnings.warn(f"modcma: scipy's LAPACK is not usable ({error}); using Eigen", stacklevel=2)
 

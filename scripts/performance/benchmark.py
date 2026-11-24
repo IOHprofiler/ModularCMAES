@@ -81,6 +81,7 @@ def modcma_factory(
             # -1 (default): LAPACK (eigendecomposition, Cholesky) from d = 120; 0: Eigen only
             c_maes.constants.eigen_solver = -1 if lapack else 0
             c_maes.constants.cholesky_solver = -1 if lapack else 0
+            c_maes.constants.blas = -1 if lapack else 0
             modules = c_maes.Modules()
             modules.matrix_adaptation = getattr(
                 c_maes.options.MatrixAdaptationType, matrix_adaptation

@@ -55,6 +55,13 @@ extern size_t lapack_min_dim;
 //! The Cholesky factorization of CMSA and COVARIANCE_NO_EIGV: 0 Eigen's LLT, 1 LAPACK dpotrf,
 //! -1 (default) automatic: dpotrf from lapack_min_dim on when LAPACK is available
 extern int cholesky_solver;
+//! Matrix products (dgemm) and the LU inverse of M (MA-ES) and A (xNES): -1 (default) automatic,
+//! BLAS/LAPACK from blas_min_dim on when available; 0 Eigen; 1 always BLAS/LAPACK when available
+extern int blas;
+//! The dimension from which the automatic choice uses BLAS for products and LAPACK for the
+//! inverse. A single dgemm is faster than Eigen's from d ~ 30, but in whole generations (Apple M5,
+//! Accelerate) BLAS was 6-32 % slower at d = 50 and level or faster from d = 100 on
+extern size_t blas_min_dim;
 } // namespace constants
 
 /**

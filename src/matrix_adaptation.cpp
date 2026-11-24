@@ -5,6 +5,24 @@ namespace matrix_adaptation
 using namespace parameters;
 
 /**
+ * Y = A Z for the batch of samples: BLAS dgemm from constants::blas_min_dim on (A dense, or lower
+ * triangular with a zero strictly upper part: dgemm is faster than a triangular product there,
+ * with OpenBLAS by far), Eigen below.
+ */
+static void sample_product(const Matrix &A,
+                           const bool lower_triangular,
+                           Eigen::Ref<const Matrix> Z,
+                           Eigen::Ref<Matrix> Y)
+{
+    if (lapack::use_blas(A.rows()))
+        lapack::gemm(1.0, A, false, Z, false, 0.0, Y);
+    else if (lower_triangular)
+        Y.noalias() = A.triangularView<Eigen::Lower>() * Z;
+    else
+        Y.noalias() = A * Z;
+}
+
+/**
  * S = decay S + c1 v v^T + cmu Y diag(w) Y^T on the lower triangle of S, as rank updates (half the
  * flops of the full products), then mirrored to the upper triangle. The weights of the first
  * n_positive columns are >= 0, the others <= 0 (the order of a sorted population). v may be null.
@@ -19,6 +37,22 @@ static void symmetric_rank_update(Matrix &S,
                                   const Float cmu,
                                   Matrix &scratch)
 {
+    if (lapack::use_blas(S.rows()))
+    {
+        // One dgemm with the signed weights (twice the flops of a rank update, but faster than
+        // Eigen's; OpenBLAS's dsyrk is slower than Eigen's up to d ~ 200), then the lower
+        // triangle mirrored for exact symmetry
+        S *= decay;
+        if (v != nullptr)
+            S.noalias() += (c1 * *v) * v->transpose();
+        scratch.resize(Y.rows(), Y.cols());
+        for (Eigen::Index i = 0; i < Y.cols(); ++i)
+            scratch.col(i) = w(i) * Y.col(i);
+        lapack::gemm(cmu, scratch, false, Y, true, 1.0, S);
+        S.triangularView<Eigen::StrictlyUpper>() = S.transpose();
+        return;
+    }
+
     S.triangularView<Eigen::Lower>() *= decay;
     auto lower = S.selfadjointView<Eigen::Lower>();
     if (v != nullptr)
@@ -255,7 +289,7 @@ void CovarianceAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref
 
 void CovarianceAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
 {
-    Y.noalias() = A * Z;
+    sample_product(A, false, Z, Y);
 }
 
 void CovarianceAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -392,16 +426,29 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     scratch_vector.noalias() = M * ps;
     M *= decay_m;
     M.noalias() += (tau_1 * scratch_vector) * ps.transpose();
-    M.noalias() += batch_scratch * popZ.transpose();
+    if (lapack::use_blas(M.rows()))
+        lapack::gemm(1.0, batch_scratch, false, popZ, true, 1.0, M);
+    else
+        M.noalias() += batch_scratch * popZ.transpose();
 
     if (settings.modules.elitist && !settings.one_plus_one)
     {
         // M_inv = decay M_inv + tau_1 ps (ps^T M_inv) + (Y diag(tau_m w)) (Z^T M_inv)
         scratch_vector.noalias() = M_inv.transpose() * ps;
-        batch_scratch2.noalias() = popZ.transpose() * M_inv;
+        const bool blas = lapack::use_blas(M.rows());
+        if (blas)
+        {
+            batch_scratch2.resize(popZ.cols(), M_inv.cols());
+            lapack::gemm(1.0, popZ, true, M_inv, false, 0.0, batch_scratch2);
+        }
+        else
+            batch_scratch2.noalias() = popZ.transpose() * M_inv;
         M_inv *= decay_m;
         M_inv.noalias() += (tau_1 * ps) * scratch_vector.transpose();
-        M_inv.noalias() += batch_scratch * batch_scratch2;
+        if (blas)
+            lapack::gemm(1.0, batch_scratch, false, batch_scratch2, false, 1.0, M_inv);
+        else
+            M_inv.noalias() += batch_scratch * batch_scratch2;
     }
     else
         outdated_M_inv = true; // Rely on moore penrose pseudo-inv (only when needed)
@@ -425,14 +472,16 @@ void MatrixAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vec
 
 void MatrixAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
 {
-    Y.noalias() = M * Z;
+    sample_product(M, false, Z, Y);
 }
 
 void MatrixAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
 {
     if (outdated_M_inv)
     {
-        M_inv = M.completeOrthogonalDecomposition().pseudoInverse();
+        // LU (LAPACK) from blas_min_dim on, the pseudo-inverse below or when M is singular
+        if (!(lapack::use_blas(M.rows()) && lapack::inverse(M, M_inv)))
+            M_inv = M.completeOrthogonalDecomposition().pseudoInverse();
         outdated_M_inv = false;
     }
     z.noalias() = M_inv * y;
@@ -497,7 +546,7 @@ void CholeskyAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<V
 
 void CholeskyAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
 {
-    Y.noalias() = A.triangularView<Eigen::Lower>() * Z;
+    sample_product(A, true, Z, Y);
 }
 
 void CholeskyAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -575,7 +624,7 @@ void SelfAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vecto
 
 void SelfAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
 {
-    Y.noalias() = A.triangularView<Eigen::Lower>() * Z;
+    sample_product(A, true, Z, Y);
 }
 
 void SelfAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -605,7 +654,7 @@ void CovarianceNoEigvAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eige
 
 void CovarianceNoEigvAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
 {
-    Y.noalias() = A.triangularView<Eigen::Lower>() * Z;
+    sample_product(A, true, Z, Y);
 }
 
 void CovarianceNoEigvAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
@@ -740,9 +789,19 @@ bool NaturalGradientAdaptation::adapt_matrix_inner(const parameters::Weights &w,
             const Vector factors = (t * small.eigenvalues()).array().unaryExpr([](Float x) {
                 return std::expm1(x);
             });
-            batch_scratch.noalias() = A * U;
-            batch_scratch *= factors.asDiagonal();
-            A.noalias() += batch_scratch * U.transpose();
+            if (lapack::use_blas(d))
+            {
+                batch_scratch.resize(d, U.cols());
+                lapack::gemm(1.0, A, false, U, false, 0.0, batch_scratch);
+                batch_scratch *= factors.asDiagonal();
+                lapack::gemm(1.0, batch_scratch, false, U, true, 1.0, A);
+            }
+            else
+            {
+                batch_scratch.noalias() = A * U;
+                batch_scratch *= factors.asDiagonal();
+                A.noalias() += batch_scratch * U.transpose();
+            }
         }
         A *= std::exp(-t * gradient_shift);
     }
@@ -772,14 +831,16 @@ void NaturalGradientAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen
 
 void NaturalGradientAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y)
 {
-    Y.noalias() = A * Z;
+    sample_product(A, false, Z, Y);
 }
 
 void NaturalGradientAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
 {
     if (outdated_A_inv)
     {
-        A_inv = A.completeOrthogonalDecomposition().pseudoInverse();
+        // LU (LAPACK) from blas_min_dim on, the pseudo-inverse below or when A is singular
+        if (!(lapack::use_blas(A.rows()) && lapack::inverse(A, A_inv)))
+            A_inv = A.completeOrthogonalDecomposition().pseudoInverse();
         outdated_A_inv = false;
     }
     z.noalias() = A_inv * y;

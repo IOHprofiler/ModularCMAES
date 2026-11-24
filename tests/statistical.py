@@ -51,10 +51,10 @@ CONFIGS = {
 }
 
 
-def cells():
+def cells(dims=DIMS):
     for config in CONFIGS:
         for fid in FUNCTIONS:
-            for dim in DIMS:
+            for dim in dims:
                 yield config, fid, dim
 
 
@@ -85,10 +85,10 @@ def run_one(task):
     return config, fid, dim, seed, int(cma.p.stats.evaluations), precision
 
 
-def run(output: str, processes: int, configs=None):
+def run(output: str, processes: int, configs=None, dims=DIMS):
     from modcma import c_maes
 
-    tasks = [(c, f, d, s) for c, f, d in cells() for s in SEEDS if not configs or c in configs]
+    tasks = [(c, f, d, s) for c, f, d in cells(dims) for s in SEEDS if not configs or c in configs]
     with multiprocessing.Pool(processes) as pool:
         results = pool.map(run_one, tasks, chunksize=4)
     data = {"build": c_maes.utils.build_info(), "runs": {}}
@@ -145,12 +145,14 @@ def main():
     r.add_argument("--output", required=True)
     r.add_argument("--processes", type=int, default=multiprocessing.cpu_count())
     r.add_argument("--configs", default="", help="comma-separated subset of the configurations")
+    r.add_argument("--dims", default=",".join(map(str, DIMS)), help="comma-separated dimensions")
     c = sub.add_parser("compare")
     c.add_argument("old")
     c.add_argument("new")
     args = parser.parse_args()
     if args.command == "run":
-        run(args.output, args.processes, [c for c in args.configs.split(",") if c])
+        run(args.output, args.processes, [c for c in args.configs.split(",") if c],
+            tuple(int(d) for d in args.dims.split(",")))
     else:
         sys.exit(compare(args.old, args.new))
 
