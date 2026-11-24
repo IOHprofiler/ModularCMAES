@@ -33,6 +33,32 @@ with the default parameters.
 The defaults are the standard CMA-ES (Hansen & Ostermeier 2001; Hansen 2016): full covariance
 matrix, cumulative step-size adaptation, (µ/µ_w, λ) selection with the default weights.
 
+## Modules and features
+
+Not everything you can switch on is a module. The distinction matters for how you use it:
+
+* A **module** is an interchangeable part of the evolution strategy: one of the fields of `Modules`
+  above. Each changes how the strategy samples, selects or adapts, so a different module is a
+  different algorithm. Modules combine freely, form the configuration space (`get_configspace`),
+  and are what you tune or compare in a benchmark.
+* A **feature** changes what you can do with the optimizer, not the strategy: what the problem looks
+  like, how the run is set up, driven, stopped or inspected. Features are set through `Settings` or
+  the API, work with every combination of modules, and are not part of the configuration space.
+
+| features | where |
+|---|---|
+| the problem: dimension, bounds (the box; what happens to points outside it is the `bound_correction` module), integer variables | `Settings(dim, lb, ub, integer_variables)` |
+| the run: starting point and step size, population size, learning rates, budget, target, generations | `Settings(x0, sigma0, lambda0, mu0, cs, ..., budget, target, max_generations)` |
+| evaluation: ask–tell, vectorized objectives, injected or repaired points | `ask`, `tell(f, X)`, `run(..., vectorized=True)` |
+| stopping and restarting: which restart criteria apply, their tolerances, your own criteria | `es.p.criteria`, `modcma.restart` |
+| reproducibility and speed: seeds, threads, the fast random generator, LAPACK and BLAS | `Settings(seed, fast_sampling)`, `modcma.constants` |
+| results: the best solution, the favorite solution (the mean) | `es.p.stats`, `es.xfavorite` |
+
+The numeric settings that change the strategy's behaviour (λ, µ, σ₀, the learning rates) are
+parameters of the algorithm rather than features: they can be tuned along with the modules
+(`get_configspace` includes them, [tuning](tuning.md)), but they do not change which algorithm runs.
+A few settings imply a module choice: λ = 1, for example, is the (1+1)-ES ([below](#combinations-that-are-adjusted)).
+
 ## Setting modules
 
 The options are enums in `modcma.options`, set on a `Modules` object that goes into the `Settings`:

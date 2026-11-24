@@ -1,6 +1,8 @@
 # Settings
 
-`Settings` holds the problem and the parameters of a run. Only the dimension is required; every
+`Settings` holds the problem and the parameters of a run; the algorithm itself is chosen by the
+[modules](modules.md) (`Settings(..., modules=...)`; on the difference, see
+[modules and features](modules.md#modules-and-features)). Only the dimension is required; every
 other argument is a keyword argument with a default:
 
 | argument | default | meaning |

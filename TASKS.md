@@ -772,19 +772,29 @@ the step-size classes have no Python constructor.
 
 ---
 
-## Planned features (WP9-WP18, later; not started)
+## Planned work (WP9-WP21, later; not started)
 
-From the comparison with pycma (2026-11-24). Some are modules of the modular design (HE-ES, dd-CMA,
-VkD, LRA, the noise handling, the bound transformation), others are features around the optimizer
-(constraints, warm starting, gradient injection, saving runs); all work with ask-tell, are off by
-default (no change of results), and is validated on BBOB (or the
-problem class it is for) against pycma or `cmaes` where they have it. Not planned: surrogates
+From the comparison with pycma and `cmaes` (2026-11-24). Divided into **modules** and **features**:
+
+* A **module** is an interchangeable part of the evolution strategy: an option of `Modules` (an enum
+  or a boolean), so it combines with every other module, is part of the configuration space
+  (`get_configspace`) and can be tuned, benchmarked and compared like the existing ones. It changes
+  how the strategy samples, selects or adapts.
+* A **feature** changes what the optimizer can be used for, not the strategy itself: the problem it
+  accepts (constraints, variable types, a gradient), how it is set up or run (a normalized space, a
+  warm start, stopping, saving a run). It is set through `Settings` or the API, works with every
+  configuration of modules, and is not part of the configuration space.
+
+All work with ask-tell, are off by default (no change of results), and are validated on BBOB (or the
+problem class they are for) against pycma or `cmaes` where these have them. Not planned: surrogates
 (lq-CMA-ES), the options that shape the search distribution (per-coordinate sigma0, fixed variables,
 min/max std, condition alleviation, mean learning rate, arbitrary weights, selective mirroring, CSA
 variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, confidence intervals
 (libcmaes), DX-NES-IC and MAP-CMA, GPU or distributed evaluation.
 
-### WP9: Noisy objectives
+### Modules
+
+#### WP9: Noise handling (`Modules.noise_handling`)
 
 * **T9.1 Uncertainty handling (UH-CMA-ES; Hansen et al. 2009, "A method for handling uncertainty in
   evolutionary optimization with an application to feedback control of combustion"; pycma's
@@ -794,112 +804,30 @@ variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, confi
   points of the generation, as TPA's (the state machine of WP3 already has them).
 * **T9.2 Adaptive re-evaluation** (Dinu et al. 2025, cited in the framework paper) as a second option,
   after T9.1.
-* **T9.4 Learning-rate adaptation** (LRA-CMA-ES; Nomura, Akimoto & Ono 2023, "CMA-ES with learning
+* **T9.3** The guide page on noise: `xfavorite` (#24), larger populations, learning-rate adaptation
+  (WP10), the restart criteria that misfire under noise (flat fitness, no improvement), with a
+  BBOB-noisy example (ioh has the noisy functions).
+
+#### WP10: Learning-rate adaptation (`Modules.lr_adapt`)
+
+* **T10.1 Learning-rate adaptation** (LRA-CMA-ES; Nomura, Akimoto & Ono 2023, "CMA-ES with learning
   rate adaptation: can CMA-ES with default population size solve multimodal and noisy problems?";
   `cmaes`' `CMA(lr_adapt=True)`): the learning rates of the mean and of C are adapted to keep a
   target signal-to-noise ratio of the update, so the default population size copes with noise and
   multimodality. A boolean module `lr_adapt`; for every matrix adaptation that has the two rates,
   first COVARIANCE. Compared with `cmaes` on the noisy and multimodal BBOB functions.
-* **T9.3** The guide page on noise: `xfavorite` (#24), larger populations, the restart criteria that
-  misfire under noise (flat fitness, no improvement), with a BBOB-noisy example (ioh has the noisy
-  functions).
 
-### WP10: Constraints
+#### WP11: Matrix adaptations (`Modules.matrix_adaptation`)
 
-* **T10.1 Augmented Lagrangian** (Atamna, Auger & Hansen 2016; Dufossé & Hansen 2021, cited in the
-  paper; pycma's `ConstrainedFitnessAL`/`fmin_con2`). The objective returns f and the constraint
-  values g (g <= 0 feasible); the Lagrange multipliers and penalty factors adapt every generation;
-  `tell(f, g)` for ask-tell. The best *feasible* solution is tracked separately.
-* **T10.2 Infeasible points** (pycma's `is_feasible`): an objective value of NaN (or None) means
-  infeasible; the point is resampled (bounded number of times), as RESAMPLE does for the box.
-* **T10.3** Examples: a linearly constrained sphere, a design problem with nonlinear constraints.
-
-### WP11: Bounds by transformation, and a normalized search space
-
-* **T11.1 Bound transformation** (pycma's default `BoundTransform`: a piecewise linear-quadratic
-  map, the identity in the interior of the box, onto [lb, ub]). The search distribution lives in an
-  unbounded space and the objective sees x = T(x'): no repair, so the update needs no recomputed
-  y and z. As a `bound_correction` option (TRANSFORM) or in the coordinate mapping (which already
-  rounds the integer variables), so it composes with integer variables.
-* **T11.2 Normalized space**: `Settings(normalize=True)` optimizes in [-1, 1]^d (centered at 0, the
-  natural space of CMA-ES: sigma0 relative to a box of width 2) and maps to [lb, ub] for the
-  objective; for problems whose variables have different scales known a priori. With T11.1 the map
-  is smooth at the bounds. The results (best solution, `xfavorite`, the logged x) are in the space
-  of the objective.
-* **T11.3** The guide page on bounds compares repair and transformation (BBOB with bounds, SBOX-COST).
-
-### WP12: Large scale: matrix adaptations
-
-* **T12.1 dd-CMA-ES** (diagonal decoding; Akimoto & Hansen 2020, "Diagonal acceleration for covariance
+* **T11.1 dd-CMA-ES** (diagonal decoding; Akimoto & Hansen 2020, "Diagonal acceleration for covariance
   matrix adaptation evolution strategies", Evolutionary Computation; pycma's `CMA_diagonal_decoding`):
   a diagonal scaling adapted alongside C, fast on separable and ill-scaled problems without losing
   rotation invariance. `MatrixAdaptationType.DIAGONAL_DECODING`.
-* **T12.2 VkD-CMA** (Akimoto & Hansen 2016, "Projection-based restricted covariance matrix
+* **T11.2 VkD-CMA** (Akimoto & Hansen 2016, "Projection-based restricted covariance matrix
   adaptation for high dimension", cited in the paper; pycma's `restricted_gaussian_sampler`):
   C = D (I + V V^T) D with k vectors, O(d k) memory and time per sample; k adapted. VD-CMA is k = 1.
   `MatrixAdaptationType.VKD`.
-* **T12.3** The benchmarks of the docs extended to d = 10 000 for SEPARABLE, VKD, MATRIX; the guide
-  page on matrix adaptation with these two.
-
-### WP13: Restarts and stopping
-
-* **T13.1 Restart from the best point**: `CenterPlacement.BEST` (pycma's `restart_from_best`), the
-  best solution so far as the center of a new run.
-* **T13.2 The missing stopping criteria of pycma**, as `Criterion` classes (they restart, or stop with
-  `restart_strategy=STOP`): `TolFun` (range of the recent and current values below tolfun),
-  `TolFunRel` (relative to the first values), `TolFacUpX` (sigma grew by a factor 1e3 against
-  sigma0: sigma0 too small), `TolXStagnation` (the mean stops moving), `Timeout` (wall-clock time).
-  Each against pycma's definition; the guide page on restarts lists them with pycma's names.
-
-### WP14: Saving and resuming a run
-
-* **T14.1** Pickling of the optimizer: `ModularCMAES`, `Parameters`, `Settings` and every module
-  (`__getstate__`/`__setstate__` in the bindings, from a serialization of the C++ state, including
-  the random generators and the samplers' positions, e.g. Sobol and cached sequences).
-* **T14.2** A run that is pickled and resumed continues bit for bit (a test over the golden
-  configurations); the ask-tell state included (a pending batch).
-* **T14.3** A how-to: checkpointing a long run every n generations.
-
-### WP15: Mixed-integer and categorical variables
-
-* **T15.1 CMA-ES with Margin** (Hamano, Saito, Nomura & Shirakawa 2022, "CMA-ES with margin:
-  lower-bounding marginal probability for mixed-integer black-box optimization"; `cmaes`' `CMAwM`):
-  keeps the probability that an integer variable changes its value above a margin, by correcting the
-  mean and the diagonal of C. Replaces the lower bound on the step size of the integer variables
-  (Marty et al. 2024, the current mechanism) as an option; compared on mixed-integer benchmarks.
-* **T15.2 CatCMA** (Hamano et al. 2024, "CatCMA: stochastic optimization for mixed-category
-  problems"; `cmaes`' `CatCMA`, `CatCMAwM`): categorical variables with a categorical distribution
-  next to the Gaussian, updated jointly. `Settings(categorical_variables=...)` (the number of
-  categories per variable); the objective receives the category indices. Useful for algorithm
-  configuration (the modules of modcma itself are categorical).
-
-### WP16: Warm starting
-
-* **T16.1 WS-CMA-ES** (Nomura, Watanabe, Akimoto, Ozaki & Onishi 2021, "Warm starting CMA-ES for
-  hyperparameter optimization"; `cmaes`' `get_warm_start_mgd`): the initial mean, sigma and C
-  estimated from good solutions of a related task (a list of (x, f) pairs).
-  `modcma.warm_start(solutions, ...)` returns the `Settings` (x0, sigma0) and the initial C; the
-  optimizer accepts an initial C (or A).
-
-### WP17: Gradient injection
-
-For users who have a gradient (analytic, automatic differentiation, adjoint simulations) and come
-from gradient-based optimization. A feature around the optimizer, built on `tell(f, X)` and the
-clipping of injected points (WP8, Hansen 2011).
-
-* **T17.1** Each generation one candidate along the negative gradient from the mean, x = m - sigma
-  c C grad / sqrt(grad^T C grad) with the step length of a typical sample, replaces a sampled point
-  (Hansen 2011, "Injecting external solutions into CMA-ES"; libcmaes' GI-CMA-ES). The gradient comes
-  from a callable `gradient(x)` (`run(f, gradient=...)`, `fmin(..., gradient=...)`) or, with ask-tell,
-  from `es.inject_gradient(g)` before `tell`. A bad gradient costs nothing but the replaced sample:
-  the injected point is only selected when it is good.
-* **T17.2** Compared with CMA-ES without injection on smooth, ill-conditioned functions (BBOB f2,
-  f10, f12; d up to 100) with exact gradients, and with libcmaes' results; a guide page ("Coming
-  from gradient-based optimization").
-
-### WP18: Hessian Estimation Evolution Strategy (HE-ES)
-
-* **T18.1 HE-ES** (Glasmachers & Krause 2020, "The Hessian Estimation Evolution Strategy", PPSN XVI;
+* **T11.3 HE-ES** (Glasmachers & Krause 2020, "The Hessian Estimation Evolution Strategy", PPSN XVI;
   arXiv:2003.13256): a covariance adaptation that estimates curvature directly. Each generation it
   samples mirrored pairs of orthogonal directions, evaluates f at the mean as well, and from
   f(m + sigma b), f(m - sigma b) and f(m) estimates the curvature along each direction; the factor A
@@ -909,12 +837,108 @@ clipping of injected points (WP8, Hansen 2011).
   the generation, as TPA's: the state machine of WP3 supports it). Details (the update and its
   learning rate, the step-size adaptation, the treatment of negative curvature) from the paper;
   the authors' reference code where available.
-* **T18.2** The elitist (1+4)-HE-ES (Glasmachers & Krause 2022, "Convergence analysis of the Hessian
+* **T11.4** The elitist (1+4)-HE-ES (Glasmachers & Krause 2022, "Convergence analysis of the Hessian
   estimation evolution strategy", Evolutionary Computation 30(1)), for which linear convergence on
   convex quadratic functions is proven, as the lambda = 4 elitist configuration.
-* **T18.3** Validated against the paper's results (convex quadratic and BBOB functions) and against
+* **T11.5** Validated against the paper's results (convex quadratic and BBOB functions) and against
   COVARIANCE.
 * Later, to decide: QN-ES (Glasmachers 2025, "A superlinearly convergent evolution strategy",
   arXiv:2505.10987), a quasi-Newton successor built on HE-ES that outperforms it on quadratic
   problems.
+* **T11.6** The benchmarks of the docs extended to d = 10 000 for SEPARABLE, VKD, MATRIX; the guide
+  page on matrix adaptation with these two.
 
+#### WP12: Bound transformation (`Modules.bound_correction`)
+
+* **T12.1 Bound transformation** (pycma's default `BoundTransform`: a piecewise linear-quadratic
+  map, the identity in the interior of the box, onto [lb, ub]). The search distribution lives in an
+  unbounded space and the objective sees x = T(x'): no repair, so the update needs no recomputed
+  y and z. As a `bound_correction` option (TRANSFORM) or in the coordinate mapping (which already
+  rounds the integer variables), so it composes with integer variables.
+* **T12.2** The guide page on bounds compares repair and transformation (BBOB with bounds, SBOX-COST).
+
+#### WP13: Restart from the best point (`Modules.center_placement`)
+
+* **T13.1 Restart from the best point**: `CenterPlacement.BEST` (pycma's `restart_from_best`), the
+  best solution so far as the center of a new run.
+
+#### WP14: Integer handling with a margin (`Modules.integer_handling`, new)
+
+The integer variables are a feature (`Settings.integer_variables`); how they are handled becomes a
+module: LOWER_BOUND (the current lower bound on their step size, Marty et al. 2024, the default)
+or MARGIN.
+
+* **T14.1 CMA-ES with Margin** (Hamano, Saito, Nomura & Shirakawa 2022, "CMA-ES with margin:
+  lower-bounding marginal probability for mixed-integer black-box optimization"; `cmaes`' `CMAwM`):
+  keeps the probability that an integer variable changes its value above a margin, by correcting the
+  mean and the diagonal of C. Replaces the lower bound on the step size of the integer variables
+  (Marty et al. 2024, the current mechanism) as an option; compared on mixed-integer benchmarks.
+
+### Features
+
+#### WP15: Constraints
+
+* **T15.1 Augmented Lagrangian** (Atamna, Auger & Hansen 2016; Dufossé & Hansen 2021, cited in the
+  paper; pycma's `ConstrainedFitnessAL`/`fmin_con2`). The objective returns f and the constraint
+  values g (g <= 0 feasible); the Lagrange multipliers and penalty factors adapt every generation;
+  `tell(f, g)` for ask-tell. The best *feasible* solution is tracked separately.
+* **T15.2 Infeasible points** (pycma's `is_feasible`): an objective value of NaN (or None) means
+  infeasible; the point is resampled (bounded number of times), as RESAMPLE does for the box.
+* **T15.3** Examples: a linearly constrained sphere, a design problem with nonlinear constraints.
+
+#### WP16: A normalized search space
+
+* **T16.1 Normalized space**: `Settings(normalize=True)` optimizes in [-1, 1]^d (centered at 0, the
+  natural space of CMA-ES: sigma0 relative to a box of width 2) and maps to [lb, ub] for the
+  objective; for problems whose variables have different scales known a priori. With T12.1 the map
+  is smooth at the bounds. The results (best solution, `xfavorite`, the logged x) are in the space
+  of the objective.
+
+#### WP17: Stopping criteria
+
+* **T17.1 The missing stopping criteria of pycma**, as `Criterion` classes (they restart, or stop with
+  `restart_strategy=STOP`): `TolFun` (range of the recent and current values below tolfun),
+  `TolFunRel` (relative to the first values), `TolFacUpX` (sigma grew by a factor 1e3 against
+  sigma0: sigma0 too small), `TolXStagnation` (the mean stops moving), `Timeout` (wall-clock time).
+  Each against pycma's definition; the guide page on restarts lists them with pycma's names.
+
+#### WP18: Categorical variables
+
+* **T18.1 CatCMA** (Hamano et al. 2024, "CatCMA: stochastic optimization for mixed-category
+  problems"; `cmaes`' `CatCMA`, `CatCMAwM`): categorical variables with a categorical distribution
+  next to the Gaussian, updated jointly. `Settings(categorical_variables=...)` (the number of
+  categories per variable); the objective receives the category indices. Useful for algorithm
+  configuration (the modules of modcma itself are categorical).
+
+#### WP19: Warm starting
+
+* **T19.1 WS-CMA-ES** (Nomura, Watanabe, Akimoto, Ozaki & Onishi 2021, "Warm starting CMA-ES for
+  hyperparameter optimization"; `cmaes`' `get_warm_start_mgd`): the initial mean, sigma and C
+  estimated from good solutions of a related task (a list of (x, f) pairs).
+  `modcma.warm_start(solutions, ...)` returns the `Settings` (x0, sigma0) and the initial C; the
+  optimizer accepts an initial C (or A).
+
+#### WP20: Gradient injection
+
+For users who have a gradient (analytic, automatic differentiation, adjoint simulations) and come
+from gradient-based optimization. Built on `tell(f, X)` and the clipping of injected points (WP8,
+Hansen 2011).
+
+* **T20.1** Each generation one candidate along the negative gradient from the mean, x = m - sigma
+  c C grad / sqrt(grad^T C grad) with the step length of a typical sample, replaces a sampled point
+  (Hansen 2011, "Injecting external solutions into CMA-ES"; libcmaes' GI-CMA-ES). The gradient comes
+  from a callable `gradient(x)` (`run(f, gradient=...)`, `fmin(..., gradient=...)`) or, with ask-tell,
+  from `es.inject_gradient(g)` before `tell`. A bad gradient costs nothing but the replaced sample:
+  the injected point is only selected when it is good.
+* **T20.2** Compared with CMA-ES without injection on smooth, ill-conditioned functions (BBOB f2,
+  f10, f12; d up to 100) with exact gradients, and with libcmaes' results; a guide page ("Coming
+  from gradient-based optimization").
+
+#### WP21: Saving and resuming a run
+
+* **T21.1** Pickling of the optimizer: `ModularCMAES`, `Parameters`, `Settings` and every module
+  (`__getstate__`/`__setstate__` in the bindings, from a serialization of the C++ state, including
+  the random generators and the samplers' positions, e.g. Sobol and cached sequences).
+* **T21.2** A run that is pickled and resumed continues bit for bit (a test over the golden
+  configurations); the ask-tell state included (a pending batch).
+* **T21.3** A how-to: checkpointing a long run every n generations.
