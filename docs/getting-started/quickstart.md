@@ -67,8 +67,9 @@ best = es.p.stats.global_best
 print(best.x, best.y, es.p.stats.evaluations, es.p.stats.t)
 ```
 
-`es.xfavorite` is the mean of the search distribution as a solution (not evaluated): with a noisy
-objective a better estimate of the optimum than the best evaluated point.
+`es.xfavorite` is the mean of the search distribution as a solution (not evaluated). With a noisy
+objective the recorded value of the best point is biased low, and with a large population the mean
+is often closer to the optimum than the best point.
 
 Everything about the state of the optimizer is in `es.p` (the `Parameters`): `es.p.stats` (the best
 solution, evaluations, generations), `es.p.adaptation.m` (the mean), `es.p.mutation.sigma` (the step

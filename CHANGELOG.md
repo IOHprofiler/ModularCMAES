@@ -38,7 +38,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * Docstrings for the whole API (`help()`, editors), type stubs (with `py.typed`), and a new
   documentation site.
 * `ModularCMAES.xfavorite`: the mean of the search distribution as a solution, as pycma's
-  `xfavorite`; with noise a better estimate of the optimum than the best evaluated point (#24).
+  `xfavorite`; with noise and a large population often closer to the optimum than the best
+  evaluated point, whose recorded value is biased low (#24).
 * Correctly spelled names next to the old ones: `selection.Elitism`, `NoElitism`,
   `repelling.euclidean`, `mahalanobis`, `Adaptation.adapt_evolution_paths_inner`.
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.

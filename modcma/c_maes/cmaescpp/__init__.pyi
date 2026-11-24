@@ -515,7 +515,7 @@ class ModularCMAES:
         """
         The favorite solution, (d,) array: the mean of the search distribution as a point of the objective (integer variables rounded; inside the bounds when a bound correction is used), as pycma's `xfavorite`.
 
-        Not evaluated. With a noisy objective it is a better estimate of the optimum than `p.stats.global_best`, whose value was selected for being low.
+        Not evaluated. With a noisy objective the value of `p.stats.global_best` is biased low (it was selected for being low); the mean averages over the population and, with a large population, is often closer to the optimum.
         """
 
     def recombine(self) -> None:

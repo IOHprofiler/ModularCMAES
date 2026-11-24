@@ -55,8 +55,9 @@ struct ModularCMAES
     /**
      * The favorite solution: the mean of the search distribution as a point of the objective
      * (integer variables rounded; inside the bounds when a bound correction is used), as pycma's
-     * xfavorite. With a noisy objective it estimates the optimum better than the best evaluated
-     * point, whose value was selected for being low. Not evaluated.
+     * xfavorite. Not evaluated. With a noisy objective the value of the best evaluated point is
+     * biased low; the mean averages over the population and, with a large population, is often
+     * closer to the optimum.
      */
     Vector xfavorite() const;
 
