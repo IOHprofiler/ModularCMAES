@@ -42,7 +42,7 @@ Wheels for Linux, macOS and Windows, CPython 3.10 to 3.14, including free-thread
 
     ---
 
-    A generation takes microseconds: up to d = 10, 20–46× faster than pycma and level with a
+    A generation takes microseconds: up to d = 10, 20–47× faster than pycma and level with a
     fully JIT-compiled JAX implementation; faster than pycma, `cmaes`, evosax and EvoTorch from
     d = 10 to 1000. [Benchmarks →](performance.md)
 

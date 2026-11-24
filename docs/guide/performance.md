@@ -28,8 +28,8 @@ batches in parallel with [ask–tell](../getting-started/ask-tell.md).
 ## Choose the matrix adaptation
 
 In high dimension the update of the full covariance matrix dominates. The alternatives are several
-times cheaper per generation (d = 1000: default 4.2 ms; MA-ES 0.95 ms; `COVARIANCE_NO_EIGV`
-0.55 ms; `SEPARABLE` 0.29 ms), at the price of a different, sometimes slower, search: see
+times cheaper per generation (d = 1000: default 6.0 ms; MA-ES 0.96 ms; `COVARIANCE_NO_EIGV`
+1.1 ms; `SEPARABLE` 0.29 ms), at the price of a different, sometimes slower, search: see
 [matrix adaptation](matrix-adaptation.md).
 
 ## LAPACK and BLAS

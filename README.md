@@ -19,7 +19,7 @@ distinct variants, so the same optimizer is
 CMA-ES, IPOP- or BIPOP-CMA-ES, sep-CMA-ES, MA-ES, Cholesky-CMA-ES, an xNES-like natural-gradient ES,
 or any combination in between.
 
-* **Fast**: a generation takes microseconds; up to d = 10, 20–46× faster than pycma and level with
+* **Fast**: a generation takes microseconds; up to d = 10, 20–47× faster than pycma and level with
   a fully JIT-compiled JAX implementation, and faster than pycma, `cmaes`, evosax and EvoTorch from
   d = 10 to 1000 ([benchmarks](docs/performance.md)).
 * **Ask–tell for every module**, with the same results as `run()`, bit for bit; vectorized

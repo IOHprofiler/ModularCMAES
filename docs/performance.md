@@ -7,14 +7,14 @@ adaptations scale with the dimension?
 in Optuna), evosax and EvoTorch at every dimension from 10 to 1000, and level with the fastest
 below:
 
-* up to d = 10: **20–46× faster than pycma**, **13–24× faster than `cmaes`**, **27–78× faster than
+* up to d = 10: **20–47× faster than pycma**, **14–24× faster than `cmaes`**, **27–79× faster than
   EvoTorch**; level with evosax, even when evosax compiles the *entire* run into one XLA program;
-* at d = 100: 1.5–3.9× faster than each of them; at d = 1000: 1.7× faster than pycma, 3.2× than
-  EvoTorch, 12× than evosax and 42× than `cmaes`, with LAPACK and BLAS for the linear algebra in
+* at d = 100: 1.5–3.9× faster than each of them; at d = 1000: 1.2× faster than pycma, 2.3× than
+  EvoTorch, 8× than evosax and 30× than `cmaes`, with LAPACK and BLAS for the linear algebra in
   high dimension (Apple Accelerate on macOS, scipy's LAPACK/BLAS on Linux and Windows; see
   [LAPACK and BLAS](#lapack-and-blas-in-high-dimension));
 * the matrix adaptations without an eigendecomposition (MA-ES, xNES, Cholesky-CMA-ES, …) are
-  another 2–8× faster at d = 1000;
+  another 3–7× faster at d = 1000;
 * on free-threaded Python, independent optimizers run in parallel threads.
 
 ![Time per generation of CMA-ES implementations](assets/performance/implementations.png)
@@ -63,8 +63,8 @@ Time per generation (median):
 
 | implementation | d=2 | d=10 | d=50 | d=100 | d=200 | d=500 | d=1000 |
 |---|---|---|---|---|---|---|---|
-| **modcma** | **1.9 µs** | **5.6 µs** | **83 µs** | **220 µs** | **520 µs** | **1.6 ms** | **4.2 ms** |
-| modcma, Eigen only (no LAPACK/BLAS) | 1.9 µs | 5.5 µs | 83 µs | 227 µs | 857 µs | 5.1 ms | 18.4 ms |
+| **modcma** | **1.9 µs** | **5.5 µs** | **83 µs** | **224 µs** | **573 µs** | **2.1 ms** | **6.0 ms** |
+| modcma, Eigen only (no LAPACK/BLAS) | 1.9 µs | 5.5 µs | 83 µs | 231 µs | 960 µs | 7.7 ms | 32.0 ms |
 | pycma | 87 µs | 111 µs | 312 µs | 409 µs | 792 µs | 2.6 ms | 7.1 ms |
 | cmaes (Optuna) | 45 µs | 75 µs | 340 µs | 865 µs | 3.1 ms | 27.1 ms | 176.8 ms |
 | evosax (JAX, jit + scan) | 1.6 µs | 7.2 µs | 182 µs | 512 µs | 1.7 ms | 10.9 ms | 48.9 ms |
@@ -74,10 +74,10 @@ How many times longer each library takes than modcma (with LAPACK; above 1: modc
 
 | | d=2 | d=10 | d=50 | d=100 | d=200 | d=500 | d=1000 |
 |---|---|---|---|---|---|---|---|
-| pycma | 46× | 20× | 3.8× | 1.9× | 1.5× | 1.6× | 1.7× |
-| cmaes (Optuna) | 24× | 13× | 4.1× | 3.9× | 6.0× | 17× | 42× |
-| evosax (JAX, jit + scan) | 0.9× | 1.3× | 2.2× | 2.3× | 3.3× | 6.7× | 12× |
-| EvoTorch (PyTorch) | 78× | 27× | 2.4× | 1.5× | 1.6× | 2.9× | 3.2× |
+| pycma | 47× | 20× | 3.8× | 1.8× | 1.4× | 1.2× | 1.2× |
+| cmaes (Optuna) | 24× | 14× | 4.1× | 3.9× | 5.5× | 13× | 30× |
+| evosax (JAX, jit + scan) | 0.9× | 1.3× | 2.2× | 2.3× | 3.0× | 5.1× | 8.2× |
+| EvoTorch (PyTorch) | 79× | 27× | 2.4× | 1.5× | 1.5× | 2.2× | 2.3× |
 
 * In low dimension the Python libraries pay a fixed overhead per generation: about 85 µs for pycma,
   45 µs for cmaes and 145 µs for EvoTorch, which is more than a whole modcma generation up to d ≈ 20.
@@ -88,7 +88,9 @@ How many times longer each library takes than modcma (with LAPACK; above 1: modc
   modcma has no compilation step and the same speed for any objective.
 * evosax and `cmaes` decompose the covariance matrix every generation; modcma and pycma only every
   few generations (every 3rd at d = 200, every 9th at d = 1000). This is part of the difference in
-  high dimension.
+  high dimension. Like pycma, modcma updates the covariance matrix itself every generation (since
+  2.0; before, the lazy interval skipped the whole update, which was faster at d = 1000, 4.2 ms
+  instead of 6.0 ms, but lost the updates in between).
 
 ## LAPACK and BLAS in high dimension
 
@@ -153,7 +155,8 @@ first set the threshold. Without them, BLAS breaks even at d ≈ 50–75 (below,
 slower through Accelerate than in Eigen; the call itself costs 20–50 ns), and is used from
 `constants.blas_min_dim` = 100. Per generation, Eigen-only products → BLAS: MA-ES d = 1000
 2.3 → 0.95 ms, xNES 2.8 → 0.87 ms, CMSA 2.4 → 1.9 ms, `COVARIANCE_NO_EIGV` 1.0 → 0.55 ms, the
-default 5.4 → 4.2 ms; unchanged up to d = 50.
+default 5.4 → 4.2 ms; unchanged up to d = 50. (Measured before the covariance matrix was updated
+every generation, see below; the tables are the current numbers.)
 
 The decompositions are the same (eigenvalues to 1e-12 relative, `tests/cpp/test_main.cpp`,
 `tests/test_c_lapack.py`), and the optimizer converges alike (ellipsoid, d = 130, 1e-8: 956 000–
@@ -176,16 +179,16 @@ c_maes.constants.blas_min_dim         # 100: products and the inverse use BLAS/L
 
 | matrix adaptation | d=2 | d=10 | d=50 | d=100 | d=200 | d=500 | d=1000 |
 |---|---|---|---|---|---|---|---|
-| COVARIANCE (default) | 1.9 µs | 5.6 µs | 83 µs | 220 µs | 520 µs | 1.6 ms | 4.2 ms |
-| COVARIANCE, Eigen only (no LAPACK/BLAS) | 1.9 µs | 5.5 µs | 83 µs | 227 µs | 857 µs | 5.1 ms | 18.4 ms |
-| COVARIANCE, fast_sampling | 1.8 µs | 5.0 µs | 79 µs | 208 µs | 497 µs | 1.6 ms | 4.1 ms |
-| COVARIANCE_NO_EIGV | 1.8 µs | 3.3 µs | 18 µs | 41 µs | 72 µs | 223 µs | 554 µs |
-| MATRIX (MA-ES) | 1.6 µs | 2.9 µs | 14 µs | 37 µs | 85 µs | 330 µs | 953 µs |
-| CHOLESKY | 1.8 µs | 3.5 µs | 18 µs | 45 µs | 117 µs | 592 µs | 2.2 ms |
-| CMSA | 1.8 µs | 3.3 µs | 18 µs | 52 µs | 104 µs | 483 µs | 1.9 ms |
-| NATURAL_GRADIENT (xNES) | 2.0 µs | 4.6 µs | 19 µs | 40 µs | 88 µs | 329 µs | 866 µs |
-| SEPARABLE | 1.6 µs | 2.8 µs | 10 µs | 26 µs | 51 µs | 135 µs | 285 µs |
-| NONE (step size only) | 1.6 µs | 2.7 µs | 10 µs | 26 µs | 50 µs | 132 µs | 280 µs |
+| COVARIANCE (default) | **1.9 µs** | **5.5 µs** | **83 µs** | **224 µs** | **573 µs** | **2.1 ms** | **6.0 ms** |
+| COVARIANCE, Eigen only (no LAPACK/BLAS) | 1.9 µs | 5.5 µs | 83 µs | 231 µs | 960 µs | 7.7 ms | 32.0 ms |
+| COVARIANCE, fast_sampling | 1.8 µs | 5.0 µs | 78 µs | 214 µs | 549 µs | 2.1 ms | 5.8 ms |
+| COVARIANCE_NO_EIGV | 1.9 µs | 3.3 µs | 18 µs | 43 µs | 87 µs | 335 µs | 1.1 ms |
+| MATRIX (MA-ES) | 1.6 µs | 3.0 µs | 14 µs | 37 µs | 86 µs | 332 µs | 956 µs |
+| CHOLESKY | 1.8 µs | 3.5 µs | 18 µs | 45 µs | 118 µs | 593 µs | 2.2 ms |
+| CMSA | 1.9 µs | 3.3 µs | 18 µs | 53 µs | 103 µs | 484 µs | 2.0 ms |
+| NATURAL_GRADIENT (xNES) | 2.1 µs | 4.5 µs | 19 µs | 40 µs | 88 µs | 329 µs | 872 µs |
+| SEPARABLE | 1.6 µs | 2.7 µs | 10 µs | 26 µs | 51 µs | 135 µs | 285 µs |
+| NONE (step size only) | 1.6 µs | 2.7 µs | 10 µs | 26 µs | 51 µs | 133 µs | 281 µs |
 
 * The cost per generation follows the update: O(d²λ) for MA-ES, Cholesky-CMA-ES and xNES
   (`NATURAL_GRADIENT`, see below); O(d³) for the eigendecomposition of the default and the Cholesky
@@ -203,8 +206,8 @@ c_maes.constants.blas_min_dim         # 100: products and the inverse use BLAS/L
   the d ≥ 20 rows were measured after this change.
 * MA-ES, Cholesky-CMA-ES, `COVARIANCE_NO_EIGV`, CMSA and xNES are level with the fastest other
   implementation (evosax) at d ≤ 3 and faster than every other implementation from d = 5 to
-  d = 1000 (MA-ES at d = 5: 2.2 µs against 3.2 µs), where they are **3–13× faster than pycma**
-  (0.55–2.2 ms vs 7.1 ms). They are different algorithms, though, not a faster default.
+  d = 1000 (MA-ES at d = 5: 2.2 µs against 3.2 µs), where they are **3–8× faster than pycma**
+  (0.87–2.2 ms vs 7.1 ms). They are different algorithms, though, not a faster default.
 * `fast_sampling` (xoshiro256++ and a ziggurat instead of mt19937 and the inverse normal CDF; a
   different random stream, so off by default) saves up to 10 % here; for the cheap adaptations, where
   sampling dominates, it halves the time (the [C++ benchmark](https://github.com/IOHprofiler/ModularCMAES/blob/master/bench/bench.cpp): `SEPARABLE`,
@@ -224,8 +227,8 @@ cma.run(lambda X: np.sum(X**2, axis=1), vectorized=True)   # X is (λ, d)
 
 | objective | d=2 | d=10 | d=50 | d=100 | d=200 | d=500 | d=1000 |
 |---|---|---|---|---|---|---|---|
-| vectorized (one call per generation) | **1.9 µs** | **5.6 µs** | **83 µs** | **220 µs** | **520 µs** | **1.6 ms** | **4.2 ms** |
-| one call per point | 5.7 µs | 13 µs | 94 µs | 232 µs | 539 µs | 1.7 ms | 4.4 ms |
+| vectorized (one call per generation) | **1.9 µs** | **5.5 µs** | **83 µs** | **224 µs** | **573 µs** | **2.1 ms** | **6.0 ms** |
+| one call per point | 5.5 µs | 13 µs | 95 µs | 236 µs | 573 µs | 2.1 ms | 5.9 ms |
 
 Vectorized evaluation is 2–3× faster in low dimension, where the Python call (about 0.6 µs per
 point) is most of the work. The same holds for the ask–tell interface (`ask()` returns the

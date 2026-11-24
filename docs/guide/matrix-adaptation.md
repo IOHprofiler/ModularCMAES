@@ -9,12 +9,12 @@ efficient on ill-conditioned problems. `matrix_adaptation` chooses how C, or a f
 
 | option | learns | cost per generation | time at d = 1000 | choose it for |
 |---|---|---|---|---|
-| `COVARIANCE` | full C | O(d²λ) + an O(d³) eigendecomposition every few generations | 4.2 ms | the default: the most robust choice up to a few hundred dimensions |
+| `COVARIANCE` | full C | O(d²λ) + an O(d³) eigendecomposition every few generations | 6.0 ms | the default: the most robust choice up to a few hundred dimensions |
 | `MATRIX` (MA-ES) | full M, C = M Mᵀ | O(d²λ) | 0.95 ms | high dimension, when the full covariance matters but CMA-ES is too slow |
 | `NATURAL_GRADIENT` (xNES-like) | full A | O(d²λ) (exact low-rank update) | 0.87 ms | as MA-ES; natural-gradient based |
 | `CHOLESKY` | Cholesky factor | O(d²λ) | 2.2 ms | as MA-ES |
-| `COVARIANCE_NO_EIGV` | full C, Cholesky factor | O(d²λ) + O(d³) every few generations | 0.55 ms | step-size adaptations other than CSA (chosen automatically) |
-| `CMSA` | full C, self-adapted | O(d²λ) + an O(d³) Cholesky factorization every generation | 1.9 ms | with `ssa=SA` (CMSA-ES) |
+| `COVARIANCE_NO_EIGV` | full C, Cholesky factor | O(d²λ) + O(d³) every few generations | 1.1 ms | step-size adaptations other than CSA (chosen automatically) |
+| `CMSA` | full C, self-adapted | O(d²λ) + an O(d³) Cholesky factorization every generation | 2.0 ms | with `ssa=SA` (CMSA-ES) |
 | `SEPARABLE` | the diagonal of C | O(dλ) | 0.29 ms | very high dimension, (nearly) separable problems |
 | `NONE` | nothing (C = I) | O(dλ) | 0.28 ms | isotropic problems, or as a baseline |
 

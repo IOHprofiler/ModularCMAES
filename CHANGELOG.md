@@ -50,7 +50,7 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   (checked against a dump of the 1.x API).
 * Much faster: an in-place population and allocation-free sampling, batched linear algebra, LAPACK
   and BLAS in high dimension, an exact low-rank update for `NATURAL_GRADIENT` (80× faster at
-  d = 1000) and an O(1) stagnation criterion. A generation is 20–46× faster than pycma up to d = 10.
+  d = 1000) and an O(1) stagnation criterion. A generation is 20–47× faster than pycma up to d = 10.
 * Results differ from 1.x in the last bits (batched linear algebra, LAPACK in high dimension), and
   where bugs were fixed (below); the differences are statistically indistinguishable on BBOB.
 
