@@ -772,7 +772,7 @@ the step-size classes have no Python constructor.
 
 ---
 
-## Planned work (WP9-WP21, later; not started)
+## Planned work (WP9-WP22, later; not started)
 
 From the comparison with pycma and `cmaes` (2026-11-24). Divided into **modules** and **features**:
 
@@ -842,10 +842,11 @@ variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, confi
   convex quadratic functions is proven, as the lambda = 4 elitist configuration.
 * **T11.5** Validated against the paper's results (convex quadratic and BBOB functions) and against
   COVARIANCE.
-* Later, to decide: QN-ES (Glasmachers 2025, "A superlinearly convergent evolution strategy",
-  arXiv:2505.10987), a quasi-Newton successor built on HE-ES that outperforms it on quadratic
-  problems.
-* **T11.6** The benchmarks of the docs extended to d = 10 000 for SEPARABLE, VKD, MATRIX; the guide
+* **T11.6 QN-ES** (Glasmachers 2025, "A superlinearly convergent evolution strategy",
+  arXiv:2505.10987) is HE-ES (T11.3) with a quasi-Newton step instead of the weighted recombination
+  of the mean: in the modular design, `matrix_adaptation=HESSIAN_ESTIMATION` with
+  `recombination=QUASI_NEWTON` (WP22), validated against the paper's results.
+* **T11.7** The benchmarks of the docs extended to d = 10 000 for SEPARABLE, VKD, MATRIX; the guide
   page on matrix adaptation with these two.
 
 #### WP12: Bound transformation (`Modules.bound_correction`)
@@ -873,6 +874,38 @@ or MARGIN.
   keeps the probability that an integer variable changes its value above a margin, by correcting the
   mean and the diagonal of C. Replaces the lower bound on the step size of the integer variables
   (Marty et al. 2024, the current mechanism) as an option; compared on mixed-integer benchmarks.
+
+#### WP22: Recombination (`Modules.recombination`, new)
+
+The mean update becomes a module. The framework's purpose is to combine mechanisms that were
+proposed separately and see whether they work together; QN-ES's quasi-Newton step is one of them.
+
+* **T22.1** `RecombinationType.WEIGHTED`: the current weighted recombination of the mu best points
+  (the default, unchanged results).
+* **T22.2** `RecombinationType.QUASI_NEWTON` (Glasmachers 2025): the mean moves by a quasi-Newton step
+  m <- m - H^-1 g, with g estimated from the function values of mirrored pairs (central
+  differences along the sampled directions, (f(m + sigma b) - f(m - sigma b)) / (2 sigma)) and H^-1
+  from the matrix adaptation. First with HE-ES (T11.6, QN-ES as published: HE-ES estimates the
+  curvature, so the step has its scale).
+* **T22.3 Research: with the other matrix adaptations.** On a quadratic function C, M M^T, A A^T all
+  approach H^-1 up to a scale that sigma absorbs; the direction -sigma^2 C g is available, the step
+  length is not. Candidates: the curvature along the step direction from one or two extra
+  evaluations (TPA already evaluates two points along the last mean shift), or a trust region.
+  Compared on smooth BBOB functions (sphere, ellipsoids, Rosenbrock, f1-f14) and on rugged and noisy
+  ones (f15-f24, the noisy suite), against WEIGHTED; a hybrid with restarts (weighted recombination
+  for the global phase, the quasi-Newton step once a run has converged into a smooth basin) as an
+  option to evaluate. Not aware of a published version: possibly a paper.
+* **Interactions** (to settle in the task):
+  * the step uses f-values, not ranks: the invariance of CMA-ES to monotone transformations of f is
+    lost (documented; the guide must say when not to use it: noise, plateaus, rugged landscapes);
+  * requires mirrored sampling (the Settings set it) and, for the curvature, an evaluation at the
+    mean or along the step (extra points, as TPA's);
+  * the recombination weights do not apply to the mean (they still weight the matrix update);
+    elitism (the mean is no longer a combination of the parents) and sequential selection (the
+    gradient needs every direction evaluated) conflict: disabled or rejected by the Settings;
+  * with bounds the step may leave the box (bound correction of the mean, or a step length limited
+    to the box); integer variables break the smoothness the step relies on;
+  * ask-tell: the extra points are part of the generation, as TPA's.
 
 ### Features
 
