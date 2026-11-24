@@ -772,6 +772,61 @@ the step-size classes have no Python constructor.
 
 ---
 
+## WP23: Second round of fixes (found while writing the deep dives; not started)
+
+Three read-only reviews (2026-11-24) compared every module with its source (the papers, pycma 4.6,
+`cmaes`, the framework paper's LaTeX, the Python implementation), and tested every module value,
+every pair and the triples of passing pairs, plus 600 random configurations (sphere and Rastrigin
+with a shifted optimum: with the default box the origin is the start, which hides problems).
+Scripts: the session scratchpad, research_a/b/c. Not fixed yet; most change results (statistical
+tier, golden fixtures).
+
+| # | Where | Problem | Evidence / source |
+|---|---|---|---|
+| F1 | `mutation.cpp:56-64`, `mutation.hpp:95-108` | Sampled step sizes (`sample_sigma`, SA, LPXNES) are one per coordinate, not one per individual: x = m + S∘y is not along y, rotation invariance is lost, and SA's signal shrinks by sqrt(d) | the paper (one sigma per individual), the Python implementation; CMSA+SA and CSA+`sample_sigma` solve 0/5 rotated ellipsoids (d = 10) |
+| F2 | `matrix_adaptation.cpp:693-742` | NATURAL_GRADIENT + active uses CMA's active weights (sum -0.4 to -1.2, heavy on the worst) as xNES utilities: sigma shrinks on a linear function, runs converge prematurely (0/10 on the sphere) | xNES utilities sum to 0 (Glasmachers et al. 2010; `cmaes` XNES) |
+| F3 | `weights.cpp:20-22` | NATURAL_GRADIENT replaces `cs` (and `damps`, `cc`) of every step-size rule by the xNES rate; meant for ssa=XNES (LPXNES+NG does not converge) | |
+| F4 | `weights.cpp:88-97` | SEPARABLE: the cap cmu <= 1 - c1 is applied before the (d+2)/3 scaling; with large populations (IPOP) the decay of C becomes negative | |
+| F5 | `matrix_adaptation.cpp:508-519` | CHOLESKY + active: the failure return of `llt_rank_update_lower` is ignored, a partially downdated factor is used (4 of 88 generations, d = 5) | Eigen LLT.h |
+| F6 | `matrix_adaptation.cpp:570-597` | CMSA + active: negative weights without rescaling, decay ignoring them: C indefinite, thousands of UnableToAdapt restarts | |
+| F7 | `matrix_adaptation.cpp:412, 508; 330-334` | MATRIX, CHOLESKY, SEPARABLE + active: the decay assumes sum(w) = 1 and the negative weights are not rescaled by d/||A^-1 y||^2 (COVARIANCE does both) | Hansen 2016 (active rescaling) |
+| F8 | `weights.cpp:175-185` | DEFAULT weights with mu != lambda/2: "negative" weights come out positive (lambda 10, mu 6: all four), applied with a minus sign by some adaptations and as positive by others | |
+| F9 | `selection.cpp:26-34`, `mutation.cpp:239-258` | PAIRWISE sets the losers' f to +inf: MSR's median is inf (sigma shrinks 5 % per generation whatever f does), `stats.current_avg` is inf, Stagnation's medians are inf, active assigns the negative weights by index | |
+| F10 | `sampling.cpp:12-23` | Mirrored pairs fall out of step: a RESAMPLE or repelling rejection, odd lambda, sequential selection, lambda = 1 carry the mirror state over; PAIRWISE then compares unrelated points | 0 of 5 pairs mirrored with RESAMPLE |
+| F11 | `sampling.cpp:51-66` | Orthogonal blocks are not aligned with generations when lambda < d (samples of one generation not orthogonal); the "- 2 for TPA" is a leftover (TPA's points are extra here) | Wang et al. 2014 (per generation) |
+| F12 | `matrix_adaptation.cpp:139-142, 306` | h_sigma's bias correction counts generations as evaluations / lambda over all runs (restarts, TPA, restart centers included) | Hansen 2016, pycma: per run |
+| F13 | `mutation.cpp:169-171` | Sequential selection compares with the best over all runs; after a restart it never triggers | the paper: improvement over the previous generation |
+| F14 | `matrix_adaptation.cpp:85-86` | dm is divided by mean(S) instead of sigma (differs with sampled step sizes, integer variables, elitism) | |
+| F15 | `mutation.cpp:217` | TPA counts a tie (f+ == f-) as success: sigma grows 16 % after every restart (dm = 0), and diverges with elitism | pycma: a tie is 0 |
+| F16 | `weights.cpp:170` | LPXNES at d = 1: beta = ln 2 / (sqrt(d) ln d) is inf | the Python implementation used max(..., 1) |
+| F17 | `settings.hpp:78, 97-98` | lambda0 = 1 with PAIRWISE: mu0 = 0, NaN weights | |
+| F18 | `matrix_adaptation.cpp:424-441` | MATRIX + elitist: the incremental update of M^-1 drifts from the inverse (0.98 relative after 60 generations); the elites' z are wrong (3/5 failures on an ellipsoid) | |
+| F19 | `center_placement.cpp:26-31, 42-49, 87-94` | UNIFORM, NOVELTY_WEIGHTED, MAXIMIN_TABOO with an infinite or half-infinite box: NaN restart centers | |
+| F20 | `settings.hpp:142-156`, `bounds.cpp:34` | A half-infinite box disables bound correction on the finite side too | |
+| F21 | `mutation.cpp:141`, `bounds.cpp:47` | Integer variables: rounding after the correction can leave the box (lb 0.6, ub 0.9 evaluates 1.0) | |
+| F22 | `sampling.hpp:33, 341-349`; configspace | `sample_transformation=NONE` (U(0, 1), mean 0.5) is in the configuration space and fails everywhere | |
+| F23 | `modcma/c_maes/__init__.py:245-276` | Configspace: the numeric defaults are those of CSA + COVARIANCE and are passed explicitly, so module-specific defaults (XNES/MXNES cs, SR, NG, SEPARABLE, mu = lambda/4) are lost; no conditions for inactive options | matters for tuning |
+| F24 | `mutation.cpp:9-20, 123-124` | Threshold convergence: a threshold in x units applied to z; `budget - evaluations` underflows (size_t) past the budget in ask-tell | the paper: ||x - m||, per generation |
+| F25 | `restart_criteria.cpp:384-390, 226-279` | TolX, ConditionC, NoEffectAxis, NoEffectCoord only for COVARIANCE with CSA (lost when ssa != CSA converts to NO_EIGV); NoEffect criteria are absolute, not relative to m; MaxSigma absolute | pycma (also WP17) |
+| F26 | `restart_strategy.cpp` | BIPOP: small runs have no iteration cap; lambda_small rounded up to even | Hansen 2009, pycma |
+| F27 | `weights.cpp:24-28` | ssa=XNES without NATURAL_GRADIENT: cs = 0.01 (the formula of the Python implementation is commented out): slow | |
+| F28 | docstrings | "With XNES the full xNES" overstated; "CSA does not suit COVARIANCE_NO_EIGV" not supported (same results as COVARIANCE on the tested functions); NG's override of cs undocumented | |
+| F29 | sampling | The expected length of UNIFORM, LAPLACE, LOGISTIC, DOUBLE_WEIBULL transformations is sqrt(d), not theirs (CSA bias); Sobol points repeat with period N (d = 1000: after about 85 generations) | |
+
+Design questions (not bugs, for the maintainer): elitism keeps all lambda survivors ((lambda+lambda),
+the paper: (mu+lambda)) and each parent's own step sizes; `restart_strategy=NONE` still restarts on
+UnableToAdapt (the paper: ignore and continue); MSR compares with the median (pycma: the 0.3-quantile);
+PSR's cs 0.9 (the Python implementation: 0.4); the IPOP limit (d lambda_0)^2 (the paper: 2^9 lambda_0);
+pairwise + active (mirrored losers get negative weights; pycma never gives mirrors negative weights).
+
+**The paper and the code disagree** (for the review response): one sigma per individual (paper) vs
+per coordinate (F1); the xNES step-size description matches MXNES; SR's success is "better than the
+best of generation g" in the paper, the best so far of the run in the code; sequential selection
+(F13); threshold convergence (F24); the IPOP limit; elitism ((mu+lambda) with sigma^(g)); the
+variant count 14,859,936 counts combinations that are identical (COVARIANCE vs COVARIANCE_NO_EIGV
+with ssa != CSA, center placement and repelling metric without restarts or repelling, sample_sigma
+with SA/LPXNES, sequential selection with PAIRWISE at mu = lambda/2, the lambda = 1 overrides).
+
 ## Planned work (WP9-WP22, later; not started)
 
 From the comparison with pycma and `cmaes` (2026-11-24). Divided into **modules** and **features**:
@@ -794,6 +849,17 @@ variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, confi
 
 ### Modules
 
+**Common requirement: extra points from several modules.** Today only the step-size rule can add
+evaluations to a generation (`mutation::Strategy::n_extra_points`, TPA's two points); the budget
+check, the batches of ask-tell and `consume` ask only it. HE-ES/QN-ES (f at the mean, needed before
+the adaptation), the noise handling (re-evaluations, needed before selection) and the quasi-Newton
+step length need the same, together with TPA's: a list of extra-point providers, each with the
+phase in which its values are needed. A prerequisite of WP9, WP11 (HE-ES) and WP22.
+
+The interactions below come from the compatibility review (2026-11-24); each task settles them,
+the Settings enforce the incompatible ones (adjusting or rejecting, as for the existing
+combinations), and the compatibility page of the docs lists them.
+
 #### WP9: Noise handling (`Modules.noise_handling`)
 
 * **T9.1 Uncertainty handling (UH-CMA-ES; Hansen et al. 2009, "A method for handling uncertainty in
@@ -808,6 +874,14 @@ variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, confi
   (WP10), the restart criteria that misfire under noise (flat fitness, no improvement), with a
   BBOB-noisy example (ioh has the noisy functions).
 
+* **Interactions.** Re-evaluations happen before selection; the budget counts them (variable with
+  adaptive re-evaluation). Conflicts: sequential selection (stops on one noisy value), elitism
+  (elites keep lucky values: re-evaluate them or disable), PAIRWISE and TPA (decide on single
+  values), SR's success ratio, the hill-valley tests of repelling; the restart criteria FlatFitness,
+  NoImprovement, Stagnation and TolX misfire under noise, MaxSigma fights the sigma increase.
+  Restarts reset its state. With SA/LPXNES sigma is also encoded in the sampled step sizes: decide
+  how the increase applies. Bound correction and integer variables: re-evaluate the evaluated point.
+
 #### WP10: Learning-rate adaptation (`Modules.lr_adapt`)
 
 * **T10.1 Learning-rate adaptation** (LRA-CMA-ES; Nomura, Akimoto & Ono 2023, "CMA-ES with learning
@@ -816,6 +890,13 @@ variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, confi
   target signal-to-noise ratio of the update, so the default population size copes with noise and
   multimodality. A boolean module `lr_adapt`; for every matrix adaptation that has the two rates,
   first COVARIANCE. Compared with `cmaes` on the noisy and multimodal BBOB functions.
+
+* **Interactions.** A mean learning rate below 1 shrinks dm, which CSA's path, TPA's line and h_sigma
+  see; user-given c1 and cmu are scaled by it. With COVARIANCE_NO_EIGV the signal-to-noise ratios
+  can use the Cholesky factor (invariant to the factor). MATRIX (multiplicative update) needs its
+  own definition of the change of the matrix; NATURAL_GRADIENT overlaps with xNES's rates.
+  Elitism and lambda = 1 are outside the method (Settings switch it off); meaningless with the
+  quasi-Newton recombination (WP22). Restarts reset it. The lazy decomposition gives a stale metric.
 
 #### WP11: Matrix adaptations (`Modules.matrix_adaptation`)
 
@@ -849,6 +930,23 @@ variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, confi
 * **T11.7** The benchmarks of the docs extended to d = 10 000 for SEPARABLE, VKD, MATRIX; the guide
   page on matrix adaptation with these two.
 
+* **Interactions.**
+  * dd-CMA-ES: CSA works in its own coordinates, so the "ssa != CSA -> COVARIANCE_NO_EIGV" rule does
+    not apply; the restart criteria that read B and D (today only for COVARIANCE) must read
+    D C~ D; the integer floor and the margin (WP14) use its diagonal; no (1+1) variant.
+  * VkD-CMA: the inverse in O(dk) (Woodbury) for elitism, bound repair, injection and the CURRENT
+    repelling metric; the ARCHIVED metric (a d x d matrix per taboo point) defeats its O(dk)
+    memory; its reference step-size rule may not be CSA (to check); ConditionC from D and V.
+  * HE-ES: needs MIRRORED (not PAIRWISE, which sets the losers' f to inf before the adaptation),
+    orthogonal sampling and an even lambda (the Settings set them) and f at the mean (an extra
+    point; after a restart it is the evaluated restart center). Incompatible: sequential selection,
+    sampled step sizes (so SA and LPXNES), RESAMPLE and repelling rejections (they break the pairs,
+    F10), injected points, integer variables; a bound repair of one member drops the pair (or use the
+    transformation, WP12). Active is meaningless (switched off, as for NONE). The (1+4) variant is
+    lambda = 4, mu = 1, elitist, mirrored, orthogonal, with a success rule, not the lambda = 1 path.
+  * QN-ES / quasi-Newton recombination: see WP22; CSA's path length is meaningless for Newton steps
+    (it needs its own step-size rule or TPA as a line search).
+
 #### WP12: Bound transformation (`Modules.bound_correction`)
 
 * **T12.1 Bound transformation** (pycma's default `BoundTransform`: a piecewise linear-quadratic
@@ -858,10 +956,21 @@ variants), multi-objective variants (COMO-CMA-ES, MO-CMA-ES), Safe CMA-ES, confi
   rounds the integer variables), so it composes with integer variables.
 * **T12.2** The guide page on bounds compares repair and transformation (BBOB with bounds, SBOX-COST).
 
+* **Interactions.** Best placed in the coordinate mapping (so round(T(x)) composes with integer
+  variables); no recomputation of y and z. Must work per coordinate for half-infinite boxes (F20);
+  `xfavorite` returns T(m); injection needs a preimage; the repelling archive must hold internal
+  coordinates (today the hill-valley query maps archived points again). MaxSigma no longer pulls
+  sigma back; `n_out_of_bounds` loses its meaning; it excludes the other corrections (same enum).
+
 #### WP13: Restart from the best point (`Modules.center_placement`)
 
 * **T13.1 Restart from the best point**: `CenterPlacement.BEST` (pycma's `restart_from_best`), the
   best solution so far as the center of a new run.
+
+* **Interactions.** Conflicts with repelling restarts (the best point is in a taboo region:
+  rejections until TooMuchRepelling) and with NOVELTY_WEIGHTED/MAXIMIN_TABOO (opposite purpose):
+  warn or exclude. The best point is the evaluated one (rounded, or transformed with WP12): it
+  needs internal coordinates. Its value is known, so the restart center needs no evaluation.
 
 #### WP14: Integer handling with a margin (`Modules.integer_handling`, new)
 
@@ -874,6 +983,12 @@ or MARGIN.
   keeps the probability that an integer variable changes its value above a margin, by correcting the
   mean and the diagonal of C. Replaces the lower bound on the step size of the integer variables
   (Marty et al. 2024, the current mechanism) as an option; compared on mixed-integer benchmarks.
+
+* **Interactions.** Replaces the floor on the step size of integer variables; uses the marginal
+  variances (available for every adaptation). Its mean correction comes after recombination, so it
+  changes dm (CSA, TPA, h_sigma) and conflicts with elitism and the quasi-Newton step; rounding
+  targets within [lb, ub] (fixes F21). With dd-CMA two diagonal corrections: check they do not
+  fight. Incompatible with HE-ES and QN-ES (rounding). Restarts reset it.
 
 #### WP22: Recombination (`Modules.recombination`, new)
 

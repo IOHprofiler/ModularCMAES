@@ -32,6 +32,13 @@ nav = [
     { "Performance" = "guide/performance.md" },
     { "Tuning" = "guide/tuning.md" },
     { "The C++ library" = "guide/cpp.md" },
+    { "Compatibility of modules" = "guide/compatibility.md" },
+  ] },
+  { "Deep dives" = [
+    "deep-dives/index.md",
+    { "Matrix adaptations" = "deep-dives/matrix-adaptations.md" },
+    { "Step-size adaptation" = "deep-dives/step-size-adaptation.md" },
+    { "Selection, sampling and restarts" = "deep-dives/selection-sampling-restarts.md" },
   ] },
   { "Examples" = [
     "examples/index.md",

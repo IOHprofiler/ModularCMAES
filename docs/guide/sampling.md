@@ -20,8 +20,9 @@ distribution of z, by default the standard normal.
 * `mirrored=MIRRORED`: half of the z are the negatives of the other half, which removes a bias in
   the recombination (Brockhoff et al. 2010). `PAIRWISE` also selects only the better point of each
   pair (Auger et al. 2011), so mirrored points do not cancel each other; it makes λ even.
-* `orthogonal=True`: the samples are drawn in blocks of max(d, λ), orthonormalized (a Householder
-  QR decomposition) and given the lengths of the original samples (Wang et al. 2014).
+* `orthogonal=True`: the samples are orthonormalized in groups of at most d (a Householder QR
+  decomposition) and given the lengths of the original samples (Wang et al. 2014); with λ < d a
+  group spans generations ([deep dive](../deep-dives/selection-sampling-restarts.md#orthogonal-sampling)).
 
 ## Step sizes per point and threshold convergence
 

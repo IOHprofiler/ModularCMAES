@@ -434,15 +434,18 @@ void define_options(nb::module_ &main)
         .value("COVARIANCE_NO_EIGV",
                MatrixAdaptationType::COVARIANCE_NO_EIGV,
                "The covariance update of COVARIANCE, with C factorized by a Cholesky "
-               "decomposition instead of an eigendecomposition (cheaper). The path p_sigma does "
-               "not use C^-1/2, so CSA does not suit it. Chosen automatically when COVARIANCE is "
-               "combined with a step-size adaptation other than CSA.")
+               "decomposition instead of an eigendecomposition (cheaper). The path p_sigma uses the "
+               "inverse Cholesky factor instead of C^-1/2 (the same up to a rotation), which "
+               "worked as well as COVARIANCE with CSA in tests. Chosen automatically when "
+               "COVARIANCE is combined with a step-size adaptation other than CSA.")
         .value("NATURAL_GRADIENT",
                MatrixAdaptationType::NATURAL_GRADIENT,
                "xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is "
                "updated with the matrix exponential of the natural gradient, A <- A expm(eta G); "
                "a low-rank form keeps it O(d^2 lambda) for lambda < d. With "
-               "StepSizeAdaptation.XNES the full xNES.");
+               "StepSizeAdaptation.XNES also xNES's update of sigma; the mean and the weights "
+               "remain those of the framework (no utility baseline), and the active update does "
+               "not give xNES's utilities (see the deep dive on matrix adaptations).");
 
     nb::enum_<CenterPlacement>(
         m,

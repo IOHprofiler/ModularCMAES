@@ -112,7 +112,10 @@ Many published CMA-ES variants are a combination of modules:
 ## Combinations that are adjusted
 
 All modules can be combined, but a few combinations are adjusted when the `Settings` are created
-(check `es.p.settings.modules` for what is used):
+(check `es.p.settings.modules` for what is used). The full list, with the options that have no
+effect in some combinations and the combinations to avoid, is on the
+[compatibility](compatibility.md) page; how each module compares with the published algorithm is in
+the [deep dives](../deep-dives/index.md). The main adjustments:
 
 * `ssa` other than `CSA` with `matrix_adaptation=COVARIANCE`: `COVARIANCE_NO_EIGV` is used, the
   same covariance update sampled through a Cholesky factor, because only CSA needs the
