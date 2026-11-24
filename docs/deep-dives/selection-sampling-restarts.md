@@ -84,7 +84,8 @@ applies it to z, before A and σ, and decays it with the evaluations [F24].
 
 * **IPOP** (Auger & Hansen 2005): λ doubles at every restart (µ in the same ratio), up to (d λ₀)²
   (the framework paper: 2⁹ λ₀); σ and the mean are reset. No budget per run: the restart criteria
-  end a run.
+  end a run. *Known issue* [F30]: a restart near the end of the budget can exceed it by up to
+  λ + 1 (the budget check assumes the old λ and no restart center).
 * **BIPOP** (Hansen 2009): after the first run, the remaining budget is split into two halves, one
   for the regime of large populations (λ doubling) and one for small ones,
   λ_s = ⌊λ₀ (λ_large/(2λ₀))^(U²)⌋ with σ = σ₀·10^(−2U); the regime with more budget left runs next.

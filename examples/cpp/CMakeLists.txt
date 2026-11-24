@@ -8,3 +8,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../.. modcma EXCLUDE_FROM_ALL)
 
 add_executable(sphere sphere.cpp)
 target_link_libraries(sphere PRIVATE modcma_core)
+
+# The test functions of include/functions.hpp, shifted and rotated
+add_executable(functions functions.cpp)
+target_link_libraries(functions PRIVATE modcma_core)

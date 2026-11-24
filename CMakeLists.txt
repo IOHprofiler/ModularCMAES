@@ -74,8 +74,6 @@ if (SKBUILD)
   return()
 endif()
 
-# Example/experiment driver
-
 # C++ unit tests for what Python cannot reach (ctest)
 enable_testing()
 add_executable(modcma_tests ${PROJECT_SOURCE_DIR}/tests/cpp/test_main.cpp)

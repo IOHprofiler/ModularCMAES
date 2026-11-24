@@ -11,6 +11,7 @@
 #include "lapack.hpp"
 #include "restart_criteria.hpp"
 #include "common.hpp"
+#include "functions.hpp"
 #include "sampling.hpp"
 
 static int failures = 0;
@@ -332,6 +333,32 @@ static void test_natural_gradient_low_rank_update()
     }
 }
 
+// The test functions of functions.hpp: their minima, and the rotation is a proper rotation
+static void test_functions()
+{
+    for (const int d : {1, 2, 10})
+    {
+        CHECK(functions::sphere(Vector::Zero(d)) == 0.0);
+        CHECK(functions::ellipse(Vector::Zero(d)) == 0.0);
+        CHECK(std::abs(functions::rastrigin(Vector::Zero(d))) < 1e-12);
+        CHECK(functions::rosenbrock(Vector::Ones(d)) == 0.0);
+        CHECK(std::isfinite(functions::ellipse(Vector::Ones(d))));
+        CHECK(functions::sphere(Vector::Ones(d)) == static_cast<Float>(d));
+
+        const Matrix R = functions::random_rotation_matrix(d, 42);
+        CHECK((R.transpose() * R - Matrix::Identity(d, d)).cwiseAbs().maxCoeff() < 1e-12);
+        CHECK(std::abs(R.determinant() - 1.0) < 1e-12);
+        CHECK(R == functions::random_rotation_matrix(d, 42));
+    }
+    // the condition number of the ellipse is 1e6: f(e_d) / f(e_1)
+    Vector e1 = Vector::Zero(10), e10 = Vector::Zero(10);
+    e1(0) = 1.0;
+    e10(9) = 1.0;
+    CHECK(std::abs(functions::ellipse(e10) / functions::ellipse(e1) - 1e6) < 1e-6);
+    CHECK(functions::get(functions::ROSENBROCK)(Vector::Ones(3)) == 0.0);
+    CHECK(functions::to_string(functions::RASTRIGIN) == "rastrigin");
+}
+
 int main()
 {
     test_uniform_is_open_interval();
@@ -341,6 +368,7 @@ int main()
     test_split_median();
     test_lapack_eigen();
     test_natural_gradient_low_rank_update();
+    test_functions();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

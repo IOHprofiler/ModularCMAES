@@ -9,6 +9,10 @@ points as the *columns* of a d × k matrix.
 --8<-- "examples/cpp/sphere.cpp"
 ```
 
+`include/functions.hpp` has a few test functions (sphere, ellipse, Rosenbrock, Rastrigin) and a
+random rotation; `examples/cpp/functions.cpp` runs them, shifted and rotated, with several matrix
+adaptations.
+
 ## Building
 
 The CMake target is `modcma_core` (a static library; its include directories and compile options

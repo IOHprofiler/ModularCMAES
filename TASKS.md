@@ -812,6 +812,7 @@ tier, golden fixtures).
 | F27 | `weights.cpp:24-28` | ssa=XNES without NATURAL_GRADIENT: cs = 0.01 (the formula of the Python implementation is commented out): slow | |
 | F28 | docstrings | "With XNES the full xNES" overstated; "CSA does not suit COVARIANCE_NO_EIGV" not supported (same results as COVARIANCE on the tested functions); NG's override of cs undocumented | |
 | F29 | sampling | The expected length of UNIFORM, LAPLACE, LOGISTIC, DOUBLE_WEIBULL transformations is sqrt(d), not theirs (CSA bias); Sobol points repeat with period N (d = 1000: after about 85 generations) | |
+| F30 | `c_maes.cpp` `break_conditions` | The budget check assumes the next generation has the current lambda; when the restart criteria fire, the next generation also evaluates the restart center (and repelling queries) and IPOP/BIPOP change lambda, so a run can exceed the budget by up to lambda + 1 (rotated Rosenbrock, SEPARABLE + IPOP, d = 10: 200500 of 200000). Fix: when `criteria.any()`, check 1 + the next lambda (IPOP: the doubled one; BIPOP: decide the regime and draw lambda_small before the check, or stop the restart in `start_generation` when it does not fit) | pycma checks `maxfevals` after a generation (overshoots by up to lambda - 1) |
 
 Design questions (not bugs, for the maintainer): elitism keeps all lambda survivors ((lambda+lambda),
 the paper: (mu+lambda)) and each parent's own step sizes; `restart_strategy=NONE` still restarts on
