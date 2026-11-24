@@ -77,6 +77,15 @@ def _get_module_options(name: str) -> tuple:
 
 
 def get_all_module_options() -> dict:
+    """The options of every module of `Modules`.
+
+    Returns
+    -------
+    dict
+        Maps the name of every `Modules` attribute to a tuple of its options, the default first.
+        A bool module gives `(default, not default)`; an enum module gives the names (str) of
+        its options in `modcma.c_maes.options`, e.g. `"COVARIANCE"`.
+    """
     return {
         name: _get_module_options(name)
         for name in dir(Modules)
@@ -112,6 +121,38 @@ def get_configspace(
     add_sigma: bool = True,
     add_learning_rates: bool = True,
 ) -> ConfigurationSpace:
+    """A ConfigSpace configuration space of the modules and the numeric settings, for tuning.
+
+    Every module of `Modules` is a categorical hyperparameter with its options from
+    `get_all_module_options` (default: the default of `Modules`). The numeric hyperparameters
+    have the defaults of `Settings(dim)` with the default modules:
+
+    - `lambda0` and `mu0`: integers in [1, 50 * dim], log scale, with the condition
+      mu0 <= lambda0;
+    - `sigma0`: a normal distribution around its default, truncated to [1e-15, 1e15];
+    - `cs`, `cc`, `cmu`, `c1` in [0, 1] and `damps` in [0, 10]: normal distributions around
+      their defaults (the values of `Weights`).
+
+    The normal distributions have standard deviation 0.3 * min(default - lower, upper - default).
+    Turn the result into `Settings` with `settings_from_config`.
+
+    Parameters
+    ----------
+    dim : int, optional
+        The dimension, for the numeric defaults. Without it, and with any numeric
+        hyperparameter, a warning is issued and dim = 2 is used.
+    add_popsize : bool, default True
+        Add `lambda0` and `mu0`.
+    add_sigma : bool, default True
+        Add `sigma0`.
+    add_learning_rates : bool, default True
+        Add `cs`, `cc`, `cmu`, `c1` and `damps`.
+
+    Returns
+    -------
+    ConfigSpace.ConfigurationSpace
+        The configuration space.
+    """
     cspace = ConfigurationSpace()
     for name, options in get_all_module_options().items():
         cspace.add(Categorical(name, options, default=options[0]))
@@ -142,6 +183,22 @@ def get_configspace(
 
 
 def set_module(modules: Modules, name: str, value: Enum) -> bool:
+    """Set one module of a `Modules` object by name, if it is a module.
+
+    Parameters
+    ----------
+    modules : Modules
+        The configuration to change (in place).
+    name : str
+        The name of a `Modules` attribute, e.g. `"matrix_adaptation"`.
+    value : str or bool
+        For an enum module, the name of the option, e.g. `"MATRIX"`; for a bool module, a bool.
+
+    Returns
+    -------
+    bool
+        True when `name` is a module and was set, False otherwise (nothing changes).
+    """
     if hasattr(modules, name):
         attr_class = type(getattr(modules, name))
         if issubclass(attr_class, Enum):
@@ -152,6 +209,28 @@ def set_module(modules: Modules, name: str, value: Enum) -> bool:
 
 
 def settings_from_dict(dim: int, **config: dict) -> Settings:
+    """`Settings` from keyword arguments that mix module options and settings.
+
+    A keyword that names a `Modules` attribute sets that module (an enum option by its name,
+    e.g. `matrix_adaptation="MATRIX"`); every other keyword goes to the `Settings` constructor
+    (e.g. `budget`, `lb`, `lambda0`, `seed`).
+
+    Parameters
+    ----------
+    dim : int
+        The dimension.
+    **config
+        Module options and `Settings` keyword arguments.
+
+    Returns
+    -------
+    Settings
+        The settings, with the modules set.
+
+    Examples
+    --------
+    >>> settings = settings_from_dict(10, active=True, matrix_adaptation="MATRIX", budget=5000)
+    """
     modules = Modules()
     via_settings = {}
     for name, value in dict(config).items():
@@ -163,6 +242,26 @@ def settings_from_dict(dim: int, **config: dict) -> Settings:
 
 
 def settings_from_config(dim: int, config: Configuration, **kwargs) -> Settings:
+    """`Settings` from a configuration of the space of `get_configspace`.
+
+    The module hyperparameters set the modules. A numeric hyperparameter is passed to
+    `Settings` only when it differs from its default in `get_configspace(dim)`; otherwise
+    `Settings` computes the default itself, for the chosen modules.
+
+    Parameters
+    ----------
+    dim : int
+        The dimension.
+    config : ConfigSpace.Configuration
+        The configuration, e.g. from a tuner or `get_configspace(dim).sample_configuration()`.
+    **kwargs
+        Further `Settings` keyword arguments, e.g. `lb`, `ub` or `budget`.
+
+    Returns
+    -------
+    Settings
+        The settings of the configuration.
+    """
     via_settings = kwargs
     default_config = get_configspace(dim).get_default_configuration()
     modules = Modules()
@@ -177,31 +276,42 @@ def settings_from_config(dim: int, config: Configuration, **kwargs) -> Settings:
 
 
 def fmin(func: callable, x0: np.ndarray, sigma0: float, budget: int, **kwargs):
-    """Minimize a function using the modular CMA-ES.
+    """Minimize a function with the modular CMA-ES.
+
+    Builds `Settings` with `settings_from_dict`, runs a `ModularCMAES` until a break condition
+    holds and returns the best solution found.
 
     Parameters
     ----------
-    func: callable
-        The objective function to be minimized.
-    x0 np.ndarray:
-        The first solution estimate
-    sigma0: float
-        The estimate of the stepsize (rule of thumb: 0.3 * (ub - lb))
-    budget: int
-        Maximum number of function evaluations to make.
+    func : callable
+        The objective function, called with a (d,) numpy array; returns a float.
+    x0 : array_like
+        The starting point; its length is the dimension d. Note: in this version only its
+        length is used; the search starts from the default mean of `Settings` (the zero vector).
+    sigma0 : float
+        The initial step size (rule of thumb: 0.3 * (ub - lb)).
+    budget : int
+        The maximum number of function evaluations.
     **kwargs
-        These are directly passed into the instance of ModularCMAES,
-        in this manner parameters can be specified for the optimizer.
+        Module options and `Settings` keyword arguments, as for `settings_from_dict`, e.g.
+        `active=True`, `matrix_adaptation="MATRIX"`, `lb=..., ub=...`, `target=1e-8`.
+
     Returns
     -------
-    xopt
-        The variables which minimize the function during this run
-    fopt
-        The value of function at found xopt
-    evals
-        The number of evaluations performed
-    es
-        The ModularCMAES instance
+    xopt : numpy.ndarray
+        (d,) the best point found.
+    fopt : float
+        The objective value of xopt.
+    evals : int
+        The number of evaluations used.
+    es : ModularCMAES
+        The optimizer, with its state in `es.p`.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from modcma.c_maes import fmin
+    >>> xopt, fopt, evals, es = fmin(lambda x: float(np.sum(x**2)), np.ones(5), 0.5, 2000)
     """
     settings = settings_from_dict(len(x0), sigma0=sigma0, budget=budget, **kwargs)
     es = ModularCMAES(settings)
