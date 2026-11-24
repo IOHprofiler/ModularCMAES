@@ -1,4 +1,4 @@
-# constants, set_seed, build_info
+# constants, set_seed, build_info, compute_ert
 
 ::: modcma.c_maes.cmaescpp.constants
 
@@ -7,5 +7,9 @@
       show_root_heading: true
 
 ::: modcma.c_maes.cmaescpp.build_info
+    options:
+      show_root_heading: true
+
+::: modcma.c_maes.cmaescpp.compute_ert
     options:
       show_root_heading: true

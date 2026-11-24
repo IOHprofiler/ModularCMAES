@@ -35,7 +35,7 @@ ACCEPTED = {
     "became read-only: cmaescpp.matrix_adaptation.NaturalGradientAdaptation.G":
         "WP4: the xNES update uses the low-rank factor of G (gradient_samples, gradient_weights, "
         "gradient_shift); the property computes G from it",
-    # 2.0: the utils submodule is gone. set_seed and build_info are in the main namespace, and
+    # 2.0: the utils submodule is gone. set_seed, build_info and compute_ert are in the main namespace;
     # modcma.c_maes.utils (Python) forwards them with a DeprecationWarning; the rest was removed
     # or moved to the private _internal (tests only)
     "missing: cmaescpp.utils.set_seed": "now cmaescpp.set_seed; deprecated alias modcma.c_maes.utils",
@@ -44,7 +44,7 @@ ACCEPTED = {
     "missing: cmaescpp.utils.ppf": "removed (scipy.stats.norm.ppf)",
     "missing: cmaescpp.utils.random_uniform": "removed: the global generator only seeds optimizers",
     "missing: cmaescpp.utils.random_normal": "removed: the global generator only seeds optimizers",
-    "missing: cmaescpp.utils.compute_ert": "removed (IOHanalyzer, iohinspector)",
+    "missing: cmaescpp.utils.compute_ert": "now cmaescpp.compute_ert; deprecated alias modcma.c_maes.utils",
     "missing: cmaescpp.utils.i8_sobol": "internal: cmaescpp._internal",
     "missing: cmaescpp.utils.Shuffler": "internal: cmaescpp._internal",
     "missing: cmaescpp.utils.CachedShuffleSequence": "internal: cmaescpp._internal",

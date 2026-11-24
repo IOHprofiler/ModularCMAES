@@ -86,6 +86,19 @@ void concat(Vector &x, const Vector &y)
     x.conservativeResize(x.rows() + y.rows(), Eigen::NoChange);
     x.bottomRows(y.rows()) = y;
 }
+
+std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, const size_t budget)
+{
+    size_t successful_runs = 0, total_rt = 0;
+
+    for (const auto &rt : running_times)
+    {
+        if (rt < budget)
+            successful_runs++;
+        total_rt += rt;
+    }
+    return {static_cast<Float>(total_rt) / static_cast<Float>(successful_runs), successful_runs};
+}
 } // namespace utils
 
 namespace rng

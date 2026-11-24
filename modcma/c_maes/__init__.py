@@ -30,9 +30,10 @@ from .cmaescpp import (
     es,  # pyright: ignore[reportMissingModuleSource]
     set_seed,
     build_info,
+    compute_ert,
     _internal,  # pyright: ignore[reportMissingModuleSource]
 )
-from . import utils  # deprecated: set_seed and build_info are in this namespace
+from . import utils  # deprecated: set_seed, build_info and compute_ert are in this namespace
 
 from .cmaescpp.parameters import (  # pyright: ignore[reportMissingModuleSource]
     Settings,
@@ -348,6 +349,7 @@ __all__ = (
     "constants",
     "set_seed",
     "build_info",
+    "compute_ert",
     "sampling",
     "mutation",
     "selection",

@@ -19,6 +19,6 @@ same objects as in `modcma.c_maes`, which stays available under that name).
 | [repelling](repelling.md) | repelling restarts |
 | [center](center.md) | placement of the center at a restart |
 | [es](es.md) | the simple (1+1)- and (µ,λ)-ES |
-| [constants, set_seed, build_info](constants.md) | library-wide constants (LAPACK thresholds, caches), the global seed and how the extension was built |
+| [constants, set_seed, build_info, compute_ert](constants.md) | library-wide constants (LAPACK thresholds, caches), the global seed, how the extension was built, and the expected running time of a set of runs |
 
 The reference is generated from the docstrings, which are also what `help()` and your editor show.

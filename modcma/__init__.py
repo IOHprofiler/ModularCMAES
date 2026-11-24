@@ -37,6 +37,7 @@ from .c_maes import (
     settings_from_dict,
     set_seed,
     build_info,
+    compute_ert,
     utils,  # deprecated
 )
 
@@ -86,6 +87,7 @@ __all__ = (
     "constants",
     "set_seed",
     "build_info",
+    "compute_ert",
     "parameters",
     "sampling",
     "mutation",

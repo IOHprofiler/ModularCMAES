@@ -1,4 +1,4 @@
-"""set_seed and build_info, and the deprecated modcma.c_maes.utils of 1.x."""
+"""set_seed, build_info and compute_ert, and the deprecated modcma.c_maes.utils of 1.x."""
 
 import unittest
 import warnings
@@ -9,10 +9,11 @@ import modcma
 from modcma import c_maes
 
 
-class TestSeedAndBuildInfo(unittest.TestCase):
+class TestHelpers(unittest.TestCase):
     def test_the_names_are_in_both_namespaces(self):
         self.assertIs(modcma.set_seed, c_maes.set_seed)
         self.assertIs(modcma.build_info, c_maes.build_info)
+        self.assertIs(modcma.compute_ert, c_maes.compute_ert)
         self.assertIn("set_seed", modcma.__all__)
         self.assertNotIn("utils", modcma.__all__)
         self.assertNotIn("utils", c_maes.__all__)
@@ -31,10 +32,17 @@ class TestSeedAndBuildInfo(unittest.TestCase):
         self.assertEqual(set(info), {"compiler", "fma", "lapack"})
         self.assertIn(info["lapack"], ("linked", "scipy", "none"))
 
+    def test_compute_ert(self):
+        # the sum of all running times over the number of runs below the budget
+        self.assertEqual(modcma.compute_ert([10, 9], 10), (19.0, 1))
+        self.assertEqual(modcma.compute_ert(np.array([10, 10]), 10), (float("inf"), 0))
+        self.assertEqual(modcma.compute_ert([9, 9], 10), (9.0, 2))
+
 
 class TestDeprecatedUtils(unittest.TestCase):
-    def test_set_seed_and_build_info_warn(self):
-        for call in (lambda: c_maes.utils.set_seed(1), c_maes.utils.build_info):
+    def test_the_aliases_warn(self):
+        for call in (lambda: c_maes.utils.set_seed(1), c_maes.utils.build_info,
+                     lambda: c_maes.utils.compute_ert([9, 10], 10)):
             with warnings.catch_warnings(record=True) as caught:
                 warnings.simplefilter("always")
                 call()
@@ -46,13 +54,14 @@ class TestDeprecatedUtils(unittest.TestCase):
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", DeprecationWarning)
             self.assertEqual(c_maes.utils.build_info(), modcma.build_info())
+            self.assertEqual(c_maes.utils.compute_ert([9, 10], 10), (19.0, 1))
             c_maes.utils.set_seed(5)
         a = c_maes.ModularCMAES(c_maes.Settings(3, verbose=False)).ask()
         modcma.set_seed(5)
         np.testing.assert_array_equal(a, c_maes.ModularCMAES(c_maes.Settings(3, verbose=False)).ask())
 
     def test_removed_names_say_what_to_use(self):
-        for name in ("cdf", "ppf", "random_uniform", "random_normal", "compute_ert", "i8_sobol",
+        for name in ("cdf", "ppf", "random_uniform", "random_normal", "i8_sobol",
                      "Shuffler", "CachedShuffleSequence", "lapack_eigh", "blas_gemm"):
             with self.assertRaisesRegex(AttributeError, "removed in modcma 2.0"):
                 getattr(c_maes.utils, name)

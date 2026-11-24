@@ -1,7 +1,7 @@
 """
 The C++ ModularCMAES library: a modular CMA-ES in which every module (matrix adaptation, step-size adaptation, sampling, selection, restarts, bound correction, ...) is an option that combines freely with the others.
 
-Use it through `modcma.c_maes`, which re-exports these names. The classes you need most are `ModularCMAES`, `parameters.Settings` and `parameters.Modules`, with the options in `options`. Submodules: `options` (the module options), `parameters` (settings, modules, weights, statistics), `sampling`, `mutation` (step-size adaptation), `matrix_adaptation`, `selection`, `bounds`, `center`, `repelling`, `restart` (criteria and strategies), `es` (a (1+1)-ES and a (mu, lambda)-ES) and `constants` (global switches); `set_seed` and `build_info`.
+Use it through `modcma.c_maes`, which re-exports these names. The classes you need most are `ModularCMAES`, `parameters.Settings` and `parameters.Modules`, with the options in `options`. Submodules: `options` (the module options), `parameters` (settings, modules, weights, statistics), `sampling`, `mutation` (step-size adaptation), `matrix_adaptation`, `selection`, `bounds`, `center`, `repelling`, `restart` (criteria and strategies), `es` (a (1+1)-ES and a (mu, lambda)-ES) and `constants` (global switches); `set_seed`, `build_info` and `compute_ert`.
 """
 
 from collections.abc import Callable, Sequence
@@ -120,6 +120,23 @@ def set_seed(seed: int) -> None:
     Seed the global random generator (mt19937).
 
     An optimizer without `Settings.seed` copies the global generator when it is created and advances it, so that after set_seed(s) the optimizers created in the same order draw the same numbers. Samplers and bound corrections that are used on their own draw from the global generator directly.
+    """
+
+def compute_ert(running_times: Sequence[int], budget: int) -> tuple[float, int]:
+    """
+    The expected running time (ERT) of a set of runs.
+
+    Parameters
+    ----------
+    running_times : list[int]
+        The evaluations each run used; a run succeeded when it used fewer than budget.
+    budget : int
+        The budget of each run.
+
+    Returns
+    -------
+    tuple[float, int]
+        The sum of all running times divided by the number of successful runs (inf when no run succeeded), and the number of successful runs.
     """
 
 class Population:

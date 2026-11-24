@@ -516,7 +516,7 @@ void define_options(nb::module_ &main)
 
 void define_utils(nb::module_ &main)
 {
-    // The public helpers live in the main module (modcma.set_seed, modcma.build_info); the
+    // The public helpers live in the main module (modcma.set_seed, build_info, compute_ert); the
     // deprecated modcma.c_maes.utils (Python) forwards to them
     main.def(
         "build_info",
@@ -550,6 +550,22 @@ void define_utils(nb::module_ &main)
              "created and advances it, so that after set_seed(s) the optimizers created in the "
              "same order draw the same numbers. Samplers and bound corrections that are used on "
              "their own draw from the global generator directly.");
+    main.def("compute_ert",
+             &utils::compute_ert,
+             nb::arg("running_times"),
+             nb::arg("budget"),
+             "The expected running time (ERT) of a set of runs.\n\n"
+             "Parameters\n"
+             "----------\n"
+             "running_times : list[int]\n"
+             "    The evaluations each run used; a run succeeded when it used fewer than budget.\n"
+             "budget : int\n"
+             "    The budget of each run.\n\n"
+             "Returns\n"
+             "-------\n"
+             "tuple[float, int]\n"
+             "    The sum of all running times divided by the number of successful runs (inf when "
+             "no run succeeded), and the number of successful runs.");
 
     auto m = main.def_submodule(
         "_internal",
@@ -756,7 +772,7 @@ NB_MODULE(cmaescpp, m)
         "(settings, modules, weights, statistics), `sampling`, `mutation` (step-size "
         "adaptation), `matrix_adaptation`, `selection`, `bounds`, `center`, `repelling`, "
         "`restart` (criteria and strategies), `es` (a (1+1)-ES and a (mu, lambda)-ES) and "
-        "`constants` (global switches); `set_seed` and `build_info`.";
+        "`constants` (global switches); `set_seed`, `build_info` and `compute_ert`.";
 
     define_constants(m);
     define_options(m);

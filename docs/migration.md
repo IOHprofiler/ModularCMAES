@@ -15,10 +15,9 @@ The exception is `c_maes.utils`:
 
 | 1.x | 2.0 |
 |---|---|
-| `c_maes.utils.set_seed(s)`, `c_maes.utils.build_info()` | `modcma.set_seed(s)`, `modcma.build_info()` (also in `modcma.c_maes`); the old names still work, with a `DeprecationWarning` |
+| `c_maes.utils.set_seed(s)`, `c_maes.utils.build_info()`, `c_maes.utils.compute_ert(...)` | `modcma.set_seed(s)`, `modcma.build_info()`, `modcma.compute_ert(...)` (also in `modcma.c_maes`); the old names still work, with a `DeprecationWarning` |
 | `utils.cdf`, `utils.ppf` | `scipy.stats.norm.cdf`, `scipy.stats.norm.ppf` |
 | `utils.random_uniform`, `utils.random_normal` | removed: the global generator only seeds new optimizers |
-| `utils.compute_ert` | removed: IOHanalyzer or iohinspector compute ERT |
 | `utils.i8_sobol`, `utils.Shuffler`, `utils.CachedShuffleSequence`, `sampling.Sobol.cache` | removed: internals of the Sobol sampler (`scipy.stats.qmc.Sobol` for Sobol points) |
 
 A removed name raises an `AttributeError` that says what to use instead.
