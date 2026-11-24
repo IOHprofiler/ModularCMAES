@@ -13,6 +13,8 @@ inline std::string to_string(RecombinationWeights w)
         return "DEFAULT";
     case RecombinationWeights::EQUAL:
         return "EQUAL";
+    case RecombinationWeights::UTILITY:
+        return "UTILITY";
     case RecombinationWeights::EXPONENTIAL:
         return "EXPONENTIAL";
     }
@@ -171,6 +173,8 @@ inline std::string to_string(CenterPlacement s)
         return "ZERO";
     case CenterPlacement::UNIFORM:
         return "UNIFORM";
+    case CenterPlacement::CENTER:
+        return "CENTER";
     case CenterPlacement::NOVELTY_WEIGHTED:
         return "NOVELTY_WEIGHTED";
     case CenterPlacement::MAXIMIN_TABOO:

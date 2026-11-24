@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <modules.hpp>
+#include <optional>
 #include <vector>
 
 #include "common.hpp"
@@ -111,15 +112,70 @@ struct Repelling
     // but adaptive repelling does not have to use it.
     Float coverage = 2.0;
 
+    //! The number of points of a hill-valley test between a candidate and a taboo point
+    static constexpr size_t hill_valley_points = 10;
+
     virtual ~Repelling() = default;
 
     virtual bool is_rejected(Eigen::Ref<const Vector> xi, parameters::Parameters &p);
-    virtual void update_archive(FunctionType &objective, parameters::Parameters &p);
     virtual void prepare_sampling(parameters::Parameters &p);
     virtual void adapt_radii_after_sampling(parameters::Parameters &p);
 
+    /**
+     * The archive update after a restart, with an objective function. A loop over the resumable
+     * update below: begin_update, then evaluate query_point() and answer() while has_query().
+     */
+    void update_archive(FunctionType &objective, parameters::Parameters &p);
+
+    //! Start the archive update after a restart (the last center and solution are in p.stats)
+    void begin_update(parameters::Parameters &p);
+
+    //! Whether the update waits for the objective value of query_point()
+    [[nodiscard]] bool has_query() const { return query.active; }
+
+    //! The next point of a hill-valley test (in the space of the objective)
+    [[nodiscard]] const Vector &query_point() const { return query.x; }
+
+    //! The objective value y of the point x (query_point(), or a point that replaces it); the
+    //! update continues until the next point is needed or it is complete
+    void answer(const Float y, Eigen::Ref<const Vector> x, parameters::Parameters &p);
+
   protected:
     void sort_archive_by_criticality(const parameters::Parameters &p);
+
+    //! Whether begin_update tests the candidate against the archive (false: no archive update)
+    [[nodiscard]] virtual bool updates_archive() const { return false; }
+
+    //! Called by begin_update with the candidate, before the hill-valley tests
+    virtual void on_update_begin(const Solution &candidate, parameters::Parameters &p) {}
+
+    //! The candidate shares the basin of point; returns whether to test the remaining points
+    virtual bool on_shared_basin(TabooPoint &point,
+                                 const Solution &candidate,
+                                 parameters::Parameters &p)
+    {
+        return true;
+    }
+
+    //! Called after the last hill-valley test; accepted: the candidate is a new basin
+    virtual void on_update_end(const Solution &candidate, bool accepted, parameters::Parameters &p)
+    {
+    }
+
+  private:
+    //! The state of the resumable update: hill-valley test of point j, step k
+    struct Query
+    {
+        bool active = false;
+        std::optional<Solution> candidate;
+        size_t j = 0;
+        size_t k = 1;
+        bool accept = true;
+        Vector x;
+    } query;
+
+    //! Set the query to the next point to evaluate, or complete the update
+    void next_query(parameters::Parameters &p);
 };
 
 struct AdaptiveRepelling : Repelling
@@ -147,22 +203,38 @@ struct AdaptiveRepelling : Repelling
     Float min_radius(const parameters::Parameters &p) const;
     Float max_radius(const parameters::Parameters &p) const;
 
-    void update_archive(FunctionType &objective, parameters::Parameters &p) override;
     void adapt_radii_after_sampling(parameters::Parameters &p) override;
     void prepare_sampling(parameters::Parameters &p) override;
+
+  protected:
+    bool updates_archive() const override { return true; }
+    void on_update_begin(const Solution &candidate, parameters::Parameters &p) override;
+    bool on_shared_basin(TabooPoint &point,
+                         const Solution &candidate,
+                         parameters::Parameters &p) override;
+    void on_update_end(const Solution &candidate, bool accepted, parameters::Parameters &p) override;
+
+  private:
+    //! The evaluations since the previous restart, set by on_update_begin
+    Float restart_evals = 0.0;
 };
 
 struct CoverageRepelling : Repelling
 {
-    void update_archive(FunctionType &objective, parameters::Parameters &p) override;
     void adapt_radii_after_sampling(parameters::Parameters &p) override {}
+
+  protected:
+    bool updates_archive() const override { return true; }
+    bool on_shared_basin(TabooPoint &point,
+                         const Solution &candidate,
+                         parameters::Parameters &p) override;
+    void on_update_end(const Solution &candidate, bool accepted, parameters::Parameters &p) override;
 };
 
 struct NoRepelling final : Repelling
 {
     bool is_rejected(Eigen::Ref<const Vector>, parameters::Parameters &) override { return false; }
 
-    void update_archive(FunctionType &objective, parameters::Parameters &p) override {}
     void prepare_sampling(parameters::Parameters &p) override {}
     void adapt_radii_after_sampling(parameters::Parameters &p) override {}
 };

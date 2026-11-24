@@ -4,6 +4,20 @@
 
 namespace center
 {
+namespace
+{
+//! A point uniform in (0, 1)^d from the optimizer's generator (B6: it used std::rand, which only
+//! the global set_seed seeds)
+Vector uniform_vector(const size_t d, rng::Generator &gen)
+{
+    rng::uniform<Float> uniform;
+    Vector u(d);
+    for (auto &ui : u)
+        ui = uniform(gen);
+    return u;
+}
+} // namespace
+
 void X0::operator()(parameters::Parameters &p)
 {
     p.adaptation->m = p.settings.x0.value_or(p.settings.center);
@@ -11,7 +25,7 @@ void X0::operator()(parameters::Parameters &p)
 
 void Uniform::operator()(parameters::Parameters &p)
 {
-    const Vector u = ((Vector::Random(p.settings.dim).array() + 1.0) * 0.5).matrix();
+    const Vector u = uniform_vector(p.settings.dim, *p.generator);
 
     p.adaptation->m = p.settings.lb + u.cwiseProduct(p.settings.db);
 }
@@ -27,7 +41,7 @@ void MaximinTaboo::operator()(parameters::Parameters &p)
 
     if (p.repelling->archive.empty())
     {
-        const Vector u = ((Vector::Random(dim).array() + 1.0) * 0.5).matrix();
+        const Vector u = uniform_vector(dim, *p.generator);
 
         p.adaptation->m = p.settings.lb + u.cwiseProduct(p.settings.db);
 
@@ -39,7 +53,7 @@ void MaximinTaboo::operator()(parameters::Parameters &p)
 
     for (int i = 0; i < n_candidates; ++i)
     {
-        const Vector u = ((Vector::Random(dim).array() + 1.0) * 0.5).matrix();
+        const Vector u = uniform_vector(dim, *p.generator);
 
         const Vector x = p.settings.lb + u.cwiseProduct(p.settings.db);
 
@@ -72,7 +86,7 @@ void NoveltyWeighted::operator()(parameters::Parameters &p)
 
     if (p.repelling->archive.empty())
     {
-        const Vector u = ((Vector::Random(dim).array() + 1.0) * 0.5).matrix();
+        const Vector u = uniform_vector(dim, *p.generator);
 
         p.adaptation->m = p.settings.lb + u.cwiseProduct(p.settings.db);
 
@@ -87,7 +101,7 @@ void NoveltyWeighted::operator()(parameters::Parameters &p)
 
     for (int i = 0; i < n_candidates; ++i)
     {
-        const Vector u = ((Vector::Random(dim).array() + 1.0) * 0.5).matrix();
+        const Vector u = uniform_vector(dim, *p.generator);
 
         const Vector x = p.settings.lb + u.cwiseProduct(p.settings.db);
 
@@ -113,13 +127,12 @@ void NoveltyWeighted::operator()(parameters::Parameters &p)
 
     if (!(total_score > 0.0) || !std::isfinite(total_score))
     {
-        const int idx = std::rand() % n_candidates;
+        const int idx = std::uniform_int_distribution<int>(0, n_candidates - 1)(*p.generator);
         p.adaptation->m = candidates[idx];
         return;
     }
 
-    const Float r =
-        ((static_cast<Float>(std::rand()) / static_cast<Float>(RAND_MAX))) * total_score;
+    const Float r = rng::uniform<Float>{}(*p.generator) * total_score;
 
     Float cumsum = 0.0;
 

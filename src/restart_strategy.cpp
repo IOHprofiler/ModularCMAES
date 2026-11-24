@@ -10,18 +10,21 @@ Float Strategy::update(parameters::Parameters &p) { return p.settings.sigma0; }
 
 Float IPOP::update(parameters::Parameters &p)
 {
-    const size_t max_lambda = static_cast<size_t>(std::pow(p.settings.dim * p.lambda, 2));
-    if (p.lambda < max_lambda)
+    // The population grows by ipop_factor at every restart (Auger & Hansen 2005), up to
+    // (d lambda_0)^2, a limit from the initial population size
+    const Float max_lambda = std::pow(static_cast<Float>(p.settings.dim * p.settings.lambda0), 2);
+    if (static_cast<Float>(p.lambda) < max_lambda)
     {
-        p.mu *= static_cast<size_t>(ipop_factor);
-        p.lambda *= static_cast<size_t>(ipop_factor);
+        const Float ratio = static_cast<Float>(p.mu) / static_cast<Float>(p.lambda);
+        p.lambda = static_cast<size_t>(std::round(static_cast<Float>(p.lambda) * ipop_factor));
+        p.mu = std::max<size_t>(1, static_cast<size_t>(std::round(ratio * p.lambda)));
     }
     return p.settings.sigma0;
 }
 
 Float BIPOP::update(parameters::Parameters &p)
 {
-    static std::uniform_real_distribution<> dist;
+    std::uniform_real_distribution<> dist;
 
     const auto last_used_budget = p.stats.evaluations - used_budget;
     used_budget += last_used_budget;
@@ -43,10 +46,12 @@ Float BIPOP::update(parameters::Parameters &p)
         budget_small -= last_used_budget;
     }
 
-    lambda_small =
-        static_cast<size_t>(std::floor(static_cast<Float>(lambda_init) *
-                                       std::pow(.5 / static_cast<Float>(lambda_large) / lambda_init,
-                                                std::pow(dist(rng::GENERATOR), 2))));
+    // lambda_small = floor(lambda_init (lambda_large / (2 lambda_init))^(U^2)): between lambda_init
+    // and half the current large population (Hansen 2009; pycma)
+    const Float u = dist(*p.generator);
+    lambda_small = static_cast<size_t>(std::floor(
+        static_cast<Float>(lambda_init) *
+        std::pow(0.5 * static_cast<Float>(lambda_large) / static_cast<Float>(lambda_init), u * u)));
 
     if (lambda_small % 2 != 0)
         lambda_small++;
@@ -54,6 +59,6 @@ Float BIPOP::update(parameters::Parameters &p)
     p.lambda = std::max(size_t{2}, large() ? lambda_large : lambda_small);
     p.mu = std::max(Float{1.0}, p.lambda * mu_factor);
     return large() ? p.settings.sigma0
-                   : p.settings.sigma0 * std::pow(10, -2 * dist(rng::GENERATOR));
+                   : p.settings.sigma0 * std::pow(10, -2 * dist(*p.generator));
 }
 } // namespace restart

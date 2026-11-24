@@ -1,0 +1,68 @@
+# Matrix adaptation
+
+The mutations of CMA-ES are drawn from N(0, σ² C): the covariance matrix C learns the shape of the
+landscape (its scaling and correlations), which is what makes CMA-ES invariant to rotations and
+efficient on ill-conditioned problems. `matrix_adaptation` chooses how C, or a factor A of it
+(C = A Aᵀ), is learned.
+
+## Which one to choose
+
+| option | learns | cost per generation | time at d = 1000 | choose it for |
+|---|---|---|---|---|
+| `COVARIANCE` | full C | O(d²λ) + an O(d³) eigendecomposition every few generations | 6.0 ms | the default: the most robust choice up to a few hundred dimensions |
+| `MATRIX` (MA-ES) | full M, C = M Mᵀ | O(d²λ) | 0.95 ms | high dimension, when the full covariance matters but CMA-ES is too slow |
+| `NATURAL_GRADIENT` (xNES) | full A | O(d²λ) (exact low-rank update) | 0.87 ms | as MA-ES; xNES itself with `ssa=XNES` and `weights=UTILITY` |
+| `CHOLESKY` | Cholesky factor | O(d²λ) | 2.2 ms | as MA-ES |
+| `COVARIANCE_NO_EIGV` | full C, Cholesky factor | O(d²λ) + O(d³) every few generations | 1.1 ms | step-size adaptations other than CSA (chosen automatically) |
+| `CMSA` | full C, self-adapted | O(d²λ) + an O(d³) Cholesky factorization every generation | 2.0 ms | with `ssa=SA` (CMSA-ES) |
+| `SEPARABLE` | the diagonal of C | O(dλ) | 0.29 ms | very high dimension, (nearly) separable problems |
+| `NONE` | nothing (C = I) | O(dλ) | 0.28 ms | isotropic problems, or as a baseline |
+
+The times are the cost of the algorithm per generation on the Apple M5 laptop of the
+[benchmarks](../performance.md#modularcmaes-matrix-adaptations). The cheaper adaptations are
+different algorithms, not faster versions of the default: they can need more evaluations, or fail,
+on problems where the full covariance update works. When evaluations are expensive, the cost of
+the algorithm hardly matters and `COVARIANCE` is the safe choice.
+
+```python
+import numpy as np
+import modcma
+
+def ellipsoid(X):
+    return (X * X) @ (10.0 ** (6 * np.arange(X.shape[1]) / (X.shape[1] - 1)))
+
+for option in ["COVARIANCE", "MATRIX", "SEPARABLE", "NONE"]:
+    es = modcma.ModularCMAES(
+        modcma.settings_from_dict(
+            20, matrix_adaptation=option, x0=np.full(20, 3.0), budget=40_000, target=1e-8, seed=1
+        )
+    )
+    es.run(ellipsoid, vectorized=True)
+    print(f"{option:12s} f = {es.p.stats.global_best.y:9.2e}  evaluations = {es.p.stats.evaluations}")
+```
+
+On the separable ellipsoid `SEPARABLE` needs the fewest evaluations; `NONE` cannot learn the
+scaling and runs out of budget. After a rotation of the problem, `SEPARABLE` would fail as well.
+
+## The state
+
+The adaptation is `es.p.adaptation`: the mean `m`, the evolution paths `pc` and `ps`, and the
+matrix (`C` and its eigendecomposition `B`, `d` for `COVARIANCE`; `M` for `MATRIX`; `A` for
+`CHOLESKY` and `NATURAL_GRADIENT`). See the [reference](../reference/matrix_adaptation.md).
+
+## The options
+
+<!-- options: MatrixAdaptationType -->
+**`modcma.options.MatrixAdaptationType`**: The adaptation of the shape of the search distribution (`Modules.matrix_adaptation`; default COVARIANCE). The mutations are y = A z, with z from the sampler and A a factor of the covariance matrix, C = A A^T. The options differ in how A is adapted and in their cost per generation (docs/performance.md, "ModularCMAES matrix adaptations").
+
+| value | |
+|---|---|
+| `COVARIANCE` | The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with rank-one and rank-mu update, the default. C is eigendecomposed every few generations (O(d^3), with LAPACK from `constants.lapack_min_dim` on). The only option for which the restart criteria TolX, ConditionC, NoEffectAxis and NoEffectCoord are used. |
+| `NONE` | No matrix adaptation (C = I): only the step size is adapted. Disables `Modules.active`. O(d lambda) per generation. |
+| `MATRIX` | MA-ES (Beyer & Sendhoff 2017): adapts a matrix M with C = M M^T directly, without the evolution path p_c and without eigendecomposition; O(d^2 lambda) per generation, about 4x faster than COVARIANCE at d = 1000. |
+| `SEPARABLE` | sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per generation. For separable problems and very high dimension; it cannot learn correlations between variables. |
+| `CHOLESKY` | Cholesky-CMA-ES (Krause et al. 2016): adapts the lower triangular Cholesky factor of C with rank-one updates of the factor, without decomposing C; O(d^2 lambda) per generation. |
+| `CMSA` | CMSA-ES (Beyer & Sendhoff 2008), covariance matrix self-adaptation: C is an exponential average of the selected y y^T with time constant 1 + d (d + 1) / (2 mueff), factorized with a Cholesky decomposition every generation. Meant for StepSizeAdaptation.SA; makes the default mu lambda / 4. |
+| `COVARIANCE_NO_EIGV` | The covariance update of COVARIANCE, with C factorized by a Cholesky decomposition instead of an eigendecomposition (cheaper). The path p_sigma uses the inverse Cholesky factor instead of C^-1/2 (the same up to a rotation), which worked as well as COVARIANCE with CSA in tests. Chosen automatically when COVARIANCE is combined with a step-size adaptation other than CSA. |
+| `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is updated with the matrix exponential of the natural gradient, A <- A expm(eta G); a low-rank form keeps it O(d^2 lambda) for lambda < d. With StepSizeAdaptation.XNES also xNES's update of sigma, and with RecombinationWeights.UTILITY (also selected by `Modules.active` with the default weights) xNES's utilities for the mean and the matrix: then it is xNES. |
+<!-- /options -->

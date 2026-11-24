@@ -5,22 +5,47 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "modcma"
-version = "1.2.0"
-description = "Package Containing Modular CMA-ES optimizer"
+version = "2.0.0"
+description = "A fast, modular CMA-ES in C++ for Python: many evolution strategies in one optimizer, with ask-tell"
 readme = "README.md"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [{ name = "Jacob de Nobel", email = "jacobdenobel@gmail.com" }]
 requires-python = ">=3.10"
-dependencies = ["configspace", "numpy>=2.0", "scipy", "ioh"]
+dependencies = ["configspace", "numpy>=2.0", "scipy"]
+keywords = [
+    "CMA-ES",
+    "evolution strategies",
+    "evolutionary computation",
+    "black-box optimization",
+    "derivative-free optimization",
+    "continuous optimization",
+    "algorithm configuration",
+]
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: Free Threading :: 3 - Stable",
     "Operating System :: OS Independent",
+    "Typing :: Typed",
 ]
 
 [project.urls]
+Homepage = "https://github.com/IOHprofiler/ModularCMAES"
+Documentation = "https://modularcmaes.readthedocs.io"
 Repository = "https://github.com/IOHprofiler/ModularCMAES"
+Issues = "https://github.com/IOHprofiler/ModularCMAES/issues"
+Changelog = "https://github.com/IOHprofiler/ModularCMAES/blob/master/CHANGELOG.md"
 
 [tool.scikit-build]
 minimum-version = "build-system.requires"
@@ -40,13 +65,13 @@ sdist.exclude = [
     "build/",
     ".github/",
     "external/unsupported/Eigen/CXX11/",
-    "banner.png",
     "*.so",
 ]
 
 [tool.cibuildwheel]
-# CPython 3.10 and 3.11 get their own wheels; the cp312 abi3 wheel serves 3.12 and later
-build = ["cp310-*", "cp311-*", "cp312-*"]
+# CPython 3.10 and 3.11 get their own wheels; the cp312 abi3 wheel serves 3.12 and later; the
+# free-threaded 3.14t interpreter cannot use abi3 wheels and gets its own
+build = ["cp310-*", "cp311-*", "cp312-*", "cp314t-*"]
 # no 32-bit and no musl wheels; numpy has no Windows ARM64 wheels for 3.10
 skip = ["*-win32", "*_i686", "*-musllinux*", "cp310-win_arm64"]
 # the C++-version tests, including the golden trajectories (skipped without a fixture for the

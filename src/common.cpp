@@ -1,4 +1,8 @@
 #include "common.hpp"
+#include <stdexcept>
+#include <string>
+
+#include <mutex>
 
 template <typename T> std::ostream &operator<<(std::ostream &os, const std::vector<T> &x)
 {
@@ -14,6 +18,11 @@ size_t cache_min_samples = 128;
 bool cache_samples = false;
 bool clip_sigma = false;
 bool use_box_muller = false;
+int eigen_solver = -1;
+size_t lapack_min_dim = 120;
+int cholesky_solver = -1;
+int blas = -1;
+size_t blas_min_dim = 100;
 } // namespace constants
 
 namespace utils
@@ -95,19 +104,120 @@ std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, c
 namespace rng
 {
 int SEED = std::random_device()();
-std::mt19937 GENERATOR(SEED);
+Generator GENERATOR(SEED);
+
+namespace
+{
+std::mutex global_mutex;
+}
 
 void set_seed(const int seed)
 {
+    const std::lock_guard<std::mutex> lock(global_mutex);
     SEED = seed;
     GENERATOR.seed(seed);
     srand(seed);
 }
 
-int random_integer(const int l, const int h)
+std::shared_ptr<Generator> global() { return std::shared_ptr<Generator>(std::shared_ptr<void>{}, &GENERATOR); }
+
+std::shared_ptr<Generator> fork()
+{
+    const std::lock_guard<std::mutex> lock(global_mutex);
+    auto generator = std::make_shared<Generator>(GENERATOR);
+    GENERATOR.seed(GENERATOR());
+    return generator;
+}
+
+int random_integer(const int l, const int h, Generator &gen)
 {
     std::uniform_int_distribution<> distrib(l, std::max(l, h - 1));
-    return distrib(GENERATOR);
+    return distrib(gen);
+}
+
+Xoshiro256pp::Xoshiro256pp(uint64_t seed)
+{
+    // splitmix64 spreads one seed over the four words (never all zero)
+    for (auto &word : s)
+    {
+        uint64_t z = (seed += 0x9e3779b97f4a7c15ULL);
+        z = (z ^ (z >> 30)) * 0xbf58476d1ce4e5b9ULL;
+        z = (z ^ (z >> 27)) * 0x94d049bb133111ebULL;
+        word = z ^ (z >> 31);
+    }
+}
+
+namespace
+{
+//! The tables of the 256-layer ziggurat for the standard normal density f(x) = exp(-x^2 / 2)
+struct ZigguratTables
+{
+    static constexpr double r = 3.6541528853610087963519472518; // start of the tail
+    static constexpr double v = 4.92867323399e-3;              // area of every layer
+    static constexpr double scale = 0x1.0p52;                   // 52 random bits per number
+
+    uint64_t k[256]; // accept x directly when the 52 bits are below k[i]
+    double w[256];   // x = bits * w[i]
+    double f[256];   // f at the layer boundaries
+
+    ZigguratTables()
+    {
+        double dn = r, tn = r;
+        const double q = v / std::exp(-0.5 * dn * dn);
+        k[0] = static_cast<uint64_t>((dn / q) * scale);
+        k[1] = 0;
+        w[0] = q / scale;
+        w[255] = dn / scale;
+        f[0] = 1.0;
+        f[255] = std::exp(-0.5 * dn * dn);
+        for (int i = 254; i >= 1; i--)
+        {
+            dn = std::sqrt(-2.0 * std::log(v / dn + std::exp(-0.5 * dn * dn)));
+            k[i + 1] = static_cast<uint64_t>((dn / tn) * scale);
+            tn = dn;
+            f[i] = std::exp(-0.5 * dn * dn);
+            w[i] = dn / scale;
+        }
+    }
+};
+
+const ZigguratTables &ziggurat()
+{
+    static const ZigguratTables tables; // thread-safe initialisation
+    return tables;
+}
+} // namespace
+
+double ziggurat_normal(Xoshiro256pp &gen)
+{
+    const ZigguratTables &z = ziggurat();
+    for (;;)
+    {
+        uint64_t bits = gen();
+        const auto i = static_cast<int>(bits & 0xff);
+        bits >>= 8;
+        const bool negative = bits & 0x1;
+        const uint64_t mantissa = (bits >> 1) & 0x000fffffffffffffULL;
+        double x = static_cast<double>(mantissa) * z.w[i];
+        if (negative)
+            x = -x;
+        if (mantissa < z.k[i])
+            return x; // inside the layer's rectangle
+        if (i == 0)
+        {
+            // the tail beyond r (Marsaglia's method)
+            for (;;)
+            {
+                const double xx = -std::log1p(-gen.uniform()) / ZigguratTables::r;
+                const double yy = -std::log1p(-gen.uniform());
+                if (yy + yy > xx * xx)
+                    return negative ? -(ZigguratTables::r + xx) : ZigguratTables::r + xx;
+            }
+        }
+        // the wedge between the rectangle and the density
+        if ((z.f[i - 1] - z.f[i]) * gen.uniform() + z.f[i] < std::exp(-0.5 * x * x))
+            return x;
+    }
 }
 
 void Shuffler::advance()
@@ -126,17 +236,20 @@ size_t Shuffler::next()
     return start + seed;
 }
 
-CachedShuffleSequence::CachedShuffleSequence(const size_t d) :
+CachedShuffleSequence::CachedShuffleSequence(const size_t d, Generator &gen) :
     dim(d),
     n_samples(std::max(constants::cache_min_samples,
                        utils::nearest_power_of_2(constants::cache_max_doubles / d))),
     cache(n_samples * d, 0.0),
-    shuffler(n_samples)
+    shuffler(n_samples, gen)
 {
 }
 
 void CachedShuffleSequence::fill(const std::vector<Float> &c)
 {
+    if (c.size() > cache.size())
+        throw std::invalid_argument("CachedShuffleSequence.fill: " + std::to_string(c.size()) +
+                                    " values, the cache holds " + std::to_string(cache.size()));
     std::copy(c.begin(), c.end(), cache.begin());
 }
 
@@ -148,6 +261,9 @@ void CachedShuffleSequence::transform(const std::function<Float(Float)> &f)
 
 Vector CachedShuffleSequence::get_index(const size_t idx)
 {
+    if (idx >= n_samples)
+        throw std::out_of_range("CachedShuffleSequence.get_index: index " + std::to_string(idx) +
+                                " of " + std::to_string(n_samples) + " points");
     return Eigen::Map<Vector>(cache.data() + (idx * dim), static_cast<Eigen::Index>(dim));
 }
 
@@ -160,67 +276,3 @@ void CachedShuffleSequence::next(Eigen::Ref<Vector> out)
 }
 } // namespace rng
 
-namespace functions
-{
-Float sphere(Eigen::Ref<const Vector> x)
-{
-    Float res = 0;
-    for (auto &xi : x)
-        res += xi * xi;
-    return res;
-}
-
-Float rastrigin(Eigen::Ref<const Vector> x)
-{
-    constexpr Float a = 10.;
-    constexpr Float pi2 = 2. * M_PI;
-    Float res = 0;
-    for (auto &xi : x)
-        res += xi * xi - a * std::cos(pi2 * xi);
-    return a * static_cast<Float>(x.size()) + res;
-}
-
-Float ellipse(Eigen::Ref<const Vector> x)
-{
-    Float res = 0;
-    for (auto i = 0; i < x.size(); ++i)
-        res += pow(1.0e6, static_cast<Float>(i) / (static_cast<Float>(x.size()) - 1)) * x(i) * x(i);
-    return res;
-}
-
-Float rosenbrock(Eigen::Ref<const Vector> x)
-{
-    Float sum = 0.0;
-    for (auto i = 0; i < x.size() - 1; ++i)
-    {
-        Float xi = x[i];
-        Float xi1 = x[i + 1];
-        Float term1 = 100.0 * std::pow(xi1 - xi * xi, 2);
-        Float term2 = std::pow(1.0 - xi, 2);
-        sum += term1 + term2;
-    }
-    return sum;
-}
-
-Matrix random_rotation_matrix(int n, int seed)
-{
-    std::mt19937 gen(seed);
-    std::normal_distribution<> d(0, 1);
-
-    Matrix A(n, n);
-    for (int i = 0; i < n; ++i)
-        for (int j = 0; j < n; ++j)
-            A(i, j) = d(gen);
-
-    Eigen::HouseholderQR<Matrix> qr(A);
-    Matrix Q = qr.householderQ();
-
-    if (Q.determinant() < 0)
-    {
-        Q.col(0) *= -1;
-    }
-
-    return Q;
-}
-
-} // namespace functions

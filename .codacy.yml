@@ -1,0 +1,10 @@
+---
+# Codacy (static analysis on pull requests)
+engines:
+  cppcheck:
+    language: c++
+exclude_paths:
+  # benchmarks, developer tools and the local build: not part of the package
+  - "bench/**"
+  - "tools/**"
+  - "build/**"

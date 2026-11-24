@@ -43,22 +43,86 @@ Float median_sorted_copy(std::vector<Float> values)
     return 0.5 * (lower + upper);
 }
 
-Float median_tail_range(const std::vector<Float> &v, const size_t from, const size_t to)
+} // namespace
+
+namespace restart
 {
-    if (from >= to || from >= v.size())
-        return std::numeric_limits<Float>::quiet_NaN();
-
-    const size_t clipped_to = std::min(to, v.size());
-
-    std::vector<Float> values;
-    values.reserve(clipped_to - from);
-
-    for (size_t i = from; i < clipped_to; ++i)
-        values.push_back(v[i]);
-
-    return median_sorted_copy(std::move(values));
+void SplitMedian::Median::rebalance()
+{
+    if (lo.size() > hi.size() + 1)
+    {
+        auto last = std::prev(lo.end());
+        hi.insert(*last);
+        lo.erase(last);
+    }
+    else if (hi.size() > lo.size())
+    {
+        lo.insert(*hi.begin());
+        hi.erase(hi.begin());
+    }
 }
 
+void SplitMedian::Median::insert(const Float x)
+{
+    if (lo.empty() || !NanLast{}(*lo.rbegin(), x))
+        lo.insert(x); // x <= max(lo)
+    else
+        hi.insert(x);
+    rebalance();
+}
+
+void SplitMedian::Median::erase(const Float x)
+{
+    if (!lo.empty() && !NanLast{}(*lo.rbegin(), x))
+        lo.erase(lo.find(x));
+    else
+        hi.erase(hi.find(x));
+    rebalance();
+}
+
+Float SplitMedian::Median::median() const
+{
+    if (lo.empty())
+        return std::numeric_limits<Float>::quiet_NaN();
+    if (lo.size() > hi.size())
+        return *lo.rbegin();
+    return 0.5 * (*lo.rbegin() + *hi.begin());
+}
+
+void SplitMedian::push_back(const Float x)
+{
+    values_.push_back(x);
+    tail_.insert(x);
+}
+
+void SplitMedian::assign(const std::vector<Float> &values)
+{
+    values_.clear();
+    head_ = {};
+    tail_ = {};
+    split_ = 0;
+    for (const Float x : values)
+        push_back(x);
+}
+
+void SplitMedian::set_split(const size_t split)
+{
+    const size_t target = std::min(split, values_.size());
+    for (; split_ < target; ++split_)
+    {
+        tail_.erase(values_[split_]);
+        head_.insert(values_[split_]);
+    }
+    for (; split_ > target; --split_)
+    {
+        head_.erase(values_[split_ - 1]);
+        tail_.insert(values_[split_ - 1]);
+    }
+}
+} // namespace restart
+
+namespace
+{
 Float median_vector(Vector x)
 {
     if (x.size() == 0)
@@ -152,16 +216,32 @@ void FlatFitness::on_reset(const parameters::Parameters &p)
     flat_fitness_index = static_cast<size_t>(std::round(.1 + static_cast<Float>(p.lambda) / 4));
 }
 
+namespace
+{
+/**
+ * The covariance adaptation, when B and d hold the eigendecomposition of C; null otherwise. B14:
+ * COVARIANCE_NO_EIGV is a CovarianceAdaptation but never computes B and d, and the criteria read
+ * their initial values (identity, ones) instead.
+ */
+const matrix_adaptation::CovarianceAdaptation *eigendecomposition(const parameters::Parameters &p)
+{
+    const auto *covariance =
+        dynamic_cast<const matrix_adaptation::CovarianceAdaptation *>(p.adaptation.get());
+    return covariance != nullptr && covariance->has_eigendecomposition() ? covariance : nullptr;
+}
+} // namespace
+
 void TolX::update(const parameters::Parameters &p)
 {
-    // TODO: This should be another sigma0, the one that has been used to restart
+    // Met when sigma sqrt(C_ii) < tol sigma_0 and sigma |pc_i| < tol sigma_0 for every i, with
+    // sigma_0 the step size at the start of the run (Hansen 2016, Appendix B; pycma's tolx)
     if (const auto dynamic =
             std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
     {
-        const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
-        const Float tolx_condition = tolerance * p.settings.sigma0;
-        tolx_vector.head(p.settings.dim) = dynamic->C.diagonal().cwiseSqrt() * d_sigma;
-        tolx_vector.tail(p.settings.dim) = dynamic->pc * d_sigma;
+        const Float sigma = p.mutation->sigma;
+        const Float tolx_condition = tolerance * sigma_start;
+        tolx_vector.head(p.settings.dim) = dynamic->C.diagonal().cwiseSqrt() * sigma;
+        tolx_vector.tail(p.settings.dim) = dynamic->pc.cwiseAbs() * sigma;
         met = (tolx_vector.array() < tolx_condition).all();
     }
 }
@@ -169,16 +249,18 @@ void TolX::update(const parameters::Parameters &p)
 void TolX::on_reset(const parameters::Parameters &p)
 {
     tolx_vector = Vector::Ones(p.settings.dim * 2);
+    sigma_start = p.mutation->sigma;
 }
 
 void MaxDSigma::update(const parameters::Parameters &p)
 {
     const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
+    // B15: d holds the square roots of the eigenvalues of C (pycma's D): tolupsigma compares with
+    // max(D) itself, not its square root
     Float root_max_d = 1.0;
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
+    if (const auto *dynamic = eigendecomposition(p))
     {
-        root_max_d = std::sqrt(dynamic->d.maxCoeff());
+        root_max_d = dynamic->d.maxCoeff();
     }
     met = d_sigma > (tolerance * root_max_d);
 }
@@ -187,19 +269,18 @@ void MinDSigma::update(const parameters::Parameters &p)
 {
     const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
 
+    // B15: as MaxDSigma, with min(D)
     Float root_min_d = 1.0;
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
+    if (const auto *dynamic = eigendecomposition(p))
     {
-        root_min_d = std::sqrt(dynamic->d.minCoeff());
+        root_min_d = dynamic->d.minCoeff();
     }
     met = d_sigma < (tolerance * root_min_d);
 }
 
 void ConditionC::update(const parameters::Parameters &p)
 {
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
+    if (const auto *dynamic = eigendecomposition(p))
     {
         const Float condition_c = pow(dynamic->d.maxCoeff(), 2.0) / pow(dynamic->d.minCoeff(), 2);
         met = condition_c > tolerance;
@@ -208,12 +289,11 @@ void ConditionC::update(const parameters::Parameters &p)
 
 void NoEffectAxis::update(const parameters::Parameters &p)
 {
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
+    if (const auto *dynamic = eigendecomposition(p))
     {
         const Eigen::Index t = p.stats.t % p.settings.dim;
-        const auto effect_axis =
-            0.1 * p.mutation->sigma * std::sqrt(dynamic->d(t)) * dynamic->B.col(t);
+        // B15: as pycma, 0.1 sigma D_t b_t with D_t = d(t) the square root of the eigenvalue
+        const auto effect_axis = 0.1 * p.mutation->sigma * dynamic->d(t) * dynamic->B.col(t);
         met = (effect_axis.array().abs() < tolerance).all();
     }
 }
@@ -240,7 +320,7 @@ void Stagnation::update(const parameters::Parameters &p)
     if (time_since_restart <= n_stagnation)
         return;
 
-    const size_t n = best_fitnesses.size();
+    const size_t n = best_fitnesses.values().size();
 
     if (n < 4)
         return;
@@ -248,13 +328,17 @@ void Stagnation::update(const parameters::Parameters &p)
     size_t split = static_cast<size_t>(tolerance * static_cast<Float>(n));
     split = std::max<size_t>(1, std::min(split, n - 1));
 
-    const Float old_best_median = median_tail_range(best_fitnesses, 0, split);
+    // The medians of [0, split) and [split, n), kept up to date as the split moves (B10)
+    best_fitnesses.set_split(split);
+    median_fitnesses.set_split(split);
 
-    const Float new_best_median = median_tail_range(best_fitnesses, split, n);
+    const Float old_best_median = best_fitnesses.head_median();
 
-    const Float old_median_median = median_tail_range(median_fitnesses, 0, split);
+    const Float new_best_median = best_fitnesses.tail_median();
 
-    const Float new_median_median = median_tail_range(median_fitnesses, split, n);
+    const Float old_median_median = median_fitnesses.head_median();
+
+    const Float new_median_median = median_fitnesses.tail_median();
 
     // Minimization: if newer medians are not better, stagnation.
     const bool best_not_improving = new_best_median >= old_best_median;
@@ -268,8 +352,8 @@ void Stagnation::on_reset(const parameters::Parameters &p)
     const auto d = static_cast<Float>(p.settings.dim);
     n_stagnation = static_cast<size_t>(100 + 100 * std::pow(d, 1.5) / static_cast<Float>(p.lambda));
 
-    median_fitnesses = {};
-    best_fitnesses = {};
+    median_fitnesses.clear();
+    best_fitnesses.clear();
 }
 
 void TooMuchRepelling::update(const parameters::Parameters &p)

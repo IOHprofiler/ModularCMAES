@@ -1,7 +1,5 @@
-IOHexperimenter>=0.2.8
-numba>=0.52.0
-numpy>=1.18.5
-scipy>=1.4.1
-Sphinx==3.3.0
-sphinx-automodapi==0.13
-sphinx-rtd-theme==0.5.0
+# The documentation site (zensical.toml): zensical build --strict
+mkdocstrings==1.0.8
+mkdocstrings-python==2.0.11
+ruff==0.17.6  # formats the signatures in the API reference
+zensical==0.1.3

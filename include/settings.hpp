@@ -39,14 +39,23 @@ struct Settings
     bool verbose;
     bool one_plus_one;
 
+    //! The seed of the optimizer's own random generator. Without one, the optimizer starts from
+    //! the global generator (rng::set_seed) when it is created (rng::fork).
+    std::optional<int> seed = std::nullopt;
+
+    //! Opt-in: draw the samples with xoshiro256++ and a ziggurat (sampling::FastGaussian) instead
+    //! of mt19937 and the inverse normal CDF, for the default UNIFORM + GAUSSIAN sampler. Faster,
+    //! but a different random stream than the default.
+    bool fast_sampling = false;
+
     Settings(size_t dim,
              std::optional<Modules> mod = std::nullopt,
              std::optional<Float> target = std::nullopt,
              std::optional<size_t> max_generations = std::nullopt,
              std::optional<size_t> budget = std::nullopt,
              std::optional<Float> sigma = std::nullopt,
-             std::optional<size_t> lambda = std::nullopt,
              std::optional<size_t> mu = std::nullopt,
+             std::optional<size_t> lambda = std::nullopt,
              std::optional<Vector> x0 = std::nullopt,
              std::optional<Vector> lb = std::nullopt,
              std::optional<Vector> ub = std::nullopt,
@@ -57,7 +66,7 @@ struct Settings
              std::optional<Float> c1 = std::nullopt,
              std::optional<Float> damps = std::nullopt,
              std::optional<Float> acov = std::nullopt,
-             bool verbose = true,
+             bool verbose = false,
              bool always_compute_eigv = false) :
         dim(dim),
         modules(mod.value_or(Modules())),
@@ -88,15 +97,15 @@ struct Settings
         if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
             lambda0++;
 
-        if (mu0 > lambda0)
-        {
-            mu0 = lambda0 / 2;
-        }
-
         if (modules.ssa == StepSizeAdaptation::SA ||
             modules.matrix_adaptation == MatrixAdaptationType::CMSA)
         {
-            mu0 = mu.value_or(lambda0 / 4);
+            mu0 = mu.value_or(std::max<size_t>(1, lambda0 / 4));
+        }
+
+        if (mu0 > lambda0)
+        {
+            mu0 = lambda0 / 2;
         }
 
         if (modules.ssa != StepSizeAdaptation::CSA and
@@ -104,6 +113,22 @@ struct Settings
             not always_compute_eigv)
         {
             modules.matrix_adaptation = MatrixAdaptationType::COVARIANCE_NO_EIGV;
+        }
+
+        // xNES's active form is its utilities (summing to zero) over all lambda points; CMA-ES's
+        // negative weights, scaled for CMA-ES, made the natural gradient shrink sigma even on a
+        // linear function (TASKS.md F2). So NATURAL_GRADIENT with active uses the utilities.
+        if (modules.matrix_adaptation == MatrixAdaptationType::NATURAL_GRADIENT && modules.active &&
+            modules.weights == RecombinationWeights::DEFAULT)
+        {
+            modules.weights = RecombinationWeights::UTILITY;
+        }
+
+        // The utilities of NES/xNES are negative for the worse half: every matrix update uses all
+        // of them, as the active update does
+        if (modules.weights == RecombinationWeights::UTILITY)
+        {
+            modules.active = true;
         }
 
         if (modules.matrix_adaptation == MatrixAdaptationType::NONE)
@@ -126,6 +151,17 @@ struct Settings
                 modules.restart_strategy = RestartStrategyType::RESTART;
         }
 
+        update_bounds();
+    }
+
+    //! Recompute the values derived from lb and ub (after a change of the bounds)
+    void update_bounds()
+    {
+        db = ub - lb;
+        center = lb + (db * 0.5);
+        diameter = db.norm();
+        volume = db.prod();
+        has_bounds = true;
         if (!std::isfinite(diameter))
         {
             has_bounds = false;

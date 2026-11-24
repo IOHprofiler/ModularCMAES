@@ -349,5 +349,89 @@ class TestBindingArgumentNames(unittest.TestCase):
         np.testing.assert_array_equal(results[0], results[1])
 
 
+class TestCriteriaWithoutEigendecomposition(unittest.TestCase):
+    """B14: COVARIANCE_NO_EIGV is a CovarianceAdaptation, but it factorizes C with a Cholesky
+    decomposition and never computes B and d. The criteria that read the eigendecomposition used
+    their initial values (identity, ones); they now treat it like any adaptation without one.
+    Criteria.get only adds ConditionC and NoEffectAxis for COVARIANCE, so this matters when they
+    are added by hand."""
+
+    NEEDS_EIGENDECOMPOSITION = ("ConditionC", "NoEffectAxis")
+
+    def criteria_after_ill_conditioned_d(self, name):
+        modules = c_maes.Modules()
+        modules.matrix_adaptation = getattr(c_maes.options.MatrixAdaptationType, name)
+        modules.restart_strategy = c_maes.options.RestartStrategy.RESTART
+        cma = c_maes.ModularCMAES(c_maes.Settings(4, modules, seed=1))
+        cma.step(sphere)
+        p = cma.p
+        names = [item.name for item in p.criteria.items]
+        if "ConditionC" not in names:
+            p.criteria.items.append(c_maes.restart.ConditionC())
+            p.criteria.items.append(c_maes.restart.NoEffectAxis())
+        # a condition of 1e20 and a vanishing axis, if the criteria read d and B
+        p.adaptation.d[:] = [1e10, 1.0, 1.0, 1.0]
+        p.adaptation.d[p.stats.t % 4] = 1e-30
+        for item in p.criteria.items:
+            if item.name in self.NEEDS_EIGENDECOMPOSITION:
+                item.update(p)
+        return {item.name: item.met for item in p.criteria.items}
+
+    def test_covariance_reads_the_eigendecomposition(self):
+        met = self.criteria_after_ill_conditioned_d("COVARIANCE")
+        self.assertTrue(met["ConditionC"])
+        self.assertTrue(met["NoEffectAxis"])
+
+    def test_no_eigv_does_not_read_it(self):
+        met = self.criteria_after_ill_conditioned_d("COVARIANCE_NO_EIGV")
+        self.assertFalse(met["ConditionC"])
+        self.assertFalse(met["NoEffectAxis"])
+
+
+
+class TestCriteriaUseSquareRootOfEigenvalues(unittest.TestCase):
+    """B15: d holds the square roots of the eigenvalues of C (pycma's D). MaxDSigma (tolupsigma),
+    MinDSigma and NoEffectAxis took its square root again (the fourth root of the eigenvalues)."""
+
+    def setup(self):
+        modules = c_maes.Modules()
+        modules.restart_strategy = c_maes.options.RestartStrategy.RESTART
+        cma = c_maes.ModularCMAES(c_maes.Settings(4, modules, seed=1, sigma0=1.0))
+        cma.step(sphere)
+        return cma.p, {item.name: item for item in cma.p.criteria.items}
+
+    def test_max_d_sigma(self):
+        p, items = self.setup()
+        p.adaptation.d[:] = [1e4, 1.0, 1.0, 1.0]
+        tolerance = 1e20  # MaxDSigma.tolerance
+        p.mutation.sigma = tolerance * 1e3  # above tolerance * sqrt(max D), below tolerance * max D
+        items["MaxDSigma"].update(p)
+        self.assertFalse(items["MaxDSigma"].met)
+        p.mutation.sigma = tolerance * 1e5
+        items["MaxDSigma"].update(p)
+        self.assertTrue(items["MaxDSigma"].met)
+
+    def test_min_d_sigma(self):
+        p, items = self.setup()
+        p.adaptation.d[:] = [1e-4, 1.0, 1.0, 1.0]
+        tolerance = 1e-20  # MinDSigma.tolerance
+        p.mutation.sigma = tolerance * 1e-3  # below tolerance * sqrt(min D), above tolerance * min D
+        items["MinDSigma"].update(p)
+        self.assertFalse(items["MinDSigma"].met)
+        p.mutation.sigma = tolerance * 1e-5
+        items["MinDSigma"].update(p)
+        self.assertTrue(items["MinDSigma"].met)
+
+    def test_no_effect_axis(self):
+        p, items = self.setup()
+        t = p.stats.t % 4
+        p.adaptation.B[:] = np.eye(4)
+        p.mutation.sigma = 1.0
+        # 0.1 * D_t = 1e-16 has no effect (< 10 eps); 0.1 * sqrt(D_t) = 1e-9 would have
+        p.adaptation.d[t] = 1e-15
+        items["NoEffectAxis"].update(p)
+        self.assertTrue(items["NoEffectAxis"].met)
+
+
 if __name__ == "__main__":
     unittest.main()

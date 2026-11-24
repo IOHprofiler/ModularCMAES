@@ -1,0 +1,7 @@
+threads,generations_per_second,speedup,gil_enabled
+1,175755,1.0,False
+2,288637,1.64,False
+4,491025,2.79,False
+6,566334,3.22,False
+8,673441,3.83,False
+10,756239,4.3,False

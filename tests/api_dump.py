@@ -30,6 +30,11 @@ DEFAULT_OUTPUT = os.path.join(os.path.dirname(__file__), "data", "api", "pybind1
 ACCEPTED = {
     "overload not accepted: cmaescpp.restart.CriteriaVector.pop(i)":
         "nanobind's bind_vector names the argument index (pop(i=...) by keyword is not supported)",
+    "became read-only: cmaescpp.matrix_adaptation.CovarianceAdaptation.inv_root_C":
+        "T2.8: C^-1/2 is no longer formed by the updates; the property computes it from B and d",
+    "became read-only: cmaescpp.matrix_adaptation.NaturalGradientAdaptation.G":
+        "WP4: the xNES update uses the low-rank factor of G (gradient_samples, gradient_weights, "
+        "gradient_shift); the property computes G from it",
 }
 
 

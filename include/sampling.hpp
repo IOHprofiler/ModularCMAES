@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdexcept>
+
 #include "common.hpp"
 
 namespace parameters
@@ -65,29 +67,66 @@ struct Tester : Sampler
 template <typename Distribution = rng::normal<Float>> struct Random : Sampler
 {
 
-    Random(const size_t d) :
+    Random(const size_t d, std::shared_ptr<rng::Generator> generator = rng::global()) :
         Sampler(d),
-        dist{}
+        dist{},
+        generator(std::move(generator))
     {
     }
-    Random(const size_t d, const Distribution &dist) :
+    Random(const size_t d,
+           const Distribution &dist,
+           std::shared_ptr<rng::Generator> generator = rng::global()) :
         Sampler(d),
-        dist(dist)
+        dist(dist),
+        generator(std::move(generator))
+    {
+    }
+
+    void sample(Eigen::Ref<Vector> out) override
+    {
+        rng::Generator &gen = *generator;
+        for (auto &xi : out)
+            xi = dist(gen);
+    }
+
+  private:
+    Distribution dist;
+    std::shared_ptr<rng::Generator> generator;
+};
+
+// //! Gaussian distribution sampler
+using Gaussian = Random<rng::normal<Float>>;
+
+/**
+ * Opt-in fast Gaussian sampler (Settings.fast_sampling): standard normal numbers from xoshiro256++
+ * and a ziggurat, instead of mt19937 and the inverse normal CDF of the default
+ * UNIFORM + GAUSSIAN sampler. A different random stream: results differ from the default sampler.
+ */
+struct FastGaussian : Sampler
+{
+    //! The generator is seeded with two numbers drawn from seed_source
+    FastGaussian(const size_t d, rng::Generator &seed_source) :
+        Sampler(d),
+        generator((static_cast<uint64_t>(seed_source()) << 32) | seed_source())
     {
     }
 
     void sample(Eigen::Ref<Vector> out) override
     {
         for (auto &xi : out)
-            xi = dist(rng::GENERATOR);
+            xi = rng::ziggurat_normal(generator);
+    }
+
+    //! The expected length of a d-dimensional standard normal vector
+    Float expected_length() override
+    {
+        const Float dd = static_cast<Float>(d);
+        return sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)));
     }
 
   private:
-    Distribution dist;
+    rng::Xoshiro256pp generator;
 };
-
-// //! Gaussian distribution sampler
-using Gaussian = Random<rng::normal<Float>>;
 
 //! Uniform distribution sampler
 using Uniform = Random<rng::uniform<Float>>;
@@ -114,6 +153,9 @@ struct Mirrored : Sampler
         mirror = false;
     }
 
+    //! A mirrored sample has the length of the sample it mirrors
+    Float expected_length() override { return sampler->expected_length(); }
+
   private:
     std::shared_ptr<Sampler> sampler;
     Vector previous;
@@ -135,9 +177,9 @@ struct Orthogonal : Sampler
         Sampler(sampler->d),
         sampler(sampler),
         n(std::max(d, n_samples)),
-        qr(n, d),
+        qr(d, std::min(d, n)),
         samples(d, n),
-        I(Matrix::Identity(n, d))
+        lengths(n)
     {
     }
 
@@ -147,12 +189,15 @@ struct Orthogonal : Sampler
 
     static size_t get_n_samples(const parameters::Modules &modules, const size_t lambda);
 
+    //! The samples keep the lengths of the samples of the wrapped sampler
+    Float expected_length() override { return sampler->expected_length(); }
+
   private:
     std::shared_ptr<Sampler> sampler;
     size_t n;
     Eigen::HouseholderQR<Matrix> qr;
     Matrix samples;
-    Matrix I;
+    Vector lengths;
     size_t current = 0;
 };
 
@@ -162,7 +207,9 @@ struct Orthogonal : Sampler
  */
 struct Halton : Sampler
 {
-    Halton(const size_t d, const bool scramble = true);
+    Halton(const size_t d,
+           const bool scramble = true,
+           const std::shared_ptr<rng::Generator> &generator = rng::global());
 
     void sample(Eigen::Ref<Vector> out) override;
 
@@ -179,7 +226,7 @@ struct Halton : Sampler
     static std::vector<int> sieve(const int n);
 
     static std::vector<std::vector<std::vector<int>>>
-    get_permutations(const std::vector<int> &primes);
+    get_permutations(const std::vector<int> &primes, rng::Generator &gen);
 
     static std::vector<int> n_primes(const size_t d);
 };
@@ -192,7 +239,7 @@ struct Sobol : Sampler
 {
     rng::CachedShuffleSequence cache;
 
-    Sobol(const size_t dim);
+    Sobol(const size_t dim, const std::shared_ptr<rng::Generator> &generator = rng::global());
 
     void sample(Eigen::Ref<Vector> out) override { cache.next(out); }
 };
@@ -219,8 +266,8 @@ struct CachedSampler : Sampler
     }
 
     CachedSampler(const std::vector<Vector> &cache, const bool transform_ppf = false) :
-        Sampler(cache[0].size()),
-        sampler(std::make_shared<Tester>(cache[0].size())),
+        Sampler(first_size(cache)),
+        sampler(std::make_shared<Tester>(first_size(cache))),
         cache(cache),
         index(cache.size()),
         n_samples(cache.size())
@@ -238,6 +285,17 @@ struct CachedSampler : Sampler
             cache.emplace_back((*sampler)());
 
         out = cache[index++ % n_samples];
+    }
+
+    //! The cached samples are those of the wrapped sampler
+    Float expected_length() override { return sampler->expected_length(); }
+
+  private:
+    static size_t first_size(const std::vector<Vector> &cache)
+    {
+        if (cache.empty())
+            throw std::invalid_argument("CachedSampler: the cache is empty");
+        return static_cast<size_t>(cache[0].size());
     }
 };
 
@@ -459,6 +517,14 @@ struct DoubleWeibullTransformer : SampleTransformer
     }
 };
 
-std::shared_ptr<Sampler> get(const size_t dim, const parameters::Modules &mod, const size_t lambda);
+/**
+ * The sampler of the modules; its random numbers come from generator. fast_normal: the default
+ * UNIFORM + GAUSSIAN sampler is replaced by FastGaussian (ignored for other samplers).
+ */
+std::shared_ptr<Sampler> get(const size_t dim,
+                             const parameters::Modules &mod,
+                             const size_t lambda,
+                             const std::shared_ptr<rng::Generator> &generator = rng::global(),
+                             const bool fast_normal = false);
 
 } // namespace sampling

@@ -10,6 +10,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
         python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        include:
+          # free-threaded CPython: the module runs without the GIL
+          - os: ubuntu-latest
+            python-version: '3.14t'
+          - os: macos-latest
+            python-version: '3.14t'
     steps:
     - uses: actions/checkout@v4
     - name: Set up Python ${{ matrix.python-version }}
@@ -20,19 +26,18 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         python -m pip install coverage
+        # for the BBOB example of the documentation (tests/test_c_docs.py); not on every platform
+        python -m pip install ioh || echo "no ioh wheel: the BBOB example is skipped"
     - name: Install
       run: python -m pip install -e . -v
+    - name: The module keeps the GIL disabled
+      if: ${{ endsWith(matrix.python-version, 't') }}
+      run: python -W error -c "import sys; from modcma import c_maes; assert not sys._is_gil_enabled()"
     - name: Test with coverage
       shell: bash
       run: |
-        # The tests of the pure-Python implementation (no longer maintained) fail on Python 3.14
-        # for reasons unrelated to the C++ version; there only the C++ version is tested.
-        if [ "${{ matrix.python-version }}" = "3.14" ]; then
-          coverage run -m unittest discover -p "test_c_*.py"
-        else
-          coverage run -m unittest discover
-        fi
-        coverage report -m modcma/[a-z]*.py
+        coverage run -m unittest discover
+        coverage report -m --include="modcma/*"
     - name: Golden fixture for this runner's toolchain
       if: ${{ always() && matrix.python-version == '3.12' }}
       shell: bash
@@ -52,11 +57,40 @@ jobs:
       env:
         CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
       run: |
-        coverage xml -o cobertura.xml
+        coverage xml --include="modcma/*" -o cobertura.xml
         bash <(curl -Ls https://coverage.codacy.com/get.sh) report
 
+  docs:
+    # The documentation site: every page and the API reference (from the stubs) build without a
+    # warning
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Build
+      run: |
+        python -m pip install -r docs/requirements.txt
+        python tools/gen_docs.py --check
+        zensical build --strict
+
+  types:
+    # The package and its stubs type-check, and so does typical use of the API (numpy arrays where
+    # vectors are expected): the wheels ship py.typed
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+    - name: Pyright
+      run: |
+        python -m pip install numpy scipy configspace pyright==1.1.414
+        pyright modcma tests/typing_usage.py
+
   cpp:
-    # The C++ targets: library, main, benchmark harness and the C++ unit tests (ctest)
+    # The C++ targets: library, benchmark harness and the C++ unit tests (ctest)
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
@@ -68,3 +102,16 @@ jobs:
       run: ctest --test-dir build --output-on-failure
     - name: Benchmark (smoke test)
       run: ./build/modcma_bench --dims 2,10 --generations 200 --repetitions 1
+    - name: The C++ examples of the documentation (programs that link the library)
+      run: |
+        cmake -S examples/cpp -B build-example -DCMAKE_BUILD_TYPE=Release
+        cmake --build build-example --parallel 4
+        ./build-example/sphere
+        ./build-example/functions
+    - name: Build and test with LAPACK (MODCMA_LAPACK)
+      run: |
+        sudo apt-get update -qq && sudo apt-get install -y -qq liblapack-dev
+        cmake -S . -B build-lapack -DCMAKE_BUILD_TYPE=Release -DMODCMA_LAPACK=ON
+        cmake --build build-lapack --parallel 4
+        ctest --test-dir build-lapack --output-on-failure
+        ./build-lapack/modcma_bench --dims 150,300 --generations 50 --repetitions 1 --eigen-solver 1

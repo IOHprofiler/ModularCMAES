@@ -45,6 +45,23 @@ extern size_t cache_min_samples;
 extern bool cache_samples;
 extern bool clip_sigma;
 extern bool use_box_muller;
+//! The eigendecomposition of the covariance matrix: 0 Eigen's SelfAdjointEigenSolver, 1 LAPACK
+//! dsyevd, 2 LAPACK dsyevr (1 and 2 need a build with MODCMA_LAPACK), -1 (default) automatic:
+//! dsyevd from lapack_min_dim on when the build has LAPACK, Eigen otherwise
+extern int eigen_solver;
+//! The dimension from which the automatic choice uses LAPACK (Eigen is faster below: Accelerate
+//! dsyevd on an Apple M5 is 2x slower at d = 50, even at d ~ 115, 3.4x faster at d = 1000)
+extern size_t lapack_min_dim;
+//! The Cholesky factorization of CMSA and COVARIANCE_NO_EIGV: 0 Eigen's LLT, 1 LAPACK dpotrf,
+//! -1 (default) automatic: dpotrf from lapack_min_dim on when LAPACK is available
+extern int cholesky_solver;
+//! Matrix products (dgemm) and the LU inverse of M (MA-ES) and A (xNES): -1 (default) automatic,
+//! BLAS/LAPACK from blas_min_dim on when available; 0 Eigen; 1 always BLAS/LAPACK when available
+extern int blas;
+//! The dimension from which the automatic choice uses BLAS for products and LAPACK for the
+//! inverse. A single dgemm is faster than Eigen's from d ~ 30, but in whole generations (Apple M5,
+//! Accelerate) BLAS was 6-32 % slower at d = 50 and level or faster from d = 100 on
+extern size_t blas_min_dim;
 } // namespace constants
 
 /**
@@ -205,11 +222,18 @@ template <typename T> T nearest_power_of_2(const T value)
 
 namespace rng
 {
+//! The random generator of the library
+using Generator = std::mt19937;
+
 //! The global seed value
 extern int SEED;
 
-//! The random generator
-extern std::mt19937 GENERATOR;
+/**
+ * The global random generator. Every optimizer draws from a generator of its own (see fork());
+ * objects that are created outside an optimizer (a sampler on its own, the ES baselines) draw from
+ * this one.
+ */
+extern Generator GENERATOR;
 
 /**
  * @brief Set the global seed and reseed the random generator (mt19937)
@@ -217,14 +241,67 @@ extern std::mt19937 GENERATOR;
  * @param seed
  */
 void set_seed(int seed);
+
+//! The global generator as a shared pointer (not owning it), the default generator of objects
+[[nodiscard]] std::shared_ptr<Generator> global();
+
 /**
- * @brief random integer generator using global GENERATOR in the half open interval [l, h)
+ * A generator for a new optimizer: a copy of the global generator, after which the global generator
+ * moves on to a different state. After set_seed(s), the first optimizer draws exactly the numbers
+ * the global generator would have drawn; a second one draws different numbers. Thread-safe.
+ */
+[[nodiscard]] std::shared_ptr<Generator> fork();
+
+/**
+ * @brief random integer in the half open interval [l, h)
  *
  * @param l lower bound
  * @param h upper bound
+ * @param gen the generator to draw from
  * @return int a random integer
  */
-int random_integer(const int l, const int h);
+int random_integer(const int l, const int h, Generator &gen = GENERATOR);
+
+/**
+ * xoshiro256++ (Blackman and Vigna, 2019): a small, fast 64-bit generator, for the opt-in fast
+ * normal sampler (Settings.fast_sampling). Seeded with splitmix64.
+ */
+struct Xoshiro256pp
+{
+    using result_type = uint64_t;
+
+    explicit Xoshiro256pp(uint64_t seed);
+
+    static constexpr result_type min() { return 0; }
+    static constexpr result_type max() { return ~result_type{0}; }
+
+    result_type operator()()
+    {
+        const uint64_t result = rotl(s[0] + s[3], 23) + s[0];
+        const uint64_t t = s[1] << 17;
+        s[2] ^= s[0];
+        s[3] ^= s[1];
+        s[1] ^= s[2];
+        s[0] ^= s[3];
+        s[2] ^= t;
+        s[3] = rotl(s[3], 45);
+        return result;
+    }
+
+    //! A uniform number in [0, 1) with 53 random bits
+    double uniform() { return static_cast<double>((*this)() >> 11) * 0x1.0p-53; }
+
+  private:
+    uint64_t s[4];
+
+    static uint64_t rotl(const uint64_t x, const int k) { return (x << k) | (x >> (64 - k)); }
+};
+
+/**
+ * A standard normal number with the 256-layer ziggurat of Marsaglia and Tsang (2000), in the 64-bit
+ * form of numpy's Generator.standard_normal: one 64-bit draw for about 99 % of the numbers.
+ */
+double ziggurat_normal(Xoshiro256pp &gen);
 
 /**
  * @brief a shuffler that generates a random permutation of a
@@ -241,20 +318,21 @@ struct Shuffler
     size_t modulus;
     size_t found;
 
-    Shuffler(const size_t start, const size_t stop) :
+    Shuffler(const size_t start, const size_t stop, Generator &gen = GENERATOR) :
         start(start),
         stop(stop),
         n(stop - start),
-        seed(static_cast<size_t>(random_integer(0, static_cast<int>(stop - start)))),
-        offset(static_cast<size_t>(random_integer(0, static_cast<int>(stop - start)) * 2 + 1)),
+        seed(static_cast<size_t>(random_integer(0, static_cast<int>(stop - start), gen))),
+        offset(
+            static_cast<size_t>(random_integer(0, static_cast<int>(stop - start), gen) * 2 + 1)),
         multiplier(4 * ((stop - start) / 4) + 1),
         modulus(static_cast<size_t>(pow(2, std::ceil(std::log2(stop - start))))),
         found(0)
     {
     }
 
-    Shuffler(const size_t stop) :
-        Shuffler(0, stop)
+    Shuffler(const size_t stop, Generator &gen = GENERATOR) :
+        Shuffler(0, stop, gen)
     {
     }
 
@@ -270,7 +348,7 @@ struct CachedShuffleSequence
     std::vector<Float> cache;
     Shuffler shuffler;
 
-    CachedShuffleSequence(const size_t d);
+    CachedShuffleSequence(const size_t d, Generator &gen = GENERATOR);
 
     void fill(const std::vector<Float> &c);
 
@@ -365,53 +443,3 @@ template <typename T = Float> struct normal
 };
 } // namespace rng
 
-namespace functions
-{
-Float sphere(Eigen::Ref<const Vector> x);
-Float ellipse(Eigen::Ref<const Vector> x);
-Float rastrigin(Eigen::Ref<const Vector> x);
-Float rosenbrock(Eigen::Ref<const Vector> x);
-Matrix random_rotation_matrix(int n, int seed);
-
-enum ObjectiveFunction
-{
-    ELLIPSE,
-    ROSENBROCK,
-    SPHERE,
-    RASTRIGIN
-};
-
-inline FunctionType get(const ObjectiveFunction f)
-{
-    switch (f)
-    {
-    case ELLIPSE:
-        return ellipse;
-    case RASTRIGIN:
-        return rastrigin;
-    case ROSENBROCK:
-        return rosenbrock;
-    case SPHERE:
-        return sphere;
-    default:
-        return sphere;
-    }
-}
-
-inline std::string to_string(const ObjectiveFunction f)
-{
-    switch (f)
-    {
-    case ELLIPSE:
-        return "ellipse";
-    case RASTRIGIN:
-        return "rastrigin";
-    case ROSENBROCK:
-        return "rosenbrock";
-    case SPHERE:
-        return "sphere";
-    default:
-        return "unknown";
-    }
-}
-} // namespace functions

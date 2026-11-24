@@ -18,6 +18,10 @@ namespace parameters
 {
 struct Parameters
 {
+    //! The smallest first generation after a restart that fits the rest of the budget (lambda = 1
+    //! is the (1+1)-ES): the budget check and the hill-valley tests of repelling keep this much
+    static constexpr size_t min_lambda_after_restart = 2;
+
     bool successful_adaptation;
 
     size_t lambda;
@@ -25,6 +29,10 @@ struct Parameters
 
     Settings settings;
     Stats stats;
+
+    //! The random generator of this optimizer: every module draws from it
+    std::shared_ptr<rng::Generator> generator;
+
     std::shared_ptr<sampling::Sampler> sampler;
 
     Weights weights;
@@ -46,13 +54,48 @@ struct Parameters
 
     Parameters(const Settings &settings);
 
+    //! The start of a generation, with an objective for a restart (begin_generation, and the
+    //! restart evaluations when it starts one)
     void start(FunctionType &objective);
 
     void adapt();
 
+    //! A restart with an objective function: begin_restart, the evaluations, finish_restart
     void perform_restart(FunctionType &objective, const std::optional<Float> &sigma = std::nullopt);
 
+    /*
+     * The same, resumable (ask-tell). begin_generation makes the previous population old_pop and
+     * decides whether to restart. A restart then evaluates the center (restart_center(),
+     * tell_restart_center), and the hill-valley points of the repelling archive update
+     * (repelling->has_query()), and finish_restart resets the modules.
+     */
+
+    //! Returns whether a restart started (then restart_center() waits for its objective value)
+    bool begin_generation();
+
+    void begin_restart(const std::optional<Float> &sigma = std::nullopt);
+
+    //! The point at which a restart evaluates the objective (the center, in objective space)
+    [[nodiscard]] const Vector &restart_center() const { return pending_restart_center; }
+
+    //! The objective value y of the center x; starts the repelling archive update
+    void tell_restart_center(const Float y, Eigen::Ref<const Vector> x);
+
+    void finish_restart();
+    //! Caps lambda (and mu, in proportion) at the remaining budget; called by finish_restart
+    void fit_lambda_to_budget();
+    //! Whether a restart that starts now still fits: n more evaluations (the center, or a hill-valley
+    //! point), then the smallest first generation (and the extra points of TPA)
+    [[nodiscard]] bool restart_fits(size_t n) const;
+
     void resize_population(const size_t new_mu, const size_t new_lambda);
+
+  private:
+    std::optional<Float> restart_sigma;
+    Vector pending_restart_center;
+
+    //! The evaluations of a started restart with an objective function, then finish_restart
+    void complete_restart(FunctionType &objective);
 };
 
 } // namespace parameters

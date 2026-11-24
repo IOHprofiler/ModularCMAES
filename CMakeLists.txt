@@ -10,17 +10,34 @@ if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 file(GLOB SRC_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
-list(FILTER SRC_FILES EXCLUDE REGEX ".*(interface|main)\\.cpp$")
 
 # The library code, shared by the Python extension and the executables below
 add_library(modcma_core STATIC ${SRC_FILES})
 set_target_properties(modcma_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# Programs that link the library compile its headers, which need C++17 too
+target_compile_features(modcma_core PUBLIC cxx_std_17)
 target_include_directories(modcma_core PUBLIC
   ${PROJECT_SOURCE_DIR}/include
   ${PROJECT_SOURCE_DIR}/external
 )
 
 option(MODCMA_NATIVE "Compile for the host CPU (-march=native); not for distributed binaries" OFF)
+# LAPACK for the eigendecomposition (constants.eigen_solver): on by default on macOS, where Apple
+# Accelerate is part of the system. Elsewhere the Python package uses scipy's LAPACK at run time
+# (src/lapack.cpp), so the wheels need no LAPACK of their own.
+if (APPLE)
+  set(MODCMA_LAPACK_DEFAULT ON)
+else()
+  set(MODCMA_LAPACK_DEFAULT OFF)
+endif()
+option(MODCMA_LAPACK "Link LAPACK for the eigendecomposition" ${MODCMA_LAPACK_DEFAULT})
+
+if (MODCMA_LAPACK)
+  # Accelerate on macOS; OpenBLAS or the reference LAPACK elsewhere
+  find_package(LAPACK REQUIRED)
+  target_link_libraries(modcma_core PUBLIC ${LAPACK_LIBRARIES})
+  target_compile_definitions(modcma_core PUBLIC MODCMA_LAPACK)
+endif()
 
 if (MSVC)
   target_compile_options(modcma_core PUBLIC /bigobj)
@@ -44,9 +61,11 @@ if (SKBUILD OR MODCMA_PYTHON)
   find_package(nanobind CONFIG REQUIRED)
   file(GLOB BINDING_SOURCES ${PROJECT_SOURCE_DIR}/bindings/*.cpp)
   # NOMINSIZE: keep -O3 (nanobind's default -Os slows the bindings down, measured in
-  # IOHexperimenter). STABLE_ABI: one wheel for CPython 3.12+ (ignored for older versions).
-  # Not FREE_THREADED: the random generator and other state are global (TASKS.md, T4.1).
-  nanobind_add_module(cmaescpp NOMINSIZE STABLE_ABI ${BINDING_SOURCES})
+  # IOHexperimenter). STABLE_ABI: one wheel for CPython 3.12+ (ignored for older versions and
+  # free-threaded builds). FREE_THREADED: on a free-threaded interpreter the module does not
+  # re-enable the GIL; every optimizer has its own random generator (TASKS.md, T4.1), so
+  # optimizers can run in parallel threads (ignored on other interpreters).
+  nanobind_add_module(cmaescpp NOMINSIZE STABLE_ABI FREE_THREADED ${BINDING_SOURCES})
   target_link_libraries(cmaescpp PRIVATE modcma_core)
   install(TARGETS cmaescpp LIBRARY DESTINATION modcma/c_maes)
 endif()
@@ -54,10 +73,6 @@ endif()
 if (SKBUILD)
   return()
 endif()
-
-# Example/experiment driver
-add_executable(main ${PROJECT_SOURCE_DIR}/src/main.cpp)
-target_link_libraries(main PRIVATE modcma_core)
 
 # C++ unit tests for what Python cannot reach (ctest)
 enable_testing()

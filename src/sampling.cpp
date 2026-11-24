@@ -32,10 +32,18 @@ void Orthogonal::sample(Eigen::Ref<Vector> out)
         for (size_t i = 0; i < n; ++i)
             sampler->sample(samples.col(i));
 
-        const auto norm = samples.colwise().norm().asDiagonal();
-
-        qr.compute(samples.transpose());
-        samples = ((qr.householderQ() * I).transpose() * norm);
+        // Blocks of (at most) d samples are orthonormalized (more than d vectors cannot be
+        // orthogonal), then given the lengths of the samples they came from (Wang et al. 2014). The
+        // lengths are computed first: the samples are overwritten below.
+        lengths = samples.colwise().norm().transpose();
+        for (size_t start = 0; start < n; start += d)
+        {
+            const auto k = static_cast<Eigen::Index>(std::min(d, n - start));
+            auto block = samples.middleCols(static_cast<Eigen::Index>(start), k);
+            qr.compute(block);
+            block = qr.householderQ() * Matrix::Identity(static_cast<Eigen::Index>(d), k);
+            block *= lengths.segment(static_cast<Eigen::Index>(start), k).asDiagonal();
+        }
     }
     out = samples.col(current++);
 }
@@ -52,13 +60,15 @@ void Orthogonal::reset(const parameters::Modules &mod, const size_t lambda)
 {
     sampler->reset(mod, lambda);
     n = std::max(d, Orthogonal::get_n_samples(mod, lambda));
-    qr = Eigen::HouseholderQR<Matrix>(n, d);
+    qr = Eigen::HouseholderQR<Matrix>(d, std::min(d, n));
     samples = Matrix(d, n);
-    I = Matrix::Identity(n, d);
+    lengths = Vector(n);
     current = 0;
 }
 
-Halton::Halton(const size_t d, const bool scramble) :
+Halton::Halton(const size_t d,
+               const bool scramble,
+               const std::shared_ptr<rng::Generator> &generator) :
     Sampler(d),
     index_(6),
     scramble_(scramble),
@@ -66,7 +76,7 @@ Halton::Halton(const size_t d, const bool scramble) :
     permutations_(d)
 {
     if (scramble_)
-        permutations_ = get_permutations(primes_);
+        permutations_ = get_permutations(primes_, *generator);
 }
 
 void Halton::sample(Eigen::Ref<Vector> out)
@@ -125,7 +135,8 @@ std::vector<int> Halton::sieve(const int n)
     return primes;
 }
 
-std::vector<std::vector<std::vector<int>>> Halton::get_permutations(const std::vector<int> &primes)
+std::vector<std::vector<std::vector<int>>> Halton::get_permutations(const std::vector<int> &primes,
+                                                                    rng::Generator &gen)
 {
     std::vector<std::vector<std::vector<int>>> permutations(primes.size());
     for (size_t i = 0; i < primes.size(); i++)
@@ -138,7 +149,7 @@ std::vector<std::vector<std::vector<int>>> Halton::get_permutations(const std::v
 
         for (size_t j = 0; j < count; j++)
         {
-            std::shuffle(order.begin(), order.end(), rng::GENERATOR);
+            std::shuffle(order.begin(), order.end(), gen);
             permutations[i][j] = order;
         }
     }
@@ -154,9 +165,9 @@ std::vector<int> Halton::n_primes(const size_t d)
     return primes;
 }
 
-Sobol::Sobol(const size_t dim) :
+Sobol::Sobol(const size_t dim, const std::shared_ptr<rng::Generator> &generator) :
     Sampler(dim),
-    cache(dim)
+    cache(dim, *generator)
 {
     long long seed = 2;
     for (size_t i = 0; i < cache.n_samples; i++)
@@ -164,21 +175,25 @@ Sobol::Sobol(const size_t dim) :
     // cache.transform(ppf);
 }
 
-std::shared_ptr<Sampler>
-get(const size_t dim, const parameters::Modules &modules, const size_t lambda)
+namespace
+{
+//! The base sampler and its transformation
+std::shared_ptr<Sampler> base_sampler(const size_t dim,
+                                      const parameters::Modules &modules,
+                                      const std::shared_ptr<rng::Generator> &generator)
 {
     using namespace parameters;
     std::shared_ptr<Sampler> sampler;
     switch (modules.sampler)
     {
     case BaseSampler::UNIFORM:
-        sampler = std::make_shared<Uniform>(dim);
+        sampler = std::make_shared<Uniform>(dim, generator);
         break;
     case BaseSampler::SOBOL:
-        sampler = std::make_shared<Sobol>(dim);
+        sampler = std::make_shared<Sobol>(dim, generator);
         break;
     case BaseSampler::HALTON:
-        sampler = std::make_shared<Halton>(dim);
+        sampler = std::make_shared<Halton>(dim, true, generator);
         break;
     case BaseSampler::TESTER:
         sampler = std::make_shared<Tester>(dim);
@@ -188,27 +203,37 @@ get(const size_t dim, const parameters::Modules &modules, const size_t lambda)
     switch (modules.sample_transformation)
     {
     case SampleTranformerType::GAUSSIAN:
-        sampler = std::make_shared<GaussianTransformer>(sampler);
-        break;
+        return std::make_shared<GaussianTransformer>(sampler);
     case SampleTranformerType::SCALED_UNIFORM:
-        sampler = std::make_shared<UniformScaler>(sampler);
-        break;
+        return std::make_shared<UniformScaler>(sampler);
     case SampleTranformerType::LAPLACE:
-        sampler = std::make_shared<LaplaceTransformer>(sampler);
-        break;
+        return std::make_shared<LaplaceTransformer>(sampler);
     case SampleTranformerType::LOGISTIC:
-        sampler = std::make_shared<LogisticTransformer>(sampler);
-        break;
+        return std::make_shared<LogisticTransformer>(sampler);
     case SampleTranformerType::CAUCHY:
-        sampler = std::make_shared<CauchyTransformer>(sampler);
-        break;
+        return std::make_shared<CauchyTransformer>(sampler);
     case SampleTranformerType::DOUBLE_WEIBULL:
-        sampler = std::make_shared<DoubleWeibullTransformer>(sampler);
-        break;
+        return std::make_shared<DoubleWeibullTransformer>(sampler);
     case SampleTranformerType::NONE:
-        sampler = std::make_shared<IdentityTransformer>(sampler);
-        break;
+    default:
+        return std::make_shared<IdentityTransformer>(sampler);
     }
+}
+} // namespace
+
+std::shared_ptr<Sampler> get(const size_t dim,
+                             const parameters::Modules &modules,
+                             const size_t lambda,
+                             const std::shared_ptr<rng::Generator> &generator,
+                             const bool fast_normal)
+{
+    using namespace parameters;
+    std::shared_ptr<Sampler> sampler;
+    if (fast_normal && modules.sampler == BaseSampler::UNIFORM &&
+        modules.sample_transformation == SampleTranformerType::GAUSSIAN)
+        sampler = std::make_shared<FastGaussian>(dim, *generator);
+    else
+        sampler = base_sampler(dim, modules, generator);
 
     if (modules.orthogonal)
         sampler = std::make_shared<Orthogonal>(sampler, Orthogonal::get_n_samples(modules, lambda));

@@ -1,0 +1,139 @@
+# The documentation site, built with Zensical (https://zensical.org): zensical build --strict
+# The API reference (mkdocstrings) is read from the type stubs, so the extension is not built.
+
+[project]
+site_name = "Modular CMA-ES"
+site_description = "One CMA-ES with interchangeable modules, implemented in C++ and used from Python."
+site_url = "https://modularcmaes.readthedocs.io/en/latest/"
+repo_url = "https://github.com/IOHprofiler/ModularCMAES"
+repo_name = "IOHprofiler/ModularCMAES"
+edit_uri = "edit/master/docs/"
+copyright = "Copyright &copy; the ModularCMAES authors, MIT license"
+extra_javascript = ["https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"]
+nav = [
+  { "Home" = "index.md" },
+  { "Getting started" = [
+    { "Installation" = "getting-started/installation.md" },
+    { "Quickstart" = "getting-started/quickstart.md" },
+    { "Ask–tell and vectorized evaluation" = "getting-started/ask-tell.md" },
+    { "Bounds, restarts and stopping" = "getting-started/bounds-restarts-stopping.md" },
+  ] },
+  { "User guide" = [
+    { "Modules" = "guide/modules.md" },
+    { "Matrix adaptation" = "guide/matrix-adaptation.md" },
+    { "Step-size adaptation" = "guide/step-size-adaptation.md" },
+    { "Sampling" = "guide/sampling.md" },
+    { "Selection and recombination" = "guide/selection.md" },
+    { "Restarts" = "guide/restarts.md" },
+    { "Bound correction" = "guide/bound-correction.md" },
+    { "Settings" = "guide/settings.md" },
+    { "Integer variables" = "guide/integer-variables.md" },
+    { "Reproducibility and threads" = "guide/reproducibility.md" },
+    { "Performance" = "guide/performance.md" },
+    { "Tuning" = "guide/tuning.md" },
+    { "The C++ library" = "guide/cpp.md" },
+    { "Compatibility of modules" = "guide/compatibility.md" },
+  ] },
+  { "Deep dives" = [
+    "deep-dives/index.md",
+    { "Matrix adaptations" = "deep-dives/matrix-adaptations.md" },
+    { "Step-size adaptation" = "deep-dives/step-size-adaptation.md" },
+    { "Selection, sampling and restarts" = "deep-dives/selection-sampling-restarts.md" },
+  ] },
+  { "Examples" = [
+    "examples/index.md",
+    { "Multimodal problems" = "examples/multimodal.md" },
+    { "Parallel evaluation" = "examples/parallel.md" },
+    { "Benchmarking on BBOB" = "examples/bbob.md" },
+    { "Tuning a configuration" = "examples/tuning.md" },
+    { "Mixed-integer problems" = "examples/mixed-integer.md" },
+    { "Coming from pycma" = "examples/from-pycma.md" },
+  ] },
+  { "Reference" = [
+    { "API" = "reference/index.md" },
+    { "modcma" = "reference/modcma.md" },
+    { "options" = "reference/options.md" },
+    { "parameters" = "reference/parameters.md" },
+    { "ModularCMAES" = "reference/modularcmaes.md" },
+    { "restart" = "reference/restart.md" },
+    { "matrix_adaptation" = "reference/matrix_adaptation.md" },
+    { "mutation" = "reference/mutation.md" },
+    { "selection" = "reference/selection.md" },
+    { "sampling" = "reference/sampling.md" },
+    { "bounds" = "reference/bounds.md" },
+    { "repelling" = "reference/repelling.md" },
+    { "center" = "reference/center.md" },
+    { "es" = "reference/es.md" },
+    { "constants and utils" = "reference/utils.md" },
+  ] },
+  { "Benchmarks" = "performance.md" },
+  { "Reproducing the paper" = "reproducibility.md" },
+  { "Migrating from 1.x" = "migration.md" },
+  { "Changelog" = "changelog.md" },
+  { "Citing" = "citing.md" },
+  { "Contributing" = "contributing.md" },
+]
+
+[project.theme]
+language = "en"
+features = [
+  "content.code.annotate",
+  "content.code.copy",
+  "navigation.footer",
+  "navigation.indexes",
+  "navigation.path",
+  "navigation.sections",
+  "navigation.top",
+  "navigation.tracking",
+  "search.highlight",
+  "toc.follow",
+]
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "amber"
+toggle.icon = "lucide/moon"
+toggle.name = "Dark mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "indigo"
+accent = "amber"
+toggle.icon = "lucide/sun"
+toggle.name = "Light mode"
+
+[project.markdown_extensions]
+admonition = {}
+attr_list = {}
+footnotes = {}
+md_in_html = {}
+tables = {}
+toc.permalink = true
+pymdownx.arithmatex.generic = true
+pymdownx.details = {}
+pymdownx.highlight.anchor_linenums = true
+pymdownx.inlinehilite = {}
+pymdownx.snippets.base_path = ["."]
+pymdownx.snippets.check_paths = true
+pymdownx.superfences = {}
+pymdownx.tabbed.alternate_style = true
+
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["."]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+allow_inspection = false
+docstring_style = "numpy"
+show_root_heading = true
+show_root_full_path = false
+show_source = false
+show_signature_annotations = true
+separate_signature = true
+signature_crossrefs = true
+members_order = "source"
+filters = ["!^_"]
+show_if_no_docstring = true
+heading_level = 2

@@ -1,13 +1,13 @@
-# Required
+# Read the Docs: the Zensical site of zensical.toml. The API reference is read from the type stubs,
+# so the extension is not built here.
 version: 2
 
-# Build documentation in the docs/ directory with Sphinx
-sphinx:
-  configuration: docs/source/conf.py
-
-
-# Optionally set the version of Python and requirements required to build your docs
-python:
-  version: 3.8
-  install:
-    - requirements: docs/requirements.txt
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.13"
+  commands:
+    - python -m pip install -r docs/requirements.txt
+    - zensical build --strict
+    - mkdir -p $READTHEDOCS_OUTPUT/html
+    - cp -r site/. $READTHEDOCS_OUTPUT/html/

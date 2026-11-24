@@ -1,0 +1,11 @@
+# The environment of the published numbers (scripts/performance/results/); Python 3.13.
+# Install modcma itself from the repository: python -m pip install .
+cma==4.6.0
+cmaes==0.13.1
+evosax==0.3.2
+jax==0.12.1
+evotorch==0.6.1
+torch==2.15.0
+numpy==2.5.5
+pandas==3.1.1
+matplotlib==3.11.2

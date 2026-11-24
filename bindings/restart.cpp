@@ -22,102 +22,276 @@ struct PyCriterion : restart::Criterion
 void define_restart_criteria(nb::module_ &main)
 {
     auto m = submodule(main, "restart");
+    m.doc() =
+        "Restart criteria and restart strategies.\n\n"
+        "After every generation, the optimizer updates the criteria in `Parameters.criteria`; "
+        "when one of them is met, the next generation starts a restart (or, with "
+        "RestartStrategy.STOP, the run ends). The restart strategy (`Parameters.restart_strategy`, "
+        "chosen by `Modules.restart_strategy`) sets the population size and the step size of "
+        "the new run. The criteria can be changed and extended: remove items, change the "
+        "tolerances (static, shared by all instances of a class), or subclass `Criterion` in "
+        "Python.";
     using namespace restart;
 
-    nb::class_<Criterion, PyCriterion>(m, "Criterion")
-        .def(nb::init<std::string>(), nb::arg("name"))
-        .def("on_reset", &Criterion::on_reset, nb::arg("parameters"))
-        .def("update", &Criterion::update, nb::arg("parameters"))
-        .def("reset", &Criterion::reset, nb::arg("parameters"))
-        .def_rw("met", &Criterion::met)
-        .def_rw("name", &Criterion::name)
-        .def_rw("last_restart", &Criterion::last_restart)
-        .def("__repr__", [](Criterion &self) {
-            return "<" + self.name + " met: " + std::to_string(self.met) + ">";
-        });
+    nb::class_<Criterion, PyCriterion>(
+        m,
+        "Criterion",
+        "A restart criterion: a condition on the state of the optimizer, checked after every "
+        "generation.\n\n"
+        "Subclass it in Python to define your own: call `super().__init__(name)`, override "
+        "`update` (required) to set `self.met`, and optionally `on_reset`. Then add an instance "
+        "to `Parameters.criteria.items`:\n\n"
+        "    class MyCriterion(restart.Criterion):\n"
+        "        def __init__(self):\n"
+        "            super().__init__(\"MyCriterion\")\n\n"
+        "        def update(self, parameters):\n"
+        "            self.met = parameters.stats.t - self.last_restart > 100\n\n"
+        "    cma.p.criteria.items.append(MyCriterion())")
+        .def(nb::init<std::string>(),
+             nb::arg("name"),
+             "A criterion called name (shown by `Criteria.reason`), not met.")
+        .def("on_reset",
+             &Criterion::on_reset,
+             nb::arg("parameters"),
+             "Called by `reset`, at the start and at every restart; override it to reset the "
+             "state of a criterion (the default does nothing).")
+        .def("update",
+             &Criterion::update,
+             nb::arg("parameters"),
+             "Called after every generation with the `Parameters` of the optimizer; sets `met`. "
+             "Python subclasses must override it.")
+        .def("reset",
+             &Criterion::reset,
+             nb::arg("parameters"),
+             "Start over: sets `last_restart` to the current generation, `met` to False and "
+             "calls `on_reset`.")
+        .def_rw("met", &Criterion::met, "Whether the criterion is met (set by `update`).")
+        .def_rw("name", &Criterion::name, "The name of the criterion.")
+        .def_rw("last_restart",
+                &Criterion::last_restart,
+                "The generation (`Stats.t`) of the last reset, at the start or a restart.")
+        .def(
+            "__repr__",
+            [](Criterion &self) {
+                return "<" + self.name + " met: " + std::to_string(self.met) + ">";
+            },
+            "<name met: 0 or 1>.");
 
-    nb::class_<ExceededMaxIter, Criterion>(m, "ExceededMaxIter")
-        .def(nb::init<>())
-        .def_rw("max_iter", &ExceededMaxIter::max_iter);
+    nb::class_<ExceededMaxIter, Criterion>(
+        m,
+        "ExceededMaxIter",
+        "Met when a run has lasted more than `max_iter` generations since the last restart.")
+        .def(nb::init<>(), "The criterion; `max_iter` is set by the first reset.")
+        .def_rw("max_iter",
+                &ExceededMaxIter::max_iter,
+                "The most generations of one run, set at every reset to "
+                "100 + 50 (d + 3)^2 / sqrt(lambda).");
 
-    nb::class_<NoImprovement, Criterion>(m, "NoImprovement")
-        .def(nb::init<>())
-        .def_rw("n_bin", &NoImprovement::n_bin)
-        .def_rw("best_fitnesses", &NoImprovement::best_fitnesses);
+    nb::class_<NoImprovement, Criterion>(
+        m,
+        "NoImprovement",
+        "Met when the best fitness of a generation has not changed over the last `n_bin` "
+        "generations.\n\n"
+        "Checked from n_bin generations after a restart on: met when the range (max - min) of "
+        "the best fitness of the last n_bin generations is at most `NoImprovement.tolerance`.")
+        .def(nb::init<>(), "The criterion; `n_bin` is set by the first reset.")
+        .def_rw("n_bin",
+                &NoImprovement::n_bin,
+                "The number of generations compared, set at every reset to "
+                "10 + ceil(30 d / lambda).")
+        .def_rw("best_fitnesses",
+                &NoImprovement::best_fitnesses,
+                "The best fitness of every generation since the last reset.")
+        .def_rw_static("tolerance",
+                       &NoImprovement::tolerance,
+                       "The largest range of the best fitness that counts as no improvement "
+                       "(default 1e-20).");
 
-    nb::class_<MaxSigma, Criterion>(m, "MaxSigma")
-        .def(nb::init<>())
-        .def_rw_static("tolerance", &MaxSigma::tolerance);
+    nb::class_<MaxSigma, Criterion>(
+        m, "MaxSigma", "Met when the step size sigma is larger than `MaxSigma.tolerance`.")
+        .def(nb::init<>(), "The criterion.")
+        .def_rw_static("tolerance",
+                       &MaxSigma::tolerance,
+                       "The largest step size (default 1e4); also the upper limit of "
+                       "`constants.clip_sigma`.");
 
-    nb::class_<MinSigma, Criterion>(m, "MinSigma")
-        .def(nb::init<>())
-        .def_rw_static("tolerance", &MinSigma::tolerance);
+    nb::class_<MinSigma, Criterion>(
+        m, "MinSigma", "Met when the step size sigma is smaller than `MinSigma.tolerance`.")
+        .def(nb::init<>(), "The criterion.")
+        .def_rw_static("tolerance",
+                       &MinSigma::tolerance,
+                       "The smallest step size (default 1e-20); also the lower limit of "
+                       "`constants.clip_sigma`.");
 
-    nb::class_<UnableToAdapt, Criterion>(m, "UnableToAdapt").def(nb::init<>());
+    nb::class_<UnableToAdapt, Criterion>(
+        m,
+        "UnableToAdapt",
+        "Met when the matrix adaptation failed (e.g. its eigendecomposition or Cholesky "
+        "factorization) or sigma is not finite.\n\n"
+        "Always among the criteria, also with RestartStrategy.NONE.")
+        .def(nb::init<>(), "The criterion.");
 
-    nb::class_<FlatFitness, Criterion>(m, "FlatFitness")
-        .def(nb::init<>())
-        .def_rw("max_flat_fitness", &FlatFitness::max_flat_fitness)
-        .def_rw("flat_fitness_index", &FlatFitness::flat_fitness_index)
-        .def_rw("flat_fitnesses", &FlatFitness::flat_fitnesses);
+    nb::class_<FlatFitness, Criterion>(
+        m,
+        "FlatFitness",
+        "Met when the fitness landscape looks flat: too often, the best individual of a "
+        "generation has the same fitness as the one at rank `flat_fitness_index`.\n\n"
+        "Of the last d generations (from d generations after a restart on), counts those in "
+        "which the two fitness values are equal; met when more than `max_flat_fitness` are. "
+        "Only used when lambda > 1.")
+        .def(nb::init<>(), "The criterion; its parameters are set by the first reset.")
+        .def_rw("max_flat_fitness",
+                &FlatFitness::max_flat_fitness,
+                "The most flat generations among the last d, set at every reset to ceil(d / 3).")
+        .def_rw("flat_fitness_index",
+                &FlatFitness::flat_fitness_index,
+                "The rank compared with the best, set at every reset to round(0.1 + lambda / 4).")
+        .def_rw("flat_fitnesses",
+                &FlatFitness::flat_fitnesses,
+                "For each of the last d generations (generation t at t mod d), 1 when it was "
+                "flat.");
 
-    nb::class_<TolX, Criterion>(m, "TolX")
-        .def(nb::init<>())
-        .def_rw("tolx_vector", &TolX::tolx_vector)
-        .def_rw_static("tolerance", &TolX::tolerance);
+    nb::class_<TolX, Criterion>(
+        m,
+        "TolX",
+        "Met when the search distribution has become very small in every coordinate.\n\n"
+        "Met when every entry of `tolx_vector` (sigma times the standard deviations sqrt(C_ii) "
+        "and the absolute values of the evolution path p_c) is smaller than tolerance times the "
+        "step size at the start of the run (Hansen 2016; pycma's tolx). Only "
+        "applies to the covariance matrix adaptations (COVARIANCE, COVARIANCE_NO_EIGV); by "
+        "default used with COVARIANCE.")
+        .def(nb::init<>(), "The criterion.")
+        .def_rw("tolx_vector",
+                &TolX::tolx_vector,
+                "The 2 d values compared: sqrt(diag(C)) sigma / sigma0, then p_c sigma / "
+                "sigma0.")
+        .def_rw_static("tolerance", &TolX::tolerance, "The tolerance (default 1e-11).");
 
-    nb::class_<MaxDSigma, Criterion>(m, "MaxDSigma")
-        .def(nb::init<>())
-        .def_rw_static("tolerance", &MaxDSigma::tolerance);
+    nb::class_<MaxDSigma, Criterion>(
+        m,
+        "MaxDSigma",
+        "Met when sigma has grown too much relative to sigma0: sigma / sigma0 > tolerance * "
+        "max(D), with D the square roots of the eigenvalues of C (pycma's tolupsigma).\n\n"
+        "D = 1 for matrix adaptations without an eigendecomposition.")
+        .def(nb::init<>(), "The criterion.")
+        .def_rw_static("tolerance", &MaxDSigma::tolerance, "The factor (default 1e20).");
 
-    nb::class_<MinDSigma, Criterion>(m, "MinDSigma")
-        .def(nb::init<>())
-        .def_rw_static("tolerance", &MinDSigma::tolerance);
+    nb::class_<MinDSigma, Criterion>(
+        m,
+        "MinDSigma",
+        "Met when sigma has shrunk too much relative to sigma0: sigma / sigma0 < tolerance * "
+        "min(D), with D the square roots of the eigenvalues of C.\n\n"
+        "D = 1 for matrix adaptations without an eigendecomposition.")
+        .def(nb::init<>(), "The criterion.")
+        .def_rw_static("tolerance", &MinDSigma::tolerance, "The factor (default 1e-20).");
 
-    nb::class_<ConditionC, Criterion>(m, "ConditionC")
-        .def(nb::init<>())
-        .def_rw_static("tolerance", &ConditionC::tolerance);
+    nb::class_<ConditionC, Criterion>(
+        m,
+        "ConditionC",
+        "Met when the condition number of the covariance matrix, max(D)^2 / min(D)^2, exceeds "
+        "the tolerance.\n\n"
+        "Only for COVARIANCE (the eigendecomposition gives D).")
+        .def(nb::init<>(), "The criterion.")
+        .def_rw_static(
+            "tolerance", &ConditionC::tolerance, "The largest condition number (default 1e14).");
 
-    nb::class_<NoEffectAxis, Criterion>(m, "NoEffectAxis")
-        .def(nb::init<>())
-        .def_rw_static("tolerance", &NoEffectAxis::tolerance);
+    nb::class_<NoEffectAxis, Criterion>(
+        m,
+        "NoEffectAxis",
+        "Met when a step of 0.1 sigma along a principal axis of C is negligible.\n\n"
+        "In generation t, axis i = t mod d: met when every coordinate of 0.1 sigma D_i b_i "
+        "(b_i the eigenvector, D_i the square root of its eigenvalue) is smaller in absolute "
+        "value than the tolerance. Only for COVARIANCE.")
+        .def(nb::init<>(), "The criterion.")
+        .def_rw_static("tolerance",
+                       &NoEffectAxis::tolerance,
+                       "The threshold (default 10 times the machine epsilon, about 2.2e-15).");
 
-    nb::class_<NoEffectCoord, Criterion>(m, "NoEffectCoord")
-        .def(nb::init<>())
-        .def_rw_static("tolerance", &NoEffectCoord::tolerance);
+    nb::class_<NoEffectCoord, Criterion>(
+        m,
+        "NoEffectCoord",
+        "Met when a step of 0.2 sigma sqrt(C_ii) in some coordinate i is smaller in absolute "
+        "value than the tolerance.\n\n"
+        "Only applies to the covariance matrix adaptations; by default used with COVARIANCE.")
+        .def(nb::init<>(), "The criterion.")
+        .def_rw_static("tolerance",
+                       &NoEffectCoord::tolerance,
+                       "The threshold (default 10 times the machine epsilon, about 2.2e-15).");
 
-    nb::class_<Stagnation, Criterion>(m, "Stagnation")
-        .def(nb::init<>())
-        .def_rw("n_stagnation", &Stagnation::n_stagnation)
-        .def_rw("median_fitnesses", &Stagnation::median_fitnesses)
-        .def_rw("best_fitnesses", &Stagnation::best_fitnesses)
-        .def_rw_static("tolerance", &Stagnation::tolerance);
+    nb::class_<Stagnation, Criterion>(
+        m,
+        "Stagnation",
+        "Met when neither the best nor the median fitness of the generations improves any "
+        "more.\n\n"
+        "From `n_stagnation` generations after a restart on, the history of each is split at "
+        "tolerance (0.3) of its length; met when the median of the later part is not lower than "
+        "the median of the earlier part, for both the best and the median fitness.")
+        .def(nb::init<>(), "The criterion; `n_stagnation` is set by the first reset.")
+        .def_rw("n_stagnation",
+                &Stagnation::n_stagnation,
+                "The generations before the criterion is checked, set at every reset to "
+                "100 + 100 d^1.5 / lambda.")
+        // lists, as before; assigning one rebuilds the running medians
+        .def_prop_rw(
+            "median_fitnesses",
+            [](const Stagnation &s) { return s.median_fitnesses.values(); },
+            [](Stagnation &s, const std::vector<Float> &v) { s.median_fitnesses.assign(v); },
+            "The median fitness of every generation since the last reset (a copy; assign a "
+            "list to replace it).")
+        .def_prop_rw(
+            "best_fitnesses",
+            [](const Stagnation &s) { return s.best_fitnesses.values(); },
+            [](Stagnation &s, const std::vector<Float> &v) { s.best_fitnesses.assign(v); },
+            "The best fitness of every generation since the last reset (a copy; assign a list "
+            "to replace it).")
+        .def_rw_static("tolerance",
+                       &Stagnation::tolerance,
+                       "The fraction of the history that forms the earlier part (default 0.3).");
 
-    nb::class_<TooMuchRepelling, Criterion>(m, "TooMuchRepelling")
-        .def(nb::init<>())
-        .def_rw_static("tolerance", &TooMuchRepelling::tolerance);
+    nb::class_<TooMuchRepelling, Criterion>(
+        m,
+        "TooMuchRepelling",
+        "Met when repelling rejected too many samples: on average at least tolerance "
+        "rejections per individual in a generation.\n\n"
+        "Used when `Modules.repelling_type` is not NONE.")
+        .def(nb::init<>(), "The criterion.")
+        .def_rw_static("tolerance",
+                       &TooMuchRepelling::tolerance,
+                       "The rejections per individual (default 50).");
 
-    nb::bind_vector<vCriteria>(m, "CriteriaVector").def("__repr__", [](const vCriteria &v) {
-        std::string s = "CriteriaVector[";
-        for (size_t i = 0; i < v.size(); ++i)
-        {
-            if (i)
-                s += ", ";
-            s += v[i] ? nb::cast<std::string>(nb::repr(nb::cast(v[i]))) : "None";
-        }
-        return s + "]";
-    });
+    nb::bind_vector<vCriteria>(m,
+                               "CriteriaVector",
+                               "The list of restart criteria of `Criteria.items` (a mutable "
+                               "sequence of `Criterion` objects).");
 
-    nb::class_<Criteria>(m, "Criteria")
+    nb::class_<Criteria>(
+        m,
+        "Criteria",
+        "The restart criteria of an optimizer (`Parameters.criteria`).\n\n"
+        "The defaults: `UnableToAdapt` always; with a restart strategy other than NONE also "
+        "MinSigma, MaxSigma, ExceededMaxIter, NoImprovement, Stagnation, MinDSigma, MaxDSigma "
+        "and, for lambda > 1, FlatFitness; with COVARIANCE also TolX, ConditionC, NoEffectAxis "
+        "and NoEffectCoord; with repelling also TooMuchRepelling.")
         .def_prop_rw(
             "items",
             [](Criteria &self) -> vCriteria & { return self.items; },
             [](Criteria &self, vCriteria v) { self.items = std::move(v); },
-            nb::rv_policy::reference_internal)
-        .def("reset", &Criteria::reset, nb::arg("parameters"))
-        .def("update", &Criteria::update, nb::arg("parameters"))
-        .def("reason", &Criteria::reason)
-        .def("any", &Criteria::any);
+            nb::rv_policy::reference_internal,
+            "The criteria, a list-like `CriteriaVector`; append, remove or assign a list of "
+            "`Criterion` objects. An empty list means no restarts.")
+        .def("reset",
+             &Criteria::reset,
+             nb::arg("parameters"),
+             "Reset every criterion (`Criterion.reset`).")
+        .def("update",
+             &Criteria::update,
+             nb::arg("parameters"),
+             "Update every criterion (`Criterion.update`).")
+        .def("reason",
+             &Criteria::reason,
+             "The names of the criteria that are met, each followed by \"; \" (empty when "
+             "none is).")
+        .def("any", &Criteria::any, "Whether any criterion is met.");
 }
 
 void define_restart_strategy(nb::module_ &main)
@@ -125,19 +299,58 @@ void define_restart_strategy(nb::module_ &main)
     auto m = submodule(main, "restart");
     using namespace restart;
 
-    nb::class_<Strategy>(m, "Strategy").def("update", &Strategy::update, nb::arg("parameters"));
+    nb::class_<Strategy>(
+        m,
+        "Strategy",
+        "A restart strategy: sets mu, lambda and sigma of the next run "
+        "(`Parameters.restart_strategy`).\n\n"
+        "This base class, used for RestartStrategy.NONE, STOP and RESTART, keeps mu and lambda "
+        "and restarts with sigma0.")
+        .def("update",
+             &Strategy::update,
+             nb::arg("parameters"),
+             "Prepare a restart: may change `Parameters.mu` and `Parameters.lamb`, and "
+             "returns the step size of the next run (here sigma0).");
 
-    nb::class_<IPOP, Strategy>(m, "IPOP").def_rw("ipop_factor", &IPOP::ipop_factor);
+    nb::class_<IPOP, Strategy>(
+        m,
+        "IPOP",
+        "IPOP (Auger & Hansen 2005): every restart multiplies mu and lambda by `ipop_factor`.")
+        .def_rw("ipop_factor",
+                &IPOP::ipop_factor,
+                "The factor of the population size per restart (default 2; applied to the "
+                "integers mu and lambda after truncating it to an integer).");
 
-    nb::class_<BIPOP, Strategy>(m, "BIPOP")
-        .def("large", &BIPOP::large)
-        .def_rw("mu_factor", &BIPOP::mu_factor)
-        .def_rw("lambda_init", &BIPOP::lambda_init)
-        .def_rw("budget", &BIPOP::budget)
-        .def_rw("lambda_large", &BIPOP::lambda_large)
-        .def_rw("lambda_small", &BIPOP::lambda_small)
-        .def_rw("budget_small", &BIPOP::budget_small)
-        .def_rw("budget_large", &BIPOP::budget_large)
-        .def_ro("used_budget", &BIPOP::used_budget);
+    nb::class_<BIPOP, Strategy>(
+        m,
+        "BIPOP",
+        "BIPOP (Hansen 2009): restarts alternate between a large and a small population "
+        "regime.\n\n"
+        "At the first restart, the remaining budget is split in two halves. A restart uses "
+        "the regime with more of its budget left: the large regime doubles lambda_large "
+        "each time and restarts with sigma0; the small regime draws a random lambda_small "
+        "(even, at least 2) and restarts with sigma0 * 10^(-2u), u uniform in [0, 1). mu is "
+        "lambda * mu_factor (at least 1).")
+        .def("large",
+             &BIPOP::large,
+             "Whether the large regime is next: its budget is at least that of the small "
+             "regime (and positive).")
+        .def_rw("mu_factor", &BIPOP::mu_factor, "mu / lambda of the initial population.")
+        .def_rw("lambda_init", &BIPOP::lambda_init, "The initial lambda.")
+        .def_rw("budget", &BIPOP::budget, "The total evaluation budget (`Settings.budget`).")
+        .def_rw("lambda_large",
+                &BIPOP::lambda_large,
+                "lambda of the large regime (0 before the first restart, then 2 lambda_init, "
+                "doubled each time the regime is used).")
+        .def_rw("lambda_small", &BIPOP::lambda_small, "lambda of the last small-regime draw.")
+        .def_rw("budget_small",
+                &BIPOP::budget_small,
+                "The evaluations left for the small regime.")
+        .def_rw("budget_large",
+                &BIPOP::budget_large,
+                "The evaluations left for the large regime.")
+        .def_ro("used_budget",
+                &BIPOP::used_budget,
+                "The evaluations used up to the last restart.");
 }
 } // namespace modcma_python

@@ -64,9 +64,9 @@ struct COTN final : BoundCorrection
 {
     sampling::Gaussian sampler;
 
-    COTN(const size_t d) :
+    COTN(const size_t d, const std::shared_ptr<rng::Generator> &generator = rng::global()) :
         BoundCorrection(),
-        sampler(d, rng::normal<Float>(0, 1.0 / 3.))
+        sampler(d, rng::normal<Float>(0, 1.0 / 3.), generator)
     {
     }
 
@@ -90,9 +90,10 @@ struct UniformResample final : BoundCorrection
 {
     sampling::Uniform sampler;
 
-    UniformResample(const size_t d) :
+    UniformResample(const size_t d,
+                    const std::shared_ptr<rng::Generator> &generator = rng::global()) :
         BoundCorrection(),
-        sampler(d)
+        sampler(d, generator)
     {
     }
 
@@ -122,7 +123,11 @@ struct Toroidal final : BoundCorrection
                      const parameters::Settings &settings) override;
 };
 
-inline std::shared_ptr<BoundCorrection> get(const parameters::CorrectionMethod &m, const size_t d)
+//! The bound correction; COTN and UNIFORM_RESAMPLE draw from generator
+inline std::shared_ptr<BoundCorrection>
+get(const parameters::CorrectionMethod &m,
+    const size_t d,
+    const std::shared_ptr<rng::Generator> &generator = rng::global())
 {
     using namespace parameters;
     switch (m)
@@ -130,9 +135,9 @@ inline std::shared_ptr<BoundCorrection> get(const parameters::CorrectionMethod &
     case CorrectionMethod::MIRROR:
         return std::make_shared<Mirror>();
     case CorrectionMethod::COTN:
-        return std::make_shared<COTN>(d);
+        return std::make_shared<COTN>(d, generator);
     case CorrectionMethod::UNIFORM_RESAMPLE:
-        return std::make_shared<UniformResample>(d);
+        return std::make_shared<UniformResample>(d, generator);
     case CorrectionMethod::SATURATE:
         return std::make_shared<Saturate>();
     case CorrectionMethod::TOROIDAL:

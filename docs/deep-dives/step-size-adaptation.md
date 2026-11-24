@@ -1,0 +1,90 @@
+# Step-size adaptation compared with the published rules
+
+In modcma a point is x = m + σ·y with y = A z (or m + S∘y with sampled step sizes S). The step-size
+rule runs after the evolution paths and before the matrix update, for every matrix adaptation.
+When the rule is not CSA and the matrix adaptation is `COVARIANCE`, the Settings switch to
+`COVARIANCE_NO_EIGV` ([compatibility](../guide/compatibility.md)).
+
+## CSA
+
+**What modcma does.** σ ← σ·exp(clip((cs/damps)(‖p_σ‖/E‖z‖ − 1), −1, 1)), with
+p_σ ← (1 − cs) p_σ + √(cs(2 − cs)µ_eff)·v, where v = C^-1/2 Δm/σ for `COVARIANCE` and the weighted
+sum of the selected z for every other matrix adaptation (the same vector when the points are m + σAz).
+E‖z‖ is the expected length of the sampler: the χ_d approximation for Gaussian samples, an empirical
+median for Cauchy.
+
+**Compared with Hansen (2016) and pycma.** cs = (µ_eff + 2)/(d + µ_eff + 3) is pycma's (the
+tutorial: + 5); pycma also caps cs at 0.5, modcma does not (with very large populations cs tends
+to 1). damps is the tutorial's; pycma 4.6 adds terms for mirrored sampling and large µ_eff. The clip
+at ±1 is pycma's. The expected length of the uniform, Laplace, logistic and double-Weibull
+transformations is taken as √d instead of their own (*known issue* [F29]).
+
+## TPA: two-point adaptation
+
+**What modcma does.** Two extra points per generation, x± = m ± σ·Δm (Δm the last mean shift in
+units of σ), evaluated after the population; s ← (1 − c)s + c·r with r = −0.5 when f(x−) < f(x+)
+and 0.5 otherwise, c = 0.3, then σ ← σ·eˢ. With ask–tell, `ask()` returns λ + 2 points.
+
+**Compared with Hansen (2008) and pycma.** pycma takes the two points from the λ offspring (no extra
+evaluations), rescales them to a random length, uses the rank difference among all λ, compresses it
+and damps the update by 0.7 + 2 ln d + …; modcma follows the Python implementation of the framework
+(and ModEA). *Known issue* [F15]: a tie (f(x−) = f(x+), as after a restart when Δm = 0) counts as
+success: σ grows by 16 % for nothing, and diverges with elitism.
+
+## MSR: median success rule
+
+**What modcma does.** K is the number of points better than the median of the previous generation;
+z = (2/λ)(K − (λ + 1)/2); s ← (1 − c)s + c·z (c = 0.3); σ ← σ·exp(s/(2 − 2/d)).
+
+**Compared with Ait Elhara et al. (2013) and pycma.** pycma's `CMAAdaptSigmaMedianImprovement`
+compares with the 0.3-quantile of the previous generation, not the median, and centers K at λ/2.
+*Known issue* [F9]: with pairwise selection the median is infinite and σ only shrinks.
+
+## PSR: population success rule
+
+**What modcma does.** Ranks the current and the previous generation together (the best n of each,
+n the number of finite values) and compares their ranks: z = Σ(r_old − r_new)/n² − 0.25;
+s ← (1 − c)s + c·z (c = 0.9); σ ← σ·exp(s/(2 − 2/d)). After Loshchilov (2014); the Python
+implementation used c = 0.4.
+
+## XNES, MXNES, LPXNES
+
+* **XNES with `NATURAL_GRADIENT`** is xNES's rule: σ ← σ·exp((η_σ/2)·tr(G)/d), from the natural
+  gradient G of the matrix update ([matrix adaptations](matrix-adaptations.md#natural_gradient-xnes)).
+* **XNES with another matrix adaptation** is a length rule:
+  σ ← σ·exp((cs/√d)·Σ wᵢ(‖zᵢ‖² − d)) with cs = 0.01, which is slow (*known issue* [F27]). The
+  framework paper's description of the xNES rule (the length of the weighted mean of z) is MXNES.
+* **MXNES** (m-xNES, Krause, Glasmachers & Igel 2017): σ ← σ·exp((cs/d)(µ_eff‖Σwᵢzᵢ‖² − d)), cs = 1:
+  the length of the mean step, unbiased under random selection.
+* **LPXNES** (lp-xNES, same paper): each point samples its own step sizes (log-normal around σ,
+  β = ln 2/(√d ln d)), and σ ← σ·exp(cs·Σ wᵢ·mean log(Sᵢ/σ)) with cs = 9µ_eff/(10√d). *Known
+  issues*: the step sizes are per coordinate [F1]; β is infinite at d = 1 [F16].
+
+## SR: success rule
+
+**What modcma does.** p ← (1 − 1/12)p + (1/12)·[the best of the generation beats the best of the
+run]; σ ← σ·exp((p − 2/11)/((1 − 2/11)·damps)), damps = 1 + d/2. For λ = 1 this is the success rule
+of the (1+1)-CMA-ES (Igel et al. 2006), and the Settings select it automatically. For λ > 1 it counts
+one success per generation; the framework paper describes success against the best of the previous
+generation. The success ratio is not reset at a restart.
+
+## SA: self-adaptation
+
+**What modcma does.** Each point samples its step size (log-normal around σ, β = 1/√(2µ_eff)); σ
+moves to the weighted geometric mean of the selected points' step sizes divided by the geometric
+mean over the population: the weighted CMSA operator with the correction of Ahrari et al. (2017),
+as the framework paper describes. µ = λ/4 by default. *Known issue* [F1]: the step sizes are drawn
+per coordinate, which breaks rotation invariance; the paper and the Python implementation draw one
+per point.
+
+## Which rule with which matrix adaptation
+
+| step-size rule | reads | works with | notes |
+|---|---|---|---|
+| `CSA` (default) | the path p_σ | every matrix adaptation | `COVARIANCE` uses C^-1/2 Δm, the others the weighted z |
+| `TPA` | two extra evaluations | every | avoid with elitism [F15] |
+| `MSR`, `PSR` | the f-values of two generations | every | not `MSR` with pairwise selection [F9] |
+| `XNES` | the natural gradient, or the lengths of z | `NATURAL_GRADIENT` (xNES's rule; with `weights=UTILITY` all of xNES) | slow elsewhere [F27] |
+| `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
+| `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | per coordinate [F1] |
+| `SR` | successes against the best of the run | λ = 1 (automatic) | one success per generation for λ > 1 |

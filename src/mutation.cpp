@@ -30,6 +30,15 @@ bool SequentialSelection::break_conditions(const size_t i,
     return (f < fopt) and (i >= seq_cutoff) and (m != parameters::Mirror::PAIRWISE or i % 2 == 1);
 }
 
+size_t SequentialSelection::first_stop(const size_t i,
+                                       const parameters::Mirror &m,
+                                       const size_t mu) const
+{
+    const size_t seq_cutoff = static_cast<size_t>(mu * seq_cutoff_factor);
+    const size_t first = std::max(i, seq_cutoff);
+    return (m == parameters::Mirror::PAIRWISE && first % 2 == 0) ? first + 1 : first;
+}
+
 void SigmaSampler::apply_integer_bounds(parameters::Parameters &p)
 {
     // .array() is a view; binding the Vector to const Array & made a temporary copy
@@ -62,47 +71,117 @@ void NoSigmaSampler::sample(const Float sigma, parameters::Parameters &p)
 
 void Strategy::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
 {
+    // The batches of ask() (ModularCMAES): individuals up to the first after which sequential
+    // selection can stop, then one at a time
+    begin_population(n_offspring, p);
+    const auto n = static_cast<Eigen::Index>(n_offspring);
+    for (Eigen::Index i = 0; i < n;)
+    {
+        const auto stop = first_stop(static_cast<size_t>(i), p);
+        const Eigen::Index last =
+            stop >= static_cast<size_t>(n) ? n - 1 : static_cast<Eigen::Index>(stop);
+        sample_batch(i, last - i + 1, p.stats.evaluations, p);
+        bool complete = false;
+        for (; i <= last && !complete; ++i)
+            complete = evaluated(i, objective(p.pop.X_transformed.col(i)), p);
+        if (complete)
+            break;
+    }
+    end_population(p);
+
+    if (const auto k = static_cast<Eigen::Index>(n_extra_points()); k != 0)
+    {
+        Matrix X(p.settings.dim, k);
+        extra_points(X, p);
+        Vector f(k);
+        for (Eigen::Index j = 0; j < k; ++j)
+            f(j) = objective(X.col(j));
+        tell_extra_points(f, X, p);
+    }
+}
+
+void Strategy::begin_population(const size_t n_offspring, parameters::Parameters &p)
+{
     p.pop.reserve(n_offspring);
     p.pop.n = n_offspring;
     ss->sample(sigma, p);
     p.bounds->n_out_of_bounds = 0;
     p.repelling->prepare_sampling(p);
+}
 
-    for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(n_offspring); ++i)
+void Strategy::sample_batch(const Eigen::Index begin,
+                            const Eigen::Index k,
+                            const size_t evaluations,
+                            parameters::Parameters &p)
+{
+    // Every step writes into the columns of the population: no allocation per sample
+    for (Eigen::Index j = 0; j < k; ++j)
     {
-        size_t n_rej = 0;
-        do
+        const Eigen::Index i = begin + j;
+        p.pop.t(i) = p.stats.t;
+        p.sampler->sample(p.pop.Z.col(i));
+        p.mutation->tc->scale_inplace(
+            p.pop.Z.col(i), p.settings.diameter, p.settings.budget, evaluations + j);
+    }
+    p.adaptation->compute_y_batch(p.pop.Z.middleCols(begin, k), p.pop.Y.middleCols(begin, k));
+
+    for (Eigen::Index j = 0; j < k; ++j)
+    {
+        const Eigen::Index i = begin + j;
+        finish_sample(i, p);
+        size_t n_rejections = 0;
+        while (rejected(i, n_rejections, p))
         {
-            // Every step writes into the columns of the population: no allocation per sample
-            p.pop.t(i) = p.stats.t;
             p.sampler->sample(p.pop.Z.col(i));
             p.mutation->tc->scale_inplace(
-                p.pop.Z.col(i), p.settings.diameter, p.settings.budget, p.stats.evaluations);
+                p.pop.Z.col(i), p.settings.diameter, p.settings.budget, evaluations + j);
             p.adaptation->compute_y_into(p.pop.Z.col(i), p.pop.Y.col(i));
-            p.pop.X.col(i).array() =
-                p.pop.Y.col(i).array() * p.pop.S.col(i).array() + p.adaptation->m.array();
-            p.bounds->correct(i, p);
-
-        } while ((p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
-                  n_rej++ < 5 * p.settings.dim &&
-                  bounds::any_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub)) ||
-                 p.repelling->is_rejected(p.pop.X.col(i), p));
-
-        p.coordinate_mapping->transform_into(p.pop.X.col(i), p.pop.X_transformed.col(i));
-
-        p.pop.f(i) = objective(p.pop.X_transformed.col(i));
-        p.stats.evaluations++;
-        if (sq->break_conditions(
-                i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored, p.mu))
-        {
-            // Sequential selection: the population is individuals 0..i. The columns after i keep
-            // their (stale) contents but are no longer part of it; the weights of the updates are
-            // renormalised for n < lambda (Weights::for_population).
-            p.pop.n = static_cast<size_t>(i) + 1;
-            break;
+            finish_sample(i, p);
         }
+        p.coordinate_mapping->transform_into(p.pop.X.col(i), p.pop.X_transformed.col(i));
     }
+}
+
+void Strategy::finish_sample(const Eigen::Index i, parameters::Parameters &p)
+{
+    p.pop.X.col(i).array() =
+        p.pop.Y.col(i).array() * p.pop.S.col(i).array() + p.adaptation->m.array();
+    p.bounds->correct(i, p);
+}
+
+bool Strategy::rejected(const Eigen::Index i, size_t &n_rejections, parameters::Parameters &p)
+{
+    return (p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
+            n_rejections++ < 5 * p.settings.dim &&
+            bounds::any_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub)) ||
+           p.repelling->is_rejected(p.pop.X.col(i), p);
+}
+
+size_t Strategy::first_stop(const size_t i, const parameters::Parameters &p) const
+{
+    return sq->first_stop(i, p.settings.modules.mirrored, p.mu);
+}
+
+bool Strategy::evaluated(const Eigen::Index i, const Float f, parameters::Parameters &p)
+{
+    p.pop.f(i) = f;
+    p.stats.evaluations++;
+    if (sq->break_conditions(
+            i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored, p.mu))
+    {
+        // Sequential selection: the population is individuals 0..i. The columns after i keep
+        // their (stale) contents but are no longer part of it; the weights of the updates are
+        // renormalised for n < lambda (Weights::for_population).
+        p.pop.n = static_cast<size_t>(i) + 1;
+        return true;
+    }
+    return static_cast<size_t>(i) + 1 >= p.pop.n;
+}
+
+void Strategy::end_population(parameters::Parameters &p)
+{
     p.repelling->adapt_radii_after_sampling(p);
+    on_population_complete(p);
 }
 
 void CSA::adapt(const parameters::Weights &w,
@@ -119,18 +198,21 @@ void CSA::adapt(const parameters::Weights &w,
     sigma *= std::exp(l);
 }
 
-void TPA::mutate(FunctionType &objective, const size_t n_offspring_, parameters::Parameters &p)
+void TPA::extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) const
 {
-    Strategy::mutate(objective, n_offspring_, p);
-
-    const auto x_pos =
+    out.col(0) =
         p.coordinate_mapping->transform(p.adaptation->m + (p.mutation->sigma * p.adaptation->dm));
-    const auto x_neg =
+    out.col(1) =
         p.coordinate_mapping->transform(p.adaptation->m + (p.mutation->sigma * -p.adaptation->dm));
-    const auto f_pos = objective(x_pos);
-    const auto f_neg = objective(x_neg);
-    p.stats.update_best(x_pos, f_pos);
-    p.stats.update_best(x_neg, f_neg);
+}
+
+void TPA::tell_extra_points(Eigen::Ref<const Vector> f,
+                            Eigen::Ref<const Matrix> X,
+                            parameters::Parameters &p)
+{
+    const Float f_pos = f(0), f_neg = f(1);
+    p.stats.update_best(X.col(0), f_pos);
+    p.stats.update_best(X.col(1), f_neg);
     p.stats.evaluations += 2;
     this->rank_tpa = f_neg < f_pos ? -a_tpa : a_tpa + b_tpa;
 }
@@ -240,7 +322,7 @@ void MXNES::adapt(const parameters::Weights &w,
                   const parameters::Stats &stats,
                   const size_t lambda)
 {
-    const Float delta = (w.mueff * adaptation->dz.squaredNorm() - adaptation->dd);
+    const Float delta = (w.mueff_mean * adaptation->dz.squaredNorm() - adaptation->dd);
 
     sigma *= std::exp((w.cs / adaptation->dd) * delta);
 }
@@ -269,9 +351,8 @@ void SR::adapt(const parameters::Weights &w,
                       ((stats.success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
 }
 
-void SA::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
+void SA::on_population_complete(parameters::Parameters &p)
 {
-    Strategy::mutate(objective, n_offspring, p);
     mean_sigma = std::exp(p.pop.S.leftCols(p.pop.n).array().log().mean());
 }
 
@@ -313,7 +394,10 @@ void SA::adapt(const parameters::Weights &w,
     sigma *= selected_mean_sigma / mean_sigma;
 }
 
-std::shared_ptr<Strategy> get(const parameters::Modules &m, const Float d, const Float sigma)
+std::shared_ptr<Strategy> get(const parameters::Modules &m,
+                              const Float d,
+                              const Float sigma,
+                              const std::shared_ptr<rng::Generator> &generator)
 {
     using namespace parameters;
 
@@ -325,8 +409,8 @@ std::shared_ptr<Strategy> get(const parameters::Modules &m, const Float d, const
 
     auto ss =
         (m.sample_sigma or m.ssa == StepSizeAdaptation::LPXNES or m.ssa == StepSizeAdaptation::SA)
-            ? std::make_shared<SigmaSampler>(d)
-            : std::make_shared<NoSigmaSampler>(d);
+            ? std::make_shared<SigmaSampler>(d, generator)
+            : std::make_shared<NoSigmaSampler>(d, generator);
 
     switch (m.ssa)
     {

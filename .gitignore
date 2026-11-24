@@ -128,3 +128,6 @@ data_old
 tests/data/*
 !tests/data/golden/
 !tests/data/api/
+
+# Output of the BBOB example
+bbob-data/

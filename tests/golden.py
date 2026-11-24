@@ -201,6 +201,8 @@ def make_runs() -> List[Dict]:
         ("tpa_threshold_sequential", {"ssa": "TPA", "threshold_convergence": True, "sequential_selection": True}, {}),
         ("pairwise_sequential", {"mirrored": "PAIRWISE", "sequential_selection": True}, {}),
         ("orthogonal_mirrored_halton", {"orthogonal": True, "mirrored": "MIRRORED", "sampler": "HALTON"}, {}),
+        ("fast_sampling", {}, {"fast_sampling": True}),
+        ("fast_sampling_mirrored_orthogonal", {"orthogonal": True, "mirrored": "MIRRORED"}, {"fast_sampling": True}),
     ]
     for run_id, modules, settings in special:
         add(f"special/{run_id}", modules=modules, settings=settings, budget=None)
@@ -232,7 +234,26 @@ def make_settings(run: Dict) -> "c_maes.Settings":
     return c_maes.Settings(run["dim"], modules, budget=run["budget"], verbose=False, **kwargs)
 
 
-def execute(run: Dict) -> Dict:
+# How a generation is driven: step() with the objective (the C++ loop over ask/tell), ask/tell from
+# Python, ask/tell with the evaluated points passed back to tell, or a vectorized objective. All of
+# them must give the same trajectories, bit for bit.
+DRIVERS = ("step", "asktell", "asktell_points", "vectorized")
+
+
+def run_generation(cma: "c_maes.ModularCMAES", objective, driver: str) -> bool:
+    """One generation; returns False when a break condition holds (as ModularCMAES.step)."""
+    if driver == "step":
+        return cma.step(objective)
+    if driver == "vectorized":
+        return cma.step(lambda X: [objective(x) for x in X], vectorized=True)
+    while True:
+        X = cma.ask()
+        f = [objective(x) for x in X]
+        if cma.tell(f, X) if driver == "asktell_points" else cma.tell(f):
+            return not cma.break_conditions()
+
+
+def execute(run: Dict, driver: str = "step") -> Dict:
     for name, value in DEFAULT_CONSTANTS.items():
         setattr(c_maes.constants, name, value)
     for name, value in run["constants"].items():
@@ -247,7 +268,7 @@ def execute(run: Dict) -> Dict:
     generation = 0
     try:
         while True:
-            running = cma.step(objective)
+            running = run_generation(cma, objective, driver)
             generation += 1
             p = cma.p
             digest.update(np.ascontiguousarray(p.pop.X).tobytes())
@@ -361,7 +382,7 @@ def compare(expected: Dict, actual: Dict) -> str:
     return ""
 
 
-def check(name: str, only: str = "", path: str = "") -> int:
+def check(name: str, only: str = "", path: str = "", drivers=("step",)) -> int:
     path = path or fixture_path(name)
     if not os.path.exists(path):
         print(f"SKIP: no golden fixture for platform {name} ({path})")
@@ -370,13 +391,15 @@ def check(name: str, only: str = "", path: str = "") -> int:
         fixture = json.load(f)
     failures = []
     runs = [run for run in fixture["runs"] if only in run["id"]]
-    for run in runs:
-        message = compare(run["result"], execute(run))
-        if message:
-            failures.append((run["id"], message))
+    for driver in drivers:
+        for run in runs:
+            message = compare(run["result"], execute(run, driver))
+            if message:
+                failures.append((f"{run['id']} [{driver}]", message))
     for run_id, message in failures:
         print(f"MISMATCH {run_id}: {message}")
-    print(f"{len(runs) - len(failures)}/{len(runs)} runs match the {name} fixture "
+    total = len(runs) * len(drivers)
+    print(f"{total - len(failures)}/{total} runs ({', '.join(drivers)}) match the {name} fixture "
           f"(generated from {fixture['generated_from_commit']})")
     return 1 if failures else 0
 
@@ -387,11 +410,17 @@ def main():
     parser.add_argument("--platform", default=platform_name())
     parser.add_argument("--only", default="", help="check only runs whose id contains this text")
     parser.add_argument("--fixture", default="", help="fixture file instead of tests/data/golden/<platform>.json")
+    parser.add_argument("--drivers", default="step",
+                        help=f"check: comma-separated drivers of the generations, of {', '.join(DRIVERS)}, or all")
     args = parser.parse_args()
     if args.command == "write":
         write(args.platform, args.fixture)
     elif args.command == "check":
-        sys.exit(check(args.platform, args.only, args.fixture))
+        drivers = DRIVERS if args.drivers == "all" else tuple(args.drivers.split(","))
+        unknown = set(drivers) - set(DRIVERS)
+        if unknown:
+            parser.error(f"unknown drivers: {', '.join(sorted(unknown))}")
+        sys.exit(check(args.platform, args.only, args.fixture, drivers))
     else:
         for run in make_runs():
             print(run["id"])

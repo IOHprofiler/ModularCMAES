@@ -54,11 +54,20 @@ Vector COTN::correct_x(const Vector &xi,
                        const Float sigma,
                        const parameters::Settings &settings)
 {
+    // The distance from the violated bound, in units of the domain width: sigma |n| with n normal
+    // (standard deviation 1/3), redrawn where it would leave the box on the other side (Caraffini
+    // et al. 2019: the new coordinate is inside the search space)
+    Vector r = sigma * sampler().array().abs();
+    for (int attempt = 0; attempt < 10 && (r.array() > 1.0).any(); ++attempt)
+    {
+        const Vector fresh = sigma * sampler().array().abs();
+        r = (r.array() > 1.0).select(fresh, r);
+    }
+    r = r.cwiseMin(1.0);
     const Vector y = delta_out_of_bounds(xi, oob, settings);
     return (oob).select(
         settings.lb.array() +
-            settings.db.array() *
-                ((y.array() > 0).cast<Float>() - (sigma * sampler().array().abs())).abs(),
+            settings.db.array() * ((y.array() > 0).cast<Float>() - r.array()).abs(),
         y);
 }
 

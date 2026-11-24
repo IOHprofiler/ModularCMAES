@@ -1,3 +1,9 @@
+"""
+Mutation: the sampling of a population and the step-size adaptation.
+
+The optimizer holds a `Strategy` subclass as `es.p.mutation`, selected by `Modules.ssa` (`options.StepSizeAdaptation`) and created anew at every restart. It holds the threshold convergence (`Modules.threshold_convergence`), the sequential selection (`Modules.sequential_selection`) and the sampler of the step sizes (`Modules.sample_sigma`). The step-size adaptations are described in de Nobel et al. (2021).
+"""
+
 from collections.abc import Callable
 from typing import Annotated
 
@@ -12,123 +18,362 @@ import modcma.c_maes.cmaescpp.parameters
 
 
 class ThresholdConvergence:
-    def __init__(self) -> None: ...
+    """
+    Threshold convergence: samples shorter than a decreasing threshold are lengthened (`Modules.threshold_convergence`).
+
+    The threshold is t = init_threshold * diameter * ((budget - evaluations) / budget)^decay_factor, with diameter = ||ub - lb||; a z shorter than t is scaled to length 2 t - ||z||. Keeps the search global early on and turns into local search as the budget is used. Proposed by Piad et al.
+    """
+
+    def __init__(self) -> None:
+        """
+        Create threshold convergence with init_threshold = 0.1 and decay_factor = 0.995.
+        """
 
     @property
-    def init_threshold(self) -> float: ...
+    def init_threshold(self) -> float:
+        """
+        The threshold at the start as a fraction of the diameter of the box (default 0.1).
+        """
 
     @init_threshold.setter
     def init_threshold(self, arg: float, /) -> None: ...
 
     @property
-    def decay_factor(self) -> float: ...
+    def decay_factor(self) -> float:
+        """
+        The exponent of the decrease of the threshold with the remaining budget (default 0.995).
+        """
 
     @decay_factor.setter
     def decay_factor(self, arg: float, /) -> None: ...
 
-    def scale(self, population: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], diameter: float, budget: int, evaluations: int) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]: ...
+    def scale(self, population: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], diameter: float, budget: int, evaluations: int) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """
+        A sample z lengthened to the threshold when it is shorter.
+
+        Parameters
+        ----------
+        population : numpy.ndarray
+            The sample z, shape (d,) (one sample, despite the name).
+        diameter : float
+            The diameter of the box, ||ub - lb|| (`Settings.diameter`).
+        budget : int
+            The evaluation budget.
+        evaluations : int
+            The evaluations used so far.
+
+        Returns
+        -------
+        numpy.ndarray
+            The scaled copy of z, shape (d,).
+        """
 
 class NoThresholdConvergence(ThresholdConvergence):
-    def __init__(self) -> None: ...
+    """No threshold convergence (the default): samples are not scaled."""
+
+    def __init__(self) -> None:
+        """Create the no-op threshold convergence."""
 
 class SequentialSelection:
-    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, seq_cuttoff_factor: float = 1.0) -> None: ...
+    """
+    Sequential selection: stop evaluating a population once it improves on the best solution (`Modules.sequential_selection`).
 
-    def break_conditions(self, i: int, f: float, fopt: float, mirror: modcma.c_maes.cmaescpp.options.Mirror, mu: int) -> bool: ...
+    The population is cut after individual i (0-based) when its objective value is better than the best so far and i >= mu * seq_cuttoff_factor; with pairwise selection the factor is at least 2 and the cut falls after a complete pair. The updates use the evaluated individuals. Saves evaluations on functions where improvements are easy to find. Brockhoff et al. (2010).
+    """
+
+    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, seq_cuttoff_factor: float = 1.0) -> None:
+        """
+        Create the sequential selection.
+
+        Parameters
+        ----------
+        mirror : options.Mirror
+            The mirrored sampling option; with `Mirror.PAIRWISE` the cutoff factor is at least 2.
+        seq_cuttoff_factor : float
+            The minimum number of evaluated individuals as a multiple of mu (default 1).
+        """
+
+    def break_conditions(self, i: int, f: float, fopt: float, mirror: modcma.c_maes.cmaescpp.options.Mirror, mu: int) -> bool:
+        """
+        Whether the population stops after individual i.
+
+        Parameters
+        ----------
+        i : int
+            The index of the individual just evaluated (0-based).
+        f : float
+            Its objective value.
+        fopt : float
+            The best objective value so far.
+        mirror : options.Mirror
+            The mirrored sampling option.
+        mu : int
+            The number of selected individuals.
+
+        Returns
+        -------
+        bool
+            True when f < fopt, i >= mu * seq_cuttoff_factor and, with pairwise selection, i is odd.
+        """
 
 class NoSequentialSelection(SequentialSelection):
-    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, seq_cuttoff_factor: float = 1.0) -> None: ...
+    """
+    No sequential selection (the default): every individual of a population is evaluated.
+    """
+
+    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, seq_cuttoff_factor: float = 1.0) -> None:
+        """
+        Create the no-op sequential selection.
+
+        Parameters
+        ----------
+        mirror : options.Mirror
+            The mirrored sampling option (not used).
+        seq_cuttoff_factor : float
+            Not used (default 1).
+        """
 
 class SigmaSampler:
-    def __init__(self, dimension: float) -> None: ...
+    """
+    Sampled step sizes: each individual gets its own step size per coordinate, sigma * exp(beta n) with n standard normal (`Modules.sample_sigma`; always used by the step-size adaptations LPXNES and SA).
 
-    def apply_integer_bounds(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None: ...
+    beta = `es.p.weights.beta` = 1 / sqrt(2 mueff) (ln 2 / (sqrt(d) ln d) with LPXNES). The step sizes are the columns of `es.p.pop.S`.
+    """
 
-    def sample(self, sigma: float, parameters: modcma.c_maes.cmaescpp.Parameters) -> None: ...
+    def __init__(self, dimension: float) -> None:
+        """
+        Create the sampler.
+
+        Parameters
+        ----------
+        dimension : float
+            The dimension d.
+        """
+
+    def apply_integer_bounds(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
+        """
+        Raise the step sizes of the integer variables to their lower bound int_lb_sigma / sqrt(C_ii) (`es.p.weights.int_lb_sigma`, C_ii from `adaptation.coordinate_wise_variances`).
+
+        Parameters
+        ----------
+        parameters : Parameters
+            The state of the optimizer; `pop.S` is changed in place.
+        """
+
+    def sample(self, sigma: float, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
+        """
+        Set the step sizes `pop.S` of the population from sigma, then apply the lower bounds of the integer variables.
+
+        Parameters
+        ----------
+        sigma : float
+            The global step size.
+        parameters : Parameters
+            The state of the optimizer; `pop.S` is written.
+        """
 
 class NoSigmaSampler(SigmaSampler):
-    def __init__(self, dimension: float) -> None: ...
+    """
+    No sampled step sizes (the default): every individual uses sigma (apart from the lower bounds of integer variables).
+    """
+
+    def __init__(self, dimension: float) -> None:
+        """
+        Create the sampler.
+
+        Parameters
+        ----------
+        dimension : float
+            The dimension d.
+        """
 
 class Strategy:
-    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None: ...
+    """
+    Base class of the step-size adaptations; also samples and evaluates a population.
 
-    def adapt(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, dynamic: modcma.c_maes.cmaescpp.matrix_adaptation.Adaptation, population: modcma.c_maes.cmaescpp.Population, old_population: modcma.c_maes.cmaescpp.Population, stats: modcma.c_maes.cmaescpp.parameters.Stats, lamb: int) -> None: ...
+    `mutate` samples and evaluates a population, `adapt` updates sigma after selection. The base class does not change sigma. The subclasses are created by the optimizer from `Modules.ssa` and have no Python constructor.
+    """
 
-    def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], n_offspring: int, parameters: modcma.c_maes.cmaescpp.Parameters) -> None: ...
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create a strategy that does not adapt sigma.
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
+
+    def adapt(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, dynamic: modcma.c_maes.cmaescpp.matrix_adaptation.Adaptation, population: modcma.c_maes.cmaescpp.Population, old_population: modcma.c_maes.cmaescpp.Population, stats: modcma.c_maes.cmaescpp.parameters.Stats, lamb: int) -> None:
+        """
+        Update the step size sigma after selection.
+
+        Parameters
+        ----------
+        weights : Weights
+            The recombination weights and learning rates (`es.p.weights`).
+        dynamic : matrix_adaptation.Adaptation
+            The matrix adaptation (`es.p.adaptation`).
+        population : Population
+            The selected population of this generation.
+        old_population : Population
+            The population of the previous generation.
+        stats : Stats
+            The statistics of the run.
+        lamb : int
+            The population size lambda.
+        """
+
+    def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], n_offspring: int, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
+        """
+        Sample and evaluate a population.
+
+        Per individual: z from the sampler (lengthened by threshold convergence), y = A z, x = m + sigma_i y and bound correction; with RESAMPLE or repelling a rejected individual is sampled again. Sequential selection can stop the population early. With TPA the two extra points are evaluated afterwards.
+
+        Parameters
+        ----------
+        objective : Callable[[numpy.ndarray], float]
+            The objective function.
+        n_offspring : int
+            The number of individuals.
+        parameters : Parameters
+            The state of the optimizer (`es.p`); `pop` is written.
+        """
 
     @property
-    def threshold_convergence(self) -> ThresholdConvergence: ...
+    def threshold_convergence(self) -> ThresholdConvergence:
+        """
+        The threshold convergence (`ThresholdConvergence` or `NoThresholdConvergence`).
+        """
 
     @threshold_convergence.setter
     def threshold_convergence(self, arg: ThresholdConvergence, /) -> None: ...
 
     @property
-    def sequential_selection(self) -> SequentialSelection: ...
+    def sequential_selection(self) -> SequentialSelection:
+        """
+        The sequential selection (`SequentialSelection` or `NoSequentialSelection`).
+        """
 
     @sequential_selection.setter
     def sequential_selection(self, arg: SequentialSelection, /) -> None: ...
 
     @property
-    def sigma_sampler(self) -> SigmaSampler: ...
+    def sigma_sampler(self) -> SigmaSampler:
+        """The sampler of the step sizes (`SigmaSampler` or `NoSigmaSampler`)."""
 
     @sigma_sampler.setter
     def sigma_sampler(self, arg: SigmaSampler, /) -> None: ...
 
     @property
-    def sigma(self) -> float: ...
+    def sigma(self) -> float:
+        """The global step size sigma."""
 
     @sigma.setter
     def sigma(self, arg: float, /) -> None: ...
 
     @property
-    def s(self) -> float: ...
+    def s(self) -> float:
+        """
+        The smoothed success measure of TPA, MSR and PSR, whose exponential scales sigma (default 0).
+        """
 
     @s.setter
     def s(self, arg: float, /) -> None: ...
 
 class CSA(Strategy):
-    pass
+    """
+    Cumulative step-size adaptation (`StepSizeAdaptation.CSA`, the default).
+
+    sigma *= exp(l), l = (cs / damps) (||ps|| / E||z|| - 1) clamped to [-1, 1] (as in pycma): sigma grows when the evolution path ps is longer than under random selection and shrinks when it is shorter. Hansen & Ostermeier (2001).
+    """
 
 class TPA(Strategy):
+    """
+    Two-point step-size adaptation (`StepSizeAdaptation.TPA`).
+
+    After each population the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better and a_tpa + b_tpa otherwise, and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008).
+    """
+
     @property
-    def a_tpa(self) -> float: ...
+    def a_tpa(self) -> float:
+        """The magnitude of r (default 0.5)."""
 
     @a_tpa.setter
     def a_tpa(self, arg: float, /) -> None: ...
 
     @property
-    def b_tpa(self) -> float: ...
+    def b_tpa(self) -> float:
+        """The offset added to r when the forward point is better (default 0)."""
 
     @b_tpa.setter
     def b_tpa(self, arg: float, /) -> None: ...
 
     @property
-    def rank_tpa(self) -> float: ...
+    def rank_tpa(self) -> float:
+        """The last r: -a_tpa or a_tpa + b_tpa (default 0)."""
 
     @rank_tpa.setter
     def rank_tpa(self, arg: float, /) -> None: ...
 
 class MSR(Strategy):
-    pass
+    """
+    Median success rule (`StepSizeAdaptation.MSR`).
+
+    With k the number of individuals better than the median of the previous population: s = (1 - cs) s + cs (2 / lambda) (k - (lambda + 1) / 2) and sigma *= exp(s / (2 - 2 / d)). Ait Elhara et al. (2013).
+    """
 
 class PSR(Strategy):
+    """
+    Population success rule (`StepSizeAdaptation.PSR`).
+
+    The current and the previous population are ranked together; with z the difference of their summed ranks (previous minus current) divided by n^2, minus success_ratio: s = (1 - cs) s + cs z and sigma *= exp(s / (2 - 2 / d)). Loshchilov (2014).
+    """
+
     @property
-    def success_ratio(self) -> float: ...
+    def success_ratio(self) -> float:
+        """The target success ratio (default 0.25)."""
 
     @success_ratio.setter
     def success_ratio(self, arg: float, /) -> None: ...
 
 class XNES(Strategy):
-    pass
+    """
+    The step-size update of xNES (`StepSizeAdaptation.XNES`).
+
+    With NATURAL_GRADIENT: sigma *= exp(cs / 2 * sigma_g), sigma_g the trace part of the natural gradient (`NaturalGradientAdaptation.sigma_g`). With the other matrix adaptations: sigma *= exp(cs / sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the positive weights. Glasmachers et al. (2010).
+    """
 
 class MXNES(Strategy):
-    pass
+    """
+    A variant of the xNES step-size update on the mean step (`StepSizeAdaptation.MXNES`).
+
+    sigma *= exp((cs / d) (mueff ||dz||^2 - d)), with dz the weighted mean of the selected z: sigma grows when the mean step is longer than under random selection. m-xNES of Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules".
+    """
 
 class LPXNES(Strategy):
-    pass
+    """
+    A variant of the xNES step-size update on sampled step sizes (`StepSizeAdaptation.LPXNES`).
+
+    Every individual samples its own step sizes (a `SigmaSampler` is always used, with beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i mean_j ln(S_ij / sigma)) over the positive weights, which moves sigma towards the step sizes of the better individuals. lp-xNES of Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules".
+    """
 
 class SR(Strategy):
-    pass
+    """
+    The success rule of the (1+1)-CMA-ES (`StepSizeAdaptation.SR`; always used when lambda = 1).
+
+    sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the smoothed rate of improvements of the best solution (`es.p.stats.success_ratio`), the target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).
+    """
 
 class SA(Strategy):
-    pass
+    """
+    Self-adaptation of the step size (`StepSizeAdaptation.SA`).
+
+    Every individual samples its own step sizes (a `SigmaSampler` is always used); sigma is multiplied by the weighted geometric mean of the step sizes of the mu selected individuals divided by the geometric mean over the whole population (Beyer & Sendhoff 2008, with the correction of Ahrari et al. 2017). With SA the default mu is lambda / 4.
+    """
