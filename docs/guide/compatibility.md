@@ -84,8 +84,8 @@ algorithms.
 * **Integer variables** are rounded after the bound correction (*known issue*: a rounded value can
   leave the box [F21]); their step-size floor biases the step-size rules that read sampled step
   sizes (`SA`, `LPXNES`).
-* **`SR` with λ > 1** counts one success per generation, when its best beats the best of the
-  previous generation.
+* **`SR` with λ > 1** counts one success per generation, when its best beats the best of the run
+  so far.
 * **`restart_strategy=NONE`** still restarts when the matrix cannot be adapted (`UnableToAdapt`).
 * **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is.
 

@@ -337,7 +337,7 @@ void define_parameters(nb::module_ &main)
                 &Stats::success_ratio,
                 "The smoothed rate of successful generations.\n\n"
                 "A generation is a success when its best individual is better than the best of "
-                "the previous generation (with elitism, the parent). "
+                "the run so far (with elitism, the parent); counted once per generation. "
                 "An exponential moving average with weight 1/12, starting at 2/11. Used by the "
                 "success rule step-size adaptation (SR) and by the update of the evolution path "
                 "in the (1+1) configuration (lambda0 = 1).")

@@ -68,11 +68,14 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
     survivors). Their steps are recomputed with the generation's σ; before, each parent kept the
     step size it was sampled with.
   * **MSR** compares with the 0.3λ-th best of the previous generation (Ait ElHara et al. 2013,
-    pycma), not with the median. Its damping is `damps`, 2 − 2/d by default; at d = 1 it is 1,
+    pycma), not with the median, and centers the count at λ/2, as pycma. It is 2–4× faster on the
+    sphere and the ellipsoids, but solves Rosenbrock and the bent cigar somewhat less often within
+    the budget. Its damping is `damps`, 2 − 2/d by default; at d = 1 it is 1,
     where it was 0.
   * **PSR** uses the constants of Loshchilov (2014): cs = 0.3 (was 0.9) and damps = 1 (was 2 − 2/d).
-  * **SR:** a generation is a success when its best beats the best of the previous generation.
-    Before, the reference was the best of the run, and TPA's points and restart centers counted too.
+  * **SR** counts one success per generation: the generation's best beats the best of the run.
+    TPA's points and the restart centers no longer count. The framework paper's reference, the
+    previous generation's best, made σ diverge without elitism; the paper is to be corrected.
   * **IPOP:** the population size is limited to 2⁹ λ₀ (was (d λ₀)²).
   * **Pairwise selection with the active update:** the losers of the mirrored pairs get no negative
     weights, as in pycma.

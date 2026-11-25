@@ -35,7 +35,7 @@ class TestMSR(unittest.TestCase):
         sigma = msr.sigma
         msr.adapt(p.weights, p.adaptation, new, old, p.stats, 10)
         k = 6
-        z = (2 / 10) * (k - 11 / 2)
+        z = (2 / 10) * (k - 10 / 2)  # centered at lambda / 2, as pycma
         s = p.weights.cs * z
         self.assertAlmostEqual(msr.s, s)
         self.assertAlmostEqual(msr.sigma, sigma * math.exp(s / (2 - 2 / 4)))
@@ -56,25 +56,31 @@ class TestPSR(unittest.TestCase):
 
 
 class TestSR(unittest.TestCase):
-    def test_success_against_the_previous_generation(self):
-        # A generation whose best beats the previous generation's best is a success, even when
-        # it does not beat the best of the run
+    def test_success_against_the_best_of_the_run(self):
+        # A generation is a success when its best beats the best of the run so far; beating only
+        # the previous generation's best is not (the paper's reference made sigma diverge, #83)
         p = make(d=2, lambda0=4, ssa="SR")
-        p.pop.f = np.array([-100.0, 9.0, 9.0, 9.0])  # the best of the run
-        p.selection.select(p)
-
         ratio = p.stats.success_ratio
-        p.old_pop.f = np.array([5.0, 6.0, 7.0, 8.0])
-        p.pop.f = np.array([4.0, 9.0, 9.0, 9.0])
+        p.pop.f = np.array([-100.0, 9.0, 9.0, 9.0])  # the first generation: a success
         p.selection.select(p)
-        self.assertEqual(p.stats.current_best.y, -100.0)
         self.assertAlmostEqual(p.stats.success_ratio, (1 - 1 / 12) * ratio + 1 / 12)
 
         ratio = p.stats.success_ratio
-        p.old_pop.f = np.array([4.0, 6.0, 7.0, 8.0])
-        p.pop.f = np.array([4.5, 9.0, 9.0, 9.0])
+        p.old_pop.f = np.array([5.0, 6.0, 7.0, 8.0])
+        p.pop.f = np.array([4.0, 9.0, 9.0, 9.0])  # beats the previous generation, not the run
         p.selection.select(p)
         self.assertAlmostEqual(p.stats.success_ratio, (1 - 1 / 12) * ratio)
+
+        ratio = p.stats.success_ratio
+        p.pop.f = np.array([-101.0, 9.0, 9.0, 9.0])
+        p.selection.select(p)
+        self.assertAlmostEqual(p.stats.success_ratio, (1 - 1 / 12) * ratio + 1 / 12)
+
+    def test_sr_converges_with_lambda_above_1(self):
+        es = c_maes.ModularCMAES(c_maes.settings_from_dict(5, ssa="SR", budget=20000, seed=1,
+                                                          verbose=False, target=1e-8))
+        es.run(lambda x: float(np.sum(x**2)))
+        self.assertLess(es.p.stats.global_best.y, 1e-8)
 
     def test_tpa_points_do_not_count(self):
         # Only selection updates the success ratio, once per generation

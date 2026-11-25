@@ -20,9 +20,13 @@ void Strategy::select(parameters::Parameters &p) const
     p.pop.resize_cols(p.lambda);
 
     p.stats.current_avg = p.pop.f.head(p.pop.n).array().mean();
+    // A success: the best of the generation beats the best of the run so far (infinite at the start
+    // of a run). The best of the previous generation, as the framework paper describes SR, does not
+    // work without elitism: it is beaten about every other generation even at a good sigma, far
+    // above the target 2/11, and sigma diverges (#83). Counted once per generation.
+    const bool success = p.pop.f(0) < p.stats.current_best.y;
     p.stats.update_best(p.pop.X_transformed(Eigen::all, 0), p.pop.f(0));
-    // old_pop is the previous generation, sorted (infinite before the first generation of a run)
-    p.stats.update_success(p.pop.f(0) < p.old_pop.f(0));
+    p.stats.update_success(success);
 }
 
 void Pairwise::operator()(parameters::Parameters &p) const

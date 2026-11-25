@@ -35,8 +35,8 @@ struct Stats
         }
     }
 
-    //! A generation is a success when its best individual is better than the best of the previous
-    //! generation (the framework paper, SR; with elitism, the parent)
+    //! Once per generation (selection): a success when the best of the generation beats the best of
+    //! the run so far (with elitism, the parent)
     void update_success(const bool success)
     {
         success_ratio = (1 - cp) * success_ratio + (cp * static_cast<Float>(success));

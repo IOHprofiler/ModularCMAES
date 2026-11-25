@@ -261,8 +261,11 @@ void MSR::adapt(const parameters::Weights &w,
         const Float frac = j - std::floor(j);
         const Float k = (1.0 - frac) * (f < old_pop.f(j0)).cast<Float>().sum() +
                         frac * (f <= old_pop.f(j1)).cast<Float>().sum();
-        // z >= 0 iff the median offspring is better than the j-th best of the previous generation
-        const auto z = (2.0 / lambda) * (k - ((lambda + 1.0) / 2.0));
+        // z >= 0 iff the median offspring is better than the j-th best of the previous generation.
+        // Centered at lambda / 2 as pycma; Loshchilov (2014) restates the paper with (lambda + 1) / 2,
+        // which on BBOB (d = 20) solved Rosenbrock and the bent cigar in 15 of 25 runs, pycma's in
+        // 22 and 25 (#83)
+        const auto z = (2.0 / lambda) * (k - (lambda / 2.0));
         s = ((1.0 - w.cs) * s) + (w.cs * z);
         sigma *= std::exp(s / w.damps);
     }

@@ -1615,7 +1615,7 @@ void define_mutation(nb::module_ &main)
         "Median success rule (`StepSizeAdaptation.MSR`).\n\n"
         "With k the number of individuals better than the j-th best of the previous "
         "population, j = quantile * lambda (0-based, interpolated between its neighbours, as "
-        "pycma): s = (1 - cs) s + cs (2 / lambda) (k - (lambda + 1) / 2) and "
+        "pycma): s = (1 - cs) s + cs (2 / lambda) (k - lambda / 2) and "
         "sigma *= exp(s / damps), with cs = 0.3 and damps = 2 - 2 / d (1 for d = 1) by "
         "default: sigma grows when the median offspring beats the j-th best of the previous "
         "generation. Ait ElHara, Auger & Hansen (2013).")
@@ -1668,9 +1668,8 @@ void define_mutation(nb::module_ &main)
         "lambda = 1).\n\n"
         "sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the smoothed rate of "
         "successes (`es.p.stats.success_ratio`): a generation is a success when its best "
-        "individual is better than the best of the previous generation (with elitism, the "
-        "parent). The target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. "
-        "(2006).");
+        "individual is better than the best of the run so far (with elitism, the parent). The "
+        "target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).");
     nb::class_<SA, Strategy>(
         m,
         "SA",

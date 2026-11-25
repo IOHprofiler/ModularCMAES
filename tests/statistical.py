@@ -79,8 +79,11 @@ def run_one(task):
 
     problem = ioh.get_problem(fid, 1, dim, ioh.ProblemClass.BBOB)
     modules = c_maes.Modules()
+    extra = {}  # Settings arguments (lambda0, mu0) next to the module options
     for name, value in CONFIGS[config].items():
-        if not c_maes.set_module(modules, name, value):
+        if name in ("lambda0", "mu0"):
+            extra[name] = value
+        elif not c_maes.set_module(modules, name, value):
             raise ValueError(f"unknown module option {name}={value}")
     c_maes.set_seed(seed)
     settings = c_maes.Settings(
@@ -90,6 +93,7 @@ def run_one(task):
         lb=np.full(dim, -5.0),
         ub=np.full(dim, 5.0),
         verbose=False,
+        **extra,
     )
     settings.target = problem.optimum.y + TARGET
     cma = c_maes.ModularCMAES(settings)
