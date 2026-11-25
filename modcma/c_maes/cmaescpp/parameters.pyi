@@ -611,7 +611,7 @@ class Settings:
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, and IPOP or BIPOP become RESTART;
         - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim and center the zero vector.
 
-        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, 2 or 3, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, lb above ub, or a budget smaller than the first generation.
+        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, lb above ub, or a budget smaller than the first generation.
 
         Parameters
         ----------
@@ -630,7 +630,7 @@ class Settings:
         mu0 : int, optional
             The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA); at least 1.
         lambda0 : int, optional
-            The number of offspring per generation, default 4 + floor(3 ln(dim)): 1 (the (1+1)-ES) or at least 4.
+            The number of offspring per generation, default 4 + floor(3 ln(dim)); at least 1 (1 is the (1+1)-ES). Many modules work poorly with 2 or 3 (see the compatibility page).
         x0 : array_like, optional
             (dim,) the initial mean of the search distribution. Default None: the center of the bounds (the zero vector when the box is not finite); after a restart, center_placement X0 uses the same point.
         lb : array_like, optional

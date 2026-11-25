@@ -311,7 +311,7 @@ class TestSettingsAndHelpers(unittest.TestCase):
     def test_mu_not_larger_than_lambda_with_self_adaptation(self):
         settings = modcma.settings_from_dict(5, ssa="SA", lambda0=6, mu0=10)
         self.assertLessEqual(settings.mu0, settings.lambda0)
-        self.assertGreaterEqual(modcma.settings_from_dict(5, ssa="SA", lambda0=4).mu0, 1)
+        self.assertGreaterEqual(modcma.settings_from_dict(5, ssa="SA", lambda0=3).mu0, 1)
 
     def test_cpp_defaults_are_quiet(self):
         self.assertFalse(modcma.Parameters(3).settings.verbose)

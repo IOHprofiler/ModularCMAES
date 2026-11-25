@@ -94,8 +94,7 @@ struct Settings
     {
         // Invalid values raise std::invalid_argument (ValueError in Python) here, instead of a
         // crash or a silent misbehaviour later (#113)
-        require(lambda0 == 1 || lambda0 >= 4,
-                "lambda0 must be 1 (the (1+1)-ES) or at least 4, got " + std::to_string(lambda0));
+        require(lambda0 >= 1, "lambda0 must be at least 1");
         require(!mu || *mu >= 1, "mu0 must be at least 1");
         require(std::isfinite(sigma0) && sigma0 > 0,
                 "sigma0 must be positive and finite, got " + std::to_string(sigma0));

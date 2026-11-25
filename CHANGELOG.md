@@ -88,7 +88,6 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 
 ### Changed
 
-* `lambda0` must be 1 (the (1+1)-ES) or at least 4; 2 and 3 raise `ValueError` (#113).
 * Requires Python ≥ 3.10 and numpy ≥ 2.0 (was Python ≥ 3.8).
 * The bindings use nanobind instead of pybind11; the Python API of `modcma.c_maes` is unchanged
   (checked against a dump of the 1.x API).
@@ -204,7 +203,9 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   the next improvement (#115). It is a copy now. The population arrays stay views; their
   docstrings say how long a view is valid.
 * With elitism, `active` and µ = 1 the parent sits at the mean, and its zero step got an infinite
-  negative weight: C became NaN and the run restarted about every three generations (#118).
+  negative weight: C became NaN and the run restarted about every three generations (#118). Every
+  module option now runs with λ = 2 and 3 without NaN; many work poorly there (the compatibility
+  page).
 * A built-in restart criterion added from Python (`TolX`, `FlatFitness`, ...) crashed or never
   fired: its buffers were sized only at a restart (#119). `FlatFitness` read past the population
   after sequential selection stopped a generation early.

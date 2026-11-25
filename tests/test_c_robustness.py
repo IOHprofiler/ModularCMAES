@@ -34,11 +34,10 @@ class TestSettingsValidation(unittest.TestCase):
 
     def test_dimension_and_population(self):
         self.assert_rejected("dim", dim=0)
-        for lambda0 in (0, 2, 3):
-            self.assert_rejected("lambda0", lambda0=lambda0)
+        self.assert_rejected("lambda0", lambda0=0)
         self.assert_rejected("mu0", mu0=0)
-        Settings(3, lambda0=1)  # the (1+1)-ES
-        Settings(3, lambda0=4)
+        for lambda0 in (1, 2, 3, 4):  # 1: the (1+1)-ES
+            Settings(3, lambda0=lambda0)
 
     def test_step_size_and_vectors(self):
         for sigma0 in (0.0, -1.0, float("nan"), float("inf")):
@@ -137,18 +136,37 @@ class TestViews(unittest.TestCase):
         self.assertGreater(len({tuple(x) for x in history}), 1)
 
 
+class TestSmallPopulations(unittest.TestCase):
+    """lambda0 = 2 and 3 are allowed for experiments: many modules work poorly with them, but no
+    module option may crash or produce NaN"""
+
+    def test_every_module_option(self):
+        options = c_maes.get_all_module_options()
+        variants = [(name, value) for name, values in options.items() for value in values]
+        for lambda0 in (2, 3):
+            for name, value in variants:
+                with self.subTest(lambda0=lambda0, option=name, value=value):
+                    es = ModularCMAES(settings_from_dict(
+                        4, lambda0=lambda0, seed=1, budget=600, **{name: value}))
+                    es.run(lambda X: np.sum(X**2, axis=1), vectorized=True)
+                    self.assertTrue(np.isfinite(es.p.stats.global_best.y))
+                    self.assertTrue(np.all(np.isfinite(es.p.adaptation.m)))
+
+
 class TestActiveZeroStep(unittest.TestCase):
     """#118: a zero step with a negative weight made the active update NaN"""
 
     def test_elitist_active_with_one_parent(self):
-        for lambda0 in (4, 10):
+        for lambda0 in (2, 3, 4, 10):
             es = ModularCMAES(settings_from_dict(
                 5, lambda0=lambda0, mu0=1, elitist=True, active=True, seed=1, budget=10**6,
                 restart_strategy="RESTART"))
             for _ in range(300):
                 es.step(sphere)
-            self.assertLessEqual(len(es.p.stats.centers), 2)  # was about 100 restarts
-            self.assertLess(es.p.stats.global_best.y, 1e-10)
+            # before: about 100 restarts and a best value around 0.1 (lambda0 = 2 is slow, but
+            # stable)
+            self.assertLessEqual(len(es.p.stats.centers), 2)
+            self.assertLess(es.p.stats.global_best.y, 1e-6)
 
     def test_injected_mean(self):
         for matrix_adaptation in ("COVARIANCE", "COVARIANCE_NO_EIGV"):
