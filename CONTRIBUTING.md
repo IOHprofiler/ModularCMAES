@@ -79,14 +79,14 @@ ctest --test-dir build --output-on-failure
 
 ## Planned work
 
-Planned work is tracked on the [project board](https://github.com/orgs/IOHprofiler/projects/10):
+Planned work is tracked in the [issues](https://github.com/IOHprofiler/ModularCMAES/issues), by label:
 
 | Label | What | Detail of the issue |
 |---|---|---|
-| `bug` | Known bugs | Each issue is one pull request. |
-| `module` | Planned modules | The algorithm, the API, an implementation plan, the interactions with the other modules, and the validation. |
-| `framework` | Framework features | |
-| `decision` | Design questions for the maintainer | |
+| [`bug`](https://github.com/IOHprofiler/ModularCMAES/labels/bug) | Known bugs | Each issue is one pull request. |
+| [`module`](https://github.com/IOHprofiler/ModularCMAES/labels/module) | Planned modules | The algorithm, the API, an implementation plan, the interactions with the other modules, and the validation. |
+| [`framework`](https://github.com/IOHprofiler/ModularCMAES/labels/framework) | Framework features | |
+| [`decision`](https://github.com/IOHprofiler/ModularCMAES/labels/decision) | Design questions for the maintainer | |
 
 The record of the 2.0 overhaul (work packages WP0–WP8, the reviews, the decisions) is
 [`dev/overhaul-2.0.md`](https://github.com/IOHprofiler/ModularCMAES/blob/master/dev/overhaul-2.0.md).

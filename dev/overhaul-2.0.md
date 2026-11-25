@@ -3,7 +3,7 @@
 **This file is a frozen record**, kept so the code comments that cite its sections (T0.1, WP3, F2,
 ...) stay readable. It was the task list of the overhaul (2026-11), and is not updated any more:
 
-* Open work is on the [project board](https://github.com/orgs/IOHprofiler/projects/10).
+* Open work is in the [issues](https://github.com/IOHprofiler/ModularCMAES/issues).
 * The rules for changes are in [`CONTRIBUTING.md`](../CONTRIBUTING.md).
 * What changed for users is in [`CHANGELOG.md`](../CHANGELOG.md).
 
