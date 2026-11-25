@@ -1,4 +1,4 @@
-"""Statistical comparison of two builds of the C++ ModularCMAES (TASKS.md, T0.1 tier 2; D2).
+"""Statistical comparison of two builds of the C++ ModularCMAES (dev/overhaul-2.0.md, T0.1 tier 2; D2).
 
 Changes that alter the floating-point results (a different summation order, a different random
 stream) make the golden trajectories diverge, so they are validated statistically instead: both

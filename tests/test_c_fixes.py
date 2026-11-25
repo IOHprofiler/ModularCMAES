@@ -1,4 +1,4 @@
-"""Regression tests of the fixes of WP8 (TASKS.md): each test fails with the code before the fix."""
+"""Regression tests of the fixes of WP8 (dev/overhaul-2.0.md): each test fails with the code before the fix."""
 
 import math
 import unittest

@@ -1,6 +1,18 @@
-# ModularCMAES (C++ version): nanobind, ask-tell, memory & compute — task list
+# The 2.0 overhaul of ModularCMAES: a record
 
-Draft for sign-off. Nothing here is implemented yet. Scope: the C++ implementation (`src/`, `include/`,
+**This file is a frozen record**, kept so the code comments that cite its sections (T0.1, WP3, F2,
+...) stay readable. It was the task list of the overhaul (2026-11), and is not updated any more:
+
+* Open work is on the [project board](https://github.com/orgs/IOHprofiler/projects/10).
+* The rules for changes are in [`CONTRIBUTING.md`](../CONTRIBUTING.md).
+* What changed for users is in [`CHANGELOG.md`](../CHANGELOG.md).
+
+WP0–WP8 are done and merged. The open items of WP23 and the planned work (WP9–WP22) moved to issues;
+their sections below link them.
+
+The original introduction follows.
+
+Scope: the C++ implementation (`src/`, `include/`,
 `modcma/c_maes/`) and its packaging. The pure-Python implementation (`modcma/*.py`, incl.
 `modcma/asktellcmaes.py`) is stale and is **not touched**; its tests only have to keep running (until
 WP6 moves it to a branch, D9).
@@ -774,6 +786,25 @@ the step-size classes have no Python constructor.
 
 ## WP23: Second round of fixes (found while writing the deep dives; not started)
 
+**Moved to issues** (2026-11-25). F2 and F30 are fixed (2.0.0). The others:
+
+| Issue | F-numbers |
+|---|---|
+| #71 | F1, F14 |
+| #72 | F3, F16, F27, F28 |
+| #73 | F4, F6, F7, F8 |
+| #74 | F5, F18 |
+| #75 | F9, F10, F17 |
+| #76 | F11, F22, F29 |
+| #77 | F12, F13 |
+| #78 | F15, F24 |
+| #79 | F19, F20, F21 |
+| #80 | F25, F26 |
+| #81 | F23 |
+| #83 | the design questions, and where the paper and the code disagree |
+
+The table below is the original finding.
+
 Three read-only reviews (2026-11-24) compared every module with its source (the papers, pycma 4.6,
 `cmaes`, the framework paper's LaTeX, the Python implementation), and tested every module value,
 every pair and the triples of passing pairs, plus 600 random configurations (sphere and Rastrigin
@@ -829,6 +860,29 @@ with ssa != CSA, center placement and repelling metric without restarts or repel
 with SA/LPXNES, sequential selection with PAIRWISE at mu = lambda/2, the lambda = 1 overrides).
 
 ## Planned work (WP9-WP22, later; not started)
+
+**Moved to issues** (2026-11-25); each issue has the details needed to implement it. The text below
+is the original plan.
+
+| WP | Issue |
+|---|---|
+| The extra points of several modules | #84 |
+| WP9 noise handling | #94 (UH-CMA-ES), #95 (adaptive re-evaluation) |
+| WP10 learning-rate adaptation | #99 |
+| WP11 matrix adaptations | #101 (dd-CMA-ES), #102 (VkD-CMA, the benchmarks to d = 10 000), #103 (HE-ES), #104 (QN-ES) |
+| WP12 bound transformation | #96 |
+| WP13 restart from the best point | #97 |
+| WP14 integer handling with a margin | #100 |
+| WP15 constraints | #85 |
+| WP16 normalized search space | #86 |
+| WP17 stopping criteria | #87 |
+| WP18 categorical variables | #88 |
+| WP19 warm starting | #89 |
+| WP20 gradient injection | #90 |
+| WP21 saving and resuming a run | #91 |
+| WP22 recombination | #104 (WEIGHTED, QUASI_NEWTON), #105 (research: with the other adaptations) |
+| Named presets (WP7 follow-up) | #92 |
+
 
 From the comparison with pycma and `cmaes` (2026-11-24). Divided into **modules** and **features**:
 

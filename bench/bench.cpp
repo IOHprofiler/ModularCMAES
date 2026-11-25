@@ -1,5 +1,5 @@
 /*
- * Benchmark harness for the C++ ModularCMAES (TASKS.md, T0.2).
+ * Benchmark harness for the C++ ModularCMAES (dev/overhaul-2.0.md, T0.2).
  *
  * Runs a fixed number of generations on the sphere function (a C++ objective, so the numbers are the
  * algorithm's own cost) and reports, per configuration and dimension:

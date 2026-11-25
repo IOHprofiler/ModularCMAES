@@ -1,4 +1,4 @@
-"""Golden trajectory test of the C++ ModularCMAES (TASKS.md, T0.1); see tests/golden.py."""
+"""Golden trajectory test of the C++ ModularCMAES (dev/overhaul-2.0.md, T0.1); see tests/golden.py."""
 
 import os
 import subprocess

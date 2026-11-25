@@ -1,4 +1,4 @@
-"""Golden trajectory fixtures for the C++ ModularCMAES (TASKS.md, T0.1).
+"""Golden trajectory fixtures for the C++ ModularCMAES (dev/overhaul-2.0.md, T0.1).
 
 A fixture holds, for a fixed seed, the trajectory of many configurations: every module option one at
 a time, a pairwise covering set of all module options, and special cases (1+1, integer variables,
@@ -22,7 +22,7 @@ Usage (each run executes in this process, so call it in a fresh interpreter, as 
     --fixture PATH reads/writes another file (e.g. a baseline of the commit before a change)
 
 Never regenerate a fixture to make a change pass: regenerate it from the commit *before* the change,
-on the same machine, and only with the maintainer's approval (TASKS.md, section 3).
+on the same machine, and only with the maintainer's approval (CONTRIBUTING.md).
 """
 
 import argparse

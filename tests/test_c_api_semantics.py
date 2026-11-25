@@ -1,5 +1,5 @@
 """Semantics of the Python API of the C++ extension that a change of binding library can silently
-change (TASKS.md, T1.1). Pinned on the pybind11 bindings; the nanobind port must keep them, or
+change (dev/overhaul-2.0.md, T1.1). Pinned on the pybind11 bindings; the nanobind port must keep them, or
 change a test here deliberately (with a note in the changelog)."""
 
 import enum

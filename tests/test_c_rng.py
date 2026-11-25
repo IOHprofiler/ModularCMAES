@@ -1,4 +1,4 @@
-"""Random generators of the C++ ModularCMAES (TASKS.md, T4.1): one generator per optimizer.
+"""Random generators of the C++ ModularCMAES (dev/overhaul-2.0.md, T4.1): one generator per optimizer.
 
 The golden trajectories (tests/golden.py) check that set_seed(s) followed by one optimizer draws the
 same numbers as before T4.1.

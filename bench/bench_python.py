@@ -1,4 +1,4 @@
-"""Cost of the Python boundary for the C++ ModularCMAES (TASKS.md, T0.2).
+"""Cost of the Python boundary for the C++ ModularCMAES (dev/overhaul-2.0.md, T0.2).
 
 Measures, with the installed ``modcma`` extension:
   * microseconds per evaluation of ``ModularCMAES.run`` with a Python objective (a lambda) and,

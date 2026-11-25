@@ -1,4 +1,4 @@
-"""API dump of the C++ extension ``modcma.c_maes.cmaescpp`` (TASKS.md, T1.1).
+"""API dump of the C++ extension ``modcma.c_maes.cmaescpp`` (dev/overhaul-2.0.md, T1.1).
 
 Records every submodule, class, enum, function, method and property with, for every overload, the
 argument names and which arguments have defaults (and the default's text). The format does not
