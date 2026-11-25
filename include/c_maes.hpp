@@ -97,17 +97,8 @@ struct ModularCMAES
     [[nodiscard]] bool has_pending() const { return !p->queue.empty(); }
 
   private:
-    //! The steps of a generation, in order (advance())
-    enum class Step
-    {
-        BEGIN,          //!< a new generation: a restart first, when one is due
-        FINISH_RESTART, //!< the restart's points have their values: reset the modules
-        SAMPLE,         //!< queue the population (and TPA's points)
-        SELECT,         //!< the population has its values: selection
-        UPDATE,         //!< recombination and adaptation; the generation is complete
-    };
-    //! The step that runs once the queue is empty
-    Step next = Step::BEGIN;
+    //! The step of the generation that runs once the queue is empty (evaluation::Step)
+    evaluation::Step next = evaluation::Step::BEGIN;
     //! The objective values of the queued points in step() and mutate()
     Vector values;
 

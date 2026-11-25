@@ -437,26 +437,26 @@ static void test_evaluation_queue()
 }
 
 // (c) The evaluations left to a request with a variable number of points keep what the remaining
-// stages of the generation reserve
+// steps of the generation reserve
 static void test_budget_left()
 {
-    using evaluation::Stage;
+    using evaluation::Step;
     parameters::Modules m;
     m.ssa = parameters::StepSizeAdaptation::TPA;
     parameters::Settings settings(2, m, std::nullopt, std::nullopt, size_t{100});
     settings.verbose = false;
     parameters::Parameters p(settings);
-    CHECK(p.reserved_points(Stage::POPULATION) == 2 && p.reserved_points() == 2);
+    CHECK(p.reserved_points(Step::SAMPLE) == 2 && p.reserved_points() == 2);
     p.stats.evaluations = 60;
     p.queue.push(Matrix::Zero(2, 5), evaluation::Source::HILL_VALLEY);
     // At a restart: the smallest first generation of the next run and TPA's two points
-    CHECK(p.budget_left(Stage::RESTART) ==
+    CHECK(p.budget_left(Step::FINISH_RESTART) ==
           100 - 60 - 5 - parameters::Parameters::min_lambda_after_restart - 2);
-    // Once the population is queued: nothing later is reserved
-    CHECK(p.budget_left(Stage::POPULATION) == 35);
-    CHECK(p.budget_left(Stage::POPULATION_EVALUATED) == 35);
+    // Once the population is queued (SELECT runs next): nothing later is reserved
+    CHECK(p.budget_left(Step::SELECT) == 35);
+    CHECK(p.budget_left(Step::UPDATE) == 35);
     p.stats.evaluations = 99;
-    CHECK(p.budget_left(Stage::SELECTED) == 0); // not below 0
+    CHECK(p.budget_left(Step::UPDATE) == 0); // not below 0
 }
 
 // A hypothetical module with a variable number of evaluations per generation (#84): when the
@@ -483,7 +483,7 @@ struct RandomReevaluation : mutation::CSA
         // The random number is drawn when the points are queued, at a fixed point of the generation
         std::uniform_int_distribution<int> draw(0, 3);
         const size_t k = std::min({static_cast<size_t>(draw(*p.generator)),
-                                   p.budget_left(evaluation::Stage::POPULATION),
+                                   p.budget_left(evaluation::Step::SELECT),
                                    p.pop.n});
         idx.resize(p.pop.n);
         std::iota(idx.begin(), idx.end(), 0);

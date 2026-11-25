@@ -17,27 +17,32 @@ struct Parameters;
  * the module through the parameters (the module in place at that time: never a pointer kept since
  * the push). The module may then push follow-up requests. No module calls the objective itself.
  *
- * When a module pushes is fixed by the stages of a generation: ModularCMAES::advance calls the
- * modules at each stage, in order, and waits for tell() whenever the queue is not empty.
+ * When a module pushes is fixed by the steps of a generation (Step): ModularCMAES::advance calls
+ * the modules at each step, in order, and waits for tell() whenever the queue is not empty.
  */
 namespace evaluation
 {
-//! The stages of a generation, in order (C++ only: not part of the Python API)
-enum class Stage
+/**
+ * The steps of a generation, in order (ModularCMAES::advance; C++ only). A step may queue points;
+ * the next step runs once they all have their values.
+ */
+enum class Step
 {
-    //! The restart criteria fired: the final mean of the run that ends is evaluated, then the
-    //! hill-valley points of the repelling archive, one at a time
-    RESTART,
-    //! The population, in batches when sequential selection may stop it early, with the points
-    //! that do not depend on the population's values (TPA's two) in the first batch
-    POPULATION,
-    //! Every point of the population has its value; before selection
-    POPULATION_EVALUATED,
-    //! After selection, before recombination and adaptation
-    SELECTED,
+    //! A new generation. When the restart criteria fired, the final mean of the run that ends is
+    //! queued; its value starts the hill-valley tests of the repelling archive, one at a time
+    BEGIN,
+    //! The restart's points have their values: the modules are reset for the new run
+    FINISH_RESTART,
+    //! The population's first batch is queued (each batch queues the next), with the points that
+    //! do not depend on the population's values (TPA's two)
+    SAMPLE,
+    //! Every point of the population has its value: selection
+    SELECT,
+    //! Recombination and adaptation; the generation is complete
+    UPDATE,
 };
 
-constexpr int n_stages = static_cast<int>(Stage::SELECTED) + 1;
+constexpr int n_steps = static_cast<int>(Step::UPDATE) + 1;
 
 //! Who pushed a request: Parameters::dispatch passes its values on by this tag
 enum class Source

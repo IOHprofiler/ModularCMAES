@@ -74,23 +74,24 @@ struct Parameters
     void dispatch(const evaluation::Request &request, const evaluation::Evaluations &e);
 
     /**
-     * The points the modules evaluate at a stage of every generation besides the population, fixed
-     * per configuration: TPA's two, with the population. The budget reserves them
-     * (break_conditions, restart_fits, fit_lambda_to_budget, budget_left).
+     * The points the modules queue in a step of every generation besides the population, fixed per
+     * configuration: TPA's two, in SAMPLE. The budget reserves them (break_conditions,
+     * restart_fits, fit_lambda_to_budget, budget_left).
      */
-    [[nodiscard]] size_t reserved_points(evaluation::Stage stage) const;
+    [[nodiscard]] size_t reserved_points(evaluation::Step step) const;
 
-    //! The points every generation evaluates besides the population: reserved_points of all stages
+    //! The points every generation evaluates besides the population: reserved_points of all steps
     [[nodiscard]] size_t reserved_points() const;
 
     /**
-     * The evaluations that a request with a variable number of points (the hill-valley tests) may
-     * still use at a stage: the budget minus the evaluations, the queued points and what the
-     * remaining stages of the generation reserve. At a restart: the smallest first generation of
-     * the next run (min_lambda_after_restart) and all its reserved points; else the reserved points
-     * of the later stages. A module with a variable number of points clips its requests to it.
+     * The evaluations that a request with a variable number of points may use, queued while `next`
+     * is the step that runs once the queue is empty: the budget minus the evaluations, the queued
+     * points, the reserved points of `next` and the steps after it, and, at a restart
+     * (FINISH_RESTART: the hill-valley tests), the smallest first generation of the next run
+     * (min_lambda_after_restart). A module with a variable number of points clips its requests to
+     * it.
      */
-    [[nodiscard]] size_t budget_left(evaluation::Stage stage) const;
+    [[nodiscard]] size_t budget_left(evaluation::Step next) const;
 
     /**
      * Individual i of the population was evaluated at x instead of its sampled point (tell(f, X)):
@@ -99,7 +100,7 @@ struct Parameters
     void inject(const Eigen::Index i, Eigen::Ref<const Vector> x);
 
     /*
-     * The same, in stages (ask-tell). begin_generation makes the previous population old_pop and
+     * The same, in steps (ask-tell). begin_generation makes the previous population old_pop and
      * decides whether to restart. A restart then queues the center (push_restart_center); its
      * value (tell_restart_center) starts the update of the repelling archive, which queues its
      * hill-valley points one at a time; once they are evaluated, finish_restart resets the modules.

@@ -87,16 +87,17 @@ receives their values when the user calls `tell()`, or when `run()` evaluates th
   (`src/parameters.cpp`), which passes the values (`Evaluations`: `f`, the points `X`, and whether
   `tell(f, X)` gave them) to the module through `p`. Never keep a pointer to the module in the
   request: the module in place when the values arrive receives them.
-* **A call at its stage** in `ModularCMAES::advance()` (`src/c_maes.cpp`), which runs the stages of
-  a generation in order: `RESTART`, `POPULATION` (points that do not depend on the population's
-  values join its first batch, as TPA's), `POPULATION_EVALUATED` (before selection) and
-  `SELECTED` (before recombination). The call queues the points: `p.queue.push(X, source, index)`.
-  The module may queue follow-up points when it receives the values; they form the next batch of
-  the same stage, as the batches of sequential selection and the hill-valley tests do.
+* **A call at its step** in `ModularCMAES::advance()` (`src/c_maes.cpp`), which runs the steps of
+  a generation in order (`evaluation::Step`): `BEGIN` (a restart queues the final mean),
+  `FINISH_RESTART`, `SAMPLE` (the population; points that do not depend on its values join its
+  first batch, as TPA's), `SELECT` and `UPDATE`. The call queues the points: `p.queue.push(X,
+  source, index)`. The module may queue follow-up points when it receives the values; they form
+  the next batch, as the batches of sequential selection and the hill-valley tests do. A module
+  that needs a new point in the generation adds a step.
 * **The budget:** a fixed number of points per generation, the same in every generation of a
-  configuration, goes into `Parameters::reserved_points(stage)`, which the budget checks reserve.
-  A variable number of points is clipped to `p.budget_left(stage)`, which keeps what the later
-  stages of the generation reserve; queue it after the fixed points of its own stage.
+  configuration, goes into `Parameters::reserved_points(step)`, which the budget checks reserve.
+  A variable number of points is clipped to `p.budget_left(next)`, with `next` the step that runs
+  once the queue is empty; it keeps what the steps still to run reserve.
 
 **Random numbers** are drawn when the points are queued, never later. Ask–tell then stays
 identical to `run()`.

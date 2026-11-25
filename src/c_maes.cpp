@@ -37,7 +37,7 @@ void ModularCMAES::adapt() const
 
 void ModularCMAES::require_no_generation(const char *step) const
 {
-    if (next != Step::BEGIN || !p->queue.empty())
+    if (next != evaluation::Step::BEGIN || !p->queue.empty())
         throw std::logic_error(std::string(step) +
                                " while a generation started by ask() is in progress: tell() the "
                                "values of its points, or evaluate them with mutate(), first");
@@ -48,7 +48,7 @@ void ModularCMAES::mutate(FunctionType &objective)
     // Up to selection: a new generation, or the one that ask() started. The rest is the user's:
     // select(), recombine() and adapt() act on the state, and the next mutate() or ask() starts a
     // new generation, as in 1.x
-    while (!p->queue.empty() || next != Step::SELECT)
+    while (!p->queue.empty() || next != evaluation::Step::SELECT)
     {
         if (p->queue.empty())
             advance(true);
@@ -58,7 +58,7 @@ void ModularCMAES::mutate(FunctionType &objective)
             p->queue.answer(*p, values.head(p->queue.size()));
         }
     }
-    next = Step::BEGIN;
+    next = evaluation::Step::BEGIN;
 }
 
 bool ModularCMAES::step(FunctionType &objective)
@@ -109,7 +109,7 @@ bool ModularCMAES::break_conditions() const
 }
 
 // -----------------------------------------------------------------------------
-// Ask-tell: the stages of a generation over the evaluation queue (#84)
+// Ask-tell: the steps of a generation over the evaluation queue (#84)
 // -----------------------------------------------------------------------------
 
 Eigen::Ref<const Matrix> ModularCMAES::ask()
@@ -143,44 +143,44 @@ bool ModularCMAES::advance(const bool stop_before_selection)
     {
         switch (next)
         {
-        case Step::BEGIN:
+        case evaluation::Step::BEGIN:
             // A restart first when the criteria fired: the final mean of the run that ends is
             // evaluated, and its value starts the hill-valley tests of the repelling archive
             if (p->begin_generation())
             {
                 p->push_restart_center();
-                next = Step::FINISH_RESTART;
+                next = evaluation::Step::FINISH_RESTART;
             }
             else
-                next = Step::SAMPLE;
+                next = evaluation::Step::SAMPLE;
             break;
 
-        case Step::FINISH_RESTART:
+        case evaluation::Step::FINISH_RESTART:
             // Every point of the restart has its value: the modules are reset for the new run
             p->finish_restart();
-            next = Step::SAMPLE;
+            next = evaluation::Step::SAMPLE;
             break;
 
-        case Step::SAMPLE:
+        case evaluation::Step::SAMPLE:
             // The population's first batch (each batch queues the next), with the extra points
             // of the step-size adaptation (TPA's), which do not depend on the population's values
             p->mutation->begin_population(p->lambda, *p);
             p->mutation->push_extra_points(*p);
-            next = Step::SELECT;
+            next = evaluation::Step::SELECT;
             break;
 
-        case Step::SELECT:
+        case evaluation::Step::SELECT:
             // Every point of the population has its value
             if (stop_before_selection)
                 return false;
             p->selection->select(*p);
-            next = Step::UPDATE;
+            next = evaluation::Step::UPDATE;
             break;
 
-        case Step::UPDATE:
+        case evaluation::Step::UPDATE:
             recombine();
             p->adapt();
-            next = Step::BEGIN;
+            next = evaluation::Step::BEGIN;
             return true;
         }
     }

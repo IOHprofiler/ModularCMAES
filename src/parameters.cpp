@@ -88,27 +88,28 @@ void Parameters::dispatch(const evaluation::Request &request, const evaluation::
     }
 }
 
-size_t Parameters::reserved_points(const evaluation::Stage stage) const
+size_t Parameters::reserved_points(const evaluation::Step step) const
 {
     // TPA's two points join the population's first batch
-    return stage == evaluation::Stage::POPULATION ? mutation->n_extra_points() : 0;
+    return step == evaluation::Step::SAMPLE ? mutation->n_extra_points() : 0;
 }
 
 size_t Parameters::reserved_points() const
 {
-    using evaluation::Stage;
-    return reserved_points(Stage::RESTART) + reserved_points(Stage::POPULATION) +
-           reserved_points(Stage::POPULATION_EVALUATED) + reserved_points(Stage::SELECTED);
+    size_t n = 0;
+    for (int s = 0; s < evaluation::n_steps; ++s)
+        n += reserved_points(static_cast<evaluation::Step>(s));
+    return n;
 }
 
-size_t Parameters::budget_left(const evaluation::Stage stage) const
+size_t Parameters::budget_left(const evaluation::Step next) const
 {
-    // What the rest of the generation reserves: the reserved points of the later stages, and at a
-    // restart the first generation of the next run, which fit_lambda_to_budget gives the rest of
-    // the budget (at least min_lambda_after_restart)
-    size_t reserved = stage == evaluation::Stage::RESTART ? min_lambda_after_restart : 0;
-    for (int s = static_cast<int>(stage) + 1; s < evaluation::n_stages; ++s)
-        reserved += reserved_points(static_cast<evaluation::Stage>(s));
+    // What the rest of the generation reserves: the reserved points of the steps still to run, and
+    // at a restart the first generation of the next run, which fit_lambda_to_budget gives the rest
+    // of the budget (at least min_lambda_after_restart)
+    size_t reserved = next <= evaluation::Step::FINISH_RESTART ? min_lambda_after_restart : 0;
+    for (int s = static_cast<int>(next); s < evaluation::n_steps; ++s)
+        reserved += reserved_points(static_cast<evaluation::Step>(s));
     const size_t used = stats.evaluations + static_cast<size_t>(queue.size()) + reserved;
     return settings.budget > used ? settings.budget - used : 0;
 }

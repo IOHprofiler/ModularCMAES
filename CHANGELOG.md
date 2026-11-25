@@ -43,7 +43,7 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * Docstrings for the whole API (`help()`, editors), type stubs (with `py.typed`), and a new
   documentation site.
 * An evaluation queue for every evaluation of the objective (#84): the modules queue points at
-  fixed stages of a generation, and ask–tell, `step()`, `run()` and `mutate()` evaluate them the
+  fixed steps of a generation, and ask–tell, `step()`, `run()` and `mutate()` evaluate them the
   same way. `es.p.queue` shows the points that wait, for debugging. Results are unchanged, but
   with sequential selection TPA's two points are now evaluated with the population's first batch
   (before: with its last batch, or after a population that sequential selection stopped). The
