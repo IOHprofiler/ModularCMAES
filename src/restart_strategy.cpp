@@ -11,12 +11,14 @@ Float Strategy::update(parameters::Parameters &p) { return p.settings.sigma0; }
 Float IPOP::update(parameters::Parameters &p)
 {
     // The population grows by ipop_factor at every restart (Auger & Hansen 2005), up to
-    // (d lambda_0)^2, a limit from the initial population size
-    const Float max_lambda = std::pow(static_cast<Float>(p.settings.dim * p.settings.lambda0), 2);
-    if (static_cast<Float>(p.lambda) < max_lambda)
+    // 2^9 lambda_0 (the framework paper, Sec. 4.5)
+    const auto max_lambda = max_lambda_factor * p.settings.lambda0;
+    if (p.lambda < max_lambda)
     {
         const Float ratio = static_cast<Float>(p.mu) / static_cast<Float>(p.lambda);
-        p.lambda = static_cast<size_t>(std::round(static_cast<Float>(p.lambda) * ipop_factor));
+        p.lambda = std::min(
+            max_lambda,
+            static_cast<size_t>(std::round(static_cast<Float>(p.lambda) * ipop_factor)));
         p.mu = std::max<size_t>(1, static_cast<size_t>(std::round(ratio * p.lambda)));
     }
     return p.settings.sigma0;

@@ -33,7 +33,13 @@ struct Stats
 
             has_improved = true;
         }
-        success_ratio = (1 - cp) * success_ratio + (cp * has_improved);
+    }
+
+    //! A generation is a success when its best individual is better than the best of the previous
+    //! generation (the framework paper, SR; with elitism, the parent)
+    void update_success(const bool success)
+    {
+        success_ratio = (1 - cp) * success_ratio + (cp * static_cast<Float>(success));
     }
 };
 } // namespace parameters

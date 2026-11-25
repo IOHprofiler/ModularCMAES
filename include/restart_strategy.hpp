@@ -19,6 +19,8 @@ struct Strategy
 struct IPOP : Strategy
 {
     Float ipop_factor = 2.0;
+    //! The largest population: max_lambda_factor * lambda0 (2^9, the framework paper)
+    size_t max_lambda_factor = 512;
     Float update(parameters::Parameters &) override;
 };
 

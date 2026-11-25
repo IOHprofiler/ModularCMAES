@@ -326,14 +326,23 @@ class MSR(Strategy):
     """
     Median success rule (`StepSizeAdaptation.MSR`).
 
-    With k the number of individuals better than the median of the previous population: s = (1 - cs) s + cs (2 / lambda) (k - (lambda + 1) / 2) and sigma *= exp(s / (2 - 2 / d)). Ait Elhara et al. (2013).
+    With k the number of individuals better than the j-th best of the previous population, j = quantile * lambda (0-based, interpolated between its neighbours, as pycma): s = (1 - cs) s + cs (2 / lambda) (k - (lambda + 1) / 2) and sigma *= exp(s / damps), with cs = 0.3 and damps = 2 - 2 / d (1 for d = 1) by default: sigma grows when the median offspring beats the j-th best of the previous generation. Ait ElHara, Auger & Hansen (2013).
     """
+
+    @property
+    def quantile(self) -> float:
+        """
+        The position j / lambda of the previous generation's value that the offspring are compared with (default 0.3).
+        """
+
+    @quantile.setter
+    def quantile(self, arg: float, /) -> None: ...
 
 class PSR(Strategy):
     """
     Population success rule (`StepSizeAdaptation.PSR`).
 
-    The current and the previous population are ranked together; with z the difference of their summed ranks (previous minus current) divided by n^2, minus success_ratio: s = (1 - cs) s + cs z and sigma *= exp(s / (2 - 2 / d)). Loshchilov (2014).
+    The current and the previous population are ranked together; with z the difference of their summed ranks (previous minus current) divided by n^2, minus success_ratio: s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by default (Loshchilov 2014, Alg. 6).
     """
 
     @property
@@ -368,7 +377,7 @@ class SR(Strategy):
     """
     The success rule of the (1+1)-CMA-ES (`StepSizeAdaptation.SR`; always used when lambda = 1).
 
-    sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the smoothed rate of improvements of the best solution (`es.p.stats.success_ratio`), the target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).
+    sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the smoothed rate of successes (`es.p.stats.success_ratio`): a generation is a success when its best individual is better than the best of the previous generation (with elitism, the parent). The target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).
     """
 
 class SA(Strategy):

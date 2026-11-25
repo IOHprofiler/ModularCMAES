@@ -41,6 +41,14 @@ size_t SequentialSelection::first_stop(const size_t i,
 
 void SigmaSampler::apply_integer_bounds(parameters::Parameters &p)
 {
+    apply_integer_bounds(p, p.pop.S, 0, static_cast<Eigen::Index>(p.pop.n));
+}
+
+void SigmaSampler::apply_integer_bounds(const parameters::Parameters &p,
+                                        Eigen::Ref<Matrix> S,
+                                        const Eigen::Index begin,
+                                        const Eigen::Index n)
+{
     // .array() is a view; binding the Vector to const Array & made a temporary copy
     const auto Cdiag = p.adaptation->coordinate_wise_variances.array();
     for (const auto &iidx : p.settings.integer_variables)
@@ -48,8 +56,8 @@ void SigmaSampler::apply_integer_bounds(parameters::Parameters &p)
         const Float Cii = std::max(Cdiag[iidx], Float(1e-16));
         const Float lb_sigma = p.weights.int_lb_sigma / std::sqrt(Cii);
 
-        for (size_t i = 0; i < p.pop.n; i++)
-            p.pop.S(iidx, i) = std::max(p.pop.S(iidx, i), lb_sigma);
+        for (Eigen::Index i = begin; i < begin + n; i++)
+            S(iidx, i) = std::max(S(iidx, i), lb_sigma);
     }
 }
 
@@ -228,14 +236,6 @@ void TPA::adapt(const parameters::Weights &w,
     sigma *= std::exp(s);
 }
 
-//! Assumes the vector to be arready sorted
-Float median(const Vector &x)
-{
-    if (x.size() % 2 == 0)
-        return (x(x.size() / 2) + x(x.size() / 2 - 1)) / 2.0;
-    return x(x.size() / 2);
-}
-
 void MSR::adapt(const parameters::Weights &w,
                 std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                 Population &pop,
@@ -246,14 +246,25 @@ void MSR::adapt(const parameters::Weights &w,
     const auto n = std::min(pop.n_finite(), old_pop.n_finite());
     if (n != 0)
     {
-        // The individuals of this generation (fewer than lambda after a sequential selection stop)
+        // Ait ElHara, Auger & Hansen (2013): K, the number of offspring better than the j-th best
+        // of the previous generation, with j = 0.3 lambda. As pycma
+        // (CMAAdaptSigmaMedianImprovement), j is a fractional 0-based index into the sorted values
+        // of the previous generation, and K is interpolated between its two neighbours.
+        // The individuals of this generation: fewer than lambda after a sequential selection stop
         const Float lambda = static_cast<Float>(pop.n);
-        const Float k = (pop.f.head(pop.n).array() < median(old_pop.f.head(old_pop.n)))
-                            .cast<Float>()
-                            .sum();
+        const auto f = pop.f.head(pop.n).array();
+        const Float j = quantile * static_cast<Float>(old_pop.n);
+        const auto j0 = std::min<Eigen::Index>(static_cast<Eigen::Index>(j),
+                                               static_cast<Eigen::Index>(old_pop.n) - 1);
+        const auto j1 = std::min<Eigen::Index>(static_cast<Eigen::Index>(std::ceil(j)),
+                                               static_cast<Eigen::Index>(old_pop.n) - 1);
+        const Float frac = j - std::floor(j);
+        const Float k = (1.0 - frac) * (f < old_pop.f(j0)).cast<Float>().sum() +
+                        frac * (f <= old_pop.f(j1)).cast<Float>().sum();
+        // z >= 0 iff the median offspring is better than the j-th best of the previous generation
         const auto z = (2.0 / lambda) * (k - ((lambda + 1.0) / 2.0));
         s = ((1.0 - w.cs) * s) + (w.cs * z);
-        sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
+        sigma *= std::exp(s / w.damps);
     }
 }
 
@@ -291,7 +302,7 @@ void PSR::adapt(const parameters::Weights &w,
 
         const auto z = delta_r / std::pow(n, 2) - success_ratio;
         s = (1.0 - w.cs) * s + (w.cs * z);
-        sigma *= std::exp(s / (2.0 - (2.0 / adaptation->dd)));
+        sigma *= std::exp(s / w.damps);
     }
 }
 

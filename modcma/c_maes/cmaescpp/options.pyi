@@ -135,7 +135,7 @@ class StepSizeAdaptation(enum.Enum):
 
     MSR = 2
     """
-    Median success rule (Ait Elhara et al. 2013): counts the individuals that are better than the median of the previous generation; sigma grows when more than half are.
+    Median success rule (Ait ElHara et al. 2013): counts the individuals that are better than the 0.3 lambda-th best of the previous generation; sigma grows when more than half are.
     """
 
     XNES = 3

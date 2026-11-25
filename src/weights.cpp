@@ -31,7 +31,8 @@ static Float get_default_cs(const Settings &settings, const Float mueff, const F
     case StepSizeAdaptation::LPXNES:
         return (9.0 * mueff) / (10.0 * sqrt(d));
     case StepSizeAdaptation::PSR:
-        return 0.9;
+        // Loshchilov (2014), Alg. 6 (the Python implementation used 0.4, the C++ one 0.9)
+        return 0.3;
     case StepSizeAdaptation::SR:
         return 2.0 / (d + 2.0);
     case StepSizeAdaptation::CSA:
@@ -49,6 +50,12 @@ get_default_damps(const Settings &settings, const Float mueff, const Float d, co
     {
     case StepSizeAdaptation::SR:
         return 1.0 + (d / 2.0);
+    case StepSizeAdaptation::MSR:
+        // 2 (d - 1) / d (Ait ElHara et al. 2013, pycma); 1 for d = 1, where it would be 0
+        return std::max(Float(1.0), 2.0 - (2.0 / d));
+    case StepSizeAdaptation::PSR:
+        // d_sigma = 1 (Loshchilov 2014, Alg. 6)
+        return 1.0;
     case StepSizeAdaptation::CSA: {
         const Float rhs = std::sqrt((mueff - Float(1.0)) / (d + 1)) - 1;
         return 1.0 + (2.0 * std::max(Float(0.0), rhs) + cs);
@@ -136,6 +143,7 @@ void Weights::init_vectors(const size_t mu, const size_t lambda, const Settings 
         break;
     }
     utility = settings.modules.weights == RecombinationWeights::UTILITY;
+    pairwise = settings.modules.mirrored == Mirror::PAIRWISE;
 }
 
 void Weights::utilities_into(const size_t n, Vector &out)
@@ -241,23 +249,32 @@ Vector Weights::for_population(const size_t n) const
     return w;
 }
 
-void Weights::for_population_into(const size_t n, Vector &out) const
+void Weights::for_population_into(const size_t n, Vector &out, const size_t n_ranked) const
 {
     if (utility)
     {
         // The utilities of the n evaluated points (sequential selection), again summing to zero
         utilities_into(std::min<size_t>(n, static_cast<size_t>(weights.size())), out);
-        return;
     }
-    const auto total = weights.size();
-    const auto k = std::min<Eigen::Index>(static_cast<Eigen::Index>(n), total);
-    out = weights.head(k);
-    const auto mu = positive.size();
-    if (k < total && k > mu)
+    else
     {
-        const Float used = out.tail(k - mu).sum();
-        if (used != 0.0)
-            out.tail(k - mu) *= negative.sum() / used;
+        const auto total = weights.size();
+        const auto k = std::min<Eigen::Index>(static_cast<Eigen::Index>(n), total);
+        out = weights.head(k);
+        const auto mu = positive.size();
+        if (k < total && k > mu)
+        {
+            const Float used = out.tail(k - mu).sum();
+            if (used != 0.0)
+                out.tail(k - mu) *= negative.sum() / used;
+        }
+    }
+    if (pairwise)
+    {
+        const auto first = static_cast<Eigen::Index>(
+            std::min<size_t>(n_ranked, static_cast<size_t>(out.size())));
+        for (Eigen::Index i = first; i < out.size(); ++i)
+            out(i) = std::max(out(i), Float(0.0));
     }
 }
 

@@ -280,9 +280,9 @@ void define_options(nb::module_ &main)
                "evaluations); sigma grows when the point ahead is the better one.")
         .value("MSR",
                StepSizeAdaptation::MSR,
-               "Median success rule (Ait Elhara et al. 2013): counts the individuals that are "
-               "better than the median of the previous generation; sigma grows when more than "
-               "half are.")
+               "Median success rule (Ait ElHara et al. 2013): counts the individuals that are "
+               "better than the 0.3 lambda-th best of the previous generation; sigma grows when "
+               "more than half are.")
         .value("XNES",
                StepSizeAdaptation::XNES,
                "The step-size update of xNES (Glasmachers et al. 2010), from the weighted squared "

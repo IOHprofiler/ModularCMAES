@@ -54,6 +54,13 @@ CONFIGS = {
     "orthogonal": {"orthogonal": True},
     "ipop": {"restart_strategy": "IPOP"},
     "sequential_active": {"sequential_selection": True, "active": True},
+    # The design decisions of #83
+    "msr": {"ssa": "MSR"},
+    "psr": {"ssa": "PSR"},
+    "sr": {"ssa": "SR"},
+    "one_plus_one": {"lambda0": 1},
+    "pairwise_active": {"mirrored": "PAIRWISE", "active": True},
+    "elitist_sa_cmsa": {"elitist": True, "ssa": "SA", "matrix_adaptation": "CMSA"},
 }
 
 

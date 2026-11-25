@@ -67,16 +67,18 @@ void define_selection(nb::module_ &main)
         "Elitism",
         "Elitist (mu + lambda) selection: the parents compete with the offspring.\n\n"
         "Selected by `Modules.elitist = True` (always on for a (1+1)-ES); "
-        "`NoElitism` otherwise. From the second generation on, the previous "
-        "population (`es.p.old_pop`, the lambda best of the previous selection) is "
-        "appended to the offspring before sorting, so the best points found so "
-        "far survive; their y and z are recomputed in the current distribution. "
-        "Can speed up convergence on unimodal functions, at the cost of diversity.")
+        "`NoElitism` otherwise. From the second generation on, the mu parents (the mu best "
+        "of the previous selection, the first columns of `es.p.old_pop`) are appended to the "
+        "offspring before sorting, so the best points found so far survive. Their y and z "
+        "are recomputed in the current distribution with the current step size, "
+        "y = (x - m) / sigma and z = A^-1 y, as for a repaired point (the framework paper, "
+        "Sec. 4.1). Can speed up convergence on unimodal functions, at the cost of "
+        "diversity.")
         .def(nb::init<>(), "Create the elitist selection.")
         .def("__call__",
              &Elitsm::operator(),
              nb::arg("parameters"),
-             "Append the previous population to the current one (from the second generation "
+             "Append the mu parents to the current population (from the second generation "
              "on).\n\n"
              "Parameters\n"
              "----------\n"
@@ -1469,7 +1471,7 @@ void define_mutation(nb::module_ &main)
              "dimension : float\n"
              "    The dimension d.")
         .def("apply_integer_bounds",
-             &SigmaSampler::apply_integer_bounds,
+             nb::overload_cast<parameters::Parameters &>(&SigmaSampler::apply_integer_bounds),
              nb::arg("parameters"),
              "Raise the step sizes of the integer variables to their lower bound "
              "int_lb_sigma / sqrt(C_ii) (`es.p.weights.int_lb_sigma`, C_ii from "
@@ -1611,16 +1613,24 @@ void define_mutation(nb::module_ &main)
         m,
         "MSR",
         "Median success rule (`StepSizeAdaptation.MSR`).\n\n"
-        "With k the number of individuals better than the median of the previous population: "
-        "s = (1 - cs) s + cs (2 / lambda) (k - (lambda + 1) / 2) and "
-        "sigma *= exp(s / (2 - 2 / d)). Ait Elhara et al. (2013).");
+        "With k the number of individuals better than the j-th best of the previous "
+        "population, j = quantile * lambda (0-based, interpolated between its neighbours, as "
+        "pycma): s = (1 - cs) s + cs (2 / lambda) (k - (lambda + 1) / 2) and "
+        "sigma *= exp(s / damps), with cs = 0.3 and damps = 2 - 2 / d (1 for d = 1) by "
+        "default: sigma grows when the median offspring beats the j-th best of the previous "
+        "generation. Ait ElHara, Auger & Hansen (2013).")
+        .def_rw("quantile",
+                &MSR::quantile,
+                "The position j / lambda of the previous generation's value that the offspring "
+                "are compared with (default 0.3).");
     nb::class_<PSR, Strategy>(
         m,
         "PSR",
         "Population success rule (`StepSizeAdaptation.PSR`).\n\n"
         "The current and the previous population are ranked together; with z the difference "
         "of their summed ranks (previous minus current) divided by n^2, minus success_ratio: "
-        "s = (1 - cs) s + cs z and sigma *= exp(s / (2 - 2 / d)). Loshchilov (2014).")
+        "s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by "
+        "default (Loshchilov 2014, Alg. 6).")
         .def_rw("success_ratio", &PSR::success_ratio, "The target success ratio (default 0.25).");
     nb::class_<XNES, Strategy>(
         m,
@@ -1657,8 +1667,10 @@ void define_mutation(nb::module_ &main)
         "The success rule of the (1+1)-CMA-ES (`StepSizeAdaptation.SR`; always used when "
         "lambda = 1).\n\n"
         "sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the smoothed rate of "
-        "improvements of the best solution (`es.p.stats.success_ratio`), the "
-        "target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).");
+        "successes (`es.p.stats.success_ratio`): a generation is a success when its best "
+        "individual is better than the best of the previous generation (with elitism, the "
+        "parent). The target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. "
+        "(2006).");
     nb::class_<SA, Strategy>(
         m,
         "SA",

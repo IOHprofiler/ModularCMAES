@@ -12,7 +12,6 @@ namespace selection
 {
 struct Elitsm
 {
-    size_t k = -1;
     virtual void operator()(parameters::Parameters &p) const;
 };
 

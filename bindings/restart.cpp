@@ -315,11 +315,16 @@ void define_restart_strategy(nb::module_ &main)
     nb::class_<IPOP, Strategy>(
         m,
         "IPOP",
-        "IPOP (Auger & Hansen 2005): every restart multiplies mu and lambda by `ipop_factor`.")
+        "IPOP (Auger & Hansen 2005): every restart multiplies lambda by `ipop_factor` (mu "
+        "keeps its ratio to lambda), up to `max_lambda_factor` * lambda0 (2^9 lambda0, the "
+        "framework paper).")
         .def_rw("ipop_factor",
                 &IPOP::ipop_factor,
-                "The factor of the population size per restart (default 2; applied to the "
-                "integers mu and lambda after truncating it to an integer).");
+                "The factor of the population size per restart (default 2; lambda * ipop_factor "
+                "is rounded).")
+        .def_rw("max_lambda_factor",
+                &IPOP::max_lambda_factor,
+                "The largest population size as a multiple of lambda0 (default 512 = 2^9).");
 
     nb::class_<BIPOP, Strategy>(
         m,
