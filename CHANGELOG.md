@@ -88,6 +88,7 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 
 ### Changed
 
+* `lambda0` must be 1 (the (1+1)-ES) or at least 4; 2 and 3 raise `ValueError` (#113).
 * Requires Python ≥ 3.10 and numpy ≥ 2.0 (was Python ≥ 3.8).
 * The bindings use nanobind instead of pybind11; the Python API of `modcma.c_maes` is unchanged
   (checked against a dump of the 1.x API).
@@ -189,3 +190,26 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   wrong (`**config: dict`); a type check in CI.
 * `str(Modules)` printed `center_placement: unknown` for `CENTER`.
 * Linux wheels were compiled for the CPU of the build machine (`-march=native`).
+* Invalid settings crashed the process or misbehaved silently (#113): `Settings(0)` and
+  `lambda0=0` crashed at the first `ask()`, `x0`, `lb` or `ub` of the wrong length corrupted
+  memory, and `mu0=0`, a non-positive `sigma0` or `lb > ub` were accepted. They now raise
+  `ValueError` (also from the setters of `x0`, `lb`, `ub`, and the internal LAPACK helpers,
+  `Population.keep_only` and `Population.n`); `tell(f, X)` with a 3-d `X` raises `ValueError`.
+* `run()` and `fmin` ran a generation before they checked the budget, and a finished optimizer
+  ran again at every `run()` (#114). The break conditions are now checked before every
+  generation. Past the budget, the first generation after a restart no longer turns a (1+1)-ES
+  into λ = 2.
+* `Solution.x` (and so `fmin`'s `xopt`, `stats.global_best.x`) was a view of the optimizer's
+  memory: it changed as the run continued, and a stored `current_best.x` read freed memory after
+  the next improvement (#115). It is a copy now. The population arrays stay views; their
+  docstrings say how long a view is valid.
+* With elitism, `active` and µ = 1 the parent sits at the mean, and its zero step got an infinite
+  negative weight: C became NaN and the run restarted about every three generations (#118).
+* A built-in restart criterion added from Python (`TolX`, `FlatFitness`, ...) crashed or never
+  fired: its buffers were sized only at a restart (#119). `FlatFitness` read past the population
+  after sequential selection stopped a generation early.
+* Small fixes (#117): `CachedSampler` passes a restart's reset to the sampler it wraps; a zero
+  eigenvalue is rejected like a negative one; LAPACK asked for in `constants` but missing falls
+  back to Eigen; `resize_population` keeps the previous generation; `inv_root_C` of
+  `COVARIANCE_NO_EIGV` is computed (it was the identity); `MuCommaLambdaES` stays within its budget
+  and sorts NaN last.

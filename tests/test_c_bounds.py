@@ -26,7 +26,7 @@ class TestBounds(unittest.TestCase):
 
     def setUp(self):
         self.lb, self.ub = np.zeros(2), np.ones(2) * 2
-        self.par = Parameters(parameters.Settings(2, lambda0=2, lb=self.lb, ub=self.ub))
+        self.par = Parameters(parameters.Settings(2, lambda0=4, lb=self.lb, ub=self.ub))
         self.par.pop.S = np.ones((2, 2)) * 2
         self.par.adaptation.m = np.ones(2) * 0.1
         Z = np.ones((2, 2)) * 0.9

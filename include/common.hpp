@@ -157,17 +157,6 @@ void sort_index_inplace(const Vector &v, std::vector<size_t> &idx);
 void sort_order(Eigen::Ref<const Vector> v, std::vector<size_t> &idx);
 
 /**
- * @brief Return an array of indexes of the sorted array
- * sort indexes based on comparing values in v using std::stable_sort instead
- * of std::sort  to avoid unnecessary index re-orderings
- * when v contains elements of equal values.
- *
- * @param v
- * @return std::vector<size_t>
- */
-std::vector<size_t> sort_indexes(const Vector &v);
-
-/**
  * @brief Compute the expected running time (ERT) of a set of runs
  *
  * @param running_times the vector of measured running times

@@ -145,6 +145,7 @@ void Criterion::reset(const parameters::Parameters &p)
 {
     last_restart = p.stats.t;
     met = false;
+    was_reset = true;
     on_reset(p);
 }
 
@@ -157,6 +158,7 @@ void ExceededMaxIter::on_reset(const parameters::Parameters &p)
 
 void ExceededMaxIter::update(const parameters::Parameters &p)
 {
+    reset_if_new(p);
     const auto time_since_restart = p.stats.t - last_restart;
     met = max_iter < time_since_restart;
 }
@@ -173,6 +175,7 @@ void NoImprovement::on_reset(const parameters::Parameters &p)
 
 void NoImprovement::update(const parameters::Parameters &p)
 {
+    reset_if_new(p);
     const size_t time_since_restart = p.stats.t - last_restart;
 
     best_fitnesses.push_back(p.pop.f(0));
@@ -196,12 +199,16 @@ void UnableToAdapt::update(const parameters::Parameters &p)
 
 void FlatFitness::update(const parameters::Parameters &p)
 {
+    reset_if_new(p);
     met = false;
     if (p.lambda <= 1)
         return;
 
     const size_t time_since_restart = p.stats.t - last_restart;
-    flat_fitnesses(p.stats.t % p.settings.dim) = p.pop.f(0) == p.pop.f(flat_fitness_index);
+    // With sequential selection the population can be shorter than lambda: its last individual
+    // then (the columns after it are stale, #119)
+    const auto index = std::min<size_t>(flat_fitness_index, p.pop.n - 1);
+    flat_fitnesses(p.stats.t % p.settings.dim) = p.pop.f(0) == p.pop.f(index);
     if (time_since_restart > static_cast<size_t>(flat_fitnesses.size()))
     {
         const size_t n_flat_fitness = static_cast<size_t>(flat_fitnesses.sum());
@@ -233,6 +240,7 @@ const matrix_adaptation::CovarianceAdaptation *eigendecomposition(const paramete
 
 void TolX::update(const parameters::Parameters &p)
 {
+    reset_if_new(p);
     // Met when sigma sqrt(C_ii) < tol sigma_0 and sigma |pc_i| < tol sigma_0 for every i, with
     // sigma_0 the step size at the start of the run (Hansen 2016, Appendix B; pycma's tolx)
     if (const auto dynamic =
@@ -310,6 +318,7 @@ void NoEffectCoord::update(const parameters::Parameters &p)
 
 void Stagnation::update(const parameters::Parameters &p)
 {
+    reset_if_new(p);
     const size_t time_since_restart = p.stats.t - last_restart;
 
     median_fitnesses.push_back(median_vector(p.pop.f.head(p.pop.n)));

@@ -144,6 +144,8 @@ class Population:
     The individuals of one generation, as the columns of (d, capacity) buffers.
 
     The first n columns are the active individuals. Reading an array returns a view of the active columns that shares memory with the population: X, X_transformed, Z, Y and S are (d, n) matrices, f and t are (n,) vectors. Assigning an array replaces the whole buffer and leaves n unchanged. The buffers can hold more than n columns, e.g. after sequential selection stopped a generation early; those columns hold no population data.
+
+    A view is valid until the next generation: the optimizer then swaps pop and old_pop, and a restart or a larger population replaces the buffers (the view would read freed memory). Copy an array (`.copy()`) to keep its values.
     """
 
     @overload
@@ -295,7 +297,9 @@ class Population:
 
     @property
     def n(self) -> int:
-        """The number of active individuals: the columns 0..n-1 of the buffers."""
+        """
+        The number of active individuals: the columns 0..n-1 of the buffers (at most capacity; otherwise ValueError).
+        """
 
     @n.setter
     def n(self, arg: int, /) -> None: ...
@@ -332,7 +336,7 @@ class Parameters:
         """
         Change the population size now.
 
-        Sets mu and lamb and resets the sampler, the weights and pop (old_pop keeps its size). The restart strategies do not call it: they change mu and lamb, which the reset of the restart then uses.
+        Sets mu and lamb and resets the sampler and the weights. The populations keep their contents: the next generation compares with this one (elitism, MSR, PSR, sequential selection) and reserves the columns it needs. The restart strategies do not call it: they change mu and lamb, which the reset of the restart then uses.
 
         Parameters
         ----------
@@ -580,9 +584,9 @@ class ModularCMAES:
 
     def run(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> None:
         """
-        Run generations until a break condition holds.
+        Run generations while no break condition holds.
 
-        The result is in p.stats (global_best, evaluations). A vectorized objective saves a Python call per evaluation.
+        The break conditions are checked before every generation, the first one too: the run never exceeds the budget, and an optimizer that has stopped does not run again. The result is in p.stats (global_best, evaluations). A vectorized objective saves a Python call per evaluation.
 
         Parameters
         ----------

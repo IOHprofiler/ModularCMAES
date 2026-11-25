@@ -65,6 +65,10 @@ void Population::resize_cols(const size_t size)
 
 void Population::keep_only(const std::vector<size_t> &idx)
 {
+    for (const auto i : idx)
+        if (i >= capacity())
+            throw std::out_of_range("Population.keep_only: column " + std::to_string(i) + " of " +
+                                    std::to_string(capacity()));
     X = X(Eigen::all, idx).eval();
     X_transformed = X_transformed(Eigen::all, idx).eval();
     Z = Z(Eigen::all, idx).eval();

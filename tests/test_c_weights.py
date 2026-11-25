@@ -19,7 +19,7 @@ def utilities(n):
 
 class TestUtilityWeights(unittest.TestCase):
     def test_utilities(self):
-        for lam in (2, 6, 10, 13, 24, 100):
+        for lam in (4, 6, 10, 13, 24, 100):
             es = modcma.ModularCMAES(modcma.settings_from_dict(5, lambda0=lam, weights="UTILITY"))
             w = es.p.weights
             np.testing.assert_allclose(w.weights, utilities(lam), atol=1e-15)

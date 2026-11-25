@@ -304,7 +304,8 @@ def fmin(
     sigma0 : float
         The initial step size (rule of thumb: 0.3 * (ub - lb)).
     budget : int
-        The maximum number of function evaluations.
+        The maximum number of function evaluations, at least one generation (lambda0, and
+        TPA's two points); a smaller budget raises ValueError.
     **kwargs
         Module options and `Settings` keyword arguments, as for `settings_from_dict`, e.g.
         `active=True`, `matrix_adaptation="MATRIX"`, `lb=..., ub=...`, `target=1e-8`.
@@ -312,7 +313,7 @@ def fmin(
     Returns
     -------
     xopt : numpy.ndarray
-        (d,) the best point found.
+        (d,) the best point found (a copy: it does not change if the run continues).
     fopt : float
         The objective value of xopt.
     evals : int

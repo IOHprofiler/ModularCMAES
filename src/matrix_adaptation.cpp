@@ -186,7 +186,11 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     for (Eigen::Index i = n_positive; i < rank_mu_w.size(); i++)
     {
         invert_y_into(popY.col(i), scratch_vector);
-        rank_mu_w(i) *= dd / scratch_vector.squaredNorm();
+        // A zero step adds nothing (y y^T = 0): an elitist parent at the mean (mu = 1), or the
+        // mean injected by tell(f, X). Its weight stays finite: d / 0 made it inf, and inf * 0 NaN
+        // in the update (pycma divides by (||.|| + 1e-9)^2 instead, #118)
+        if (const Float norm2 = scratch_vector.squaredNorm(); norm2 > 0.0)
+            rank_mu_w(i) *= dd / norm2;
     }
 
     // C = decay C + c1 pc pc^T + cmu Y diag(w) Y^T, as symmetric rank updates
@@ -204,10 +208,14 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
 
 bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
 {
+    // LAPACK when asked for (constants::eigen_solver 1 or 2) and available, or automatically from
+    // lapack_min_dim on; Eigen otherwise (also when LAPACK is asked for but missing, #117)
     const int solver =
-        constants::eigen_solver >= 0
-            ? constants::eigen_solver
-            : (lapack::available() && static_cast<size_t>(C.rows()) >= constants::lapack_min_dim ? 1 : 0);
+        !lapack::available()
+            ? 0
+            : (constants::eigen_solver >= 0
+                   ? constants::eigen_solver
+                   : (static_cast<size_t>(C.rows()) >= constants::lapack_min_dim ? 1 : 0));
     if (solver != 0)
     {
         // LAPACK (constants::eigen_solver: 1 dsyevd, 2 dsyevr)
@@ -236,11 +244,13 @@ bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
         B = eigen_solver.eigenvectors();
     }
 
-    if (!d.allFinite() || !B.allFinite() || d.minCoeff() < 0.0)
+    // A zero eigenvalue is rejected as a negative one (pycma): adapt_ps and invert_y divide by d
+    if (!d.allFinite() || !B.allFinite() || d.minCoeff() <= 0.0)
     {
         if (settings.verbose)
         {
-            std::cout << "Negative or non-finite eigenvalues after decomposition, we need to restart.\n";
+            std::cout << "Non-positive or non-finite eigenvalues after decomposition, we need to "
+                         "restart.\n";
         }
         return false;
     }

@@ -81,7 +81,9 @@ void define_restart_criteria(nb::module_ &main)
         m,
         "ExceededMaxIter",
         "Met when a run has lasted more than `max_iter` generations since the last restart.")
-        .def(nb::init<>(), "The criterion; `max_iter` is set by the first reset.")
+        .def(nb::init<>(),
+             "The criterion; `max_iter` is set by the first reset (or, added to a running "
+             "optimizer, before its first update).")
         .def_rw("max_iter",
                 &ExceededMaxIter::max_iter,
                 "The most generations of one run, set at every reset to "
@@ -94,7 +96,9 @@ void define_restart_criteria(nb::module_ &main)
         "generations.\n\n"
         "Checked from n_bin generations after a restart on: met when the range (max - min) of "
         "the best fitness of the last n_bin generations is at most `NoImprovement.tolerance`.")
-        .def(nb::init<>(), "The criterion; `n_bin` is set by the first reset.")
+        .def(nb::init<>(),
+             "The criterion; `n_bin` is set by the first reset (or, added to a running "
+             "optimizer, before its first update).")
         .def_rw("n_bin",
                 &NoImprovement::n_bin,
                 "The number of generations compared, set at every reset to "
@@ -139,7 +143,9 @@ void define_restart_criteria(nb::module_ &main)
         "Of the last d generations (from d generations after a restart on), counts those in "
         "which the two fitness values are equal; met when more than `max_flat_fitness` are. "
         "Only used when lambda > 1.")
-        .def(nb::init<>(), "The criterion; its parameters are set by the first reset.")
+        .def(nb::init<>(),
+             "The criterion; its parameters are set by the first reset (or, added to a running "
+             "optimizer, before its first update).")
         .def_rw("max_flat_fitness",
                 &FlatFitness::max_flat_fitness,
                 "The most flat generations among the last d, set at every reset to ceil(d / 3).")
@@ -226,7 +232,9 @@ void define_restart_criteria(nb::module_ &main)
         "From `n_stagnation` generations after a restart on, the history of each is split at "
         "tolerance (0.3) of its length; met when the median of the later part is not lower than "
         "the median of the earlier part, for both the best and the median fitness.")
-        .def(nb::init<>(), "The criterion; `n_stagnation` is set by the first reset.")
+        .def(nb::init<>(),
+             "The criterion; `n_stagnation` is set by the first reset (or, added to a running "
+             "optimizer, before its first update).")
         .def_rw("n_stagnation",
                 &Stagnation::n_stagnation,
                 "The generations before the criterion is checked, set at every reset to "

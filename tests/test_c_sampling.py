@@ -65,12 +65,12 @@ class TestSampling(unittest.TestCase):
         self.assertAlmostEqual(sum(sampler()), -2.5631031)
         self.assertAlmostEqual(sum(sampler()), -1.6832425)
 
-        cma = ModularCMAES(Settings(2, lambda0=2))
+        cma = ModularCMAES(Settings(2, lambda0=4))
         cma.p.sampler = sampler
         cma.step(sum)
-        z_sum = cma.p.pop.Z.sum(axis=0)
-        self.assertAlmostEqual(z_sum[0], -2.5631031)
-        self.assertAlmostEqual(z_sum[1], -1.6832425)
+        # the four samples cycle through the two cached points (the population is sorted)
+        z_sum = np.sort(cma.p.pop.Z.sum(axis=0))
+        np.testing.assert_allclose(z_sum, [-2.5631031] * 2 + [-1.6832425] * 2, atol=1e-7)
 
 
 if __name__ == "__main__":

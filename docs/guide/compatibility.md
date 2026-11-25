@@ -20,6 +20,7 @@ used.
 | `ssa` other than `CSA` with `matrix_adaptation=COVARIANCE` | `COVARIANCE_NO_EIGV` (unless `always_compute_eigv=True`): the same covariance update, sampled through a Cholesky factor |
 | `ssa=SA` or `matrix_adaptation=CMSA` | µ defaults to λ/4 (an explicit `mu0` wins) |
 | `mu0 > lambda0` | µ = λ/2 |
+| `lambda0` of 0, 2 or 3 | `ValueError`: λ is 1 (the (1+1)-ES) or at least 4 |
 | `matrix_adaptation=NONE` | `active` off |
 | `mirrored=PAIRWISE` and an odd λ | λ + 1 |
 | `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART` (*known issue* with PAIRWISE: NaN weights [F17]) |

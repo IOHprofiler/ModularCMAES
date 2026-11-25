@@ -192,8 +192,17 @@ struct CovarianceAdaptation : Adaptation
     [[nodiscard]] virtual bool has_eigendecomposition() const { return true; }
 
     //! C^-1/2 = B D^-1 B^T. Not kept up to date (an O(d^3) product per eigendecomposition): the
-    //! updates use B and d directly; this computes it.
-    [[nodiscard]] Matrix inv_root_C() const { return B * d.cwiseInverse().asDiagonal() * B.transpose(); }
+    //! updates use B and d directly; this computes it. Without an eigendecomposition
+    //! (COVARIANCE_NO_EIGV), from one of C made here (#117).
+    [[nodiscard]] Matrix inv_root_C() const
+    {
+        if (has_eigendecomposition())
+            return B * d.cwiseInverse().asDiagonal() * B.transpose();
+        const Eigen::SelfAdjointEigenSolver<Matrix> decomposition(C);
+        return decomposition.eigenvectors() *
+               decomposition.eigenvalues().cwiseSqrt().cwiseInverse().asDiagonal() *
+               decomposition.eigenvectors().transpose();
+    }
 
     // Reused by the matrix update: the eigensolver with its workspace
     Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
