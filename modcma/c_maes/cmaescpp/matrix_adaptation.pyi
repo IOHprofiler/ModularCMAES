@@ -245,7 +245,10 @@ class Adaptation:
     def __repr__(self) -> str:
         """A summary of the state (mean, paths and matrices)."""
 
-    adapt_evolution_paths_innner = adapt_evolution_paths_inner
+    def adapt_evolution_paths_innner(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings, mu: int, lamb: int) -> None:
+        """
+        Deprecated: the old (misspelled) name of `adapt_evolution_paths_inner`.
+        """
 
 class NoAdaptation(Adaptation):
     """
@@ -575,8 +578,22 @@ class CovarianceNoEigvAdaptation(CovarianceAdaptation):
     """
     CMA-ES with a Cholesky factorization instead of an eigendecomposition (`MatrixAdaptationType.COVARIANCE_NO_EIGV`).
 
-    C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower triangular (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see `constants.cholesky_solver`), which is several times cheaper than an eigendecomposition; B and d keep their initial values. ps is updated with dz instead of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of COVARIANCE for the other step-size adaptations. Created by the optimizer; it has no Python constructor.
+    C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower triangular (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see `constants.cholesky_solver`), which is several times cheaper than an eigendecomposition; B and d keep their initial values. ps is updated with dz instead of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of COVARIANCE for the other step-size adaptations.
     """
+
+    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], expected_length_z: float) -> None:
+        """
+        Create the adaptation with mean x0 and the initial matrix (the identity).
+
+        Parameters
+        ----------
+        dimension : int
+            The dimension d.
+        x0 : numpy.ndarray
+            The initial mean m, shape (d,).
+        expected_length_z : float
+            The expected length of a sample z of the sampler (`es.p.sampler.expected_length()`).
+        """
 
 class NaturalGradientAdaptation(Adaptation):
     """

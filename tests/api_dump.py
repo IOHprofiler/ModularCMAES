@@ -49,6 +49,16 @@ ACCEPTED = {
     "missing: cmaescpp.utils.Shuffler": "internal: cmaescpp._internal",
     "missing: cmaescpp.utils.CachedShuffleSequence": "internal: cmaescpp._internal",
     "missing: cmaescpp.sampling.Sobol.cache": "internal: the points of the Sobol sampler",
+    # The misspelled names of 1.x warn (DeprecationWarning) since #82
+    "missing: cmaescpp.selection.Elitsm":
+        "deprecated: still available through the module's __getattr__ (now selection.Elitism)",
+    "missing: cmaescpp.selection.NoElitsm":
+        "deprecated: still available through the module's __getattr__ (now selection.NoElitism)",
+    "overload not accepted: cmaescpp.mutation.SequentialSelection.__init__(mirror, seq_cuttoff_factor=1.0)":
+        "the keyword is seq_cutoff_factor; seq_cuttoff_factor= still works (a keyword-only "
+        "overload with a DeprecationWarning); positional calls are unchanged",
+    "overload not accepted: cmaescpp.mutation.NoSequentialSelection.__init__(mirror, seq_cuttoff_factor=1.0)":
+        "as SequentialSelection: the keyword is seq_cutoff_factor, the old one is deprecated",
 }
 
 
@@ -120,7 +130,10 @@ def describe(obj, name: str):
     if isinstance(obj, property) or type(obj).__name__ in ("property", "nb_property"):
         return {"kind": "property", "readonly": getattr(obj, "fset", None) is None}
     if callable(obj) and not isinstance(obj, type):
-        return {"kind": "function", "overloads": parse_signatures(name, getattr(obj, "__doc__", ""))}
+        # An alias (an old name bound to the same function) documents its signature under the
+        # function's own name
+        own = getattr(obj, "__name__", name)
+        return {"kind": "function", "overloads": parse_signatures(own, getattr(obj, "__doc__", ""))}
     return {"kind": type(obj).__name__}
 
 
