@@ -378,6 +378,8 @@ class SR(Strategy):
     The success rule of the (1+1)-CMA-ES (`StepSizeAdaptation.SR`; always used when lambda = 1).
 
     sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the smoothed rate of successes (`es.p.stats.success_ratio`): a generation is a success when its best individual is better than the best of the run so far (with elitism, the parent). The target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).
+
+    The rule is designed for elitist selection, where the parent is the best point so far. Without elitism, the best of the run takes the parent's role: comparing with the previous generation's best instead would count a success about every other generation even at a good sigma, and sigma would diverge. For non-elitist selection see also `MSR`.
     """
 
 class SA(Strategy):

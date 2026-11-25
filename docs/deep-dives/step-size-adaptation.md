@@ -85,15 +85,23 @@ d_σ = 2 − 2/d; the Python implementation used c = 0.4.
 For λ = 1 the best of the run is the parent, so this is the success rule of the (1+1)-CMA-ES
 (Igel et al. 2006), which the Settings select automatically.
 
+**SR is designed for elitist selection.** In the (1+1)-ES a success means beating the parent, and
+the parent is always the best point so far. modcma also allows SR without elitism, and then
+measures success against the best of the run, which takes the parent's role. It is a 1/5th-type
+rule under comma selection; the median success rule (MSR, Ait ElHara et al. 2013) was proposed
+for exactly that setting.
+
 The success ratio is counted once per generation and is not reset at a restart. The points
 evaluated outside the generation (TPA's two points, the restart centers) do not count; before 2.0
 they did.
 
 **Compared with the framework paper.** The paper's success is "better than the best of the
-previous generation". Without elitism that holds in about every other generation, even at a good σ,
-far above the target 2/11: on BBOB (f1, f2, f8, f10, f12; d = 5, 20) σ diverged and no run reached
-1e-8 (250 of 350 with the best of the run). modcma keeps the best of the run, and the paper's text
-is to be corrected (#83).
+previous generation". With elitism this is the same as the best of the run.
+
+Without elitism it is not: the previous generation's best is beaten in about every other
+generation, even at a good σ, far above the target 2/11. On BBOB (f1, f2, f8, f10, f12; d = 5, 20)
+σ then diverged and no run reached 1e-8; with the best of the run, 250 of 350 did. The paper's text
+is to be corrected: "the best so far", or SR described for elitist selection (#83).
 
 ## SA: self-adaptation
 

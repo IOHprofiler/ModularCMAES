@@ -85,7 +85,8 @@ algorithms.
   leave the box [F21]); their step-size floor biases the step-size rules that read sampled step
   sizes (`SA`, `LPXNES`).
 * **`SR` with λ > 1** counts one success per generation, when its best beats the best of the run
-  so far.
+  so far. SR is designed for elitist selection; without elitism the best of the run takes the
+  parent's role. `MSR` is the success rule meant for non-elitist selection.
 * **`restart_strategy=NONE`** still restarts when the matrix cannot be adapted (`UnableToAdapt`).
 * **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is.
 

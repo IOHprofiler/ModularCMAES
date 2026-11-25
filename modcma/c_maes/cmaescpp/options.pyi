@@ -160,7 +160,7 @@ class StepSizeAdaptation(enum.Enum):
 
     SR = 7
     """
-    Success rule of the (1+1)-ES: sigma grows when the success ratio is above the target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically when lambda = 1.
+    Success rule of the (1+1)-ES: sigma grows when the success ratio is above the target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically when lambda = 1. Designed for elitist selection; without elitism a success is measured against the best of the run, which plays the parent's role.
     """
 
     SA = 8
