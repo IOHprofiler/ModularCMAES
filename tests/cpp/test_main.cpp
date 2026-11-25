@@ -395,27 +395,21 @@ static void test_evaluation_queue()
     CHECK(es.p->stats.evaluations == es.p->lambda + 2);
 }
 
-// (c) The evaluations left to a request with a variable number of points keep what the remaining
-// steps of the generation reserve
-static void test_budget_left()
+// (c) A restart that starts now fits the budget when its next point leaves room for the smallest
+// first generation of the next run and the points every generation reserves (TPA's two)
+static void test_reserved_points()
 {
-    using evaluation::Step;
     parameters::Modules m;
     m.ssa = parameters::StepSizeAdaptation::TPA;
     parameters::Settings settings(2, m, std::nullopt, std::nullopt, size_t{100});
     settings.verbose = false;
     parameters::Parameters p(settings);
-    CHECK(p.reserved_points(Step::SAMPLE) == 2 && p.reserved_points() == 2);
-    p.stats.evaluations = 65;
-    // At a restart: the smallest first generation of the next run and TPA's two points
-    CHECK(p.budget_left(Step::RESTART) ==
-          100 - 65 - parameters::Parameters::min_lambda_after_restart - 2);
-    // Once the population is queued: nothing later is reserved
-    CHECK(p.budget_left(Step::POPULATION) == 35);
-    CHECK(p.budget_left(Step::SELECT) == 35);
-    CHECK(p.budget_left(Step::UPDATE) == 35);
-    p.stats.evaluations = 104; // past the budget (ask-tell may continue)
-    CHECK(p.budget_left(Step::UPDATE) == 0); // not below 0
+    CHECK(p.reserved_points() == 2);
+    const size_t room = parameters::Parameters::min_lambda_after_restart + 2;
+    p.stats.evaluations = 100 - room - 1;
+    CHECK(p.restart_fits(1));
+    p.stats.evaluations = 100 - room;
+    CHECK(!p.restart_fits(1));
 }
 
 // (c) The hill-valley tests of repelling (a variable number of points, at a restart) leave the
@@ -518,7 +512,7 @@ int main()
     test_ask_tell_matches_classic_loop();
     test_tell_errors();
     test_evaluation_queue();
-    test_budget_left();
+    test_reserved_points();
     test_budget_with_restarts();
     test_decomposed_steps();
     test_split_median();

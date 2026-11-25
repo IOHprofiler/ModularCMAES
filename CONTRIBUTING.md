@@ -79,26 +79,25 @@ ctest --test-dir build --output-on-failure
 
 ## A module that evaluates the objective
 
-No module calls the objective, and no module queues points itself. `ModularCMAES::advance()`
-(`src/c_maes.cpp`) is the only place that queues points: it runs the steps of a generation in
-order (`evaluation::Step`: `BEGIN`, `RESTART`, `SAMPLE`, `POPULATION`, `SELECT`, `UPDATE`) and
-reads from top to bottom. Adding a module that evaluates takes three changes:
+No module calls the objective, and no module queues points itself. `ModularCMAES`
+(`include/c_maes.hpp`, `src/c_maes.cpp`) holds the whole flow: `advance()` runs the steps of a
+generation in order (`BEGIN`, `RESTART`, `SAMPLE`, `POPULATION`, `SELECT`, `UPDATE`) and is the
+only place that queues points; `answer()` counts every evaluation and passes each request's values
+to `dispatch()`, a `switch` over the request's source that calls the module. Adding a module that
+evaluates takes three changes, all in `ModularCMAES`:
 
-* **A source:** a value of `evaluation::Source`, and its `case` in `ModularCMAES::dispatch`
-  (`src/c_maes.cpp`), which passes the values (`Evaluations`: `f`, the points `X`, and whether
-  `tell(f, X)` gave them) to the module through `p`.
+* **A source:** a value of `Source`, and its `case` in `dispatch()`, which passes the values (`f`,
+  the points `X`, and whether `tell(f, X)` gave them) to the module through `p`.
 * **A call at its step** in `advance()`, which asks the module for its points and queues them
-  (`queue(X, source, index)`). A module whose next point depends on the previous value answers "do I need another point, and which?" (as repelling's `has_query()` and
-  `query_point()`); its step then runs again until the module is done, as `RESTART` does for the
-  hill-valley tests and `POPULATION` for the batches of sequential selection. A module that needs
-  the objective at a new moment of the generation adds a step.
+  (`queue(X, source, index)`). A module whose next point depends on the previous value answers
+  "do I need another point, and which?" (as repelling's `has_query()` and `query_point()`); its
+  step then runs again until the module is done, as `RESTART` does for the hill-valley tests and
+  `POPULATION` for the batches of sequential selection. A module that needs the objective at a new
+  moment of the generation adds a step.
 * **The budget:** a fixed number of points per generation, the same in every generation of a
-  configuration, goes into `Parameters::reserved_points(step)`, which the budget checks reserve.
-  A variable number of points is limited by `p.budget_left(next)`, with `next` the step that runs
-  once the queued points have their values; it keeps what the steps still to run reserve.
-
-**Counting:** `answer()` counts every evaluation (`stats.evaluations`) before the module receives
-the values; a module never counts.
+  configuration, goes into `Parameters::reserved_points()`, which the budget checks reserve. For a
+  variable number of points, `advance()` computes how many the budget still allows (keeping what
+  the rest of the generation reserves) and passes that to the module.
 
 **Random numbers** are drawn when the module computes its points, never later. Ask–tell then stays
 identical to `run()`.

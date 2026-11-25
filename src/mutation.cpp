@@ -115,15 +115,17 @@ Eigen::Index Strategy::sample_batch_from(const Eigen::Index i, parameters::Param
 }
 
 void Strategy::tell_batch(const Eigen::Index i,
-                          const evaluation::Evaluations &e,
+                          Eigen::Ref<const Vector> f,
+                          Eigen::Ref<const Matrix> X,
+                          const bool given,
                           parameters::Parameters &p)
 {
-    for (Eigen::Index j = 0; j < e.f.size(); ++j)
+    for (Eigen::Index j = 0; j < f.size(); ++j)
     {
         // tell(f, X): a point that differs from the asked one replaces it
-        if (e.given && e.X.col(j) != p.pop.X_transformed.col(i + j))
-            p.inject(i + j, e.X.col(j));
-        if (evaluated(i + j, e.f(j), p))
+        if (given && X.col(j) != p.pop.X_transformed.col(i + j))
+            p.inject(i + j, X.col(j));
+        if (evaluated(i + j, f(j), p))
         {
             end_population(p);
             return;

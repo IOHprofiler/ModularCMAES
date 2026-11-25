@@ -37,7 +37,7 @@ void ModularCMAES::adapt() const
 
 void ModularCMAES::require_no_generation(const char *step) const
 {
-    if (next != evaluation::Step::BEGIN || n_pending != 0)
+    if (next != Step::BEGIN || n_pending != 0)
         throw std::logic_error(std::string(step) +
                                " while a generation started by ask() is in progress: tell() the "
                                "values of its points, or evaluate them with mutate(), first");
@@ -48,7 +48,7 @@ void ModularCMAES::mutate(FunctionType &objective)
     // Up to selection: a new generation, or the one that ask() started. The rest is the user's:
     // select(), recombine() and adapt() act on the state, and the next mutate() or ask() starts a
     // new generation, as in 1.x
-    while (n_pending != 0 || next != evaluation::Step::SELECT)
+    while (n_pending != 0 || next != Step::SELECT)
     {
         if (n_pending == 0)
             advance(true);
@@ -58,7 +58,7 @@ void ModularCMAES::mutate(FunctionType &objective)
             answer(values.head(n_pending), nullptr);
         }
     }
-    next = evaluation::Step::BEGIN;
+    next = Step::BEGIN;
 }
 
 bool ModularCMAES::step(FunctionType &objective)
@@ -166,30 +166,30 @@ void ModularCMAES::answer(Eigen::Ref<const Vector> f, const Eigen::Ref<const Mat
         // Every evaluation is counted here, before its module receives the values: no module
         // counts (Solution.e of a point is the count after its request)
         p->stats.evaluations += static_cast<size_t>(r.size);
-        dispatch(r,
-                 evaluation::Evaluations{f.segment(r.begin, r.size),
-                                         evaluated.middleCols(r.begin, r.size),
-                                         X != nullptr});
+        dispatch(r, f.segment(r.begin, r.size), evaluated.middleCols(r.begin, r.size), X != nullptr);
     }
 }
 
-void ModularCMAES::dispatch(const evaluation::Request &request, const evaluation::Evaluations &e)
+void ModularCMAES::dispatch(const Request &request,
+                            Eigen::Ref<const Vector> f,
+                            Eigen::Ref<const Matrix> X,
+                            const bool given)
 {
     // The module in place now receives the values (one may have been replaced since the points
     // were queued)
     switch (request.source)
     {
-    case evaluation::Source::POPULATION:
-        p->mutation->tell_batch(request.index, e, *p);
+    case Source::POPULATION:
+        p->mutation->tell_batch(request.index, f, X, given, *p);
         return;
-    case evaluation::Source::EXTRA_POINTS:
-        p->mutation->tell_extra_points(e.f, e.X, *p);
+    case Source::EXTRA_POINTS:
+        p->mutation->tell_extra_points(f, X, *p);
         return;
-    case evaluation::Source::RESTART_CENTER:
-        p->tell_restart_center(e.f(0), e.X.col(0));
+    case Source::RESTART_CENTER:
+        p->tell_restart_center(f(0), X.col(0));
         return;
-    case evaluation::Source::HILL_VALLEY:
-        p->repelling->answer(e.f(0), e.X.col(0), *p);
+    case Source::HILL_VALLEY:
+        p->repelling->answer(f(0), X.col(0), *p);
         return;
     }
 }
@@ -199,8 +199,6 @@ bool ModularCMAES::advance(const bool stop_before_selection)
     // The steps of a generation, in order. This is the only place that queues points: a step that
     // queues some returns control (ask() hands them out), and runs again, or the next step, once
     // tell() has given their values.
-    using evaluation::Source;
-    using evaluation::Step;
     while (n_pending == 0)
     {
         switch (next)
@@ -270,7 +268,7 @@ void ModularCMAES::queue_population_batch()
     const Eigen::Index begin = next_individual;
     const Eigen::Index size = p->mutation->sample_batch_from(begin, *p);
     // Copied between the concrete matrices (not through queue(X)'s Ref): Eigen inlines this copy
-    queue(size, evaluation::Source::POPULATION, begin) =
+    queue(size, Source::POPULATION, begin) =
         p->pop.X_transformed.middleCols(begin, size);
     next_individual += size;
 }
@@ -278,11 +276,11 @@ void ModularCMAES::queue_population_batch()
 void ModularCMAES::queue_extra_points()
 {
     if (const auto k = static_cast<Eigen::Index>(p->mutation->n_extra_points()); k != 0)
-        p->mutation->extra_points(queue(k, evaluation::Source::EXTRA_POINTS), *p);
+        p->mutation->extra_points(queue(k, Source::EXTRA_POINTS), *p);
 }
 
 Eigen::Ref<Matrix> ModularCMAES::queue(const Eigen::Index k,
-                                       const evaluation::Source source,
+                                       const Source source,
                                        const Eigen::Index index)
 {
     const Eigen::Index needed = n_pending + k;
@@ -290,13 +288,13 @@ Eigen::Ref<Matrix> ModularCMAES::queue(const Eigen::Index k,
         // Grows rarely (a population of a new size), keeping the queued points
         batch.conservativeResize(static_cast<Eigen::Index>(p->settings.dim),
                                  std::max(needed, static_cast<Eigen::Index>(p->lambda) + 2));
-    requests.push_back(evaluation::Request{source, n_pending, k, index});
+    requests.push_back(Request{source, n_pending, k, index});
     n_pending = needed;
     return batch.middleCols(needed - k, k);
 }
 
 void ModularCMAES::queue(Eigen::Ref<const Matrix> X,
-                         const evaluation::Source source,
+                         const Source source,
                          const Eigen::Index index)
 {
     queue(X.cols(), source, index) = X;

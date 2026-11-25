@@ -165,10 +165,15 @@ struct Strategy
     //! Sample the batch of individuals i..first_stop(i); returns its size
     Eigen::Index sample_batch_from(const Eigen::Index i, parameters::Parameters &p);
 
-    //! The values of the batch that starts at individual i (tell(f, X): a point that differs from
-    //! the asked one replaces it); ends the population when it is complete
+    /**
+     * The values f of the batch that starts at individual i, evaluated at the points X (given: by
+     * tell(f, X), where a point that differs from the asked one replaces it); ends the population
+     * when it is complete
+     */
     void tell_batch(const Eigen::Index i,
-                    const evaluation::Evaluations &e,
+                    Eigen::Ref<const Vector> f,
+                    Eigen::Ref<const Matrix> X,
+                    const bool given,
                     parameters::Parameters &p);
 
     /**

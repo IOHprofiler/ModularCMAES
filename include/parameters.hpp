@@ -2,7 +2,6 @@
 
 #include "bounds.hpp"
 #include "center_placement.hpp"
-#include "evaluation.hpp"
 #include "mapping.hpp"
 #include "matrix_adaptation.hpp"
 #include "mutation.hpp"
@@ -65,24 +64,10 @@ struct Parameters
     void perform_restart(FunctionType &objective, const std::optional<Float> &sigma = std::nullopt);
 
     /**
-     * The points the modules queue in a step of every generation besides the population, fixed per
-     * configuration: TPA's two, in SAMPLE. The budget reserves them (break_conditions,
-     * restart_fits, fit_lambda_to_budget, budget_left).
+     * The points every generation evaluates besides the population, fixed per configuration: TPA's
+     * two. The budget reserves them (break_conditions, restart_fits, fit_lambda_to_budget).
      */
-    [[nodiscard]] size_t reserved_points(evaluation::Step step) const;
-
-    //! The points every generation evaluates besides the population: reserved_points of all steps
     [[nodiscard]] size_t reserved_points() const;
-
-    /**
-     * The evaluations that a request with a variable number of points may use, queued while `next`
-     * is the step that runs once the queued points are evaluated: the budget minus the evaluations,
-     * the reserved points of `next` and the steps after it, and, at a restart
-     * (RESTART: the hill-valley tests), the smallest first generation of the next run
-     * (min_lambda_after_restart). A module with a variable number of points clips its requests to
-     * it.
-     */
-    [[nodiscard]] size_t budget_left(evaluation::Step next) const;
 
     /**
      * Individual i of the population was evaluated at x instead of its sampled point (tell(f, X)):
