@@ -371,3 +371,38 @@ class TestPackaging(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPerRunState(unittest.TestCase):
+    """#77: state that belongs to the current run, not to all runs."""
+
+    def test_hsigma_counts_the_generations_of_the_run(self):
+        # F12: the bias correction of h_sigma uses the run's generation g, 1 - (1 - cs)^(2(g+1));
+        # it used evaluations / lambda over all runs (and TPA's extra points)
+        es = c_maes.ModularCMAES(c_maes.settings_from_dict(4, ssa="TPA", seed=3, verbose=False))
+        for _ in range(30):
+            es.step(sphere)
+        es.p.perform_restart(sphere)
+        self.assertEqual(es.p.stats.t_run, 0)
+        for g in range(1, 6):
+            es.step(sphere)
+            self.assertEqual(es.p.stats.t_run, g)
+            a, w = es.p.adaptation, es.p.weights
+            length = np.linalg.norm(a.ps) / math.sqrt(1 - (1 - w.cs) ** (2 * g))
+            self.assertEqual(bool(a.hs), bool(length < w.expected_length_ps))
+
+    def test_sequential_selection_after_a_restart(self):
+        # F13: the reference is the best of the previous generation; with the best of all runs,
+        # a new run that starts far from the old optimum never stopped a generation early
+        es = c_maes.ModularCMAES(c_maes.settings_from_dict(
+            5, sequential_selection=True, mirrored="MIRRORED", seed=1, verbose=False))
+        for _ in range(150):
+            es.step(sphere)
+        self.assertLess(es.p.stats.global_best.y, 1e-6)
+        es.p.perform_restart(sphere)
+        sizes = []
+        for _ in range(20):
+            es.step(sphere)
+            sizes.append(es.p.pop.n)
+        self.assertEqual(sizes[0], es.p.lamb)  # the first generation of a run is complete
+        self.assertLess(min(sizes), es.p.lamb)

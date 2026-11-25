@@ -61,6 +61,16 @@ CONFIGS = {
     "one_plus_one": {"lambda0": 1},
     "pairwise_active": {"mirrored": "PAIRWISE", "active": True},
     "elitist_sa_cmsa": {"elitist": True, "ssa": "SA", "matrix_adaptation": "CMSA"},
+    # #77: sequential selection's reference, h_sigma per run
+    "sequential": {"sequential_selection": True},
+    "sequential_mirrored": {"sequential_selection": True, "mirrored": "MIRRORED"},
+    "sequential_pairwise": {"sequential_selection": True, "mirrored": "PAIRWISE"},
+    "sequential_mirrored_ipop": {
+        "sequential_selection": True,
+        "mirrored": "MIRRORED",
+        "restart_strategy": "IPOP",
+    },
+    "tpa": {"ssa": "TPA"},
 }
 
 

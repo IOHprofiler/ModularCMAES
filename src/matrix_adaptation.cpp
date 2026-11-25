@@ -152,8 +152,10 @@ void CovarianceAdaptation::adapt_evolution_paths_inner(const Population &pop,
     }
 
     adapt_ps(w);
+    // The bias correction of h_sigma counts the generations of the current run, g + 1 in
+    // generation g (Hansen 2016, pycma's countiter); it counted evaluations / lambda over all runs
     const Float actual_ps_length =
-        ps.norm() / sqrt(1.0 - pow(1.0 - w.cs, 2.0 * (stats.evaluations / lambda)));
+        ps.norm() / sqrt(1.0 - pow(1.0 - w.cs, 2.0 * static_cast<Float>(stats.t_run + 1)));
 
     hs = actual_ps_length < w.expected_length_ps;
     pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
@@ -323,7 +325,7 @@ void SeparableAdaptation::adapt_evolution_paths_inner(const Population &pop,
     adapt_ps(w);
 
     const Float actual_ps_length =
-        ps.norm() / sqrt(1.0 - pow(1.0 - w.cs, 2.0 * (stats.evaluations / lambda)));
+        ps.norm() / sqrt(1.0 - pow(1.0 - w.cs, 2.0 * static_cast<Float>(stats.t_run + 1)));
 
     hs = actual_ps_length < w.expected_length_ps;
     pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;

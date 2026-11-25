@@ -76,9 +76,9 @@ class NoThresholdConvergence(ThresholdConvergence):
 
 class SequentialSelection:
     """
-    Sequential selection: stop evaluating a population once it improves on the best solution (`Modules.sequential_selection`).
+    Sequential selection: stop evaluating a population once it improves on the previous generation (`Modules.sequential_selection`).
 
-    The population is cut after individual i (0-based) when its objective value is better than the best so far and i >= mu * seq_cuttoff_factor; with pairwise selection the factor is at least 2 and the cut falls after a complete pair. The updates use the evaluated individuals. Saves evaluations on functions where improvements are easy to find. Brockhoff et al. (2010).
+    The population is cut after individual i (0-based) when its objective value is better than the best of the previous generation (in the first generation of a run, never) and i >= mu * seq_cuttoff_factor; with pairwise selection the factor is at least 2 and the cut falls after a complete pair. The updates use the evaluated individuals. Saves evaluations on functions where improvements are easy to find. Brockhoff et al. (2010).
     """
 
     def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, seq_cuttoff_factor: float = 1.0) -> None:
@@ -104,7 +104,7 @@ class SequentialSelection:
         f : float
             Its objective value.
         fopt : float
-            The best objective value so far.
+            The reference value: the best of the previous generation.
         mirror : options.Mirror
             The mirrored sampling option.
         mu : int

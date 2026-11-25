@@ -117,6 +117,11 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * `set_module` did not accept enum members; `Population.__add__` changed its left operand;
   `utils.random_normal` could return a number from before `set_seed`; out-of-range indices in
   `CachedShuffleSequence` and an empty `CachedSampler` were not checked.
+* h_σ's bias correction counted evaluations/λ over all runs (restarts and TPA's points included)
+  instead of the generations of the current run (Hansen 2016, pycma); `Stats.t_run` (#77).
+* Sequential selection compared with the best of all runs, so after a restart it hardly ever
+  stopped a generation; it now compares with the best of the previous generation, as the framework
+  paper (the first generation of a run is complete) (#77).
 * Sequential selection with the active update broke the eigendecomposition (#42; fixed by the
   sequential-selection and active-update fixes below, now tested).
 

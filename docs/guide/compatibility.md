@@ -70,8 +70,8 @@ algorithms.
 * **Elitism** is (µ+λ) selection: the µ parents compete with the offspring. Their steps are
   recomputed in the current distribution with the generation's σ. `MSR`, `PSR` and `TPA` then
   compare against the elite.
-* **Sequential selection** stops a generation at the first point better than the best so far *over
-  all runs*: after a restart it hardly ever triggers (*known issue* [F13]).
+* **Sequential selection** stops a generation at the first point better than the best of the
+  previous generation. With elitism that is the best of the run so far.
 * **Orthogonal sampling** orthogonalizes blocks of max(d, n) samples, with n = λ, λ/2 with
   mirroring, minus 2 with TPA; when n < d a block spans several generations (*known issue* [F11]).
   Rejected samples (RESAMPLE, repelling) consume block samples.

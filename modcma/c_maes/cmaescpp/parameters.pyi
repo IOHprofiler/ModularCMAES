@@ -62,7 +62,7 @@ class Modules:
         """
         bool, default False: sequential selection (Brockhoff et al.).
 
-        The evaluation of a generation stops at the first individual, from index mu on, that improves on the best objective value so far; the rest of the generation is not evaluated.
+        The evaluation of a generation stops at the first individual, from index mu on, that improves on the best of the previous generation; the rest of the generation is not evaluated.
         """
 
     @sequential_selection.setter
@@ -265,6 +265,15 @@ class Stats:
 
     @t.setter
     def t(self, arg: int, /) -> None: ...
+
+    @property
+    def t_run(self) -> int:
+        """
+        The generations of the current run: reset at a restart. h_sigma's bias correction counts these.
+        """
+
+    @t_run.setter
+    def t_run(self, arg: int, /) -> None: ...
 
     @property
     def evaluations(self) -> int:
