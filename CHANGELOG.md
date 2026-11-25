@@ -48,8 +48,16 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * `RecombinationWeights.UTILITY`: the utilities of NES/xNES (summing to zero) for the mean and every
   matrix update; with `NATURAL_GRADIENT` and `ssa=XNES` it is xNES (the same evaluations as
   `cmaes`' XNES within 1 %).
-* Correctly spelled names next to the old ones: `selection.Elitism`, `NoElitism`,
-  `repelling.euclidean`, `mahalanobis`, `Adaptation.adapt_evolution_paths_inner`.
+* Correctly spelled names: `selection.Elitism`, `NoElitism`, `Strategy.elitism`,
+  `repelling.euclidean`, `mahalanobis`, `Adaptation.adapt_evolution_paths_inner`, the keyword
+  `seq_cutoff_factor`. The old names still work, with a `DeprecationWarning` (#82).
+* Python constructors for the step-size adaptations (`mutation.CSA`, `TPA`, ...) and
+  `CovarianceNoEigvAdaptation`.
+
+### Deprecated
+
+* The misspelled names of 1.x (above), and `AdaptiveRepelling.target_rejection_rate` and
+  `local_target_rejection_rate`, which never had an effect.
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
 
 ### Changed

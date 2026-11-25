@@ -327,10 +327,17 @@ class TestSettingsAndHelpers(unittest.TestCase):
         self.assertEqual(c_maes.restart.NoImprovement.tolerance, 1e-20)
 
     def test_old_names_still_work(self):
-        self.assertIs(c_maes.selection.Elitsm, c_maes.selection.Elitism)
-        self.assertIs(c_maes.selection.NoElitsm, c_maes.selection.NoElitism)
-        self.assertIs(c_maes.repelling.euclidian, c_maes.repelling.euclidean)
-        self.assertIs(c_maes.repelling.mahanolobis, c_maes.repelling.mahalanobis)
+        # The misspelled names of 1.x work, with a DeprecationWarning (#82)
+        import warnings
+
+        u, v = np.array([0.0, 3.0]), np.array([4.0, 0.0])
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", DeprecationWarning)
+            self.assertIs(c_maes.selection.Elitsm, c_maes.selection.Elitism)
+            self.assertIs(c_maes.selection.NoElitsm, c_maes.selection.NoElitism)
+            self.assertEqual(c_maes.repelling.euclidian(u, v), c_maes.repelling.euclidean(u, v))
+            self.assertEqual(c_maes.repelling.mahanolobis(u, v, np.eye(2)),
+                             c_maes.repelling.mahalanobis(u, v, np.eye(2)))
 
 
 class TestFavorite(unittest.TestCase):

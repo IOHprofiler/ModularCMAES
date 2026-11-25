@@ -11,7 +11,7 @@ names are now also available as `modcma.ModularCMAES`, `modcma.Settings`, ... Wh
 additive: [ask–tell](getting-started/ask-tell.md), vectorized objectives, `Settings(seed=...)`,
 `fast_sampling`, LAPACK in high dimension; see the [changelog](changelog.md).
 
-The exception is `c_maes.utils`:
+The exceptions are `c_maes.utils` and a few misspelled names:
 
 | 1.x | 2.0 |
 |---|---|
@@ -19,6 +19,12 @@ The exception is `c_maes.utils`:
 | `utils.cdf`, `utils.ppf` | `scipy.stats.norm.cdf`, `scipy.stats.norm.ppf` |
 | `utils.random_uniform`, `utils.random_normal` | removed: the global generator only seeds new optimizers |
 | `utils.i8_sobol`, `utils.Shuffler`, `utils.CachedShuffleSequence`, `sampling.Sobol.cache` | removed: internals of the Sobol sampler (`scipy.stats.qmc.Sobol` for Sobol points) |
+
+| `selection.Elitsm`, `selection.NoElitsm`, `Strategy.elitsm` | `selection.Elitism`, `selection.NoElitism`, `Strategy.elitism` (the old names still work, with a `DeprecationWarning`) |
+| `repelling.euclidian`, `repelling.mahanolobis` | `repelling.euclidean`, `repelling.mahalanobis` (likewise) |
+| `Adaptation.adapt_evolution_paths_innner` | `Adaptation.adapt_evolution_paths_inner` (likewise) |
+| `SequentialSelection(mirror, seq_cuttoff_factor=...)` | `seq_cutoff_factor=` (likewise) |
+| `AdaptiveRepelling.target_rejection_rate`, `local_target_rejection_rate` | deprecated: they never had an effect |
 
 A removed name raises an `AttributeError` that says what to use instead.
 

@@ -4,8 +4,6 @@ Selection of the evaluated population: pairwise selection, elitism and sorting.
 The optimizer holds a `Strategy` as `es.p.selection`; it is built from `Modules.mirrored` and `Modules.elitist`.
 """
 
-from typing import TypeAlias
-
 import modcma.c_maes.cmaescpp
 import modcma.c_maes.cmaescpp.parameters
 
@@ -129,11 +127,12 @@ class Strategy:
 
     @property
     def elitsm(self) -> Elitism:
-        """The old (misspelled) name of `elitism`."""
+        """Deprecated: the old (misspelled) name of `elitism`."""
 
     @elitsm.setter
     def elitsm(self, arg: Elitism, /) -> None: ...
 
-Elitsm: TypeAlias = Elitism
-
-NoElitsm: TypeAlias = NoElitism
+def __getattr__(name: str) -> object:
+    """
+    The deprecated names of 1.x: `Elitsm` and `NoElitsm` (now `Elitism`, `NoElitism`).
+    """

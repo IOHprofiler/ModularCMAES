@@ -405,7 +405,7 @@ class AdaptiveRepelling(Repelling):
     @property
     def target_rejection_rate(self) -> float:
         """
-        A target share of rejected samples (default 0.2); not used by the current update.
+        Deprecated: has no effect (the update shrinks radii above max_rejection_rate).
         """
 
     @target_rejection_rate.setter
@@ -464,7 +464,7 @@ class AdaptiveRepelling(Repelling):
     @property
     def local_target_rejection_rate(self) -> float:
         """
-        A target rejection rate of a single point (default 0.2); not used by the current update.
+        Deprecated: has no effect (the update shrinks a radius above local_max_rejection_rate).
         """
 
     @local_target_rejection_rate.setter
@@ -540,9 +540,11 @@ def mahalanobis(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='
     float
     """
 
-euclidian = euclidean
+def euclidian(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], v: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> float:
+    """Deprecated: the old (misspelled) name of `euclidean`."""
 
-mahanolobis = mahalanobis
+def mahanolobis(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], v: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], C_inv: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]) -> float:
+    """Deprecated: the old (misspelled) name of `mahalanobis`."""
 
 def archived_metric(p: modcma.c_maes.cmaescpp.Parameters) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
     """

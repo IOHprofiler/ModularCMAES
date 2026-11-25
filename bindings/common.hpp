@@ -17,6 +17,16 @@
 #include "es.hpp"
 #include "to_string.hpp"
 
+/**
+ * A DeprecationWarning for an old name of 1.x, reported at the Python line that used it (a C++
+ * function has no frame of its own, so stacklevel 1 is the caller). Raises when warnings are errors.
+ */
+inline void warn_deprecated(const char *message)
+{
+    if (PyErr_WarnEx(PyExc_DeprecationWarning, message, 1) != 0)
+        throw nanobind::python_error();
+}
+
 // The restart criteria of Parameters are a vector that Python code appends to
 // (p.criteria.items.append(...)), so it is bound as a list-like object, not converted.
 NB_MAKE_OPAQUE(restart::vCriteria)

@@ -5,7 +5,7 @@ The optimizer holds a `Strategy` subclass as `es.p.mutation`, selected by `Modul
 """
 
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, overload
 
 import numpy
 import numpy.typing
@@ -78,10 +78,11 @@ class SequentialSelection:
     """
     Sequential selection: stop evaluating a population once it improves on the best solution (`Modules.sequential_selection`).
 
-    The population is cut after individual i (0-based) when its objective value is better than the best so far and i >= mu * seq_cuttoff_factor; with pairwise selection the factor is at least 2 and the cut falls after a complete pair. The updates use the evaluated individuals. Saves evaluations on functions where improvements are easy to find. Brockhoff et al. (2010).
+    The population is cut after individual i (0-based) when its objective value is better than the best so far and i >= mu * seq_cutoff_factor; with pairwise selection the factor is at least 2 and the cut falls after a complete pair. The updates use the evaluated individuals. Saves evaluations on functions where improvements are easy to find. Brockhoff et al. (2010).
     """
 
-    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, seq_cuttoff_factor: float = 1.0) -> None:
+    @overload
+    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, seq_cutoff_factor: float = 1.0) -> None:
         """
         Create the sequential selection.
 
@@ -89,9 +90,13 @@ class SequentialSelection:
         ----------
         mirror : options.Mirror
             The mirrored sampling option; with `Mirror.PAIRWISE` the cutoff factor is at least 2.
-        seq_cuttoff_factor : float
+        seq_cutoff_factor : float
             The minimum number of evaluated individuals as a multiple of mu (default 1).
         """
+
+    @overload
+    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, *, seq_cuttoff_factor: float) -> None:
+        """Deprecated: the old (misspelled) keyword of 1.x."""
 
     def break_conditions(self, i: int, f: float, fopt: float, mirror: modcma.c_maes.cmaescpp.options.Mirror, mu: int) -> bool:
         """
@@ -113,7 +118,7 @@ class SequentialSelection:
         Returns
         -------
         bool
-            True when f < fopt, i >= mu * seq_cuttoff_factor and, with pairwise selection, i is odd.
+            True when f < fopt, i >= mu * seq_cutoff_factor and, with pairwise selection, i is odd.
         """
 
 class NoSequentialSelection(SequentialSelection):
@@ -121,7 +126,8 @@ class NoSequentialSelection(SequentialSelection):
     No sequential selection (the default): every individual of a population is evaluated.
     """
 
-    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, seq_cuttoff_factor: float = 1.0) -> None:
+    @overload
+    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, seq_cutoff_factor: float = 1.0) -> None:
         """
         Create the no-op sequential selection.
 
@@ -129,9 +135,13 @@ class NoSequentialSelection(SequentialSelection):
         ----------
         mirror : options.Mirror
             The mirrored sampling option (not used).
-        seq_cuttoff_factor : float
+        seq_cutoff_factor : float
             Not used (default 1).
         """
+
+    @overload
+    def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, *, seq_cuttoff_factor: float) -> None:
+        """Deprecated: the old (misspelled) keyword of 1.x."""
 
 class SigmaSampler:
     """
@@ -191,7 +201,7 @@ class Strategy:
     """
     Base class of the step-size adaptations; also samples and evaluates a population.
 
-    `mutate` samples and evaluates a population, `adapt` updates sigma after selection. The base class does not change sigma. The subclasses are created by the optimizer from `Modules.ssa` and have no Python constructor.
+    `mutate` samples and evaluates a population, `adapt` updates sigma after selection. The base class does not change sigma. The optimizer creates the subclass of `Modules.ssa`; each subclass has the same constructor.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -294,12 +304,44 @@ class CSA(Strategy):
     sigma *= exp(l), l = (cs / damps) (||ps|| / E||z|| - 1) clamped to [-1, 1] (as in pycma): sigma grows when the evolution path ps is longer than under random selection and shrinks when it is shorter. Hansen & Ostermeier (2001).
     """
 
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
+
 class TPA(Strategy):
     """
     Two-point step-size adaptation (`StepSizeAdaptation.TPA`).
 
     After each population the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better and a_tpa + b_tpa otherwise, and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008).
     """
+
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
 
     @property
     def a_tpa(self) -> float:
@@ -329,6 +371,22 @@ class MSR(Strategy):
     With k the number of individuals better than the j-th best of the previous population, j = quantile * lambda (0-based, interpolated between its neighbours, as pycma): s = (1 - cs) s + cs (2 / lambda) (k - lambda / 2) and sigma *= exp(s / damps), with cs = 0.3 and damps = 2 - 2 / d (1 for d = 1) by default: sigma grows when the median offspring beats the j-th best of the previous generation. Ait ElHara, Auger & Hansen (2013).
     """
 
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
+
     @property
     def quantile(self) -> float:
         """
@@ -345,6 +403,22 @@ class PSR(Strategy):
     The current and the previous population are ranked together; with z the difference of their summed ranks (previous minus current) divided by n^2, minus success_ratio: s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by default (Loshchilov 2014, Alg. 6).
     """
 
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
+
     @property
     def success_ratio(self) -> float:
         """The target success ratio (default 0.25)."""
@@ -359,6 +433,22 @@ class XNES(Strategy):
     With NATURAL_GRADIENT: sigma *= exp(cs / 2 * sigma_g), sigma_g the trace part of the natural gradient (`NaturalGradientAdaptation.sigma_g`). With the other matrix adaptations: sigma *= exp(cs / sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the positive weights. Glasmachers et al. (2010).
     """
 
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
+
 class MXNES(Strategy):
     """
     A variant of the xNES step-size update on the mean step (`StepSizeAdaptation.MXNES`).
@@ -366,12 +456,44 @@ class MXNES(Strategy):
     sigma *= exp((cs / d) (mueff ||dz||^2 - d)), with dz the weighted mean of the selected z: sigma grows when the mean step is longer than under random selection. m-xNES of Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules".
     """
 
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
+
 class LPXNES(Strategy):
     """
     A variant of the xNES step-size update on sampled step sizes (`StepSizeAdaptation.LPXNES`).
 
     Every individual samples its own step sizes (a `SigmaSampler` is always used, with beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i mean_j ln(S_ij / sigma)) over the positive weights, which moves sigma towards the step sizes of the better individuals. lp-xNES of Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules".
     """
+
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
 
 class SR(Strategy):
     """
@@ -382,9 +504,41 @@ class SR(Strategy):
     The rule is designed for elitist selection, where the parent is the best point so far. Without elitism, the best of the run takes the parent's role: comparing with the previous generation's best instead would count a success about every other generation even at a good sigma, and sigma would diverge. For non-elitist selection see also `MSR`.
     """
 
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
+
 class SA(Strategy):
     """
     Self-adaptation of the step size (`StepSizeAdaptation.SA`).
 
     Every individual samples its own step sizes (a `SigmaSampler` is always used); sigma is multiplied by the weighted geometric mean of the step sizes of the mu selected individuals divided by the geometric mean over the whole population (Beyer & Sendhoff 2008, with the correction of Ahrari et al. 2017). With SA the default mu is lambda / 4.
     """
+
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """

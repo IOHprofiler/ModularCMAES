@@ -34,6 +34,31 @@ template <typename T, typename Class> void adaptation_init(Class &cls)
             "(`es.p.sampler.expected_length()`).");
 }
 
+//! The constructor of a step-size adaptation (all inherit the one of mutation::Strategy)
+template <typename T, typename Class> void strategy_init(Class &cls)
+{
+    using namespace mutation;
+    cls.def(nb::init<std::shared_ptr<ThresholdConvergence>,
+                     std::shared_ptr<SequentialSelection>,
+                     std::shared_ptr<SigmaSampler>,
+                     Float>(),
+            nb::arg("threshold_convergence"),
+            nb::arg("sequential_selection"),
+            nb::arg("sigma_sampler"),
+            nb::arg("sigma0"),
+            "Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).\n\n"
+            "Parameters\n"
+            "----------\n"
+            "threshold_convergence : ThresholdConvergence\n"
+            "    The threshold convergence (or `NoThresholdConvergence`).\n"
+            "sequential_selection : SequentialSelection\n"
+            "    The sequential selection (or `NoSequentialSelection`).\n"
+            "sigma_sampler : SigmaSampler\n"
+            "    The sampler of the step sizes (or `NoSigmaSampler`).\n"
+            "sigma0 : float\n"
+            "    The initial step size.");
+}
+
 constexpr const char *repr_doc = "A summary of the state (mean, paths and matrices).";
 
 //! The parameters of the updates of the evolution paths (a macro: adjacent literals)
@@ -159,11 +184,37 @@ void define_selection(nb::module_ &main)
         .def_rw("elitism",
                 &Strategy::elitsm,
                 "The elitism: `Elitism` with `Modules.elitist`, `NoElitism` otherwise.")
-        .def_rw("elitsm", &Strategy::elitsm, "The old (misspelled) name of `elitism`.");
+        .def_prop_rw(
+            "elitsm",
+            [](const Strategy &s) {
+                warn_deprecated("Strategy.elitsm is deprecated; use Strategy.elitism");
+                return s.elitsm;
+            },
+            [](Strategy &s, const std::shared_ptr<Elitsm> &e) {
+                warn_deprecated("Strategy.elitsm is deprecated; use Strategy.elitism");
+                s.elitsm = e;
+            },
+            "Deprecated: the old (misspelled) name of `elitism`.");
 
-    // The old, misspelled names of 1.x stay available
-    m.attr("Elitsm") = m.attr("Elitism");
-    m.attr("NoElitsm") = m.attr("NoElitism");
+    // The old, misspelled class names of 1.x: available through the module's __getattr__, with a
+    // DeprecationWarning
+    m.def(
+        "__getattr__",
+        [m](const std::string &name) -> nb::object {
+            if (name == "Elitsm" || name == "NoElitsm")
+            {
+                const std::string now = name == "Elitsm" ? "Elitism" : "NoElitism";
+                const std::string message =
+                    "selection." + name + " is deprecated; use selection." + now;
+                warn_deprecated(message.c_str());
+                return m.attr(now.c_str());
+            }
+            const std::string module = nb::cast<std::string>(m.attr("__name__"));
+            throw nb::attribute_error(
+                ("module '" + module + "' has no attribute '" + name + "'").c_str());
+        },
+        nb::arg("name"),
+        "The deprecated names of 1.x: `Elitsm` and `NoElitsm` (now `Elitism`, `NoElitism`).");
 }
 
 void define_center_placement(nb::module_ &main)
@@ -548,10 +599,19 @@ void define_repelling(nb::module_ &main)
         .def_rw("shrink_factor",
                 &AdaptiveRepelling::shrink_factor,
                 "The factor applied to a radius that shrinks (default 0.9).")
-        .def_rw("target_rejection_rate",
-                &AdaptiveRepelling::target_rejection_rate,
-                "A target share of rejected samples (default 0.2); not used by the current "
-                "update.")
+        .def_prop_rw(
+            "target_rejection_rate",
+            [](const AdaptiveRepelling &r) {
+                warn_deprecated("AdaptiveRepelling.target_rejection_rate is deprecated: it has "
+                                "no effect");
+                return r.target_rejection_rate;
+            },
+            [](AdaptiveRepelling &r, const Float v) {
+                warn_deprecated("AdaptiveRepelling.target_rejection_rate is deprecated: it has "
+                                "no effect");
+                r.target_rejection_rate = v;
+            },
+            "Deprecated: has no effect (the update shrinks radii above max_rejection_rate).")
         .def_rw("max_rejection_rate",
                 &AdaptiveRepelling::max_rejection_rate,
                 "The share of rejected samples of a population, rejected / (lambda + "
@@ -574,10 +634,20 @@ void define_repelling(nb::module_ &main)
                 &AdaptiveRepelling::max_waste_ratio,
                 "The cap on the ratio of a run's evaluations to their running average in the "
                 "growth of a radius (default 3).")
-        .def_rw("local_target_rejection_rate",
-                &AdaptiveRepelling::local_target_rejection_rate,
-                "A target rejection rate of a single point (default 0.2); not used by the "
-                "current update.")
+        .def_prop_rw(
+            "local_target_rejection_rate",
+            [](const AdaptiveRepelling &r) {
+                warn_deprecated("AdaptiveRepelling.local_target_rejection_rate is deprecated: it "
+                                "has no effect");
+                return r.local_target_rejection_rate;
+            },
+            [](AdaptiveRepelling &r, const Float v) {
+                warn_deprecated("AdaptiveRepelling.local_target_rejection_rate is deprecated: it "
+                                "has no effect");
+                r.local_target_rejection_rate = v;
+            },
+            "Deprecated: has no effect (the update shrinks a radius above "
+            "local_max_rejection_rate).")
         .def_rw("local_max_rejection_rate",
                 &AdaptiveRepelling::local_max_rejection_rate,
                 "The rejection rate of a point above which its radius can shrink (default 0.5).")
@@ -632,9 +702,26 @@ void define_repelling(nb::module_ &main)
           "Returns\n"
           "-------\n"
           "float");
-    // The old, misspelled names of 1.x
-    m.attr("euclidian") = m.attr("euclidean");
-    m.attr("mahanolobis") = m.attr("mahalanobis");
+    // The old, misspelled names of 1.x, with a DeprecationWarning
+    m.def(
+        "euclidian",
+        [](const Vector &u, const Vector &v) {
+            warn_deprecated("repelling.euclidian is deprecated; use repelling.euclidean");
+            return distance::euclidian(u, v);
+        },
+        nb::arg("u"),
+        nb::arg("v"),
+        "Deprecated: the old (misspelled) name of `euclidean`.");
+    m.def(
+        "mahanolobis",
+        [](const Vector &u, const Vector &v, const Matrix &C_inv) {
+            warn_deprecated("repelling.mahanolobis is deprecated; use repelling.mahalanobis");
+            return distance::mahanolobis(u, v, C_inv);
+        },
+        nb::arg("u"),
+        nb::arg("v"),
+        nb::arg("C_inv"),
+        "Deprecated: the old (misspelled) name of `mahalanobis`.");
 
     m.def("archived_metric",
           &archived_metric,
@@ -685,7 +772,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "in what they learn and in their cost per generation: O(d^3) with a decomposition "
         "(COVARIANCE, COVARIANCE_NO_EIGV, CMSA), O(d^2 lambda) for MA-ES, Cholesky-CMA-ES and "
         "xNES, O(d lambda) for SEPARABLE and NONE (see docs/performance.md).");
-    nb::class_<Adaptation>(
+    auto adaptation = nb::class_<Adaptation>(
         m,
         "Adaptation",
         "Base class of the matrix adaptations: the mean, the evolution path of the step size "
@@ -1085,7 +1172,7 @@ void define_matrix_adaptation(nb::module_ &main)
                 "The covariance matrix (without sigma^2), shape (d, d) (the identity at the "
                 "start).");
 
-    nb::class_<CovarianceNoEigvAdaptation, CovarianceAdaptation>(
+    auto no_eigv = nb::class_<CovarianceNoEigvAdaptation, CovarianceAdaptation>(
         m,
         "CovarianceNoEigvAdaptation",
         "CMA-ES with a Cholesky factorization instead of an eigendecomposition "
@@ -1095,8 +1182,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "`constants.cholesky_solver`), which is several times cheaper than an "
         "eigendecomposition; B and d keep their initial values. ps is updated with dz instead "
         "of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of "
-        "COVARIANCE for the other step-size adaptations. Created by the optimizer; it has no "
-        "Python constructor.");
+        "COVARIANCE for the other step-size adaptations.");
+    adaptation_init<CovarianceNoEigvAdaptation>(no_eigv);
 
     nb::class_<NaturalGradientAdaptation, Adaptation>(
         m,
@@ -1170,9 +1257,27 @@ void define_matrix_adaptation(nb::module_ &main)
              "`sigma_g`. Called by `adapt_evolution_paths`.\n\n"
              ADAPT_PARAMS_DOC);
 
-    // The old, misspelled name of 1.x
-    m.attr("Adaptation").attr("adapt_evolution_paths_innner") =
-        m.attr("Adaptation").attr("adapt_evolution_paths_inner");
+    // The old, misspelled name of 1.x, with a DeprecationWarning
+    adaptation.def(
+        "adapt_evolution_paths_innner",
+        [](Adaptation &a,
+           const Population &pop,
+           const parameters::Weights &weights,
+           const parameters::Stats &stats,
+           const parameters::Settings &settings,
+           const size_t mu,
+           const size_t lamb) {
+            warn_deprecated("Adaptation.adapt_evolution_paths_innner is deprecated; use "
+                            "Adaptation.adapt_evolution_paths_inner");
+            a.adapt_evolution_paths_inner(pop, weights, stats, settings, mu, lamb);
+        },
+        nb::arg("pop"),
+        nb::arg("weights"),
+        nb::arg("stats"),
+        nb::arg("settings"),
+        nb::arg("mu"),
+        nb::arg("lamb"),
+        "Deprecated: the old (misspelled) name of `adapt_evolution_paths_inner`.");
 }
 
 void define_bounds(nb::module_ &main)
@@ -1398,21 +1503,32 @@ void define_mutation(nb::module_ &main)
         "Sequential selection: stop evaluating a population once it improves on the best "
         "solution (`Modules.sequential_selection`).\n\n"
         "The population is cut after individual i (0-based) when its objective value is better "
-        "than the best so far and i >= mu * seq_cuttoff_factor; with pairwise selection the "
+        "than the best so far and i >= mu * seq_cutoff_factor; with pairwise selection the "
         "factor is at least 2 and the cut falls after a complete pair. The updates use the "
         "evaluated individuals. Saves evaluations on functions where improvements are easy to "
         "find. Brockhoff et al. (2010).")
         .def(nb::init<parameters::Mirror, Float>(),
              nb::arg("mirror"),
-             nb::arg("seq_cuttoff_factor") = 1.0,
+             nb::arg("seq_cutoff_factor") = 1.0,
              "Create the sequential selection.\n\n"
              "Parameters\n"
              "----------\n"
              "mirror : options.Mirror\n"
              "    The mirrored sampling option; with `Mirror.PAIRWISE` the cutoff factor is at "
              "least 2.\n"
-             "seq_cuttoff_factor : float\n"
+             "seq_cutoff_factor : float\n"
              "    The minimum number of evaluated individuals as a multiple of mu (default 1).")
+        .def(
+            "__init__",
+            [](SequentialSelection *self, parameters::Mirror mirror, Float seq_cuttoff_factor) {
+                warn_deprecated("the keyword seq_cuttoff_factor is deprecated; use "
+                                "seq_cutoff_factor");
+                new (self) SequentialSelection(mirror, seq_cuttoff_factor);
+            },
+            nb::arg("mirror"),
+            nb::kw_only(),
+            nb::arg("seq_cuttoff_factor"),
+            "Deprecated: the old (misspelled) keyword of 1.x.")
         .def("break_conditions",
              &SequentialSelection::break_conditions,
              nb::arg("i"),
@@ -1436,7 +1552,7 @@ void define_mutation(nb::module_ &main)
              "Returns\n"
              "-------\n"
              "bool\n"
-             "    True when f < fopt, i >= mu * seq_cuttoff_factor and, with pairwise "
+             "    True when f < fopt, i >= mu * seq_cutoff_factor and, with pairwise "
              "selection, i is odd.");
 
     nb::class_<NoSequentialSelection, SequentialSelection>(
@@ -1446,14 +1562,25 @@ void define_mutation(nb::module_ &main)
         "evaluated.")
         .def(nb::init<parameters::Mirror, Float>(),
              nb::arg("mirror"),
-             nb::arg("seq_cuttoff_factor") = 1.0,
+             nb::arg("seq_cutoff_factor") = 1.0,
              "Create the no-op sequential selection.\n\n"
              "Parameters\n"
              "----------\n"
              "mirror : options.Mirror\n"
              "    The mirrored sampling option (not used).\n"
-             "seq_cuttoff_factor : float\n"
-             "    Not used (default 1).");
+             "seq_cutoff_factor : float\n"
+             "    Not used (default 1).")
+        .def(
+            "__init__",
+            [](NoSequentialSelection *self, parameters::Mirror mirror, Float seq_cuttoff_factor) {
+                warn_deprecated("the keyword seq_cuttoff_factor is deprecated; use "
+                                "seq_cutoff_factor");
+                new (self) NoSequentialSelection(mirror, seq_cuttoff_factor);
+            },
+            nb::arg("mirror"),
+            nb::kw_only(),
+            nb::arg("seq_cuttoff_factor"),
+            "Deprecated: the old (misspelled) keyword of 1.x.");
 
     nb::class_<SigmaSampler>(
         m,
@@ -1511,8 +1638,8 @@ void define_mutation(nb::module_ &main)
         "Strategy",
         "Base class of the step-size adaptations; also samples and evaluates a population.\n\n"
         "`mutate` samples and evaluates a population, `adapt` updates sigma after selection. "
-        "The base class does not change sigma. The subclasses are created by the optimizer "
-        "from `Modules.ssa` and have no Python constructor.")
+        "The base class does not change sigma. The optimizer creates the subclass of "
+        "`Modules.ssa`; each subclass has the same constructor.")
         .def(nb::init<std::shared_ptr<ThresholdConvergence>,
                       std::shared_ptr<SequentialSelection>,
                       std::shared_ptr<SigmaSampler>,
@@ -1589,14 +1716,15 @@ void define_mutation(nb::module_ &main)
                 "The smoothed success measure of TPA, MSR and PSR, whose exponential scales "
                 "sigma (default 0).");
 
-    nb::class_<CSA, Strategy>(
+    auto ssa_csa = nb::class_<CSA, Strategy>(
         m,
         "CSA",
         "Cumulative step-size adaptation (`StepSizeAdaptation.CSA`, the default).\n\n"
         "sigma *= exp(l), l = (cs / damps) (||ps|| / E||z|| - 1) clamped to [-1, 1] (as in "
         "pycma): sigma grows when the evolution path ps is longer than under random selection "
         "and shrinks when it is shorter. Hansen & Ostermeier (2001).");
-    nb::class_<TPA, Strategy>(
+    strategy_init<CSA>(ssa_csa);
+    auto ssa_tpa = nb::class_<TPA, Strategy>(
         m,
         "TPA",
         "Two-point step-size adaptation (`StepSizeAdaptation.TPA`).\n\n"
@@ -1609,7 +1737,8 @@ void define_mutation(nb::module_ &main)
                 &TPA::b_tpa,
                 "The offset added to r when the forward point is better (default 0).")
         .def_rw("rank_tpa", &TPA::rank_tpa, "The last r: -a_tpa or a_tpa + b_tpa (default 0).");
-    nb::class_<MSR, Strategy>(
+    strategy_init<TPA>(ssa_tpa);
+    auto ssa_msr = nb::class_<MSR, Strategy>(
         m,
         "MSR",
         "Median success rule (`StepSizeAdaptation.MSR`).\n\n"
@@ -1623,7 +1752,8 @@ void define_mutation(nb::module_ &main)
                 &MSR::quantile,
                 "The position j / lambda of the previous generation's value that the offspring "
                 "are compared with (default 0.3).");
-    nb::class_<PSR, Strategy>(
+    strategy_init<MSR>(ssa_msr);
+    auto ssa_psr = nb::class_<PSR, Strategy>(
         m,
         "PSR",
         "Population success rule (`StepSizeAdaptation.PSR`).\n\n"
@@ -1632,7 +1762,8 @@ void define_mutation(nb::module_ &main)
         "s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by "
         "default (Loshchilov 2014, Alg. 6).")
         .def_rw("success_ratio", &PSR::success_ratio, "The target success ratio (default 0.25).");
-    nb::class_<XNES, Strategy>(
+    strategy_init<PSR>(ssa_psr);
+    auto ssa_xnes = nb::class_<XNES, Strategy>(
         m,
         "XNES",
         "The step-size update of xNES (`StepSizeAdaptation.XNES`).\n\n"
@@ -1640,7 +1771,8 @@ void define_mutation(nb::module_ &main)
         "natural gradient (`NaturalGradientAdaptation.sigma_g`). With the other matrix "
         "adaptations: sigma *= exp(cs / sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the "
         "positive weights. Glasmachers et al. (2010).");
-    nb::class_<MXNES, Strategy>(
+    strategy_init<XNES>(ssa_xnes);
+    auto ssa_mxnes = nb::class_<MXNES, Strategy>(
         m,
         "MXNES",
         "A variant of the xNES step-size update on the mean step "
@@ -1650,7 +1782,8 @@ void define_mutation(nb::module_ &main)
         "m-xNES of Krause, Glasmachers & Igel (2017), "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
-    nb::class_<LPXNES, Strategy>(
+    strategy_init<MXNES>(ssa_mxnes);
+    auto ssa_lpxnes = nb::class_<LPXNES, Strategy>(
         m,
         "LPXNES",
         "A variant of the xNES step-size update on sampled step sizes "
@@ -1661,7 +1794,8 @@ void define_mutation(nb::module_ &main)
         "individuals. lp-xNES of Krause, Glasmachers & Igel (2017), "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
-    nb::class_<SR, Strategy>(
+    strategy_init<LPXNES>(ssa_lpxnes);
+    auto ssa_sr = nb::class_<SR, Strategy>(
         m,
         "SR",
         "The success rule of the (1+1)-CMA-ES (`StepSizeAdaptation.SR`; always used when "
@@ -1675,7 +1809,8 @@ void define_mutation(nb::module_ &main)
         "previous generation's best instead would count a success about every other "
         "generation even at a good sigma, and sigma would diverge. For non-elitist selection "
         "see also `MSR`.");
-    nb::class_<SA, Strategy>(
+    strategy_init<SR>(ssa_sr);
+    auto ssa_sa = nb::class_<SA, Strategy>(
         m,
         "SA",
         "Self-adaptation of the step size (`StepSizeAdaptation.SA`).\n\n"
@@ -1684,5 +1819,6 @@ void define_mutation(nb::module_ &main)
         "selected individuals divided by the geometric mean over the whole population (Beyer & "
         "Sendhoff 2008, with the correction of Ahrari et al. 2017). With SA the default mu is "
         "lambda / 4.");
+    strategy_init<SA>(ssa_sa);
 }
 } // namespace modcma_python
