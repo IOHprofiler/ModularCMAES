@@ -174,8 +174,11 @@ bool Strategy::evaluated(const Eigen::Index i, const Float f, parameters::Parame
 {
     p.pop.f(i) = f;
     p.stats.evaluations++;
-    if (sq->break_conditions(
-            i, p.pop.f(i), p.stats.global_best.y, p.settings.modules.mirrored, p.mu))
+    // Sequential selection stops at the first point better than the best of the previous
+    // generation (old_pop is sorted); in the first generation of a run there is none (-inf)
+    const Float reference = p.old_pop.n_finite() != 0 ? p.old_pop.f(0)
+                                                        : -std::numeric_limits<Float>::infinity();
+    if (sq->break_conditions(i, p.pop.f(i), reference, p.settings.modules.mirrored, p.mu))
     {
         // Sequential selection: the population is individuals 0..i. The columns after i keep
         // their (stale) contents but are no longer part of it; the weights of the updates are

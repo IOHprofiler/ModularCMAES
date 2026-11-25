@@ -51,9 +51,12 @@ generation's best, rescaled to a random length.
 ## Sequential selection
 
 A generation stops at the first point (from the µ-th on, after complete pairs with pairwise
-selection) that is better than the best so far (Brockhoff et al. 2010). The best so far is the best
-of all runs, so after a restart the rule hardly triggers (*known issue* [F13]; the framework paper:
-better than the previous generation).
+selection) that is better than the best of the previous generation (Brockhoff et al. 2010; the
+framework paper). The first generation of a run has no previous generation and is evaluated
+completely.
+
+Before 2.0 the reference was the best of all runs, so after a restart the rule hardly
+triggered.
 
 ## Mirrored and pairwise selection
 

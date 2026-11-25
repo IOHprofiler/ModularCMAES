@@ -23,8 +23,9 @@ d/‖C^-1/2 y‖², as in Hansen 2016). C is updated every generation; the eigen
 * cs uses + 3 (pycma) instead of the tutorial's + 5.
 * pycma adds an offset to cµ (0.0236 against modcma's 0.0202 at d = 10), scales c1 for small λ, and
   tests h_σ with the squared path length.
-* *Known issue* [F12]: h_σ's bias correction counts the generations of the whole run, restarts
-  included, instead of the current run's.
+* h_σ's bias correction, 1 − (1 − cs)^(2(g+1)), counts the generations g of the current run, as
+  Hansen (2016) and pycma. Before 2.0 it counted evaluations/λ over all runs, so after a restart
+  the correction was already about 1.
 
 **Closest configuration:** `active=True` with the defaults.
 

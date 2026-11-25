@@ -19,7 +19,8 @@ average. The modules of this page change which points are selected and how they 
 * `elitist=True`: (µ + λ) selection, the parents compete with the offspring, so the best point is
   never lost. Faster on unimodal problems, but more easily trapped in a local optimum.
 * `sequential_selection=True`: evaluate the points one by one and end the generation at the first
-  point (from the µ-th on) that improves on the best so far (Brockhoff et al. 2010); the updates
+  point (from the µ-th on) that improves on the best of the previous generation (Brockhoff et al.
+  2010); the updates
   use the evaluated points. Saves evaluations when improvements are easy to find, typically with
   mirrored sampling.
 * Pairwise selection with mirrored sampling: `mirrored=PAIRWISE` ([sampling](sampling.md)).

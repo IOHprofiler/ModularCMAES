@@ -214,8 +214,8 @@ void define_parameters(nb::module_ &main)
                      bool_setter(&Modules::sequential_selection),
                      "bool, default False: sequential selection (Brockhoff et al.).\n\n"
                      "The evaluation of a generation stops at the first individual, from index "
-                     "mu on, that improves on the best objective value so far; the rest of the "
-                     "generation is not evaluated.")
+                     "mu on, that improves on the best of the previous generation; the rest of "
+                     "the generation is not evaluated.")
         .def_prop_rw("threshold_convergence",
                      bool_getter(&Modules::threshold_convergence),
                      bool_setter(&Modules::threshold_convergence),
@@ -308,6 +308,10 @@ void define_parameters(nb::module_ &main)
                 &Stats::t,
                 "The generation counter, incremented at the end of every generation; restarts do "
                 "not reset it.")
+        .def_rw("t_run",
+                &Stats::t_run,
+                "The generations of the current run: reset at a restart. h_sigma's bias "
+                "correction counts these.")
         .def_rw("evaluations",
                 &Stats::evaluations,
                 "The number of objective function evaluations so far.\n\n"
