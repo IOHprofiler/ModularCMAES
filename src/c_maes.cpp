@@ -264,7 +264,9 @@ void ModularCMAES::queue_population_batch()
 {
     const Eigen::Index begin = next_individual;
     const Eigen::Index size = p->mutation->sample_batch_from(begin, *p);
-    queue(p->pop.X_transformed.middleCols(begin, size), evaluation::Source::POPULATION, begin);
+    // Copied between the concrete matrices (not through queue(X)'s Ref): Eigen inlines this copy
+    queue(size, evaluation::Source::POPULATION, begin) =
+        p->pop.X_transformed.middleCols(begin, size);
     next_individual += size;
 }
 
