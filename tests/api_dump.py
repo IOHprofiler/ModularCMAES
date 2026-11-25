@@ -64,6 +64,11 @@ ACCEPTED = {
         "as SequentialSelection: the keyword is seq_cutoff_factor, the old one is deprecated",
     "missing: cmaescpp.mutation.Strategy.mutate":
         "internal: ModularCMAES.advance samples and queues the population (#84)",
+    "missing: cmaescpp.repelling.hill_valley_test":
+        "internal: the optimizer evaluates the hill-valley points itself, one at a time (#84)",
+    "missing: cmaescpp.repelling.TabooPoint.shares_basin": "internal: as hill_valley_test (#84)",
+    "missing: cmaescpp.repelling.Repelling.update_archive":
+        "internal: the optimizer's restart step runs the archive update (#84)",
 }
 
 

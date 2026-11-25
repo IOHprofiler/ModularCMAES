@@ -24,14 +24,6 @@ Float manhattan(const Vector &u, const Vector &v);
 Float euclidian(const Vector &u, const Vector &v);
 Float mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv);
 Float quadratic(const Vector &u, const Vector &v, const Matrix &M);
-
-bool hill_valley_test(const Solution &u, const Solution &v, FunctionType &f, const size_t n_evals);
-
-bool hill_valley_test_p(const Solution &u,
-                        const Solution &v,
-                        FunctionType &f,
-                        const size_t n_evals,
-                        parameters::Parameters &p);
 } // namespace distance
 
 /**
@@ -95,9 +87,6 @@ struct TabooPoint
 
     bool rejects(Eigen::Ref<const Vector> xi, const parameters::Parameters &p, const int attempts) const;
 
-    bool
-    shares_basin(FunctionType &objective, const Solution &sol, parameters::Parameters &p) const;
-
     void calculate_criticality(const parameters::Parameters &p);
 
     void clamp_radius() { radius = std::max(min_radius, std::min(radius, max_radius)); }
@@ -120,12 +109,6 @@ struct Repelling
     virtual bool is_rejected(Eigen::Ref<const Vector> xi, parameters::Parameters &p);
     virtual void prepare_sampling(parameters::Parameters &p);
     virtual void adapt_radii_after_sampling(parameters::Parameters &p);
-
-    /**
-     * The archive update after a restart, with an objective function: begin_update, then the
-     * queued hill-valley points are evaluated.
-     */
-    void update_archive(FunctionType &objective, parameters::Parameters &p);
 
     //! Start the archive update after a restart (the last center and solution are in p.stats):
     //! the first hill-valley point is query_point(); each answer() sets the next, until has_query()

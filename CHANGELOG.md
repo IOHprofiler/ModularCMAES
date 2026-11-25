@@ -13,6 +13,9 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   for several releases; it remains in modcma 1.x (`pip install "modcma<2"`) and on the branch
   `legacy-python`. Its names raise an error that says where they went.
 * `ioh` is no longer a dependency (only the Python implementation used it).
+* Internal helpers of repelling: `repelling.hill_valley_test`, `TabooPoint.shares_basin` and
+  `Repelling.update_archive` (the optimizer runs the hill-valley tests itself, #84); and
+  `mutation.Strategy.mutate`.
 * `c_maes.utils`: `set_seed`, `build_info` and `compute_ert` moved to the main namespace
   (`modcma.set_seed`, ...; the old names still work, with a `DeprecationWarning`). Removed: `cdf`,
   `ppf` (use `scipy.stats.norm`), `random_uniform`, `random_normal`; the internals of

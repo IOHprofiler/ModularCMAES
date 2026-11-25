@@ -376,27 +376,6 @@ void define_repelling(nb::module_ &main)
              "Returns\n"
              "-------\n"
              "bool")
-        .def("shares_basin",
-             &TabooPoint::shares_basin,
-             nb::arg("objective"),
-             nb::arg("xi"),
-             nb::arg("p"),
-             "Whether a solution lies in the basin of this point, by a hill-valley test.\n\n"
-             "The objective is evaluated at 10 points evenly spaced on the line between the "
-             "two; they share the basin when none of them is worse than the worse of the two "
-             "solutions. The evaluations are counted in `p.stats` (and can update its best "
-             "solution).\n\n"
-             "Parameters\n"
-             "----------\n"
-             "objective : Callable[[numpy.ndarray], float]\n"
-             "    The objective function.\n"
-             "xi : Solution\n"
-             "    The solution to test (x and its objective value y).\n"
-             "p : Parameters\n"
-             "    The state of the optimizer.\n\n"
-             "Returns\n"
-             "-------\n"
-             "bool")
         .def("calculate_criticality",
              &TabooPoint::calculate_criticality,
              nb::arg("p"),
@@ -462,8 +441,9 @@ void define_repelling(nb::module_ &main)
         "Before each population the archive is sorted by criticality (`prepare_sampling`); "
         "each sample is tested against the points with criticality >= 0.01 (`is_rejected`) and "
         "sampled again when one rejects it. After a restart, the better of the last mean and "
-        "the best solution of the run is compared with the archive by hill-valley tests "
-        "(`update_archive`); the subclasses add it as a new taboo point or update the point "
+        "the best solution of the run is compared with the archive by hill-valley tests (the "
+        "optimizer evaluates their points, one at a time); the subclasses add it as a new "
+        "taboo point or update the point "
         "whose basin it shares. The base class does not add points.")
         .def(nb::init<>(), "Create a repelling with an empty archive.")
         .def("is_rejected",
@@ -481,22 +461,6 @@ void define_repelling(nb::module_ &main)
              "Returns\n"
              "-------\n"
              "bool")
-        .def("update_archive",
-             &Repelling::update_archive,
-             nb::arg("objective"),
-             nb::arg("p"),
-             "Update the archive after a restart, evaluating the hill-valley tests with "
-             "objective.\n\n"
-             "The candidate is the better of the last mean and the last best solution in "
-             "`p.stats`; it is tested against every taboo point (10 evaluations per point, "
-             "counted in `p.stats.evaluations`). The optimizer runs the same update through its "
-             "ask-tell interface.\n\n"
-             "Parameters\n"
-             "----------\n"
-             "objective : Callable[[numpy.ndarray], float]\n"
-             "    The objective function.\n"
-             "p : Parameters\n"
-             "    The state of the optimizer.")
         .def("prepare_sampling",
              &Repelling::prepare_sampling,
              nb::arg("p"),
@@ -736,28 +700,6 @@ void define_repelling(nb::module_ &main)
           "Returns\n"
           "-------\n"
           "numpy.ndarray");
-    m.def("hill_valley_test",
-          &distance::hill_valley_test,
-          nb::arg("u"),
-          nb::arg("v"),
-          nb::arg("f"),
-          nb::arg("n_evals"),
-          "Whether two solutions lie in the same basin of attraction (hill-valley test).\n\n"
-          "f is evaluated at n_evals points evenly spaced on the line between u.x and v.x; the "
-          "two share a basin when none of them is worse than max(u.y, v.y). Stops at the first "
-          "worse point. Maree et al. (2018).\n\n"
-          "Parameters\n"
-          "----------\n"
-          "u, v : Solution\n"
-          "    The two solutions (x and their objective values y).\n"
-          "f : Callable[[numpy.ndarray], float]\n"
-          "    The objective function.\n"
-          "n_evals : int\n"
-          "    The number of points on the line.\n\n"
-          "Returns\n"
-          "-------\n"
-          "bool\n"
-          "    True when no point between them is worse (one basin).");
 }
 
 void define_matrix_adaptation(nb::module_ &main)

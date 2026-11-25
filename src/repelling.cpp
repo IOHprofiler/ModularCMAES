@@ -28,52 +28,6 @@ Float quadratic(const Vector &u, const Vector &v, const Matrix &M)
     return std::sqrt(std::max<Float>(0.0, q));
 }
 
-//! Returns true when u belongs to the same basin as v.
-bool hill_valley_test_p(const Solution &u,
-                        const Solution &v,
-                        FunctionType &f,
-                        const size_t n_evals,
-                        parameters::Parameters &p)
-{
-    const Float max_f = std::max(u.y, v.y);
-
-    for (size_t k = 1; k < n_evals + 1; k++)
-    {
-        const Float a = static_cast<Float>(k) / (static_cast<Float>(n_evals) + 1.0);
-
-        const Vector x = p.coordinate_mapping->transform(v.x + a * (u.x - v.x));
-
-        const Float y = f(x);
-
-        p.stats.evaluations++;
-
-        if (max_f < y)
-            return false;
-
-        p.stats.update_best(x, y);
-    }
-
-    return true;
-}
-
-bool hill_valley_test(const Solution &u, const Solution &v, FunctionType &f, const size_t n_evals)
-{
-    const Float max_f = std::max(u.y, v.y);
-
-    for (size_t k = 1; k < n_evals + 1; k++)
-    {
-        const Float a = static_cast<Float>(k) / (static_cast<Float>(n_evals) + 1.0);
-
-        const Vector x = v.x + a * (u.x - v.x);
-        const Float y = f(x);
-
-        if (max_f < y)
-            return false;
-    }
-
-    return true;
-}
-
 } // namespace distance
 
 Matrix archived_metric(parameters::Parameters &p)
@@ -128,13 +82,6 @@ bool TabooPoint::rejects(Eigen::Ref<const Vector> xi,
     return delta_xi < rejection_radius;
 }
 
-bool TabooPoint::shares_basin(FunctionType &objective,
-                              const Solution &sol,
-                              parameters::Parameters &p) const
-{
-    return distance::hill_valley_test_p(sol, solution, objective, 10, p);
-}
-
 void TabooPoint::calculate_criticality(const parameters::Parameters &p)
 {
     const Float delta_m = distance(p.adaptation->m, p);
@@ -170,18 +117,6 @@ void Repelling::prepare_sampling(parameters::Parameters &p)
 void Repelling::adapt_radii_after_sampling(parameters::Parameters & /*p*/)
 {
     // Base implementation intentionally does nothing.
-}
-
-void Repelling::update_archive(FunctionType &objective, parameters::Parameters &p)
-{
-    begin_update(p);
-    while (has_query())
-    {
-        const Vector x = query.x;
-        const Float y = objective(x);
-        p.stats.evaluations++;
-        answer(y, x, p);
-    }
 }
 
 bool Repelling::is_rejected(Eigen::Ref<const Vector> xi, parameters::Parameters &p)
@@ -238,8 +173,9 @@ static std::optional<Solution> get_candidate(const parameters::Parameters &p)
 }
 
 // -----------------------------------------------------------------------------
-// The resumable archive update: hill-valley tests of the candidate against every taboo point
-// (the same evaluations, in the same order, as distance::hill_valley_test_p)
+// The archive update after a restart: hill-valley tests of the candidate against every taboo
+// point (Maree et al. 2018), one point at a time (has_query, query_point, answer). The optimizer
+// evaluates the points (ModularCMAES::advance, RESTART; Parameters::complete_restart)
 // -----------------------------------------------------------------------------
 
 void Repelling::begin_update(parameters::Parameters &p)
