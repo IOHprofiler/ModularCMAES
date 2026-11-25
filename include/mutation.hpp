@@ -104,6 +104,13 @@ struct SigmaSampler
 
     void apply_integer_bounds(parameters::Parameters &p);
 
+    //! The lower bound on the step size of the integer variables, for the columns [begin,
+    //! begin + n) of S (Marty et al. 2024); also used for the elitist parents
+    static void apply_integer_bounds(const parameters::Parameters &p,
+                                     Eigen::Ref<Matrix> S,
+                                     Eigen::Index begin,
+                                     Eigen::Index n);
+
     virtual void sample(const Float sigma, parameters::Parameters &p);
 };
 
@@ -240,6 +247,10 @@ struct TPA : Strategy
 
 struct MSR : Strategy
 {
+    //! The offspring are compared with the value at quantile * lambda (0-based) of the sorted
+    //! values of the previous generation (Ait ElHara et al. 2013, pycma: 0.3)
+    Float quantile = 0.3;
+
     using Strategy::Strategy;
 
     void adapt(const parameters::Weights &w,

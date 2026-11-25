@@ -60,15 +60,16 @@ algorithms.
   They differ wherever the evaluated points are not m + σAz: sampled step sizes, elitism, injected
   or repaired points, the step-size floor of integer variables.
 * **Pairwise selection.** The worse point of each mirrored pair gets f = +inf before the update.
-  With the active update the negative weights then go to the losers in index order, not by
-  fitness; `MSR` compares with an infinite median (*known issue*: σ only shrinks [F9]); `PSR` uses
+  The losers get no negative weights in the active update (as pycma: mirrored points never get
+  negative weights). With the default µ = λ/2 the active update therefore has no effect with
+  pairwise selection; `MSR` compares with an infinite median (*known issue*: σ only shrinks [F9]); `PSR` uses
   only the finite values.
 * **`weights=UTILITY`** recombines the mean from all λ points: the worse points move the mean too
   (away from themselves), so outliers matter, unlike with the other weights, where only the µ best
   do. The evolution paths are normalized with the utilities' selection mass (`mueff_mean`).
-* **Elitism** keeps all λ survivors of the previous selection, so it is (λ+λ) selection; the
-  survivors' steps are recomputed in the current distribution, each with its own step size.
-  `MSR`, `PSR` and `TPA` then compare against the elite.
+* **Elitism** is (µ+λ) selection: the µ parents compete with the offspring. Their steps are
+  recomputed in the current distribution with the generation's σ. `MSR`, `PSR` and `TPA` then
+  compare against the elite.
 * **Sequential selection** stops a generation at the first point better than the best so far *over
   all runs*: after a restart it hardly ever triggers (*known issue* [F13]).
 * **Orthogonal sampling** orthogonalizes blocks of max(d, n) samples, with n = λ, λ/2 with
@@ -83,7 +84,9 @@ algorithms.
 * **Integer variables** are rounded after the bound correction (*known issue*: a rounded value can
   leave the box [F21]); their step-size floor biases the step-size rules that read sampled step
   sizes (`SA`, `LPXNES`).
-* **`SR` with λ > 1** counts one success per generation, when its best beats the best of the run.
+* **`SR` with λ > 1** counts one success per generation, when its best beats the best of the run
+  so far. SR is designed for elitist selection; without elitism the best of the run takes the
+  parent's role. `MSR` is the success rule meant for non-elitist selection.
 * **`restart_strategy=NONE`** still restarts when the matrix cannot be adapted (`UnableToAdapt`).
 * **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is.
 

@@ -280,9 +280,9 @@ void define_options(nb::module_ &main)
                "evaluations); sigma grows when the point ahead is the better one.")
         .value("MSR",
                StepSizeAdaptation::MSR,
-               "Median success rule (Ait Elhara et al. 2013): counts the individuals that are "
-               "better than the median of the previous generation; sigma grows when more than "
-               "half are.")
+               "Median success rule (Ait ElHara et al. 2013): counts the individuals that are "
+               "better than the 0.3 lambda-th best of the previous generation; sigma grows when "
+               "more than half are.")
         .value("XNES",
                StepSizeAdaptation::XNES,
                "The step-size update of xNES (Glasmachers et al. 2010), from the weighted squared "
@@ -310,7 +310,8 @@ void define_options(nb::module_ &main)
                StepSizeAdaptation::SR,
                "Success rule of the (1+1)-ES: sigma grows when the success ratio is above the "
                "target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically "
-               "when lambda = 1.")
+               "when lambda = 1. Designed for elitist selection; without elitism a success is "
+               "measured against the best of the run, which plays the parent's role.")
         .value("SA",
                StepSizeAdaptation::SA,
                "Self-adaptation: every individual gets its own step size, sampled log-normally "

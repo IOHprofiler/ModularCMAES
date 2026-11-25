@@ -449,17 +449,26 @@ class Strategy:
 
 class IPOP(Strategy):
     """
-    IPOP (Auger & Hansen 2005): every restart multiplies mu and lambda by `ipop_factor`.
+    IPOP (Auger & Hansen 2005): every restart multiplies lambda by `ipop_factor` (mu keeps its ratio to lambda), up to `max_lambda_factor` * lambda0 (2^9 lambda0, the framework paper).
     """
 
     @property
     def ipop_factor(self) -> float:
         """
-        The factor of the population size per restart (default 2; applied to the integers mu and lambda after truncating it to an integer).
+        The factor of the population size per restart (default 2; lambda * ipop_factor is rounded).
         """
 
     @ipop_factor.setter
     def ipop_factor(self, arg: float, /) -> None: ...
+
+    @property
+    def max_lambda_factor(self) -> int:
+        """
+        The largest population size as a multiple of lambda0 (default 512 = 2^9).
+        """
+
+    @max_lambda_factor.setter
+    def max_lambda_factor(self, arg: int, /) -> None: ...
 
 class BIPOP(Strategy):
     """

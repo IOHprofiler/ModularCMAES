@@ -167,7 +167,7 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
 
     if (m.active)
-        w.for_population_into(pop.n, weights_scratch);
+        w.for_population_into(pop.n, weights_scratch, pop.n_finite());
     else
         weights_scratch = w.positive;
     Vector &rank_mu_w = weights_scratch;
@@ -343,7 +343,7 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
 
     if (m.active)
-        w.for_population_into(pop.n, weights_scratch);
+        w.for_population_into(pop.n, weights_scratch, pop.n_finite());
     else
         weights_scratch = w.positive;
     const Vector &weights = weights_scratch;
@@ -409,7 +409,7 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     stats.n_updates++;
 
     if (m.active)
-        w.for_population_into(pop.n, weights_scratch);
+        w.for_population_into(pop.n, weights_scratch, pop.n_finite());
     else
         weights_scratch = w.positive;
     const Vector &weights = weights_scratch;
@@ -522,7 +522,7 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     {
         // UTILITY: all evaluated points with their utilities (summing to zero): rank-one updates
         // for the positive ones, downdates for the negative ones
-        w.for_population_into(pop.n, weights_scratch);
+        w.for_population_into(pop.n, weights_scratch, pop.n_finite());
         A *= std::sqrt(1 - w.c1 - w.cmu * weights_scratch.sum());
         Eigen::internal::llt_rank_update_lower(A, pc, w.c1);
         for (Eigen::Index i = 0; i < weights_scratch.size(); i++)
@@ -539,7 +539,7 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 
     if (m.active)
     {
-        w.for_population_into(pop.n, weights_scratch);
+        w.for_population_into(pop.n, weights_scratch, pop.n_finite());
         for (size_t i = mu; i < pop.n; i++)
             Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * weights_scratch(i));
     }
@@ -597,7 +597,7 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     const Float tc_inv = 1.0 / tc;
 
     if (m.active)
-        w.for_population_into(pop.n, weights_scratch);
+        w.for_population_into(pop.n, weights_scratch, pop.n_finite());
     else
         weights_scratch = w.positive;
     const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
@@ -724,7 +724,7 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
                                                   size_t lambda)
 {
     if (settings.modules.active)
-        w.for_population_into(pop.n, weights_scratch);
+        w.for_population_into(pop.n, weights_scratch, pop.n_finite());
     else
         weights_scratch = w.positive;
     const Vector &weights = weights_scratch;

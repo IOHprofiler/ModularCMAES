@@ -135,7 +135,7 @@ class StepSizeAdaptation(enum.Enum):
 
     MSR = 2
     """
-    Median success rule (Ait Elhara et al. 2013): counts the individuals that are better than the median of the previous generation; sigma grows when more than half are.
+    Median success rule (Ait ElHara et al. 2013): counts the individuals that are better than the 0.3 lambda-th best of the previous generation; sigma grows when more than half are.
     """
 
     XNES = 3
@@ -160,7 +160,7 @@ class StepSizeAdaptation(enum.Enum):
 
     SR = 7
     """
-    Success rule of the (1+1)-ES: sigma grows when the success ratio is above the target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically when lambda = 1.
+    Success rule of the (1+1)-ES: sigma grows when the success ratio is above the target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically when lambda = 1. Designed for elitist selection; without elitism a success is measured against the best of the run, which plays the parent's role.
     """
 
     SA = 8

@@ -29,14 +29,14 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * **Vectorized objectives**: `run(f, vectorized=True)` and `step(f, vectorized=True)` evaluate a
   whole batch per call.
 * **Per-optimizer random generators**: `Settings(seed=...)`; without a seed an optimizer copies the
-  global generator (`utils.set_seed`) when it is created. Optimizers run independently in parallel
+  global generator (`modcma.set_seed`) when it is created. Optimizers run independently in parallel
   threads; the module supports free-threaded CPython 3.14t (no GIL).
 * `Settings(fast_sampling=True)`: xoshiro256++ and a ziggurat for the normal samples, up to twice
   as fast for the cheap matrix adaptations (a different random stream; off by default).
 * **LAPACK and BLAS** in high dimension: the eigendecomposition, Cholesky factorizations, inverses
   and matrix products, from d = 100 to 120 (`constants.eigen_solver`, `cholesky_solver`, `blas`,
   `lapack_min_dim`, `blas_min_dim`). Apple Accelerate on macOS, scipy's LAPACK and BLAS on Linux and
-  Windows. `utils.build_info()`.
+  Windows. `modcma.build_info()`.
 * `Modules.repelling_metric` (`EUCLIDEAN`, the previous behaviour; `CURRENT`; `ARCHIVED`).
 * Wheels for Linux aarch64, Windows ARM64 and macOS x86_64 as well; CPython 3.10–3.14 and 3.14t,
   one abi3 wheel for 3.12+.
@@ -62,6 +62,23 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   d = 1000) and an O(1) stagnation criterion. A generation is 20–47× faster than pycma up to d = 10.
 * Results differ from 1.x in the last bits (batched linear algebra, LAPACK in high dimension), and
   where bugs were fixed (below); the differences are statistically indistinguishable on BBOB.
+* Modules now follow the framework paper and their original papers where the code had diverged
+  (#83):
+  * **Elitism** is (µ + λ) selection: the µ parents compete with the offspring (it kept all λ
+    survivors). Their steps are recomputed with the generation's σ; before, each parent kept the
+    step size it was sampled with.
+  * **MSR** compares with the 0.3λ-th best of the previous generation (Ait ElHara et al. 2013,
+    pycma), not with the median, and centers the count at λ/2, as pycma. It is 2–4× faster on the
+    sphere and the ellipsoids, but solves Rosenbrock and the bent cigar somewhat less often within
+    the budget. Its damping is `damps`, 2 − 2/d by default; at d = 1 it is 1,
+    where it was 0.
+  * **PSR** uses the constants of Loshchilov (2014): cs = 0.3 (was 0.9) and damps = 1 (was 2 − 2/d).
+  * **SR** counts one success per generation: the generation's best beats the best of the run.
+    TPA's points and the restart centers no longer count. The framework paper's reference, the
+    previous generation's best, made σ diverge without elitism; the paper is to be corrected.
+  * **IPOP:** the population size is limited to 2⁹ λ₀ (was (d λ₀)²).
+  * **Pairwise selection with the active update:** the losers of the mirrored pairs get no negative
+    weights, as in pycma.
 
 ### Fixed
 

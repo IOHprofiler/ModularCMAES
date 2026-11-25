@@ -33,19 +33,34 @@ success: σ grows by 16 % for nothing, and diverges with elitism.
 
 ## MSR: median success rule
 
-**What modcma does.** K is the number of points better than the median of the previous generation;
-z = (2/λ)(K − (λ + 1)/2); s ← (1 − c)s + c·z (c = 0.3); σ ← σ·exp(s/(2 − 2/d)).
+**What modcma does.** K is the number of points better than the j-th best of the previous
+generation, j = 0.3λ, as in Ait ElHara, Auger & Hansen (2013). As pycma's
+`CMAAdaptSigmaMedianImprovement`, j is a fractional 0-based index into the sorted values, and K is
+interpolated between its two neighbours. Then:
 
-**Compared with Ait Elhara et al. (2013) and pycma.** pycma's `CMAAdaptSigmaMedianImprovement`
-compares with the 0.3-quantile of the previous generation, not the median, and centers K at λ/2.
-*Known issue* [F9]: with pairwise selection the median is infinite and σ only shrinks.
+* z = (2/λ)(K − λ/2), so z ≥ 0 when the median point beats the j-th best;
+* s ← (1 − c)s + c·z, with c = 0.3;
+* σ ← σ·exp(s/d_σ), with d_σ = 2 − 2/d (1 at d = 1, where it would be 0).
+
+`MSR.quantile` sets 0.3. K is centered at λ/2, as in pycma. Loshchilov (2014), restating the paper,
+centers it at (λ + 1)/2. On BBOB at d = 20 that version solved Rosenbrock (f8) and the bent cigar
+(f12) in 15 of 25 runs each. With pycma's centering, modcma solves them in 22 and 20 of 25 (pycma
+itself: 22 and 25), and its median evaluations on the sphere equal pycma's (3120).
+
+*Known issue* [F9]: with pairwise selection the losers' values are infinite, so K counts against
+the winners only.
 
 ## PSR: population success rule
 
 **What modcma does.** Ranks the current and the previous generation together (the best n of each,
-n the number of finite values) and compares their ranks: z = Σ(r_old − r_new)/n² − 0.25;
-s ← (1 − c)s + c·z (c = 0.9); σ ← σ·exp(s/(2 − 2/d)). After Loshchilov (2014); the Python
-implementation used c = 0.4.
+n the number of finite values) and compares their ranks:
+
+* z = Σ(r_old − r_new)/n² − z*, with the target z* = 0.25;
+* s ← (1 − c)s + c·z, with c = 0.3;
+* σ ← σ·exp(s/d_σ), with d_σ = 1.
+
+These constants are those of Loshchilov (2014), Alg. 6. Before 2.0, modcma used c = 0.9 and
+d_σ = 2 − 2/d; the Python implementation used c = 0.4.
 
 ## XNES, MXNES, LPXNES
 
@@ -62,11 +77,31 @@ implementation used c = 0.4.
 
 ## SR: success rule
 
-**What modcma does.** p ← (1 − 1/12)p + (1/12)·[the best of the generation beats the best of the
-run]; σ ← σ·exp((p − 2/11)/((1 − 2/11)·damps)), damps = 1 + d/2. For λ = 1 this is the success rule
-of the (1+1)-CMA-ES (Igel et al. 2006), and the Settings select it automatically. For λ > 1 it counts
-one success per generation; the framework paper describes success against the best of the previous
-generation. The success ratio is not reset at a restart.
+**What modcma does.**
+
+* p ← (1 − 1/12)p + (1/12)·[the best of the generation beats the best of the run so far];
+* σ ← σ·exp((p − 2/11)/((1 − 2/11)·damps)), damps = 1 + d/2.
+
+For λ = 1 the best of the run is the parent, so this is the success rule of the (1+1)-CMA-ES
+(Igel et al. 2006), which the Settings select automatically.
+
+**SR is designed for elitist selection.** In the (1+1)-ES a success means beating the parent, and
+the parent is always the best point so far. modcma also allows SR without elitism, and then
+measures success against the best of the run, which takes the parent's role. It is a 1/5th-type
+rule under comma selection; the median success rule (MSR, Ait ElHara et al. 2013) was proposed
+for exactly that setting.
+
+The success ratio is counted once per generation and is not reset at a restart. The points
+evaluated outside the generation (TPA's two points, the restart centers) do not count; before 2.0
+they did.
+
+**Compared with the framework paper.** The paper's success is "better than the best of the
+previous generation". With elitism this is the same as the best of the run.
+
+Without elitism it is not: the previous generation's best is beaten in about every other
+generation, even at a good σ, far above the target 2/11. On BBOB (f1, f2, f8, f10, f12; d = 5, 20)
+σ then diverged and no run reached 1e-8; with the best of the run, 250 of 350 did. The paper's text
+is to be corrected: "the best so far", or SR described for elitist selection (#83).
 
 ## SA: self-adaptation
 

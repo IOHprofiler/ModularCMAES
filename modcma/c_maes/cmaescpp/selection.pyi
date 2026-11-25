@@ -14,7 +14,7 @@ class Elitism:
     """
     Elitist (mu + lambda) selection: the parents compete with the offspring.
 
-    Selected by `Modules.elitist = True` (always on for a (1+1)-ES); `NoElitism` otherwise. From the second generation on, the previous population (`es.p.old_pop`, the lambda best of the previous selection) is appended to the offspring before sorting, so the best points found so far survive; their y and z are recomputed in the current distribution. Can speed up convergence on unimodal functions, at the cost of diversity.
+    Selected by `Modules.elitist = True` (always on for a (1+1)-ES); `NoElitism` otherwise. From the second generation on, the mu parents (the mu best of the previous selection, the first columns of `es.p.old_pop`) are appended to the offspring before sorting, so the best points found so far survive. Their y and z are recomputed in the current distribution with the current step size, y = (x - m) / sigma and z = A^-1 y, as for a repaired point (the framework paper, Sec. 4.1). Can speed up convergence on unimodal functions, at the cost of diversity.
     """
 
     def __init__(self) -> None:
@@ -22,7 +22,7 @@ class Elitism:
 
     def __call__(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
         """
-        Append the previous population to the current one (from the second generation on).
+        Append the mu parents to the current population (from the second generation on).
 
         Parameters
         ----------

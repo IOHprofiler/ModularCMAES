@@ -16,6 +16,8 @@ struct Weights
     //! RecombinationWeights::UTILITY: the utilities of NES/xNES, which sum to zero, recombine the
     //! mean from all evaluated points and are the weights of every matrix update
     bool utility = false;
+    //! Mirror::PAIRWISE: the losers of the mirrored pairs get no negative weights
+    bool pairwise = false;
     Float c1, cmu, cc, cs;
     Float damps, acov;
     Float sqrt_cc_mueff, sqrt_cs_mueff;
@@ -54,8 +56,15 @@ struct Weights
      */
     Vector for_population(const size_t n) const;
 
-    //! for_population into out (no allocation once out has the capacity)
-    void for_population_into(const size_t n, Vector &out) const;
+    /**
+     * @brief for_population into out (no allocation once out has the capacity). With pairwise
+     * selection only the first n_ranked points (the winners of the mirrored pairs and, with
+     * elitism, the parents; the losers have f = +inf and are sorted last) can get a negative
+     * weight: as pycma, mirrored points that lost their pair get no negative weights.
+     */
+    void for_population_into(const size_t n,
+                             Vector &out,
+                             const size_t n_ranked = std::numeric_limits<size_t>::max()) const;
 
     void init_weights(const Settings &settings);
 

@@ -326,9 +326,9 @@ class Stats:
     @property
     def success_ratio(self) -> float:
         """
-        The smoothed rate at which selections improve current_best.
+        The smoothed rate of successful generations.
 
-        An exponential moving average with weight 1/12, starting at 2/11. Used by the success rule step-size adaptation (SR) and by the update of the evolution path in the (1+1) configuration (lambda0 = 1).
+        A generation is a success when its best individual is better than the best of the run so far (with elitism, the parent); counted once per generation. An exponential moving average with weight 1/12, starting at 2/11. Used by the success rule step-size adaptation (SR) and by the update of the evolution path in the (1+1) configuration (lambda0 = 1).
         """
 
     @success_ratio.setter
@@ -400,6 +400,15 @@ class Weights:
 
     @utility.setter
     def utility(self, arg: bool, /) -> None: ...
+
+    @property
+    def pairwise(self) -> bool:
+        """
+        Whether the selection is pairwise (`Mirror.PAIRWISE`): the losers of the mirrored pairs (f = +inf, sorted last) then get no negative weights in the active update, as in pycma.
+        """
+
+    @pairwise.setter
+    def pairwise(self, arg: bool, /) -> None: ...
 
     @property
     def mueff_neg(self) -> float:

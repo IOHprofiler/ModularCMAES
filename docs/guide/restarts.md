@@ -75,6 +75,10 @@ print("restarts:", len(es.p.stats.centers))
 
 The final means of the runs that ended are in `es.p.stats.centers`, with their values.
 
+* Evaluating the final mean costs one evaluation per restart.
+* The final mean is the candidate that repelling restarts archive.
+* The center of the new run, chosen by `center_placement`, is not evaluated.
+
 ## Where a restart begins
 
 `center_placement` chooses the mean of each new run: `X0` (the starting point, default),

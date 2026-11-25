@@ -335,7 +335,9 @@ void define_parameters(nb::module_ &main)
                 "Whether the last selection improved current_best.")
         .def_rw("success_ratio",
                 &Stats::success_ratio,
-                "The smoothed rate at which selections improve current_best.\n\n"
+                "The smoothed rate of successful generations.\n\n"
+                "A generation is a success when its best individual is better than the best of "
+                "the run so far (with elitism, the parent); counted once per generation. "
                 "An exponential moving average with weight 1/12, starting at 2/11. Used by the "
                 "success rule step-size adaptation (SR) and by the update of the evolution path "
                 "in the (1+1) configuration (lambda0 = 1).")
@@ -383,6 +385,11 @@ void define_parameters(nb::module_ &main)
         .def_rw("utility",
                 &Weights::utility,
                 "Whether the weights are the NES utilities (`RecombinationWeights.UTILITY`).")
+        .def_rw("pairwise",
+                &Weights::pairwise,
+                "Whether the selection is pairwise (`Mirror.PAIRWISE`): the losers of the mirrored "
+                "pairs (f = +inf, sorted last) then get no negative weights in the active update, "
+                "as in pycma.")
         .def_rw("mueff_neg",
                 &Weights::mueff_neg,
                 "The variance effective selection mass of the negative weights, "

@@ -35,11 +35,18 @@ the same direction; pycma never gives mirrored points negative weights.
 
 ## Elitism
 
-modcma keeps all λ survivors of the previous selection and selects the best λ of the 2λ: (λ+λ)
-selection, which for the positive weights equals (µ+λ). The survivors' steps y = (x − m)/s are
-recomputed in the current distribution, each with the step size it was sampled with (the framework
-paper's Eq. 1–3, with the generation's σ). pycma's `CMA_elitist` is different: it re-injects only
-the best solution so far, when it beats the generation's best, rescaled to a random length.
+(µ+λ) selection, as in the framework paper (Sec. 4.1): the µ parents, the µ best of the previous
+selection, compete with the λ offspring.
+
+* The parents' steps are recomputed in the current distribution, as for a repaired point
+  (the paper's Eq. 1–3): y = (x − m)/σ, with the σ of the generation, and z = A⁻¹y.
+* Integer variables keep their lower bound on the step size.
+
+Before 2.0, modcma kept all λ survivors, a (λ+λ) selection, each with the step size it was sampled
+with.
+
+pycma's `CMA_elitist` is different: it re-injects only the best solution so far, when it beats the
+generation's best, rescaled to a random length.
 
 ## Sequential selection
 
@@ -82,8 +89,9 @@ applies it to z, before A and σ, and decays it with the evaluations [F24].
 
 ## IPOP and BIPOP
 
-* **IPOP** (Auger & Hansen 2005): λ doubles at every restart (µ in the same ratio), up to (d λ₀)²
-  (the framework paper: 2⁹ λ₀); σ and the mean are reset. No budget per run: the restart criteria
+* **IPOP** (Auger & Hansen 2005): λ doubles at every restart (µ in the same ratio), up to 2⁹ λ₀,
+  as in the framework paper (`IPOP.max_lambda_factor`; before 2.0, (d λ₀)²). σ and the mean are
+  reset. No budget per run: the restart criteria
   end a run. The first generation after a restart takes at most the rest of the budget (λ, and µ
   in proportion, are capped; at least 2 points); the hill-valley tests of repelling restarts stop
   when the budget runs short.
@@ -95,8 +103,10 @@ applies it to z, before A and σ, and decays it with the evaluations [F24].
 
 ## Restart criteria and pycma's termination criteria
 
-With `restart_strategy` `RESTART`, `STOP`, `IPOP` or `BIPOP` these criteria end a run (`NONE` uses
-only `UnableToAdapt`). Defaults in brackets.
+With `restart_strategy` `RESTART`, `STOP`, `IPOP` or `BIPOP` these criteria end a run. `NONE` uses
+only `UnableToAdapt`, and still restarts when it fires: a matrix that could not be updated cannot
+be used further. (The framework paper describes `NONE` as continuing; the code restarts.) Defaults
+in brackets.
 
 | modcma | pycma | difference |
 |---|---|---|
