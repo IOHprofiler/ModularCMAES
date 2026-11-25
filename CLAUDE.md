@@ -50,7 +50,16 @@ organized and the habits that keep results reproducible.
 3. **Open decisions:** a methodological choice is not yours to make: a default constant, which
    paper to follow, a change of what a module does. Write it up with a recommendation (an issue
    with the `decision` label, or a question to the maintainer) and wait.
-4. **Check every algorithmic change against its source:** the paper of the module, Hansen's
+4. **Check the docs before the PR is opened.** Go through the documentation and look for
+   anything the change makes wrong or incomplete, and update it in the same PR:
+   * `docs/` (getting started, the guide, the compatibility page, the deep dives, the examples);
+   * `README.md`, `CONTRIBUTING.md`, `CHANGELOG.md`;
+   * the docstrings in `bindings/`, and the generated stubs and option tables.
+
+   Search for the names, constants and behaviours that changed (`grep -rn`), not only the pages
+   you touched. Look for "known issue" notes and F-numbers that the change resolves. The PR
+   description lists the pages that were updated.
+5. **Check every algorithmic change against its source:** the paper of the module, Hansen's
    tutorial (2016), pycma, `cmaes`.
    * Cite the source in a code comment and in the docstring.
    * When the paper and the reference implementation differ, say which one you follow and why.
