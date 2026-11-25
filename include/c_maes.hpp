@@ -14,9 +14,9 @@
  *    tell() takes their objective values. step() and run() are loops over ask() and tell(), so both
  *    ways give the same results.
  *
- * A generation runs through fixed stages (evaluation::Stage), in advance(): a restart when one is
- * due, the population, selection, recombination and adaptation. At each stage the modules may queue
- * points (Parameters::queue); the generation waits for tell() whenever the queue is not empty.
+ * A generation is a sequence of steps, in advance(): a restart when one is due, the population,
+ * selection, then recombination and adaptation. A step may queue points (Parameters::queue); the
+ * next step runs once tell() has given their values.
  * ask() returns everything that is queued: a whole population (with TPA's two points), or, with
  * sequential selection, the individuals up to the first one after which it can stop (with TPA's
  * points), then one (or a mirrored pair) at a time; a restart asks for the final mean, then for the
@@ -97,8 +97,17 @@ struct ModularCMAES
     [[nodiscard]] bool has_pending() const { return !p->queue.empty(); }
 
   private:
-    //! The stage of the generation in progress (none between generations)
-    std::optional<evaluation::Stage> stage;
+    //! The steps of a generation, in order (advance())
+    enum class Step
+    {
+        BEGIN,          //!< a new generation: a restart first, when one is due
+        FINISH_RESTART, //!< the restart's points have their values: reset the modules
+        SAMPLE,         //!< queue the population (and TPA's points)
+        SELECT,         //!< the population has its values: selection
+        UPDATE,         //!< recombination and adaptation; the generation is complete
+    };
+    //! The step that runs once the queue is empty
+    Step next = Step::BEGIN;
     //! The objective values of the queued points in step() and mutate()
     Vector values;
 
@@ -109,8 +118,6 @@ struct ModularCMAES
      * point of the population has its value.
      */
     bool advance(bool stop_before_selection = false);
-    //! Start the population: its first batch, with the extra points of the step-size adaptation
-    void start_population();
     //! The objective values of the queued points
     void evaluate(FunctionType &objective);
     //! select() and adapt() of the 1.x API: not while a generation waits for tell()

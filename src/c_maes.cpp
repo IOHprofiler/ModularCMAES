@@ -37,7 +37,7 @@ void ModularCMAES::adapt() const
 
 void ModularCMAES::require_no_generation(const char *step) const
 {
-    if (stage || !p->queue.empty())
+    if (next != Step::BEGIN || !p->queue.empty())
         throw std::logic_error(std::string(step) +
                                " while a generation started by ask() is in progress: tell() the "
                                "values of its points, or evaluate them with mutate(), first");
@@ -48,7 +48,7 @@ void ModularCMAES::mutate(FunctionType &objective)
     // Up to selection: a new generation, or the one that ask() started. The rest is the user's:
     // select(), recombine() and adapt() act on the state, and the next mutate() or ask() starts a
     // new generation, as in 1.x
-    while (!p->queue.empty() || stage != evaluation::Stage::POPULATION_EVALUATED)
+    while (!p->queue.empty() || next != Step::SELECT)
     {
         if (p->queue.empty())
             advance(true);
@@ -58,7 +58,7 @@ void ModularCMAES::mutate(FunctionType &objective)
             p->queue.answer(*p, values.head(p->queue.size()));
         }
     }
-    stage.reset();
+    next = Step::BEGIN;
 }
 
 bool ModularCMAES::step(FunctionType &objective)
@@ -137,56 +137,54 @@ bool ModularCMAES::tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matri
 
 bool ModularCMAES::advance(const bool stop_before_selection)
 {
-    using evaluation::Stage;
+    // The steps of a generation, in order. A step that queues points returns control: ask() hands
+    // them out, and the next step runs once tell() has given all their values.
     while (p->queue.empty())
     {
-        if (!stage)
+        switch (next)
         {
-            // A new generation. When the restart criteria fired, the final mean of the run that
-            // ends is evaluated first; its value starts the hill-valley tests of the repelling
-            // archive, which queue their points one at a time
+        case Step::BEGIN:
+            // A restart first when the criteria fired: the final mean of the run that ends is
+            // evaluated, and its value starts the hill-valley tests of the repelling archive
             if (p->begin_generation())
             {
-                stage = Stage::RESTART;
                 p->push_restart_center();
+                next = Step::FINISH_RESTART;
             }
             else
-                start_population();
-            continue;
-        }
-        switch (*stage)
-        {
-        case Stage::RESTART:
+                next = Step::SAMPLE;
+            break;
+
+        case Step::FINISH_RESTART:
+            // Every point of the restart has its value: the modules are reset for the new run
             p->finish_restart();
-            start_population();
+            next = Step::SAMPLE;
             break;
-        case Stage::POPULATION:
+
+        case Step::SAMPLE:
+            // The population's first batch (each batch queues the next), with the extra points
+            // of the step-size adaptation (TPA's), which do not depend on the population's values
+            p->mutation->begin_population(p->lambda, *p);
+            p->mutation->push_extra_points(*p);
+            next = Step::SELECT;
+            break;
+
+        case Step::SELECT:
             // Every point of the population has its value
-            stage = Stage::POPULATION_EVALUATED;
-            break;
-        case Stage::POPULATION_EVALUATED:
             if (stop_before_selection)
                 return false;
             p->selection->select(*p);
-            stage = Stage::SELECTED;
+            next = Step::UPDATE;
             break;
-        case Stage::SELECTED:
+
+        case Step::UPDATE:
             recombine();
             p->adapt();
-            stage.reset();
+            next = Step::BEGIN;
             return true;
         }
     }
     return false;
-}
-
-void ModularCMAES::start_population()
-{
-    // The first batch of the population, and the extra points of the step-size adaptation (TPA's),
-    // which do not depend on the population's values; each batch queues the next
-    stage = evaluation::Stage::POPULATION;
-    p->mutation->begin_population(p->lambda, *p);
-    p->mutation->push_extra_points(*p);
 }
 
 void ModularCMAES::evaluate(FunctionType &objective)
