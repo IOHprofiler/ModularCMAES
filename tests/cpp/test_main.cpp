@@ -4,6 +4,9 @@
 #include <cmath>
 #include <cstdio>
 #include <limits>
+#include <numeric>
+#include <random>
+#include <string>
 #include <stdexcept>
 #include <vector>
 
@@ -63,138 +66,6 @@ static void test_uniform_values_unchanged()
         const double old_value = static_cast<double>(g - reference.min()) / reference.max() - reference.min();
         CHECK(uniform(gen) == old_value);
     }
-}
-
-// WP3: ask/tell with an objective evaluated by the caller gives the trajectory of the classic loop
-// (mutate, select, recombine, adapt with the objective), bit for bit
-static Float rastrigin(Eigen::Ref<const Vector> x)
-{
-    return 10.0 * static_cast<Float>(x.size()) +
-           (x.array().square() - 10.0 * (2.0 * M_PI * x.array()).cos()).sum();
-}
-
-static parameters::Settings ask_tell_settings(const int config)
-{
-    parameters::Modules m;
-    size_t mu = 0, lambda = 0;
-    switch (config)
-    {
-    case 0: // sequential selection, stopped after complete pairs; TPA after a stopped population
-        m.sequential_selection = true;
-        m.mirrored = parameters::Mirror::PAIRWISE;
-        m.ssa = parameters::StepSizeAdaptation::TPA;
-        mu = 2;
-        lambda = 10;
-        break;
-    case 1: // restarts with hill-valley tests of the repelling archive
-        m.restart_strategy = parameters::RestartStrategyType::IPOP;
-        m.repelling_type = parameters::RepellingType::COVERAGE;
-        break;
-    default: // elitism, threshold convergence, bounds
-        m.elitist = true;
-        m.threshold_convergence = true;
-        m.bound_correction = parameters::CorrectionMethod::SATURATE;
-        break;
-    }
-    parameters::Settings s(5,
-                           m,
-                           std::nullopt,
-                           std::nullopt,
-                           size_t{6000},
-                           2.0,
-                           mu ? std::optional<size_t>(mu) : std::nullopt,
-                           mu ? std::optional<size_t>(lambda) : std::nullopt);
-    s.verbose = false;
-    return s;
-}
-
-static void test_ask_tell_matches_classic_loop()
-{
-    for (int config = 0; config < 3; config++)
-    {
-        rng::set_seed(7);
-        ModularCMAES classic(ask_tell_settings(config));
-        FunctionType f = rastrigin;
-        std::vector<Vector> trajectory;
-        for (bool running = true; running;)
-        {
-            classic.mutate(f);
-            classic.select();
-            classic.recombine();
-            classic.adapt();
-            running = !classic.break_conditions();
-            trajectory.push_back(classic.p->adaptation->m);
-            trajectory.back().conservativeResize(trajectory.back().size() + 2);
-            trajectory.back().tail(2) << classic.p->mutation->sigma,
-                static_cast<Float>(classic.p->stats.evaluations);
-        }
-
-        rng::set_seed(7);
-        ModularCMAES ask_tell(ask_tell_settings(config));
-        size_t generation = 0;
-        bool same = true;
-        for (bool running = true; running; generation++)
-        {
-            bool complete = false;
-            while (!complete)
-            {
-                const Matrix X = ask_tell.ask();
-                Vector values(X.cols());
-                for (Eigen::Index j = 0; j < X.cols(); j++)
-                    values(j) = rastrigin(X.col(j));
-                complete = ask_tell.tell(values);
-            }
-            running = !ask_tell.break_conditions();
-            if (generation >= trajectory.size())
-            {
-                same = false;
-                break;
-            }
-            const Vector &expected = trajectory[generation];
-            const auto d = ask_tell.p->adaptation->m.size();
-            same = same && expected.head(d) == ask_tell.p->adaptation->m &&
-                   expected(d) == ask_tell.p->mutation->sigma &&
-                   expected(d + 1) == static_cast<Float>(ask_tell.p->stats.evaluations);
-        }
-        CHECK(same);
-        CHECK(generation == trajectory.size());
-    }
-    // config 1 restarts: the test above covers the restart phases only if it does
-    rng::set_seed(7);
-    ModularCMAES cma(ask_tell_settings(1));
-    FunctionType f = rastrigin;
-    cma(f);
-    CHECK(cma.p->stats.centers.size() >= 1);
-}
-
-static void test_tell_errors()
-{
-    ModularCMAES cma(parameters::Settings(3));
-    bool raised = false;
-    try
-    {
-        cma.tell(Vector::Zero(1));
-    }
-    catch (const std::logic_error &)
-    {
-        raised = true;
-    }
-    CHECK(raised);
-
-    const auto k = cma.ask().cols();
-    raised = false;
-    try
-    {
-        cma.tell(Vector::Zero(k + 1));
-    }
-    catch (const std::invalid_argument &)
-    {
-        raised = true;
-    }
-    CHECK(raised);
-    CHECK(cma.has_pending());
-    CHECK(cma.tell(Vector::Ones(k)));
-    CHECK(!cma.has_pending());
 }
 
 // B10: the running medians of SplitMedian equal those of a sort, for every split
@@ -309,7 +180,7 @@ static void test_natural_gradient_low_rank_update()
     // the low-rank path: lambda < d and d >= 16 (below, the update is the dense matrix exponential)
     for (const auto [d, n] : {std::pair{16, 5}, std::pair{40, 12}, std::pair{64, 30}})
     {
-        matrix_adaptation::NaturalGradientAdaptation a(d, Vector::Zero(d), std::sqrt(d), 1.0);
+        matrix_adaptation::NaturalGradientAdaptation a(d, Vector::Zero(d));
         CHECK(!a.dense_update(n));
         for (auto &x : a.A.reshaped())
             x = 0.3 * normal(gen);
@@ -328,7 +199,7 @@ static void test_natural_gradient_low_rank_update()
         Population pop(d, n);
         parameters::Settings settings(d);
         parameters::Stats stats;
-        CHECK(a.adapt_matrix_inner(w, settings.modules, pop, n / 2, settings, stats));
+        CHECK(a.adapt_matrix_inner(w, pop, n / 2, settings, stats));
         CHECK((a.A - expected).norm() < 1e-10 * expected.norm());
     }
 }
@@ -359,12 +230,112 @@ static void test_functions()
     CHECK(functions::to_string(functions::RASTRIGIN) == "rastrigin");
 }
 
+// #84: the values of a batch go, in queue order, to the module in place when they arrive (also one
+// that replaced the module that queued the points); the population continues where it was
+static void test_evaluation_queue()
+{
+    parameters::Modules m;
+    m.ssa = parameters::StepSizeAdaptation::TPA;
+    m.sequential_selection = true;
+    parameters::Settings settings(2, m);
+    settings.verbose = false;
+    settings.seed = 5;
+    ModularCMAES es(settings);
+
+    // The population's first batch (individuals 0..first_stop(0)), then TPA's two points
+    const Matrix X = es.ask();
+    const Eigen::Index first = X.cols() - 2;
+    CHECK(first >= 1 && first < static_cast<Eigen::Index>(es.p->lambda));
+
+    // A new TPA replaces the one that queued the points: it receives their values
+    es.p->mutation = mutation::get(es.p->settings.modules, 2.0, 2.0, es.p->generator);
+    Vector f = Vector::Constant(X.cols(), 1.0);
+    f(first) = 0.5; // the point ahead is better: TPA's signal is a success
+    CHECK(!es.tell(f));
+    const auto tpa = std::dynamic_pointer_cast<mutation::TPA>(es.p->mutation);
+    CHECK(tpa && tpa->rank_tpa == tpa->a_tpa + tpa->b_tpa);
+    CHECK(es.p->stats.evaluations == static_cast<size_t>(first) + 2);
+
+    // The population was not stopped (the first generation has no reference): the rest of it,
+    // batch by batch, and the population continues where it was
+    for (bool done = false; !done;)
+        done = es.tell(Vector::Constant(es.ask().cols(), 1.0));
+    CHECK(es.p->stats.evaluations == es.p->lambda + 2);
+}
+
+// (c) A restart that starts now fits the budget when its next point leaves room for the smallest
+// first generation of the next run and the points every generation reserves (TPA's two)
+static void test_reserved_points()
+{
+    parameters::Modules m;
+    m.ssa = parameters::StepSizeAdaptation::TPA;
+    parameters::Settings settings(2, m, std::nullopt, std::nullopt, size_t{100});
+    settings.verbose = false;
+    parameters::Parameters p(settings);
+    CHECK(p.reserved_points() == 2);
+    const size_t room = parameters::Parameters::min_lambda_after_restart + 2;
+    p.stats.evaluations = 100 - room - 1;
+    CHECK(p.restart_fits());
+    p.stats.evaluations = 100 - room;
+    CHECK(!p.restart_fits());
+}
+
+// (c) The hill-valley tests of repelling (a variable number of points, at a restart) leave the
+// first generation of the next run, with TPA's two points, inside the budget: for every budget,
+// run() stays within it, and ask-tell gives the same run
+static void test_budget_with_restarts()
+{
+    // Flat: the restart criteria fire often, and every hill-valley test has all its 10 points, so a
+    // chain that stops after another number was cut short by the budget
+    FunctionType f = [](Eigen::Ref<const Vector>) { return 1.0; };
+    size_t cut_short = 0;
+    for (size_t budget = 60; budget <= 600; budget += 3)
+    {
+        parameters::Modules m;
+        m.ssa = parameters::StepSizeAdaptation::TPA;
+        m.restart_strategy = parameters::RestartStrategyType::IPOP;
+        m.repelling_type = parameters::RepellingType::COVERAGE;
+        parameters::Settings settings(2, m, std::nullopt, std::nullopt, budget, 2.0);
+        settings.verbose = false;
+        settings.seed = 4;
+
+        ModularCMAES a(settings);
+        a(f);
+        CHECK(a.p->stats.evaluations <= budget);
+
+        ModularCMAES b(settings);
+        size_t chain = 0;
+        bool previous_single = false;
+        while (!b.break_conditions())
+            for (bool done = false; !done;)
+            {
+                const Matrix X = b.ask();
+                // A restart asks for the final mean (one point); single points right after it are
+                // the hill-valley points (the populations here have at least 4)
+                const bool single = X.cols() == 1;
+                if (single && previous_single)
+                    chain++;
+                else if (chain != 0)
+                {
+                    cut_short += chain % 10 != 0;
+                    chain = 0;
+                }
+                previous_single = single;
+                done = b.tell(Vector::Ones(X.cols()));
+            }
+        CHECK(a.p->stats.evaluations == b.p->stats.evaluations);
+        CHECK(a.p->adaptation->m == b.p->adaptation->m);
+    }
+    CHECK(cut_short > 0); // the budget did cut tests short
+}
+
 int main()
 {
     test_uniform_is_open_interval();
     test_uniform_values_unchanged();
-    test_ask_tell_matches_classic_loop();
-    test_tell_errors();
+    test_evaluation_queue();
+    test_reserved_points();
+    test_budget_with_restarts();
     test_split_median();
     test_lapack_eigen();
     test_natural_gradient_low_rank_update();

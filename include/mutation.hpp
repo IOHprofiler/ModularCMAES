@@ -10,16 +10,11 @@ namespace parameters
 struct Stats;
 struct Parameters;
 struct Weights;
-struct Strategy;
 struct Modules;
 } // namespace parameters
 namespace matrix_adaptation
 {
 struct Adaptation;
-}
-namespace bounds
-{
-struct BoundCorrection;
 }
 
 namespace mutation
@@ -146,19 +141,31 @@ struct Strategy
 
     virtual ~Strategy() = default;
 
-    //! Sample and evaluate a population of n_offspring with an objective function: a loop over
-    //! the resumable steps below
-    void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p);
-
     /*
-     * The same, resumable (ask-tell). begin_population, then sample() and evaluated() for every
-     * individual, end_population, and the extra points of the step-size adaptation (TPA).
-     * A sample does not depend on the objective values of the ones before it, so individuals
-     * i..first_stop(i) can be sampled before they are evaluated.
+     * The population, in batches (ModularCMAES::advance queues them and keeps track of the next
+     * individual). begin_population starts it; sample_batch_from samples the individuals from i up
+     * to the first after which sequential selection can stop; tell_batch passes their values to
+     * evaluated(), and ends the population when it is complete (pop.n is then the number of
+     * evaluated individuals). A sample does not depend on the objective values of the ones before
+     * it, so a batch is sampled before it is evaluated.
      */
 
     //! Start a population of n_offspring (pop.n): sigmas, bound and repelling state
     void begin_population(const size_t n_offspring, parameters::Parameters &p);
+
+    //! Sample the batch of individuals i..first_stop(i); returns its size
+    Eigen::Index sample_batch_from(const Eigen::Index i, parameters::Parameters &p);
+
+    /**
+     * The values f of the batch that starts at individual i, evaluated at the points X (given: by
+     * tell(f, X), where a point that differs from the asked one replaces it); ends the population
+     * when it is complete
+     */
+    void tell_batch(const Eigen::Index i,
+                    Eigen::Ref<const Vector> f,
+                    Eigen::Ref<const Matrix> X,
+                    const bool given,
+                    parameters::Parameters &p);
 
     /**
      * Sample individuals begin..begin+k-1. Their y are one matrix product, Y = A Z; an individual
@@ -177,7 +184,8 @@ struct Strategy
     //! After the last individual
     void end_population(parameters::Parameters &p);
 
-    //! The number of points the step-size adaptation evaluates after the population
+    //! The number of points the step-size adaptation evaluates with every population, fixed per
+    //! configuration (the budget reserves them: Parameters::reserved_points)
     [[nodiscard]] virtual size_t n_extra_points() const { return 0; }
 
     //! Those points, as columns of out (in objective space)
@@ -194,8 +202,7 @@ struct Strategy
                        std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                        Population &pop,
                        const Population &old_pop,
-                       const parameters::Stats &stats,
-                       const size_t lambda) {};
+                       const parameters::Stats &stats) {};
 
   protected:
     //! Called by end_population
@@ -217,8 +224,7 @@ struct CSA : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct TPA : Strategy
@@ -240,8 +246,7 @@ struct TPA : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct MSR : Strategy
@@ -256,8 +261,7 @@ struct MSR : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct PSR : Strategy
@@ -275,8 +279,7 @@ struct PSR : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct XNES : Strategy
@@ -287,8 +290,7 @@ struct XNES : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct MXNES : Strategy
@@ -299,8 +301,7 @@ struct MXNES : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct LPXNES : Strategy
@@ -311,8 +312,7 @@ struct LPXNES : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct SR : Strategy
@@ -325,8 +325,7 @@ struct SR : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct SA : Strategy
@@ -337,8 +336,7 @@ struct SA : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 
   protected:
     void on_population_complete(parameters::Parameters &p) override;

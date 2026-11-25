@@ -4,11 +4,9 @@ Mutation: the sampling of a population and the step-size adaptation.
 The optimizer holds a `Strategy` subclass as `es.p.mutation`, selected by `Modules.ssa` (`options.StepSizeAdaptation`) and created anew at every restart. It holds the threshold convergence (`Modules.threshold_convergence`), the sequential selection (`Modules.sequential_selection`) and the sampler of the step sizes (`Modules.sample_sigma`). The step-size adaptations are described in de Nobel et al. (2021).
 """
 
-from collections.abc import Callable
 from typing import Annotated, overload
 
 import numpy
-import numpy.typing
 from numpy.typing import NDArray
 
 import modcma.c_maes.cmaescpp
@@ -172,7 +170,7 @@ class SigmaSampler:
 
     def apply_integer_bounds(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
         """
-        Raise the step sizes of the integer variables to their lower bound int_lb_sigma / sqrt(C_ii) (`es.p.weights.int_lb_sigma`, C_ii from `adaptation.coordinate_wise_variances`).
+        Raise the step sizes of the integer variables to their lower bound min(0.2, mueff / d) / sqrt(C_ii) (C_ii from `adaptation.coordinate_wise_variances`).
 
         Parameters
         ----------
@@ -209,9 +207,9 @@ class NoSigmaSampler(SigmaSampler):
 
 class Strategy:
     """
-    Base class of the step-size adaptations; also samples and evaluates a population.
+    Base class of the step-size adaptations; also samples the population.
 
-    `mutate` samples and evaluates a population, `adapt` updates sigma after selection. The base class does not change sigma. The optimizer creates the subclass of `Modules.ssa`; each subclass has the same constructor.
+    The optimizer samples a population through it, in batches, passes it the objective values, and `adapt` updates sigma after selection. The base class does not change sigma. The optimizer creates the subclass of `Modules.ssa`; each subclass has the same constructor.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -230,7 +228,7 @@ class Strategy:
             The initial step size.
         """
 
-    def adapt(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, dynamic: modcma.c_maes.cmaescpp.matrix_adaptation.Adaptation, population: modcma.c_maes.cmaescpp.Population, old_population: modcma.c_maes.cmaescpp.Population, stats: modcma.c_maes.cmaescpp.parameters.Stats, lamb: int) -> None:
+    def adapt(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, dynamic: modcma.c_maes.cmaescpp.matrix_adaptation.Adaptation, population: modcma.c_maes.cmaescpp.Population, old_population: modcma.c_maes.cmaescpp.Population, stats: modcma.c_maes.cmaescpp.parameters.Stats) -> None:
         """
         Update the step size sigma after selection.
 
@@ -246,24 +244,6 @@ class Strategy:
             The population of the previous generation.
         stats : Stats
             The statistics of the run.
-        lamb : int
-            The population size lambda.
-        """
-
-    def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], n_offspring: int, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
-        """
-        Sample and evaluate a population.
-
-        Per individual: z from the sampler (lengthened by threshold convergence), y = A z, x = m + sigma_i y and bound correction; with RESAMPLE or repelling a rejected individual is sampled again. Sequential selection can stop the population early. With TPA the two extra points are evaluated afterwards.
-
-        Parameters
-        ----------
-        objective : Callable[[numpy.ndarray], float]
-            The objective function.
-        n_offspring : int
-            The number of individuals.
-        parameters : Parameters
-            The state of the optimizer (`es.p`); `pop` is written.
         """
 
     @property
@@ -340,7 +320,7 @@ class TPA(Strategy):
     """
     Two-point step-size adaptation (`StepSizeAdaptation.TPA`).
 
-    After each population the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma.
+    With every population (in its first batch) the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:

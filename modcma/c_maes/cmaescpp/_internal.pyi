@@ -174,7 +174,7 @@ class CachedShuffleSequence:
         """
 
     def get_index(self, index: int) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
-        """A copy of point index of the cache (index < n; not checked)."""
+        """A copy of point index of the cache (index < n, otherwise IndexError)."""
 
     def next(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """The next point in the random order."""

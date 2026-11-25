@@ -1,4 +1,4 @@
-"""Module containing tests for ModularCMA-ES C++ Bounds."""
+"""Tests of the step-size adaptations (mutation) of the C++ ModularCMA-ES."""
 
 import unittest
 import numpy as np
@@ -63,7 +63,6 @@ class TestMutation(unittest.TestCase):
                 cma.p.stats,
                 cma.p.settings,
                 cma.p.mu,
-                cma.p.lamb,
             )
             cma.p.mutation.adapt(
                 cma.p.weights,
@@ -71,7 +70,6 @@ class TestMutation(unittest.TestCase):
                 cma.p.pop,
                 cma.p.old_pop,
                 cma.p.stats,
-                cma.p.lamb,
             )
         return cma
 
@@ -110,14 +108,18 @@ class TestMutation(unittest.TestCase):
         tpa = es.p.mutation
         self.assertEqual(tpa.rank_tpa, tpa.a_tpa + tpa.b_tpa)
 
-    def test_adapt_msr(self):
-        cma = self.get_cma(options.StepSizeAdaptation.MSR)
+    def test_msr_psr_mxnes_grow_sigma_on_a_linear_function(self):
+        # MSR and PSR compare with the previous generation, so they adapt from the second one; on
+        # a linear function every step-size rule should increase sigma
+        from modcma import c_maes
 
-    def test_adapt_psr(self):
-        cma = self.get_cma(options.StepSizeAdaptation.PSR)
-
-    def test_adapt_mxnes(self):
-        cma = self.get_cma(options.StepSizeAdaptation.MXNES)
+        for ssa in ("MSR", "PSR", "MXNES"):
+            with self.subTest(ssa=ssa):
+                settings = c_maes.settings_from_dict(5, ssa=ssa, seed=1, verbose=False)
+                es = c_maes.ModularCMAES(settings)
+                for _ in range(10):
+                    es.step(lambda x: float(x[0]))
+                self.assertGreater(es.p.mutation.sigma, 2 * es.p.settings.sigma0)
 
     def test_adapt_xnes(self):
         cma = self.get_cma(options.StepSizeAdaptation.XNES)

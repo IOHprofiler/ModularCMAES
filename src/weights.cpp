@@ -1,11 +1,8 @@
 #include "weights.hpp"
 
 #include <Eigen/Dense>
-#include <cassert>
 #include <cmath>
-#include <iostream>
 
-using Eigen::VectorXd;
 using std::log;
 using std::max;
 using std::min;

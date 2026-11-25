@@ -4,11 +4,10 @@ Repelling restarts: an archive of the optima of earlier runs (taboo points), and
 The optimizer holds one as `es.p.repelling`, selected by `Modules.repelling_type` (`options.RepellingType`); `Modules.repelling_metric` (`options.RepellingMetric`) sets the distance. Helps restarts find new basins of attraction on multimodal functions. de Nobel et al. (2024).
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from typing import Annotated, overload
 
 import numpy
-import numpy.typing
 from numpy.typing import NDArray
 
 import modcma.c_maes.cmaescpp
@@ -94,26 +93,6 @@ class TabooPoint:
             The state of the optimizer.
         attempts : int
             The number of samples rejected so far in this population; every rejection shrinks the radius.
-
-        Returns
-        -------
-        bool
-        """
-
-    def shares_basin(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], xi: modcma.c_maes.cmaescpp.parameters.Solution, p: modcma.c_maes.cmaescpp.Parameters) -> bool:
-        """
-        Whether a solution lies in the basin of this point, by a hill-valley test.
-
-        The objective is evaluated at 10 points evenly spaced on the line between the two; they share the basin when none of them is worse than the worse of the two solutions. The evaluations are counted in `p.stats` (and can update its best solution).
-
-        Parameters
-        ----------
-        objective : Callable[[numpy.ndarray], float]
-            The objective function.
-        xi : Solution
-            The solution to test (x and its objective value y).
-        p : Parameters
-            The state of the optimizer.
 
         Returns
         -------
@@ -218,7 +197,7 @@ class TabooPoint:
     @property
     def last_rejection_rate(self) -> float:
         """
-        `AdaptiveRepelling`: rejected_count / checked_count of the last population.
+        `AdaptiveRepelling`: rejected_count / checked_count of the last population; 0 when the point was checked fewer than `min_checks_before_local_shrink` times.
         """
 
     @last_rejection_rate.setter
@@ -231,7 +210,7 @@ class Repelling:
     """
     Base class of the repelling restarts: the archive of taboo points and the rejection of samples.
 
-    Before each population the archive is sorted by criticality (`prepare_sampling`); each sample is tested against the points with criticality >= 0.01 (`is_rejected`) and sampled again when one rejects it. After a restart, the better of the last mean and the best solution of the run is compared with the archive by hill-valley tests (`update_archive`); the subclasses add it as a new taboo point or update the point whose basin it shares. The base class does not add points.
+    Before each population the archive is sorted by criticality (`prepare_sampling`); each sample is tested against the points with criticality >= 0.01 (`is_rejected`) and sampled again when one rejects it. After a restart, the better of the last mean and the best solution of the run is compared with the archive by hill-valley tests (the optimizer evaluates their points, one at a time); the subclasses add it as a new taboo point or update the point whose basin it shares. The base class does not add points.
     """
 
     def __init__(self) -> None:
@@ -253,23 +232,9 @@ class Repelling:
         bool
         """
 
-    def update_archive(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], p: modcma.c_maes.cmaescpp.Parameters) -> None:
-        """
-        Update the archive after a restart, evaluating the hill-valley tests with objective.
-
-        The candidate is the better of the last mean and the last best solution in `p.stats`; it is tested against every taboo point (10 evaluations per point, counted in `p.stats.evaluations`). The optimizer runs the same update through its ask-tell interface.
-
-        Parameters
-        ----------
-        objective : Callable[[numpy.ndarray], float]
-            The objective function.
-        p : Parameters
-            The state of the optimizer.
-        """
-
     def prepare_sampling(self, p: modcma.c_maes.cmaescpp.Parameters) -> None:
         """
-        Before a population: reset `attempts` and sort the archive by criticality (`AdaptiveRepelling` adapts the radii first).
+        Before a population: reset `attempts` and sort the archive by criticality.
 
         Parameters
         ----------
@@ -560,25 +525,4 @@ def archived_metric(p: modcma.c_maes.cmaescpp.Parameters) -> Annotated[NDArray[n
     Returns
     -------
     numpy.ndarray
-    """
-
-def hill_valley_test(u: modcma.c_maes.cmaescpp.parameters.Solution, v: modcma.c_maes.cmaescpp.parameters.Solution, f: Callable[[numpy.typing.NDArray[numpy.float64]], float], n_evals: int) -> bool:
-    """
-    Whether two solutions lie in the same basin of attraction (hill-valley test).
-
-    f is evaluated at n_evals points evenly spaced on the line between u.x and v.x; the two share a basin when none of them is worse than max(u.y, v.y). Stops at the first worse point. Maree et al. (2018).
-
-    Parameters
-    ----------
-    u, v : Solution
-        The two solutions (x and their objective values y).
-    f : Callable[[numpy.ndarray], float]
-        The objective function.
-    n_evals : int
-        The number of points on the line.
-
-    Returns
-    -------
-    bool
-        True when no point between them is worse (one basin).
     """

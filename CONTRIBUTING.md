@@ -73,9 +73,37 @@ ctest --test-dir build --output-on-failure
 * **A new module is off by default**, and leaves the results of every existing configuration
   unchanged.
 * **Signatures take mu before lambda**, in C++ and in Python.
-* **The Python API stays source-compatible.** A name that is renamed or removed keeps a deprecated
-  alias, or raises an error that says what to use instead. The change gets a line in the
-  changelog.
+* **The user-facing Python API stays source-compatible** (`Settings`, `ModularCMAES`, `fmin`, the
+  options of `Modules`, the top-level names). A name that is renamed or removed keeps a deprecated
+  alias, or raises an error that says what to use instead. The internals (the methods and helpers
+  of the module objects) may change without deprecation; `tests/api_dump.py` records each change
+  with the reason "internal". Every change gets a line in the changelog.
+
+## A module that evaluates the objective
+
+No module calls the objective, and no module queues points itself. `ModularCMAES`
+(`include/c_maes.hpp`, `src/c_maes.cpp`) holds the whole flow: `advance()` runs the steps of a
+generation in order (`BEGIN`, `RESTART`, `SAMPLE`, `POPULATION`, `SELECT`, `UPDATE`) and is the
+only place that queues points; `answer()` counts every evaluation and passes each request's values
+to `dispatch()`, a `switch` over the request's source that calls the module. Adding a module that
+evaluates takes three changes, two of them in `ModularCMAES`:
+
+* **A source:** a value of `Source`, and its `case` in `dispatch()`, which passes the values (`f`,
+  the points `X`, and whether `tell(f, X)` gave them) to the module through `p`.
+* **A call at its step** in `advance()`, which asks the module for its points and queues them
+  (`queue(X, source)`). A module whose next point depends on the previous value answers
+  "do I need another point, and which?" (as repelling's `has_query()` and `query_point()`); its
+  step then runs again until the module is done, as `RESTART` does for the hill-valley tests and
+  `POPULATION` for the batches of sequential selection. A module that needs the objective at a new
+  moment of the generation adds a step.
+* **The budget:** a fixed number of points per generation, the same in every generation of a
+  configuration, goes into `Parameters::reserved_points()`, which the budget checks reserve. A
+  module with a variable number of points stops asking when the next one would not leave room for
+  the rest of the generation: the hill-valley tests of repelling check `Parameters::restart_fits()`
+  before each point.
+
+**Random numbers** are drawn when the module computes its points, never later. Ask–tell then stays
+identical to `run()`.
 
 ## Planned work
 

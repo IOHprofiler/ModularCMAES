@@ -6,8 +6,9 @@ implementation, and makes it the top-level package.
 
 ## From the C++ version (`modcma.c_maes`)
 
-The API of `modcma.c_maes` is the same (it is checked against a dump of the 1.x API), and the same
-names are now also available as `modcma.ModularCMAES`, `modcma.Settings`, ... What is new is
+The user-facing API of `modcma.c_maes` (`Settings`, `ModularCMAES`, `fmin`, the options of
+`Modules`, the top-level functions) is the same (it is checked against a dump of the 1.x API), and
+the same names are now also available as `modcma.ModularCMAES`, `modcma.Settings`, ... What is new is
 additive: [ask–tell](getting-started/ask-tell.md), vectorized objectives, `Settings(seed=...)`,
 `fast_sampling`, LAPACK in high dimension; see the [changelog](changelog.md).
 
@@ -19,14 +20,20 @@ The exceptions are `c_maes.utils` and a few misspelled names:
 | `utils.cdf`, `utils.ppf` | `scipy.stats.norm.cdf`, `scipy.stats.norm.ppf` |
 | `utils.random_uniform`, `utils.random_normal` | removed: the global generator only seeds new optimizers |
 | `utils.i8_sobol`, `utils.Shuffler`, `utils.CachedShuffleSequence`, `sampling.Sobol.cache` | removed: internals of the Sobol sampler (`scipy.stats.qmc.Sobol` for Sobol points) |
-
 | `selection.Elitsm`, `selection.NoElitsm`, `Strategy.elitsm` | `selection.Elitism`, `selection.NoElitism`, `Strategy.elitism` (the old names still work, with a `DeprecationWarning`) |
 | `repelling.euclidian`, `repelling.mahanolobis` | `repelling.euclidean`, `repelling.mahalanobis` (likewise) |
 | `Adaptation.adapt_evolution_paths_innner` | `Adaptation.adapt_evolution_paths_inner` (likewise) |
 | `SequentialSelection(mirror, seq_cuttoff_factor=...)` | `seq_cutoff_factor=` (likewise) |
 | `AdaptiveRepelling.target_rejection_rate`, `local_target_rejection_rate` | deprecated: they never had an effect |
 
-A removed name raises an `AttributeError` that says what to use instead.
+A removed name raises an `AttributeError` that says what to use instead. (Imported with
+`from ... import name`, Python reports only that the name cannot be imported.)
+
+The internals, the methods and helpers of the module objects (samplers, step-size and matrix
+adaptations, selection, repelling, `Parameters`), changed without deprecation where 2.0 changed how
+they work; the [changelog](changelog.md) lists them. For example, `Parameters.perform_restart` is
+gone: to force a restart, append a restart criterion that is met to `es.p.criteria.items`, and the
+next generation starts with the restart.
 
 Results are not bit-identical to 1.x: the linear algebra is batched, high dimensions use LAPACK,
 and several bugs were fixed that changed results (integer variables, the active update, restart

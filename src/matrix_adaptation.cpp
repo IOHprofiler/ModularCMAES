@@ -69,7 +69,6 @@ static Eigen::Index count_non_negative(const Vector &w)
 }
 
 static void one_plus_one_path_update(Vector &path,
-                                     const Population &pop,
                                      const parameters::Stats &stats,
                                      const Float c,
                                      const Float sqrt_c_mueff,
@@ -88,8 +87,7 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
                                        const Weights &w,
                                        const Stats &stats,
                                        const parameters::Settings &settings,
-                                       const size_t mu,
-                                       const size_t lambda)
+                                       const size_t mu)
 {
     const auto sigma = pop.S.leftCols(pop.n).mean();
     dm = (m - m_old) / sigma;
@@ -101,7 +99,7 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
     }
     else
         dz.noalias() = pop.Z.leftCols(mu) * w.positive.head(mu);
-    adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);
+    adapt_evolution_paths_inner(pop, w, stats, settings);
 }
 
 void Adaptation::adapt_ps(const parameters::Weights &w)
@@ -112,9 +110,7 @@ void Adaptation::adapt_ps(const parameters::Weights &w)
 void None::adapt_evolution_paths_inner(const Population &pop,
                                        const Weights &w,
                                        const Stats &stats,
-                                       const parameters::Settings &settings,
-                                       const size_t mu,
-                                       const size_t lambda)
+                                       const parameters::Settings &settings)
 {
     if (!settings.one_plus_one)
         adapt_ps(w);
@@ -141,13 +137,11 @@ void CovarianceAdaptation::adapt_ps(const Weights &w)
 void CovarianceAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                        const Weights &w,
                                                        const Stats &stats,
-                                                       const parameters::Settings &settings,
-                                                       const size_t mu,
-                                                       const size_t lambda)
+                                                       const parameters::Settings &settings)
 {
     if (settings.one_plus_one)
     {
-        one_plus_one_path_update(pc, pop, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
+        one_plus_one_path_update(pc, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
         return;
     }
 
@@ -258,7 +252,6 @@ bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
 }
 
 bool CovarianceAdaptation::adapt_matrix_inner(const Weights &w,
-                                              const Modules &m,
                                               const Population &pop,
                                               const size_t mu,
                                               const Settings &settings,
@@ -266,7 +259,7 @@ bool CovarianceAdaptation::adapt_matrix_inner(const Weights &w,
 {
     // C is updated every generation; only its decomposition is done every lazy_update_interval
     // generations (Hansen 2016, as pycma), which keeps the O(d^3) cost off most generations
-    adapt_covariance_matrix(w, m, pop, mu);
+    adapt_covariance_matrix(w, settings.modules, pop, mu);
     if (static_cast<Float>(stats.t) >=
         static_cast<Float>(stats.last_update) + w.lazy_update_interval)
     {
@@ -283,9 +276,9 @@ bool CovarianceAdaptation::adapt_matrix_inner(const Weights &w,
     return true;
 }
 
-void CovarianceAdaptation::restart(const Settings &settings, const Float sigma)
+void CovarianceAdaptation::restart(const Settings &settings)
 {
-    Adaptation::restart(settings, sigma);
+    Adaptation::restart(settings);
     B = Matrix::Identity(settings.dim, settings.dim);
     C = Matrix::Identity(settings.dim, settings.dim);
     A = Matrix::Identity(settings.dim, settings.dim);
@@ -312,13 +305,11 @@ void CovarianceAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<
 void SeparableAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                       const parameters::Weights &w,
                                                       const parameters::Stats &stats,
-                                                      const parameters::Settings &settings,
-                                                      size_t mu,
-                                                      size_t lambda)
+                                                      const parameters::Settings &settings)
 {
     if (settings.one_plus_one)
     {
-        one_plus_one_path_update(pc, pop, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
+        one_plus_one_path_update(pc, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
         return;
     }
 
@@ -332,7 +323,6 @@ void SeparableAdaptation::adapt_evolution_paths_inner(const Population &pop,
 }
 
 bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
-                                             const parameters::Modules &m,
                                              const Population &pop,
                                              size_t mu,
                                              const parameters::Settings &settings,
@@ -344,12 +334,12 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 
     const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
 
-    if (m.active)
+    if (settings.modules.active)
         w.for_population_into(pop.n, weights_scratch, pop.n_finite());
     else
         weights_scratch = w.positive;
     const Vector &weights = weights_scratch;
-    const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
+    const auto popY = pop.Y.leftCols(settings.modules.active ? pop.n : mu);
     const auto decay_c = (1 + (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
 
     for (size_t j = 0; j < settings.dim; j++)
@@ -364,9 +354,9 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     return true;
 }
 
-void SeparableAdaptation::restart(const parameters::Settings &settings, const Float sigma)
+void SeparableAdaptation::restart(const parameters::Settings &settings)
 {
-    Adaptation::restart(settings, sigma);
+    Adaptation::restart(settings);
     c.setOnes();
     d.setOnes();
     pc.setZero();
@@ -390,9 +380,7 @@ void SeparableAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<V
 void MatrixAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                    const Weights &w,
                                                    const Stats &stats,
-                                                   const parameters::Settings &settings,
-                                                   const size_t mu,
-                                                   const size_t lambda)
+                                                   const parameters::Settings &settings)
 {
     if (settings.one_plus_one && !stats.has_improved)
         return;
@@ -400,7 +388,6 @@ void MatrixAdaptation::adapt_evolution_paths_inner(const Population &pop,
 }
 
 bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
-                                          const Modules &m,
                                           const Population &pop,
                                           const size_t mu,
                                           const Settings &settings,
@@ -410,13 +397,13 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     stats.last_update = stats.t;
     stats.n_updates++;
 
-    if (m.active)
+    if (settings.modules.active)
         w.for_population_into(pop.n, weights_scratch, pop.n_finite());
     else
         weights_scratch = w.positive;
     const Vector &weights = weights_scratch;
-    const auto popZ = pop.Z.leftCols(m.active ? pop.n : mu);
-    const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
+    const auto popZ = pop.Z.leftCols(settings.modules.active ? pop.n : mu);
+    const auto popY = pop.Y.leftCols(settings.modules.active ? pop.n : mu);
 
     // MA-ES: M <- M (I + c1/2 (ps ps^T - I) + cmu/2 (sum w z z^T - I)), computed in O(d^2 lambda):
     // Fast MA-ES -> O(n^2)
@@ -462,9 +449,9 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     return true;
 }
 
-void MatrixAdaptation::restart(const Settings &settings, const Float sigma)
+void MatrixAdaptation::restart(const Settings &settings)
 {
-    Adaptation::restart(settings, sigma);
+    Adaptation::restart(settings);
     M = Matrix::Identity(settings.dim, settings.dim);
     M_inv = Matrix::Identity(settings.dim, settings.dim);
     outdated_M_inv = false;
@@ -495,13 +482,11 @@ void MatrixAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vect
 void CholeskyAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                      const parameters::Weights &w,
                                                      const parameters::Stats &stats,
-                                                     const parameters::Settings &settings,
-                                                     size_t mu,
-                                                     size_t lambda)
+                                                     const parameters::Settings &settings)
 {
     if (settings.one_plus_one)
     {
-        one_plus_one_path_update(pc, pop, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
+        one_plus_one_path_update(pc, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
         return;
     }
 
@@ -510,7 +495,6 @@ void CholeskyAdaptation::adapt_evolution_paths_inner(const Population &pop,
 }
 
 bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
-                                            const parameters::Modules &m,
                                             const Population &pop,
                                             size_t mu,
                                             const parameters::Settings &settings,
@@ -539,7 +523,7 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     for (size_t i = 0; i < mu; i++)
         Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * w.positive(i));
 
-    if (m.active)
+    if (settings.modules.active)
     {
         w.for_population_into(pop.n, weights_scratch, pop.n_finite());
         for (size_t i = mu; i < pop.n; i++)
@@ -550,9 +534,9 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     return true;
 }
 
-void CholeskyAdaptation::restart(const parameters::Settings &settings, const Float sigma)
+void CholeskyAdaptation::restart(const parameters::Settings &settings)
 {
-    Adaptation::restart(settings, sigma);
+    Adaptation::restart(settings);
     A = Matrix::Identity(settings.dim, settings.dim);
     pc.setZero();
 }
@@ -576,9 +560,7 @@ void CholeskyAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Ve
 void SelfAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                  const parameters::Weights &w,
                                                  const parameters::Stats &stats,
-                                                 const parameters::Settings &settings,
-                                                 size_t mu,
-                                                 size_t lambda)
+                                                 const parameters::Settings &settings)
 {
 
     if (!settings.one_plus_one)
@@ -586,7 +568,6 @@ void SelfAdaptation::adapt_evolution_paths_inner(const Population &pop,
 }
 
 bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
-                                        const parameters::Modules &m,
                                         const Population &pop,
                                         size_t mu,
                                         const parameters::Settings &settings,
@@ -598,11 +579,11 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     const Float tc = 1.0 + (dd * (dd + 1)) / (2.0 * w.mueff);
     const Float tc_inv = 1.0 / tc;
 
-    if (m.active)
+    if (settings.modules.active)
         w.for_population_into(pop.n, weights_scratch, pop.n_finite());
     else
         weights_scratch = w.positive;
-    const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
+    const auto popY = pop.Y.leftCols(settings.modules.active ? pop.n : mu);
 
     // C = (1 - 1/tc) C + (1/tc) Y diag(w) Y^T, as symmetric rank updates
     symmetric_rank_update(C,
@@ -628,9 +609,9 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     return true;
 }
 
-void SelfAdaptation::restart(const parameters::Settings &settings, const Float sigma)
+void SelfAdaptation::restart(const parameters::Settings &settings)
 {
-    Adaptation::restart(settings, sigma);
+    Adaptation::restart(settings);
     A = Matrix::Identity(settings.dim, settings.dim);
     C = Matrix::Identity(settings.dim, settings.dim);
 }
@@ -684,14 +665,12 @@ void CovarianceNoEigvAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen
 void NaturalGradientAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                             const parameters::Weights &w,
                                                             const parameters::Stats &stats,
-                                                            const parameters::Settings &settings,
-                                                            size_t mu,
-                                                            size_t lambda)
+                                                            const parameters::Settings &settings)
 {
     if (!settings.one_plus_one)
     {
         adapt_ps(w);
-        compute_gradients(pop, w, stats, settings, mu, lambda);
+        compute_gradients(pop, w, settings);
         return;
     }
 
@@ -720,10 +699,7 @@ bool NaturalGradientAdaptation::dense_update(const Eigen::Index n) const
 
 void NaturalGradientAdaptation::compute_gradients(const Population &pop,
                                                   const parameters::Weights &w,
-                                                  const parameters::Stats &stats,
-                                                  const parameters::Settings &settings,
-                                                  size_t mu,
-                                                  size_t lambda)
+                                                  const parameters::Settings &settings)
 {
     if (settings.modules.active)
         w.for_population_into(pop.n, weights_scratch, pop.n_finite());
@@ -739,9 +715,7 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
     if (dense_update(n))
     {
         // G formed as a matrix, for the dense matrix exponential
-        Eigen::Index n_positive = 0;
-        while (n_positive < n && weights(n_positive) >= 0.0)
-            n_positive++;
+        const Eigen::Index n_positive = count_non_negative(weights);
         gradient_matrix.setZero(A.rows(), A.cols());
         symmetric_rank_update(gradient_matrix,
                               1.0,
@@ -770,7 +744,6 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
 }
 
 bool NaturalGradientAdaptation::adapt_matrix_inner(const parameters::Weights &w,
-                                                   const parameters::Modules &m,
                                                    const Population &pop,
                                                    size_t mu,
                                                    const parameters::Settings &settings,
@@ -829,9 +802,9 @@ bool NaturalGradientAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     return true;
 }
 
-void NaturalGradientAdaptation::restart(const parameters::Settings &settings, const Float sigma)
+void NaturalGradientAdaptation::restart(const parameters::Settings &settings)
 {
-    Adaptation::restart(settings, sigma);
+    Adaptation::restart(settings);
     A = Matrix::Identity(settings.dim, settings.dim);
     A_inv = Matrix::Identity(settings.dim, settings.dim);
     gradient_samples.resize(settings.dim, 0);

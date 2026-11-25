@@ -20,9 +20,9 @@ class TestInteger(unittest.TestCase):
             # lambda0=1,
             sample_transformation="LAPLACE",
             ssa="SA",
+            seed=100,
         )
         cma = c_maes.ModularCMAES(settings)
-        c_maes.set_seed(100)
         while not cma.break_conditions():
             cma.mutate(sphere)
             cma.select()

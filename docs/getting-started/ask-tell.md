@@ -59,12 +59,16 @@ Usually `k` is the population size λ. Some modules ask for other batches:
 |---|---|
 | default | the λ points of a generation |
 | TPA step-size adaptation (`ssa=TPA`) | λ + 2 points: the population and the two TPA test points |
-| sequential selection | the points up to the first one after which the generation may stop, then one point at a time (two with pairwise mirroring) |
-| at a restart | the new center first, one point |
+| sequential selection | the points up to the first one after which the generation may stop (with TPA, its two points too), then one point at a time (two with pairwise mirroring) |
+| at a restart | the final mean of the run that ends, one point |
 | repelling restarts | the points of the hill–valley tests, one at a time |
 
 So do not assume `k == λ`: always evaluate the rows of what `ask()` returned. `ask()` returns the
 same points until `tell()` is called, so asking twice is harmless.
+
+Behind this, the optimizer runs the fixed steps of a generation and, at each, queues the points its
+modules need; the generation waits for `tell()` until they are evaluated. `es.has_pending` tells
+whether points wait for their values.
 
 ### Repaired or injected points
 

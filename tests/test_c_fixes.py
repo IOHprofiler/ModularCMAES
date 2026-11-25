@@ -40,6 +40,21 @@ class UnableToAdaptCounter(c_maes.restart.Criterion):
         self.met = False
 
 
+class RestartNow(c_maes.restart.Criterion):
+    """Met from the start: the next generation begins with a restart (which resets it)."""
+
+    def __init__(self):
+        super().__init__("RestartNow")
+        self.met = True
+
+    def update(self, parameters):
+        pass
+
+
+def restart_next_generation(es):
+    es.p.criteria.items.append(RestartNow())
+
+
 class TestBudget(unittest.TestCase):
     def test_a_generation_that_ends_at_the_budget_is_run(self):
         es = modcma.ModularCMAES(modcma.Settings(5, lambda0=10, budget=5000, seed=1))
@@ -376,10 +391,6 @@ class TestPackaging(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(os.path.dirname(modcma.__file__), "py.typed")))
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class TestPerRunState(unittest.TestCase):
     """#77: state that belongs to the current run, not to all runs."""
 
@@ -389,10 +400,10 @@ class TestPerRunState(unittest.TestCase):
         es = c_maes.ModularCMAES(c_maes.settings_from_dict(4, ssa="TPA", seed=3, verbose=False))
         for _ in range(30):
             es.step(sphere)
-        es.p.perform_restart(sphere)
-        self.assertEqual(es.p.stats.t_run, 0)
+        restart_next_generation(es)
         for g in range(1, 6):
-            es.step(sphere)
+            es.step(sphere)  # the first one begins with the restart
+            self.assertEqual(len(es.p.stats.centers), 1)
             self.assertEqual(es.p.stats.t_run, g)
             a, w = es.p.adaptation, es.p.weights
             length = np.linalg.norm(a.ps) / math.sqrt(1 - (1 - w.cs) ** (2 * g))
@@ -406,17 +417,18 @@ class TestPerRunState(unittest.TestCase):
         for _ in range(150):
             es.step(sphere)
         self.assertLess(es.p.stats.global_best.y, 1e-6)
-        es.p.perform_restart(sphere)
+        restart_next_generation(es)
         sizes = []
         for _ in range(20):
-            es.step(sphere)
+            es.step(sphere)  # the first one begins with the restart
             sizes.append(es.p.pop.n)
+        self.assertEqual(len(es.p.stats.centers), 1)
         self.assertEqual(sizes[0], es.p.lamb)  # the first generation of a run is complete
         self.assertLess(min(sizes), es.p.lamb)
 
 
 class TestTpaAndThreshold(unittest.TestCase):
-    """#78: TPA's ties, threshold convergence in the units of x."""
+    """#78: TPA's ties, threshold convergence per generation, relative to E||z||."""
 
     def test_tpa_tie_after_a_restart(self):
         # F15: after a restart dm = 0, both TPA points are the mean: no change of sigma (it grew
@@ -424,11 +436,11 @@ class TestTpaAndThreshold(unittest.TestCase):
         es = c_maes.ModularCMAES(c_maes.settings_from_dict(4, ssa="TPA", seed=2, verbose=False))
         for _ in range(20):
             es.step(sphere)
-        es.p.perform_restart(sphere)
-        sigma0 = es.p.mutation.sigma
-        es.step(sphere)
+        restart_next_generation(es)
+        es.step(sphere)  # the restart (sigma = sigma0), then the first generation of the new run
+        self.assertEqual(len(es.p.stats.centers), 1)
         self.assertEqual(es.p.mutation.rank_tpa, 0.0)
-        self.assertEqual(es.p.mutation.sigma, sigma0)
+        self.assertEqual(es.p.mutation.sigma, es.p.settings.sigma0)
 
     def test_threshold_per_generation(self):
         # F24: the threshold is computed once per generation, relative to E||z||, and every z of
@@ -458,3 +470,7 @@ class TestTpaAndThreshold(unittest.TestCase):
         self.assertGreater(es.p.stats.evaluations, 50)
         self.assertEqual(es.p.mutation.generation_threshold, 0.0)
         self.assertTrue(np.all(np.isfinite(es.ask())))
+
+
+if __name__ == "__main__":
+    unittest.main()

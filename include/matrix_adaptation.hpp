@@ -2,7 +2,6 @@
 
 #include "lapack.hpp"
 
-#include "mutation.hpp"
 #include "population.hpp"
 #include "settings.hpp"
 #include "stats.hpp"
@@ -36,7 +35,6 @@ struct Adaptation
     Vector coordinate_wise_variances;
 
     Float dd;
-    Float expected_length_z;
 
     // Buffers reused by the updates, so that a generation does not allocate
     Vector scratch_vector;
@@ -45,19 +43,17 @@ struct Adaptation
     Matrix batch_scratch;  // d x n
     Matrix batch_scratch2; // n x d
 
-    Adaptation(const size_t dim,
-               const Vector &x0,
-               const Vector &ps,
-               const Float expected_length_z) :
+    Adaptation(const size_t dim, const Vector &x0) :
         m(x0),
         m_old(dim),
         dm(Vector::Zero(dim)),
-        ps(ps),
+        ps(Vector::Zero(dim)),
         coordinate_wise_variances(Vector::Ones(dim)),
-        dd(static_cast<Float>(dim)),
-        expected_length_z(expected_length_z)
+        dd(static_cast<Float>(dim))
     {
     }
+
+    virtual ~Adaptation() = default;
 
     virtual void adapt_ps(const parameters::Weights &w);
 
@@ -65,18 +61,14 @@ struct Adaptation
                                const parameters::Weights &w,
                                const parameters::Stats &stats,
                                const parameters::Settings &settings,
-                               size_t mu,
-                               size_t lambda);
+                               size_t mu);
 
     virtual void adapt_evolution_paths_inner(const Population &pop,
                                              const parameters::Weights &w,
                                              const parameters::Stats &stats,
-                                             const parameters::Settings &settings,
-                                             size_t mu,
-                                             size_t lambda) = 0;
+                                             const parameters::Settings &settings) = 0;
 
     bool adapt_matrix(const parameters::Weights &w,
-                      const parameters::Modules &m,
                       const Population &pop,
                       size_t mu,
                       const parameters::Settings &settings,
@@ -84,7 +76,7 @@ struct Adaptation
     {
         if (settings.one_plus_one and !stats.has_improved)
             return true;
-        const bool success = adapt_matrix_inner(w, m, pop, mu, settings, stats);
+        const bool success = adapt_matrix_inner(w, pop, mu, settings, stats);
         // Every matrix adaptation derives coordinate_wise_variances from all entries of its
         // matrix (row sums of squares, or the diagonal of C, whose decomposition is checked
         // separately), so a NaN or inf anywhere in the matrix shows up here. Without this check
@@ -93,7 +85,6 @@ struct Adaptation
     }
 
     virtual bool adapt_matrix_inner(const parameters::Weights &w,
-                                    const parameters::Modules &m,
                                     const Population &pop,
                                     size_t mu,
                                     const parameters::Settings &settings,
@@ -142,7 +133,7 @@ struct Adaptation
         return z;
     }
 
-    virtual void restart(const parameters::Settings &settings, const Float sigma)
+    virtual void restart(const parameters::Settings &settings)
     {
         m = settings.x0.value_or(settings.center);
         m_old.setZero();
@@ -163,13 +154,12 @@ struct Adaptation
 
 struct None final : Adaptation
 {
-    None(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z)
+    None(const size_t dim, const Vector &x0) :
+        Adaptation(dim, x0)
     {
     }
 
     bool adapt_matrix_inner(const parameters::Weights &w,
-                            const parameters::Modules &m,
                             const Population &pop,
                             const size_t mu,
                             const parameters::Settings &settings,
@@ -181,9 +171,7 @@ struct None final : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -211,8 +199,8 @@ struct CovarianceAdaptation : Adaptation
     Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
     lapack::Workspace lapack_workspace;
 
-    CovarianceAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
+    CovarianceAdaptation(const size_t dim, const Vector &x0) :
+        Adaptation(dim, x0),
         pc(Vector::Zero(dim)),
         d(Vector::Ones(dim)),
         B(Matrix::Identity(dim, dim)),
@@ -233,18 +221,15 @@ struct CovarianceAdaptation : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
-                            const parameters::Modules &m,
                             const Population &pop,
                             size_t mu,
                             const parameters::Settings &settings,
                             parameters::Stats &stats) override;
 
-    void restart(const parameters::Settings &settings, const Float sigma) override;
+    void restart(const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -258,8 +243,8 @@ struct SeparableAdaptation : Adaptation
     Vector pc, d, c;
     bool hs;
 
-    SeparableAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
+    SeparableAdaptation(const size_t dim, const Vector &x0) :
+        Adaptation(dim, x0),
         pc(Vector::Zero(dim)),
         d(Vector::Ones(dim)),
         c(Vector::Ones(dim)),
@@ -270,18 +255,15 @@ struct SeparableAdaptation : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
-                            const parameters::Modules &m,
                             const Population &pop,
                             size_t mu,
                             const parameters::Settings &settings,
                             parameters::Stats &stats) override;
 
-    void restart(const parameters::Settings &settings, const Float sigma) override;
+    void restart(const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -295,8 +277,8 @@ struct MatrixAdaptation final : Adaptation
     Matrix M;
     Matrix M_inv;
 
-    MatrixAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
+    MatrixAdaptation(const size_t dim, const Vector &x0) :
+        Adaptation(dim, x0),
         M(Matrix::Identity(dim, dim)),
         M_inv(Matrix::Identity(dim, dim)),
         outdated_M_inv(false)
@@ -306,18 +288,15 @@ struct MatrixAdaptation final : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
-                            const parameters::Modules &m,
                             const Population &pop,
                             size_t mu,
                             const parameters::Settings &settings,
                             parameters::Stats &stats) override;
 
-    void restart(const parameters::Settings &settings, const Float sigma) override;
+    void restart(const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -339,8 +318,8 @@ struct CholeskyAdaptation final : Adaptation
     eigenvalues of the factorized matrix, that is, we get the eigenvalues of the covariance matrix
     for free*/
 
-    CholeskyAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
+    CholeskyAdaptation(const size_t dim, const Vector &x0) :
+        Adaptation(dim, x0),
         A(Matrix::Identity(dim, dim)),
         pc(Vector::Zero(dim))
     {
@@ -349,18 +328,15 @@ struct CholeskyAdaptation final : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
-                            const parameters::Modules &m,
                             const Population &pop,
                             size_t mu,
                             const parameters::Settings &settings,
                             parameters::Stats &stats) override;
 
-    void restart(const parameters::Settings &settings, const Float sigma) override;
+    void restart(const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -374,8 +350,8 @@ struct SelfAdaptation final : Adaptation
     Matrix A;
     Matrix C;
 
-    SelfAdaptation(const size_t dim, const Vector &x0, const Float expected_length_z) :
-        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
+    SelfAdaptation(const size_t dim, const Vector &x0) :
+        Adaptation(dim, x0),
         A(Matrix::Identity(dim, dim)),
         C(Matrix::Identity(dim, dim))
     {
@@ -384,18 +360,15 @@ struct SelfAdaptation final : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
-                            const parameters::Modules &m,
                             const Population &pop,
                             size_t mu,
                             const parameters::Settings &settings,
                             parameters::Stats &stats) override;
 
-    void restart(const parameters::Settings &settings, const Float sigma) override;
+    void restart(const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -453,13 +426,10 @@ struct NaturalGradientAdaptation final : Adaptation
         return g;
     }
 
-    NaturalGradientAdaptation(const size_t dim,
-                              const Vector &x0,
-                              const Float expected_length_z,
-                              [[maybe_unused]] const Float sigma0) :
-        Adaptation(dim, x0, Vector::Zero(dim), expected_length_z),
-        // x = m + sigma A z with A = I at the start: sigma0 sets the spread (xNES: A = sigma B
-        // with det B = 1, Glasmachers et al. 2010)
+    NaturalGradientAdaptation(const size_t dim, const Vector &x0) :
+        Adaptation(dim, x0),
+        // x = m + sigma A z with A = I at the start: the step size sigma sets the spread (xNES:
+        // A = sigma B with det B = 1, Glasmachers et al. 2010)
         A(Matrix::Identity(dim, dim)),
         A_inv(Matrix::Identity(dim, dim)),
         sigma_g(0),
@@ -471,26 +441,20 @@ struct NaturalGradientAdaptation final : Adaptation
 
     void compute_gradients(const Population &pop,
                            const parameters::Weights &w,
-                           const parameters::Stats &stats,
-                           const parameters::Settings &settings,
-                           size_t mu,
-                           size_t lambda);
+                           const parameters::Settings &settings);
 
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
-                            const parameters::Modules &m,
                             const Population &pop,
                             size_t mu,
                             const parameters::Settings &settings,
                             parameters::Stats &stats) override;
 
-    void restart(const parameters::Settings &settings, const Float sigma) override;
+    void restart(const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -502,32 +466,29 @@ struct NaturalGradientAdaptation final : Adaptation
     bool outdated_A_inv;
 };
 
-inline std::shared_ptr<Adaptation> get(const parameters::Modules &m,
-                                       const size_t dim,
-                                       const Vector &x0,
-                                       const Float expected_z,
-                                       const Float sigma0)
+inline std::shared_ptr<Adaptation>
+get(const parameters::Modules &m, const size_t dim, const Vector &x0)
 {
     using namespace parameters;
     switch (m.matrix_adaptation)
     {
     case MatrixAdaptationType::MATRIX:
-        return std::make_shared<MatrixAdaptation>(dim, x0, expected_z);
+        return std::make_shared<MatrixAdaptation>(dim, x0);
     case MatrixAdaptationType::NONE:
-        return std::make_shared<None>(dim, x0, expected_z);
+        return std::make_shared<None>(dim, x0);
     case MatrixAdaptationType::SEPARABLE:
-        return std::make_shared<SeparableAdaptation>(dim, x0, expected_z);
+        return std::make_shared<SeparableAdaptation>(dim, x0);
     case MatrixAdaptationType::CHOLESKY:
-        return std::make_shared<CholeskyAdaptation>(dim, x0, expected_z);
+        return std::make_shared<CholeskyAdaptation>(dim, x0);
     case MatrixAdaptationType::CMSA:
-        return std::make_shared<SelfAdaptation>(dim, x0, expected_z);
+        return std::make_shared<SelfAdaptation>(dim, x0);
     case MatrixAdaptationType::COVARIANCE_NO_EIGV:
-        return std::make_shared<CovarianceNoEigvAdaptation>(dim, x0, expected_z);
+        return std::make_shared<CovarianceNoEigvAdaptation>(dim, x0);
     case MatrixAdaptationType::NATURAL_GRADIENT:
-        return std::make_shared<NaturalGradientAdaptation>(dim, x0, expected_z, sigma0);
+        return std::make_shared<NaturalGradientAdaptation>(dim, x0);
     default:
     case MatrixAdaptationType::COVARIANCE:
-        return std::make_shared<CovarianceAdaptation>(dim, x0, expected_z);
+        return std::make_shared<CovarianceAdaptation>(dim, x0);
     }
 }
 } // namespace matrix_adaptation

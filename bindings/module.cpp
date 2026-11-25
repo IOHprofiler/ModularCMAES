@@ -78,8 +78,8 @@ void define_constants(nb::module_ &m)
             [](nb::handle, nb::handle a) { constants::use_box_muller = to_bool(a); },
             "Whether the GAUSSIAN sample transformation uses the Box-Muller transform (default "
             "False).\n\n"
-            "False: every uniform number is mapped to a normal one with the inverse normal CDF "
-            "(the inverse normal CDF). True: pairs of uniform numbers are mapped with Box-Muller, a different "
+            "False: every uniform number is mapped to a normal one with the inverse normal CDF. "
+            "True: pairs of uniform numbers are mapped with Box-Muller, a different "
             "random stream.")
         .def_prop_rw_static(
             "eigen_solver",
@@ -451,8 +451,9 @@ void define_options(nb::module_ &main)
     nb::enum_<CenterPlacement>(
         m,
         "CenterPlacement",
-        "Where the mean of the search distribution is placed at the start and at every restart "
-        "(`Modules.center_placement`; default X0).")
+        "Where the mean of the search distribution is placed at every restart "
+        "(`Modules.center_placement`; default X0). The first run always starts at "
+        "`Settings.x0`, or at the center of the bounds.")
         .value("X0",
                CenterPlacement::X0,
                "At `Settings.x0`, or at the centre of the bounds when x0 is not given (0 with the "
@@ -747,7 +748,7 @@ void define_utils(nb::module_ &main)
         .def("get_index",
              &rng::CachedShuffleSequence::get_index,
              nb::arg("index"),
-             "A copy of point index of the cache (index < n; not checked).")
+             "A copy of point index of the cache (index < n, otherwise IndexError).")
         .def("next",
              static_cast<Vector (rng::CachedShuffleSequence::*)()>(
                  &rng::CachedShuffleSequence::next),

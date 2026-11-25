@@ -58,13 +58,13 @@ class TestActiveCovarianceUpdate(unittest.TestCase):
         cma.select()
         cma.recombine()
         p, a = cma.p, cma.p.adaptation
-        a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+        a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
         C0, pc = a.C.copy(), a.pc.copy()
         self.assertGreater(np.abs(C0 - np.diag(np.diag(C0))).max(), 1e-3)
         Y, hs = p.pop.Y.copy(), a.hs
         w = np.array(p.weights.weights[: Y.shape[1]])
         c1, cmu, cc = p.weights.c1, p.weights.cmu, p.weights.cc
-        self.assertTrue(a.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats))
+        self.assertTrue(a.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats))
 
         # ||C^-1/2 y||^2 = y^T C^-1 y, with C the matrix before this update
         rank_mu_w = w.copy()
@@ -209,13 +209,13 @@ class TestSequentialSelectionPopulation(unittest.TestCase):
             cma.recombine()
             p, a = cma.p, cma.p.adaptation
             self.assertEqual(p.pop.n, n)
-            a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+            a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
             C0, pc, hs = a.C.copy(), a.pc.copy(), a.hs
             Y = p.pop.Y.copy()
             w = np.array(p.weights.for_population(n))
             c1, cmu, cc = p.weights.c1, p.weights.cmu, p.weights.cc
             p.stats.t = 10**6  # past the lazy-update interval
-            self.assertTrue(a.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats))
+            self.assertTrue(a.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats))
             rank_mu_w = w.copy()
             for i in range(p.mu, n):
                 rank_mu_w[i] *= 5 / (Y[:, i] @ np.linalg.solve(C0, Y[:, i]))
@@ -320,14 +320,14 @@ class TestNonFiniteMatrixRestarts(unittest.TestCase):
             p.pop.Y = np.full_like(np.array(p.pop.Y), np.nan)
             p.pop.Z = np.full_like(np.array(p.pop.Z), np.nan)
             p.stats.t = 10**6  # past any lazy-update interval
-            p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
-            ok = p.adaptation.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats)
+            p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
+            ok = p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
             self.assertFalse(ok, name)
 
 
 class TestBindingArgumentNames(unittest.TestCase):
     """B12: the keyword names of Adaptation.adapt_evolution_paths were (mu, lamb) for the C++
-    order (lambda, mu). The C++ order is now (mu, lambda), as everywhere else."""
+    order (lambda, mu). lambda is gone (not used); the keywords match the positions."""
 
     def test_keywords_match_positional(self):
         results = []
@@ -340,11 +340,10 @@ class TestBindingArgumentNames(unittest.TestCase):
             p = cma.p
             if keywords:
                 p.adaptation.adapt_evolution_paths(
-                    pop=p.pop, weights=p.weights, stats=p.stats, settings=p.settings,
-                    mu=p.mu, lamb=p.lamb,
+                    pop=p.pop, weights=p.weights, stats=p.stats, settings=p.settings, mu=p.mu,
                 )
             else:
-                p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+                p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
             results.append(np.array(p.adaptation.dz))
         np.testing.assert_array_equal(results[0], results[1])
 

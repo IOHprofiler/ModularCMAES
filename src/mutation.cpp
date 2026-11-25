@@ -92,37 +92,6 @@ void NoSigmaSampler::sample(const Float sigma, parameters::Parameters &p)
     apply_integer_bounds(p);
 }
 
-void Strategy::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
-{
-    // The batches of ask() (ModularCMAES): individuals up to the first after which sequential
-    // selection can stop, then one at a time
-    begin_population(n_offspring, p);
-    const auto n = static_cast<Eigen::Index>(n_offspring);
-    for (Eigen::Index i = 0; i < n;)
-    {
-        const auto stop = first_stop(static_cast<size_t>(i), p);
-        const Eigen::Index last =
-            stop >= static_cast<size_t>(n) ? n - 1 : static_cast<Eigen::Index>(stop);
-        sample_batch(i, last - i + 1, p);
-        bool complete = false;
-        for (; i <= last && !complete; ++i)
-            complete = evaluated(i, objective(p.pop.X_transformed.col(i)), p);
-        if (complete)
-            break;
-    }
-    end_population(p);
-
-    if (const auto k = static_cast<Eigen::Index>(n_extra_points()); k != 0)
-    {
-        Matrix X(p.settings.dim, k);
-        extra_points(X, p);
-        Vector f(k);
-        for (Eigen::Index j = 0; j < k; ++j)
-            f(j) = objective(X.col(j));
-        tell_extra_points(f, X, p);
-    }
-}
-
 void Strategy::begin_population(const size_t n_offspring, parameters::Parameters &p)
 {
     p.pop.reserve(n_offspring);
@@ -132,6 +101,36 @@ void Strategy::begin_population(const size_t n_offspring, parameters::Parameters
         tc->threshold(p.sampler->expected_length(), p.settings.budget, p.stats.evaluations);
     p.bounds->n_out_of_bounds = 0;
     p.repelling->prepare_sampling(p);
+}
+
+Eigen::Index Strategy::sample_batch_from(const Eigen::Index i, parameters::Parameters &p)
+{
+    const auto n = static_cast<Eigen::Index>(p.pop.n);
+    const auto stop = first_stop(static_cast<size_t>(i), p);
+    const Eigen::Index last =
+        stop >= static_cast<size_t>(n) ? n - 1 : static_cast<Eigen::Index>(stop);
+    const Eigen::Index k = last - i + 1;
+    sample_batch(i, k, p);
+    return k;
+}
+
+void Strategy::tell_batch(const Eigen::Index i,
+                          Eigen::Ref<const Vector> f,
+                          Eigen::Ref<const Matrix> X,
+                          const bool given,
+                          parameters::Parameters &p)
+{
+    for (Eigen::Index j = 0; j < f.size(); ++j)
+    {
+        // tell(f, X): a point that differs from the asked one replaces it
+        if (given && X.col(j) != p.pop.X_transformed.col(i + j))
+            p.inject(i + j, X.col(j));
+        if (evaluated(i + j, f(j), p))
+        {
+            end_population(p);
+            return;
+        }
+    }
 }
 
 void Strategy::sample_batch(const Eigen::Index begin,
@@ -187,7 +186,6 @@ size_t Strategy::first_stop(const size_t i, const parameters::Parameters &p) con
 bool Strategy::evaluated(const Eigen::Index i, const Float f, parameters::Parameters &p)
 {
     p.pop.f(i) = f;
-    p.stats.evaluations++;
     // Sequential selection stops at the first point better than the best of the previous
     // generation (old_pop is sorted); in the first generation of a run there is none (-inf)
     const Float reference = p.old_pop.n_finite() != 0 ? p.old_pop.f(0)
@@ -213,8 +211,7 @@ void CSA::adapt(const parameters::Weights &w,
                 std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                 Population &pop,
                 const Population &old_pop,
-                const parameters::Stats &stats,
-                const size_t lambda)
+                const parameters::Stats &stats)
 
 {
     Float l = (w.cs / w.damps) * ((adaptation->ps.norm() / w.expected_length_z) - 1);
@@ -238,7 +235,6 @@ void TPA::tell_extra_points(Eigen::Ref<const Vector> f,
     const Float f_pos = f(0), f_neg = f(1);
     p.stats.update_best(X.col(0), f_pos);
     p.stats.update_best(X.col(1), f_neg);
-    p.stats.evaluations += 2;
     // A tie (as after a restart, when dm = 0 and both points are the mean) is no signal: 0, as the
     // sign of the rank difference in pycma's TPA; it counted as a success (sigma grew by 16 %)
     this->rank_tpa = f_neg < f_pos ? -a_tpa : (f_pos < f_neg ? a_tpa + b_tpa : Float(0.0));
@@ -248,8 +244,7 @@ void TPA::adapt(const parameters::Weights &w,
                 std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                 Population &pop,
                 const Population &old_pop,
-                const parameters::Stats &stats,
-                const size_t lambda)
+                const parameters::Stats &stats)
 {
     s = ((1.0 - w.cs) * s) + (w.cs * this->rank_tpa);
     sigma *= std::exp(s);
@@ -259,8 +254,7 @@ void MSR::adapt(const parameters::Weights &w,
                 std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                 Population &pop,
                 const Population &old_pop,
-                const parameters::Stats &stats,
-                const size_t lamb)
+                const parameters::Stats &stats)
 {
     const auto n = std::min(pop.n_finite(), old_pop.n_finite());
     if (n != 0)
@@ -294,8 +288,7 @@ void PSR::adapt(const parameters::Weights &w,
                 std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                 Population &pop,
                 const Population &old_pop,
-                const parameters::Stats &stats,
-                const size_t lambda)
+                const parameters::Stats &stats)
 {
     const auto n = std::min(pop.n_finite(), old_pop.n_finite());
     if (n != 0)
@@ -332,8 +325,7 @@ void XNES::adapt(const parameters::Weights &w,
                  std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                  Population &pop,
                  const Population &old_pop,
-                 const parameters::Stats &stats,
-                 const size_t lambda)
+                 const parameters::Stats &stats)
 {
     if (const auto dynamic =
             std::dynamic_pointer_cast<matrix_adaptation::NaturalGradientAdaptation>(adaptation))
@@ -352,8 +344,7 @@ void MXNES::adapt(const parameters::Weights &w,
                   std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                   Population &pop,
                   const Population &old_pop,
-                  const parameters::Stats &stats,
-                  const size_t lambda)
+                  const parameters::Stats &stats)
 {
     const Float delta = (w.mueff_mean * adaptation->dz.squaredNorm() - adaptation->dd);
 
@@ -364,8 +355,7 @@ void LPXNES::adapt(const parameters::Weights &w,
                    std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                    Population &pop,
                    const Population &old_pop,
-                   const parameters::Stats &stats,
-                   const size_t lambda)
+                   const parameters::Stats &stats)
 {
     const auto logS = (pop.S.leftCols(pop.n).array() / sigma).log();
     const Vector per_sample = logS.colwise().mean().transpose();
@@ -377,8 +367,7 @@ void SR::adapt(const parameters::Weights &w,
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda)
+               const parameters::Stats &stats)
 {
     sigma *= std::exp((1 / w.damps) *
                       ((stats.success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
@@ -393,8 +382,7 @@ void SA::adapt(const parameters::Weights &w,
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda)
+               const parameters::Stats &stats)
 {
     const Eigen::Index mu = w.positive.size();
 

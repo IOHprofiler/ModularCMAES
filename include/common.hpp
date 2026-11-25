@@ -26,12 +26,9 @@
 using Float = double;
 using Matrix = Eigen::Matrix<Float, -1, -1>;
 using Vector = Eigen::Matrix<Float, -1, 1>;
-using Array = Eigen::Array<Float, -1, 1>;
 using size_to = std::optional<size_t>;
 using Mask = Eigen::Array<bool, Eigen::Dynamic, 1>;
 using Indices = Eigen::ArrayXi;
-
-template <typename T> std::ostream &operator<<(std::ostream &os, const std::vector<T> &x);
 
 //! An objective function. It gets the point by reference (a column of the population): a C++
 //! objective reads it without a copy; the Python bindings give Python objectives an array of
@@ -46,8 +43,9 @@ extern bool cache_samples;
 extern bool clip_sigma;
 extern bool use_box_muller;
 //! The eigendecomposition of the covariance matrix: 0 Eigen's SelfAdjointEigenSolver, 1 LAPACK
-//! dsyevd, 2 LAPACK dsyevr (1 and 2 need a build with MODCMA_LAPACK), -1 (default) automatic:
-//! dsyevd from lapack_min_dim on when the build has LAPACK, Eigen otherwise
+//! dsyevd, 2 LAPACK dsyevr (1 and 2 need LAPACK: linked with MODCMA_LAPACK, or scipy's in the
+//! Python package; lapack::available()), -1 (default) automatic: dsyevd from lapack_min_dim on
+//! when LAPACK is available, Eigen otherwise
 extern int eigen_solver;
 //! The dimension from which the automatic choice uses LAPACK (Eigen is faster below: Accelerate
 //! dsyevd on an Apple M5 is 2x slower at d = 50, even at d ~ 115, 3.4x faster at d = 1000)
@@ -68,16 +66,16 @@ extern size_t blas_min_dim;
  * @brief Cdf of a standard normal distribution.
  *
  * see: ndtr_ndtri.cpp
- * @param x lower tail of the probabilty
- * @return Float quantile corresponding to the lower tail probability q
+ * @param x a value
+ * @return Float P(X <= x) for X ~ N(0, 1)
  */
 Float cdf(const Float x);
 
 /**
  * @brief Percent point function (inverse of cdf) of a standard normal distribution.
  *
- * see: ndtri.cpp
- * @param x lower tail of the probabilty
+ * see: ndtr_ndtri.cpp
+ * @param x lower tail of the probability
  * @return Float quantile corresponding to the lower tail probability q
  */
 Float ppf(const Float x);
@@ -151,8 +149,6 @@ namespace utils
  */
 void sort_index_inplace(const Vector &v, std::vector<size_t> &idx);
 
-void sort_index_inplace(const std::vector<size_t> &v, std::vector<size_t> &idx);
-
 /**
  * @brief The indices 0..n-1 of v in ascending order of v, into idx (reused, no allocation once it
  * has the capacity). Ties keep their index order (the order of a stable sort); NaN values come
@@ -170,32 +166,6 @@ void sort_order(Eigen::Ref<const Vector> v, std::vector<size_t> &idx);
  * @return std::vector<size_t>
  */
 std::vector<size_t> sort_indexes(const Vector &v);
-
-std::vector<size_t> sort_indexes(const std::vector<size_t> &v);
-
-/**
- * @brief Concat two matrices inplace, i.e. put Y in X (colwise)
- *
- * @param X target matrix
- * @param Y source matrix
- */
-void hstack(Matrix &X, const Matrix &Y);
-
-/**
- * @brief Concat two matrices inplace, i.e. put Y in X (rowwise)
- *
- * @param X target matrix
- * @param Y source matrix
- */
-void vstack(Matrix &X, const Matrix &Y);
-
-/**
- * @brief Concat two vectors
- *
- * @param x target vector
- * @param y source vector
- */
-void concat(Vector &x, const Vector &y);
 
 /**
  * @brief Compute the expected running time (ERT) of a set of runs
@@ -224,9 +194,6 @@ namespace rng
 {
 //! The random generator of the library
 using Generator = std::mt19937;
-
-//! The global seed value
-extern int SEED;
 
 /**
  * The global random generator. Every optimizer draws from a generator of its own (see fork());
@@ -351,8 +318,6 @@ struct CachedShuffleSequence
     CachedShuffleSequence(const size_t d, Generator &gen = GENERATOR);
 
     void fill(const std::vector<Float> &c);
-
-    void transform(const std::function<Float(Float)> &f);
 
     Vector get_index(const size_t idx);
 

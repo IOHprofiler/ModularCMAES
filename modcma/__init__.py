@@ -26,6 +26,7 @@ from .c_maes import (
     fmin,
     get_all_module_options,
     get_configspace,
+    matrix_adaptation,
     mutation,
     options,
     parameters,
@@ -38,7 +39,6 @@ from .c_maes import (
     set_seed,
     build_info,
     compute_ert,
-    utils,  # deprecated
 )
 
 try:
@@ -52,6 +52,7 @@ _REMOVED = frozenset(
         "AskTellCMAES",
         "BIPOPParameters",
         "evaluate_bbob",
+        "utils",
         "timeit",
         "ert",
         "gaussian_sampling",
@@ -91,6 +92,7 @@ __all__ = (
     "parameters",
     "sampling",
     "mutation",
+    "matrix_adaptation",
     "selection",
     "bounds",
     "restart",

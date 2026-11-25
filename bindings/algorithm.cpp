@@ -15,27 +15,23 @@ void adaptation_repr(std::stringstream &ss, const matrix_adaptation::Adaptation 
     ss << " ps: " << a.ps.transpose();
 }
 
-//! The constructor (dimension, x0, expected_length_z) of most matrix adaptations
-template <typename T, typename Class> void adaptation_init(Class &cls)
+//! The constructor (dimension, x0) of the matrix adaptations
+template <typename Class> void adaptation_init(Class &cls)
 {
-    cls.def(nb::init<size_t, Vector, Float>(),
+    cls.def(nb::init<size_t, Vector>(),
             nb::arg("dimension"),
             nb::arg("x0"),
-            nb::arg("expected_length_z"),
             "Create the adaptation with mean x0 and the initial matrix (the identity).\n\n"
             "Parameters\n"
             "----------\n"
             "dimension : int\n"
             "    The dimension d.\n"
             "x0 : numpy.ndarray\n"
-            "    The initial mean m, shape (d,).\n"
-            "expected_length_z : float\n"
-            "    The expected length of a sample z of the sampler "
-            "(`es.p.sampler.expected_length()`).");
+            "    The initial mean m, shape (d,).");
 }
 
 //! The constructor of a step-size adaptation (all inherit the one of mutation::Strategy)
-template <typename T, typename Class> void strategy_init(Class &cls)
+template <typename Class> void strategy_init(Class &cls)
 {
     using namespace mutation;
     cls.def(nb::init<std::shared_ptr<ThresholdConvergence>,
@@ -72,11 +68,7 @@ constexpr const char *repr_doc = "A summary of the state (mean, paths and matric
     "stats : Stats\n"                                                                            \
     "    The statistics of the run (`es.p.stats`).\n"                                            \
     "settings : Settings\n"                                                                      \
-    "    The settings (`es.p.settings`).\n"                                                      \
-    "mu : int\n"                                                                                 \
-    "    The number of selected individuals.\n"                                                  \
-    "lamb : int\n"                                                                               \
-    "    The population size lambda."
+    "    The settings (`es.p.settings`)."
 } // namespace
 
 void define_selection(nb::module_ &main)
@@ -376,27 +368,6 @@ void define_repelling(nb::module_ &main)
              "Returns\n"
              "-------\n"
              "bool")
-        .def("shares_basin",
-             &TabooPoint::shares_basin,
-             nb::arg("objective"),
-             nb::arg("xi"),
-             nb::arg("p"),
-             "Whether a solution lies in the basin of this point, by a hill-valley test.\n\n"
-             "The objective is evaluated at 10 points evenly spaced on the line between the "
-             "two; they share the basin when none of them is worse than the worse of the two "
-             "solutions. The evaluations are counted in `p.stats` (and can update its best "
-             "solution).\n\n"
-             "Parameters\n"
-             "----------\n"
-             "objective : Callable[[numpy.ndarray], float]\n"
-             "    The objective function.\n"
-             "xi : Solution\n"
-             "    The solution to test (x and its objective value y).\n"
-             "p : Parameters\n"
-             "    The state of the optimizer.\n\n"
-             "Returns\n"
-             "-------\n"
-             "bool")
         .def("calculate_criticality",
              &TabooPoint::calculate_criticality,
              nb::arg("p"),
@@ -443,7 +414,8 @@ void define_repelling(nb::module_ &main)
                 "`AdaptiveRepelling`).")
         .def_rw("last_rejection_rate",
                 &TabooPoint::last_rejection_rate,
-                "`AdaptiveRepelling`: rejected_count / checked_count of the last population.")
+                "`AdaptiveRepelling`: rejected_count / checked_count of the last population; 0 "
+                "when the point was checked fewer than `min_checks_before_local_shrink` times.")
         .def(
             "__repr__",
             [](const TabooPoint &tb) {
@@ -462,8 +434,9 @@ void define_repelling(nb::module_ &main)
         "Before each population the archive is sorted by criticality (`prepare_sampling`); "
         "each sample is tested against the points with criticality >= 0.01 (`is_rejected`) and "
         "sampled again when one rejects it. After a restart, the better of the last mean and "
-        "the best solution of the run is compared with the archive by hill-valley tests "
-        "(`update_archive`); the subclasses add it as a new taboo point or update the point "
+        "the best solution of the run is compared with the archive by hill-valley tests (the "
+        "optimizer evaluates their points, one at a time); the subclasses add it as a new "
+        "taboo point or update the point "
         "whose basin it shares. The base class does not add points.")
         .def(nb::init<>(), "Create a repelling with an empty archive.")
         .def("is_rejected",
@@ -481,27 +454,10 @@ void define_repelling(nb::module_ &main)
              "Returns\n"
              "-------\n"
              "bool")
-        .def("update_archive",
-             &Repelling::update_archive,
-             nb::arg("objective"),
-             nb::arg("p"),
-             "Update the archive after a restart, evaluating the hill-valley tests with "
-             "objective.\n\n"
-             "The candidate is the better of the last mean and the last best solution in "
-             "`p.stats`; it is tested against every taboo point (10 evaluations per point, "
-             "counted in `p.stats.evaluations`). The optimizer runs the same update through its "
-             "ask-tell interface.\n\n"
-             "Parameters\n"
-             "----------\n"
-             "objective : Callable[[numpy.ndarray], float]\n"
-             "    The objective function.\n"
-             "p : Parameters\n"
-             "    The state of the optimizer.")
         .def("prepare_sampling",
              &Repelling::prepare_sampling,
              nb::arg("p"),
-             "Before a population: reset `attempts` and sort the archive by criticality "
-             "(`AdaptiveRepelling` adapts the radii first).\n\n"
+             "Before a population: reset `attempts` and sort the archive by criticality.\n\n"
              "Parameters\n"
              "----------\n"
              "p : Parameters\n"
@@ -736,28 +692,6 @@ void define_repelling(nb::module_ &main)
           "Returns\n"
           "-------\n"
           "numpy.ndarray");
-    m.def("hill_valley_test",
-          &distance::hill_valley_test,
-          nb::arg("u"),
-          nb::arg("v"),
-          nb::arg("f"),
-          nb::arg("n_evals"),
-          "Whether two solutions lie in the same basin of attraction (hill-valley test).\n\n"
-          "f is evaluated at n_evals points evenly spaced on the line between u.x and v.x; the "
-          "two share a basin when none of them is worse than max(u.y, v.y). Stops at the first "
-          "worse point. Maree et al. (2018).\n\n"
-          "Parameters\n"
-          "----------\n"
-          "u, v : Solution\n"
-          "    The two solutions (x and their objective values y).\n"
-          "f : Callable[[numpy.ndarray], float]\n"
-          "    The objective function.\n"
-          "n_evals : int\n"
-          "    The number of points on the line.\n\n"
-          "Returns\n"
-          "-------\n"
-          "bool\n"
-          "    True when no point between them is worse (one basin).");
 }
 
 void define_matrix_adaptation(nb::module_ &main)
@@ -792,13 +726,12 @@ void define_matrix_adaptation(nb::module_ &main)
                 &Adaptation::ps,
                 "The evolution path of the step size (conjugate evolution path), shape (d,), "
                 "used by CSA: ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) dz (C^-1/2 dm in "
-                "`CovarianceAdaptation`). Starts at zeros for CovarianceAdaptation, "
-                "CovarianceNoEigvAdaptation and SeparableAdaptation, at ones for the others; "
-                "zeros after a restart.")
+                "`CovarianceAdaptation`). Starts at zeros, also after a restart.")
         .def_rw("dz",
                 &Adaptation::dz,
-                "The weighted mean of the z of the mu selected individuals, sum_i w_i z_i, "
-                "shape (d,).")
+                "The weighted mean of the z of the mu selected individuals, sum_i w_i z_i "
+                "(of every individual, with the utilities of UTILITY), shape (d,); empty before "
+                "the first generation.")
         .def_rw("dd", &Adaptation::dd, "The dimension d, as a float.")
         .def_rw("coordinate_wise_variances",
                 &Adaptation::coordinate_wise_variances,
@@ -806,10 +739,6 @@ void define_matrix_adaptation(nb::module_ &main)
                 "diagonal of C = A A^T (without sigma^2), shape (d,). Used for the lower bound on "
                 "the step size of integer variables; a NaN or inf in it fails the matrix "
                 "update.")
-        .def_rw("expected_length_z",
-                &Adaptation::expected_length_z,
-                "The expected length of a sample z of the sampler, given at construction "
-                "(about sqrt(d) for the Gaussian).")
         .def("adapt_evolution_paths",
              &Adaptation::adapt_evolution_paths,
              nb::arg("pop"),
@@ -817,21 +746,20 @@ void define_matrix_adaptation(nb::module_ &main)
              nb::arg("stats"),
              nb::arg("settings"),
              nb::arg("mu"),
-             nb::arg("lamb"),
              "Update dm, dz and the evolution paths after selection.\n\n"
              "Computes dm = (m - m_old) / sigma, dz = sum_i w_i z_i over the mu "
-             "best, then the update of the subclass (ps, and pc where there is "
-             "one). Called by `es.adapt()` before the step-size and matrix "
-             "updates.\n\n"
-             ADAPT_PARAMS_DOC)
+             "best (every point, with the utilities of `RecombinationWeights.UTILITY`), then "
+             "the update of the subclass (ps, and pc where there is one). Called by "
+             "`es.adapt()` before the step-size and matrix updates.\n\n"
+             ADAPT_PARAMS_DOC "\n"
+             "mu : int\n"
+             "    The number of selected individuals.")
         .def("adapt_evolution_paths_inner",
              &Adaptation::adapt_evolution_paths_inner,
              nb::arg("pop"),
              nb::arg("weights"),
              nb::arg("stats"),
              nb::arg("settings"),
-             nb::arg("mu"),
-             nb::arg("lamb"),
              "The update of the evolution paths of the subclass (ps, and pc "
              "where there is one), without recomputing dm and dz; the second "
              "part of `adapt_evolution_paths`.\n\n"
@@ -839,7 +767,6 @@ void define_matrix_adaptation(nb::module_ &main)
         .def("adapt_matrix",
              &Adaptation::adapt_matrix,
              nb::arg("weights"),
-             nb::arg("modules"),
              nb::arg("population"),
              nb::arg("mu"),
              nb::arg("settings"),
@@ -853,14 +780,12 @@ void define_matrix_adaptation(nb::module_ &main)
              "----------\n"
              "weights : Weights\n"
              "    The recombination weights and learning rates (`es.p.weights`).\n"
-             "modules : Modules\n"
-             "    The modules (`active`: negative weights for the worst individuals).\n"
              "population : Population\n"
              "    The selected population (sorted, best first).\n"
              "mu : int\n"
              "    The number of selected individuals.\n"
              "settings : Settings\n"
-             "    The settings.\n"
+             "    The settings (`modules.active`: negative weights for the worst individuals).\n"
              "stats : Stats\n"
              "    The statistics; `last_update` and `n_updates` are updated.\n\n"
              "Returns\n"
@@ -870,16 +795,13 @@ void define_matrix_adaptation(nb::module_ &main)
         .def("restart",
              &Adaptation::restart,
              nb::arg("settings"),
-             nb::arg("sigma"),
-             "Reset the distribution for a restart: m = `settings.x0` (zeros when it is not "
-             "given), the paths and the matrices to their initial values. The center placement "
-             "sets m afterwards.\n\n"
+             "Reset the distribution for a restart: m = `settings.x0` (`settings.center`, the "
+             "center of the bounds, when it is not given), the paths and the matrices to their "
+             "initial values. The center placement sets m afterwards.\n\n"
              "Parameters\n"
              "----------\n"
              "settings : Settings\n"
-             "    The settings.\n"
-             "sigma : float\n"
-             "    The step size of the new run (used by `NaturalGradientAdaptation`).")
+             "    The settings.")
         .def("distance",
              &Adaptation::distance,
              nb::arg("u"),
@@ -948,7 +870,7 @@ void define_matrix_adaptation(nb::module_ &main)
             [](Adaptation &a) {
                 return repr("Adaptation", [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
-                    ss << " dd: " << a.dd << " expected_length_z: " << a.expected_length_z;
+                    ss << " dd: " << a.dd;
                 });
             },
             repr_doc);
@@ -960,13 +882,13 @@ void define_matrix_adaptation(nb::module_ &main)
         "(`MatrixAdaptationType.NONE`).\n\n"
         "The cheapest option, O(d lambda) per generation; for well-conditioned (sphere-like) "
         "functions, or as a baseline. Settings switches `Modules.active` off with it.");
-    adaptation_init<None>(none);
+    adaptation_init(none);
     none.def(
         "__repr__",
         [](None &a) {
             return repr("NoAdaptation", [&](std::stringstream &ss) {
                 adaptation_repr(ss, a);
-                ss << " dd: " << a.dd << " expected_length_z: " << a.expected_length_z;
+                ss << " dd: " << a.dd;
             });
         },
         repr_doc);
@@ -985,7 +907,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the "
         "step-size adaptation is not CSA (unless `always_compute_eigv`). Hansen & Ostermeier "
         "(2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.");
-    adaptation_init<CovarianceAdaptation>(covariance);
+    adaptation_init(covariance);
     covariance
         .def_rw("pc",
                 &CovarianceAdaptation::pc,
@@ -1010,7 +932,8 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_prop_ro("inv_root_C",
                      &CovarianceAdaptation::inv_root_C,
                      "C^-1/2 = B diag(d)^-1 B^T, shape (d, d), computed from B and d on access "
-                     "(the updates do not form it).")
+                     "(the updates do not form it). `CovarianceNoEigvAdaptation` does not compute "
+                     "B and d: there it is the identity (#117).")
         .def_rw("hs",
                 &CovarianceAdaptation::hs,
                 "The indicator h_sigma: False when ||ps|| is large (the step size is growing "
@@ -1066,7 +989,7 @@ void define_matrix_adaptation(nb::module_ &main)
                     adaptation_repr(ss, a);
                     ss << " pc: " << a.pc.transpose() << " d: " << a.d.transpose();
                     ss << " B: " << a.B << " C: " << a.C << " inv_root_C: " << a.inv_root_C();
-                    ss << " dd: " << a.dd << " expected_length_z: " << a.expected_length_z;
+                    ss << " dd: " << a.dd;
                     ss << " hs: " << a.hs;
                 });
             },
@@ -1081,7 +1004,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "y = d * z. "
         "O(d lambda) per generation: for separable functions, and for high dimension, where a "
         "full matrix is slow to learn. Ros & Hansen (2008).");
-    adaptation_init<SeparableAdaptation>(separable);
+    adaptation_init(separable);
     separable
         .def_rw("c",
                 &SeparableAdaptation::c,
@@ -1099,8 +1022,7 @@ void define_matrix_adaptation(nb::module_ &main)
                 return repr("SeparableAdaptation", [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
                     ss << " pc: " << a.pc.transpose() << " d: " << a.d.transpose();
-                    ss << " c: " << a.c.transpose()
-                       << " expected_length_z: " << a.expected_length_z;
+                    ss << " c: " << a.c.transpose();
                     ss << " hs: " << a.hs;
                 });
             },
@@ -1114,7 +1036,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "evolution path pc or a decomposition: M = (1 - c1/2 - cmu/2) M + (c1/2) (M ps) ps^T + "
         "(cmu/2) sum_i w_i y_i z_i^T. O(d^2 lambda) per generation (BLAS from d = "
         "`constants.blas_min_dim`), so it suits high dimension. Beyer & Sendhoff (2017).");
-    adaptation_init<MatrixAdaptation>(matrix);
+    adaptation_init(matrix);
     matrix
         .def_rw("M",
                 &MatrixAdaptation::M,
@@ -1130,7 +1052,6 @@ void define_matrix_adaptation(nb::module_ &main)
                 return repr("MatrixAdaptation", [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
                     ss << " M: " << a.M << " dd: " << a.dd;
-                    ss << " expected_length_z: " << a.expected_length_z;
                 });
             },
             repr_doc);
@@ -1143,7 +1064,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "The rank-one (pc) and rank-mu updates of C = A A^T are applied to A as rank-one "
         "Cholesky updates, one per selected individual, so there is no decomposition: "
         "O(d^2 lambda) per generation and O(d^2) memory. Krause et al. (2016).");
-    adaptation_init<CholeskyAdaptation>(cholesky);
+    adaptation_init(cholesky);
     cholesky
         .def_rw("A",
                 &CholeskyAdaptation::A,
@@ -1162,7 +1083,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "(O(d^3); LAPACK from d = `constants.lapack_min_dim`). With CMSA the default mu is "
         "lambda / 4. The CMSA-ES of the paper adapts the step size by self-adaptation "
         "(`StepSizeAdaptation.SA`). Beyer & Sendhoff (2008).");
-    adaptation_init<SelfAdaptation>(self);
+    adaptation_init(self);
     self.def_rw("A",
                 &SelfAdaptation::A,
                 "The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity "
@@ -1183,7 +1104,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "eigendecomposition; B and d keep their initial values. ps is updated with dz instead "
         "of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of "
         "COVARIANCE for the other step-size adaptations.");
-    adaptation_init<CovarianceNoEigvAdaptation>(no_eigv);
+    adaptation_init(no_eigv);
 
     nb::class_<NaturalGradientAdaptation, Adaptation>(
         m,
@@ -1196,23 +1117,16 @@ void define_matrix_adaptation(nb::module_ &main)
         "`es.p.weights.cc`. For lambda < d and d >= 16 the matrix exponential is computed "
         "exactly from a thin QR of the samples, O(d^2 lambda); otherwise as a dense d x d "
         "exponential. Glasmachers et al. (2010).")
-        .def(nb::init<size_t, Vector, Float, Float>(),
+        .def(nb::init<size_t, Vector>(),
              nb::arg("dimension"),
              nb::arg("x0"),
-             nb::arg("expected_length_z"),
-             nb::arg("sigma"),
-             "Create the adaptation with mean x0 and A = I (sigma sets the spread).\n\n"
+             "Create the adaptation with mean x0 and A = I (the step size sets the spread).\n\n"
              "Parameters\n"
              "----------\n"
              "dimension : int\n"
              "    The dimension d.\n"
              "x0 : numpy.ndarray\n"
-             "    The initial mean m, shape (d,).\n"
-             "expected_length_z : float\n"
-             "    The expected length of a sample z of the sampler "
-             "(`es.p.sampler.expected_length()`).\n"
-             "sigma : float\n"
-             "    The initial step size sigma0.")
+             "    The initial mean m, shape (d,).")
         .def_rw("A",
                 &NaturalGradientAdaptation::A,
                 "The sampling matrix, y = A z, shape (d, d) (I at the start).")
@@ -1248,14 +1162,18 @@ void define_matrix_adaptation(nb::module_ &main)
              &NaturalGradientAdaptation::compute_gradients,
              nb::arg("pop"),
              nb::arg("weights"),
-             nb::arg("stats"),
              nb::arg("settings"),
-             nb::arg("mu"),
-             nb::arg("lamb"),
              "Compute the natural gradient of the population: "
              "`gradient_samples`, `gradient_weights`, `gradient_shift` and "
              "`sigma_g`. Called by `adapt_evolution_paths`.\n\n"
-             ADAPT_PARAMS_DOC);
+             "Parameters\n"
+             "----------\n"
+             "pop : Population\n"
+             "    The selected population (sorted, best first).\n"
+             "weights : Weights\n"
+             "    The recombination weights and learning rates (`es.p.weights`).\n"
+             "settings : Settings\n"
+             "    The settings (`es.p.settings`).");
 
     // The old, misspelled name of 1.x, with a DeprecationWarning
     adaptation.def(
@@ -1269,7 +1187,10 @@ void define_matrix_adaptation(nb::module_ &main)
            const size_t lamb) {
             warn_deprecated("Adaptation.adapt_evolution_paths_innner is deprecated; use "
                             "Adaptation.adapt_evolution_paths_inner");
-            a.adapt_evolution_paths_inner(pop, weights, stats, settings, mu, lamb);
+            // mu and lamb are accepted as in 1.x, and not used
+            static_cast<void>(mu);
+            static_cast<void>(lamb);
+            a.adapt_evolution_paths_inner(pop, weights, stats, settings);
         },
         nb::arg("pop"),
         nb::arg("weights"),
@@ -1277,7 +1198,8 @@ void define_matrix_adaptation(nb::module_ &main)
         nb::arg("settings"),
         nb::arg("mu"),
         nb::arg("lamb"),
-        "Deprecated: the old (misspelled) name of `adapt_evolution_paths_inner`.");
+        "Deprecated: the old (misspelled) name of `adapt_evolution_paths_inner`; mu and lamb "
+        "are accepted, as in 1.x, and not used.");
 }
 
 void define_bounds(nb::module_ &main)
@@ -1615,7 +1537,7 @@ void define_mutation(nb::module_ &main)
              nb::overload_cast<parameters::Parameters &>(&SigmaSampler::apply_integer_bounds),
              nb::arg("parameters"),
              "Raise the step sizes of the integer variables to their lower bound "
-             "int_lb_sigma / sqrt(C_ii) (`es.p.weights.int_lb_sigma`, C_ii from "
+             "min(0.2, mueff / d) / sqrt(C_ii) (C_ii from "
              "`adaptation.coordinate_wise_variances`).\n\n"
              "Parameters\n"
              "----------\n"
@@ -1650,8 +1572,9 @@ void define_mutation(nb::module_ &main)
     nb::class_<Strategy>(
         m,
         "Strategy",
-        "Base class of the step-size adaptations; also samples and evaluates a population.\n\n"
-        "`mutate` samples and evaluates a population, `adapt` updates sigma after selection. "
+        "Base class of the step-size adaptations; also samples the population.\n\n"
+        "The optimizer samples a population through it, in batches, passes it the objective "
+        "values, and `adapt` updates sigma after selection. "
         "The base class does not change sigma. The optimizer creates the subclass of "
         "`Modules.ssa`; each subclass has the same constructor.")
         .def(nb::init<std::shared_ptr<ThresholdConvergence>,
@@ -1680,7 +1603,6 @@ void define_mutation(nb::module_ &main)
              nb::arg("population"),
              nb::arg("old_population"),
              nb::arg("stats"),
-             nb::arg("lamb"),
              "Update the step size sigma after selection.\n\n"
              "Parameters\n"
              "----------\n"
@@ -1693,27 +1615,7 @@ void define_mutation(nb::module_ &main)
              "old_population : Population\n"
              "    The population of the previous generation.\n"
              "stats : Stats\n"
-             "    The statistics of the run.\n"
-             "lamb : int\n"
-             "    The population size lambda.")
-        .def("mutate",
-             &Strategy::mutate,
-             nb::arg("objective"),
-             nb::arg("n_offspring"),
-             nb::arg("parameters"),
-             "Sample and evaluate a population.\n\n"
-             "Per individual: z from the sampler (lengthened by threshold convergence), "
-             "y = A z, x = m + sigma_i y and bound correction; with RESAMPLE or repelling a "
-             "rejected individual is sampled again. Sequential selection can stop the "
-             "population early. With TPA the two extra points are evaluated afterwards.\n\n"
-             "Parameters\n"
-             "----------\n"
-             "objective : Callable[[numpy.ndarray], float]\n"
-             "    The objective function.\n"
-             "n_offspring : int\n"
-             "    The number of individuals.\n"
-             "parameters : Parameters\n"
-             "    The state of the optimizer (`es.p`); `pop` is written.")
+             "    The statistics of the run.")
         .def_rw("threshold_convergence",
                 &Strategy::tc,
                 "The threshold convergence (`ThresholdConvergence` or "
@@ -1741,14 +1643,14 @@ void define_mutation(nb::module_ &main)
         "sigma *= exp(l), l = (cs / damps) (||ps|| / E||z|| - 1) clamped to [-1, 1] (as in "
         "pycma): sigma grows when the evolution path ps is longer than under random selection "
         "and shrinks when it is shorter. Hansen & Ostermeier (2001).");
-    strategy_init<CSA>(ssa_csa);
+    strategy_init(ssa_csa);
     auto ssa_tpa = nb::class_<TPA, Strategy>(
         m,
         "TPA",
         "Two-point step-size adaptation (`StepSizeAdaptation.TPA`).\n\n"
-        "After each population the two points m + sigma dm and m - sigma dm (along the last "
-        "step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when "
-        "m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as "
+        "With every population (in its first batch) the two points m + sigma dm and "
+        "m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, "
+        "with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as "
         "after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per "
         "generation. Hansen (2008); a tie as in pycma.")
         .def_rw("a_tpa", &TPA::a_tpa, "The magnitude of r (default 0.5).")
@@ -1756,7 +1658,7 @@ void define_mutation(nb::module_ &main)
                 &TPA::b_tpa,
                 "The offset added to r when the forward point is better (default 0).")
         .def_rw("rank_tpa", &TPA::rank_tpa, "The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0).");
-    strategy_init<TPA>(ssa_tpa);
+    strategy_init(ssa_tpa);
     auto ssa_msr = nb::class_<MSR, Strategy>(
         m,
         "MSR",
@@ -1771,7 +1673,7 @@ void define_mutation(nb::module_ &main)
                 &MSR::quantile,
                 "The position j / lambda of the previous generation's value that the offspring "
                 "are compared with (default 0.3).");
-    strategy_init<MSR>(ssa_msr);
+    strategy_init(ssa_msr);
     auto ssa_psr = nb::class_<PSR, Strategy>(
         m,
         "PSR",
@@ -1781,7 +1683,7 @@ void define_mutation(nb::module_ &main)
         "s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by "
         "default (Loshchilov 2014, Alg. 6).")
         .def_rw("success_ratio", &PSR::success_ratio, "The target success ratio (default 0.25).");
-    strategy_init<PSR>(ssa_psr);
+    strategy_init(ssa_psr);
     auto ssa_xnes = nb::class_<XNES, Strategy>(
         m,
         "XNES",
@@ -1790,7 +1692,7 @@ void define_mutation(nb::module_ &main)
         "natural gradient (`NaturalGradientAdaptation.sigma_g`). With the other matrix "
         "adaptations: sigma *= exp(cs / sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the "
         "positive weights. Glasmachers et al. (2010).");
-    strategy_init<XNES>(ssa_xnes);
+    strategy_init(ssa_xnes);
     auto ssa_mxnes = nb::class_<MXNES, Strategy>(
         m,
         "MXNES",
@@ -1801,7 +1703,7 @@ void define_mutation(nb::module_ &main)
         "m-xNES of Krause, Glasmachers & Igel (2017), "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
-    strategy_init<MXNES>(ssa_mxnes);
+    strategy_init(ssa_mxnes);
     auto ssa_lpxnes = nb::class_<LPXNES, Strategy>(
         m,
         "LPXNES",
@@ -1813,7 +1715,7 @@ void define_mutation(nb::module_ &main)
         "individuals. lp-xNES of Krause, Glasmachers & Igel (2017), "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
-    strategy_init<LPXNES>(ssa_lpxnes);
+    strategy_init(ssa_lpxnes);
     auto ssa_sr = nb::class_<SR, Strategy>(
         m,
         "SR",
@@ -1828,7 +1730,7 @@ void define_mutation(nb::module_ &main)
         "previous generation's best instead would count a success about every other "
         "generation even at a good sigma, and sigma would diverge. For non-elitist selection "
         "see also `MSR`.");
-    strategy_init<SR>(ssa_sr);
+    strategy_init(ssa_sr);
     auto ssa_sa = nb::class_<SA, Strategy>(
         m,
         "SA",
@@ -1838,6 +1740,6 @@ void define_mutation(nb::module_ &main)
         "selected individuals divided by the geometric mean over the whole population (Beyer & "
         "Sendhoff 2008, with the correction of Ahrari et al. 2017). With SA the default mu is "
         "lambda / 4.");
-    strategy_init<SA>(ssa_sa);
+    strategy_init(ssa_sa);
 }
 } // namespace modcma_python

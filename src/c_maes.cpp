@@ -4,48 +4,55 @@
 
 void ModularCMAES::recombine() const
 {
-    auto &a = *p->adaptation;
-    a.m_old = a.m;
-    // m = m_old + (X_mu - m_old) w. Eigen evaluated this product (its left-hand side is an
-    // expression, not a matrix) as dst = m_old; dst += w_k (x_k - m_old) for k = 0..mu-1; the same
-    // loop, without the temporary, gives the same bits.
-    a.m = a.m_old;
-    if (p->weights.utility)
-    {
-        // UTILITY (NES/xNES): every evaluated point, with the utilities (which sum to zero)
-        Vector u;
-        p->weights.mean_weights_into(p->pop.n, u);
-        for (Eigen::Index k = 0; k < u.size(); ++k)
-            a.m.noalias() += u(k) * (p->pop.X.col(k) - a.m_old);
-        return;
-    }
-    for (Eigen::Index k = 0; k < static_cast<Eigen::Index>(p->mu); ++k)
-        a.m.noalias() += (1.0 * p->weights.positive(k)) * (p->pop.X.col(k) - a.m_old);
+    require_no_generation("recombine()");
+    p->recombine();
 }
 
-void ModularCMAES::select() const { p->selection->select(*p); }
+void ModularCMAES::select() const
+{
+    require_no_generation("select()");
+    p->selection->select(*p);
+}
 
-void ModularCMAES::adapt() const { p->adapt(); }
+void ModularCMAES::adapt() const
+{
+    require_no_generation("adapt()");
+    p->adapt();
+}
+
+void ModularCMAES::require_no_generation(const char *step) const
+{
+    if (next != Step::BEGIN || n_pending != 0)
+        throw std::logic_error(std::string(step) +
+                               " while the points of a generation wait for their values (after "
+                               "ask(), or an interrupted mutate() or step()): tell() their "
+                               "values, or evaluate them with mutate(), first");
+}
 
 void ModularCMAES::mutate(FunctionType &objective)
 {
-    if (phase == Phase::IDLE)
-        start_generation();
-    while (phase != Phase::DONE)
+    // Up to selection: a new generation, or the one that ask() started. The rest is the user's:
+    // select(), recombine() and adapt() act on the state, and the next mutate() or ask() starts a
+    // new generation, as in 1.x
+    while (n_pending != 0 || next != Step::SELECT)
     {
-        evaluate(objective);
-        consume(values.head(n_pending), nullptr);
+        if (n_pending == 0)
+            advance(true);
+        else
+        {
+            evaluate(objective);
+            answer(values.head(n_pending), nullptr);
+        }
     }
-    phase = Phase::IDLE;
+    next = Step::BEGIN;
 }
 
 bool ModularCMAES::step(FunctionType &objective)
 {
+    ask();
     do
-    {
-        ask();
         evaluate(objective);
-    } while (!tell(values.head(n_pending)));
+    while (!tell(values.head(n_pending)));
     return !break_conditions();
 }
 
@@ -68,16 +75,16 @@ bool ModularCMAES::break_conditions() const
 {
     const auto target_reached =
         p->settings.target and p->settings.target.value() >= p->stats.global_best.y;
-    // Stop when the next generation (lambda points, plus the extra points of TPA) would exceed the
-    // budget; a generation that ends exactly at the budget is still run. A generation that starts
-    // with a restart evaluates the center first (and hill-valley points of repelling, while the
-    // budget allows) and takes at most the rest of the budget (fit_lambda_to_budget).
+    // Stop when the next generation (lambda points, plus the reserved points: TPA's) would exceed
+    // the budget; a generation that ends exactly at the budget is still run. A generation that
+    // starts with a restart evaluates the center first (and hill-valley points of repelling, while
+    // the budget allows) and takes at most the rest of the budget (fit_lambda_to_budget).
     const auto restart_due =
         p->settings.modules.restart_strategy != parameters::RestartStrategyType::STOP &&
         p->criteria.any();
     const auto budget_used_up =
-        restart_due ? !p->restart_fits(1)
-                    : (p->stats.evaluations + p->lambda + p->mutation->n_extra_points()) >
+        restart_due ? !p->restart_fits()
+                    : (p->stats.evaluations + p->lambda + p->reserved_points()) >
                           p->settings.budget;
     const auto exceed_gens =
         p->settings.max_generations and p->stats.t >= p->settings.max_generations;
@@ -88,13 +95,14 @@ bool ModularCMAES::break_conditions() const
 }
 
 // -----------------------------------------------------------------------------
-// Ask-tell
+// Ask-tell: the steps of a generation, and the points they queue (#84)
 // -----------------------------------------------------------------------------
 
 Eigen::Ref<const Matrix> ModularCMAES::ask()
 {
-    if (phase == Phase::IDLE)
-        start_generation();
+    // Starts a generation when none is in progress
+    while (n_pending == 0)
+        advance();
     return batch.leftCols(n_pending);
 }
 
@@ -107,173 +115,187 @@ bool ModularCMAES::tell(Eigen::Ref<const Vector> f, Eigen::Ref<const Matrix> X)
 
 bool ModularCMAES::tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X)
 {
-    if (phase == Phase::IDLE || phase == Phase::DONE)
+    answer(f, X);
+    return advance();
+}
+
+void ModularCMAES::answer(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X)
+{
+    const auto n = n_pending;
+    if (n == 0)
         throw std::logic_error("tell() without pending points: call ask() first");
-    if (f.size() != n_pending)
-        throw std::invalid_argument("tell() expects " + std::to_string(n_pending) +
+    if (f.size() != n)
+        throw std::invalid_argument("tell() expects " + std::to_string(n) +
                                     " objective values (the points of ask()), got " +
                                     std::to_string(f.size()));
-    if (X != nullptr && (X->rows() != batch.rows() || X->cols() != n_pending))
+    if (X != nullptr && (X->rows() != batch.rows() || X->cols() != n))
         throw std::invalid_argument("tell() expects the points as a " +
                                     std::to_string(batch.rows()) + " x " +
-                                    std::to_string(n_pending) + " matrix, got " +
+                                    std::to_string(n) + " matrix, got " +
                                     std::to_string(X->rows()) + " x " + std::to_string(X->cols()));
 
-    consume(f, X);
-    if (phase != Phase::DONE)
-        return false;
-
-    select();
-    recombine();
-    adapt();
-    phase = Phase::IDLE;
-    return true;
-}
-
-void ModularCMAES::reserve_batch(const Eigen::Index k)
-{
-    const auto d = static_cast<Eigen::Index>(p->settings.dim);
-    if (batch.rows() != d || batch.cols() < k)
-        batch.resize(d, std::max(k, static_cast<Eigen::Index>(p->lambda) + 2));
-    n_pending = k;
-}
-
-void ModularCMAES::start_generation()
-{
-    if (p->begin_generation())
+    // Each request's values go to its module, in the order they were queued. Nothing is pending
+    // afterwards, also when a module throws (a clear() keeps the capacity: no allocation)
+    struct Clear
     {
-        reserve_batch(1);
-        batch.col(0) = p->restart_center();
-        phase = Phase::RESTART_CENTER;
+        ModularCMAES &es;
+        ~Clear()
+        {
+            es.n_pending = 0;
+            es.requests.clear();
+        }
+    } clear{*this};
+    const Eigen::Ref<const Matrix> evaluated =
+        X != nullptr ? *X : Eigen::Ref<const Matrix>(batch.leftCols(n));
+    for (const auto &r : requests)
+    {
+        // Every evaluation is counted here, before its module receives the values: no module
+        // counts (Solution.e of a point is the count after its request)
+        p->stats.evaluations += static_cast<size_t>(r.size);
+        dispatch(r, f.segment(r.begin, r.size), evaluated.middleCols(r.begin, r.size), X != nullptr);
+    }
+}
+
+void ModularCMAES::dispatch(const Request &request,
+                            Eigen::Ref<const Vector> f,
+                            Eigen::Ref<const Matrix> X,
+                            const bool given)
+{
+    // The module in place now receives the values (one may have been replaced since the points
+    // were queued)
+    switch (request.source)
+    {
+    case Source::POPULATION:
+        p->mutation->tell_batch(request.index, f, X, given, *p);
+        return;
+    case Source::EXTRA_POINTS:
+        p->mutation->tell_extra_points(f, X, *p);
+        return;
+    case Source::RESTART_CENTER:
+        p->tell_restart_center(f(0), X.col(0));
+        return;
+    case Source::HILL_VALLEY:
+        p->repelling->answer(f(0), X.col(0), *p);
         return;
     }
-    start_population();
 }
 
-void ModularCMAES::start_population()
+bool ModularCMAES::advance(const bool stop_before_selection)
 {
-    p->mutation->begin_population(p->lambda, *p);
-    next = 0;
-    sample_batch();
-}
-
-void ModularCMAES::sample_batch()
-{
-    // Individuals next..last: sequential selection cannot stop the population before last.
-    const auto n = static_cast<Eigen::Index>(p->pop.n);
-    const auto first_stop = p->mutation->first_stop(static_cast<size_t>(next), *p);
-    const Eigen::Index last = first_stop >= static_cast<size_t>(n)
-                                  ? n - 1
-                                  : static_cast<Eigen::Index>(first_stop);
-    n_individuals = last - next + 1;
-    p->mutation->sample_batch(next, n_individuals, *p);
-
-    // The extra points of the step-size adaptation go with the last individuals: they do not
-    // depend on the population
-    n_extra = last == n - 1 ? static_cast<Eigen::Index>(p->mutation->n_extra_points()) : 0;
-    reserve_batch(n_individuals + n_extra);
-    batch.leftCols(n_individuals) = p->pop.X_transformed.middleCols(next, n_individuals);
-    if (n_extra != 0)
-        p->mutation->extra_points(batch.middleCols(n_individuals, n_extra), *p);
-    phase = Phase::POPULATION;
-}
-
-void ModularCMAES::next_restart_point()
-{
-    if (p->repelling->has_query())
+    // The steps of a generation, in order. This is the only place that queues points: a step that
+    // queues some returns control (ask() hands them out), and runs again, or the next step, once
+    // tell() has given their values.
+    while (n_pending == 0)
     {
-        reserve_batch(1);
-        batch.col(0) = p->repelling->query_point();
-        phase = Phase::RESTART_REPELLING;
-        return;
+        switch (next)
+        {
+        case Step::BEGIN:
+            // A restart first when the criteria fired: the final mean of the run that ends
+            if (p->begin_generation())
+            {
+                queue(p->restart_center(), Source::RESTART_CENTER);
+                next = Step::RESTART;
+            }
+            else
+                next = Step::SAMPLE;
+            break;
+
+        case Step::RESTART:
+            // The final mean's value started the update of the repelling archive: its hill-valley
+            // points, one at a time (each depends on the value of the one before); then the
+            // modules are reset for the new run
+            if (p->repelling->has_query())
+                queue(p->repelling->query_point(), Source::HILL_VALLEY);
+            else
+            {
+                // The next step is set first, as in UPDATE: when the reset throws (the on_reset of
+                // a restart criterion written in Python), the next ask() does not reset again
+                next = Step::SAMPLE;
+                p->finish_restart();
+            }
+            break;
+
+        case Step::SAMPLE:
+            // A new population: its first batch, with the extra points of the step-size adaptation
+            // (TPA's), which do not depend on the population's values
+            p->mutation->begin_population(p->lambda, *p);
+            next_individual = 0;
+            queue_population_batch();
+            queue_extra_points();
+            next = Step::POPULATION;
+            break;
+
+        case Step::POPULATION:
+            // With sequential selection the population comes in batches, until every individual
+            // has its value (a stop shortens pop.n to the evaluated individuals)
+            if (next_individual >= static_cast<Eigen::Index>(p->pop.n))
+                next = Step::SELECT;
+            else
+                queue_population_batch();
+            break;
+
+        case Step::SELECT:
+            if (stop_before_selection)
+                return false;
+            p->selection->select(*p);
+            next = Step::UPDATE;
+            break;
+
+        case Step::UPDATE:
+            // The next step is set first: when the update throws (a restart criterion written in
+            // Python), the next ask() starts a new generation instead of repeating the update
+            next = Step::BEGIN;
+            p->recombine();
+            p->adapt();
+            return true;
+        }
     }
-    p->finish_restart();
-    start_population();
+    return false;
 }
 
-void ModularCMAES::inject(const Eigen::Index i, Eigen::Ref<const Vector> x) const
+void ModularCMAES::queue_population_batch()
 {
-    auto &pop = p->pop;
-    pop.X.col(i) = x;
-    pop.X_transformed.col(i) = x;
-    p->adaptation->invert_x_into(pop.X.col(i), pop.S.col(i), pop.Y.col(i));
-    p->adaptation->invert_y_into(pop.Y.col(i), pop.Z.col(i));
-    // A point far outside the distribution enters the update clipped (as pycma): X, from which the
-    // mean is recombined, moves with y; X_transformed keeps the evaluated point for the statistics
-    if (matrix_adaptation::clip_injected_step(pop.Y.col(i), pop.Z.col(i)))
-        pop.X.col(i) = p->adaptation->m + pop.S.col(i).cwiseProduct(pop.Y.col(i));
+    const Eigen::Index begin = next_individual;
+    const Eigen::Index size = p->mutation->sample_batch_from(begin, *p);
+    // Copied between the concrete matrices (not through queue(X)'s Ref): Eigen inlines this copy
+    queue(size, Source::POPULATION, begin) =
+        p->pop.X_transformed.middleCols(begin, size);
+    next_individual += size;
 }
 
-void ModularCMAES::consume(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X)
+void ModularCMAES::queue_extra_points()
 {
-    // The evaluated points: the given ones, or the asked ones
-    const Eigen::Ref<const Matrix> points =
-        X != nullptr ? *X : Eigen::Ref<const Matrix>(batch.leftCols(n_pending));
+    if (const auto k = static_cast<Eigen::Index>(p->mutation->n_extra_points()); k != 0)
+        p->mutation->extra_points(queue(k, Source::EXTRA_POINTS), *p);
+}
 
-    switch (phase)
+Eigen::Ref<Matrix> ModularCMAES::queue(const Eigen::Index k,
+                                       const Source source,
+                                       const Eigen::Index index)
+{
+    const Eigen::Index needed = n_pending + k;
+    if (batch.rows() != static_cast<Eigen::Index>(p->settings.dim) || batch.cols() < needed)
     {
-    case Phase::RESTART_CENTER:
-        p->tell_restart_center(f(0), points.col(0));
-        next_restart_point();
-        return;
-
-    case Phase::RESTART_REPELLING:
-        p->repelling->answer(f(0), points.col(0), *p);
-        next_restart_point();
-        return;
-
-    case Phase::POPULATION:
-    {
-        bool complete = false;
-        for (Eigen::Index j = 0; j < n_individuals && !complete; ++j)
-        {
-            if (X != nullptr && points.col(j) != batch.col(j))
-                inject(next + j, points.col(j));
-            complete = p->mutation->evaluated(next + j, f(j), *p);
-        }
-        if (!complete)
-        {
-            next += n_individuals;
-            sample_batch();
-            return;
-        }
-
-        p->mutation->end_population(*p);
-        if (n_extra != 0)
-        {
-            p->mutation->tell_extra_points(
-                f.segment(n_individuals, n_extra), points.middleCols(n_individuals, n_extra), *p);
-            phase = Phase::DONE;
-        }
-        else if (const auto k = static_cast<Eigen::Index>(p->mutation->n_extra_points()); k != 0)
-        {
-            // Sequential selection stopped the population: the extra points on their own
-            reserve_batch(k);
-            p->mutation->extra_points(batch.leftCols(k), *p);
-            n_individuals = 0;
-            n_extra = k;
-            phase = Phase::EXTRA;
-        }
-        else
-            phase = Phase::DONE;
-        return;
+        // Grows rarely (a population of a new size), keeping the queued points; room for a whole
+        // generation (the population and its reserved points)
+        const auto generation = static_cast<Eigen::Index>(p->lambda + p->reserved_points());
+        batch.conservativeResize(static_cast<Eigen::Index>(p->settings.dim),
+                                 std::max(needed, generation));
     }
+    requests.push_back(Request{source, n_pending, k, index});
+    n_pending = needed;
+    return batch.middleCols(needed - k, k);
+}
 
-    case Phase::EXTRA:
-        p->mutation->tell_extra_points(f, points, *p);
-        phase = Phase::DONE;
-        return;
-
-    default:
-        throw std::logic_error("ModularCMAES: no pending points");
-    }
+void ModularCMAES::queue(Eigen::Ref<const Matrix> X, const Source source)
+{
+    queue(X.cols(), source) = X;
 }
 
 void ModularCMAES::evaluate(FunctionType &objective)
 {
-    // Resized here, never in consume(): tell() reads the values from this buffer
-    if (values.size() < batch.cols())
-        values.resize(batch.cols());
+    if (values.size() < n_pending)
+        values.resize(n_pending);
     for (Eigen::Index j = 0; j < n_pending; ++j)
         values(j) = objective(batch.col(j));
 }

@@ -15,11 +15,8 @@ Parameters::Parameters(const Settings &settings) :
     pop(settings.dim, settings.lambda0),
     old_pop(settings.dim, settings.lambda0),
     criteria(restart::Criteria::get(settings.modules, settings.lambda0)),
-    adaptation(matrix_adaptation::get(settings.modules,
-                                      settings.dim,
-                                      settings.x0.value_or(settings.center),
-                                      sampler->expected_length(),
-                                      settings.sigma0)),
+    adaptation(matrix_adaptation::get(
+        settings.modules, settings.dim, settings.x0.value_or(settings.center))),
     mutation(mutation::get(
         settings.modules, static_cast<Float>(settings.dim), settings.sigma0, generator)),
     selection(std::make_shared<selection::Strategy>(settings.modules)),
@@ -30,7 +27,7 @@ Parameters::Parameters(const Settings &settings) :
     bounds(bounds::get(settings.modules.bound_correction, settings.dim, generator)),
     repelling(repelling::get(settings.modules)),
     center_placement(center::get(settings.modules.center_placement)),
-    coordinate_mapping(mapping::get(settings.integer_variables, settings.dim, weights.mueff))
+    coordinate_mapping(mapping::get(settings.integer_variables, settings.dim))
 {
     criteria.reset(*this);
 }
@@ -53,34 +50,32 @@ void Parameters::resize_population(const size_t new_mu, const size_t new_lambda)
     // old_pop = Population(settings.dim, lambda);
 }
 
-void Parameters::perform_restart(FunctionType &objective, const std::optional<Float> &sigma)
+size_t Parameters::reserved_points() const
 {
-    begin_restart(sigma);
-    complete_restart(objective);
+    // TPA's two points, with the population's first batch
+    return mutation->n_extra_points();
 }
 
-void Parameters::complete_restart(FunctionType &objective)
+void Parameters::inject(const Eigen::Index i, Eigen::Ref<const Vector> x)
 {
-    {
-        const Vector x = restart_center();
-        tell_restart_center(objective(x), x);
-    }
-    while (repelling->has_query())
-    {
-        const Vector x = repelling->query_point();
-        repelling->answer(objective(x), x, *this);
-    }
-    finish_restart();
+    pop.X.col(i) = x;
+    pop.X_transformed.col(i) = x;
+    adaptation->invert_x_into(pop.X.col(i), pop.S.col(i), pop.Y.col(i));
+    adaptation->invert_y_into(pop.Y.col(i), pop.Z.col(i));
+    // A point far outside the distribution enters the update clipped (as pycma): X, from which the
+    // mean is recombined, moves with y; X_transformed keeps the evaluated point for the statistics
+    if (matrix_adaptation::clip_injected_step(pop.Y.col(i), pop.Z.col(i)))
+        pop.X.col(i) = adaptation->m + pop.S.col(i).cwiseProduct(pop.Y.col(i));
 }
 
-void Parameters::begin_restart(const std::optional<Float> &sigma)
+void Parameters::begin_restart(const Float sigma)
 {
     if (settings.verbose)
     {
         std::cout << "performing restart. t(" << stats.t << ", " << stats.evaluations
                   << ") reason: " << criteria.reason() << std::endl;
         std::cout << "setting parameters (mu, lambda, sigma): (" << mu << ", " << lambda << ", "
-                  << sigma.value_or(settings.sigma0) << ")\n";
+                  << sigma << ")\n";
     }
     restart_sigma = sigma;
     stats.solutions.push_back(stats.current_best);
@@ -89,8 +84,8 @@ void Parameters::begin_restart(const std::optional<Float> &sigma)
 
 void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
 {
-    stats.evaluations++;
-    stats.centers.emplace_back(x, y, stats.t - 1, stats.evaluations);
+    // The center belongs to the last generation of the run that ends (0 before any)
+    stats.centers.emplace_back(x, y, stats.t > 0 ? stats.t - 1 : 0, stats.evaluations);
     stats.update_best(stats.centers.back().x, stats.centers.back().y);
     stats.has_improved = false;
     repelling->begin_update(*this);
@@ -98,8 +93,6 @@ void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
 
 void Parameters::finish_restart()
 {
-    const std::optional<Float> sigma = restart_sigma;
-    restart_sigma.reset();
     fit_lambda_to_budget();
 
     sampler->reset(settings.modules, lambda);
@@ -108,15 +101,15 @@ void Parameters::finish_restart()
     pop = Population(settings.dim, lambda);
     old_pop = Population(settings.dim, lambda);
 
-    mutation = mutation::get(settings.modules,
-                             static_cast<Float>(settings.dim),
-                             sigma.value_or(settings.sigma0),
-                             generator);
-    adaptation->restart(settings, sigma.value_or(settings.sigma0));
+    mutation =
+        mutation::get(settings.modules, static_cast<Float>(settings.dim), restart_sigma, generator);
+    adaptation->restart(settings);
     (*center_placement)(*this);
-    criteria.reset(*this);
     stats.current_best = {};
     stats.t_run = 0;
+    // Last: the on_reset of a restart criterion may be Python code that throws; the new run is
+    // complete by then
+    criteria.reset(*this);
 }
 
 void Parameters::fit_lambda_to_budget()
@@ -125,7 +118,7 @@ void Parameters::fit_lambda_to_budget()
     // repelling queries are evaluated by now; TPA adds its two points): a restart near the end of
     // the budget, where IPOP and BIPOP may also have grown lambda, would otherwise exceed it.
     // At least min_lambda_after_restart points; pairwise selection needs an even lambda.
-    const size_t extra = mutation->n_extra_points();
+    const size_t extra = reserved_points();
     const size_t used = stats.evaluations + extra;
     const size_t remaining = settings.budget > used ? settings.budget - used : 0;
     if (lambda <= remaining)
@@ -140,23 +133,43 @@ void Parameters::fit_lambda_to_budget()
     lambda = capped;
 }
 
-bool Parameters::restart_fits(const size_t n) const
+bool Parameters::restart_fits() const
 {
-    return stats.evaluations + n + min_lambda_after_restart + mutation->n_extra_points() <=
-           settings.budget;
+    return stats.evaluations + 1 + min_lambda_after_restart + reserved_points() <= settings.budget;
+}
+
+void Parameters::recombine()
+{
+    auto &a = *adaptation;
+    a.m_old = a.m;
+    // m = m_old + (X_mu - m_old) w. Eigen evaluated this product (its left-hand side is an
+    // expression, not a matrix) as dst = m_old; dst += w_k (x_k - m_old) for k = 0..mu-1; the same
+    // loop, without the temporary, gives the same bits.
+    a.m = a.m_old;
+    if (weights.utility)
+    {
+        // UTILITY (NES/xNES): every evaluated point, with the utilities (which sum to zero)
+        Vector u;
+        weights.mean_weights_into(pop.n, u);
+        for (Eigen::Index k = 0; k < u.size(); ++k)
+            a.m.noalias() += u(k) * (pop.X.col(k) - a.m_old);
+        return;
+    }
+    for (Eigen::Index k = 0; k < static_cast<Eigen::Index>(mu); ++k)
+        a.m.noalias() += (1.0 * weights.positive(k)) * (pop.X.col(k) - a.m_old);
 }
 
 void Parameters::adapt()
 {
-    adaptation->adapt_evolution_paths(pop, weights, stats, settings, mu, lambda);
-    mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
+    adaptation->adapt_evolution_paths(pop, weights, stats, settings, mu);
+    mutation->adapt(weights, adaptation, pop, old_pop, stats);
 
     if (constants::clip_sigma)
         mutation->sigma = std::min(std::max(mutation->sigma, restart::MinSigma::tolerance),
                                    restart::MaxSigma::tolerance);
 
     successful_adaptation =
-        adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings, stats);
+        adaptation->adapt_matrix(weights, pop, mu, settings, stats);
     criteria.update(*this);
     stats.t++;
     stats.t_run++;
@@ -173,11 +186,6 @@ bool Parameters::begin_generation()
     return true;
 }
 
-void Parameters::start(FunctionType &objective)
-{
-    if (begin_generation())
-        complete_restart(objective);
-}
 } // namespace parameters
 
 std::ostream &operator<<(std::ostream &os, const parameters::Stats &s)
