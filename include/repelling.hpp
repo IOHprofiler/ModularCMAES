@@ -122,12 +122,13 @@ struct Repelling
     virtual void adapt_radii_after_sampling(parameters::Parameters &p);
 
     /**
-     * The archive update after a restart, with an objective function. A loop over the resumable
-     * update below: begin_update, then evaluate query_point() and answer() while has_query().
+     * The archive update after a restart, with an objective function: begin_update, then the
+     * queued hill-valley points are evaluated.
      */
     void update_archive(FunctionType &objective, parameters::Parameters &p);
 
-    //! Start the archive update after a restart (the last center and solution are in p.stats)
+    //! Start the archive update after a restart (the last center and solution are in p.stats):
+    //! queues the first hill-valley point; each answer queues the next until the update is done
     void begin_update(parameters::Parameters &p);
 
     //! Whether the update waits for the objective value of query_point()

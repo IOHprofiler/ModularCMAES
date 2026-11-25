@@ -1,5 +1,7 @@
 #include "parameters.hpp"
 
+#include <stdexcept>
+
 namespace parameters
 {
 Parameters::Parameters(const Settings &settings) :
@@ -30,9 +32,40 @@ Parameters::Parameters(const Settings &settings) :
     bounds(bounds::get(settings.modules.bound_correction, settings.dim, generator)),
     repelling(repelling::get(settings.modules)),
     center_placement(center::get(settings.modules.center_placement)),
-    coordinate_mapping(mapping::get(settings.integer_variables, settings.dim, weights.mueff))
+    coordinate_mapping(mapping::get(settings.integer_variables, settings.dim, weights.mueff)),
+    queue(settings.dim)
 {
     criteria.reset(*this);
+
+    // The built-in subscribers of the pipeline. They reach the modules through p, so a module that
+    // a restart replaces (the step-size adaptation) is the current one.
+    using evaluation::GenerationStage;
+    pipeline.on(GenerationStage::RUN_ENDING, "restart-center", [](Parameters &p) {
+        // The final mean of the run that ends; its consumer starts the update of the repelling
+        // archive, which queues the hill-valley points
+        p.queue.push(
+            p.restart_center(),
+            [](Parameters &q, const evaluation::Evaluations &e) {
+                q.tell_restart_center(e.f(0), e.X.col(0));
+            },
+            "restart-center");
+    });
+    pipeline.on(
+        GenerationStage::ALONGSIDE_POPULATION,
+        "step-size-extra-points",
+        [](Parameters &p) {
+            const auto k = static_cast<Eigen::Index>(p.mutation->n_extra_points());
+            if (k == 0)
+                return;
+            auto X = p.queue.push(
+                k,
+                [](Parameters &q, const evaluation::Evaluations &e) {
+                    q.mutation->tell_extra_points(e.f, e.X, q);
+                },
+                "step-size-extra-points");
+            p.mutation->extra_points(X, p);
+        },
+        [](const Parameters &p) { return p.mutation->n_extra_points(); });
 }
 
 Parameters::Parameters(const size_t dim) :
@@ -61,16 +94,40 @@ void Parameters::perform_restart(FunctionType &objective, const std::optional<Fl
 
 void Parameters::complete_restart(FunctionType &objective)
 {
-    {
-        const Vector x = restart_center();
-        tell_restart_center(objective(x), x);
-    }
-    while (repelling->has_query())
-    {
-        const Vector x = repelling->query_point();
-        repelling->answer(objective(x), x, *this);
-    }
+    pipeline.fire(evaluation::GenerationStage::RUN_ENDING, *this);
+    queue.drain(*this, objective);
     finish_restart();
+    pipeline.fire(evaluation::GenerationStage::RUN_STARTING, *this);
+    queue.drain(*this, objective);
+}
+
+size_t Parameters::budget_left() const
+{
+    const size_t used = stats.evaluations + static_cast<size_t>(queue.size());
+    return settings.budget > used ? settings.budget - used : 0;
+}
+
+void Parameters::push_variable(Eigen::Ref<const Matrix> X,
+                               evaluation::Consumer consume,
+                               const char *source)
+{
+    if (static_cast<size_t>(X.cols()) > budget_left())
+        throw std::logic_error("a request of " + std::to_string(X.cols()) + " points (" +
+                               std::string(source) + ") exceeds the budget: " +
+                               std::to_string(budget_left()) + " evaluations are left");
+    queue.push(X, std::move(consume), source);
+}
+
+void Parameters::inject(const Eigen::Index i, Eigen::Ref<const Vector> x)
+{
+    pop.X.col(i) = x;
+    pop.X_transformed.col(i) = x;
+    adaptation->invert_x_into(pop.X.col(i), pop.S.col(i), pop.Y.col(i));
+    adaptation->invert_y_into(pop.Y.col(i), pop.Z.col(i));
+    // A point far outside the distribution enters the update clipped (as pycma): X, from which the
+    // mean is recombined, moves with y; X_transformed keeps the evaluated point for the statistics
+    if (matrix_adaptation::clip_injected_step(pop.Y.col(i), pop.Z.col(i)))
+        pop.X.col(i) = adaptation->m + pop.S.col(i).cwiseProduct(pop.Y.col(i));
 }
 
 void Parameters::begin_restart(const std::optional<Float> &sigma)
@@ -98,6 +155,10 @@ void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
 
 void Parameters::finish_restart()
 {
+    // The modules are replaced below: no request may still wait for its values (its consumer
+    // could refer to a replaced module)
+    if (!queue.empty())
+        throw std::logic_error("finish_restart: evaluations are still pending");
     const std::optional<Float> sigma = restart_sigma;
     restart_sigma.reset();
     fit_lambda_to_budget();
@@ -125,7 +186,7 @@ void Parameters::fit_lambda_to_budget()
     // repelling queries are evaluated by now; TPA adds its two points): a restart near the end of
     // the budget, where IPOP and BIPOP may also have grown lambda, would otherwise exceed it.
     // At least min_lambda_after_restart points; pairwise selection needs an even lambda.
-    const size_t extra = mutation->n_extra_points();
+    const size_t extra = pipeline.fixed_points(*this);
     const size_t used = stats.evaluations + extra;
     const size_t remaining = settings.budget > used ? settings.budget - used : 0;
     if (lambda <= remaining)
@@ -142,7 +203,7 @@ void Parameters::fit_lambda_to_budget()
 
 bool Parameters::restart_fits(const size_t n) const
 {
-    return stats.evaluations + n + min_lambda_after_restart + mutation->n_extra_points() <=
+    return stats.evaluations + n + min_lambda_after_restart + pipeline.fixed_points(*this) <=
            settings.budget;
 }
 

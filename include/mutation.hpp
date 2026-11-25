@@ -146,19 +146,25 @@ struct Strategy
 
     virtual ~Strategy() = default;
 
-    //! Sample and evaluate a population of n_offspring with an objective function: a loop over
-    //! the resumable steps below
+    //! Sample and evaluate a population of n_offspring with an objective function (and the points
+    //! that go alongside it, TPA's): begin_population, then the queue is evaluated
     void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p);
 
     /*
-     * The same, resumable (ask-tell). begin_population, then sample() and evaluated() for every
-     * individual, end_population, and the extra points of the step-size adaptation (TPA).
-     * A sample does not depend on the objective values of the ones before it, so individuals
-     * i..first_stop(i) can be sampled before they are evaluated.
+     * The population as a producer of the evaluation queue (#84). begin_population queues the
+     * first batch: individuals 0..first_stop(0). The consumer of a batch passes each value to
+     * evaluated() and queues the next batch, or, once the population is complete, calls
+     * end_population. A sample does not depend on the objective values of the ones before it, so
+     * a batch is sampled when it is queued. The ALONGSIDE_POPULATION stage fires with the final
+     * batch, or right after the population when sequential selection stopped it early.
      */
 
-    //! Start a population of n_offspring (pop.n): sigmas, bound and repelling state
+    //! Start a population of n_offspring (pop.n): sigmas, bound and repelling state; queues the
+    //! first batch
     void begin_population(const size_t n_offspring, parameters::Parameters &p);
+
+    //! Sample individuals i..first_stop(i) and queue them
+    void push_batch(const Eigen::Index i, parameters::Parameters &p);
 
     /**
      * Sample individuals begin..begin+k-1. Their y are one matrix product, Y = A Z; an individual

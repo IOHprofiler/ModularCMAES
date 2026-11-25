@@ -5,12 +5,14 @@ Modules (the module choices) and Settings (dimension, budget, bounds, strategy p
 """
 
 from collections.abc import Sequence
+import enum
 from typing import Annotated
 
 import numpy
 import numpy.typing
 from numpy.typing import NDArray
 
+import modcma.c_maes.cmaescpp
 import modcma.c_maes.cmaescpp.options
 
 
@@ -925,3 +927,86 @@ class CoordinateMapping:
 
     def transform(self, x: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """A copy of the point x, (d,), with the integer variables rounded."""
+
+class GenerationStage(enum.Enum):
+    """
+    The stages of a generation, in order. At each stage its subscribers may queue points to evaluate (Parameters.queue); the next stage starts when they are evaluated.
+    """
+
+    RUN_ENDING = 0
+    """
+    The restart criteria fired; the run that ends is still intact (its final mean, the hill-valley points of repelling).
+    """
+
+    RUN_STARTING = 1
+    """
+    A new run is set up (lambda, mean, sigma, matrix); nothing is sampled yet.
+    """
+
+    GENERATION_STARTING = 2
+    """The distribution of this generation is fixed; nothing is sampled yet."""
+
+    POPULATION = 3
+    """The population: lambda points, in batches with sequential selection."""
+
+    ALONGSIDE_POPULATION = 4
+    """
+    Points that do not depend on the values of the population (TPA's): with the population's final batch, or right after it when it stops early.
+    """
+
+    POPULATION_EVALUATED = 5
+    """Every point of the population has its value; before selection."""
+
+    SELECTED = 6
+    """After selection, before recombination."""
+
+    UPDATED = 7
+    """The mean, sigma and matrix are updated; the end of a generation."""
+
+class EvaluationQueue:
+    """
+    The points that wait for their objective values (Parameters.queue): ask() returns them, tell() passes each request's values to the component that queued it. Read-only, for debugging.
+    """
+
+    @property
+    def size(self) -> int:
+        """The number of pending points."""
+
+    @property
+    def sources(self) -> list[str]:
+        """
+        The component that queued each pending request ('population', 'step-size-extra-points', 'restart-center', 'repelling-hill-valley', ...), in order.
+        """
+
+class Pipeline:
+    """
+    The subscribers of the stages of a generation (Parameters.pipeline). Read-only, for debugging.
+    """
+
+    def subscribers(self, stage: GenerationStage) -> list[str]:
+        """
+        The names of the subscribers of a stage, in order.
+
+        Parameters
+        ----------
+        stage : GenerationStage
+            The stage.
+
+        Returns
+        -------
+        list[str]
+        """
+
+    def fixed_points(self, p: modcma.c_maes.cmaescpp.Parameters) -> int:
+        """
+        The points every generation adds besides the population (TPA: 2), which the budget check reserves.
+
+        Parameters
+        ----------
+        p : Parameters
+            The state of the optimizer.
+
+        Returns
+        -------
+        int
+        """

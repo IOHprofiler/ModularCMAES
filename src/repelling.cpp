@@ -175,11 +175,7 @@ void Repelling::adapt_radii_after_sampling(parameters::Parameters & /*p*/)
 void Repelling::update_archive(FunctionType &objective, parameters::Parameters &p)
 {
     begin_update(p);
-    while (has_query())
-    {
-        const Vector x = query.x;
-        answer(objective(x), x, p);
-    }
+    p.queue.drain(p, objective);
 }
 
 bool Repelling::is_rejected(Eigen::Ref<const Vector> xi, parameters::Parameters &p)
@@ -272,6 +268,15 @@ void Repelling::next_query(parameters::Parameters &p)
     const Float a =
         static_cast<Float>(query.k) / (static_cast<Float>(hill_valley_points) + 1.0);
     query.x = p.coordinate_mapping->transform(v.x + a * (u.x - v.x));
+    // One point at a time: the next point depends on this one's value. The repelling object lives
+    // as long as the parameters; the number of points varies, so the request is checked against
+    // the budget (restart_fits above keeps it within)
+    p.push_variable(
+        query.x,
+        [this](parameters::Parameters &q, const evaluation::Evaluations &e) {
+            answer(e.f(0), e.X.col(0), q);
+        },
+        "repelling-hill-valley");
 }
 
 void Repelling::answer(const Float y, Eigen::Ref<const Vector> x, parameters::Parameters &p)

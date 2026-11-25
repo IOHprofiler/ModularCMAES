@@ -437,6 +437,17 @@ class Parameters:
     def pop(self, arg: Population, /) -> None: ...
 
     @property
+    def queue(self) -> parameters.EvaluationQueue:
+        """The points waiting for their objective values (`EvaluationQueue`)."""
+
+    @property
+    def pipeline(self) -> parameters.Pipeline:
+        """The stages of a generation and their subscribers (`Pipeline`)."""
+
+    def budget_left(self) -> int:
+        """The evaluations left in the budget, minus the points already queued."""
+
+    @property
     def old_pop(self) -> Population:
         """The population of the previous generation (the parents for elitism)."""
 
@@ -658,6 +669,12 @@ class ModularCMAES:
     @property
     def has_pending(self) -> bool:
         """Whether ask() has points that wait for tell()."""
+
+    @property
+    def stage(self) -> parameters.GenerationStage | None:
+        """
+        The stage of the generation in progress (`parameters.GenerationStage`), or None between generations.
+        """
 
     def break_conditions(self) -> bool:
         """

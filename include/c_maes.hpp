@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "parameters.hpp"
 
 /**
@@ -12,11 +14,15 @@
  *    tell() takes their objective values. step() and run() are loops over ask() and tell(), so both
  *    ways give the same results.
  *
- * ask() returns the largest batch of points that the algorithm can evaluate in any order: a whole
- * population (with the two TPA points after it), or, with sequential selection, the individuals up
- * to the first one after which it can stop, then one (or a mirrored pair) at a time. A restart asks
- * for its center, then for the points of the hill-valley tests of the repelling archive, one at a
- * time.
+ * A generation is a pipeline of stages (evaluation::GenerationStage): a restart when one is due
+ * (RUN_ENDING, RUN_STARTING), then GENERATION_STARTING, the POPULATION (with the points
+ * ALONGSIDE_POPULATION, TPA's), POPULATION_EVALUATED, selection (SELECTED), recombination and
+ * adaptation (UPDATED). At each stage its subscribers may queue points (Parameters::queue);
+ * the pipeline waits for tell() whenever the queue is not empty. ask() returns everything that is
+ * queued: a whole population (with TPA's two points), or, with sequential selection, the
+ * individuals up to the first one after which it can stop, then one (or a mirrored pair) at a
+ * time; a restart asks for the final mean, then for the hill-valley points of the repelling
+ * archive, one at a time.
  */
 struct ModularCMAES
 {
@@ -37,11 +43,14 @@ struct ModularCMAES
 
     void recombine() const;
 
-    void select() const;
+    //! Selection, then the SELECTED stage (which may not queue points here: use step() or
+    //! ask-tell for modules that evaluate after selection)
+    void select();
 
-    void adapt() const;
+    //! Adaptation, then the UPDATED stage (likewise); ends the generation
+    void adapt();
 
-    //! Sample and evaluate a generation (after a restart, when one is due)
+    //! Sample and evaluate a generation, up to selection (after a restart, when one is due)
     void mutate(FunctionType &objective);
 
     //! One generation; returns false when a break condition holds
@@ -83,36 +92,25 @@ struct ModularCMAES
     bool tell(Eigen::Ref<const Vector> f, Eigen::Ref<const Matrix> X);
 
     //! Whether ask() has points that wait for tell()
-    [[nodiscard]] bool has_pending() const { return phase != Phase::IDLE; }
+    [[nodiscard]] bool has_pending() const { return !p->queue.empty(); }
+
+    //! The stage of the generation in progress (none between generations)
+    [[nodiscard]] std::optional<evaluation::GenerationStage> current_stage() const { return stage; }
 
   private:
-    enum class Phase
-    {
-        IDLE,              // no generation in progress
-        RESTART_CENTER,    // the center of a restart
-        RESTART_REPELLING, // a point of a hill-valley test of the repelling archive
-        POPULATION,        // individuals next..next+n_individuals-1, then n_extra extra points
-        EXTRA,             // the extra points (TPA) after a population that stopped early
-        DONE               // all points of the generation are evaluated
-    };
-
-    Phase phase = Phase::IDLE;
-    Eigen::Index next = 0;
-    Eigen::Index n_individuals = 0;
-    Eigen::Index n_extra = 0;
-    Eigen::Index n_pending = 0;
-
-    //! The pending points (the first n_pending columns), and the objective values in step()
-    Matrix batch;
+    std::optional<evaluation::GenerationStage> stage;
+    //! mutate(): the pipeline stops before selection
+    bool stop_before_selection = false;
+    //! The objective values of the queued points in step() and mutate()
     Vector values;
 
     bool tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X);
-    void reserve_batch(const Eigen::Index k);
-    void start_generation();
-    void start_population();
-    void sample_batch();
-    void next_restart_point();
-    void inject(const Eigen::Index i, Eigen::Ref<const Vector> x) const;
-    void consume(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X);
+    //! Enter a stage: fire its subscribers
+    void enter(evaluation::GenerationStage next);
+    //! Run the stages until points are queued, or the generation is complete (returns true)
+    bool advance();
+    //! The objective values of the queued points
     void evaluate(FunctionType &objective);
+    //! After select() or adapt(): no stage may wait for points outside ask-tell
+    void require_no_pending(const char *step) const;
 };

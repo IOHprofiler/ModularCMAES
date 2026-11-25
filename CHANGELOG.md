@@ -42,6 +42,10 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   one abi3 wheel for 3.12+.
 * Docstrings for the whole API (`help()`, editors), type stubs (with `py.typed`), and a new
   documentation site.
+* An evaluation queue for every evaluation of the objective, and fixed stages of a generation
+  (`parameters.GenerationStage`): a module that needs objective values queues points at a stage,
+  and ask–tell, `step()` and `run()` evaluate them the same way. `es.stage`, `es.p.queue` and
+  `es.p.pipeline` show the state, for debugging. Results are unchanged (#84).
 * `ModularCMAES.xfavorite`: the mean of the search distribution as a solution, as pycma's
   `xfavorite`; with noise and a large population often closer to the optimum than the best
   evaluated point, whose recorded value is biased low (#24).

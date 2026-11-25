@@ -77,6 +77,27 @@ ctest --test-dir build --output-on-failure
   alias, or raises an error that says what to use instead. The change gets a line in the
   changelog.
 
+## A module that evaluates the objective
+
+No module calls the objective. A module that needs objective values queues points, and
+receives their values when the user calls `tell()`, or when `run()` evaluates them
+(`include/evaluation.hpp`):
+
+* **Subscribe to a stage** of the generation: `p.pipeline.on(GenerationStage::X, name, hook,
+  min_points)`. The stages are `RUN_ENDING`, `RUN_STARTING`, `GENERATION_STARTING`, `POPULATION`,
+  `ALONGSIDE_POPULATION`, `POPULATION_EVALUATED`, `SELECTED` and `UPDATED`.
+* **Queue points in the hook:** `p.queue.push(X, consumer, source)`. The consumer receives the
+  values (`Evaluations`) and may queue follow-up points in the same stage.
+* **A fixed number of points per generation** is declared with `min_points`, which the budget
+  check reserves.
+* **A variable number of points** is clipped to `p.budget_left()` and queued with
+  `p.push_variable`, which refuses a request beyond the budget.
+* **Random numbers** are drawn when the points are queued, never later. Ask–tell then stays
+  identical to `run()` however the user batches.
+
+`tests/cpp/test_main.cpp` (`add_random_reevaluation`) has a complete example: a module that
+re-evaluates a random number of points after every population.
+
 ## Planned work
 
 Planned work is tracked in the [issues](https://github.com/IOHprofiler/ModularCMAES/issues), by label:
