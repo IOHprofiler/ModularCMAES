@@ -178,7 +178,9 @@ void Repelling::update_archive(FunctionType &objective, parameters::Parameters &
     while (has_query())
     {
         const Vector x = query.x;
-        answer(objective(x), x, p);
+        const Float y = objective(x);
+        p.stats.evaluations++;
+        answer(y, x, p);
     }
 }
 
@@ -285,7 +287,6 @@ void Repelling::answer(const Float y, Eigen::Ref<const Vector> x, parameters::Pa
     TabooPoint &point = archive[query.j];
     const Float max_f = std::max(u.y, point.solution.y);
 
-    p.stats.evaluations++;
     if (max_f < y)
     {
         // A hill between them: not the same basin, test the next point

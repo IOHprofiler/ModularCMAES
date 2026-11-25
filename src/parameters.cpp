@@ -66,12 +66,16 @@ void Parameters::complete_restart(FunctionType &objective)
     // The restart steps of ModularCMAES::advance, with an objective function
     {
         const Vector x = restart_center();
-        tell_restart_center(objective(x), x);
+        const Float y = objective(x);
+        stats.evaluations++;
+        tell_restart_center(y, x);
     }
     while (repelling->has_query())
     {
         const Vector x = repelling->query_point();
-        repelling->answer(objective(x), x, *this);
+        const Float y = objective(x);
+        stats.evaluations++;
+        repelling->answer(y, x, *this);
     }
     finish_restart();
 }
@@ -130,7 +134,6 @@ void Parameters::begin_restart(const std::optional<Float> &sigma)
 
 void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
 {
-    stats.evaluations++;
     stats.centers.emplace_back(x, y, stats.t - 1, stats.evaluations);
     stats.update_best(stats.centers.back().x, stats.centers.back().y);
     stats.has_improved = false;

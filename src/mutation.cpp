@@ -184,7 +184,6 @@ size_t Strategy::first_stop(const size_t i, const parameters::Parameters &p) con
 bool Strategy::evaluated(const Eigen::Index i, const Float f, parameters::Parameters &p)
 {
     p.pop.f(i) = f;
-    p.stats.evaluations++;
     // Sequential selection stops at the first point better than the best of the previous
     // generation (old_pop is sorted); in the first generation of a run there is none (-inf)
     const Float reference = p.old_pop.n_finite() != 0 ? p.old_pop.f(0)
@@ -235,7 +234,6 @@ void TPA::tell_extra_points(Eigen::Ref<const Vector> f,
     const Float f_pos = f(0), f_neg = f(1);
     p.stats.update_best(X.col(0), f_pos);
     p.stats.update_best(X.col(1), f_neg);
-    p.stats.evaluations += 2;
     // A tie (as after a restart, when dm = 0 and both points are the mean) is no signal: 0, as the
     // sign of the rank difference in pycma's TPA; it counted as a success (sigma grew by 16 %)
     this->rank_tpa = f_neg < f_pos ? -a_tpa : (f_pos < f_neg ? a_tpa + b_tpa : Float(0.0));

@@ -194,6 +194,24 @@ class TestBatches(unittest.TestCase):
         self.assertEqual(sizes.count(1), 12)
 
 
+class TestCounting(unittest.TestCase):
+    def test_every_told_point_is_counted_once(self):
+        # #84: the optimizer counts every evaluation where the values arrive (no module counts)
+        configs = [
+            {"ssa": "TPA", "sequential_selection": True, "mirrored": "PAIRWISE"},
+            {"restart_strategy": "IPOP", "repelling_type": "COVERAGE", "ssa": "TPA"},
+        ]
+        for modules in configs:
+            cma = make(modules=modules, budget=3000)
+            told = 0
+            while not cma.break_conditions():
+                X = cma.ask()
+                cma.tell([np.sum(x * x) - 0.5 * np.cos(9 * x).sum() for x in X])
+                told += len(X)
+            self.assertEqual(cma.p.stats.evaluations, told, modules)
+            self.assertLessEqual(told, 3000)
+
+
 class TestInterface(unittest.TestCase):
     def test_ask_twice_returns_the_same_points(self):
         cma = make()

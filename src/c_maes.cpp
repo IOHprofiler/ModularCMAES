@@ -162,10 +162,15 @@ void ModularCMAES::answer(Eigen::Ref<const Vector> f, const Eigen::Ref<const Mat
     const Eigen::Ref<const Matrix> evaluated =
         X != nullptr ? *X : Eigen::Ref<const Matrix>(batch.leftCols(n));
     for (const auto &r : requests)
+    {
+        // Every evaluation is counted here, before its module receives the values: no module
+        // counts (Solution.e of a point is the count after its request)
+        p->stats.evaluations += static_cast<size_t>(r.size);
         dispatch(r,
                  evaluation::Evaluations{f.segment(r.begin, r.size),
                                          evaluated.middleCols(r.begin, r.size),
                                          X != nullptr});
+    }
 }
 
 void ModularCMAES::dispatch(const evaluation::Request &request, const evaluation::Evaluations &e)

@@ -97,6 +97,9 @@ reads from top to bottom. Adding a module that evaluates takes three changes:
   A variable number of points is limited by `p.budget_left(next)`, with `next` the step that runs
   once the queued points have their values; it keeps what the steps still to run reserve.
 
+**Counting:** `answer()` counts every evaluation (`stats.evaluations`) before the module receives
+the values; a module never counts.
+
 **Random numbers** are drawn when the module computes its points, never later. Ask–tell then stays
 identical to `run()`.
 
