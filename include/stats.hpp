@@ -7,6 +7,8 @@ namespace parameters
 struct Stats
 {
     size_t t = 0;
+    //! The generations of the current run (reset at a restart)
+    size_t t_run = 0;
     size_t evaluations = 0;
 
     Float current_avg = std::numeric_limits<Float>::infinity();

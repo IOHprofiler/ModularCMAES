@@ -116,6 +116,7 @@ void Parameters::finish_restart()
     (*center_placement)(*this);
     criteria.reset(*this);
     stats.current_best = {};
+    stats.t_run = 0;
 }
 
 void Parameters::fit_lambda_to_budget()
@@ -158,6 +159,7 @@ void Parameters::adapt()
         adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings, stats);
     criteria.update(*this);
     stats.t++;
+    stats.t_run++;
 }
 
 bool Parameters::begin_generation()
