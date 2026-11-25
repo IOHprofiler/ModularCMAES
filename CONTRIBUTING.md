@@ -62,4 +62,31 @@ ctest --test-dir build --output-on-failure
 * **Style.** C++: `.clang-format` (100 columns). Python: PEP 8, 100 columns.
 * **Changelog.** User-visible changes get a line in [`CHANGELOG.md`](https://github.com/IOHprofiler/ModularCMAES/blob/master/CHANGELOG.md).
 
-The plan of the larger work packages is [`TASKS.md`](https://github.com/IOHprofiler/ModularCMAES/blob/master/TASKS.md).
+## Rules that hold for every change
+
+* **The golden fixtures are never regenerated to make a test pass.**
+  * Regenerate them only from the commit before the change, on the same machine, with the
+    maintainer's approval.
+  * The pull request gives the reason.
+* **Ask-tell gives the same results as `run()`**, bit for bit, for every module. A new module that
+  needs evaluations of its own does them as a phase of the generation, as TPA does.
+* **A new module is off by default**, and leaves the results of every existing configuration
+  unchanged.
+* **Signatures take mu before lambda**, in C++ and in Python.
+* **The Python API stays source-compatible.** A name that is renamed or removed keeps a deprecated
+  alias, or raises an error that says what to use instead. The change gets a line in the
+  changelog.
+
+## Planned work
+
+Planned work is tracked in the [issues](https://github.com/IOHprofiler/ModularCMAES/issues), by label:
+
+| Label | What | Detail of the issue |
+|---|---|---|
+| [`bug`](https://github.com/IOHprofiler/ModularCMAES/labels/bug) | Known bugs | Each issue is one pull request. |
+| [`module`](https://github.com/IOHprofiler/ModularCMAES/labels/module) | Planned modules | The algorithm, the API, an implementation plan, the interactions with the other modules, and the validation. |
+| [`framework`](https://github.com/IOHprofiler/ModularCMAES/labels/framework) | Framework features | |
+| [`decision`](https://github.com/IOHprofiler/ModularCMAES/labels/decision) | Design questions for the maintainer | |
+
+The record of the 2.0 overhaul (work packages WP0–WP8, the reviews, the decisions) is
+[`dev/overhaul-2.0.md`](https://github.com/IOHprofiler/ModularCMAES/blob/master/dev/overhaul-2.0.md).

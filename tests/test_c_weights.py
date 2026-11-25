@@ -37,7 +37,7 @@ class TestUtilityWeights(unittest.TestCase):
         self.assertFalse(none.modules.active)
 
     def test_natural_gradient_with_active_uses_the_utilities(self):
-        # CMA-ES's negative weights broke the natural gradient (TASKS.md F2)
+        # CMA-ES's negative weights broke the natural gradient (dev/overhaul-2.0.md F2)
         settings = modcma.settings_from_dict(5, matrix_adaptation="NATURAL_GRADIENT", active=True)
         self.assertEqual(settings.modules.weights, modcma.options.RecombinationWeights.UTILITY)
         other = modcma.settings_from_dict(5, matrix_adaptation="MATRIX", active=True)
@@ -62,7 +62,7 @@ class TestUtilityWeights(unittest.TestCase):
 
     def test_xnes_sigma_grows_on_a_linear_function(self):
         # NATURAL_GRADIENT + XNES + UTILITY is xNES; with the active weights of CMA-ES instead
-        # sigma shrinks on a linear function (TASKS.md F2)
+        # sigma shrinks on a linear function (dev/overhaul-2.0.md F2)
         growth = []
         for seed in range(10):
             settings = modcma.settings_from_dict(

@@ -1,4 +1,4 @@
-"""The ask-tell interface of the C++ ModularCMAES (TASKS.md, WP3).
+"""The ask-tell interface of the C++ ModularCMAES (dev/overhaul-2.0.md, WP3).
 
 tests/golden.py checks that ask/tell, ask/tell with the points passed back and a vectorized
 objective reproduce the golden trajectories of step() bit for bit. These tests cover what that does

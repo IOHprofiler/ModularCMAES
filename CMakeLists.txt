@@ -63,7 +63,7 @@ if (SKBUILD OR MODCMA_PYTHON)
   # NOMINSIZE: keep -O3 (nanobind's default -Os slows the bindings down, measured in
   # IOHexperimenter). STABLE_ABI: one wheel for CPython 3.12+ (ignored for older versions and
   # free-threaded builds). FREE_THREADED: on a free-threaded interpreter the module does not
-  # re-enable the GIL; every optimizer has its own random generator (TASKS.md, T4.1), so
+  # re-enable the GIL; every optimizer has its own random generator (dev/overhaul-2.0.md, T4.1), so
   # optimizers can run in parallel threads (ignored on other interpreters).
   nanobind_add_module(cmaescpp NOMINSIZE STABLE_ABI FREE_THREADED ${BINDING_SOURCES})
   target_link_libraries(cmaescpp PRIVATE modcma_core)
@@ -80,7 +80,7 @@ add_executable(modcma_tests ${PROJECT_SOURCE_DIR}/tests/cpp/test_main.cpp)
 target_link_libraries(modcma_tests PRIVATE modcma_core)
 add_test(NAME modcma_tests COMMAND modcma_tests)
 
-# Benchmark harness (TASKS.md, T0.2): time per generation and heap allocations per evaluation
+# Benchmark harness (dev/overhaul-2.0.md, T0.2): time per generation and heap allocations per evaluation
 add_executable(modcma_bench ${PROJECT_SOURCE_DIR}/bench/bench.cpp)
 target_link_libraries(modcma_bench PRIVATE modcma_core)
 if (APPLE)

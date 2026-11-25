@@ -1,4 +1,4 @@
-"""Regression tests for the bugs fixed in WP0 (TASKS.md, section 1 and T0.3)."""
+"""Regression tests for the bugs fixed in WP0 (dev/overhaul-2.0.md, section 1 and T0.3)."""
 
 import unittest
 
