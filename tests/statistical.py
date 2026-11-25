@@ -71,6 +71,11 @@ CONFIGS = {
         "restart_strategy": "IPOP",
     },
     "tpa": {"ssa": "TPA"},
+    # #78: TPA's ties, threshold convergence on x - m
+    "tpa_elitist": {"ssa": "TPA", "elitist": True},
+    "tpa_ipop": {"ssa": "TPA", "restart_strategy": "IPOP"},
+    "threshold": {"threshold_convergence": True},
+    "threshold_bipop": {"threshold_convergence": True, "restart_strategy": "BIPOP"},
 }
 
 

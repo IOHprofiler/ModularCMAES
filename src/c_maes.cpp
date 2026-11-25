@@ -160,17 +160,13 @@ void ModularCMAES::start_population()
 void ModularCMAES::sample_batch()
 {
     // Individuals next..last: sequential selection cannot stop the population before last.
-    // Sampled in a loop that evaluates each individual, individual i would see next + i
-    // evaluations (threshold convergence).
     const auto n = static_cast<Eigen::Index>(p->pop.n);
     const auto first_stop = p->mutation->first_stop(static_cast<size_t>(next), *p);
     const Eigen::Index last = first_stop >= static_cast<size_t>(n)
                                   ? n - 1
                                   : static_cast<Eigen::Index>(first_stop);
-    const size_t evaluations = p->stats.evaluations;
-
     n_individuals = last - next + 1;
-    p->mutation->sample_batch(next, n_individuals, evaluations, *p);
+    p->mutation->sample_batch(next, n_individuals, *p);
 
     // The extra points of the step-size adaptation go with the last individuals: they do not
     // depend on the population

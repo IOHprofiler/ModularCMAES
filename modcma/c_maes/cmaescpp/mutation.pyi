@@ -21,18 +21,18 @@ class ThresholdConvergence:
     """
     Threshold convergence: samples shorter than a decreasing threshold are lengthened (`Modules.threshold_convergence`).
 
-    The threshold is t = init_threshold * diameter * ((budget - evaluations) / budget)^decay_factor, with diameter = ||ub - lb||; a z shorter than t is scaled to length 2 t - ||z||. Keeps the search global early on and turns into local search as the budget is used. Proposed by Piad et al.
+    The threshold is a length of z: t = init_threshold * E||z|| * ((budget - evaluations) / budget)^decay_factor, computed once per generation from the evaluations at its start (0 once the budget is used up). A sample with ||z|| < t is lengthened to ||z|| = 2 t - ||z|| (z and y are scaled). Keeps the search global early on and turns into local search as the budget is used. After Piad-Morffis et al. (2015), who put the threshold on x - m as a fraction of the box diameter; on z it is relative to the search distribution and does not depend on the box.
     """
 
     def __init__(self) -> None:
         """
-        Create threshold convergence with init_threshold = 0.1 and decay_factor = 0.995.
+        Create threshold convergence with init_threshold = 1 and decay_factor = 0.995.
         """
 
     @property
     def init_threshold(self) -> float:
         """
-        The threshold at the start as a fraction of the diameter of the box (default 0.1).
+        The threshold at the start of a run as a multiple of E||z|| (default 1).
         """
 
     @init_threshold.setter
@@ -47,25 +47,35 @@ class ThresholdConvergence:
     @decay_factor.setter
     def decay_factor(self, arg: float, /) -> None: ...
 
-    def scale(self, population: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], diameter: float, budget: int, evaluations: int) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+    def threshold(self, expected_length: float, budget: int, evaluations: int) -> float:
         """
-        A sample z lengthened to the threshold when it is shorter.
+        The threshold after `evaluations` of `budget`.
 
         Parameters
         ----------
-        population : numpy.ndarray
-            The sample z, shape (d,) (one sample, despite the name).
-        diameter : float
-            The diameter of the box, ||ub - lb|| (`Settings.diameter`).
+        expected_length : float
+            E||z|| of the sampler (`es.p.sampler.expected_length()`).
         budget : int
             The evaluation budget.
         evaluations : int
-            The evaluations used so far.
+            The evaluations used so far (more than the budget gives 0).
 
         Returns
         -------
-        numpy.ndarray
-            The scaled copy of z, shape (d,).
+        float
+            init_threshold * expected_length * ((budget - evaluations) / budget)^decay_factor.
+        """
+
+    def apply(self, z: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], y: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], t: float) -> None:
+        """
+        Lengthen one sample in place: when ||z|| < t, z and y are scaled so that ||z|| = 2 t - ||z||.
+
+        Parameters
+        ----------
+        z, y : numpy.ndarray
+            The sample and its y = A z, shape (d,), float64; changed in place.
+        t : float
+            The threshold.
         """
 
 class NoThresholdConvergence(ThresholdConvergence):
@@ -289,6 +299,12 @@ class Strategy:
     def sigma(self, arg: float, /) -> None: ...
 
     @property
+    def generation_threshold(self) -> float:
+        """
+        The threshold of threshold convergence in the current generation, computed at its start (`ThresholdConvergence.threshold`; also set without the module).
+        """
+
+    @property
     def s(self) -> float:
         """
         The smoothed success measure of TPA, MSR and PSR, whose exponential scales sigma (default 0).
@@ -324,7 +340,7 @@ class TPA(Strategy):
     """
     Two-point step-size adaptation (`StepSizeAdaptation.TPA`).
 
-    After each population the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better and a_tpa + b_tpa otherwise, and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008).
+    After each population the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -359,7 +375,7 @@ class TPA(Strategy):
 
     @property
     def rank_tpa(self) -> float:
-        """The last r: -a_tpa or a_tpa + b_tpa (default 0)."""
+        """The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0)."""
 
     @rank_tpa.setter
     def rank_tpa(self, arg: float, /) -> None: ...

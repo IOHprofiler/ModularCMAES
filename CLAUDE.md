@@ -114,11 +114,15 @@ organized and the habits that keep results reproducible.
 ## Code conventions
 
 * Signatures take mu before lambda, in C++ and Python.
-* **The Python API stays source-compatible.**
+* **The user-facing Python API stays source-compatible:** `Settings`, `ModularCMAES`, `fmin`, the
+  options of `Modules`, the top-level names (`set_seed`, `settings_from_dict`, ...).
   * A renamed name keeps a deprecated alias (a `DeprecationWarning` that points at the caller).
   * A removed name raises an error that says what to use instead.
   * `tests/api_dump.py` compares against the 1.x API; an accepted break goes into its `ACCEPTED`
     list with a reason.
+* **The bindings of internals may change without deprecation.** This covers the methods and helpers
+  of the samplers, the step-size and selection classes, and the like: they are used for debugging,
+  if at all. Note the change in the changelog, and add the `ACCEPTED` reason "internal".
 * **A new module:**
   * is off by default, and leaves the results of existing configurations unchanged;
   * works with ask-tell, and does its extra evaluations as a phase of the generation;

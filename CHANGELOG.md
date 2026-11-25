@@ -130,6 +130,14 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * Sequential selection compared with the best of all runs, so after a restart it hardly ever
   stopped a generation; it now compares with the best of the previous generation, as the framework
   paper (the first generation of a run is complete) (#77).
+* TPA counted a tie of its two points (as after every restart, when the mean has not moved) as a
+  success, so σ grew by 16 % after each restart and diverged with elitism; a tie now gives no
+  signal, as in pycma (#78).
+* Threshold convergence used a threshold in units of x (a tenth of the box diameter) on z, so on
+  boxes larger than the default [−5, 5]^d it stretched every sample. The threshold is now a
+  multiple of E‖z‖ (`init_threshold` = 1, the same as before on the default box), computed once per
+  generation. Past the budget (ask–tell) its remaining budget wrapped around. The internal
+  `ThresholdConvergence.scale` is replaced by `threshold()` and `apply()` (#78).
 * Sequential selection with the active update broke the eigendecomposition (#42; fixed by the
   sequential-selection and active-update fixes below, now tested).
 

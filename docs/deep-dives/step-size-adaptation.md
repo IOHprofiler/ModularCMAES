@@ -28,8 +28,9 @@ and 0.5 otherwise, c = 0.3, then σ ← σ·eˢ. With ask–tell, `ask()` return
 **Compared with Hansen (2008) and pycma.** pycma takes the two points from the λ offspring (no extra
 evaluations), rescales them to a random length, uses the rank difference among all λ, compresses it
 and damps the update by 0.7 + 2 ln d + …; modcma follows the Python implementation of the framework
-(and ModEA). *Known issue* [F15]: a tie (f(x−) = f(x+), as after a restart when Δm = 0) counts as
-success: σ grows by 16 % for nothing, and diverges with elitism.
+(and ModEA). A tie (f(x−) = f(x+), as after a restart, when Δm = 0) gives r = 0, as the sign of
+the rank difference in pycma. Before 2.0 a tie counted as a success: σ grew by 16 % after every
+restart, and diverged with elitism.
 
 ## MSR: median success rule
 
@@ -117,7 +118,7 @@ per point.
 | step-size rule | reads | works with | notes |
 |---|---|---|---|
 | `CSA` (default) | the path p_σ | every matrix adaptation | `COVARIANCE` uses C^-1/2 Δm, the others the weighted z |
-| `TPA` | two extra evaluations | every | avoid with elitism [F15] |
+| `TPA` | two extra evaluations | every | |
 | `MSR`, `PSR` | the f-values of two generations | every | not `MSR` with pairwise selection [F9] |
 | `XNES` | the natural gradient, or the lengths of z | `NATURAL_GRADIENT` (xNES's rule; with `weights=UTILITY` all of xNES) | slow elsewhere [F27] |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
