@@ -58,39 +58,15 @@ std::vector<std::string> EvaluationQueue::sources() const
     return out;
 }
 
-void EvaluationQueue::answer(parameters::Parameters &p,
-                             Eigen::Ref<const Vector> f,
-                             const Eigen::Ref<const Matrix> *X)
+EvaluationQueue::Batch EvaluationQueue::take()
 {
-    if (requests.empty())
-        throw std::logic_error("no points are pending: call ask() first");
-    if (f.size() != n_points)
-        throw std::invalid_argument("expected " + std::to_string(n_points) +
-                                    " objective values (the points of ask()), got " +
-                                    std::to_string(f.size()));
-    if (X != nullptr && (X->rows() != points.rows() || X->cols() != n_points))
-        throw std::invalid_argument("expected the points as a " + std::to_string(points.rows()) +
-                                    " x " + std::to_string(n_points) + " matrix, got " +
-                                    std::to_string(X->rows()) + " x " +
-                                    std::to_string(X->cols()));
-
-    // The answered batch moves aside (a swap of buffers: no copy); the queue is empty while the
-    // values are dispatched. A request left from a dispatch that threw is dropped here
     const Eigen::Index n = n_points;
-    std::swap(points, answering_points);
-    std::swap(requests, answering);
-    if (points.rows() != answering_points.rows())
-        points.resize(answering_points.rows(), answering_points.cols());
+    std::swap(points, taken_points);
+    std::swap(requests, taken);
+    if (points.rows() != taken_points.rows())
+        points.resize(taken_points.rows(), taken_points.cols());
     requests.clear();
     n_points = 0;
-
-    const Eigen::Ref<const Matrix> evaluated =
-        X != nullptr ? *X : Eigen::Ref<const Matrix>(answering_points.leftCols(n));
-    for (const auto &r : answering)
-        p.dispatch(r,
-                   Evaluations{f.segment(r.begin, r.size),
-                               evaluated.middleCols(r.begin, r.size),
-                               X != nullptr});
-    answering.clear();
+    return Batch{taken, taken_points.leftCols(n)};
 }
 } // namespace evaluation

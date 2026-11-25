@@ -67,13 +67,6 @@ struct Parameters
     void perform_restart(FunctionType &objective, const std::optional<Float> &sigma = std::nullopt);
 
     /**
-     * The values of a request of the evaluation queue: to the module that queued it, by its source
-     * (evaluation::Source). The module is reached through these parameters, so it is the one in
-     * place now, also when it was replaced after the push.
-     */
-    void dispatch(const evaluation::Request &request, const evaluation::Evaluations &e);
-
-    /**
      * The points the modules queue in a step of every generation besides the population, fixed per
      * configuration: TPA's two, in SAMPLE. The budget reserves them (break_conditions,
      * restart_fits, fit_lambda_to_budget, budget_left).

@@ -55,7 +55,7 @@ void ModularCMAES::mutate(FunctionType &objective)
         else
         {
             evaluate(objective);
-            p->queue.answer(*p, values.head(p->queue.size()));
+            answer(values.head(p->queue.size()), nullptr);
         }
     }
     next = evaluation::Step::BEGIN;
@@ -129,10 +129,54 @@ bool ModularCMAES::tell(Eigen::Ref<const Vector> f, Eigen::Ref<const Matrix> X)
 
 bool ModularCMAES::tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X)
 {
+    answer(f, X);
+    return advance();
+}
+
+void ModularCMAES::answer(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X)
+{
+    const auto n = p->queue.size();
     if (p->queue.empty())
         throw std::logic_error("tell() without pending points: call ask() first");
-    p->queue.answer(*p, f, X);
-    return advance();
+    if (f.size() != n)
+        throw std::invalid_argument("tell() expects " + std::to_string(n) +
+                                    " objective values (the points of ask()), got " +
+                                    std::to_string(f.size()));
+    if (X != nullptr && (X->rows() != p->queue.batch().rows() || X->cols() != n))
+        throw std::invalid_argument("tell() expects the points as a " +
+                                    std::to_string(p->queue.batch().rows()) + " x " +
+                                    std::to_string(n) + " matrix, got " +
+                                    std::to_string(X->rows()) + " x " + std::to_string(X->cols()));
+
+    // Each request's values go to its module, in the order they were queued
+    const auto batch = p->queue.take();
+    const Eigen::Ref<const Matrix> evaluated = X != nullptr ? *X : batch.points;
+    for (const auto &r : batch.requests)
+        dispatch(r,
+                 evaluation::Evaluations{f.segment(r.begin, r.size),
+                                         evaluated.middleCols(r.begin, r.size),
+                                         X != nullptr});
+}
+
+void ModularCMAES::dispatch(const evaluation::Request &request, const evaluation::Evaluations &e)
+{
+    // The module in place now receives the values (one may have been replaced since the points
+    // were queued)
+    switch (request.source)
+    {
+    case evaluation::Source::POPULATION:
+        p->mutation->tell_batch(request.index, e, *p);
+        return;
+    case evaluation::Source::EXTRA_POINTS:
+        p->mutation->tell_extra_points(e.f, e.X, *p);
+        return;
+    case evaluation::Source::RESTART_CENTER:
+        p->tell_restart_center(e.f(0), e.X.col(0));
+        return;
+    case evaluation::Source::HILL_VALLEY:
+        p->repelling->answer(e.f(0), e.X.col(0), *p);
+        return;
+    }
 }
 
 bool ModularCMAES::advance(const bool stop_before_selection)

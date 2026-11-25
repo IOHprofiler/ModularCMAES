@@ -84,8 +84,8 @@ No module calls the objective, and no module queues points itself. `ModularCMAES
 order (`evaluation::Step`: `BEGIN`, `RESTART`, `SAMPLE`, `POPULATION`, `SELECT`, `UPDATE`) and
 reads from top to bottom. Adding a module that evaluates takes three changes:
 
-* **A source:** a value of `evaluation::Source`, and its `case` in `Parameters::dispatch`
-  (`src/parameters.cpp`), which passes the values (`Evaluations`: `f`, the points `X`, and whether
+* **A source:** a value of `evaluation::Source`, and its `case` in `ModularCMAES::dispatch`
+  (`src/c_maes.cpp`), which passes the values (`Evaluations`: `f`, the points `X`, and whether
   `tell(f, X)` gave them) to the module through `p`.
 * **A call at its step** in `advance()`, which asks the module for its points and queues them:
   `p->queue.push(X, source, index)`. A module whose next point depends on the previous value

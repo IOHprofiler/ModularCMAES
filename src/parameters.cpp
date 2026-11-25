@@ -77,25 +77,6 @@ void Parameters::complete_restart(FunctionType &objective)
     finish_restart();
 }
 
-void Parameters::dispatch(const evaluation::Request &request, const evaluation::Evaluations &e)
-{
-    switch (request.source)
-    {
-    case evaluation::Source::POPULATION:
-        mutation->tell_batch(request.index, e, *this);
-        return;
-    case evaluation::Source::EXTRA_POINTS:
-        mutation->tell_extra_points(e.f, e.X, *this);
-        return;
-    case evaluation::Source::RESTART_CENTER:
-        tell_restart_center(e.f(0), e.X.col(0));
-        return;
-    case evaluation::Source::HILL_VALLEY:
-        repelling->answer(e.f(0), e.X.col(0), *this);
-        return;
-    }
-}
-
 size_t Parameters::reserved_points(const evaluation::Step step) const
 {
     // TPA's two points join the population's first batch

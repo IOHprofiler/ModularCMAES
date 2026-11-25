@@ -106,6 +106,10 @@ struct ModularCMAES
     Vector values;
 
     bool tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X);
+    //! The values of the queued points: each request's values to its module (dispatch)
+    void answer(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X);
+    //! Pass a request's values to the module that needs them, by the request's source
+    void dispatch(const evaluation::Request &request, const evaluation::Evaluations &e);
     /**
      * Run the generation until points are queued (returns false) or it is complete (true). With
      * stop_before_selection (mutate()), it also returns false, with nothing queued, when every

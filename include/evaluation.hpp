@@ -5,17 +5,12 @@
 
 #include "common.hpp"
 
-namespace parameters
-{
-struct Parameters;
-}
-
 /**
  * The points to evaluate (#84). ModularCMAES::advance is the only place that queues them, step by
  * step (Step), each tagged with its source; ask() hands out what is queued, and tell() passes each
- * request's values to Parameters::dispatch, a switch over the sources that calls the module (the
+ * request's values to ModularCMAES::dispatch, a switch over the sources that calls the module (the
  * one in place at that time). Modules compute their points and receive their values; they never
- * queue points themselves, and none calls the objective.
+ * queue points themselves, and none calls the objective. The queue is a plain container.
  */
 namespace evaluation
 {
@@ -44,7 +39,7 @@ enum class Step
 
 constexpr int n_steps = static_cast<int>(Step::UPDATE) + 1;
 
-//! Who pushed a request: Parameters::dispatch passes its values on by this tag
+//! Who pushed a request: ModularCMAES::dispatch passes its values on by this tag
 enum class Source
 {
     //! A batch of the population (Request::index: its first individual)
@@ -105,23 +100,26 @@ class EvaluationQueue
     //! The source of every pending request, in push order
     [[nodiscard]] std::vector<std::string> sources() const;
 
-    /**
-     * The values f of the pending points (X: the evaluated points, when they differ from the asked
-     * ones). Each request's slice goes to Parameters::dispatch, in push order; requests pushed
-     * meanwhile form the next batch.
-     */
-    void answer(parameters::Parameters &p,
-                Eigen::Ref<const Vector> f,
-                const Eigen::Ref<const Matrix> *X = nullptr);
+    //! The pending batch, handed over by take(): its requests (in push order) and points
+    struct Batch
+    {
+        const std::vector<Request> &requests;
+        Eigen::Ref<const Matrix> points;
+    };
 
-    
+    /**
+     * Hand over the pending batch: the queue is then empty, ready for the next points. The batch
+     * stays valid until the next take() (a swap of buffers: no copy).
+     */
+    Batch take();
+
   private:
     Matrix points;
     Eigen::Index n_points = 0;
     std::vector<Request> requests;
 
-    // The batch being answered: its requests and points stay valid while they are dispatched
-    Matrix answering_points;
-    std::vector<Request> answering;
+    // The batch handed over by take()
+    Matrix taken_points;
+    std::vector<Request> taken;
 };
 } // namespace evaluation
