@@ -33,7 +33,7 @@ class TestMSR(unittest.TestCase):
         old = population(np.arange(10.0))
         new = population([-1, 0, 1, 2, 2.5, 2.9, 3, 5, 6, 7])
         sigma = msr.sigma
-        msr.adapt(p.weights, p.adaptation, new, old, p.stats, 10)
+        msr.adapt(p.weights, p.adaptation, new, old, p.stats)
         k = 6
         z = (2 / 10) * (k - 10 / 2)  # centered at lambda / 2, as pycma
         s = p.weights.cs * z

@@ -63,7 +63,6 @@ class TestMutation(unittest.TestCase):
                 cma.p.stats,
                 cma.p.settings,
                 cma.p.mu,
-                cma.p.lamb,
             )
             cma.p.mutation.adapt(
                 cma.p.weights,
@@ -71,7 +70,6 @@ class TestMutation(unittest.TestCase):
                 cma.p.pop,
                 cma.p.old_pop,
                 cma.p.stats,
-                cma.p.lamb,
             )
         return cma
 

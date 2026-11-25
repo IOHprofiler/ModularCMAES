@@ -427,10 +427,12 @@ void define_parameters(nb::module_ &main)
                 "1 + d / 2; for MSR max(1, 2 - 2 / d); otherwise (PSR among them) 1.")
         .def_rw("sqrt_cc_mueff",
                 &Weights::sqrt_cc_mueff,
-                "sqrt(cc (2 - cc) mueff): the normalisation of the update of the path pc.")
+                "sqrt(cc (2 - cc) mueff_mean): the normalisation of the update of the path pc "
+                "(mueff_mean = mueff, or 1 / sum u_i^2 for the utilities of UTILITY).")
         .def_rw("sqrt_cs_mueff",
                 &Weights::sqrt_cs_mueff,
-                "sqrt(cs (2 - cs) mueff): the normalisation of the update of the path ps.")
+                "sqrt(cs (2 - cs) mueff_mean): the normalisation of the update of the path ps "
+                "(mueff_mean = mueff, or 1 / sum u_i^2 for the utilities of UTILITY).")
         .def_rw("lazy_update_interval",
                 &Weights::lazy_update_interval,
                 "The number of generations between two eigendecompositions of the covariance "
@@ -459,7 +461,8 @@ void define_parameters(nb::module_ &main)
                 "(lambda - mu,) array: the weights of the other individuals, for the active "
                 "update.\n\n"
                 "Scaled so that their absolute values sum to min(1 + c1 / cmu, 1 + 2 mueff_neg / "
-                "(mueff + 2), (1 - c1 - cmu) / (d cmu)) (Hansen 2016).")
+                "(mueff + 2), (1 - c1 - cmu) / (d cmu)) (Hansen 2016); with UTILITY the "
+                "utilities are used as they are (they sum to zero, as in NES).")
         .def("for_population",
              &Weights::for_population,
              nb::arg("n"),
@@ -624,9 +627,9 @@ void define_parameters(nb::module_ &main)
             "lambda0 : int, optional\n"
             "    The number of offspring per generation, default 4 + floor(3 ln(dim)).\n"
             "x0 : array_like, optional\n"
-            "    (dim,) the initial mean of the search distribution. Default None: the zero "
-            "vector; after a restart, center_placement X0 uses x0 or, without x0, the center of "
-            "the bounds.\n"
+            "    (dim,) the initial mean of the search distribution. Default None: the center of "
+            "the bounds (the zero vector when the box is not finite); after a restart, "
+            "center_placement X0 uses the same point.\n"
             "lb : array_like, optional\n"
             "    (dim,) the lower bounds, default -5 in every coordinate.\n"
             "ub : array_like, optional\n"
@@ -709,7 +712,7 @@ void define_parameters(nb::module_ &main)
         .def_rw("x0",
                 &Settings::x0,
                 "(dim,) array: the initial mean of the search distribution, or None (default) "
-                "for the zero vector.")
+                "for `center`, the center of the bounds.")
         .def_prop_rw(
             "lb",
             [](const Settings &s) { return s.lb; },
@@ -1031,7 +1034,8 @@ void define_cmaes(nb::module_ &m)
              "m_old = m, then m = m_old + sum_k positive[k] (X[:, k] - m_old) over the first mu "
              "columns of the (sorted) population; with the utility weights of NES/xNES, over "
              "every individual. The third step of a generation, after select(). Raises "
-             "RuntimeError while a generation that ask() started waits for tell().")
+             "RuntimeError while the points of a generation wait for their values (after ask(), "
+             "or an interrupted mutate() or step()).")
         .def(
             "mutate",
             [](ModularCMAES &c, FunctionType objective) { c.mutate(objective); },
@@ -1050,14 +1054,16 @@ void define_cmaes(nb::module_ &m)
              "Select the individuals of the evaluated generation: the second step.\n\n"
              "Applies pairwise selection (mirrored PAIRWISE) and elitism (the parents join the "
              "offspring), sorts the population by f, keeps lambda individuals and updates the "
-             "statistics (current_avg, current_best, global_best). Raises RuntimeError while a "
-             "generation that ask() started waits for tell().")
+             "statistics (current_avg, current_best, global_best). Raises RuntimeError while the "
+             "points of a generation wait for their values (after ask(), or an interrupted "
+             "mutate() or step()).")
         .def("adapt",
              &ModularCMAES::adapt,
              "Adapt the search distribution: the last step of a generation.\n\n"
              "Updates the evolution paths, the step size, the matrix and the restart criteria, "
-             "and increments p.stats.t (Parameters.adapt). Raises RuntimeError while a "
-             "generation that ask() started waits for tell().")
+             "and increments p.stats.t (Parameters.adapt). Raises RuntimeError while the points "
+             "of a generation wait for their values (after ask(), or an interrupted mutate() or "
+             "step()).")
         .def("step",
              &step,
              nb::sig("def step(self, objective: collections.abc.Callable[[numpy.typing.NDArray["

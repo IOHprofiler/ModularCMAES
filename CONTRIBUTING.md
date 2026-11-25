@@ -73,9 +73,11 @@ ctest --test-dir build --output-on-failure
 * **A new module is off by default**, and leaves the results of every existing configuration
   unchanged.
 * **Signatures take mu before lambda**, in C++ and in Python.
-* **The Python API stays source-compatible.** A name that is renamed or removed keeps a deprecated
-  alias, or raises an error that says what to use instead. The change gets a line in the
-  changelog.
+* **The user-facing Python API stays source-compatible** (`Settings`, `ModularCMAES`, `fmin`, the
+  options of `Modules`, the top-level names). A name that is renamed or removed keeps a deprecated
+  alias, or raises an error that says what to use instead. The internals (the methods and helpers
+  of the module objects) may change without deprecation; `tests/api_dump.py` records each change
+  with the reason "internal". Every change gets a line in the changelog.
 
 ## A module that evaluates the objective
 
@@ -84,7 +86,7 @@ No module calls the objective, and no module queues points itself. `ModularCMAES
 generation in order (`BEGIN`, `RESTART`, `SAMPLE`, `POPULATION`, `SELECT`, `UPDATE`) and is the
 only place that queues points; `answer()` counts every evaluation and passes each request's values
 to `dispatch()`, a `switch` over the request's source that calls the module. Adding a module that
-evaluates takes three changes, all in `ModularCMAES`:
+evaluates takes three changes, two of them in `ModularCMAES`:
 
 * **A source:** a value of `Source`, and its `case` in `dispatch()`, which passes the values (`f`,
   the points `X`, and whether `tell(f, X)` gave them) to the module through `p`.

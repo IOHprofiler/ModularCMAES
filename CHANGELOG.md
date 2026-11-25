@@ -23,7 +23,10 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   (their constructors take `(dimension, x0)`; `Weights.expected_length_z` is the one CSA uses),
   `sigma` of `Adaptation.restart` and of the `NaturalGradientAdaptation` constructor, `modules` of
   `Adaptation.adapt_matrix` (it is `settings.modules`), `stats`, `mu` and `lamb` of
-  `NaturalGradientAdaptation.compute_gradients`, and `mueff` of `CoordinateMapping`.
+  `NaturalGradientAdaptation.compute_gradients`, `lamb` of `Adaptation.adapt_evolution_paths` and of
+  the step-size adaptations' `adapt`, `mu` and `lamb` of `adapt_evolution_paths_inner` (its
+  deprecated alias `adapt_evolution_paths_innner` still accepts them), and `mueff` of
+  `CoordinateMapping`.
 * `c_maes.utils`: `set_seed`, `build_info` and `compute_ert` moved to the main namespace
   (`modcma.set_seed`, ...; the old names still work, with a `DeprecationWarning`). Removed: `cdf`,
   `ppf` (use `scipy.stats.norm`), `random_uniform`, `random_normal`; the internals of
@@ -33,12 +36,14 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 ### Added
 
 * `import modcma` gives the C++ API (`modcma.fmin`, `modcma.ModularCMAES`, `modcma.Settings`, ...);
-  `modcma.c_maes` stays as an alias. `modcma.__version__`.
+  `modcma.c_maes` stays as an alias. `modcma.__version__`. `matrix_adaptation` is exported with the
+  other submodules (1.x had it only as `modcma.c_maes.cmaescpp.matrix_adaptation`).
 * **Ask–tell for every module**: `ask()` returns the points to evaluate as a `(k, d)` array,
   `tell(f)` takes their values; the results are identical to `run()`, bit for bit. `tell(f, X)`
   evaluates repaired or injected points instead of the asked ones. The steps of the 1.x API
   (`mutate()`, `select()`, `recombine()`, `adapt()`) still work; `select()`, `recombine()` and
-  `adapt()` raise `RuntimeError` while a generation started by `ask()` waits for `tell()`.
+  `adapt()` raise `RuntimeError` while the points of a generation wait for their values (after
+  `ask()`, or an interrupted `mutate()` or `step()`).
 * **Vectorized objectives**: `run(f, vectorized=True)` and `step(f, vectorized=True)` evaluate a
   whole batch per call.
 * **Per-optimizer random generators**: `Settings(seed=...)`; without a seed an optimizer copies the

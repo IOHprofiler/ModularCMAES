@@ -202,8 +202,7 @@ struct Strategy
                        std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                        Population &pop,
                        const Population &old_pop,
-                       const parameters::Stats &stats,
-                       const size_t lambda) {};
+                       const parameters::Stats &stats) {};
 
   protected:
     //! Called by end_population
@@ -225,8 +224,7 @@ struct CSA : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct TPA : Strategy
@@ -248,8 +246,7 @@ struct TPA : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct MSR : Strategy
@@ -264,8 +261,7 @@ struct MSR : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct PSR : Strategy
@@ -283,8 +279,7 @@ struct PSR : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct XNES : Strategy
@@ -295,8 +290,7 @@ struct XNES : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct MXNES : Strategy
@@ -307,8 +301,7 @@ struct MXNES : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct LPXNES : Strategy
@@ -319,8 +312,7 @@ struct LPXNES : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct SR : Strategy
@@ -333,8 +325,7 @@ struct SR : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 };
 
 struct SA : Strategy
@@ -345,8 +336,7 @@ struct SA : Strategy
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda) override;
+               const parameters::Stats &stats) override;
 
   protected:
     void on_population_complete(parameters::Parameters &p) override;

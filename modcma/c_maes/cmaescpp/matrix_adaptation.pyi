@@ -46,7 +46,7 @@ class Adaptation:
     @property
     def ps(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The evolution path of the step size (conjugate evolution path), shape (d,), used by CSA: ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) dz (C^-1/2 dm in `CovarianceAdaptation`). Starts at zeros for CovarianceAdaptation, CovarianceNoEigvAdaptation and SeparableAdaptation, at ones for the others; zeros after a restart.
+        The evolution path of the step size (conjugate evolution path), shape (d,), used by CSA: ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) dz (C^-1/2 dm in `CovarianceAdaptation`). Starts at zeros, also after a restart.
         """
 
     @ps.setter
@@ -55,7 +55,7 @@ class Adaptation:
     @property
     def dz(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The weighted mean of the z of the mu selected individuals, sum_i w_i z_i, shape (d,).
+        The weighted mean of the z of the mu selected individuals, sum_i w_i z_i (of every individual, with the utilities of UTILITY), shape (d,); empty before the first generation.
         """
 
     @dz.setter
@@ -77,11 +77,11 @@ class Adaptation:
     @coordinate_wise_variances.setter
     def coordinate_wise_variances(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
 
-    def adapt_evolution_paths(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings, mu: int, lamb: int) -> None:
+    def adapt_evolution_paths(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings, mu: int) -> None:
         """
         Update dm, dz and the evolution paths after selection.
 
-        Computes dm = (m - m_old) / sigma, dz = sum_i w_i z_i over the mu best, then the update of the subclass (ps, and pc where there is one). Called by `es.adapt()` before the step-size and matrix updates.
+        Computes dm = (m - m_old) / sigma, dz = sum_i w_i z_i over the mu best (every point, with the utilities of `RecombinationWeights.UTILITY`), then the update of the subclass (ps, and pc where there is one). Called by `es.adapt()` before the step-size and matrix updates.
 
         Parameters
         ----------
@@ -95,11 +95,9 @@ class Adaptation:
             The settings (`es.p.settings`).
         mu : int
             The number of selected individuals.
-        lamb : int
-            The population size lambda.
         """
 
-    def adapt_evolution_paths_inner(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings, mu: int, lamb: int) -> None:
+    def adapt_evolution_paths_inner(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings) -> None:
         """
         The update of the evolution paths of the subclass (ps, and pc where there is one), without recomputing dm and dz; the second part of `adapt_evolution_paths`.
 
@@ -113,10 +111,6 @@ class Adaptation:
             The statistics of the run (`es.p.stats`).
         settings : Settings
             The settings (`es.p.settings`).
-        mu : int
-            The number of selected individuals.
-        lamb : int
-            The population size lambda.
         """
 
     def adapt_matrix(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, population: modcma.c_maes.cmaescpp.Population, mu: int, settings: modcma.c_maes.cmaescpp.parameters.Settings, stats: modcma.c_maes.cmaescpp.parameters.Stats) -> bool:
@@ -146,7 +140,7 @@ class Adaptation:
 
     def restart(self, settings: modcma.c_maes.cmaescpp.parameters.Settings) -> None:
         """
-        Reset the distribution for a restart: m = `settings.x0` (zeros when it is not given), the paths and the matrices to their initial values. The center placement sets m afterwards.
+        Reset the distribution for a restart: m = `settings.x0` (`settings.center`, the center of the bounds, when it is not given), the paths and the matrices to their initial values. The center placement sets m afterwards.
 
         Parameters
         ----------
@@ -234,7 +228,7 @@ class Adaptation:
 
     def adapt_evolution_paths_innner(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings, mu: int, lamb: int) -> None:
         """
-        Deprecated: the old (misspelled) name of `adapt_evolution_paths_inner`.
+        Deprecated: the old (misspelled) name of `adapt_evolution_paths_inner`; mu and lamb are accepted, as in 1.x, and not used.
         """
 
 class NoAdaptation(Adaptation):
@@ -326,7 +320,7 @@ class CovarianceAdaptation(Adaptation):
     @property
     def inv_root_C(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        C^-1/2 = B diag(d)^-1 B^T, shape (d, d), computed from B and d on access (the updates do not form it).
+        C^-1/2 = B diag(d)^-1 B^T, shape (d, d), computed from B and d on access (the updates do not form it). `CovarianceNoEigvAdaptation` does not compute B and d: there it is the identity (#117).
         """
 
     @property

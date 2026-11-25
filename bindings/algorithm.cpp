@@ -16,7 +16,7 @@ void adaptation_repr(std::stringstream &ss, const matrix_adaptation::Adaptation 
 }
 
 //! The constructor (dimension, x0) of the matrix adaptations
-template <typename T, typename Class> void adaptation_init(Class &cls)
+template <typename Class> void adaptation_init(Class &cls)
 {
     cls.def(nb::init<size_t, Vector>(),
             nb::arg("dimension"),
@@ -31,7 +31,7 @@ template <typename T, typename Class> void adaptation_init(Class &cls)
 }
 
 //! The constructor of a step-size adaptation (all inherit the one of mutation::Strategy)
-template <typename T, typename Class> void strategy_init(Class &cls)
+template <typename Class> void strategy_init(Class &cls)
 {
     using namespace mutation;
     cls.def(nb::init<std::shared_ptr<ThresholdConvergence>,
@@ -68,11 +68,7 @@ constexpr const char *repr_doc = "A summary of the state (mean, paths and matric
     "stats : Stats\n"                                                                            \
     "    The statistics of the run (`es.p.stats`).\n"                                            \
     "settings : Settings\n"                                                                      \
-    "    The settings (`es.p.settings`).\n"                                                      \
-    "mu : int\n"                                                                                 \
-    "    The number of selected individuals.\n"                                                  \
-    "lamb : int\n"                                                                               \
-    "    The population size lambda."
+    "    The settings (`es.p.settings`)."
 } // namespace
 
 void define_selection(nb::module_ &main)
@@ -418,7 +414,8 @@ void define_repelling(nb::module_ &main)
                 "`AdaptiveRepelling`).")
         .def_rw("last_rejection_rate",
                 &TabooPoint::last_rejection_rate,
-                "`AdaptiveRepelling`: rejected_count / checked_count of the last population.")
+                "`AdaptiveRepelling`: rejected_count / checked_count of the last population; 0 "
+                "when the point was checked fewer than `min_checks_before_local_shrink` times.")
         .def(
             "__repr__",
             [](const TabooPoint &tb) {
@@ -729,13 +726,12 @@ void define_matrix_adaptation(nb::module_ &main)
                 &Adaptation::ps,
                 "The evolution path of the step size (conjugate evolution path), shape (d,), "
                 "used by CSA: ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) dz (C^-1/2 dm in "
-                "`CovarianceAdaptation`). Starts at zeros for CovarianceAdaptation, "
-                "CovarianceNoEigvAdaptation and SeparableAdaptation, at ones for the others; "
-                "zeros after a restart.")
+                "`CovarianceAdaptation`). Starts at zeros, also after a restart.")
         .def_rw("dz",
                 &Adaptation::dz,
-                "The weighted mean of the z of the mu selected individuals, sum_i w_i z_i, "
-                "shape (d,).")
+                "The weighted mean of the z of the mu selected individuals, sum_i w_i z_i "
+                "(of every individual, with the utilities of UTILITY), shape (d,); empty before "
+                "the first generation.")
         .def_rw("dd", &Adaptation::dd, "The dimension d, as a float.")
         .def_rw("coordinate_wise_variances",
                 &Adaptation::coordinate_wise_variances,
@@ -750,21 +746,20 @@ void define_matrix_adaptation(nb::module_ &main)
              nb::arg("stats"),
              nb::arg("settings"),
              nb::arg("mu"),
-             nb::arg("lamb"),
              "Update dm, dz and the evolution paths after selection.\n\n"
              "Computes dm = (m - m_old) / sigma, dz = sum_i w_i z_i over the mu "
-             "best, then the update of the subclass (ps, and pc where there is "
-             "one). Called by `es.adapt()` before the step-size and matrix "
-             "updates.\n\n"
-             ADAPT_PARAMS_DOC)
+             "best (every point, with the utilities of `RecombinationWeights.UTILITY`), then "
+             "the update of the subclass (ps, and pc where there is one). Called by "
+             "`es.adapt()` before the step-size and matrix updates.\n\n"
+             ADAPT_PARAMS_DOC "\n"
+             "mu : int\n"
+             "    The number of selected individuals.")
         .def("adapt_evolution_paths_inner",
              &Adaptation::adapt_evolution_paths_inner,
              nb::arg("pop"),
              nb::arg("weights"),
              nb::arg("stats"),
              nb::arg("settings"),
-             nb::arg("mu"),
-             nb::arg("lamb"),
              "The update of the evolution paths of the subclass (ps, and pc "
              "where there is one), without recomputing dm and dz; the second "
              "part of `adapt_evolution_paths`.\n\n"
@@ -800,9 +795,9 @@ void define_matrix_adaptation(nb::module_ &main)
         .def("restart",
              &Adaptation::restart,
              nb::arg("settings"),
-             "Reset the distribution for a restart: m = `settings.x0` (zeros when it is not "
-             "given), the paths and the matrices to their initial values. The center placement "
-             "sets m afterwards.\n\n"
+             "Reset the distribution for a restart: m = `settings.x0` (`settings.center`, the "
+             "center of the bounds, when it is not given), the paths and the matrices to their "
+             "initial values. The center placement sets m afterwards.\n\n"
              "Parameters\n"
              "----------\n"
              "settings : Settings\n"
@@ -887,7 +882,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "(`MatrixAdaptationType.NONE`).\n\n"
         "The cheapest option, O(d lambda) per generation; for well-conditioned (sphere-like) "
         "functions, or as a baseline. Settings switches `Modules.active` off with it.");
-    adaptation_init<None>(none);
+    adaptation_init(none);
     none.def(
         "__repr__",
         [](None &a) {
@@ -912,7 +907,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the "
         "step-size adaptation is not CSA (unless `always_compute_eigv`). Hansen & Ostermeier "
         "(2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.");
-    adaptation_init<CovarianceAdaptation>(covariance);
+    adaptation_init(covariance);
     covariance
         .def_rw("pc",
                 &CovarianceAdaptation::pc,
@@ -937,7 +932,8 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_prop_ro("inv_root_C",
                      &CovarianceAdaptation::inv_root_C,
                      "C^-1/2 = B diag(d)^-1 B^T, shape (d, d), computed from B and d on access "
-                     "(the updates do not form it).")
+                     "(the updates do not form it). `CovarianceNoEigvAdaptation` does not compute "
+                     "B and d: there it is the identity (#117).")
         .def_rw("hs",
                 &CovarianceAdaptation::hs,
                 "The indicator h_sigma: False when ||ps|| is large (the step size is growing "
@@ -1008,7 +1004,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "y = d * z. "
         "O(d lambda) per generation: for separable functions, and for high dimension, where a "
         "full matrix is slow to learn. Ros & Hansen (2008).");
-    adaptation_init<SeparableAdaptation>(separable);
+    adaptation_init(separable);
     separable
         .def_rw("c",
                 &SeparableAdaptation::c,
@@ -1040,7 +1036,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "evolution path pc or a decomposition: M = (1 - c1/2 - cmu/2) M + (c1/2) (M ps) ps^T + "
         "(cmu/2) sum_i w_i y_i z_i^T. O(d^2 lambda) per generation (BLAS from d = "
         "`constants.blas_min_dim`), so it suits high dimension. Beyer & Sendhoff (2017).");
-    adaptation_init<MatrixAdaptation>(matrix);
+    adaptation_init(matrix);
     matrix
         .def_rw("M",
                 &MatrixAdaptation::M,
@@ -1068,7 +1064,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "The rank-one (pc) and rank-mu updates of C = A A^T are applied to A as rank-one "
         "Cholesky updates, one per selected individual, so there is no decomposition: "
         "O(d^2 lambda) per generation and O(d^2) memory. Krause et al. (2016).");
-    adaptation_init<CholeskyAdaptation>(cholesky);
+    adaptation_init(cholesky);
     cholesky
         .def_rw("A",
                 &CholeskyAdaptation::A,
@@ -1087,7 +1083,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "(O(d^3); LAPACK from d = `constants.lapack_min_dim`). With CMSA the default mu is "
         "lambda / 4. The CMSA-ES of the paper adapts the step size by self-adaptation "
         "(`StepSizeAdaptation.SA`). Beyer & Sendhoff (2008).");
-    adaptation_init<SelfAdaptation>(self);
+    adaptation_init(self);
     self.def_rw("A",
                 &SelfAdaptation::A,
                 "The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity "
@@ -1108,7 +1104,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "eigendecomposition; B and d keep their initial values. ps is updated with dz instead "
         "of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of "
         "COVARIANCE for the other step-size adaptations.");
-    adaptation_init<CovarianceNoEigvAdaptation>(no_eigv);
+    adaptation_init(no_eigv);
 
     nb::class_<NaturalGradientAdaptation, Adaptation>(
         m,
@@ -1191,7 +1187,10 @@ void define_matrix_adaptation(nb::module_ &main)
            const size_t lamb) {
             warn_deprecated("Adaptation.adapt_evolution_paths_innner is deprecated; use "
                             "Adaptation.adapt_evolution_paths_inner");
-            a.adapt_evolution_paths_inner(pop, weights, stats, settings, mu, lamb);
+            // mu and lamb are accepted as in 1.x, and not used
+            static_cast<void>(mu);
+            static_cast<void>(lamb);
+            a.adapt_evolution_paths_inner(pop, weights, stats, settings);
         },
         nb::arg("pop"),
         nb::arg("weights"),
@@ -1199,7 +1198,8 @@ void define_matrix_adaptation(nb::module_ &main)
         nb::arg("settings"),
         nb::arg("mu"),
         nb::arg("lamb"),
-        "Deprecated: the old (misspelled) name of `adapt_evolution_paths_inner`.");
+        "Deprecated: the old (misspelled) name of `adapt_evolution_paths_inner`; mu and lamb "
+        "are accepted, as in 1.x, and not used.");
 }
 
 void define_bounds(nb::module_ &main)
@@ -1603,7 +1603,6 @@ void define_mutation(nb::module_ &main)
              nb::arg("population"),
              nb::arg("old_population"),
              nb::arg("stats"),
-             nb::arg("lamb"),
              "Update the step size sigma after selection.\n\n"
              "Parameters\n"
              "----------\n"
@@ -1616,9 +1615,7 @@ void define_mutation(nb::module_ &main)
              "old_population : Population\n"
              "    The population of the previous generation.\n"
              "stats : Stats\n"
-             "    The statistics of the run.\n"
-             "lamb : int\n"
-             "    The population size lambda.")
+             "    The statistics of the run.")
         .def_rw("threshold_convergence",
                 &Strategy::tc,
                 "The threshold convergence (`ThresholdConvergence` or "
@@ -1646,7 +1643,7 @@ void define_mutation(nb::module_ &main)
         "sigma *= exp(l), l = (cs / damps) (||ps|| / E||z|| - 1) clamped to [-1, 1] (as in "
         "pycma): sigma grows when the evolution path ps is longer than under random selection "
         "and shrinks when it is shorter. Hansen & Ostermeier (2001).");
-    strategy_init<CSA>(ssa_csa);
+    strategy_init(ssa_csa);
     auto ssa_tpa = nb::class_<TPA, Strategy>(
         m,
         "TPA",
@@ -1661,7 +1658,7 @@ void define_mutation(nb::module_ &main)
                 &TPA::b_tpa,
                 "The offset added to r when the forward point is better (default 0).")
         .def_rw("rank_tpa", &TPA::rank_tpa, "The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0).");
-    strategy_init<TPA>(ssa_tpa);
+    strategy_init(ssa_tpa);
     auto ssa_msr = nb::class_<MSR, Strategy>(
         m,
         "MSR",
@@ -1676,7 +1673,7 @@ void define_mutation(nb::module_ &main)
                 &MSR::quantile,
                 "The position j / lambda of the previous generation's value that the offspring "
                 "are compared with (default 0.3).");
-    strategy_init<MSR>(ssa_msr);
+    strategy_init(ssa_msr);
     auto ssa_psr = nb::class_<PSR, Strategy>(
         m,
         "PSR",
@@ -1686,7 +1683,7 @@ void define_mutation(nb::module_ &main)
         "s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by "
         "default (Loshchilov 2014, Alg. 6).")
         .def_rw("success_ratio", &PSR::success_ratio, "The target success ratio (default 0.25).");
-    strategy_init<PSR>(ssa_psr);
+    strategy_init(ssa_psr);
     auto ssa_xnes = nb::class_<XNES, Strategy>(
         m,
         "XNES",
@@ -1695,7 +1692,7 @@ void define_mutation(nb::module_ &main)
         "natural gradient (`NaturalGradientAdaptation.sigma_g`). With the other matrix "
         "adaptations: sigma *= exp(cs / sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the "
         "positive weights. Glasmachers et al. (2010).");
-    strategy_init<XNES>(ssa_xnes);
+    strategy_init(ssa_xnes);
     auto ssa_mxnes = nb::class_<MXNES, Strategy>(
         m,
         "MXNES",
@@ -1706,7 +1703,7 @@ void define_mutation(nb::module_ &main)
         "m-xNES of Krause, Glasmachers & Igel (2017), "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
-    strategy_init<MXNES>(ssa_mxnes);
+    strategy_init(ssa_mxnes);
     auto ssa_lpxnes = nb::class_<LPXNES, Strategy>(
         m,
         "LPXNES",
@@ -1718,7 +1715,7 @@ void define_mutation(nb::module_ &main)
         "individuals. lp-xNES of Krause, Glasmachers & Igel (2017), "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
-    strategy_init<LPXNES>(ssa_lpxnes);
+    strategy_init(ssa_lpxnes);
     auto ssa_sr = nb::class_<SR, Strategy>(
         m,
         "SR",
@@ -1733,7 +1730,7 @@ void define_mutation(nb::module_ &main)
         "previous generation's best instead would count a success about every other "
         "generation even at a good sigma, and sigma would diverge. For non-elitist selection "
         "see also `MSR`.");
-    strategy_init<SR>(ssa_sr);
+    strategy_init(ssa_sr);
     auto ssa_sa = nb::class_<SA, Strategy>(
         m,
         "SA",
@@ -1743,6 +1740,6 @@ void define_mutation(nb::module_ &main)
         "selected individuals divided by the geometric mean over the whole population (Beyer & "
         "Sendhoff 2008, with the correction of Ahrari et al. 2017). With SA the default mu is "
         "lambda / 4.");
-    strategy_init<SA>(ssa_sa);
+    strategy_init(ssa_sa);
 }
 } // namespace modcma_python

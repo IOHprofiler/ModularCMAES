@@ -68,14 +68,14 @@ void Parameters::inject(const Eigen::Index i, Eigen::Ref<const Vector> x)
         pop.X.col(i) = adaptation->m + pop.S.col(i).cwiseProduct(pop.Y.col(i));
 }
 
-void Parameters::begin_restart(const std::optional<Float> &sigma)
+void Parameters::begin_restart(const Float sigma)
 {
     if (settings.verbose)
     {
         std::cout << "performing restart. t(" << stats.t << ", " << stats.evaluations
                   << ") reason: " << criteria.reason() << std::endl;
         std::cout << "setting parameters (mu, lambda, sigma): (" << mu << ", " << lambda << ", "
-                  << sigma.value_or(settings.sigma0) << ")\n";
+                  << sigma << ")\n";
     }
     restart_sigma = sigma;
     stats.solutions.push_back(stats.current_best);
@@ -93,8 +93,6 @@ void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
 
 void Parameters::finish_restart()
 {
-    const std::optional<Float> sigma = restart_sigma;
-    restart_sigma.reset();
     fit_lambda_to_budget();
 
     sampler->reset(settings.modules, lambda);
@@ -103,15 +101,15 @@ void Parameters::finish_restart()
     pop = Population(settings.dim, lambda);
     old_pop = Population(settings.dim, lambda);
 
-    mutation = mutation::get(settings.modules,
-                             static_cast<Float>(settings.dim),
-                             sigma.value_or(settings.sigma0),
-                             generator);
+    mutation =
+        mutation::get(settings.modules, static_cast<Float>(settings.dim), restart_sigma, generator);
     adaptation->restart(settings);
     (*center_placement)(*this);
-    criteria.reset(*this);
     stats.current_best = {};
     stats.t_run = 0;
+    // Last: the on_reset of a restart criterion may be Python code that throws; the new run is
+    // complete by then
+    criteria.reset(*this);
 }
 
 void Parameters::fit_lambda_to_budget()
@@ -163,8 +161,8 @@ void Parameters::recombine()
 
 void Parameters::adapt()
 {
-    adaptation->adapt_evolution_paths(pop, weights, stats, settings, mu, lambda);
-    mutation->adapt(weights, adaptation, pop, old_pop, stats, lambda);
+    adaptation->adapt_evolution_paths(pop, weights, stats, settings, mu);
+    mutation->adapt(weights, adaptation, pop, old_pop, stats);
 
     if (constants::clip_sigma)
         mutation->sigma = std::min(std::max(mutation->sigma, restart::MinSigma::tolerance),

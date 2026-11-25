@@ -68,7 +68,7 @@ struct MuCommaLambdaES
         d(d),
         lambda(d * 5),
         mu(std::floor(lambda / 4)),
-        tau(1.0 / std::sqrt(static_cast<Float>(d))), // v1 ->
+        tau(1.0 / std::sqrt(static_cast<Float>(d))),
         tau_i(1.0 / pow(static_cast<Float>(d), .25)),
         mu_inv(1.0 / mu),
         m(x0),

@@ -87,8 +87,7 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
                                        const Weights &w,
                                        const Stats &stats,
                                        const parameters::Settings &settings,
-                                       const size_t mu,
-                                       const size_t lambda)
+                                       const size_t mu)
 {
     const auto sigma = pop.S.leftCols(pop.n).mean();
     dm = (m - m_old) / sigma;
@@ -100,7 +99,7 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
     }
     else
         dz.noalias() = pop.Z.leftCols(mu) * w.positive.head(mu);
-    adapt_evolution_paths_inner(pop, w, stats, settings, mu, lambda);
+    adapt_evolution_paths_inner(pop, w, stats, settings);
 }
 
 void Adaptation::adapt_ps(const parameters::Weights &w)
@@ -111,9 +110,7 @@ void Adaptation::adapt_ps(const parameters::Weights &w)
 void None::adapt_evolution_paths_inner(const Population &pop,
                                        const Weights &w,
                                        const Stats &stats,
-                                       const parameters::Settings &settings,
-                                       const size_t mu,
-                                       const size_t lambda)
+                                       const parameters::Settings &settings)
 {
     if (!settings.one_plus_one)
         adapt_ps(w);
@@ -140,9 +137,7 @@ void CovarianceAdaptation::adapt_ps(const Weights &w)
 void CovarianceAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                        const Weights &w,
                                                        const Stats &stats,
-                                                       const parameters::Settings &settings,
-                                                       const size_t mu,
-                                                       const size_t lambda)
+                                                       const parameters::Settings &settings)
 {
     if (settings.one_plus_one)
     {
@@ -310,9 +305,7 @@ void CovarianceAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<
 void SeparableAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                       const parameters::Weights &w,
                                                       const parameters::Stats &stats,
-                                                      const parameters::Settings &settings,
-                                                      size_t mu,
-                                                      size_t lambda)
+                                                      const parameters::Settings &settings)
 {
     if (settings.one_plus_one)
     {
@@ -387,9 +380,7 @@ void SeparableAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<V
 void MatrixAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                    const Weights &w,
                                                    const Stats &stats,
-                                                   const parameters::Settings &settings,
-                                                   const size_t mu,
-                                                   const size_t lambda)
+                                                   const parameters::Settings &settings)
 {
     if (settings.one_plus_one && !stats.has_improved)
         return;
@@ -491,9 +482,7 @@ void MatrixAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vect
 void CholeskyAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                      const parameters::Weights &w,
                                                      const parameters::Stats &stats,
-                                                     const parameters::Settings &settings,
-                                                     size_t mu,
-                                                     size_t lambda)
+                                                     const parameters::Settings &settings)
 {
     if (settings.one_plus_one)
     {
@@ -571,9 +560,7 @@ void CholeskyAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Ve
 void SelfAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                  const parameters::Weights &w,
                                                  const parameters::Stats &stats,
-                                                 const parameters::Settings &settings,
-                                                 size_t mu,
-                                                 size_t lambda)
+                                                 const parameters::Settings &settings)
 {
 
     if (!settings.one_plus_one)
@@ -678,9 +665,7 @@ void CovarianceNoEigvAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen
 void NaturalGradientAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                             const parameters::Weights &w,
                                                             const parameters::Stats &stats,
-                                                            const parameters::Settings &settings,
-                                                            size_t mu,
-                                                            size_t lambda)
+                                                            const parameters::Settings &settings)
 {
     if (!settings.one_plus_one)
     {
@@ -730,9 +715,7 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
     if (dense_update(n))
     {
         // G formed as a matrix, for the dense matrix exponential
-        Eigen::Index n_positive = 0;
-        while (n_positive < n && weights(n_positive) >= 0.0)
-            n_positive++;
+        const Eigen::Index n_positive = count_non_negative(weights);
         gradient_matrix.setZero(A.rows(), A.cols());
         symmetric_rank_update(gradient_matrix,
                               1.0,

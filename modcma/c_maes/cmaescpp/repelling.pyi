@@ -197,7 +197,7 @@ class TabooPoint:
     @property
     def last_rejection_rate(self) -> float:
         """
-        `AdaptiveRepelling`: rejected_count / checked_count of the last population.
+        `AdaptiveRepelling`: rejected_count / checked_count of the last population; 0 when the point was checked fewer than `min_checks_before_local_shrink` times.
         """
 
     @last_rejection_rate.setter

@@ -451,8 +451,9 @@ void define_options(nb::module_ &main)
     nb::enum_<CenterPlacement>(
         m,
         "CenterPlacement",
-        "Where the mean of the search distribution is placed at the start and at every restart "
-        "(`Modules.center_placement`; default X0).")
+        "Where the mean of the search distribution is placed at every restart "
+        "(`Modules.center_placement`; default X0). The first run always starts at "
+        "`Settings.x0`, or at the center of the bounds.")
         .value("X0",
                CenterPlacement::X0,
                "At `Settings.x0`, or at the centre of the bounds when x0 is not given (0 with the "

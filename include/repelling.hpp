@@ -23,7 +23,6 @@ namespace distance
 Float manhattan(const Vector &u, const Vector &v);
 Float euclidian(const Vector &u, const Vector &v);
 Float mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv);
-Float quadratic(const Vector &u, const Vector &v, const Matrix &M);
 } // namespace distance
 
 /**

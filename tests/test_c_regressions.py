@@ -58,7 +58,7 @@ class TestActiveCovarianceUpdate(unittest.TestCase):
         cma.select()
         cma.recombine()
         p, a = cma.p, cma.p.adaptation
-        a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+        a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
         C0, pc = a.C.copy(), a.pc.copy()
         self.assertGreater(np.abs(C0 - np.diag(np.diag(C0))).max(), 1e-3)
         Y, hs = p.pop.Y.copy(), a.hs
@@ -209,7 +209,7 @@ class TestSequentialSelectionPopulation(unittest.TestCase):
             cma.recombine()
             p, a = cma.p, cma.p.adaptation
             self.assertEqual(p.pop.n, n)
-            a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+            a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
             C0, pc, hs = a.C.copy(), a.pc.copy(), a.hs
             Y = p.pop.Y.copy()
             w = np.array(p.weights.for_population(n))
@@ -320,14 +320,14 @@ class TestNonFiniteMatrixRestarts(unittest.TestCase):
             p.pop.Y = np.full_like(np.array(p.pop.Y), np.nan)
             p.pop.Z = np.full_like(np.array(p.pop.Z), np.nan)
             p.stats.t = 10**6  # past any lazy-update interval
-            p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+            p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
             ok = p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
             self.assertFalse(ok, name)
 
 
 class TestBindingArgumentNames(unittest.TestCase):
     """B12: the keyword names of Adaptation.adapt_evolution_paths were (mu, lamb) for the C++
-    order (lambda, mu). The C++ order is now (mu, lambda), as everywhere else."""
+    order (lambda, mu). lambda is gone (not used); the keywords match the positions."""
 
     def test_keywords_match_positional(self):
         results = []
@@ -340,11 +340,10 @@ class TestBindingArgumentNames(unittest.TestCase):
             p = cma.p
             if keywords:
                 p.adaptation.adapt_evolution_paths(
-                    pop=p.pop, weights=p.weights, stats=p.stats, settings=p.settings,
-                    mu=p.mu, lamb=p.lamb,
+                    pop=p.pop, weights=p.weights, stats=p.stats, settings=p.settings, mu=p.mu,
                 )
             else:
-                p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
+                p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
             results.append(np.array(p.adaptation.dz))
         np.testing.assert_array_equal(results[0], results[1])
 

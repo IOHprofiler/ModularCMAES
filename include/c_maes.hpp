@@ -43,7 +43,7 @@ struct ModularCMAES
      * The steps of a generation (the 1.x API): mutate(), select(), recombine(), adapt(). As in
      * 1.x, mutate() always starts a new generation (or completes one that ask() started), and the
      * other steps act on the state as it is. select(), recombine() and adapt() refuse to run while
-     * a generation started by ask() is in progress.
+     * the points of a generation wait for their values (after ask(), or an interrupted mutate()).
      */
 
     void recombine() const;
@@ -180,6 +180,6 @@ struct ModularCMAES
     void queue_extra_points();
     //! The objective values of the queued points
     void evaluate(FunctionType &objective);
-    //! select(), recombine() and adapt() of the 1.x API: not while a generation waits for tell()
+    //! select(), recombine() and adapt() of the 1.x API: not while points wait for their values
     void require_no_generation(const char *step) const;
 };

@@ -85,6 +85,10 @@ ACCEPTED = {
         "internal: stats, mu and lamb were not used",
     "overload not accepted: cmaescpp.parameters.CoordinateMapping.__init__(arg0, arg1, arg2)":
         "internal: mueff was not used",
+    "overload not accepted: cmaescpp.matrix_adaptation.Adaptation.adapt_evolution_paths(pop, weights, stats, settings, mu, lamb)":
+        "internal: lamb was not used",
+    "overload not accepted: cmaescpp.mutation.Strategy.adapt(weights, dynamic, population, old_population, stats, lamb)":
+        "internal: lamb was not used",
 }
 for name in ("Cholesky", "Covariance", "Matrix", "Self", "Separable"):
     ACCEPTED[f"overload not accepted: cmaescpp.matrix_adaptation.{name}Adaptation.__init__"

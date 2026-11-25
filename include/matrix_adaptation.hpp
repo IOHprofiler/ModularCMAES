@@ -2,7 +2,6 @@
 
 #include "lapack.hpp"
 
-#include "mutation.hpp"
 #include "population.hpp"
 #include "settings.hpp"
 #include "stats.hpp"
@@ -62,15 +61,12 @@ struct Adaptation
                                const parameters::Weights &w,
                                const parameters::Stats &stats,
                                const parameters::Settings &settings,
-                               size_t mu,
-                               size_t lambda);
+                               size_t mu);
 
     virtual void adapt_evolution_paths_inner(const Population &pop,
                                              const parameters::Weights &w,
                                              const parameters::Stats &stats,
-                                             const parameters::Settings &settings,
-                                             size_t mu,
-                                             size_t lambda) = 0;
+                                             const parameters::Settings &settings) = 0;
 
     bool adapt_matrix(const parameters::Weights &w,
                       const Population &pop,
@@ -175,9 +171,7 @@ struct None final : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -227,9 +221,7 @@ struct CovarianceAdaptation : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
                             const Population &pop,
@@ -263,9 +255,7 @@ struct SeparableAdaptation : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
                             const Population &pop,
@@ -298,9 +288,7 @@ struct MatrixAdaptation final : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
                             const Population &pop,
@@ -340,9 +328,7 @@ struct CholeskyAdaptation final : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
                             const Population &pop,
@@ -374,9 +360,7 @@ struct SelfAdaptation final : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
                             const Population &pop,
@@ -462,9 +446,7 @@ struct NaturalGradientAdaptation final : Adaptation
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
-                                     const parameters::Settings &settings,
-                                     size_t mu,
-                                     size_t lambda) override;
+                                     const parameters::Settings &settings) override;
 
     bool adapt_matrix_inner(const parameters::Weights &w,
                             const Population &pop,

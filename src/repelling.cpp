@@ -21,13 +21,6 @@ Float mahanolobis(const Vector &u, const Vector &v, const Matrix &C_inv)
     return std::sqrt(delta.transpose() * C_inv * delta);
 }
 
-Float quadratic(const Vector &u, const Vector &v, const Matrix &M)
-{
-    const auto delta = u - v;
-    const Float q = delta.transpose() * M * delta;
-    return std::sqrt(std::max<Float>(0.0, q));
-}
-
 } // namespace distance
 
 Matrix archived_metric(parameters::Parameters &p)

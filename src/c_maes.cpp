@@ -24,8 +24,9 @@ void ModularCMAES::require_no_generation(const char *step) const
 {
     if (next != Step::BEGIN || n_pending != 0)
         throw std::logic_error(std::string(step) +
-                               " while a generation started by ask() is in progress: tell() the "
-                               "values of its points, or evaluate them with mutate(), first");
+                               " while the points of a generation wait for their values (after "
+                               "ask(), or an interrupted mutate() or step()): tell() their "
+                               "values, or evaluate them with mutate(), first");
 }
 
 void ModularCMAES::mutate(FunctionType &objective)
@@ -207,8 +208,10 @@ bool ModularCMAES::advance(const bool stop_before_selection)
                 queue(p->repelling->query_point(), Source::HILL_VALLEY);
             else
             {
-                p->finish_restart();
+                // The next step is set first, as in UPDATE: when the reset throws (the on_reset of
+                // a restart criterion written in Python), the next ask() does not reset again
                 next = Step::SAMPLE;
+                p->finish_restart();
             }
             break;
 

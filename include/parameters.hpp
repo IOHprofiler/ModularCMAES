@@ -83,7 +83,9 @@ struct Parameters
     //! Returns whether a restart started (then restart_center() waits for its objective value)
     bool begin_generation();
 
-    void begin_restart(const std::optional<Float> &sigma = std::nullopt);
+    //! A restart, with step size sigma for the new run: the run's best joins stats.solutions, and
+    //! its final mean becomes the center to evaluate
+    void begin_restart(Float sigma);
 
     //! The point at which a restart evaluates the objective (the center, in objective space)
     [[nodiscard]] const Vector &restart_center() const { return pending_restart_center; }
@@ -101,7 +103,8 @@ struct Parameters
     void resize_population(const size_t new_mu, const size_t new_lambda);
 
   private:
-    std::optional<Float> restart_sigma;
+    //! The step size of the new run, from begin_restart to finish_restart
+    Float restart_sigma = 0;
     Vector pending_restart_center;
 };
 

@@ -529,7 +529,7 @@ class ModularCMAES:
         """
         Move the mean to the weighted mean of the mu best individuals.
 
-        m_old = m, then m = m_old + sum_k positive[k] (X[:, k] - m_old) over the first mu columns of the (sorted) population; with the utility weights of NES/xNES, over every individual. The third step of a generation, after select(). Raises RuntimeError while a generation that ask() started waits for tell().
+        m_old = m, then m = m_old + sum_k positive[k] (X[:, k] - m_old) over the first mu columns of the (sorted) population; with the utility weights of NES/xNES, over every individual. The third step of a generation, after select(). Raises RuntimeError while the points of a generation wait for their values (after ask(), or an interrupted mutate() or step()).
         """
 
     def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None:
@@ -548,14 +548,14 @@ class ModularCMAES:
         """
         Select the individuals of the evaluated generation: the second step.
 
-        Applies pairwise selection (mirrored PAIRWISE) and elitism (the parents join the offspring), sorts the population by f, keeps lambda individuals and updates the statistics (current_avg, current_best, global_best). Raises RuntimeError while a generation that ask() started waits for tell().
+        Applies pairwise selection (mirrored PAIRWISE) and elitism (the parents join the offspring), sorts the population by f, keeps lambda individuals and updates the statistics (current_avg, current_best, global_best). Raises RuntimeError while the points of a generation wait for their values (after ask(), or an interrupted mutate() or step()).
         """
 
     def adapt(self) -> None:
         """
         Adapt the search distribution: the last step of a generation.
 
-        Updates the evolution paths, the step size, the matrix and the restart criteria, and increments p.stats.t (Parameters.adapt). Raises RuntimeError while a generation that ask() started waits for tell().
+        Updates the evolution paths, the step size, the matrix and the restart criteria, and increments p.stats.t (Parameters.adapt). Raises RuntimeError while the points of a generation wait for their values (after ask(), or an interrupted mutate() or step()).
         """
 
     def step(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> bool:

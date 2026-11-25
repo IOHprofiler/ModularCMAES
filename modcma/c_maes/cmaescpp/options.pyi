@@ -289,7 +289,7 @@ class MatrixAdaptationType(enum.Enum):
 
 class CenterPlacement(enum.Enum):
     """
-    Where the mean of the search distribution is placed at the start and at every restart (`Modules.center_placement`; default X0).
+    Where the mean of the search distribution is placed at every restart (`Modules.center_placement`; default X0). The first run always starts at `Settings.x0`, or at the center of the bounds.
     """
 
     X0 = 0

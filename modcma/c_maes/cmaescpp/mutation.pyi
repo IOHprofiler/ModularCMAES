@@ -228,7 +228,7 @@ class Strategy:
             The initial step size.
         """
 
-    def adapt(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, dynamic: modcma.c_maes.cmaescpp.matrix_adaptation.Adaptation, population: modcma.c_maes.cmaescpp.Population, old_population: modcma.c_maes.cmaescpp.Population, stats: modcma.c_maes.cmaescpp.parameters.Stats, lamb: int) -> None:
+    def adapt(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, dynamic: modcma.c_maes.cmaescpp.matrix_adaptation.Adaptation, population: modcma.c_maes.cmaescpp.Population, old_population: modcma.c_maes.cmaescpp.Population, stats: modcma.c_maes.cmaescpp.parameters.Stats) -> None:
         """
         Update the step size sigma after selection.
 
@@ -244,8 +244,6 @@ class Strategy:
             The population of the previous generation.
         stats : Stats
             The statistics of the run.
-        lamb : int
-            The population size lambda.
         """
 
     @property

@@ -17,6 +17,7 @@ from .cmaescpp import (
     constants,
     sampling,  # pyright: ignore[reportMissingModuleSource]
     mutation,  # pyright: ignore[reportMissingModuleSource]
+    matrix_adaptation,  # pyright: ignore[reportMissingModuleSource]
     selection,  # pyright: ignore[reportMissingModuleSource]
     parameters,  # pyright: ignore[reportMissingModuleSource]
     bounds,  # pyright: ignore[reportMissingModuleSource]
@@ -352,6 +353,7 @@ __all__ = (
     "compute_ert",
     "sampling",
     "mutation",
+    "matrix_adaptation",
     "selection",
     "parameters",
     "bounds",

@@ -486,7 +486,7 @@ class Weights:
     @property
     def sqrt_cc_mueff(self) -> float:
         """
-        sqrt(cc (2 - cc) mueff): the normalisation of the update of the path pc.
+        sqrt(cc (2 - cc) mueff_mean): the normalisation of the update of the path pc (mueff_mean = mueff, or 1 / sum u_i^2 for the utilities of UTILITY).
         """
 
     @sqrt_cc_mueff.setter
@@ -495,7 +495,7 @@ class Weights:
     @property
     def sqrt_cs_mueff(self) -> float:
         """
-        sqrt(cs (2 - cs) mueff): the normalisation of the update of the path ps.
+        sqrt(cs (2 - cs) mueff_mean): the normalisation of the update of the path ps (mueff_mean = mueff, or 1 / sum u_i^2 for the utilities of UTILITY).
         """
 
     @sqrt_cs_mueff.setter
@@ -560,7 +560,7 @@ class Weights:
         """
         (lambda - mu,) array: the weights of the other individuals, for the active update.
 
-        Scaled so that their absolute values sum to min(1 + c1 / cmu, 1 + 2 mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu)) (Hansen 2016).
+        Scaled so that their absolute values sum to min(1 + c1 / cmu, 1 + 2 mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu)) (Hansen 2016); with UTILITY the utilities are used as they are (they sum to zero, as in NES).
         """
 
     @negative.setter
@@ -628,7 +628,7 @@ class Settings:
         lambda0 : int, optional
             The number of offspring per generation, default 4 + floor(3 ln(dim)).
         x0 : array_like, optional
-            (dim,) the initial mean of the search distribution. Default None: the zero vector; after a restart, center_placement X0 uses x0 or, without x0, the center of the bounds.
+            (dim,) the initial mean of the search distribution. Default None: the center of the bounds (the zero vector when the box is not finite); after a restart, center_placement X0 uses the same point.
         lb : array_like, optional
             (dim,) the lower bounds, default -5 in every coordinate.
         ub : array_like, optional
@@ -752,7 +752,7 @@ class Settings:
     @property
     def x0(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')] | None:
         """
-        (dim,) array: the initial mean of the search distribution, or None (default) for the zero vector.
+        (dim,) array: the initial mean of the search distribution, or None (default) for `center`, the center of the bounds.
         """
 
     @x0.setter

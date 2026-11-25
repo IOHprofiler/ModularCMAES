@@ -487,6 +487,40 @@ class TestRobustness(unittest.TestCase):
         self.assertTrue(ask_tell_generation(cma, sphere))
         self.assertEqual(cma.p.stats.t, t + 1)
 
+    def test_exception_in_the_reset_of_a_restart(self):
+        # An exception while the modules are reset for the new run (from the on_reset of a restart
+        # criterion written in Python) does not make the next ask() reset again: the new run keeps
+        # its placed mean and the restart strategy's sigma
+        class Restart(c_maes.restart.Criterion):
+            def __init__(self, raises):
+                super().__init__("Restart")
+                self.raises = raises
+
+            def update(self, parameters):
+                self.met = parameters.stats.t == 5
+
+            def on_reset(self, parameters):
+                if self.raises:
+                    self.raises = False
+                    raise ValueError("raised by on_reset")
+
+        runs = []
+        for raises in (False, True):
+            cma = make(modules={"restart_strategy": "BIPOP", "center_placement": "UNIFORM"})
+            cma.p.criteria.items.append(Restart(raises))
+            X = cma.ask()
+            while len(X) != 1:  # the center of the restart is asked alone
+                cma.tell([sphere(x) for x in X])
+                X = cma.ask()
+            if raises:
+                with self.assertRaisesRegex(ValueError, "raised by on_reset"):
+                    cma.tell([sphere(X[0])])
+            else:
+                cma.tell([sphere(X[0])])
+            runs.append((cma.ask().copy(), cma.p.mutation.sigma, len(cma.p.stats.centers)))
+        np.testing.assert_array_equal(runs[0][0], runs[1][0])
+        self.assertEqual(runs[0][1:], runs[1][1:])
+
 
 class TestInjection(unittest.TestCase):
     def test_injected_point_replaces_the_asked_one(self):

@@ -211,8 +211,7 @@ void CSA::adapt(const parameters::Weights &w,
                 std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                 Population &pop,
                 const Population &old_pop,
-                const parameters::Stats &stats,
-                const size_t lambda)
+                const parameters::Stats &stats)
 
 {
     Float l = (w.cs / w.damps) * ((adaptation->ps.norm() / w.expected_length_z) - 1);
@@ -245,8 +244,7 @@ void TPA::adapt(const parameters::Weights &w,
                 std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                 Population &pop,
                 const Population &old_pop,
-                const parameters::Stats &stats,
-                const size_t lambda)
+                const parameters::Stats &stats)
 {
     s = ((1.0 - w.cs) * s) + (w.cs * this->rank_tpa);
     sigma *= std::exp(s);
@@ -256,8 +254,7 @@ void MSR::adapt(const parameters::Weights &w,
                 std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                 Population &pop,
                 const Population &old_pop,
-                const parameters::Stats &stats,
-                const size_t lamb)
+                const parameters::Stats &stats)
 {
     const auto n = std::min(pop.n_finite(), old_pop.n_finite());
     if (n != 0)
@@ -291,8 +288,7 @@ void PSR::adapt(const parameters::Weights &w,
                 std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                 Population &pop,
                 const Population &old_pop,
-                const parameters::Stats &stats,
-                const size_t lambda)
+                const parameters::Stats &stats)
 {
     const auto n = std::min(pop.n_finite(), old_pop.n_finite());
     if (n != 0)
@@ -329,8 +325,7 @@ void XNES::adapt(const parameters::Weights &w,
                  std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                  Population &pop,
                  const Population &old_pop,
-                 const parameters::Stats &stats,
-                 const size_t lambda)
+                 const parameters::Stats &stats)
 {
     if (const auto dynamic =
             std::dynamic_pointer_cast<matrix_adaptation::NaturalGradientAdaptation>(adaptation))
@@ -349,8 +344,7 @@ void MXNES::adapt(const parameters::Weights &w,
                   std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                   Population &pop,
                   const Population &old_pop,
-                  const parameters::Stats &stats,
-                  const size_t lambda)
+                  const parameters::Stats &stats)
 {
     const Float delta = (w.mueff_mean * adaptation->dz.squaredNorm() - adaptation->dd);
 
@@ -361,8 +355,7 @@ void LPXNES::adapt(const parameters::Weights &w,
                    std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                    Population &pop,
                    const Population &old_pop,
-                   const parameters::Stats &stats,
-                   const size_t lambda)
+                   const parameters::Stats &stats)
 {
     const auto logS = (pop.S.leftCols(pop.n).array() / sigma).log();
     const Vector per_sample = logS.colwise().mean().transpose();
@@ -374,8 +367,7 @@ void SR::adapt(const parameters::Weights &w,
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda)
+               const parameters::Stats &stats)
 {
     sigma *= std::exp((1 / w.damps) *
                       ((stats.success_ratio - tgt_success_ratio) / (1.0 - tgt_success_ratio)));
@@ -390,8 +382,7 @@ void SA::adapt(const parameters::Weights &w,
                std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                Population &pop,
                const Population &old_pop,
-               const parameters::Stats &stats,
-               const size_t lambda)
+               const parameters::Stats &stats)
 {
     const Eigen::Index mu = w.positive.size();
 

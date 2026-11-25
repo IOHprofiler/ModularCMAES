@@ -8,11 +8,9 @@ namespace mapping
 //! Maps a sample to the point that is evaluated: the integer variables are rounded
 struct CoordinateMapping
 {
-    size_t d;
     std::vector<Eigen::Index> integer_idx;
 
-    CoordinateMapping(const Indices &integer_variables, const size_t d) :
-        d(d)
+    CoordinateMapping(const Indices &integer_variables, const size_t d)
     {
         for (const auto idx : integer_variables)
         {
