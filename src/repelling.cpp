@@ -255,8 +255,9 @@ void Repelling::next_query(parameters::Parameters &p)
 {
     // The remaining tests are skipped when the next point would leave too little budget for the
     // first generation after the restart (the run ends soon after: the archive keeps the candidate
-    // unless a test so far found a shared basin)
-    if (query.j >= archive.size() || !p.restart_fits(1))
+    // unless a test so far found a shared basin). The number of points varies: they use what the
+    // budget leaves at the restart (Parameters::budget_left)
+    if (query.j >= archive.size() || p.budget_left(evaluation::Stage::RESTART) == 0)
     {
         query.active = false;
         on_update_end(*query.candidate, query.accept, p);
@@ -268,15 +269,8 @@ void Repelling::next_query(parameters::Parameters &p)
     const Float a =
         static_cast<Float>(query.k) / (static_cast<Float>(hill_valley_points) + 1.0);
     query.x = p.coordinate_mapping->transform(v.x + a * (u.x - v.x));
-    // One point at a time: the next point depends on this one's value. The repelling object lives
-    // as long as the parameters; the number of points varies, so the request is checked against
-    // the budget (restart_fits above keeps it within)
-    p.push_variable(
-        query.x,
-        [this](parameters::Parameters &q, const evaluation::Evaluations &e) {
-            answer(e.f(0), e.X.col(0), q);
-        },
-        "repelling-hill-valley");
+    // One point at a time: the next point depends on this one's value (answer)
+    p.queue.push(query.x, evaluation::Source::HILL_VALLEY);
 }
 
 void Repelling::answer(const Float y, Eigen::Ref<const Vector> x, parameters::Parameters &p)

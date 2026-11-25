@@ -95,6 +95,7 @@ void NoSigmaSampler::sample(const Float sigma, parameters::Parameters &p)
 void Strategy::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
 {
     begin_population(n_offspring, p);
+    push_extra_points(p);
     p.queue.drain(p, objective);
 }
 
@@ -108,38 +109,42 @@ void Strategy::begin_population(const size_t n_offspring, parameters::Parameters
     p.bounds->n_out_of_bounds = 0;
     p.repelling->prepare_sampling(p);
     push_batch(0, p);
-    // The subscribers of the population (TPA): their points join the first batch, after it
-    p.pipeline.fire(evaluation::GenerationStage::POPULATION, p);
 }
 
 void Strategy::push_batch(const Eigen::Index i, parameters::Parameters &p)
 {
     const auto n = static_cast<Eigen::Index>(p.pop.n);
     const auto stop = first_stop(static_cast<size_t>(i), p);
-    const Eigen::Index last = stop >= static_cast<size_t>(n) ? n - 1 : static_cast<Eigen::Index>(stop);
+    const Eigen::Index last =
+        stop >= static_cast<size_t>(n) ? n - 1 : static_cast<Eigen::Index>(stop);
     const Eigen::Index k = last - i + 1;
     sample_batch(i, k, p);
-    // The strategy is only replaced at a restart, when no request is pending. The capture is two
-    // words (the batch size is that of the values): std::function keeps it inline, without a heap
-    // allocation per batch
-    p.queue.push(
-        p.pop.X_transformed.middleCols(i, k),
-        [this, i](parameters::Parameters &q, const evaluation::Evaluations &e) {
-            const Eigen::Index k = e.f.size();
-            for (Eigen::Index j = 0; j < k; ++j)
-            {
-                // tell(f, X): a point that differs from the asked one replaces it
-                if (e.given && e.X.col(j) != q.pop.X_transformed.col(i + j))
-                    q.inject(i + j, e.X.col(j));
-                if (evaluated(i + j, e.f(j), q))
-                {
-                    end_population(q);
-                    return;
-                }
-            }
-            push_batch(i + k, q);
-        },
-        "population");
+    p.queue.push(p.pop.X_transformed.middleCols(i, k), evaluation::Source::POPULATION, i);
+}
+
+void Strategy::tell_batch(const Eigen::Index i,
+                          const evaluation::Evaluations &e,
+                          parameters::Parameters &p)
+{
+    const Eigen::Index k = e.f.size();
+    for (Eigen::Index j = 0; j < k; ++j)
+    {
+        // tell(f, X): a point that differs from the asked one replaces it
+        if (e.given && e.X.col(j) != p.pop.X_transformed.col(i + j))
+            p.inject(i + j, e.X.col(j));
+        if (evaluated(i + j, e.f(j), p))
+        {
+            end_population(p);
+            return;
+        }
+    }
+    push_batch(i + k, p);
+}
+
+void Strategy::push_extra_points(parameters::Parameters &p)
+{
+    if (const auto k = static_cast<Eigen::Index>(n_extra_points()); k != 0)
+        extra_points(p.queue.push(k, evaluation::Source::EXTRA_POINTS), p);
 }
 
 void Strategy::sample_batch(const Eigen::Index begin,

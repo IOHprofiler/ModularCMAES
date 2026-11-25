@@ -36,36 +36,6 @@ Parameters::Parameters(const Settings &settings) :
     queue(settings.dim)
 {
     criteria.reset(*this);
-
-    // The built-in subscribers of the pipeline. They reach the modules through p, so a module that
-    // a restart replaces (the step-size adaptation) is the current one.
-    using evaluation::GenerationStage;
-    pipeline.on(GenerationStage::RUN_ENDING, "restart-center", [](Parameters &p) {
-        // The final mean of the run that ends; its consumer starts the update of the repelling
-        // archive, which queues the hill-valley points
-        p.queue.push(
-            p.restart_center(),
-            [](Parameters &q, const evaluation::Evaluations &e) {
-                q.tell_restart_center(e.f(0), e.X.col(0));
-            },
-            "restart-center");
-    });
-    pipeline.on(
-        GenerationStage::POPULATION,
-        "step-size-extra-points",
-        [](Parameters &p) {
-            const auto k = static_cast<Eigen::Index>(p.mutation->n_extra_points());
-            if (k == 0)
-                return;
-            auto X = p.queue.push(
-                k,
-                [](Parameters &q, const evaluation::Evaluations &e) {
-                    q.mutation->tell_extra_points(e.f, e.X, q);
-                },
-                "step-size-extra-points");
-            p.mutation->extra_points(X, p);
-        },
-        [](const Parameters &p) { return p.mutation->n_extra_points(); });
 }
 
 Parameters::Parameters(const size_t dim) :
@@ -94,28 +64,53 @@ void Parameters::perform_restart(FunctionType &objective, const std::optional<Fl
 
 void Parameters::complete_restart(FunctionType &objective)
 {
-    pipeline.fire(evaluation::GenerationStage::RUN_ENDING, *this);
+    push_restart_center();
     queue.drain(*this, objective);
     finish_restart();
-    pipeline.fire(evaluation::GenerationStage::RUN_STARTING, *this);
-    queue.drain(*this, objective);
 }
 
-size_t Parameters::budget_left() const
+void Parameters::dispatch(const evaluation::Request &request, const evaluation::Evaluations &e)
 {
-    const size_t used = stats.evaluations + static_cast<size_t>(queue.size());
+    switch (request.source)
+    {
+    case evaluation::Source::POPULATION:
+        mutation->tell_batch(request.index, e, *this);
+        return;
+    case evaluation::Source::EXTRA_POINTS:
+        mutation->tell_extra_points(e.f, e.X, *this);
+        return;
+    case evaluation::Source::RESTART_CENTER:
+        tell_restart_center(e.f(0), e.X.col(0));
+        return;
+    case evaluation::Source::HILL_VALLEY:
+        repelling->answer(e.f(0), e.X.col(0), *this);
+        return;
+    }
+}
+
+size_t Parameters::reserved_points(const evaluation::Stage stage) const
+{
+    // TPA's two points join the population's first batch
+    return stage == evaluation::Stage::POPULATION ? mutation->n_extra_points() : 0;
+}
+
+size_t Parameters::reserved_points() const
+{
+    using evaluation::Stage;
+    return reserved_points(Stage::RESTART) + reserved_points(Stage::POPULATION) +
+           reserved_points(Stage::POPULATION_EVALUATED) + reserved_points(Stage::SELECTED);
+}
+
+size_t Parameters::budget_left(const evaluation::Stage stage) const
+{
+    // What the rest of the generation reserves: the reserved points of the later stages, and at a
+    // restart the first generation of the next run, which fit_lambda_to_budget gives the rest of
+    // the budget (at least min_lambda_after_restart)
+    size_t reserved = stage == evaluation::Stage::RESTART ? min_lambda_after_restart : 0;
+    for (int s = static_cast<int>(stage) + 1; s < evaluation::n_stages; ++s)
+        reserved += reserved_points(static_cast<evaluation::Stage>(s));
+    const size_t used = stats.evaluations + static_cast<size_t>(queue.size()) + reserved;
     return settings.budget > used ? settings.budget - used : 0;
-}
-
-void Parameters::push_variable(Eigen::Ref<const Matrix> X,
-                               evaluation::Consumer consume,
-                               const char *source)
-{
-    if (static_cast<size_t>(X.cols()) > budget_left())
-        throw std::logic_error("a request of " + std::to_string(X.cols()) + " points (" +
-                               std::string(source) + ") exceeds the budget: " +
-                               std::to_string(budget_left()) + " evaluations are left");
-    queue.push(X, std::move(consume), source);
 }
 
 void Parameters::inject(const Eigen::Index i, Eigen::Ref<const Vector> x)
@@ -144,6 +139,11 @@ void Parameters::begin_restart(const std::optional<Float> &sigma)
     pending_restart_center = coordinate_mapping->transform(adaptation->m);
 }
 
+void Parameters::push_restart_center()
+{
+    queue.push(pending_restart_center, evaluation::Source::RESTART_CENTER);
+}
+
 void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
 {
     stats.evaluations++;
@@ -155,8 +155,7 @@ void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
 
 void Parameters::finish_restart()
 {
-    // The modules are replaced below: no request may still wait for its values (its consumer
-    // could refer to a replaced module)
+    // The modules are replaced below: no request of the run that ends may still wait for its values
     if (!queue.empty())
         throw std::logic_error("finish_restart: evaluations are still pending");
     const std::optional<Float> sigma = restart_sigma;
@@ -186,7 +185,7 @@ void Parameters::fit_lambda_to_budget()
     // repelling queries are evaluated by now; TPA adds its two points): a restart near the end of
     // the budget, where IPOP and BIPOP may also have grown lambda, would otherwise exceed it.
     // At least min_lambda_after_restart points; pairwise selection needs an even lambda.
-    const size_t extra = pipeline.fixed_points(*this);
+    const size_t extra = reserved_points();
     const size_t used = stats.evaluations + extra;
     const size_t remaining = settings.budget > used ? settings.budget - used : 0;
     if (lambda <= remaining)
@@ -203,8 +202,7 @@ void Parameters::fit_lambda_to_budget()
 
 bool Parameters::restart_fits(const size_t n) const
 {
-    return stats.evaluations + n + min_lambda_after_restart + pipeline.fixed_points(*this) <=
-           settings.budget;
+    return stats.evaluations + n + min_lambda_after_restart + reserved_points() <= settings.budget;
 }
 
 void Parameters::adapt()

@@ -441,13 +441,6 @@ class Parameters:
         """The points waiting for their objective values (`EvaluationQueue`)."""
 
     @property
-    def pipeline(self) -> parameters.Pipeline:
-        """The stages of a generation and their subscribers (`Pipeline`)."""
-
-    def budget_left(self) -> int:
-        """The evaluations left in the budget, minus the points already queued."""
-
-    @property
     def old_pop(self) -> Population:
         """The population of the previous generation (the parents for elitism)."""
 
@@ -577,7 +570,7 @@ class ModularCMAES:
         """
         Sample and evaluate a generation: the first step of a generation.
 
-        Restarts first when a restart criterion holds (the restart evaluates its center with objective). Then select(), recombine() and adapt() complete the generation.
+        Restarts first when a restart criterion holds (the restart evaluates its center with objective). Then select(), recombine() and adapt() complete the generation. Every call samples a new generation, as in 1.x; only a generation that ask() started is completed instead (its points evaluated with objective).
 
         Parameters
         ----------
@@ -589,14 +582,14 @@ class ModularCMAES:
         """
         Select the individuals of the evaluated generation: the second step.
 
-        Applies pairwise selection (mirrored PAIRWISE) and elitism (the parents join the offspring), sorts the population by f, keeps lambda individuals and updates the statistics (current_avg, current_best, global_best).
+        Applies pairwise selection (mirrored PAIRWISE) and elitism (the parents join the offspring), sorts the population by f, keeps lambda individuals and updates the statistics (current_avg, current_best, global_best). Raises RuntimeError while a generation that ask() started waits for tell().
         """
 
     def adapt(self) -> None:
         """
         Adapt the search distribution: the last step of a generation.
 
-        Updates the evolution paths, the step size, the matrix and the restart criteria, and increments p.stats.t (Parameters.adapt).
+        Updates the evolution paths, the step size, the matrix and the restart criteria, and increments p.stats.t (Parameters.adapt). Raises RuntimeError while a generation that ask() started waits for tell().
         """
 
     def step(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> bool:
@@ -669,12 +662,6 @@ class ModularCMAES:
     @property
     def has_pending(self) -> bool:
         """Whether ask() has points that wait for tell()."""
-
-    @property
-    def stage(self) -> parameters.GenerationStage | None:
-        """
-        The stage of the generation in progress (`parameters.GenerationStage`), or None between generations.
-        """
 
     def break_conditions(self) -> bool:
         """

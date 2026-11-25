@@ -14,15 +14,13 @@
  *    tell() takes their objective values. step() and run() are loops over ask() and tell(), so both
  *    ways give the same results.
  *
- * A generation is a pipeline of stages (evaluation::GenerationStage): a restart when one is due
- * (RUN_ENDING, RUN_STARTING), then GENERATION_STARTING, the POPULATION (with the points
- * with the points of its subscribers, TPA's), POPULATION_EVALUATED, selection (SELECTED), recombination and
- * adaptation (UPDATED). At each stage its subscribers may queue points (Parameters::queue);
- * the pipeline waits for tell() whenever the queue is not empty. ask() returns everything that is
- * queued: a whole population (with TPA's two points), or, with sequential selection, the
- * individuals up to the first one after which it can stop, then one (or a mirrored pair) at a
- * time; a restart asks for the final mean, then for the hill-valley points of the repelling
- * archive, one at a time.
+ * A generation runs through fixed stages (evaluation::Stage), in advance(): a restart when one is
+ * due, the population, selection, recombination and adaptation. At each stage the modules may queue
+ * points (Parameters::queue); the generation waits for tell() whenever the queue is not empty.
+ * ask() returns everything that is queued: a whole population (with TPA's two points), or, with
+ * sequential selection, the individuals up to the first one after which it can stop (with TPA's
+ * points), then one (or a mirrored pair) at a time; a restart asks for the final mean, then for the
+ * hill-valley points of the repelling archive, one at a time.
  */
 struct ModularCMAES
 {
@@ -41,14 +39,18 @@ struct ModularCMAES
     {
     }
 
+    /*
+     * The steps of a generation (the 1.x API): mutate(), select(), recombine(), adapt(). As in
+     * 1.x, mutate() always starts a new generation (or completes one that ask() started), and the
+     * other steps act on the state as it is. select() and adapt() refuse to run while ask() has
+     * points that wait for tell().
+     */
+
     void recombine() const;
 
-    //! Selection, then the SELECTED stage (which may not queue points here: use step() or
-    //! ask-tell for modules that evaluate after selection)
-    void select();
+    void select() const;
 
-    //! Adaptation, then the UPDATED stage (likewise); ends the generation
-    void adapt();
+    void adapt() const;
 
     //! Sample and evaluate a generation, up to selection (after a restart, when one is due)
     void mutate(FunctionType &objective);
@@ -94,23 +96,23 @@ struct ModularCMAES
     //! Whether ask() has points that wait for tell()
     [[nodiscard]] bool has_pending() const { return !p->queue.empty(); }
 
-    //! The stage of the generation in progress (none between generations)
-    [[nodiscard]] std::optional<evaluation::GenerationStage> current_stage() const { return stage; }
-
   private:
-    std::optional<evaluation::GenerationStage> stage;
-    //! mutate(): the pipeline stops before selection
-    bool stop_before_selection = false;
+    //! The stage of the generation in progress (none between generations)
+    std::optional<evaluation::Stage> stage;
     //! The objective values of the queued points in step() and mutate()
     Vector values;
 
     bool tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X);
-    //! Enter a stage: fire its subscribers
-    void enter(evaluation::GenerationStage next);
-    //! Run the stages until points are queued, or the generation is complete (returns true)
-    bool advance();
+    /**
+     * Run the generation until points are queued (returns false) or it is complete (true). With
+     * stop_before_selection (mutate()), it also returns false, with nothing queued, when every
+     * point of the population has its value.
+     */
+    bool advance(bool stop_before_selection = false);
+    //! Start the population: its first batch, with the extra points of the step-size adaptation
+    void start_population();
     //! The objective values of the queued points
     void evaluate(FunctionType &objective);
-    //! After select() or adapt(): no stage may wait for points outside ask-tell
-    void require_no_pending(const char *step) const;
+    //! select() and adapt() of the 1.x API: not while a generation waits for tell()
+    void require_no_generation(const char *step) const;
 };

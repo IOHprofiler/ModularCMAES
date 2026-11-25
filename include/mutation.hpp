@@ -21,6 +21,10 @@ namespace bounds
 {
 struct BoundCorrection;
 }
+namespace evaluation
+{
+struct Evaluations;
+}
 
 namespace mutation
 {
@@ -146,25 +150,34 @@ struct Strategy
 
     virtual ~Strategy() = default;
 
-    //! Sample and evaluate a population of n_offspring with an objective function (and the points
-    //! that go alongside it, TPA's): begin_population, then the queue is evaluated
+    //! Sample and evaluate a population of n_offspring with an objective function, with the extra
+    //! points (TPA's): begin_population and push_extra_points, then the queue is evaluated
     void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p);
 
     /*
-     * The population as a producer of the evaluation queue (#84). begin_population queues the
-     * first batch: individuals 0..first_stop(0). The consumer of a batch passes each value to
+     * The population on the evaluation queue (#84). begin_population queues the first batch:
+     * individuals 0..first_stop(0). Its values come back through tell_batch, which passes each to
      * evaluated() and queues the next batch, or, once the population is complete, calls
      * end_population. A sample does not depend on the objective values of the ones before it, so
-     * a batch is sampled when it is queued. begin_population fires the POPULATION stage: its
-     * subscribers' points (TPA's) join the first batch.
+     * a batch is sampled when it is queued.
      */
 
     //! Start a population of n_offspring (pop.n): sigmas, bound and repelling state; queues the
     //! first batch
     void begin_population(const size_t n_offspring, parameters::Parameters &p);
 
-    //! Sample individuals i..first_stop(i) and queue them
+    //! Sample individuals i..first_stop(i) and queue them (evaluation::Source::POPULATION)
     void push_batch(const Eigen::Index i, parameters::Parameters &p);
+
+    //! The values of the batch that starts at individual i (tell(f, X): a point that differs from
+    //! the asked one replaces it); queues the next batch, or ends the population
+    void tell_batch(const Eigen::Index i,
+                    const evaluation::Evaluations &e,
+                    parameters::Parameters &p);
+
+    //! Queue the extra points of the step-size adaptation (TPA's), after the population's first
+    //! batch: they do not depend on its values (evaluation::Source::EXTRA_POINTS)
+    void push_extra_points(parameters::Parameters &p);
 
     /**
      * Sample individuals begin..begin+k-1. Their y are one matrix product, Y = A Z; an individual
@@ -183,7 +196,8 @@ struct Strategy
     //! After the last individual
     void end_population(parameters::Parameters &p);
 
-    //! The number of points the step-size adaptation evaluates after the population
+    //! The number of points the step-size adaptation evaluates with every population, fixed per
+    //! configuration (the budget reserves them: Parameters::reserved_points)
     [[nodiscard]] virtual size_t n_extra_points() const { return 0; }
 
     //! Those points, as columns of out (in objective space)

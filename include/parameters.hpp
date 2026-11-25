@@ -52,8 +52,6 @@ struct Parameters
     std::shared_ptr<mapping::CoordinateMapping> coordinate_mapping;
     //! Every evaluation of the objective: the pending requests (#84)
     evaluation::EvaluationQueue queue;
-    //! The stages of a generation and their subscribers (restart center, TPA, ...)
-    evaluation::Pipeline pipeline;
 
     Parameters(const size_t dim);
 
@@ -68,16 +66,31 @@ struct Parameters
     //! A restart with an objective function: begin_restart, the evaluations, finish_restart
     void perform_restart(FunctionType &objective, const std::optional<Float> &sigma = std::nullopt);
 
-    //! The evaluations left in the budget, minus the points already queued
-    [[nodiscard]] size_t budget_left() const;
+    /**
+     * The values of a request of the evaluation queue: to the module that queued it, by its source
+     * (evaluation::Source). The module is reached through these parameters, so it is the one in
+     * place now, also when it was replaced after the push.
+     */
+    void dispatch(const evaluation::Request &request, const evaluation::Evaluations &e);
 
     /**
-     * Queue a request whose number of points varies (re-evaluations, hill-valley tests): it must fit
-     * the budget (budget_left()); a request that does not is refused (std::logic_error). The fixed
-     * points of a generation (the population, Pipeline::fixed_points) are checked by
-     * break_conditions before the generation starts.
+     * The points the modules evaluate at a stage of every generation besides the population, fixed
+     * per configuration: TPA's two, with the population. The budget reserves them
+     * (break_conditions, restart_fits, fit_lambda_to_budget, budget_left).
      */
-    void push_variable(Eigen::Ref<const Matrix> X, evaluation::Consumer consume, const char *source);
+    [[nodiscard]] size_t reserved_points(evaluation::Stage stage) const;
+
+    //! The points every generation evaluates besides the population: reserved_points of all stages
+    [[nodiscard]] size_t reserved_points() const;
+
+    /**
+     * The evaluations that a request with a variable number of points (the hill-valley tests) may
+     * still use at a stage: the budget minus the evaluations, the queued points and what the
+     * remaining stages of the generation reserve. At a restart: the smallest first generation of
+     * the next run (min_lambda_after_restart) and all its reserved points; else the reserved points
+     * of the later stages. A module with a variable number of points clips its requests to it.
+     */
+    [[nodiscard]] size_t budget_left(evaluation::Stage stage) const;
 
     /**
      * Individual i of the population was evaluated at x instead of its sampled point (tell(f, X)):
@@ -87,9 +100,9 @@ struct Parameters
 
     /*
      * The same, in stages (ask-tell). begin_generation makes the previous population old_pop and
-     * decides whether to restart. A restart then fires RUN_ENDING: the center is queued
-     * (restart_center(), tell_restart_center), and the repelling archive update queues its
-     * hill-valley points; once they are evaluated, finish_restart resets the modules.
+     * decides whether to restart. A restart then queues the center (push_restart_center); its
+     * value (tell_restart_center) starts the update of the repelling archive, which queues its
+     * hill-valley points one at a time; once they are evaluated, finish_restart resets the modules.
      */
 
     //! Returns whether a restart started (then restart_center() waits for its objective value)
@@ -100,14 +113,17 @@ struct Parameters
     //! The point at which a restart evaluates the objective (the center, in objective space)
     [[nodiscard]] const Vector &restart_center() const { return pending_restart_center; }
 
+    //! Queue the center of a started restart (evaluation::Source::RESTART_CENTER)
+    void push_restart_center();
+
     //! The objective value y of the center x; starts the repelling archive update
     void tell_restart_center(const Float y, Eigen::Ref<const Vector> x);
 
     void finish_restart();
     //! Caps lambda (and mu, in proportion) at the remaining budget; called by finish_restart
     void fit_lambda_to_budget();
-    //! Whether a restart that starts now still fits: n more evaluations (the center, or a hill-valley
-    //! point), then the smallest first generation (and the fixed points of the pipeline, TPA's)
+    //! Whether a restart that starts now still fits: n more evaluations (the center, or a
+    //! hill-valley point), then the smallest first generation and its reserved points (TPA's)
     [[nodiscard]] bool restart_fits(size_t n) const;
 
     void resize_population(const size_t new_mu, const size_t new_lambda);

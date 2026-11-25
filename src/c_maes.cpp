@@ -23,41 +23,42 @@ void ModularCMAES::recombine() const
         a.m.noalias() += (1.0 * p->weights.positive(k)) * (p->pop.X.col(k) - a.m_old);
 }
 
-void ModularCMAES::select()
+void ModularCMAES::select() const
 {
+    require_no_generation("select()");
     p->selection->select(*p);
-    enter(evaluation::GenerationStage::SELECTED);
-    require_no_pending("select()");
 }
 
-void ModularCMAES::adapt()
+void ModularCMAES::adapt() const
 {
+    require_no_generation("adapt()");
     p->adapt();
-    enter(evaluation::GenerationStage::UPDATED);
-    require_no_pending("adapt()");
-    stage.reset();
 }
 
-void ModularCMAES::require_no_pending(const char *step) const
+void ModularCMAES::require_no_generation(const char *step) const
 {
-    if (!p->queue.empty())
-        throw std::logic_error(std::string(step) + " left points to evaluate (" +
-                               p->queue.sources().front() +
-                               "): use step(), run() or ask-tell with this configuration");
+    if (stage || !p->queue.empty())
+        throw std::logic_error(std::string(step) +
+                               " while a generation started by ask() is in progress: tell() the "
+                               "values of its points, or evaluate them with mutate(), first");
 }
 
 void ModularCMAES::mutate(FunctionType &objective)
 {
-    // Up to selection: the user calls select(), recombine() and adapt()
-    stop_before_selection = true;
-    while (true)
+    // Up to selection: a new generation, or the one that ask() started. The rest is the user's:
+    // select(), recombine() and adapt() act on the state, and the next mutate() or ask() starts a
+    // new generation, as in 1.x
+    while (!p->queue.empty() || stage != evaluation::Stage::POPULATION_EVALUATED)
     {
-        if (p->queue.empty() && (advance() || p->queue.empty()))
-            break;
-        evaluate(objective);
-        p->queue.answer(*p, values.head(p->queue.size()));
+        if (p->queue.empty())
+            advance(true);
+        else
+        {
+            evaluate(objective);
+            p->queue.answer(*p, values.head(p->queue.size()));
+        }
     }
-    stop_before_selection = false;
+    stage.reset();
 }
 
 bool ModularCMAES::step(FunctionType &objective)
@@ -88,17 +89,17 @@ bool ModularCMAES::break_conditions() const
 {
     const auto target_reached =
         p->settings.target and p->settings.target.value() >= p->stats.global_best.y;
-    // Stop when the next generation (lambda points, plus the fixed points of the pipeline: TPA's)
-    // would exceed the budget; a generation that ends exactly at the budget is still run. A
-    // generation that starts with a restart evaluates the center first (and hill-valley points of
-    // repelling, while the budget allows) and takes at most the rest of the budget
-    // (fit_lambda_to_budget).
+    // Stop when the next generation (lambda points, plus the reserved points: TPA's) would exceed
+    // the budget; a generation that ends exactly at the budget is still run. A generation that
+    // starts with a restart evaluates the center first (and hill-valley points of repelling, while
+    // the budget allows) and takes at most the rest of the budget (fit_lambda_to_budget).
     const auto restart_due =
         p->settings.modules.restart_strategy != parameters::RestartStrategyType::STOP &&
         p->criteria.any();
-    const auto budget_used_up = restart_due ? !p->restart_fits(1)
-                                            : (p->stats.evaluations + p->lambda +
-                                               p->pipeline.fixed_points(*p)) > p->settings.budget;
+    const auto budget_used_up =
+        restart_due ? !p->restart_fits(1)
+                    : (p->stats.evaluations + p->lambda + p->reserved_points()) >
+                          p->settings.budget;
     const auto exceed_gens =
         p->settings.max_generations and p->stats.t >= p->settings.max_generations;
     const auto restart_strategy_criteria =
@@ -108,12 +109,12 @@ bool ModularCMAES::break_conditions() const
 }
 
 // -----------------------------------------------------------------------------
-// Ask-tell: the pipeline of a generation over the evaluation queue (#84)
+// Ask-tell: the stages of a generation over the evaluation queue (#84)
 // -----------------------------------------------------------------------------
 
 Eigen::Ref<const Matrix> ModularCMAES::ask()
 {
-    // Starts a generation (or continues one that mutate() stopped before selection)
+    // Starts a generation when none is in progress
     while (p->queue.empty())
         advance();
     return p->queue.batch();
@@ -134,59 +135,58 @@ bool ModularCMAES::tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matri
     return advance();
 }
 
-void ModularCMAES::enter(const evaluation::GenerationStage next)
+bool ModularCMAES::advance(const bool stop_before_selection)
 {
-    stage = next;
-    p->pipeline.fire(next, *p);
-}
-
-bool ModularCMAES::advance()
-{
-    using evaluation::GenerationStage;
+    using evaluation::Stage;
     while (p->queue.empty())
     {
         if (!stage)
         {
-            // A new generation: a restart first, when the criteria fired
-            enter(p->begin_generation() ? GenerationStage::RUN_ENDING
-                                        : GenerationStage::GENERATION_STARTING);
+            // A new generation. When the restart criteria fired, the final mean of the run that
+            // ends is evaluated first; its value starts the hill-valley tests of the repelling
+            // archive, which queue their points one at a time
+            if (p->begin_generation())
+            {
+                stage = Stage::RESTART;
+                p->push_restart_center();
+            }
+            else
+                start_population();
             continue;
         }
         switch (*stage)
         {
-        case GenerationStage::RUN_ENDING:
+        case Stage::RESTART:
             p->finish_restart();
-            enter(GenerationStage::RUN_STARTING);
+            start_population();
             break;
-        case GenerationStage::RUN_STARTING:
-            enter(GenerationStage::GENERATION_STARTING);
+        case Stage::POPULATION:
+            // Every point of the population has its value
+            stage = Stage::POPULATION_EVALUATED;
             break;
-        case GenerationStage::GENERATION_STARTING:
-            // Queues the population's first batch and fires POPULATION (its subscribers' points
-            // join that batch)
-            stage = GenerationStage::POPULATION;
-            p->mutation->begin_population(p->lambda, *p);
-            break;
-        case GenerationStage::POPULATION:
-            enter(GenerationStage::POPULATION_EVALUATED);
-            break;
-        case GenerationStage::POPULATION_EVALUATED:
+        case Stage::POPULATION_EVALUATED:
             if (stop_before_selection)
                 return false;
             p->selection->select(*p);
-            enter(GenerationStage::SELECTED);
+            stage = Stage::SELECTED;
             break;
-        case GenerationStage::SELECTED:
+        case Stage::SELECTED:
             recombine();
             p->adapt();
-            enter(GenerationStage::UPDATED);
-            break;
-        case GenerationStage::UPDATED:
             stage.reset();
             return true;
         }
     }
     return false;
+}
+
+void ModularCMAES::start_population()
+{
+    // The first batch of the population, and the extra points of the step-size adaptation (TPA's),
+    // which do not depend on the population's values; each batch queues the next
+    stage = evaluation::Stage::POPULATION;
+    p->mutation->begin_population(p->lambda, *p);
+    p->mutation->push_extra_points(*p);
 }
 
 void ModularCMAES::evaluate(FunctionType &objective)

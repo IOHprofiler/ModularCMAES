@@ -1,7 +1,5 @@
 #pragma once
 
-#include <array>
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -13,48 +11,51 @@ struct Parameters;
 }
 
 /**
- * Every evaluation of the objective goes through one queue (#84). A component that needs objective
- * values pushes a request (points and a consumer) to the queue; ask() hands out what is queued,
- * tell() passes each request's values to its consumer, which may push follow-up requests. No
- * component calls the objective itself.
+ * Every evaluation of the objective goes through one queue (#84). A module that needs objective
+ * values pushes a request: its points, tagged with their source. ask() hands out what is queued;
+ * tell() passes each request's values to Parameters::dispatch, a switch over the sources that calls
+ * the module through the parameters (the module in place at that time: never a pointer kept since
+ * the push). The module may then push follow-up requests. No module calls the objective itself.
  *
- * When a component may push is fixed by the stages of a generation (GenerationStage). The driver
- * (ModularCMAES) runs the stages in order, fires their subscribers, and waits for tell() whenever the
- * queue is not empty.
+ * When a module pushes is fixed by the stages of a generation: ModularCMAES::advance calls the
+ * modules at each stage, in order, and waits for tell() whenever the queue is not empty.
  */
 namespace evaluation
 {
-/**
- * The stages of a generation, in order. Each is a point at which subscribers may push requests;
- * the next stage starts when the queue is empty.
- */
-enum class GenerationStage
+//! The stages of a generation, in order (C++ only: not part of the Python API)
+enum class Stage
 {
-    //! The restart criteria fired; the run that ends is still intact (the final mean is evaluated,
-    //! repelling tests the hill-valley points)
-    RUN_ENDING,
-    //! A new run is set up (lambda, mean, sigma, matrix); nothing is sampled yet
-    RUN_STARTING,
-    //! The mean, sigma and matrix of this generation are fixed; nothing is sampled yet
-    GENERATION_STARTING,
-    //! The population: lambda points, in batches when sequential selection may stop it early.
-    //! Its subscribers add points that do not depend on the population's values (TPA's two
-    //! points): they join the population's first batch
+    //! The restart criteria fired: the final mean of the run that ends is evaluated, then the
+    //! hill-valley points of the repelling archive, one at a time
+    RESTART,
+    //! The population, in batches when sequential selection may stop it early, with the points
+    //! that do not depend on the population's values (TPA's two) in the first batch
     POPULATION,
     //! Every point of the population has its value; before selection
     POPULATION_EVALUATED,
-    //! After selection, before recombination
+    //! After selection, before recombination and adaptation
     SELECTED,
-    //! The mean, sigma and matrix are updated; the generation ends when the queue is empty
-    UPDATED,
 };
 
-constexpr size_t n_stages = static_cast<size_t>(GenerationStage::UPDATED) + 1;
+constexpr int n_stages = static_cast<int>(Stage::SELECTED) + 1;
 
-//! The name of a stage ("RUN_ENDING", ...)
-const char *to_string(GenerationStage stage);
+//! Who pushed a request: Parameters::dispatch passes its values on by this tag
+enum class Source
+{
+    //! A batch of the population (Request::index: its first individual)
+    POPULATION,
+    //! The extra points of the step-size adaptation (TPA)
+    EXTRA_POINTS,
+    //! The final mean of the run that ends at a restart
+    RESTART_CENTER,
+    //! A point of a hill-valley test of the repelling archive
+    HILL_VALLEY,
+};
 
-//! What a consumer receives: the values of its points, and the points that were evaluated (tell(f,
+//! The name of a source ("population", "extra-points", "restart-center", "hill-valley")
+const char *to_string(Source source);
+
+//! What a module receives: the values of its points, and the points that were evaluated (tell(f,
 //! X) may replace the asked ones)
 struct Evaluations
 {
@@ -64,14 +65,14 @@ struct Evaluations
     bool given;
 };
 
-using Consumer = std::function<void(parameters::Parameters &, const Evaluations &)>;
-
+//! A queued request: its points are columns begin..begin+size-1 of the batch
 struct Request
 {
-    Eigen::Index begin;   // the first column in the batch
-    Eigen::Index size;    // the number of points
-    Consumer consume;
-    const char *source;   // "population", "restart-center", ... (a string literal; debugging)
+    Source source;
+    Eigen::Index begin;
+    Eigen::Index size;
+    //! A payload for the module, by source (POPULATION: the first individual of the batch)
+    Eigen::Index index;
 };
 
 class EvaluationQueue
@@ -79,14 +80,14 @@ class EvaluationQueue
   public:
     explicit EvaluationQueue(size_t dim = 0) : points(static_cast<Eigen::Index>(dim), 0) {}
 
-    /**
-     * Queue k points. Returns their columns, to be filled by the caller before the next ask().
-     * Pushed while tell() answers a batch, they go to the next batch.
-     */
-    Eigen::Ref<Matrix> push(Eigen::Index k, Consumer consume, const char *source);
+    //! Queue the points X (copied), d x k
+    void push(Eigen::Ref<const Matrix> X, Source source, Eigen::Index index = 0);
 
-    //! Queue the points X
-    void push(Eigen::Ref<const Matrix> X, Consumer consume, const char *source);
+    /**
+     * Queue k points that the caller fills: the returned columns. The view is valid until the next
+     * push (which may move the buffer); fill it first.
+     */
+    Eigen::Ref<Matrix> push(Eigen::Index k, Source source, Eigen::Index index = 0);
 
     [[nodiscard]] bool empty() const { return requests.empty(); }
 
@@ -101,8 +102,8 @@ class EvaluationQueue
 
     /**
      * The values f of the pending points (X: the evaluated points, when they differ from the asked
-     * ones). Each request's slice goes to its consumer, in push order; requests pushed meanwhile
-     * form the next batch.
+     * ones). Each request's slice goes to Parameters::dispatch, in push order; requests pushed
+     * meanwhile form the next batch.
      */
     void answer(parameters::Parameters &p,
                 Eigen::Ref<const Vector> f,
@@ -116,47 +117,8 @@ class EvaluationQueue
     Eigen::Index n_points = 0;
     std::vector<Request> requests;
 
-    // The batch being answered: its requests and points stay valid while the consumers run
+    // The batch being answered: its requests and points stay valid while they are dispatched
     Matrix answering_points;
     std::vector<Request> answering;
-};
-
-/**
- * The subscribers of each stage. A subscriber pushes its requests when its stage is fired, and
- * declares the points it adds to every generation (min_points; e.g. TPA's 2), which the budget
- * check reserves. A subscriber whose number of points varies declares 0 and clips its requests to
- * the budget (Parameters::push_variable refuses more).
- */
-class Pipeline
-{
-  public:
-    using Hook = std::function<void(parameters::Parameters &)>;
-    using MinPoints = std::function<size_t(const parameters::Parameters &)>;
-
-    struct Subscriber
-    {
-        std::string name;
-        Hook hook;
-        MinPoints min_points;
-    };
-
-    void on(GenerationStage stage,
-            std::string name,
-            Hook hook,
-            MinPoints min_points = [](const parameters::Parameters &) { return size_t{0}; });
-
-    //! Run the subscribers of a stage, in the order they subscribed
-    void fire(GenerationStage stage, parameters::Parameters &p);
-
-    //! The points every generation adds besides the population (the sum of min_points)
-    [[nodiscard]] size_t fixed_points(const parameters::Parameters &p) const;
-
-    [[nodiscard]] const std::vector<Subscriber> &subscribers(GenerationStage stage) const
-    {
-        return stages[static_cast<size_t>(stage)];
-    }
-
-  private:
-    std::array<std::vector<Subscriber>, n_stages> stages;
 };
 } // namespace evaluation

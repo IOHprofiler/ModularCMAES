@@ -821,86 +821,20 @@ void define_parameters(nb::module_ &main)
              nb::arg("x"),
              "A copy of the point x, (d,), with the integer variables rounded.");
 
-    // The evaluation queue and the stages of a generation (#84): read-only, for debugging
-    nb::enum_<evaluation::GenerationStage>(
-        m,
-        "GenerationStage",
-        "The stages of a generation, in order. At each stage its subscribers may queue points to "
-        "evaluate (Parameters.queue); the next stage starts when they are evaluated.")
-        .value("RUN_ENDING",
-               evaluation::GenerationStage::RUN_ENDING,
-               "The restart criteria fired; the run that ends is still intact (its final mean, "
-               "the hill-valley points of repelling).")
-        .value("RUN_STARTING",
-               evaluation::GenerationStage::RUN_STARTING,
-               "A new run is set up (lambda, mean, sigma, matrix); nothing is sampled yet.")
-        .value("GENERATION_STARTING",
-               evaluation::GenerationStage::GENERATION_STARTING,
-               "The distribution of this generation is fixed; nothing is sampled yet.")
-        .value("POPULATION",
-               evaluation::GenerationStage::POPULATION,
-               "The population: lambda points, in batches with sequential selection. Its "
-               "subscribers add points that do not depend on the population's values (TPA's), "
-               "which join the first batch.")
-        .value("POPULATION_EVALUATED",
-               evaluation::GenerationStage::POPULATION_EVALUATED,
-               "Every point of the population has its value; before selection.")
-        .value("SELECTED",
-               evaluation::GenerationStage::SELECTED,
-               "After selection, before recombination.")
-        .value("UPDATED",
-               evaluation::GenerationStage::UPDATED,
-               "The mean, sigma and matrix are updated; the end of a generation.");
-
+    // The evaluation queue (#84): read-only, for debugging
     nb::class_<evaluation::EvaluationQueue>(
         m,
         "EvaluationQueue",
         "The points that wait for their objective values (Parameters.queue): ask() returns "
-        "them, tell() passes each request's values to the component that queued it. Read-only, "
+        "them, tell() passes each request's values to the module that queued it. Read-only, "
         "for debugging.")
         .def_prop_ro("size",
                      &evaluation::EvaluationQueue::size,
                      "The number of pending points.")
         .def_prop_ro("sources",
                      &evaluation::EvaluationQueue::sources,
-                     "The component that queued each pending request ('population', "
-                     "'step-size-extra-points', 'restart-center', 'repelling-hill-valley', ...), "
-                     "in order.");
-
-    nb::class_<evaluation::Pipeline>(
-        m,
-        "Pipeline",
-        "The subscribers of the stages of a generation (Parameters.pipeline). Read-only, for "
-        "debugging.")
-        .def(
-            "subscribers",
-            [](const evaluation::Pipeline &pipeline, evaluation::GenerationStage stage) {
-                std::vector<std::string> names;
-                for (const auto &s : pipeline.subscribers(stage))
-                    names.push_back(s.name);
-                return names;
-            },
-            nb::arg("stage"),
-            "The names of the subscribers of a stage, in order.\n\n"
-            "Parameters\n"
-            "----------\n"
-            "stage : GenerationStage\n"
-            "    The stage.\n\n"
-            "Returns\n"
-            "-------\n"
-            "list[str]")
-        .def("fixed_points",
-             &evaluation::Pipeline::fixed_points,
-             nb::arg("p"),
-             "The points every generation adds besides the population (TPA: 2), which the "
-             "budget check reserves.\n\n"
-             "Parameters\n"
-             "----------\n"
-             "p : Parameters\n"
-             "    The state of the optimizer.\n\n"
-             "Returns\n"
-             "-------\n"
-             "int");
+                     "The module that queued each pending request, in order: 'population', "
+                     "'extra-points' (TPA), 'restart-center' or 'hill-valley' (repelling).");
 
     nb::class_<Parameters>(
         main,
@@ -1001,14 +935,6 @@ void define_parameters(nb::module_ &main)
             [](Parameters &p) -> evaluation::EvaluationQueue & { return p.queue; },
             nb::rv_policy::reference_internal,
             "The points waiting for their objective values (`EvaluationQueue`).")
-        .def_prop_ro(
-            "pipeline",
-            [](Parameters &p) -> evaluation::Pipeline & { return p.pipeline; },
-            nb::rv_policy::reference_internal,
-            "The stages of a generation and their subscribers (`Pipeline`).")
-        .def("budget_left",
-             &Parameters::budget_left,
-             "The evaluations left in the budget, minus the points already queued.")
         .def_rw("old_pop",
                 &Parameters::old_pop,
                 "The population of the previous generation (the parents for elitism).")
@@ -1166,7 +1092,9 @@ void define_cmaes(nb::module_ &m)
             nb::arg("objective"),
             "Sample and evaluate a generation: the first step of a generation.\n\n"
             "Restarts first when a restart criterion holds (the restart evaluates its center "
-            "with objective). Then select(), recombine() and adapt() complete the generation.\n\n"
+            "with objective). Then select(), recombine() and adapt() complete the generation. "
+            "Every call samples a new generation, as in 1.x; only a generation that ask() "
+            "started is completed instead (its points evaluated with objective).\n\n"
             "Parameters\n"
             "----------\n"
             "objective : callable\n"
@@ -1176,12 +1104,14 @@ void define_cmaes(nb::module_ &m)
              "Select the individuals of the evaluated generation: the second step.\n\n"
              "Applies pairwise selection (mirrored PAIRWISE) and elitism (the parents join the "
              "offspring), sorts the population by f, keeps lambda individuals and updates the "
-             "statistics (current_avg, current_best, global_best).")
+             "statistics (current_avg, current_best, global_best). Raises RuntimeError while a "
+             "generation that ask() started waits for tell().")
         .def("adapt",
              &ModularCMAES::adapt,
              "Adapt the search distribution: the last step of a generation.\n\n"
              "Updates the evolution paths, the step size, the matrix and the restart criteria, "
-             "and increments p.stats.t (Parameters.adapt).")
+             "and increments p.stats.t (Parameters.adapt). Raises RuntimeError while a "
+             "generation that ask() started waits for tell().")
         .def("step",
              &step,
              nb::sig("def step(self, objective: collections.abc.Callable[[numpy.typing.NDArray["
@@ -1270,10 +1200,6 @@ void define_cmaes(nb::module_ &m)
         .def_prop_ro("has_pending",
                      &ModularCMAES::has_pending,
                      "Whether ask() has points that wait for tell().")
-        .def_prop_ro("stage",
-                     &ModularCMAES::current_stage,
-                     "The stage of the generation in progress (`parameters.GenerationStage`), "
-                     "or None between generations.")
         .def("break_conditions",
              &ModularCMAES::break_conditions,
              "Whether the run should stop.\n\n"

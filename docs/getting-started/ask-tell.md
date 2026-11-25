@@ -59,23 +59,22 @@ Usually `k` is the population size λ. Some modules ask for other batches:
 |---|---|
 | default | the λ points of a generation |
 | TPA step-size adaptation (`ssa=TPA`) | λ + 2 points: the population and the two TPA test points |
-| sequential selection | the points up to the first one after which the generation may stop, then one point at a time (two with pairwise mirroring) |
+| sequential selection | the points up to the first one after which the generation may stop (with TPA, its two points too), then one point at a time (two with pairwise mirroring) |
 | at a restart | the final mean of the run that ends, one point |
 | repelling restarts | the points of the hill–valley tests, one at a time |
 
 So do not assume `k == λ`: always evaluate the rows of what `ask()` returned. `ask()` returns the
 same points until `tell()` is called, so asking twice is harmless.
 
-Behind this is one queue of points to evaluate (`es.p.queue`). A generation runs through fixed
-stages (`es.stage`): a restart when one is due, the population, selection, and the update. At each
-stage the modules may queue points, and the generation waits for `tell()` until they are
-evaluated. `es.p.queue.sources` shows which modules are waiting:
+Behind this is one queue of points to evaluate (`es.p.queue`): the modules queue points at fixed
+moments of a generation, and the generation waits for `tell()` until they are evaluated. For
+debugging, `es.p.queue.sources` shows which modules wait:
 
 ```python
 es = modcma.ModularCMAES(modcma.settings_from_dict(5, ssa="TPA", seed=1))
 X = es.ask()
-print(X.shape, es.stage, es.p.queue.sources)
-# (10, 5) GenerationStage.POPULATION ['population', 'step-size-extra-points']
+print(X.shape, es.p.queue.sources)
+# (10, 5) ['population', 'extra-points']
 ```
 
 ### Repaired or injected points

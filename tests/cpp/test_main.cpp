@@ -82,7 +82,7 @@ static parameters::Settings ask_tell_settings(const int config)
     size_t mu = 0, lambda = 0;
     switch (config)
     {
-    case 0: // sequential selection, stopped after complete pairs; TPA after a stopped population
+    case 0: // sequential selection, stopped after complete pairs; TPA's points in the first batch
         m.sequential_selection = true;
         m.mirrored = parameters::Mirror::PAIRWISE;
         m.ssa = parameters::StepSizeAdaptation::TPA;
@@ -362,56 +362,67 @@ static void test_functions()
     CHECK(functions::to_string(functions::RASTRIGIN) == "rastrigin");
 }
 
-// #84: the evaluation queue. Requests are answered in push order; a consumer may push a follow-up,
-// which forms the next batch; wrong sizes and an empty queue are errors.
+// #84: the evaluation queue. Requests are answered in push order, each by its source; a module
+// may queue follow-up points, which form the next batch; wrong sizes and an empty queue are errors.
 static void test_evaluation_queue()
 {
-    parameters::Settings settings(2, {});
+    parameters::Modules m;
+    m.ssa = parameters::StepSizeAdaptation::TPA;
+    m.sequential_selection = true;
+    parameters::Settings settings(2, m);
     settings.verbose = false;
+    settings.seed = 5;
     parameters::Parameters p(settings);
-    evaluation::EvaluationQueue q(2);
-    std::vector<std::string> order;
-    q.push(
-        Matrix::Constant(2, 1, 1.0),
-        [&order, &q](parameters::Parameters &, const evaluation::Evaluations &e) {
-            order.push_back("a" + std::to_string(static_cast<int>(e.f(0))));
-            q.push(Matrix::Constant(2, 1, 9.0),
-                   [&order](parameters::Parameters &, const evaluation::Evaluations &e2) {
-                       order.push_back("c" + std::to_string(static_cast<int>(e2.f(0))));
-                   },
-                   "c");
-        },
-        "a");
-    q.push(
-        Matrix::Constant(2, 2, 2.0),
-        [&order](parameters::Parameters &, const evaluation::Evaluations &e) {
-            CHECK(e.f.size() == 2 && e.X.cols() == 2 && !e.given);
-            order.push_back("b" + std::to_string(static_cast<int>(e.f.sum())));
-        },
-        "b");
-    CHECK(q.size() == 3);
-    CHECK((q.sources() == std::vector<std::string>{"a", "b"}));
-    CHECK(q.batch().col(0)(0) == 1.0 && q.batch().col(2)(0) == 2.0);
+    auto &q = p.queue;
+
+    // The population's first batch (individuals 0..first_stop(0)), then TPA's two points
+    p.mutation->begin_population(p.lambda, p);
+    const Eigen::Index first = q.size();
+    p.mutation->push_extra_points(p);
+    CHECK(first >= 1 && first < static_cast<Eigen::Index>(p.lambda));
+    CHECK(q.size() == first + 2);
+    CHECK((q.sources() == std::vector<std::string>{"population", "extra-points"}));
+    CHECK(q.batch().leftCols(first) == p.pop.X_transformed.leftCols(first));
 
     bool raised = false;
     try
     {
-        q.answer(p, Vector::Zero(2));
+        q.answer(p, Vector::Zero(q.size() + 1));
     }
     catch (const std::invalid_argument &)
     {
         raised = true;
     }
     CHECK(raised);
+    CHECK(q.size() == first + 2); // nothing was answered
 
-    Vector f(3);
-    f << 1.0, 2.0, 3.0;
+    raised = false;
+    try
+    {
+        q.push(Matrix::Zero(3, 1), evaluation::Source::HILL_VALLEY); // another dimension
+    }
+    catch (const std::invalid_argument &)
+    {
+        raised = true;
+    }
+    CHECK(raised);
+    CHECK(q.size() == first + 2);
+
+    // The values go to the module in place when they arrive, also one that replaced the module
+    // that queued the points (here a new TPA: the old one is freed)
+    p.mutation = mutation::get(p.settings.modules, 2.0, 2.0, p.generator);
+    Vector f = Vector::Constant(q.size(), 1.0);
+    f(first) = 0.5; // the point ahead is better: TPA's signal is a success
     q.answer(p, f);
-    CHECK((order == std::vector<std::string>{"a1", "b5"}));
-    CHECK(q.size() == 1 && q.batch().col(0)(0) == 9.0); // the follow-up: the next batch
-    q.answer(p, Vector::Constant(1, 7.0));
-    CHECK((order == std::vector<std::string>{"a1", "b5", "c7"}));
-    CHECK(q.empty());
+    const auto tpa = std::dynamic_pointer_cast<mutation::TPA>(p.mutation);
+    CHECK(tpa && tpa->rank_tpa == tpa->a_tpa + tpa->b_tpa);
+    CHECK(p.stats.evaluations == static_cast<size_t>(first) + 2);
+
+    // The population was not stopped: its next individual is queued, on its own (a follow-up)
+    CHECK(q.size() == 1 && (q.sources() == std::vector<std::string>{"population"}));
+    while (!q.empty())
+        q.answer(p, Vector::Constant(q.size(), 1.0));
+    CHECK(p.stats.evaluations == p.lambda + 2);
 
     raised = false;
     try
@@ -425,65 +436,78 @@ static void test_evaluation_queue()
     CHECK(raised);
 }
 
-// #84: a request whose number of points varies must fit the budget
-static void test_push_variable_refuses()
+// (c) The evaluations left to a request with a variable number of points keep what the remaining
+// stages of the generation reserve
+static void test_budget_left()
 {
-    parameters::Settings settings(2, {});
+    using evaluation::Stage;
+    parameters::Modules m;
+    m.ssa = parameters::StepSizeAdaptation::TPA;
+    parameters::Settings settings(2, m, std::nullopt, std::nullopt, size_t{100});
     settings.verbose = false;
-    settings.budget = 10;
     parameters::Parameters p(settings);
-    const auto ignore = [](parameters::Parameters &, const evaluation::Evaluations &) {};
-    p.stats.evaluations = 4;
-    CHECK(p.budget_left() == 6);
-    p.push_variable(Matrix::Zero(2, 5), ignore, "five");
-    CHECK(p.budget_left() == 1);
-    bool raised = false;
-    try
-    {
-        p.push_variable(Matrix::Zero(2, 2), ignore, "two");
-    }
-    catch (const std::logic_error &)
-    {
-        raised = true;
-    }
-    CHECK(raised);
-    CHECK(p.queue.size() == 5);
+    CHECK(p.reserved_points(Stage::POPULATION) == 2 && p.reserved_points() == 2);
+    p.stats.evaluations = 60;
+    p.queue.push(Matrix::Zero(2, 5), evaluation::Source::HILL_VALLEY);
+    // At a restart: the smallest first generation of the next run and TPA's two points
+    CHECK(p.budget_left(Stage::RESTART) ==
+          100 - 60 - 5 - parameters::Parameters::min_lambda_after_restart - 2);
+    // Once the population is queued: nothing later is reserved
+    CHECK(p.budget_left(Stage::POPULATION) == 35);
+    CHECK(p.budget_left(Stage::POPULATION_EVALUATED) == 35);
+    p.stats.evaluations = 99;
+    CHECK(p.budget_left(Stage::SELECTED) == 0); // not below 0
 }
 
-// A module that re-evaluates a random number (0..3) of the best points after the population and
-// averages the values: a variable number of evaluations per generation (#84)
+// A hypothetical module with a variable number of evaluations per generation (#84): when the
+// population is complete, it re-evaluates a random number (0..3) of its best points, clipped to the
+// budget, and averages the values. It is a step-size adaptation (CSA) whose extra points
+// (Source::EXTRA_POINTS) are queued when the population is complete: a batch of their own.
+struct RandomReevaluation : mutation::CSA
+{
+    using CSA::CSA;
+    std::vector<Eigen::Index> idx;
+
+    void tell_extra_points(Eigen::Ref<const Vector> f,
+                           Eigen::Ref<const Matrix>,
+                           parameters::Parameters &p) override
+    {
+        p.stats.evaluations += static_cast<size_t>(f.size());
+        for (size_t j = 0; j < idx.size(); ++j)
+            p.pop.f(idx[j]) = 0.5 * (p.pop.f(idx[j]) + f(static_cast<Eigen::Index>(j)));
+    }
+
+  protected:
+    void on_population_complete(parameters::Parameters &p) override
+    {
+        // The random number is drawn when the points are queued, at a fixed point of the generation
+        std::uniform_int_distribution<int> draw(0, 3);
+        const size_t k = std::min({static_cast<size_t>(draw(*p.generator)),
+                                   p.budget_left(evaluation::Stage::POPULATION),
+                                   p.pop.n});
+        idx.resize(p.pop.n);
+        std::iota(idx.begin(), idx.end(), 0);
+        std::partial_sort(idx.begin(), idx.begin() + k, idx.end(), [&p](auto a, auto b) {
+            return p.pop.f(a) < p.pop.f(b);
+        });
+        idx.resize(k);
+        if (k != 0)
+            p.queue.push(p.pop.X_transformed(Eigen::all, idx), evaluation::Source::EXTRA_POINTS);
+    }
+};
+
 static void add_random_reevaluation(parameters::Parameters &p)
 {
-    p.pipeline.on(evaluation::GenerationStage::POPULATION_EVALUATED, "test-reevaluation",
-                  [](parameters::Parameters &q) {
-                      std::uniform_int_distribution<int> draw(0, 3);
-                      auto k = static_cast<Eigen::Index>(draw(*q.generator));
-                      k = std::min<Eigen::Index>(k, static_cast<Eigen::Index>(q.budget_left()));
-                      k = std::min<Eigen::Index>(k, static_cast<Eigen::Index>(q.pop.n));
-                      if (k == 0)
-                          return;
-                      std::vector<Eigen::Index> idx(static_cast<size_t>(q.pop.n));
-                      std::iota(idx.begin(), idx.end(), 0);
-                      std::partial_sort(idx.begin(), idx.begin() + k, idx.end(),
-                                        [&q](auto a, auto b) { return q.pop.f(a) < q.pop.f(b); });
-                      idx.resize(static_cast<size_t>(k));
-                      Matrix X = q.pop.X_transformed(Eigen::all, idx);
-                      q.push_variable(
-                          X,
-                          [idx](parameters::Parameters &r, const evaluation::Evaluations &e) {
-                              r.stats.evaluations += static_cast<size_t>(e.f.size());
-                              for (size_t j = 0; j < idx.size(); ++j)
-                                  r.pop.f(idx[j]) = 0.5 * (r.pop.f(idx[j]) + e.f(static_cast<Eigen::Index>(j)));
-                          },
-                          "test-reevaluation");
-                  });
+    const auto &s = *p.mutation;
+    p.mutation = std::make_shared<RandomReevaluation>(s.tc, s.sq, s.ss, s.sigma);
 }
 
-// #84: with a variable number of evaluations per generation, ask-tell (in any batches) gives the
-// trajectory of run(), and the budget is never exceeded
+// #84: with a variable number of evaluations per generation, ask-tell and the steps of a
+// generation (mutate, select, recombine, adapt) give the trajectory of run(), and the budget is
+// never exceeded. (Configurations without restarts: a restart replaces the step-size adaptation.)
 static void test_variable_evaluations_module()
 {
-    for (int config = 0; config < 3; config++)
+    for (const int config : {0, 2})
     {
         auto settings = ask_tell_settings(config);
         settings.budget = 2003; // not a multiple of anything
@@ -499,67 +523,124 @@ static void test_variable_evaluations_module()
         size_t rounds = 0, generations = 0;
         while (!b.break_conditions())
         {
-            bool done = false;
-            while (!done)
+            for (bool done = false; !done; rounds++)
             {
                 const Matrix X = b.ask();
                 Vector values(X.cols());
                 for (Eigen::Index j = 0; j < X.cols(); ++j)
                     values(j) = rastrigin(X.col(j));
                 done = b.tell(values);
-                rounds++;
             }
             generations++;
         }
-        CHECK(a.p->stats.evaluations == b.p->stats.evaluations);
-        CHECK(a.p->adaptation->m == b.p->adaptation->m);
-        CHECK(a.p->mutation->sigma == b.p->mutation->sigma);
+
+        ModularCMAES c(settings);
+        add_random_reevaluation(*c.p);
+        while (!c.break_conditions())
+        {
+            c.mutate(f);
+            c.select();
+            c.recombine();
+            c.adapt();
+        }
+
+        for (const auto *other : {&b, &c})
+        {
+            CHECK(a.p->stats.evaluations == other->p->stats.evaluations);
+            CHECK(a.p->adaptation->m == other->p->adaptation->m);
+            CHECK(a.p->mutation->sigma == other->p->mutation->sigma);
+        }
         CHECK(a.p->stats.evaluations <= settings.budget);
         CHECK(rounds > generations); // some generations asked twice (the re-evaluations)
     }
 }
 
-// #84: a subscriber with a fixed number of points per generation (the mean, as HE-ES's f(m)) is
-// reserved by the budget check; evaluations in SELECTED cannot run in select() (no objective)
-static void test_fixed_points_and_decomposed_steps()
+// (c) The hill-valley tests of repelling (a variable number of points, at a restart) leave the
+// first generation of the next run, with TPA's two points, inside the budget: for every budget,
+// run() stays within it, and ask-tell gives the same run
+static void test_budget_with_restarts()
 {
-    auto settings = ask_tell_settings(2);
-    settings.budget = 1000;
-    ModularCMAES es(settings);
-    es.p->pipeline.on(
-        evaluation::GenerationStage::GENERATION_STARTING, "test-mean",
-        [](parameters::Parameters &q) {
-            q.queue.push(q.coordinate_mapping->transform(q.adaptation->m),
-                         [](parameters::Parameters &r, const evaluation::Evaluations &) {
-                             r.stats.evaluations++;
-                         },
-                         "test-mean");
-        },
-        [](const parameters::Parameters &) { return size_t{1}; });
-    CHECK(es.p->pipeline.fixed_points(*es.p) == 1);
-    FunctionType f = rastrigin;
-    es(f);
-    CHECK(es.p->stats.evaluations <= settings.budget);
-    CHECK(es.p->stats.evaluations + es.p->lambda + 1 > settings.budget);
+    // Flat: the restart criteria fire often, and every hill-valley test has all its 10 points, so a
+    // chain that stops after another number was cut short by the budget
+    FunctionType f = [](Eigen::Ref<const Vector>) { return 1.0; };
+    size_t cut_short = 0;
+    for (size_t budget = 60; budget <= 600; budget += 3)
+    {
+        parameters::Modules m;
+        m.ssa = parameters::StepSizeAdaptation::TPA;
+        m.restart_strategy = parameters::RestartStrategyType::IPOP;
+        m.repelling_type = parameters::RepellingType::COVERAGE;
+        parameters::Settings settings(2, m, std::nullopt, std::nullopt, budget, 2.0);
+        settings.verbose = false;
+        settings.seed = 4;
 
-    ModularCMAES d(ask_tell_settings(2));
-    d.p->pipeline.on(evaluation::GenerationStage::SELECTED, "test-after-selection",
-                     [](parameters::Parameters &q) {
-                         q.queue.push(q.coordinate_mapping->transform(q.adaptation->m),
-                                      [](parameters::Parameters &, const evaluation::Evaluations &) {},
-                                      "test-after-selection");
-                     });
-    d.mutate(f);
-    bool raised = false;
-    try
-    {
-        d.select();
+        ModularCMAES a(settings);
+        a(f);
+        CHECK(a.p->stats.evaluations <= budget);
+
+        ModularCMAES b(settings);
+        size_t chain = 0;
+        while (!b.break_conditions())
+            for (bool done = false; !done;)
+            {
+                const Matrix X = b.ask();
+                if (b.p->queue.sources().front() == "hill-valley")
+                    chain++;
+                else if (chain != 0)
+                {
+                    cut_short += chain % 10 != 0;
+                    chain = 0;
+                }
+                done = b.tell(Vector::Ones(X.cols()));
+            }
+        CHECK(a.p->stats.evaluations == b.p->stats.evaluations);
+        CHECK(a.p->adaptation->m == b.p->adaptation->m);
     }
-    catch (const std::logic_error &)
+    CHECK(cut_short > 0); // the budget did cut tests short
+}
+
+// The steps of a generation behave as in 1.x: mutate() samples a new generation on every call
+// (also after select()), and select() and adapt() refuse to run while ask() waits for tell()
+static void test_decomposed_steps()
+{
+    ModularCMAES es(ask_tell_settings(2));
+    FunctionType f = rastrigin;
+    es.mutate(f);
+    const size_t lambda = es.p->lambda;
+    const Matrix first = es.p->pop.X_transformed.leftCols(es.p->pop.n);
+    CHECK(es.p->stats.evaluations == lambda);
+    es.mutate(f);
+    CHECK(es.p->stats.evaluations == 2 * lambda);
+    CHECK(es.p->old_pop.X_transformed.leftCols(es.p->old_pop.n) == first);
+    es.select();
+    es.mutate(f);
+    CHECK(es.p->stats.evaluations == 3 * lambda);
+    es.select();
+    es.recombine();
+    es.adapt();
+    CHECK(es.p->stats.t == 1);
+
+    es.ask();
+    for (const auto step : {&ModularCMAES::select, &ModularCMAES::adapt})
     {
-        raised = true;
+        bool raised = false;
+        try
+        {
+            (es.*step)();
+        }
+        catch (const std::logic_error &)
+        {
+            raised = true;
+        }
+        CHECK(raised);
     }
-    CHECK(raised);
+    // mutate() evaluates the generation that ask() started
+    es.mutate(f);
+    CHECK(es.p->stats.evaluations == 4 * lambda);
+    es.select();
+    es.recombine();
+    es.adapt();
+    CHECK(es.p->stats.t == 2);
 }
 
 int main()
@@ -569,9 +650,10 @@ int main()
     test_ask_tell_matches_classic_loop();
     test_tell_errors();
     test_evaluation_queue();
-    test_push_variable_refuses();
+    test_budget_left();
     test_variable_evaluations_module();
-    test_fixed_points_and_decomposed_steps();
+    test_budget_with_restarts();
+    test_decomposed_steps();
     test_split_median();
     test_lapack_eigen();
     test_natural_gradient_low_rank_update();

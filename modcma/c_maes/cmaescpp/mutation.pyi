@@ -254,7 +254,7 @@ class Strategy:
         """
         Sample and evaluate a population.
 
-        Per individual: z from the sampler (lengthened by threshold convergence), y = A z, x = m + sigma_i y and bound correction; with RESAMPLE or repelling a rejected individual is sampled again. Sequential selection can stop the population early. With TPA the two extra points are evaluated afterwards.
+        Per individual: z from the sampler (lengthened by threshold convergence), y = A z, x = m + sigma_i y and bound correction; with RESAMPLE or repelling a rejected individual is sampled again. Sequential selection can stop the population early. With TPA the two extra points are evaluated with the first batch.
 
         Parameters
         ----------

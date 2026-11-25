@@ -3,31 +3,29 @@
 #include <stdexcept>
 #include <utility>
 
+#include "parameters.hpp"
+
 namespace evaluation
 {
-const char *to_string(const GenerationStage stage)
+const char *to_string(const Source source)
 {
-    switch (stage)
+    switch (source)
     {
-    case GenerationStage::RUN_ENDING:
-        return "RUN_ENDING";
-    case GenerationStage::RUN_STARTING:
-        return "RUN_STARTING";
-    case GenerationStage::GENERATION_STARTING:
-        return "GENERATION_STARTING";
-    case GenerationStage::POPULATION:
-        return "POPULATION";
-    case GenerationStage::POPULATION_EVALUATED:
-        return "POPULATION_EVALUATED";
-    case GenerationStage::SELECTED:
-        return "SELECTED";
-    case GenerationStage::UPDATED:
-        return "UPDATED";
+    case Source::POPULATION:
+        return "population";
+    case Source::EXTRA_POINTS:
+        return "extra-points";
+    case Source::RESTART_CENTER:
+        return "restart-center";
+    case Source::HILL_VALLEY:
+        return "hill-valley";
     }
     return "unknown";
 }
 
-Eigen::Ref<Matrix> EvaluationQueue::push(const Eigen::Index k, Consumer consume, const char *source)
+Eigen::Ref<Matrix> EvaluationQueue::push(const Eigen::Index k,
+                                         const Source source,
+                                         const Eigen::Index index)
 {
     if (k <= 0)
         throw std::invalid_argument("EvaluationQueue::push: a request needs at least one point");
@@ -35,16 +33,20 @@ Eigen::Ref<Matrix> EvaluationQueue::push(const Eigen::Index k, Consumer consume,
     if (points.cols() < needed)
         // Grows rarely (a population of a new size); keeps the pending points
         points.conservativeResize(Eigen::NoChange, std::max(needed, 2 * points.cols()));
-    requests.push_back(Request{n_points, k, std::move(consume), source});
+    requests.push_back(Request{source, n_points, k, index});
     n_points = needed;
     return points.middleCols(needed - k, k);
 }
 
-void EvaluationQueue::push(Eigen::Ref<const Matrix> X, Consumer consume, const char *source)
+void EvaluationQueue::push(Eigen::Ref<const Matrix> X,
+                           const Source source,
+                           const Eigen::Index index)
 {
-    if (points.rows() != X.rows())
-        points.resize(X.rows(), std::max<Eigen::Index>(X.cols(), points.cols()));
-    push(X.cols(), std::move(consume), source) = X;
+    if (X.rows() != points.rows())
+        throw std::invalid_argument("EvaluationQueue::push: points of dimension " +
+                                    std::to_string(X.rows()) + ", the queue holds dimension " +
+                                    std::to_string(points.rows()));
+    push(X.cols(), source, index) = X;
 }
 
 std::vector<std::string> EvaluationQueue::sources() const
@@ -52,7 +54,7 @@ std::vector<std::string> EvaluationQueue::sources() const
     std::vector<std::string> out;
     out.reserve(requests.size());
     for (const auto &r : requests)
-        out.push_back(r.source);
+        out.emplace_back(to_string(r.source));
     return out;
 }
 
@@ -72,8 +74,8 @@ void EvaluationQueue::answer(parameters::Parameters &p,
                                     std::to_string(X->rows()) + " x " +
                                     std::to_string(X->cols()));
 
-    // The answered batch moves aside (a swap of buffers: no copy); consumers push to the next one.
-    // f is only read while the consumers run, here
+    // The answered batch moves aside (a swap of buffers: no copy); the modules push to the next
+    // one. A request left from a dispatch that threw is dropped here (requests.clear())
     const Eigen::Index n = n_points;
     std::swap(points, answering_points);
     std::swap(requests, answering);
@@ -85,10 +87,10 @@ void EvaluationQueue::answer(parameters::Parameters &p,
     const Eigen::Ref<const Matrix> evaluated =
         X != nullptr ? *X : Eigen::Ref<const Matrix>(answering_points.leftCols(n));
     for (const auto &r : answering)
-        r.consume(p,
-                  Evaluations{f.segment(r.begin, r.size),
-                              evaluated.middleCols(r.begin, r.size),
-                              X != nullptr});
+        p.dispatch(r,
+                   Evaluations{f.segment(r.begin, r.size),
+                               evaluated.middleCols(r.begin, r.size),
+                               X != nullptr});
     answering.clear();
 }
 
@@ -102,26 +104,5 @@ void EvaluationQueue::drain(parameters::Parameters &p, FunctionType &objective)
             f(j) = objective(points.col(j));
         answer(p, f);
     }
-}
-
-void Pipeline::on(const GenerationStage stage, std::string name, Hook hook, MinPoints min_points)
-{
-    stages[static_cast<size_t>(stage)].push_back(
-        Subscriber{std::move(name), std::move(hook), std::move(min_points)});
-}
-
-void Pipeline::fire(const GenerationStage stage, parameters::Parameters &p)
-{
-    for (const auto &s : stages[static_cast<size_t>(stage)])
-        s.hook(p);
-}
-
-size_t Pipeline::fixed_points(const parameters::Parameters &p) const
-{
-    size_t n = 0;
-    for (const auto &stage : stages)
-        for (const auto &s : stage)
-            n += s.min_points(p);
-    return n;
 }
 } // namespace evaluation
