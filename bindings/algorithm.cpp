@@ -1350,41 +1350,54 @@ void define_mutation(nb::module_ &main)
         "ThresholdConvergence",
         "Threshold convergence: samples shorter than a decreasing threshold are lengthened "
         "(`Modules.threshold_convergence`).\n\n"
-        "The threshold is t = init_threshold * diameter * ((budget - evaluations) / budget)^"
-        "decay_factor, with diameter = ||ub - lb||; a z shorter than t is scaled to length "
-        "2 t - ||z||. Keeps the search global early on and turns into local search as the "
-        "budget is used. Proposed by Piad et al.")
+        "The threshold is a length of z: t = init_threshold * E||z|| * ((budget - evaluations) / "
+        "budget)^decay_factor, computed once per generation from the evaluations at its start "
+        "(0 once the budget is used up). A sample with ||z|| < t is lengthened to "
+        "||z|| = 2 t - ||z|| (z and y are scaled). Keeps the search global early on and turns "
+        "into local search as the budget is used. After Piad-Morffis et al. (2015), who put the "
+        "threshold on x - m as a fraction of the box diameter; on z it is relative to the search "
+        "distribution and does not depend on the box.")
         .def(nb::init<>(),
-             "Create threshold convergence with init_threshold = 0.1 and decay_factor = 0.995.")
+             "Create threshold convergence with init_threshold = 1 and decay_factor = 0.995.")
         .def_rw("init_threshold",
                 &ThresholdConvergence::init_threshold,
-                "The threshold at the start as a fraction of the diameter of the box (default "
-                "0.1).")
+                "The threshold at the start of a run as a multiple of E||z|| (default 1).")
         .def_rw("decay_factor",
                 &ThresholdConvergence::decay_factor,
                 "The exponent of the decrease of the threshold with the remaining budget "
                 "(default 0.995).")
-        .def("scale",
-             &ThresholdConvergence::scale,
-             nb::arg("population"),
-             nb::arg("diameter"),
+        .def("threshold",
+             &ThresholdConvergence::threshold,
+             nb::arg("expected_length"),
              nb::arg("budget"),
              nb::arg("evaluations"),
-             "A sample z lengthened to the threshold when it is shorter.\n\n"
+             "The threshold after `evaluations` of `budget`.\n\n"
              "Parameters\n"
              "----------\n"
-             "population : numpy.ndarray\n"
-             "    The sample z, shape (d,) (one sample, despite the name).\n"
-             "diameter : float\n"
-             "    The diameter of the box, ||ub - lb|| (`Settings.diameter`).\n"
+             "expected_length : float\n"
+             "    E||z|| of the sampler (`es.p.sampler.expected_length()`).\n"
              "budget : int\n"
              "    The evaluation budget.\n"
              "evaluations : int\n"
-             "    The evaluations used so far.\n\n"
+             "    The evaluations used so far (more than the budget gives 0).\n\n"
              "Returns\n"
              "-------\n"
-             "numpy.ndarray\n"
-             "    The scaled copy of z, shape (d,).");
+             "float\n"
+             "    init_threshold * expected_length * ((budget - evaluations) / budget)^"
+             "decay_factor.")
+        .def("apply",
+             &ThresholdConvergence::apply,
+             nb::arg("z"),
+             nb::arg("y"),
+             nb::arg("t"),
+             "Lengthen one sample in place: when ||z|| < t, z and y are scaled so that "
+             "||z|| = 2 t - ||z||.\n\n"
+             "Parameters\n"
+             "----------\n"
+             "z, y : numpy.ndarray\n"
+             "    The sample and its y = A z, shape (d,), float64; changed in place.\n"
+             "t : float\n"
+             "    The threshold.");
 
     nb::class_<NoThresholdConvergence, ThresholdConvergence>(
         m,
@@ -1585,6 +1598,10 @@ void define_mutation(nb::module_ &main)
                 &Strategy::ss,
                 "The sampler of the step sizes (`SigmaSampler` or `NoSigmaSampler`).")
         .def_rw("sigma", &Strategy::sigma, "The global step size sigma.")
+        .def_ro("generation_threshold",
+                &Strategy::generation_threshold,
+                "The threshold of threshold convergence in the current generation, computed at "
+                "its start (`ThresholdConvergence.threshold`; also set without the module).")
         .def_rw("s",
                 &Strategy::s,
                 "The smoothed success measure of TPA, MSR and PSR, whose exponential scales "
@@ -1603,13 +1620,14 @@ void define_mutation(nb::module_ &main)
         "Two-point step-size adaptation (`StepSizeAdaptation.TPA`).\n\n"
         "After each population the two points m + sigma dm and m - sigma dm (along the last "
         "step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when "
-        "m - sigma dm is better and a_tpa + b_tpa otherwise, and sigma *= exp(s). Costs two "
-        "evaluations per generation. Hansen (2008).")
+        "m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as "
+        "after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per "
+        "generation. Hansen (2008); a tie as in pycma.")
         .def_rw("a_tpa", &TPA::a_tpa, "The magnitude of r (default 0.5).")
         .def_rw("b_tpa",
                 &TPA::b_tpa,
                 "The offset added to r when the forward point is better (default 0).")
-        .def_rw("rank_tpa", &TPA::rank_tpa, "The last r: -a_tpa or a_tpa + b_tpa (default 0).");
+        .def_rw("rank_tpa", &TPA::rank_tpa, "The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0).");
     nb::class_<MSR, Strategy>(
         m,
         "MSR",

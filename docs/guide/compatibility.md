@@ -78,8 +78,8 @@ algorithms.
 * **Mirrored sampling** keeps its state between generations and through rejected samples: with
   RESAMPLE, repelling, an odd λ or sequential selection the pairs fall out of step (*known issue*
   [F10]).
-* **Threshold convergence** applies its threshold (in units of x: a tenth of the box diameter) to
-  z, before A and σ; it lengthens the samples that length-based step-size rules (`XNES`, `MXNES`)
+* **Threshold convergence** applies its threshold to z (E‖z‖ at the start of a run, decaying with
+  the budget); it lengthens the samples that length-based step-size rules (`XNES`, `MXNES`)
   measure.
 * **Integer variables** are rounded after the bound correction (*known issue*: a rounded value can
   leave the box [F21]); their step-size floor biases the step-size rules that read sampled step
@@ -102,7 +102,6 @@ noted; with the current version. Most are recorded for fixing.
 | `active` with `CMSA` | C becomes indefinite: restarts every few generations [F6] |
 | `sample_sigma`, `SA` or `LPXNES` on rotated, ill-conditioned problems | one sampled step size per coordinate breaks rotation invariance: CMSA with `SA` fails on a rotated ellipsoid [F1] |
 | `MSR` with `PAIRWISE` | σ shrinks every generation [F9] |
-| `TPA` with `elitist` | σ diverges [F15] |
 | `MATRIX` with `elitist` | the inverse of M drifts, the elites' steps are wrong [F18] |
 | `mu0` above λ/2 with the active update | some "negative" weights are positive [F8] |
 | `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |

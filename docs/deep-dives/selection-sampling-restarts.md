@@ -74,10 +74,21 @@ generations, so the samples of one generation are not all orthogonal.
 
 ## Threshold convergence
 
-A sample z shorter than the threshold t = 0.1·D·((B − e)/B)^0.995 (D the diameter of the box, B the
-budget, e the evaluations so far) is reflected to length 2t − ‖z‖. Piad-Morffis et al. (2015) and
-the framework paper define the threshold on ‖x − m‖ and decay it with the generations; modcma
-applies it to z, before A and σ, and decays it with the evaluations [F24].
+A sample z shorter than the threshold is reflected to length 2t − ‖z‖; y = Az is scaled with it.
+
+* The threshold is t = α·E‖z‖·((B − e)/B)^γ, with α = 1 and γ = 0.995 by default, B the budget and
+  e the evaluations at the start of the generation.
+* It is computed once per generation, so it decays with the generations (for a constant λ, (B − e)/B
+  is the share of the generations left). It is 0 once the budget is used up.
+
+**Compared with Piad-Morffis et al. (2015) and the framework paper.** They put the threshold on
+‖x − m‖, as a fraction of the box diameter D (0.1·D). With those defaults a run cannot converge
+before the budget is nearly used up: on BBOB (f1, f2, f8, f10, f12, f15, f21; d = 5, 20) 8 of 350
+runs reached 1e-8, against 255 with the threshold on z.
+
+On z the threshold is relative to the search distribution (σ and C), so it does not depend on the
+box. Before 2.0, modcma applied 0.1·D to z, which equals E‖z‖ on the default box [−5, 5]^d (the
+same behaviour as now) but stretched every sample on larger boxes.
 
 ## Samplers and transformations
 

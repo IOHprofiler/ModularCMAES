@@ -406,3 +406,48 @@ class TestPerRunState(unittest.TestCase):
             sizes.append(es.p.pop.n)
         self.assertEqual(sizes[0], es.p.lamb)  # the first generation of a run is complete
         self.assertLess(min(sizes), es.p.lamb)
+
+
+class TestTpaAndThreshold(unittest.TestCase):
+    """#78: TPA's ties, threshold convergence in the units of x."""
+
+    def test_tpa_tie_after_a_restart(self):
+        # F15: after a restart dm = 0, both TPA points are the mean: no change of sigma (it grew
+        # by 16 % at every restart)
+        es = c_maes.ModularCMAES(c_maes.settings_from_dict(4, ssa="TPA", seed=2, verbose=False))
+        for _ in range(20):
+            es.step(sphere)
+        es.p.perform_restart(sphere)
+        sigma0 = es.p.mutation.sigma
+        es.step(sphere)
+        self.assertEqual(es.p.mutation.rank_tpa, 0.0)
+        self.assertEqual(es.p.mutation.sigma, sigma0)
+
+    def test_threshold_per_generation(self):
+        # F24: the threshold is computed once per generation, relative to E||z||, and every z of
+        # the generation is at least that long
+        for box in (5.0, 100.0):  # does not depend on the box
+            es = c_maes.ModularCMAES(c_maes.settings_from_dict(
+                5, threshold_convergence=True, seed=1, verbose=False, budget=2000,
+                lb=np.full(5, -box), ub=np.full(5, box)))
+            for _ in range(5):
+                es.step(sphere)
+            es.ask()
+            tc = c_maes.mutation.ThresholdConvergence()
+            t = tc.threshold(es.p.sampler.expected_length(), 2000, es.p.stats.evaluations)
+            self.assertEqual(es.p.mutation.generation_threshold, t)
+            self.assertTrue(np.all(np.linalg.norm(es.p.pop.Z, axis=0) >= t - 1e-12))
+
+    def test_threshold_past_the_budget(self):
+        # F24: budget - evaluations wrapped around (size_t) past the budget in ask-tell
+        tc = c_maes.mutation.ThresholdConvergence()
+        self.assertEqual(tc.threshold(2.0, 100, 150), 0.0)
+        self.assertAlmostEqual(tc.threshold(2.0, 100, 0), tc.init_threshold * 2.0)
+        es = c_maes.ModularCMAES(c_maes.settings_from_dict(
+            3, threshold_convergence=True, seed=1, verbose=False, budget=50))
+        for _ in range(20):  # ask-tell keeps going past the budget
+            X = es.ask()
+            es.tell(np.array([sphere(x) for x in X]))
+        self.assertGreater(es.p.stats.evaluations, 50)
+        self.assertEqual(es.p.mutation.generation_threshold, 0.0)
+        self.assertTrue(np.all(np.isfinite(es.ask())))

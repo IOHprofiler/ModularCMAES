@@ -27,29 +27,31 @@ namespace mutation
 
 struct ThresholdConvergence
 {
-    Float init_threshold = 0.1;
+    //! The threshold at the start of a run as a multiple of E||z|| (default 1)
+    Float init_threshold = 1.0;
     Float decay_factor = 0.995;
     virtual ~ThresholdConvergence() = default;
 
-    //! Scale zi in place up to the threshold length
-    virtual void scale_inplace(Eigen::Ref<Vector> zi,
-                               const Float diameter,
-                               const size_t budget,
-                               const size_t evaluations);
+    /**
+     * The threshold after `evaluations` of `budget`, a length of z: init_threshold *
+     * expected_length * ((budget - evaluations) / budget)^decay_factor, with expected_length =
+     * E||z||; 0 once the budget is used up. The optimizer computes it once per generation, from the
+     * evaluations at its start (T^(g) of the framework paper; Piad-Morffis et al. 2015).
+     */
+    [[nodiscard]] Float threshold(const Float expected_length,
+                                  const size_t budget,
+                                  const size_t evaluations) const;
 
-    //! The scaled zi as a new vector
-    [[nodiscard]] Vector
-    scale(const Vector &zi, const Float diameter, const size_t budget, const size_t evaluations)
-    {
-        Vector z = zi;
-        scale_inplace(z, diameter, budget, evaluations);
-        return z;
-    }
+    /**
+     * Threshold convergence for one sample: when ||z|| < t, z and y = A z are scaled so that
+     * ||z|| = 2 t - ||z|| (reflected across the threshold radius).
+     */
+    virtual void apply(Eigen::Ref<Vector> z, Eigen::Ref<Vector> y, const Float t) const;
 };
 
 struct NoThresholdConvergence : ThresholdConvergence
 {
-    void scale_inplace(Eigen::Ref<Vector>, const Float, const size_t, const size_t) override {}
+    void apply(Eigen::Ref<Vector>, Eigen::Ref<Vector>, const Float) const override {}
 };
 
 class SequentialSelection
@@ -128,6 +130,8 @@ struct Strategy
     std::shared_ptr<SigmaSampler> ss;
     Float sigma;
     Float s = 0;
+    //! The threshold of threshold convergence in the current generation (begin_population)
+    Float generation_threshold = 0;
 
     Strategy(const std::shared_ptr<ThresholdConvergence> &threshold_covergence,
              const std::shared_ptr<SequentialSelection> &sequential_selection,
@@ -157,15 +161,10 @@ struct Strategy
     void begin_population(const size_t n_offspring, parameters::Parameters &p);
 
     /**
-     * Sample individuals begin..begin+k-1. evaluations is the number of evaluations before the
-     * first of them (threshold convergence: individual begin + j sees evaluations + j). Their y
-     * are one matrix product, Y = A Z; an individual that bound correction (RESAMPLE) or repelling
-     * rejects is sampled again on its own.
+     * Sample individuals begin..begin+k-1. Their y are one matrix product, Y = A Z; an individual
+     * that bound correction (RESAMPLE) or repelling rejects is sampled again on its own.
      */
-    void sample_batch(const Eigen::Index begin,
-                      const Eigen::Index k,
-                      const size_t evaluations,
-                      parameters::Parameters &p);
+    void sample_batch(const Eigen::Index begin, const Eigen::Index k, parameters::Parameters &p);
 
     //! The last individual of a batch sampled from i on: sequential selection can stop the
     //! population after it, but not before it

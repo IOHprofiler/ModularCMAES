@@ -49,6 +49,9 @@ ACCEPTED = {
     "missing: cmaescpp.utils.Shuffler": "internal: cmaescpp._internal",
     "missing: cmaescpp.utils.CachedShuffleSequence": "internal: cmaescpp._internal",
     "missing: cmaescpp.sampling.Sobol.cache": "internal: the points of the Sobol sampler",
+    # Internals (#78): threshold convergence works on whole generations
+    "missing: cmaescpp.mutation.ThresholdConvergence.scale":
+        "internal: replaced by threshold() and apply(); the threshold is computed per generation",
 }
 
 

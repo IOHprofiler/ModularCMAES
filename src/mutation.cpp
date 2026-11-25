@@ -6,17 +6,32 @@
 
 namespace mutation
 {
-void ThresholdConvergence::scale_inplace(Eigen::Ref<Vector> zi,
-                                         const Float diameter,
-                                         const size_t budget,
-                                         const size_t evaluations)
+Float ThresholdConvergence::threshold(const Float expected_length,
+                                      const size_t budget,
+                                      const size_t evaluations) const
 {
-    const Float t =
-        init_threshold * diameter *
-        pow(static_cast<Float>(budget - evaluations) / static_cast<Float>(budget), decay_factor);
+    // evaluations can exceed the budget in ask-tell: the remaining share is then 0 (size_t
+    // would wrap around)
+    const Float remaining =
+        evaluations < budget
+            ? static_cast<Float>(budget - evaluations) / static_cast<Float>(budget)
+            : Float(0.0);
+    return init_threshold * expected_length * std::pow(remaining, decay_factor);
+}
 
-    if (const auto norm = zi.norm(); norm < t)
-        zi.array() *= ((t + (t - norm)) / norm);
+void ThresholdConvergence::apply(Eigen::Ref<Vector> z, Eigen::Ref<Vector> y, const Float t) const
+{
+    // A length of z: relative to the search distribution (sigma and C), so it does not depend on
+    // the box. Piad-Morffis et al. (2015) and the framework paper put the threshold on x - m, as a
+    // fraction of the box diameter; with those defaults a run cannot converge before the budget
+    // is nearly used up (BBOB: 8 of 350 runs reached 1e-8, 255 with the threshold on z; #78)
+    const Float length = z.norm();
+    if (length > 0 && length < t)
+    {
+        const Float factor = (t + (t - length)) / length;
+        z *= factor;
+        y *= factor;
+    }
 }
 
 bool SequentialSelection::break_conditions(const size_t i,
@@ -88,7 +103,7 @@ void Strategy::mutate(FunctionType &objective, const size_t n_offspring, paramet
         const auto stop = first_stop(static_cast<size_t>(i), p);
         const Eigen::Index last =
             stop >= static_cast<size_t>(n) ? n - 1 : static_cast<Eigen::Index>(stop);
-        sample_batch(i, last - i + 1, p.stats.evaluations, p);
+        sample_batch(i, last - i + 1, p);
         bool complete = false;
         for (; i <= last && !complete; ++i)
             complete = evaluated(i, objective(p.pop.X_transformed.col(i)), p);
@@ -113,13 +128,14 @@ void Strategy::begin_population(const size_t n_offspring, parameters::Parameters
     p.pop.reserve(n_offspring);
     p.pop.n = n_offspring;
     ss->sample(sigma, p);
+    generation_threshold =
+        tc->threshold(p.sampler->expected_length(), p.settings.budget, p.stats.evaluations);
     p.bounds->n_out_of_bounds = 0;
     p.repelling->prepare_sampling(p);
 }
 
 void Strategy::sample_batch(const Eigen::Index begin,
                             const Eigen::Index k,
-                            const size_t evaluations,
                             parameters::Parameters &p)
 {
     // Every step writes into the columns of the population: no allocation per sample
@@ -128,22 +144,20 @@ void Strategy::sample_batch(const Eigen::Index begin,
         const Eigen::Index i = begin + j;
         p.pop.t(i) = p.stats.t;
         p.sampler->sample(p.pop.Z.col(i));
-        p.mutation->tc->scale_inplace(
-            p.pop.Z.col(i), p.settings.diameter, p.settings.budget, evaluations + j);
     }
     p.adaptation->compute_y_batch(p.pop.Z.middleCols(begin, k), p.pop.Y.middleCols(begin, k));
 
     for (Eigen::Index j = 0; j < k; ++j)
     {
         const Eigen::Index i = begin + j;
+        tc->apply(p.pop.Z.col(i), p.pop.Y.col(i), generation_threshold);
         finish_sample(i, p);
         size_t n_rejections = 0;
         while (rejected(i, n_rejections, p))
         {
             p.sampler->sample(p.pop.Z.col(i));
-            p.mutation->tc->scale_inplace(
-                p.pop.Z.col(i), p.settings.diameter, p.settings.budget, evaluations + j);
             p.adaptation->compute_y_into(p.pop.Z.col(i), p.pop.Y.col(i));
+            tc->apply(p.pop.Z.col(i), p.pop.Y.col(i), generation_threshold);
             finish_sample(i, p);
         }
         p.coordinate_mapping->transform_into(p.pop.X.col(i), p.pop.X_transformed.col(i));
@@ -225,7 +239,9 @@ void TPA::tell_extra_points(Eigen::Ref<const Vector> f,
     p.stats.update_best(X.col(0), f_pos);
     p.stats.update_best(X.col(1), f_neg);
     p.stats.evaluations += 2;
-    this->rank_tpa = f_neg < f_pos ? -a_tpa : a_tpa + b_tpa;
+    // A tie (as after a restart, when dm = 0 and both points are the mean) is no signal: 0, as the
+    // sign of the rank difference in pycma's TPA; it counted as a success (sigma grew by 16 %)
+    this->rank_tpa = f_neg < f_pos ? -a_tpa : (f_pos < f_neg ? a_tpa + b_tpa : Float(0.0));
 }
 
 void TPA::adapt(const parameters::Weights &w,

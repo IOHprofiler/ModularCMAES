@@ -33,21 +33,18 @@ class TestMutation(unittest.TestCase):
     def test_threshold_convergence(self):
         tc = mutation.ThresholdConvergence()
         notc = mutation.NoThresholdConvergence()
-        notc.scale(self.par.pop.Z[0], 10, 100, 2)
-        self.assertTrue(np.all(self.par.pop.Z == 0.5))
+        budget, evals, length = 100, 2, 1.5
+        t = tc.threshold(length, budget, evals)
+        self.assertAlmostEqual(t, tc.init_threshold * length * ((budget - evals) / budget) ** tc.decay_factor)
 
-        budget = 100
-        evals = 2
-        diam = 10
-
-        t = tc.init_threshold * diam * pow((budget - evals) / budget, tc.decay_factor)
-        norm = np.linalg.norm(self.par.pop.Z, axis=0)
-        Z = np.ones((2, 2))
-        Z[0] = tc.scale(self.par.pop.Z[0], diam, budget, evals)
-        Z[1] = tc.scale(self.par.pop.Z[1], diam, budget, evals)
-        self.par.pop.Z = Z
-        expected_z = 0.5 * ((t + (t - norm)) / norm)
-        self.assertTrue(np.isclose(self.par.pop.Z, expected_z).all())
+        z, y = np.array([0.3, 0.4]), np.array([3.0, 4.0])  # ||z|| = 0.5 < t
+        notc.apply(z, y, t)
+        np.testing.assert_array_equal(z, [0.3, 0.4])
+        tc.apply(z, y, t)
+        factor = (2 * t - 0.5) / 0.5
+        np.testing.assert_allclose(z, np.array([0.3, 0.4]) * factor)
+        np.testing.assert_allclose(y, np.array([3.0, 4.0]) * factor)
+        self.assertAlmostEqual(np.linalg.norm(z), 2 * t - 0.5)
 
     def get_cma(self, ssa, adapt_sigma=True):
         modules = parameters.Modules()
@@ -97,9 +94,21 @@ class TestMutation(unittest.TestCase):
         )
 
     def test_adapt_tpa(self):
+        # In the first generation dm = 0: both TPA points are the mean, a tie, which gives no
+        # signal (#78, F15; it counted as a success and sigma grew)
         cma = self.get_cma(options.StepSizeAdaptation.TPA)
-        s = ((1 - cma.p.weights.cs) * 0) + (cma.p.weights.cs * cma.p.mutation.a_tpa)
-        self.assertAlmostEqual(cma.p.mutation.sigma, cma.p.settings.sigma0 * np.exp(s))
+        self.assertEqual(cma.p.mutation.rank_tpa, 0.0)
+        self.assertAlmostEqual(cma.p.mutation.sigma, cma.p.settings.sigma0)
+
+    def test_tpa_signal(self):
+        # Once the mean moves, one of the two points is better: r is -a_tpa or a_tpa + b_tpa
+        from modcma import c_maes
+
+        es = c_maes.ModularCMAES(c_maes.settings_from_dict(3, ssa="TPA", seed=1, verbose=False))
+        for _ in range(5):
+            es.step(lambda x: float(x[0]))  # linear: the forward point is better
+        tpa = es.p.mutation
+        self.assertEqual(tpa.rank_tpa, tpa.a_tpa + tpa.b_tpa)
 
     def test_adapt_msr(self):
         cma = self.get_cma(options.StepSizeAdaptation.MSR)
