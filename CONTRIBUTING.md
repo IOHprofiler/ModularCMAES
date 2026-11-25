@@ -81,23 +81,29 @@ ctest --test-dir build --output-on-failure
 
 No module calls the objective. A module that needs objective values queues points, and
 receives their values when the user calls `tell()`, or when `run()` evaluates them
-(`include/evaluation.hpp`):
+(`include/evaluation.hpp`). Adding one takes three steps:
 
-* **Subscribe to a stage** of the generation: `p.pipeline.on(GenerationStage::X, name, hook,
-  min_points)`. The stages are `RUN_ENDING`, `RUN_STARTING`, `GENERATION_STARTING`, `POPULATION`
-  (for points that do not depend on the population's values; they join its first batch),
-  `POPULATION_EVALUATED`, `SELECTED` and `UPDATED`.
-* **Queue points in the hook:** `p.queue.push(X, consumer, source)`. The consumer receives the
-  values (`Evaluations`) and may queue follow-up points in the same stage.
-* **A fixed number of points per generation** is declared with `min_points`, which the budget
-  check reserves.
-* **A variable number of points** is clipped to `p.budget_left()` and queued with
-  `p.push_variable`, which refuses a request beyond the budget.
-* **Random numbers** are drawn when the points are queued, never later. Ask–tell then stays
-  identical to `run()` however the user batches.
+* **A source:** a value of `evaluation::Source`, and its `case` in `Parameters::dispatch`
+  (`src/parameters.cpp`), which passes the values (`Evaluations`: `f`, the points `X`, and whether
+  `tell(f, X)` gave them) to the module through `p`. Never keep a pointer to the module in the
+  request: the module in place when the values arrive receives them.
+* **A call at its stage** in `ModularCMAES::advance()` (`src/c_maes.cpp`), which runs the stages of
+  a generation in order: `RESTART`, `POPULATION` (points that do not depend on the population's
+  values join its first batch, as TPA's), `POPULATION_EVALUATED` (before selection) and
+  `SELECTED` (before recombination). The call queues the points: `p.queue.push(X, source, index)`.
+  The module may queue follow-up points when it receives the values; they form the next batch of
+  the same stage, as the batches of sequential selection and the hill-valley tests do.
+* **The budget:** a fixed number of points per generation, the same in every generation of a
+  configuration, goes into `Parameters::reserved_points(stage)`, which the budget checks reserve.
+  A variable number of points is clipped to `p.budget_left(stage)`, which keeps what the later
+  stages of the generation reserve; queue it after the fixed points of its own stage.
 
-`tests/cpp/test_main.cpp` (`add_random_reevaluation`) has a complete example: a module that
-re-evaluates a random number of points after every population.
+**Random numbers** are drawn when the points are queued, never later. Ask–tell then stays
+identical to `run()`.
+
+`tests/cpp/test_main.cpp` (`RandomReevaluation`) has an example: a module that re-evaluates a
+random number of points after every population, built on the extra points of the step-size
+adaptation.
 
 ## Planned work
 

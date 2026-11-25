@@ -22,8 +22,9 @@ transformations is taken as √d instead of their own (*known issue* [F29]).
 ## TPA: two-point adaptation
 
 **What modcma does.** Two extra points per generation, x± = m ± σ·Δm (Δm the last mean shift in
-units of σ), evaluated after the population; s ← (1 − c)s + c·r with r = −0.5 when f(x−) < f(x+)
-and 0.5 otherwise, c = 0.3, then σ ← σ·eˢ. With ask–tell, `ask()` returns λ + 2 points.
+units of σ), evaluated with the population (in its first batch: they do not depend on its values);
+s ← (1 − c)s + c·r with r = −0.5 when f(x−) < f(x+) and 0.5 otherwise, c = 0.3, then σ ← σ·eˢ.
+With ask–tell, `ask()` returns λ + 2 points.
 
 **Compared with Hansen (2008) and pycma.** pycma takes the two points from the λ offspring (no extra
 evaluations), rescales them to a random length, uses the rank difference among all λ, compresses it
