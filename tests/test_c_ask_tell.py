@@ -6,6 +6,9 @@ not: configurations the golden runs do not reach, the batches ask() returns, inj
 """
 
 import math
+import subprocess
+import sys
+import textwrap
 import unittest
 
 import numpy as np
@@ -250,6 +253,192 @@ class TestInterface(unittest.TestCase):
         cma = make(budget=200)
         with self.assertRaises(TypeError):
             cma.run(sphere, True)
+
+
+class TestSteps(unittest.TestCase):
+    """mutate(), select(), recombine() and adapt() behave as in 1.x"""
+
+    def test_mutate_samples_a_new_generation_on_every_call(self):
+        cma = make(lambda0=6, mu0=3)
+        cma.mutate(sphere)
+        first = cma.p.pop.X.copy()
+        cma.mutate(sphere)
+        self.assertEqual(cma.p.stats.evaluations, 12)
+        np.testing.assert_array_equal(cma.p.old_pop.X, first)
+        cma.select()
+        cma.mutate(sphere)
+        self.assertEqual(cma.p.stats.evaluations, 18)
+        cma.select()
+        cma.recombine()
+        cma.adapt()
+        self.assertEqual(cma.p.stats.t, 1)
+
+    def test_select_and_adapt_refuse_a_generation_that_waits_for_tell(self):
+        cma = make()
+        cma.ask()
+        for step in (cma.select, cma.adapt):
+            with self.assertRaisesRegex(RuntimeError, "tell"):
+                step()
+        cma.mutate(sphere)  # evaluates the generation that ask() started
+        cma.select()
+        cma.recombine()
+        cma.adapt()
+        self.assertEqual(cma.p.stats.t, 1)
+
+
+# Runs in a subprocess with a timeout: an interrupted mutate() once made the next ask() loop forever
+INTERRUPTED_RUNS = """
+import math
+
+import numpy as np
+
+from modcma import c_maes
+
+
+def rastrigin(x):
+    return 10.0 * len(x) + math.fsum(xi * xi - 10.0 * math.cos(2.0 * math.pi * xi) for xi in x)
+
+
+class Interrupt(KeyboardInterrupt):
+    pass
+
+
+class RestartAt(c_maes.restart.Criterion):
+    def __init__(self, *generations):
+        super().__init__("RestartAt")
+        self.generations = set(generations)
+
+    def update(self, parameters):
+        self.met = parameters.stats.t in self.generations
+
+
+def make():
+    settings = c_maes.settings_from_dict(
+        4, seed=3, budget=3000, ssa="TPA", restart_strategy="IPOP", repelling_type="COVERAGE",
+        sequential_selection=True,
+    )
+    cma = c_maes.ModularCMAES(settings)
+    cma.p.criteria.items.append(RestartAt(10, 20, 30))
+    return cma
+
+
+def state(cma):
+    p = cma.p
+    return (p.adaptation.m.tolist(), p.mutation.sigma, p.stats.evaluations, p.stats.t,
+            len(p.stats.centers))
+
+
+def generation(cma, driver, objective):
+    if driver == "step":
+        cma.step(objective)
+    elif driver == "vectorized":
+        cma.step(lambda X: [objective(x) for x in X], vectorized=True)
+    elif driver == "asktell":
+        while not cma.tell([objective(x) for x in cma.ask()]):
+            pass
+    else:
+        cma.mutate(objective)
+        cma.select()
+        cma.recombine()
+        cma.adapt()
+
+
+def run(driver, interrupts=()):
+    # The objective raises at the given calls (as a KeyboardInterrupt would); the run goes on with
+    # the next call of the same driver, which evaluates the pending points again
+    calls = [0]
+
+    def objective(x):
+        calls[0] += 1
+        if calls[0] in interrupts:
+            raise Interrupt()
+        return rastrigin(x)
+
+    cma, n = make(), 0
+    while n < 45:
+        try:
+            generation(cma, driver, objective)
+            n += 1
+        except Interrupt:
+            pass
+    return state(cma)
+
+
+for driver in ("step", "vectorized", "asktell", "mutate"):
+    interrupted = run(driver, interrupts={3, 50, 222, 401, 650, 777})
+    assert interrupted == run(driver), driver
+    assert interrupted[4] == 3, interrupted  # the restarts and their hill-valley tests were reached
+
+# After an interrupted mutate(): step(), ask() and tell() go on
+cma, calls = make(), [0]
+
+
+def objective(x):
+    calls[0] += 1
+    if calls[0] == 3:
+        raise Interrupt()
+    return rastrigin(x)
+
+
+try:
+    cma.mutate(objective)
+except Interrupt:
+    pass
+assert cma.step(rastrigin)
+assert cma.step(rastrigin)
+X = cma.ask()
+while not cma.tell([rastrigin(x) for x in X]):
+    X = cma.ask()
+reference = make()
+for _ in range(3):
+    reference.step(rastrigin)
+assert state(cma) == state(reference)
+print("ok")
+"""
+
+
+class TestRobustness(unittest.TestCase):
+    """An exception from the objective, or a module replaced between ask() and tell(), leaves the
+    optimizer usable"""
+
+    def test_interrupted_objective(self):
+        result = subprocess.run(
+            [sys.executable, "-c", INTERRUPTED_RUNS],
+            capture_output=True,
+            text=True,
+            timeout=300,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout.strip(), "ok")
+
+    def test_step_size_adaptation_replaced_between_ask_and_tell(self):
+        cma, other = make(modules={"ssa": "TPA"}), make(modules={"ssa": "TPA"})
+        X = cma.ask()
+        # The strategy that queued the points is freed: their values go to the new one
+        cma.p.mutation = other.p.mutation
+        del other
+        self.assertTrue(cma.tell([sphere(x) for x in X]))
+        for _ in range(3):
+            self.assertTrue(cma.step(sphere))
+        self.assertEqual(cma.p.stats.evaluations, 4 * 10)
+
+    def test_repelling_replaced_during_a_hill_valley_test(self):
+        cma = make(modules={"restart_strategy": "RESTART", "repelling_type": "COVERAGE"})
+        cma.p.criteria.items.append(RestartAt(5, 10))
+        for _ in range(200):
+            X = cma.ask()
+            if cma.p.queue.sources == ["hill-valley"]:
+                break
+            cma.tell([1.0] * len(X))
+        else:
+            self.fail("no hill-valley test was reached")
+        # The archive that queued the point is freed; the new one has no test in progress
+        cma.p.repelling = c_maes.repelling.CoverageRepelling()
+        with self.assertRaisesRegex(RuntimeError, "no hill-valley point is pending"):
+            cma.tell([1.0])
+        # The restart goes on: the next batch is the population of the new run
+        self.assertFalse(cma.has_pending)
+        self.assertEqual(len(cma.ask()), cma.p.lamb)
 
 
 class TestInjection(unittest.TestCase):
