@@ -1,9 +1,9 @@
-"""Module containing tests for ModularCMA-ES C++ Bounds."""
+"""Inputs that once crashed the C++ ModularCMA-ES."""
 
 import unittest
 import numpy as np
 
-from modcma.c_maes import settings_from_dict, ModularCMAES
+from modcma.c_maes import settings_from_dict, ModularCMAES, restart
 
 
 def sphere(x):
@@ -14,8 +14,19 @@ def always_inf(x):
     return np.inf
 
 
+class RestartNow(restart.Criterion):
+    """Met from the start: the next generation begins with a restart (which resets it)."""
+
+    def __init__(self):
+        super().__init__("RestartNow")
+        self.met = True
+
+    def update(self, parameters):
+        pass
+
+
 class TestSeqfault(unittest.TestCase):
-    """Test case for Bounds of Modular C++ CMA-ES."""
+    """Configurations that once crashed or produced NaN."""
 
     def test_sa_large_mu_remains_finite(self):
         settings = settings_from_dict(
@@ -57,8 +68,12 @@ class TestSeqfault(unittest.TestCase):
                     )
 
                     cma = ModularCMAES(settings)
-                    cma.p.perform_restart(always_inf)
+                    # A restart before the first generation: its center (inf) is not archived
+                    cma.p.criteria.items.append(RestartNow())
+                    cma.step(always_inf)
 
+                    self.assertEqual(len(cma.p.stats.centers), 1)
+                    self.assertEqual(cma.p.stats.centers[0].t, 0)
                     self.assertEqual(len(cma.p.repelling.archive), 0)
 
 

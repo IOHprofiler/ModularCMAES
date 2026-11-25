@@ -2,11 +2,6 @@
 
 #include "common.hpp"
 
-namespace parameters
-{
-struct Parameters;
-}
-
 namespace mapping
 {
 
@@ -16,7 +11,7 @@ struct CoordinateMapping
     size_t d;
     std::vector<Eigen::Index> integer_idx;
 
-    CoordinateMapping(const Indices &integer_variables, const size_t d, const Float mueff) :
+    CoordinateMapping(const Indices &integer_variables, const size_t d) :
         d(d)
     {
         for (const auto idx : integer_variables)
@@ -45,8 +40,8 @@ struct CoordinateMapping
 };
 
 inline std::shared_ptr<CoordinateMapping>
-get(const Indices &integer_idx, const size_t d, const Float mueff)
+get(const Indices &integer_idx, const size_t d)
 {
-    return std::make_shared<CoordinateMapping>(integer_idx, d, mueff);
+    return std::make_shared<CoordinateMapping>(integer_idx, d);
 }
 } // namespace mapping

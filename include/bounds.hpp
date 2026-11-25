@@ -4,8 +4,6 @@
 #include "modules.hpp"
 #include "sampling.hpp"
 
-struct Population;
-
 namespace parameters
 {
 struct Parameters;
@@ -38,8 +36,6 @@ struct BoundCorrection
     [[nodiscard]] Vector delta_out_of_bounds(const Vector &xi,
                                              const Mask &oob,
                                              const parameters::Settings &settings) const;
-
-    [[nodiscard]] bool any_out_of_bounds() const { return n_out_of_bounds > 0; }
 };
 
 struct NoCorrection : BoundCorrection

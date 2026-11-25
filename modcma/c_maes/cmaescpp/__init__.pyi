@@ -63,7 +63,7 @@ class constants:
     """
     Whether the GAUSSIAN sample transformation uses the Box-Muller transform (default False).
 
-    False: every uniform number is mapped to a normal one with the inverse normal CDF (the inverse normal CDF). True: pairs of uniform numbers are mapped with Box-Muller, a different random stream.
+    False: every uniform number is mapped to a normal one with the inverse normal CDF. True: pairs of uniform numbers are mapped with Box-Muller, a different random stream.
     """
 
     eigen_solver: ClassVar[int] = ...
@@ -314,9 +314,7 @@ class Parameters:
     @overload
     def __init__(self, dimension: int) -> None:
         """
-        Parameters with the default settings of the C++ library for this dimension.
-
-        Unlike Settings(dimension) from Python, these settings have verbose = True: a message is printed at every restart.
+        Parameters with the default settings for this dimension (Settings(dimension)).
         """
 
     @overload
@@ -328,32 +326,6 @@ class Parameters:
         The adaptation at the end of a generation.
 
         Updates the evolution paths, the step size (clipped to the tolerances of the MinSigma and MaxSigma restart criteria when constants.clip_sigma is set), the matrix of the matrix adaptation and the restart criteria, then increments stats.t. ModularCMAES.adapt calls it.
-        """
-
-    def start(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None:
-        """
-        Begin a generation, and restart when a restart criterion holds.
-
-        The population becomes old_pop. When a criterion of criteria holds, a restart is performed (see perform_restart), with the step size of the restart strategy.
-
-        Parameters
-        ----------
-        objective : callable
-            The objective function, called with a (d,) array; it evaluates the center of a restart and the hill-valley tests of repelling restarts.
-        """
-
-    def perform_restart(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], sigma: float | None = None) -> None:
-        """
-        Restart now.
-
-        Appends stats.current_best to stats.solutions, evaluates the current mean (the center of the run that ends) and, with repelling restarts, the points of the hill-valley tests. Then it resets the sampler, the weights (for the current mu and lamb), both populations, the step size, the matrix adaptation and the restart criteria, and places the new mean with center_placement.
-
-        Parameters
-        ----------
-        objective : callable
-            The objective function, called with a (d,) array.
-        sigma : float, optional
-            The step size of the new run; default settings.sigma0.
         """
 
     def resize_population(self, new_mu: int, new_lambda: int) -> None:
@@ -532,9 +504,7 @@ class ModularCMAES:
     @overload
     def __init__(self, dimension: int) -> None:
         """
-        An optimizer with the default settings of the C++ library for this dimension.
-
-        The same as ModularCMAES(Parameters(dimension)): unlike Settings(dimension), these settings have verbose = True.
+        An optimizer with the default settings for this dimension: the same as ModularCMAES(Settings(dimension)).
         """
 
     @overload
@@ -559,7 +529,7 @@ class ModularCMAES:
         """
         Move the mean to the weighted mean of the mu best individuals.
 
-        m_old = m, then m = m_old + sum_k positive[k] (X[:, k] - m_old) over the first mu columns of the (sorted) population. The third step of a generation, after select().
+        m_old = m, then m = m_old + sum_k positive[k] (X[:, k] - m_old) over the first mu columns of the (sorted) population; with the utility weights of NES/xNES, over every individual. The third step of a generation, after select(). Raises RuntimeError while a generation that ask() started waits for tell().
         """
 
     def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None:
@@ -661,9 +631,9 @@ class ModularCMAES:
 
     def break_conditions(self) -> bool:
         """
-        Whether the run should stop.
+        Whether the run should stop; meaningful between generations (after tell() returned True).
 
-        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the next generation (lambda points, and the 2 extra points of TPA) would exceed settings.budget; or restart_strategy is STOP and a restart criterion holds.
+        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the next generation (lambda points, and the 2 extra points of TPA) would exceed settings.budget; a restart is due, but its center and the smallest first generation of the new run would exceed settings.budget; or restart_strategy is STOP and a restart criterion holds.
         """
 
     @property

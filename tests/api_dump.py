@@ -69,7 +69,31 @@ ACCEPTED = {
     "missing: cmaescpp.repelling.TabooPoint.shares_basin": "internal: as hill_valley_test (#84)",
     "missing: cmaescpp.repelling.Repelling.update_archive":
         "internal: the optimizer's restart step runs the archive update (#84)",
+    "missing: cmaescpp.Parameters.start":
+        "internal: ModularCMAES.advance begins a generation and runs a restart (#84)",
+    "missing: cmaescpp.Parameters.perform_restart":
+        "internal: a restart is evaluated only by the optimizer (#84); a restart criterion that "
+        "is met starts one at the next generation",
+    # Internals: unused parameters and members removed (#84, third review)
+    "missing: cmaescpp.matrix_adaptation.Adaptation.expected_length_z":
+        "internal: not used by the adaptations; Weights.expected_length_z is the one CSA uses",
+    "overload not accepted: cmaescpp.matrix_adaptation.Adaptation.adapt_matrix(weights, modules, population, mu, settings, stats)":
+        "internal: modules is settings.modules",
+    "overload not accepted: cmaescpp.matrix_adaptation.Adaptation.restart(settings, sigma)":
+        "internal: sigma was not used",
+    "overload not accepted: cmaescpp.matrix_adaptation.NaturalGradientAdaptation.compute_gradients(pop, weights, stats, settings, mu, lamb)":
+        "internal: stats, mu and lamb were not used",
+    "overload not accepted: cmaescpp.parameters.CoordinateMapping.__init__(arg0, arg1, arg2)":
+        "internal: mueff was not used",
 }
+for name in ("Cholesky", "Covariance", "Matrix", "Self", "Separable"):
+    ACCEPTED[f"overload not accepted: cmaescpp.matrix_adaptation.{name}Adaptation.__init__"
+             "(dimension, x0, expected_length_z)"] = "internal: expected_length_z was not used"
+ACCEPTED["overload not accepted: cmaescpp.matrix_adaptation.NoAdaptation.__init__"
+         "(dimension, x0, expected_length_z)"] = "internal: expected_length_z was not used"
+ACCEPTED["overload not accepted: cmaescpp.matrix_adaptation.NaturalGradientAdaptation.__init__"
+         "(dimension, x0, expected_length_z, sigma)"] = (
+    "internal: expected_length_z and sigma were not used")
 
 
 def split_top_level(text: str) -> list:

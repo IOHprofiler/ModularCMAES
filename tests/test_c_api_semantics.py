@@ -137,7 +137,7 @@ class TestObjectSemantics(unittest.TestCase):
         self.assertIsNone(c_maes.Settings(3).target)
 
     def test_integer_variables_accept_lists(self):
-        # Settings has no integer_variables attribute (only the constructor argument)
+        # integer_variables is given as a list of indices
         cma = c_maes.ModularCMAES(c_maes.Settings(4, integer_variables=[1, 3], verbose=False))
         cma.step(sphere)
         np.testing.assert_array_equal(cma.p.pop.X_transformed[1], np.round(cma.p.pop.X[1]))

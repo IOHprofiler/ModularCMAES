@@ -1,4 +1,4 @@
-"""Module containing tests for ModularCMA-ES C++ Bounds."""
+"""Tests of the restart criteria of the C++ ModularCMA-ES."""
 
 import unittest
 

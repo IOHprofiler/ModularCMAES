@@ -235,9 +235,10 @@ def make_settings(run: Dict) -> "c_maes.Settings":
 
 
 # How a generation is driven: step() with the objective (the C++ loop over ask/tell), ask/tell from
-# Python, ask/tell with the evaluated points passed back to tell, or a vectorized objective. All of
-# them must give the same trajectories, bit for bit.
-DRIVERS = ("step", "asktell", "asktell_points", "vectorized")
+# Python, ask/tell with the evaluated points passed back to tell, a vectorized objective, or the
+# steps of the 1.x API (mutate, select, recombine, adapt). All of them must give the same
+# trajectories, bit for bit.
+DRIVERS = ("step", "asktell", "asktell_points", "vectorized", "steps")
 
 
 def run_generation(cma: "c_maes.ModularCMAES", objective, driver: str) -> bool:
@@ -246,6 +247,12 @@ def run_generation(cma: "c_maes.ModularCMAES", objective, driver: str) -> bool:
         return cma.step(objective)
     if driver == "vectorized":
         return cma.step(lambda X: [objective(x) for x in X], vectorized=True)
+    if driver == "steps":
+        cma.mutate(objective)
+        cma.select()
+        cma.recombine()
+        cma.adapt()
+        return not cma.break_conditions()
     while True:
         X = cma.ask()
         f = [objective(x) for x in X]

@@ -111,13 +111,11 @@ class TestEquivalentToStep(unittest.TestCase):
         for cma in (a, b):
             if restarts:
                 cma.p.criteria.items.append(RestartAt(*restarts))
-        # set_seed sets the one global generator: run the two optimizers one after the other
-        c_maes.set_seed(12)
+        # make() gives both the same generator (each optimizer draws from its own)
         states_a, running = [], True
         while running:
             running = a.step(objective)
             states_a.append(state(a))
-        c_maes.set_seed(12)
         states_b, running = [], True
         while running:
             running = ask_tell_generation(b, objective)
@@ -244,9 +242,7 @@ class TestInterface(unittest.TestCase):
 
     def test_mutate_continues_pending_generation(self):
         a, b = make(), make()
-        c_maes.set_seed(5)
         a.step(sphere)
-        c_maes.set_seed(5)
         b.ask()
         b.mutate(sphere)
         b.select()
@@ -291,10 +287,10 @@ class TestSteps(unittest.TestCase):
         cma.adapt()
         self.assertEqual(cma.p.stats.t, 1)
 
-    def test_select_and_adapt_refuse_a_generation_that_waits_for_tell(self):
+    def test_select_recombine_and_adapt_refuse_a_generation_that_waits_for_tell(self):
         cma = make()
         cma.ask()
-        for step in (cma.select, cma.adapt):
+        for step in (cma.select, cma.recombine, cma.adapt):
             with self.assertRaisesRegex(RuntimeError, "tell"):
                 step()
         cma.mutate(sphere)  # evaluates the generation that ask() started
@@ -462,6 +458,35 @@ class TestRobustness(unittest.TestCase):
         self.assertFalse(cma.has_pending)
         self.assertEqual(len(cma.ask()), cma.p.lamb)
 
+    def test_exception_in_the_update(self):
+        # An exception in the update (here from a restart criterion written in Python) does not
+        # make the next ask() run the update again: it starts a new generation
+        class Raises(c_maes.restart.Criterion):
+            def __init__(self):
+                super().__init__("Raises")
+                self.armed = False
+
+            def update(self, parameters):
+                if self.armed:
+                    self.armed = False
+                    raise ValueError("raised by the criterion")
+
+        cma, criterion = make(), Raises()
+        cma.p.criteria.items.append(criterion)
+        for _ in range(3):
+            ask_tell_generation(cma, sphere)
+        X = cma.ask()
+        criterion.armed = True
+        with self.assertRaisesRegex(ValueError, "raised by the criterion"):
+            cma.tell([sphere(x) for x in X])
+        t, m = cma.p.stats.t, cma.p.adaptation.m.copy()
+        self.assertFalse(cma.has_pending)
+        self.assertEqual(len(cma.ask()), cma.p.lamb)
+        self.assertEqual(cma.p.stats.t, t)
+        np.testing.assert_array_equal(cma.p.adaptation.m, m)
+        self.assertTrue(ask_tell_generation(cma, sphere))
+        self.assertEqual(cma.p.stats.t, t + 1)
+
 
 class TestInjection(unittest.TestCase):
     def test_injected_point_replaces_the_asked_one(self):
@@ -485,10 +510,8 @@ class TestInjection(unittest.TestCase):
 
     def test_unchanged_points_are_not_injected(self):
         a, b = make(), make()
-        c_maes.set_seed(8)
         for _ in range(5):
             ask_tell_generation(a, sphere)
-        c_maes.set_seed(8)
         for _ in range(5):
             while True:
                 X = b.ask()

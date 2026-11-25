@@ -175,7 +175,7 @@ static std::optional<Solution> get_candidate(const parameters::Parameters &p)
 // -----------------------------------------------------------------------------
 // The archive update after a restart: hill-valley tests of the candidate against every taboo
 // point (Maree et al. 2018), one point at a time (has_query, query_point, answer). The optimizer
-// evaluates the points (ModularCMAES::advance, RESTART; Parameters::complete_restart)
+// evaluates the points (ModularCMAES::advance, the RESTART step)
 // -----------------------------------------------------------------------------
 
 void Repelling::begin_update(parameters::Parameters &p)
@@ -198,7 +198,7 @@ void Repelling::next_query(parameters::Parameters &p)
     // The remaining tests are skipped when the next point would leave too little budget for the
     // first generation after the restart (the run ends soon after: the archive keeps the candidate
     // unless a test so far found a shared basin)
-    if (query.j >= archive.size() || !p.restart_fits(1))
+    if (query.j >= archive.size() || !p.restart_fits())
     {
         query.active = false;
         on_update_end(*query.candidate, query.accept, p);
@@ -298,15 +298,6 @@ Float AdaptiveRepelling::max_radius(const parameters::Parameters &p) const
 {
     const Float d = static_cast<Float>(p.settings.dim);
     return max_radius_factor / std::sqrt(d);
-}
-
-void AdaptiveRepelling::prepare_sampling(parameters::Parameters &p)
-{
-    // Uses rejection statistics from the previous sampling phase.
-    adapt_radii_after_sampling(p);
-
-    attempts = 0;
-    sort_archive_by_criticality(p);
 }
 
 void AdaptiveRepelling::adapt_radii_after_sampling(parameters::Parameters &p)

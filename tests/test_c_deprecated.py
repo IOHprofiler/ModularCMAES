@@ -77,7 +77,7 @@ class TestConstructors(unittest.TestCase):
             self.assertEqual(strategy.sigma, 0.5)
 
     def test_covariance_no_eigv(self):
-        a = ma.CovarianceNoEigvAdaptation(3, np.ones(3), 1.6)
+        a = ma.CovarianceNoEigvAdaptation(3, np.ones(3))
         np.testing.assert_array_equal(a.m, np.ones(3))
 
 

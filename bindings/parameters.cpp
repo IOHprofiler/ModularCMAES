@@ -220,9 +220,10 @@ void define_parameters(nb::module_ &main)
                      bool_getter(&Modules::threshold_convergence),
                      bool_setter(&Modules::threshold_convergence),
                      "bool, default False: threshold convergence (Piad-Morffis et al.).\n\n"
-                     "Samples shorter than a threshold are lengthened; the threshold is a "
-                     "fraction of the diameter of the search space that decreases as the budget "
-                     "is used, which prolongs the exploration phase.")
+                     "A sample z shorter than the threshold t is lengthened to 2 t - ||z||. "
+                     "t = init_threshold E||z|| ((budget - evaluations) / budget)^decay_factor "
+                     "(`ThresholdConvergence`), computed once per generation: it decreases as the "
+                     "budget is used, which prolongs the exploration phase.")
         .def_prop_rw("sample_sigma",
                      bool_getter(&Modules::sample_sigma),
                      bool_setter(&Modules::sample_sigma),
@@ -416,14 +417,14 @@ void define_parameters(nb::module_ &main)
         .def_rw("cs",
                 &Weights::cs,
                 "The learning rate of the step-size adaptation.\n\n"
-                "Default by ssa: CSA (mueff + 2) / (d + mueff + 3); SR 2 / (d + 2); PSR 0.9; "
-                "XNES 0.01; MXNES 1; LPXNES 9 mueff / (10 sqrt(d)); otherwise (TPA, MSR, SA) 0.3. "
-                "With matrix_adaptation NATURAL_GRADIENT (any ssa): (12 + ln(d)) / (5 d sqrt(d)).")
+                "Default by ssa: CSA (mueff + 2) / (d + mueff + 3); SR 2 / (d + 2); XNES 0.01; "
+                "MXNES 1; LPXNES 9 mueff / (10 sqrt(d)); otherwise (TPA, MSR, PSR, SA) 0.3. With "
+                "matrix_adaptation NATURAL_GRADIENT (any ssa): (9 + 3 ln(d)) / (5 d sqrt(d)).")
         .def_rw("damps",
                 &Weights::damps,
                 "The damping of the step-size update.\n\n"
                 "Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs; for SR "
-                "1 + d / 2; otherwise 1.")
+                "1 + d / 2; for MSR max(1, 2 - 2 / d); otherwise (PSR among them) 1.")
         .def_rw("sqrt_cc_mueff",
                 &Weights::sqrt_cc_mueff,
                 "sqrt(cc (2 - cc) mueff): the normalisation of the update of the path pc.")
@@ -611,8 +612,9 @@ void define_parameters(nb::module_ &main)
             "max_generations : int, optional\n"
             "    Stop after this many generations. Default None: no limit.\n"
             "budget : int, optional\n"
-            "    The maximum number of evaluations, default 10000 * dim. The run stops when the "
-            "evaluations so far plus lambda reach it.\n"
+            "    The maximum number of evaluations, default 10000 * dim. A generation runs only "
+            "when it fits: the run stops when the evaluations so far plus lambda (and TPA's 2 "
+            "points) would exceed it.\n"
             "sigma0 : float, optional\n"
             "    The initial step size, default 2.0; also the step size after a restart (the "
             "small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in [0, 1)).\n"
@@ -690,7 +692,8 @@ void define_parameters(nb::module_ &main)
         .def_rw("budget",
                 &Settings::budget,
                 "The maximum number of evaluations, default 10000 * dim.\n\n"
-                "The run stops when the evaluations so far plus lambda reach it.")
+                "A generation runs only when it fits: the run stops when the evaluations so far "
+                "plus lambda (and TPA's 2 points) would exceed it.")
         .def_rw("sigma0",
                 &Settings::sigma0,
                 "The initial step size, default 2.0; also the step size after a restart (smaller "
@@ -733,8 +736,7 @@ void define_parameters(nb::module_ &main)
         .def_rw("diameter",
                 &Settings::diameter,
                 "The length of the diagonal of the box, ||ub - lb||; 10 when the box is not "
-                "finite.\n\n"
-                "Threshold convergence scales its threshold with it.")
+                "finite (then volume is 10^dim).")
         .def_ro("volume",
                 &Settings::volume,
                 "The volume of the box, prod(ub - lb); 10**dim when the box is not finite.")
@@ -801,21 +803,18 @@ void define_parameters(nb::module_ &main)
         "Rounding is to the nearest integer, halfway cases away from zero.")
         .def(
             "__init__",
-            [](mapping::CoordinateMapping *self, std::vector<int> idx, size_t d, Float mueff) {
-                new (self) mapping::CoordinateMapping(*to_indices(idx), d, mueff);
+            [](mapping::CoordinateMapping *self, std::vector<int> idx, size_t d) {
+                new (self) mapping::CoordinateMapping(*to_indices(idx), d);
             },
             nb::arg("integer_variables"),
             nb::arg("d"),
-            nb::arg("mueff"),
             "A mapping that rounds the given variables.\n\n"
             "Parameters\n"
             "----------\n"
             "integer_variables : list of int\n"
             "    The indices of the integer variables, each in 0..d-1 (otherwise ValueError).\n"
             "d : int\n"
-            "    The dimension.\n"
-            "mueff : float\n"
-            "    Not used by the mapping.")
+            "    The dimension.")
         .def("transform",
              &mapping::CoordinateMapping::transform,
              nb::arg("x"),
@@ -832,9 +831,7 @@ void define_parameters(nb::module_ &main)
         "(set_seed) at creation.")
         .def(nb::init<size_t>(),
              nb::arg("dimension"),
-             "Parameters with the default settings of the C++ library for this dimension.\n\n"
-             "Unlike Settings(dimension) from Python, these settings have verbose = True: a "
-             "message is printed at every restart.")
+             "Parameters with the default settings for this dimension (Settings(dimension)).")
         .def(nb::init<Settings>(),
              nb::arg("settings"),
              "Parameters for the given settings (copied).")
@@ -845,37 +842,6 @@ void define_parameters(nb::module_ &main)
              "MinSigma and MaxSigma restart criteria when constants.clip_sigma is set), the "
              "matrix of the matrix adaptation and the restart criteria, then increments "
              "stats.t. ModularCMAES.adapt calls it.")
-        .def(
-            "start",
-            [](Parameters &p, FunctionType objective) { p.start(objective); },
-            nb::arg("objective"),
-            "Begin a generation, and restart when a restart criterion holds.\n\n"
-            "The population becomes old_pop. When a criterion of criteria holds, a restart is "
-            "performed (see perform_restart), with the step size of the restart strategy.\n\n"
-            "Parameters\n"
-            "----------\n"
-            "objective : callable\n"
-            "    The objective function, called with a (d,) array; it evaluates the center of a "
-            "restart and the hill-valley tests of repelling restarts.")
-        .def(
-            "perform_restart",
-            [](Parameters &p, FunctionType objective, std::optional<Float> sigma) {
-                p.perform_restart(objective, sigma);
-            },
-            nb::arg("objective"),
-            nb::arg("sigma") = nb::none(),
-            "Restart now.\n\n"
-            "Appends stats.current_best to stats.solutions, evaluates the current mean (the "
-            "center of the run that ends) and, with repelling restarts, the points of the "
-            "hill-valley tests. Then it resets the sampler, the weights (for the current mu and "
-            "lamb), both populations, the step size, the matrix adaptation and the restart "
-            "criteria, and places the new mean with center_placement.\n\n"
-            "Parameters\n"
-            "----------\n"
-            "objective : callable\n"
-            "    The objective function, called with a (d,) array.\n"
-            "sigma : float, optional\n"
-            "    The step size of the new run; default settings.sigma0.")
         .def("resize_population",
              &Parameters::resize_population,
              nb::arg("new_mu"),
@@ -1031,9 +997,8 @@ void define_cmaes(nb::module_ &m)
              "parameters).")
         .def(nb::init<size_t>(),
              nb::arg("dimension"),
-             "An optimizer with the default settings of the C++ library for this dimension.\n\n"
-             "The same as ModularCMAES(Parameters(dimension)): unlike Settings(dimension), these "
-             "settings have verbose = True.")
+             "An optimizer with the default settings for this dimension: the same as "
+             "ModularCMAES(Settings(dimension)).")
         .def(nb::init<parameters::Settings>(),
              nb::arg("settings"),
              "An optimizer for the given Settings (copied).")
@@ -1064,8 +1029,9 @@ void define_cmaes(nb::module_ &m)
              &ModularCMAES::recombine,
              "Move the mean to the weighted mean of the mu best individuals.\n\n"
              "m_old = m, then m = m_old + sum_k positive[k] (X[:, k] - m_old) over the first mu "
-             "columns of the (sorted) population. The third step of a generation, after "
-             "select().")
+             "columns of the (sorted) population; with the utility weights of NES/xNES, over "
+             "every individual. The third step of a generation, after select(). Raises "
+             "RuntimeError while a generation that ask() started waits for tell().")
         .def(
             "mutate",
             [](ModularCMAES &c, FunctionType objective) { c.mutate(objective); },
@@ -1182,11 +1148,13 @@ void define_cmaes(nb::module_ &m)
                      "Whether ask() has points that wait for tell().")
         .def("break_conditions",
              &ModularCMAES::break_conditions,
-             "Whether the run should stop.\n\n"
+             "Whether the run should stop; meaningful between generations (after tell() "
+             "returned True).\n\n"
              "True when one of these holds: p.stats.t reached settings.max_generations; the "
              "best objective value is at most settings.target; the next generation (lambda "
-             "points, and the 2 extra points of TPA) would exceed settings.budget; or "
-             "restart_strategy is STOP and a restart criterion holds.")
+             "points, and the 2 extra points of TPA) would exceed settings.budget; a restart is "
+             "due, but its center and the smallest first generation of the new run would exceed "
+             "settings.budget; or restart_strategy is STOP and a restart criterion holds.")
         .def_ro("p",
                 &ModularCMAES::p,
                 "The Parameters: the state of the optimizer (settings, modules, population, "

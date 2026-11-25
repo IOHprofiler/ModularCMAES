@@ -172,7 +172,6 @@ Sobol::Sobol(const size_t dim, const std::shared_ptr<rng::Generator> &generator)
     long long seed = 2;
     for (size_t i = 0; i < cache.n_samples; i++)
         i8_sobol(static_cast<int>(d), &seed, cache.cache.data() + i * d);
-    // cache.transform(ppf);
 }
 
 namespace

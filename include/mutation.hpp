@@ -10,20 +10,11 @@ namespace parameters
 struct Stats;
 struct Parameters;
 struct Weights;
-struct Strategy;
 struct Modules;
 } // namespace parameters
 namespace matrix_adaptation
 {
 struct Adaptation;
-}
-namespace bounds
-{
-struct BoundCorrection;
-}
-namespace evaluation
-{
-struct Evaluations;
 }
 
 namespace mutation

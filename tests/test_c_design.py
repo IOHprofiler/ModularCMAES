@@ -125,7 +125,7 @@ class TestPairwiseActive(unittest.TestCase):
         pop.f = np.array([0, 1, 2, 3, 4] + [np.inf] * 5, dtype=float)
         p.pop = pop
         c_before = p.adaptation.C.copy()
-        p.adaptation.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats)
+        p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
         self.assertFalse(np.allclose(c_before, p.adaptation.C))
 
     def test_with_default_mu_active_has_no_effect(self):
@@ -137,7 +137,7 @@ class TestPairwiseActive(unittest.TestCase):
             p.pop = Population(4, 10)
             p.pop.Y = rng.standard_normal((4, 10)) if not results else results[0][1]
             p.pop.f = np.array([0, 1, 2, 3, 4] + [np.inf] * 5, dtype=float)
-            p.adaptation.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats)
+            p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
             results.append((p.adaptation.C.copy(), p.pop.Y.copy()))
         np.testing.assert_allclose(results[0][0], results[1][0])
 

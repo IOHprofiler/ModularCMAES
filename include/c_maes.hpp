@@ -1,6 +1,5 @@
 #pragma once
 
-#include <optional>
 #include <vector>
 
 #include "parameters.hpp"
@@ -43,8 +42,8 @@ struct ModularCMAES
     /*
      * The steps of a generation (the 1.x API): mutate(), select(), recombine(), adapt(). As in
      * 1.x, mutate() always starts a new generation (or completes one that ask() started), and the
-     * other steps act on the state as it is. select() and adapt() refuse to run while ask() has
-     * points that wait for tell().
+     * other steps act on the state as it is. select(), recombine() and adapt() refuse to run while
+     * a generation started by ask() is in progress.
      */
 
     void recombine() const;
@@ -174,13 +173,13 @@ struct ModularCMAES
     //! Queue k points for a source: returns their columns, to be filled before the next queue()
     Eigen::Ref<Matrix> queue(Eigen::Index k, Source source, Eigen::Index index = 0);
     //! Queue the points X (copied)
-    void queue(Eigen::Ref<const Matrix> X, Source source, Eigen::Index index = 0);
+    void queue(Eigen::Ref<const Matrix> X, Source source);
     //! Queue the next batch of the population (Strategy::sample_batch_from)
     void queue_population_batch();
     //! Queue the extra points of the step-size adaptation (TPA's)
     void queue_extra_points();
     //! The objective values of the queued points
     void evaluate(FunctionType &objective);
-    //! select() and adapt() of the 1.x API: not while a generation waits for tell()
+    //! select(), recombine() and adapt() of the 1.x API: not while a generation waits for tell()
     void require_no_generation(const char *step) const;
 };

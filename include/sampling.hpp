@@ -7,7 +7,6 @@
 namespace parameters
 {
 struct Modules;
-struct Strategy;
 } // namespace parameters
 
 namespace sampling

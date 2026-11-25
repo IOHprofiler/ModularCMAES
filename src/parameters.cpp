@@ -1,7 +1,5 @@
 #include "parameters.hpp"
 
-#include <stdexcept>
-
 namespace parameters
 {
 Parameters::Parameters(const Settings &settings) :
@@ -17,11 +15,8 @@ Parameters::Parameters(const Settings &settings) :
     pop(settings.dim, settings.lambda0),
     old_pop(settings.dim, settings.lambda0),
     criteria(restart::Criteria::get(settings.modules, settings.lambda0)),
-    adaptation(matrix_adaptation::get(settings.modules,
-                                      settings.dim,
-                                      settings.x0.value_or(settings.center),
-                                      sampler->expected_length(),
-                                      settings.sigma0)),
+    adaptation(matrix_adaptation::get(
+        settings.modules, settings.dim, settings.x0.value_or(settings.center))),
     mutation(mutation::get(
         settings.modules, static_cast<Float>(settings.dim), settings.sigma0, generator)),
     selection(std::make_shared<selection::Strategy>(settings.modules)),
@@ -32,7 +27,7 @@ Parameters::Parameters(const Settings &settings) :
     bounds(bounds::get(settings.modules.bound_correction, settings.dim, generator)),
     repelling(repelling::get(settings.modules)),
     center_placement(center::get(settings.modules.center_placement)),
-    coordinate_mapping(mapping::get(settings.integer_variables, settings.dim, weights.mueff))
+    coordinate_mapping(mapping::get(settings.integer_variables, settings.dim))
 {
     criteria.reset(*this);
 }
@@ -53,31 +48,6 @@ void Parameters::resize_population(const size_t new_mu, const size_t new_lambda)
     pop = Population(settings.dim, lambda);
 
     // old_pop = Population(settings.dim, lambda);
-}
-
-void Parameters::perform_restart(FunctionType &objective, const std::optional<Float> &sigma)
-{
-    begin_restart(sigma);
-    complete_restart(objective);
-}
-
-void Parameters::complete_restart(FunctionType &objective)
-{
-    // The restart steps of ModularCMAES::advance, with an objective function
-    {
-        const Vector x = restart_center();
-        const Float y = objective(x);
-        stats.evaluations++;
-        tell_restart_center(y, x);
-    }
-    while (repelling->has_query())
-    {
-        const Vector x = repelling->query_point();
-        const Float y = objective(x);
-        stats.evaluations++;
-        repelling->answer(y, x, *this);
-    }
-    finish_restart();
 }
 
 size_t Parameters::reserved_points() const
@@ -114,7 +84,8 @@ void Parameters::begin_restart(const std::optional<Float> &sigma)
 
 void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
 {
-    stats.centers.emplace_back(x, y, stats.t - 1, stats.evaluations);
+    // The center belongs to the last generation of the run that ends (0 before any)
+    stats.centers.emplace_back(x, y, stats.t > 0 ? stats.t - 1 : 0, stats.evaluations);
     stats.update_best(stats.centers.back().x, stats.centers.back().y);
     stats.has_improved = false;
     repelling->begin_update(*this);
@@ -136,7 +107,7 @@ void Parameters::finish_restart()
                              static_cast<Float>(settings.dim),
                              sigma.value_or(settings.sigma0),
                              generator);
-    adaptation->restart(settings, sigma.value_or(settings.sigma0));
+    adaptation->restart(settings);
     (*center_placement)(*this);
     criteria.reset(*this);
     stats.current_best = {};
@@ -164,9 +135,30 @@ void Parameters::fit_lambda_to_budget()
     lambda = capped;
 }
 
-bool Parameters::restart_fits(const size_t n) const
+bool Parameters::restart_fits() const
 {
-    return stats.evaluations + n + min_lambda_after_restart + reserved_points() <= settings.budget;
+    return stats.evaluations + 1 + min_lambda_after_restart + reserved_points() <= settings.budget;
+}
+
+void Parameters::recombine()
+{
+    auto &a = *adaptation;
+    a.m_old = a.m;
+    // m = m_old + (X_mu - m_old) w. Eigen evaluated this product (its left-hand side is an
+    // expression, not a matrix) as dst = m_old; dst += w_k (x_k - m_old) for k = 0..mu-1; the same
+    // loop, without the temporary, gives the same bits.
+    a.m = a.m_old;
+    if (weights.utility)
+    {
+        // UTILITY (NES/xNES): every evaluated point, with the utilities (which sum to zero)
+        Vector u;
+        weights.mean_weights_into(pop.n, u);
+        for (Eigen::Index k = 0; k < u.size(); ++k)
+            a.m.noalias() += u(k) * (pop.X.col(k) - a.m_old);
+        return;
+    }
+    for (Eigen::Index k = 0; k < static_cast<Eigen::Index>(mu); ++k)
+        a.m.noalias() += (1.0 * weights.positive(k)) * (pop.X.col(k) - a.m_old);
 }
 
 void Parameters::adapt()
@@ -179,7 +171,7 @@ void Parameters::adapt()
                                    restart::MaxSigma::tolerance);
 
     successful_adaptation =
-        adaptation->adapt_matrix(weights, settings.modules, pop, mu, settings, stats);
+        adaptation->adapt_matrix(weights, pop, mu, settings, stats);
     criteria.update(*this);
     stats.t++;
     stats.t_run++;
@@ -196,11 +188,6 @@ bool Parameters::begin_generation()
     return true;
 }
 
-void Parameters::start(FunctionType &objective)
-{
-    if (begin_generation())
-        complete_restart(objective);
-}
 } // namespace parameters
 
 std::ostream &operator<<(std::ostream &os, const parameters::Stats &s)

@@ -73,7 +73,7 @@ class Modules:
         """
         bool, default False: threshold convergence (Piad-Morffis et al.).
 
-        Samples shorter than a threshold are lengthened; the threshold is a fraction of the diameter of the search space that decreases as the budget is used, which prolongs the exploration phase.
+        A sample z shorter than the threshold t is lengthened to 2 t - ||z||. t = init_threshold E||z|| ((budget - evaluations) / budget)^decay_factor (`ThresholdConvergence`), computed once per generation: it decreases as the budget is used, which prolongs the exploration phase.
         """
 
     @threshold_convergence.setter
@@ -466,7 +466,7 @@ class Weights:
         """
         The learning rate of the step-size adaptation.
 
-        Default by ssa: CSA (mueff + 2) / (d + mueff + 3); SR 2 / (d + 2); PSR 0.9; XNES 0.01; MXNES 1; LPXNES 9 mueff / (10 sqrt(d)); otherwise (TPA, MSR, SA) 0.3. With matrix_adaptation NATURAL_GRADIENT (any ssa): (12 + ln(d)) / (5 d sqrt(d)).
+        Default by ssa: CSA (mueff + 2) / (d + mueff + 3); SR 2 / (d + 2); XNES 0.01; MXNES 1; LPXNES 9 mueff / (10 sqrt(d)); otherwise (TPA, MSR, PSR, SA) 0.3. With matrix_adaptation NATURAL_GRADIENT (any ssa): (9 + 3 ln(d)) / (5 d sqrt(d)).
         """
 
     @cs.setter
@@ -477,7 +477,7 @@ class Weights:
         """
         The damping of the step-size update.
 
-        Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs; for SR 1 + d / 2; otherwise 1.
+        Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs; for SR 1 + d / 2; for MSR max(1, 2 - 2 / d); otherwise (PSR among them) 1.
         """
 
     @damps.setter
@@ -620,7 +620,7 @@ class Settings:
         max_generations : int, optional
             Stop after this many generations. Default None: no limit.
         budget : int, optional
-            The maximum number of evaluations, default 10000 * dim. The run stops when the evaluations so far plus lambda reach it.
+            The maximum number of evaluations, default 10000 * dim. A generation runs only when it fits: the run stops when the evaluations so far plus lambda (and TPA's 2 points) would exceed it.
         sigma0 : float, optional
             The initial step size, default 2.0; also the step size after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in [0, 1)).
         mu0 : int, optional
@@ -712,7 +712,7 @@ class Settings:
         """
         The maximum number of evaluations, default 10000 * dim.
 
-        The run stops when the evaluations so far plus lambda reach it.
+        A generation runs only when it fits: the run stops when the evaluations so far plus lambda (and TPA's 2 points) would exceed it.
         """
 
     @budget.setter
@@ -795,9 +795,7 @@ class Settings:
     @property
     def diameter(self) -> float:
         """
-        The length of the diagonal of the box, ||ub - lb||; 10 when the box is not finite.
-
-        Threshold convergence scales its threshold with it.
+        The length of the diagonal of the box, ||ub - lb||; 10 when the box is not finite (then volume is 10^dim).
         """
 
     @diameter.setter
@@ -909,7 +907,7 @@ class CoordinateMapping:
     Rounding is to the nearest integer, halfway cases away from zero.
     """
 
-    def __init__(self, integer_variables: Sequence[int], d: int, mueff: float) -> None:
+    def __init__(self, integer_variables: Sequence[int], d: int) -> None:
         """
         A mapping that rounds the given variables.
 
@@ -919,8 +917,6 @@ class CoordinateMapping:
             The indices of the integer variables, each in 0..d-1 (otherwise ValueError).
         d : int
             The dimension.
-        mueff : float
-            Not used by the mapping.
         """
 
     def transform(self, x: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:

@@ -4,23 +4,8 @@
 
 void ModularCMAES::recombine() const
 {
-    auto &a = *p->adaptation;
-    a.m_old = a.m;
-    // m = m_old + (X_mu - m_old) w. Eigen evaluated this product (its left-hand side is an
-    // expression, not a matrix) as dst = m_old; dst += w_k (x_k - m_old) for k = 0..mu-1; the same
-    // loop, without the temporary, gives the same bits.
-    a.m = a.m_old;
-    if (p->weights.utility)
-    {
-        // UTILITY (NES/xNES): every evaluated point, with the utilities (which sum to zero)
-        Vector u;
-        p->weights.mean_weights_into(p->pop.n, u);
-        for (Eigen::Index k = 0; k < u.size(); ++k)
-            a.m.noalias() += u(k) * (p->pop.X.col(k) - a.m_old);
-        return;
-    }
-    for (Eigen::Index k = 0; k < static_cast<Eigen::Index>(p->mu); ++k)
-        a.m.noalias() += (1.0 * p->weights.positive(k)) * (p->pop.X.col(k) - a.m_old);
+    require_no_generation("recombine()");
+    p->recombine();
 }
 
 void ModularCMAES::select() const
@@ -97,7 +82,7 @@ bool ModularCMAES::break_conditions() const
         p->settings.modules.restart_strategy != parameters::RestartStrategyType::STOP &&
         p->criteria.any();
     const auto budget_used_up =
-        restart_due ? !p->restart_fits(1)
+        restart_due ? !p->restart_fits()
                     : (p->stats.evaluations + p->lambda + p->reserved_points()) >
                           p->settings.budget;
     const auto exceed_gens =
@@ -254,9 +239,11 @@ bool ModularCMAES::advance(const bool stop_before_selection)
             break;
 
         case Step::UPDATE:
-            recombine();
-            p->adapt();
+            // The next step is set first: when the update throws (a restart criterion written in
+            // Python), the next ask() starts a new generation instead of repeating the update
             next = Step::BEGIN;
+            p->recombine();
+            p->adapt();
             return true;
         }
     }
@@ -285,19 +272,21 @@ Eigen::Ref<Matrix> ModularCMAES::queue(const Eigen::Index k,
 {
     const Eigen::Index needed = n_pending + k;
     if (batch.rows() != static_cast<Eigen::Index>(p->settings.dim) || batch.cols() < needed)
-        // Grows rarely (a population of a new size), keeping the queued points
+    {
+        // Grows rarely (a population of a new size), keeping the queued points; room for a whole
+        // generation (the population and its reserved points)
+        const auto generation = static_cast<Eigen::Index>(p->lambda + p->reserved_points());
         batch.conservativeResize(static_cast<Eigen::Index>(p->settings.dim),
-                                 std::max(needed, static_cast<Eigen::Index>(p->lambda) + 2));
+                                 std::max(needed, generation));
+    }
     requests.push_back(Request{source, n_pending, k, index});
     n_pending = needed;
     return batch.middleCols(needed - k, k);
 }
 
-void ModularCMAES::queue(Eigen::Ref<const Matrix> X,
-                         const Source source,
-                         const Eigen::Index index)
+void ModularCMAES::queue(Eigen::Ref<const Matrix> X, const Source source)
 {
-    queue(X.cols(), source, index) = X;
+    queue(X.cols(), source) = X;
 }
 
 void ModularCMAES::evaluate(FunctionType &objective)

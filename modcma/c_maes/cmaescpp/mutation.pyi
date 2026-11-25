@@ -170,7 +170,7 @@ class SigmaSampler:
 
     def apply_integer_bounds(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
         """
-        Raise the step sizes of the integer variables to their lower bound int_lb_sigma / sqrt(C_ii) (`es.p.weights.int_lb_sigma`, C_ii from `adaptation.coordinate_wise_variances`).
+        Raise the step sizes of the integer variables to their lower bound min(0.2, mueff / d) / sqrt(C_ii) (C_ii from `adaptation.coordinate_wise_variances`).
 
         Parameters
         ----------
@@ -207,9 +207,9 @@ class NoSigmaSampler(SigmaSampler):
 
 class Strategy:
     """
-    Base class of the step-size adaptations; also samples and evaluates a population.
+    Base class of the step-size adaptations; also samples the population.
 
-    The optimizer samples a population through it, in batches, and `adapt` updates sigma after selection. The base class does not change sigma. The optimizer creates the subclass of `Modules.ssa`; each subclass has the same constructor.
+    The optimizer samples a population through it, in batches, passes it the objective values, and `adapt` updates sigma after selection. The base class does not change sigma. The optimizer creates the subclass of `Modules.ssa`; each subclass has the same constructor.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -322,7 +322,7 @@ class TPA(Strategy):
     """
     Two-point step-size adaptation (`StepSizeAdaptation.TPA`).
 
-    After each population the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma.
+    With every population (in its first batch) the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:

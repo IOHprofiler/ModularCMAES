@@ -77,15 +77,6 @@ class Adaptation:
     @coordinate_wise_variances.setter
     def coordinate_wise_variances(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
 
-    @property
-    def expected_length_z(self) -> float:
-        """
-        The expected length of a sample z of the sampler, given at construction (about sqrt(d) for the Gaussian).
-        """
-
-    @expected_length_z.setter
-    def expected_length_z(self, arg: float, /) -> None: ...
-
     def adapt_evolution_paths(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings, mu: int, lamb: int) -> None:
         """
         Update dm, dz and the evolution paths after selection.
@@ -128,7 +119,7 @@ class Adaptation:
             The population size lambda.
         """
 
-    def adapt_matrix(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, modules: modcma.c_maes.cmaescpp.parameters.Modules, population: modcma.c_maes.cmaescpp.Population, mu: int, settings: modcma.c_maes.cmaescpp.parameters.Settings, stats: modcma.c_maes.cmaescpp.parameters.Stats) -> bool:
+    def adapt_matrix(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, population: modcma.c_maes.cmaescpp.Population, mu: int, settings: modcma.c_maes.cmaescpp.parameters.Settings, stats: modcma.c_maes.cmaescpp.parameters.Stats) -> bool:
         """
         Update the matrix of the search distribution from the selected population.
 
@@ -138,14 +129,12 @@ class Adaptation:
         ----------
         weights : Weights
             The recombination weights and learning rates (`es.p.weights`).
-        modules : Modules
-            The modules (`active`: negative weights for the worst individuals).
         population : Population
             The selected population (sorted, best first).
         mu : int
             The number of selected individuals.
         settings : Settings
-            The settings.
+            The settings (`modules.active`: negative weights for the worst individuals).
         stats : Stats
             The statistics; `last_update` and `n_updates` are updated.
 
@@ -155,7 +144,7 @@ class Adaptation:
             Whether the update succeeded.
         """
 
-    def restart(self, settings: modcma.c_maes.cmaescpp.parameters.Settings, sigma: float) -> None:
+    def restart(self, settings: modcma.c_maes.cmaescpp.parameters.Settings) -> None:
         """
         Reset the distribution for a restart: m = `settings.x0` (zeros when it is not given), the paths and the matrices to their initial values. The center placement sets m afterwards.
 
@@ -163,8 +152,6 @@ class Adaptation:
         ----------
         settings : Settings
             The settings.
-        sigma : float
-            The step size of the new run (used by `NaturalGradientAdaptation`).
         """
 
     def distance(self, u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], v: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> float:
@@ -257,7 +244,7 @@ class NoAdaptation(Adaptation):
     The cheapest option, O(d lambda) per generation; for well-conditioned (sphere-like) functions, or as a baseline. Settings switches `Modules.active` off with it.
     """
 
-    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], expected_length_z: float) -> None:
+    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
         """
         Create the adaptation with mean x0 and the initial matrix (the identity).
 
@@ -267,8 +254,6 @@ class NoAdaptation(Adaptation):
             The dimension d.
         x0 : numpy.ndarray
             The initial mean m, shape (d,).
-        expected_length_z : float
-            The expected length of a sample z of the sampler (`es.p.sampler.expected_length()`).
         """
 
     def __repr__(self) -> str:
@@ -281,7 +266,7 @@ class CovarianceAdaptation(Adaptation):
     C receives a rank-one update from the evolution path pc and a rank-mu update from the selected steps (with `Modules.active`, negative weights for the worst steps), and is decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = 1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the step-size adaptation is not CSA (unless `always_compute_eigv`). Hansen & Ostermeier (2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.
     """
 
-    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], expected_length_z: float) -> None:
+    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
         """
         Create the adaptation with mean x0 and the initial matrix (the identity).
 
@@ -291,8 +276,6 @@ class CovarianceAdaptation(Adaptation):
             The dimension d.
         x0 : numpy.ndarray
             The initial mean m, shape (d,).
-        expected_length_z : float
-            The expected length of a sample z of the sampler (`es.p.sampler.expected_length()`).
         """
 
     @property
@@ -410,7 +393,7 @@ class SeparableAdaptation(Adaptation):
     Only the d variances are learned, with the rank-one and rank-mu updates of CMA-ES applied per coordinate (the default cmu multiplied by (d + 2) / 3); samples are y = d * z. O(d lambda) per generation: for separable functions, and for high dimension, where a full matrix is slow to learn. Ros & Hansen (2008).
     """
 
-    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], expected_length_z: float) -> None:
+    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
         """
         Create the adaptation with mean x0 and the initial matrix (the identity).
 
@@ -420,8 +403,6 @@ class SeparableAdaptation(Adaptation):
             The dimension d.
         x0 : numpy.ndarray
             The initial mean m, shape (d,).
-        expected_length_z : float
-            The expected length of a sample z of the sampler (`es.p.sampler.expected_length()`).
         """
 
     @property
@@ -461,7 +442,7 @@ class MatrixAdaptation(Adaptation):
     Learns the sampling matrix M directly, y = M z, without a covariance matrix, an evolution path pc or a decomposition: M = (1 - c1/2 - cmu/2) M + (c1/2) (M ps) ps^T + (cmu/2) sum_i w_i y_i z_i^T. O(d^2 lambda) per generation (BLAS from d = `constants.blas_min_dim`), so it suits high dimension. Beyer & Sendhoff (2017).
     """
 
-    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], expected_length_z: float) -> None:
+    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
         """
         Create the adaptation with mean x0 and the initial matrix (the identity).
 
@@ -471,8 +452,6 @@ class MatrixAdaptation(Adaptation):
             The dimension d.
         x0 : numpy.ndarray
             The initial mean m, shape (d,).
-        expected_length_z : float
-            The expected length of a sample z of the sampler (`es.p.sampler.expected_length()`).
         """
 
     @property
@@ -503,7 +482,7 @@ class CholeskyAdaptation(Adaptation):
     The rank-one (pc) and rank-mu updates of C = A A^T are applied to A as rank-one Cholesky updates, one per selected individual, so there is no decomposition: O(d^2 lambda) per generation and O(d^2) memory. Krause et al. (2016).
     """
 
-    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], expected_length_z: float) -> None:
+    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
         """
         Create the adaptation with mean x0 and the initial matrix (the identity).
 
@@ -513,8 +492,6 @@ class CholeskyAdaptation(Adaptation):
             The dimension d.
         x0 : numpy.ndarray
             The initial mean m, shape (d,).
-        expected_length_z : float
-            The expected length of a sample z of the sampler (`es.p.sampler.expected_length()`).
         """
 
     @property
@@ -542,7 +519,7 @@ class SelfAdaptation(Adaptation):
     C = (1 - 1/tc) C + (1/tc) sum_i w_i y_i y_i^T with tc = 1 + d (d + 1) / (2 mueff), without an evolution path, then a Cholesky factorization C = A A^T every generation (O(d^3); LAPACK from d = `constants.lapack_min_dim`). With CMSA the default mu is lambda / 4. The CMSA-ES of the paper adapts the step size by self-adaptation (`StepSizeAdaptation.SA`). Beyer & Sendhoff (2008).
     """
 
-    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], expected_length_z: float) -> None:
+    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
         """
         Create the adaptation with mean x0 and the initial matrix (the identity).
 
@@ -552,8 +529,6 @@ class SelfAdaptation(Adaptation):
             The dimension d.
         x0 : numpy.ndarray
             The initial mean m, shape (d,).
-        expected_length_z : float
-            The expected length of a sample z of the sampler (`es.p.sampler.expected_length()`).
         """
 
     @property
@@ -581,7 +556,7 @@ class CovarianceNoEigvAdaptation(CovarianceAdaptation):
     C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower triangular (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see `constants.cholesky_solver`), which is several times cheaper than an eigendecomposition; B and d keep their initial values. ps is updated with dz instead of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of COVARIANCE for the other step-size adaptations.
     """
 
-    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], expected_length_z: float) -> None:
+    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
         """
         Create the adaptation with mean x0 and the initial matrix (the identity).
 
@@ -591,8 +566,6 @@ class CovarianceNoEigvAdaptation(CovarianceAdaptation):
             The dimension d.
         x0 : numpy.ndarray
             The initial mean m, shape (d,).
-        expected_length_z : float
-            The expected length of a sample z of the sampler (`es.p.sampler.expected_length()`).
         """
 
 class NaturalGradientAdaptation(Adaptation):
@@ -602,9 +575,9 @@ class NaturalGradientAdaptation(Adaptation):
     The sampling matrix is updated multiplicatively, A = A expm(cc G), with the natural gradient G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace part, `sigma_g`, goes to the step size with `StepSizeAdaptation.XNES`) and cc = `es.p.weights.cc`. For lambda < d and d >= 16 the matrix exponential is computed exactly from a thin QR of the samples, O(d^2 lambda); otherwise as a dense d x d exponential. Glasmachers et al. (2010).
     """
 
-    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], expected_length_z: float, sigma: float) -> None:
+    def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
         """
-        Create the adaptation with mean x0 and A = I (sigma sets the spread).
+        Create the adaptation with mean x0 and A = I (the step size sets the spread).
 
         Parameters
         ----------
@@ -612,10 +585,6 @@ class NaturalGradientAdaptation(Adaptation):
             The dimension d.
         x0 : numpy.ndarray
             The initial mean m, shape (d,).
-        expected_length_z : float
-            The expected length of a sample z of the sampler (`es.p.sampler.expected_length()`).
-        sigma : float
-            The initial step size sigma0.
         """
 
     @property
@@ -676,7 +645,7 @@ class NaturalGradientAdaptation(Adaptation):
     @sigma_g.setter
     def sigma_g(self, arg: float, /) -> None: ...
 
-    def compute_gradients(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings, mu: int, lamb: int) -> None:
+    def compute_gradients(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, settings: modcma.c_maes.cmaescpp.parameters.Settings) -> None:
         """
         Compute the natural gradient of the population: `gradient_samples`, `gradient_weights`, `gradient_shift` and `sigma_g`. Called by `adapt_evolution_paths`.
 
@@ -686,12 +655,6 @@ class NaturalGradientAdaptation(Adaptation):
             The selected population (sorted, best first).
         weights : Weights
             The recombination weights and learning rates (`es.p.weights`).
-        stats : Stats
-            The statistics of the run (`es.p.stats`).
         settings : Settings
             The settings (`es.p.settings`).
-        mu : int
-            The number of selected individuals.
-        lamb : int
-            The population size lambda.
         """

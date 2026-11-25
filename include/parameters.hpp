@@ -54,14 +54,11 @@ struct Parameters
 
     Parameters(const Settings &settings);
 
-    //! The start of a generation, with an objective for a restart (begin_generation, and the
-    //! restart evaluations when it starts one)
-    void start(FunctionType &objective);
+    //! The new mean: the weighted recombination of the selected points (all of them, with the
+    //! utilities of NES/xNES); the old one becomes adaptation->m_old
+    void recombine();
 
     void adapt();
-
-    //! A restart with an objective function: begin_restart, the evaluations, finish_restart
-    void perform_restart(FunctionType &objective, const std::optional<Float> &sigma = std::nullopt);
 
     /**
      * The points every generation evaluates besides the population, fixed per configuration: TPA's
@@ -76,11 +73,11 @@ struct Parameters
     void inject(const Eigen::Index i, Eigen::Ref<const Vector> x);
 
     /*
-     * The same, in steps (ask-tell). begin_generation makes the previous population old_pop and
-     * decides whether to restart. ModularCMAES::advance then queues the center (restart_center());
-     * its value (tell_restart_center) starts the update of the repelling archive, whose hill-valley
-     * points advance queues one at a time (repelling->query_point()); once they are evaluated,
-     * finish_restart resets the modules.
+     * The start of a generation, and a restart, in steps (ModularCMAES::advance). begin_generation
+     * makes the previous population old_pop and decides whether to restart. advance then queues
+     * the center (restart_center()); its value (tell_restart_center) starts the update of the
+     * repelling archive, whose hill-valley points advance queues one at a time
+     * (repelling->query_point()); once they are evaluated, finish_restart resets the modules.
      */
 
     //! Returns whether a restart started (then restart_center() waits for its objective value)
@@ -97,18 +94,15 @@ struct Parameters
     void finish_restart();
     //! Caps lambda (and mu, in proportion) at the remaining budget; called by finish_restart
     void fit_lambda_to_budget();
-    //! Whether a restart that starts now still fits: n more evaluations (the center, or a
+    //! Whether a restart that starts now still fits: one more evaluation (the center, or a
     //! hill-valley point), then the smallest first generation and its reserved points (TPA's)
-    [[nodiscard]] bool restart_fits(size_t n) const;
+    [[nodiscard]] bool restart_fits() const;
 
     void resize_population(const size_t new_mu, const size_t new_lambda);
 
   private:
     std::optional<Float> restart_sigma;
     Vector pending_restart_center;
-
-    //! The evaluations of a started restart with an objective function, then finish_restart
-    void complete_restart(FunctionType &objective);
 };
 
 } // namespace parameters

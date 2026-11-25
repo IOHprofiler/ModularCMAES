@@ -234,7 +234,7 @@ class Repelling:
 
     def prepare_sampling(self, p: modcma.c_maes.cmaescpp.Parameters) -> None:
         """
-        Before a population: reset `attempts` and sort the archive by criticality (`AdaptiveRepelling` adapts the radii first).
+        Before a population: reset `attempts` and sort the archive by criticality.
 
         Parameters
         ----------

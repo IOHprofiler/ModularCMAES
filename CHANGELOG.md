@@ -16,6 +16,14 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * Internal helpers of repelling: `repelling.hill_valley_test`, `TabooPoint.shares_basin` and
   `Repelling.update_archive` (the optimizer runs the hill-valley tests itself, #84); and
   `mutation.Strategy.mutate`.
+* `Parameters.start` and `Parameters.perform_restart` (internal): only the optimizer evaluates a
+  restart (#84). To force one, add a restart criterion that is met: the next generation starts
+  with the restart.
+* Unused parameters and members of internals: `expected_length_z` of the matrix adaptations
+  (their constructors take `(dimension, x0)`; `Weights.expected_length_z` is the one CSA uses),
+  `sigma` of `Adaptation.restart` and of the `NaturalGradientAdaptation` constructor, `modules` of
+  `Adaptation.adapt_matrix` (it is `settings.modules`), `stats`, `mu` and `lamb` of
+  `NaturalGradientAdaptation.compute_gradients`, and `mueff` of `CoordinateMapping`.
 * `c_maes.utils`: `set_seed`, `build_info` and `compute_ert` moved to the main namespace
   (`modcma.set_seed`, ...; the old names still work, with a `DeprecationWarning`). Removed: `cdf`,
   `ppf` (use `scipy.stats.norm`), `random_uniform`, `random_normal`; the internals of
@@ -28,7 +36,9 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `modcma.c_maes` stays as an alias. `modcma.__version__`.
 * **Ask–tell for every module**: `ask()` returns the points to evaluate as a `(k, d)` array,
   `tell(f)` takes their values; the results are identical to `run()`, bit for bit. `tell(f, X)`
-  evaluates repaired or injected points instead of the asked ones.
+  evaluates repaired or injected points instead of the asked ones. The steps of the 1.x API
+  (`mutate()`, `select()`, `recombine()`, `adapt()`) still work; `select()`, `recombine()` and
+  `adapt()` raise `RuntimeError` while a generation started by `ask()` waits for `tell()`.
 * **Vectorized objectives**: `run(f, vectorized=True)` and `step(f, vectorized=True)` evaluate a
   whole batch per call.
 * **Per-optimizer random generators**: `Settings(seed=...)`; without a seed an optimizer copies the

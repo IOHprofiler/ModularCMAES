@@ -4,13 +4,6 @@
 
 #include <mutex>
 
-template <typename T> std::ostream &operator<<(std::ostream &os, const std::vector<T> &x)
-{
-    for (auto &xi : x)
-        os << xi << ' ';
-    return os;
-}
-
 namespace constants
 {
 size_t cache_max_doubles = 2'000'000;
@@ -28,11 +21,6 @@ size_t blas_min_dim = 100;
 namespace utils
 {
 void sort_index_inplace(const Vector &v, std::vector<size_t> &idx)
-{
-    std::stable_sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
-}
-
-void sort_index_inplace(const std::vector<size_t> &v, std::vector<size_t> &idx)
 {
     std::stable_sort(idx.begin(), idx.end(), [&v](size_t i1, size_t i2) { return v[i1] < v[i2]; });
 }
@@ -61,32 +49,6 @@ std::vector<size_t> sort_indexes(const Vector &v)
     return idx;
 }
 
-std::vector<size_t> sort_indexes(const std::vector<size_t> &v)
-{
-    std::vector<size_t> idx(v.size());
-    std::iota(idx.begin(), idx.end(), 0);
-    sort_index_inplace(v, idx);
-    return idx;
-}
-
-void hstack(Matrix &X, const Matrix &Y)
-{
-    X.conservativeResize(Eigen::NoChange, X.cols() + Y.cols());
-    X.rightCols(Y.cols()) = Y;
-}
-
-void vstack(Matrix &X, const Matrix &Y)
-{
-    X.conservativeResize(X.rows() + Y.rows(), Eigen::NoChange);
-    X.bottomRows(Y.rows()) = Y;
-}
-
-void concat(Vector &x, const Vector &y)
-{
-    x.conservativeResize(x.rows() + y.rows(), Eigen::NoChange);
-    x.bottomRows(y.rows()) = y;
-}
-
 std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, const size_t budget)
 {
     size_t successful_runs = 0, total_rt = 0;
@@ -103,8 +65,7 @@ std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, c
 
 namespace rng
 {
-int SEED = std::random_device()();
-Generator GENERATOR(SEED);
+Generator GENERATOR(std::random_device{}());
 
 namespace
 {
@@ -114,9 +75,7 @@ std::mutex global_mutex;
 void set_seed(const int seed)
 {
     const std::lock_guard<std::mutex> lock(global_mutex);
-    SEED = seed;
     GENERATOR.seed(seed);
-    srand(seed);
 }
 
 std::shared_ptr<Generator> global() { return std::shared_ptr<Generator>(std::shared_ptr<void>{}, &GENERATOR); }
@@ -251,12 +210,6 @@ void CachedShuffleSequence::fill(const std::vector<Float> &c)
         throw std::invalid_argument("CachedShuffleSequence.fill: " + std::to_string(c.size()) +
                                     " values, the cache holds " + std::to_string(cache.size()));
     std::copy(c.begin(), c.end(), cache.begin());
-}
-
-void CachedShuffleSequence::transform(const std::function<Float(Float)> &f)
-{
-    for (Float &i : cache)
-        i = f(i);
 }
 
 Vector CachedShuffleSequence::get_index(const size_t idx)

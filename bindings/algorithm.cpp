@@ -15,23 +15,19 @@ void adaptation_repr(std::stringstream &ss, const matrix_adaptation::Adaptation 
     ss << " ps: " << a.ps.transpose();
 }
 
-//! The constructor (dimension, x0, expected_length_z) of most matrix adaptations
+//! The constructor (dimension, x0) of the matrix adaptations
 template <typename T, typename Class> void adaptation_init(Class &cls)
 {
-    cls.def(nb::init<size_t, Vector, Float>(),
+    cls.def(nb::init<size_t, Vector>(),
             nb::arg("dimension"),
             nb::arg("x0"),
-            nb::arg("expected_length_z"),
             "Create the adaptation with mean x0 and the initial matrix (the identity).\n\n"
             "Parameters\n"
             "----------\n"
             "dimension : int\n"
             "    The dimension d.\n"
             "x0 : numpy.ndarray\n"
-            "    The initial mean m, shape (d,).\n"
-            "expected_length_z : float\n"
-            "    The expected length of a sample z of the sampler "
-            "(`es.p.sampler.expected_length()`).");
+            "    The initial mean m, shape (d,).");
 }
 
 //! The constructor of a step-size adaptation (all inherit the one of mutation::Strategy)
@@ -464,8 +460,7 @@ void define_repelling(nb::module_ &main)
         .def("prepare_sampling",
              &Repelling::prepare_sampling,
              nb::arg("p"),
-             "Before a population: reset `attempts` and sort the archive by criticality "
-             "(`AdaptiveRepelling` adapts the radii first).\n\n"
+             "Before a population: reset `attempts` and sort the archive by criticality.\n\n"
              "Parameters\n"
              "----------\n"
              "p : Parameters\n"
@@ -748,10 +743,6 @@ void define_matrix_adaptation(nb::module_ &main)
                 "diagonal of C = A A^T (without sigma^2), shape (d,). Used for the lower bound on "
                 "the step size of integer variables; a NaN or inf in it fails the matrix "
                 "update.")
-        .def_rw("expected_length_z",
-                &Adaptation::expected_length_z,
-                "The expected length of a sample z of the sampler, given at construction "
-                "(about sqrt(d) for the Gaussian).")
         .def("adapt_evolution_paths",
              &Adaptation::adapt_evolution_paths,
              nb::arg("pop"),
@@ -781,7 +772,6 @@ void define_matrix_adaptation(nb::module_ &main)
         .def("adapt_matrix",
              &Adaptation::adapt_matrix,
              nb::arg("weights"),
-             nb::arg("modules"),
              nb::arg("population"),
              nb::arg("mu"),
              nb::arg("settings"),
@@ -795,14 +785,12 @@ void define_matrix_adaptation(nb::module_ &main)
              "----------\n"
              "weights : Weights\n"
              "    The recombination weights and learning rates (`es.p.weights`).\n"
-             "modules : Modules\n"
-             "    The modules (`active`: negative weights for the worst individuals).\n"
              "population : Population\n"
              "    The selected population (sorted, best first).\n"
              "mu : int\n"
              "    The number of selected individuals.\n"
              "settings : Settings\n"
-             "    The settings.\n"
+             "    The settings (`modules.active`: negative weights for the worst individuals).\n"
              "stats : Stats\n"
              "    The statistics; `last_update` and `n_updates` are updated.\n\n"
              "Returns\n"
@@ -812,16 +800,13 @@ void define_matrix_adaptation(nb::module_ &main)
         .def("restart",
              &Adaptation::restart,
              nb::arg("settings"),
-             nb::arg("sigma"),
              "Reset the distribution for a restart: m = `settings.x0` (zeros when it is not "
              "given), the paths and the matrices to their initial values. The center placement "
              "sets m afterwards.\n\n"
              "Parameters\n"
              "----------\n"
              "settings : Settings\n"
-             "    The settings.\n"
-             "sigma : float\n"
-             "    The step size of the new run (used by `NaturalGradientAdaptation`).")
+             "    The settings.")
         .def("distance",
              &Adaptation::distance,
              nb::arg("u"),
@@ -890,7 +875,7 @@ void define_matrix_adaptation(nb::module_ &main)
             [](Adaptation &a) {
                 return repr("Adaptation", [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
-                    ss << " dd: " << a.dd << " expected_length_z: " << a.expected_length_z;
+                    ss << " dd: " << a.dd;
                 });
             },
             repr_doc);
@@ -908,7 +893,7 @@ void define_matrix_adaptation(nb::module_ &main)
         [](None &a) {
             return repr("NoAdaptation", [&](std::stringstream &ss) {
                 adaptation_repr(ss, a);
-                ss << " dd: " << a.dd << " expected_length_z: " << a.expected_length_z;
+                ss << " dd: " << a.dd;
             });
         },
         repr_doc);
@@ -1008,7 +993,7 @@ void define_matrix_adaptation(nb::module_ &main)
                     adaptation_repr(ss, a);
                     ss << " pc: " << a.pc.transpose() << " d: " << a.d.transpose();
                     ss << " B: " << a.B << " C: " << a.C << " inv_root_C: " << a.inv_root_C();
-                    ss << " dd: " << a.dd << " expected_length_z: " << a.expected_length_z;
+                    ss << " dd: " << a.dd;
                     ss << " hs: " << a.hs;
                 });
             },
@@ -1041,8 +1026,7 @@ void define_matrix_adaptation(nb::module_ &main)
                 return repr("SeparableAdaptation", [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
                     ss << " pc: " << a.pc.transpose() << " d: " << a.d.transpose();
-                    ss << " c: " << a.c.transpose()
-                       << " expected_length_z: " << a.expected_length_z;
+                    ss << " c: " << a.c.transpose();
                     ss << " hs: " << a.hs;
                 });
             },
@@ -1072,7 +1056,6 @@ void define_matrix_adaptation(nb::module_ &main)
                 return repr("MatrixAdaptation", [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
                     ss << " M: " << a.M << " dd: " << a.dd;
-                    ss << " expected_length_z: " << a.expected_length_z;
                 });
             },
             repr_doc);
@@ -1138,23 +1121,16 @@ void define_matrix_adaptation(nb::module_ &main)
         "`es.p.weights.cc`. For lambda < d and d >= 16 the matrix exponential is computed "
         "exactly from a thin QR of the samples, O(d^2 lambda); otherwise as a dense d x d "
         "exponential. Glasmachers et al. (2010).")
-        .def(nb::init<size_t, Vector, Float, Float>(),
+        .def(nb::init<size_t, Vector>(),
              nb::arg("dimension"),
              nb::arg("x0"),
-             nb::arg("expected_length_z"),
-             nb::arg("sigma"),
-             "Create the adaptation with mean x0 and A = I (sigma sets the spread).\n\n"
+             "Create the adaptation with mean x0 and A = I (the step size sets the spread).\n\n"
              "Parameters\n"
              "----------\n"
              "dimension : int\n"
              "    The dimension d.\n"
              "x0 : numpy.ndarray\n"
-             "    The initial mean m, shape (d,).\n"
-             "expected_length_z : float\n"
-             "    The expected length of a sample z of the sampler "
-             "(`es.p.sampler.expected_length()`).\n"
-             "sigma : float\n"
-             "    The initial step size sigma0.")
+             "    The initial mean m, shape (d,).")
         .def_rw("A",
                 &NaturalGradientAdaptation::A,
                 "The sampling matrix, y = A z, shape (d, d) (I at the start).")
@@ -1190,14 +1166,18 @@ void define_matrix_adaptation(nb::module_ &main)
              &NaturalGradientAdaptation::compute_gradients,
              nb::arg("pop"),
              nb::arg("weights"),
-             nb::arg("stats"),
              nb::arg("settings"),
-             nb::arg("mu"),
-             nb::arg("lamb"),
              "Compute the natural gradient of the population: "
              "`gradient_samples`, `gradient_weights`, `gradient_shift` and "
              "`sigma_g`. Called by `adapt_evolution_paths`.\n\n"
-             ADAPT_PARAMS_DOC);
+             "Parameters\n"
+             "----------\n"
+             "pop : Population\n"
+             "    The selected population (sorted, best first).\n"
+             "weights : Weights\n"
+             "    The recombination weights and learning rates (`es.p.weights`).\n"
+             "settings : Settings\n"
+             "    The settings (`es.p.settings`).");
 
     // The old, misspelled name of 1.x, with a DeprecationWarning
     adaptation.def(
@@ -1557,7 +1537,7 @@ void define_mutation(nb::module_ &main)
              nb::overload_cast<parameters::Parameters &>(&SigmaSampler::apply_integer_bounds),
              nb::arg("parameters"),
              "Raise the step sizes of the integer variables to their lower bound "
-             "int_lb_sigma / sqrt(C_ii) (`es.p.weights.int_lb_sigma`, C_ii from "
+             "min(0.2, mueff / d) / sqrt(C_ii) (C_ii from "
              "`adaptation.coordinate_wise_variances`).\n\n"
              "Parameters\n"
              "----------\n"
@@ -1592,9 +1572,9 @@ void define_mutation(nb::module_ &main)
     nb::class_<Strategy>(
         m,
         "Strategy",
-        "Base class of the step-size adaptations; also samples and evaluates a population.\n\n"
-        "The optimizer samples a population through it, in batches, and `adapt` updates sigma "
-        "after selection. "
+        "Base class of the step-size adaptations; also samples the population.\n\n"
+        "The optimizer samples a population through it, in batches, passes it the objective "
+        "values, and `adapt` updates sigma after selection. "
         "The base class does not change sigma. The optimizer creates the subclass of "
         "`Modules.ssa`; each subclass has the same constructor.")
         .def(nb::init<std::shared_ptr<ThresholdConvergence>,
@@ -1671,9 +1651,9 @@ void define_mutation(nb::module_ &main)
         m,
         "TPA",
         "Two-point step-size adaptation (`StepSizeAdaptation.TPA`).\n\n"
-        "After each population the two points m + sigma dm and m - sigma dm (along the last "
-        "step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when "
-        "m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as "
+        "With every population (in its first batch) the two points m + sigma dm and "
+        "m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, "
+        "with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as "
         "after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per "
         "generation. Hansen (2008); a tie as in pycma.")
         .def_rw("a_tpa", &TPA::a_tpa, "The magnitude of r (default 0.5).")

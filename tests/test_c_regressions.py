@@ -64,7 +64,7 @@ class TestActiveCovarianceUpdate(unittest.TestCase):
         Y, hs = p.pop.Y.copy(), a.hs
         w = np.array(p.weights.weights[: Y.shape[1]])
         c1, cmu, cc = p.weights.c1, p.weights.cmu, p.weights.cc
-        self.assertTrue(a.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats))
+        self.assertTrue(a.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats))
 
         # ||C^-1/2 y||^2 = y^T C^-1 y, with C the matrix before this update
         rank_mu_w = w.copy()
@@ -215,7 +215,7 @@ class TestSequentialSelectionPopulation(unittest.TestCase):
             w = np.array(p.weights.for_population(n))
             c1, cmu, cc = p.weights.c1, p.weights.cmu, p.weights.cc
             p.stats.t = 10**6  # past the lazy-update interval
-            self.assertTrue(a.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats))
+            self.assertTrue(a.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats))
             rank_mu_w = w.copy()
             for i in range(p.mu, n):
                 rank_mu_w[i] *= 5 / (Y[:, i] @ np.linalg.solve(C0, Y[:, i]))
@@ -321,7 +321,7 @@ class TestNonFiniteMatrixRestarts(unittest.TestCase):
             p.pop.Z = np.full_like(np.array(p.pop.Z), np.nan)
             p.stats.t = 10**6  # past any lazy-update interval
             p.adaptation.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu, p.lamb)
-            ok = p.adaptation.adapt_matrix(p.weights, p.settings.modules, p.pop, p.mu, p.settings, p.stats)
+            ok = p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
             self.assertFalse(ok, name)
 
 

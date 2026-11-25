@@ -189,7 +189,6 @@ struct AdaptiveRepelling : Repelling
     Float max_radius(const parameters::Parameters &p) const;
 
     void adapt_radii_after_sampling(parameters::Parameters &p) override;
-    void prepare_sampling(parameters::Parameters &p) override;
 
   protected:
     bool updates_archive() const override { return true; }
