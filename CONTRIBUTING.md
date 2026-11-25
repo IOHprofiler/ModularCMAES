@@ -84,8 +84,9 @@ receives their values when the user calls `tell()`, or when `run()` evaluates th
 (`include/evaluation.hpp`):
 
 * **Subscribe to a stage** of the generation: `p.pipeline.on(GenerationStage::X, name, hook,
-  min_points)`. The stages are `RUN_ENDING`, `RUN_STARTING`, `GENERATION_STARTING`, `POPULATION`,
-  `ALONGSIDE_POPULATION`, `POPULATION_EVALUATED`, `SELECTED` and `UPDATED`.
+  min_points)`. The stages are `RUN_ENDING`, `RUN_STARTING`, `GENERATION_STARTING`, `POPULATION`
+  (for points that do not depend on the population's values; they join its first batch),
+  `POPULATION_EVALUATED`, `SELECTED` and `UPDATED`.
 * **Queue points in the hook:** `p.queue.push(X, consumer, source)`. The consumer receives the
   values (`Evaluations`) and may queue follow-up points in the same stage.
 * **A fixed number of points per generation** is declared with `min_points`, which the budget

@@ -947,20 +947,17 @@ class GenerationStage(enum.Enum):
     """The distribution of this generation is fixed; nothing is sampled yet."""
 
     POPULATION = 3
-    """The population: lambda points, in batches with sequential selection."""
-
-    ALONGSIDE_POPULATION = 4
     """
-    Points that do not depend on the values of the population (TPA's): with the population's final batch, or right after it when it stops early.
+    The population: lambda points, in batches with sequential selection. Its subscribers add points that do not depend on the population's values (TPA's), which join the first batch.
     """
 
-    POPULATION_EVALUATED = 5
+    POPULATION_EVALUATED = 4
     """Every point of the population has its value; before selection."""
 
-    SELECTED = 6
+    SELECTED = 5
     """After selection, before recombination."""
 
-    UPDATED = 7
+    UPDATED = 6
     """The mean, sigma and matrix are updated; the end of a generation."""
 
 class EvaluationQueue:

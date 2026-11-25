@@ -162,12 +162,12 @@ bool ModularCMAES::advance()
             enter(GenerationStage::GENERATION_STARTING);
             break;
         case GenerationStage::GENERATION_STARTING:
-            // Queues the population's first batch; ALONGSIDE_POPULATION fires from within
+            // Queues the population's first batch and fires POPULATION (its subscribers' points
+            // join that batch)
             stage = GenerationStage::POPULATION;
             p->mutation->begin_population(p->lambda, *p);
             break;
         case GenerationStage::POPULATION:
-        case GenerationStage::ALONGSIDE_POPULATION:
             enter(GenerationStage::POPULATION_EVALUATED);
             break;
         case GenerationStage::POPULATION_EVALUATED:

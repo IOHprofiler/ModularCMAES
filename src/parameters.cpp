@@ -51,7 +51,7 @@ Parameters::Parameters(const Settings &settings) :
             "restart-center");
     });
     pipeline.on(
-        GenerationStage::ALONGSIDE_POPULATION,
+        GenerationStage::POPULATION,
         "step-size-extra-points",
         [](Parameters &p) {
             const auto k = static_cast<Eigen::Index>(p.mutation->n_extra_points());

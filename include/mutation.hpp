@@ -155,8 +155,8 @@ struct Strategy
      * first batch: individuals 0..first_stop(0). The consumer of a batch passes each value to
      * evaluated() and queues the next batch, or, once the population is complete, calls
      * end_population. A sample does not depend on the objective values of the ones before it, so
-     * a batch is sampled when it is queued. The ALONGSIDE_POPULATION stage fires with the final
-     * batch, or right after the population when sequential selection stopped it early.
+     * a batch is sampled when it is queued. begin_population fires the POPULATION stage: its
+     * subscribers' points (TPA's) join the first batch.
      */
 
     //! Start a population of n_offspring (pop.n): sigmas, bound and repelling state; queues the

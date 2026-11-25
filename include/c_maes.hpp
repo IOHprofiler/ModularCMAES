@@ -16,7 +16,7 @@
  *
  * A generation is a pipeline of stages (evaluation::GenerationStage): a restart when one is due
  * (RUN_ENDING, RUN_STARTING), then GENERATION_STARTING, the POPULATION (with the points
- * ALONGSIDE_POPULATION, TPA's), POPULATION_EVALUATED, selection (SELECTED), recombination and
+ * with the points of its subscribers, TPA's), POPULATION_EVALUATED, selection (SELECTED), recombination and
  * adaptation (UPDATED). At each stage its subscribers may queue points (Parameters::queue);
  * the pipeline waits for tell() whenever the queue is not empty. ask() returns everything that is
  * queued: a whole population (with TPA's two points), or, with sequential selection, the

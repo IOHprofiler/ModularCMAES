@@ -17,8 +17,6 @@ const char *to_string(const GenerationStage stage)
         return "GENERATION_STARTING";
     case GenerationStage::POPULATION:
         return "POPULATION";
-    case GenerationStage::ALONGSIDE_POPULATION:
-        return "ALONGSIDE_POPULATION";
     case GenerationStage::POPULATION_EVALUATED:
         return "POPULATION_EVALUATED";
     case GenerationStage::SELECTED:
@@ -114,7 +112,6 @@ void Pipeline::on(const GenerationStage stage, std::string name, Hook hook, MinP
 
 void Pipeline::fire(const GenerationStage stage, parameters::Parameters &p)
 {
-    fired_[static_cast<size_t>(stage)] = true;
     for (const auto &s : stages[static_cast<size_t>(stage)])
         s.hook(p);
 }

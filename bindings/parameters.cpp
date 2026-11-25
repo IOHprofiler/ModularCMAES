@@ -839,11 +839,9 @@ void define_parameters(nb::module_ &main)
                "The distribution of this generation is fixed; nothing is sampled yet.")
         .value("POPULATION",
                evaluation::GenerationStage::POPULATION,
-               "The population: lambda points, in batches with sequential selection.")
-        .value("ALONGSIDE_POPULATION",
-               evaluation::GenerationStage::ALONGSIDE_POPULATION,
-               "Points that do not depend on the values of the population (TPA's): with the "
-               "population's final batch, or right after it when it stops early.")
+               "The population: lambda points, in batches with sequential selection. Its "
+               "subscribers add points that do not depend on the population's values (TPA's), "
+               "which join the first batch.")
         .value("POPULATION_EVALUATED",
                evaluation::GenerationStage::POPULATION_EVALUATED,
                "Every point of the population has its value; before selection.")

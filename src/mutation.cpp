@@ -107,13 +107,13 @@ void Strategy::begin_population(const size_t n_offspring, parameters::Parameters
         tc->threshold(p.sampler->expected_length(), p.settings.budget, p.stats.evaluations);
     p.bounds->n_out_of_bounds = 0;
     p.repelling->prepare_sampling(p);
-    p.pipeline.reset();
     push_batch(0, p);
+    // The subscribers of the population (TPA): their points join the first batch, after it
+    p.pipeline.fire(evaluation::GenerationStage::POPULATION, p);
 }
 
 void Strategy::push_batch(const Eigen::Index i, parameters::Parameters &p)
 {
-    using evaluation::GenerationStage;
     const auto n = static_cast<Eigen::Index>(p.pop.n);
     const auto stop = first_stop(static_cast<size_t>(i), p);
     const Eigen::Index last = stop >= static_cast<size_t>(n) ? n - 1 : static_cast<Eigen::Index>(stop);
@@ -134,17 +134,12 @@ void Strategy::push_batch(const Eigen::Index i, parameters::Parameters &p)
                 if (evaluated(i + j, e.f(j), q))
                 {
                     end_population(q);
-                    // Sequential selection stopped the population before its final batch
-                    if (!q.pipeline.fired(GenerationStage::ALONGSIDE_POPULATION))
-                        q.pipeline.fire(GenerationStage::ALONGSIDE_POPULATION, q);
                     return;
                 }
             }
             push_batch(i + k, q);
         },
         "population");
-    if (last == n - 1)
-        p.pipeline.fire(GenerationStage::ALONGSIDE_POPULATION, p);
 }
 
 void Strategy::sample_batch(const Eigen::Index begin,

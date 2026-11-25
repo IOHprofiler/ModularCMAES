@@ -37,11 +37,10 @@ enum class GenerationStage
     RUN_STARTING,
     //! The mean, sigma and matrix of this generation are fixed; nothing is sampled yet
     GENERATION_STARTING,
-    //! The population: lambda points, in batches when sequential selection may stop it early
+    //! The population: lambda points, in batches when sequential selection may stop it early.
+    //! Its subscribers add points that do not depend on the population's values (TPA's two
+    //! points): they join the population's first batch
     POPULATION,
-    //! Points that depend on the distribution, not on the values of the population (TPA): they are
-    //! pushed with the final batch of the population, or right after it when it stops early
-    ALONGSIDE_POPULATION,
     //! Every point of the population has its value; before selection
     POPULATION_EVALUATED,
     //! After selection, before recombination
@@ -149,15 +148,6 @@ class Pipeline
     //! Run the subscribers of a stage, in the order they subscribed
     void fire(GenerationStage stage, parameters::Parameters &p);
 
-    //! Whether a stage has been fired in the current generation (ALONGSIDE_POPULATION fires once)
-    [[nodiscard]] bool fired(GenerationStage stage) const
-    {
-        return fired_[static_cast<size_t>(stage)];
-    }
-
-    //! Forget which stages fired: the start of a generation
-    void reset() { fired_.fill(false); }
-
     //! The points every generation adds besides the population (the sum of min_points)
     [[nodiscard]] size_t fixed_points(const parameters::Parameters &p) const;
 
@@ -168,6 +158,5 @@ class Pipeline
 
   private:
     std::array<std::vector<Subscriber>, n_stages> stages;
-    std::array<bool, n_stages> fired_{};
 };
 } // namespace evaluation
