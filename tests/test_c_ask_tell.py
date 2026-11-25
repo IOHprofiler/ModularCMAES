@@ -425,10 +425,14 @@ class TestRobustness(unittest.TestCase):
     def test_repelling_replaced_during_a_hill_valley_test(self):
         cma = make(modules={"restart_strategy": "RESTART", "repelling_type": "COVERAGE"})
         cma.p.criteria.items.append(RestartAt(5, 10))
+        previous = 0
         for _ in range(200):
             X = cma.ask()
-            if cma.p.queue.sources == ["hill-valley"]:
+            # a restart asks for the final mean (one point); a single point right after it is a
+            # point of a hill-valley test
+            if len(X) == 1 and previous == 1:
                 break
+            previous = len(X)
             cma.tell([1.0] * len(X))
         else:
             self.fail("no hill-valley test was reached")

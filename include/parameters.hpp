@@ -50,8 +50,6 @@ struct Parameters
     std::shared_ptr<repelling::Repelling> repelling;
     std::shared_ptr<center::Placement> center_placement;
     std::shared_ptr<mapping::CoordinateMapping> coordinate_mapping;
-    //! Every evaluation of the objective: the pending requests (#84)
-    evaluation::EvaluationQueue queue;
 
     Parameters(const size_t dim);
 
@@ -78,8 +76,8 @@ struct Parameters
 
     /**
      * The evaluations that a request with a variable number of points may use, queued while `next`
-     * is the step that runs once the queue is empty: the budget minus the evaluations, the queued
-     * points, the reserved points of `next` and the steps after it, and, at a restart
+     * is the step that runs once the queued points are evaluated: the budget minus the evaluations,
+     * the reserved points of `next` and the steps after it, and, at a restart
      * (RESTART: the hill-valley tests), the smallest first generation of the next run
      * (min_lambda_after_restart). A module with a variable number of points clips its requests to
      * it.

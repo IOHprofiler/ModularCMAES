@@ -362,31 +362,10 @@ static void test_functions()
     CHECK(functions::to_string(functions::RASTRIGIN) == "rastrigin");
 }
 
-// #84: the evaluation queue is a container: points in push order, tagged with their source, handed
-// over by take(). Through the optimizer, the values of a batch go to the module in place when they
-// arrive (also one that replaced the module that queued the points).
+// #84: the values of a batch go, in queue order, to the module in place when they arrive (also one
+// that replaced the module that queued the points); the population continues where it was
 static void test_evaluation_queue()
 {
-    evaluation::EvaluationQueue q(2);
-    q.push(Matrix::Constant(2, 1, 1.0), evaluation::Source::RESTART_CENTER);
-    q.push(2, evaluation::Source::EXTRA_POINTS).setConstant(2.0);
-    CHECK(q.size() == 3);
-    CHECK((q.sources() == std::vector<std::string>{"restart-center", "extra-points"}));
-    bool raised = false;
-    try
-    {
-        q.push(Matrix::Zero(3, 1), evaluation::Source::HILL_VALLEY); // another dimension
-    }
-    catch (const std::invalid_argument &)
-    {
-        raised = true;
-    }
-    CHECK(raised);
-    const auto batch = q.take();
-    CHECK(q.empty() && batch.requests.size() == 2 && batch.points.cols() == 3);
-    CHECK(batch.requests[1].begin == 1 && batch.requests[1].size == 2);
-    CHECK(batch.points(0, 0) == 1.0 && batch.points(0, 2) == 2.0);
-
     parameters::Modules m;
     m.ssa = parameters::StepSizeAdaptation::TPA;
     m.sequential_selection = true;
@@ -399,7 +378,6 @@ static void test_evaluation_queue()
     const Matrix X = es.ask();
     const Eigen::Index first = X.cols() - 2;
     CHECK(first >= 1 && first < static_cast<Eigen::Index>(es.p->lambda));
-    CHECK((es.p->queue.sources() == std::vector<std::string>{"population", "extra-points"}));
 
     // A new TPA replaces the one that queued the points: it receives their values
     es.p->mutation = mutation::get(es.p->settings.modules, 2.0, 2.0, es.p->generator);
@@ -428,16 +406,15 @@ static void test_budget_left()
     settings.verbose = false;
     parameters::Parameters p(settings);
     CHECK(p.reserved_points(Step::SAMPLE) == 2 && p.reserved_points() == 2);
-    p.stats.evaluations = 60;
-    p.queue.push(Matrix::Zero(2, 5), evaluation::Source::HILL_VALLEY);
+    p.stats.evaluations = 65;
     // At a restart: the smallest first generation of the next run and TPA's two points
     CHECK(p.budget_left(Step::RESTART) ==
-          100 - 60 - 5 - parameters::Parameters::min_lambda_after_restart - 2);
+          100 - 65 - parameters::Parameters::min_lambda_after_restart - 2);
     // Once the population is queued: nothing later is reserved
     CHECK(p.budget_left(Step::POPULATION) == 35);
     CHECK(p.budget_left(Step::SELECT) == 35);
     CHECK(p.budget_left(Step::UPDATE) == 35);
-    p.stats.evaluations = 99;
+    p.stats.evaluations = 104; // past the budget (ask-tell may continue)
     CHECK(p.budget_left(Step::UPDATE) == 0); // not below 0
 }
 
@@ -466,17 +443,22 @@ static void test_budget_with_restarts()
 
         ModularCMAES b(settings);
         size_t chain = 0;
+        bool previous_single = false;
         while (!b.break_conditions())
             for (bool done = false; !done;)
             {
                 const Matrix X = b.ask();
-                if (b.p->queue.sources().front() == "hill-valley")
+                // A restart asks for the final mean (one point); single points right after it are
+                // the hill-valley points (the populations here have at least 4)
+                const bool single = X.cols() == 1;
+                if (single && previous_single)
                     chain++;
                 else if (chain != 0)
                 {
                     cut_short += chain % 10 != 0;
                     chain = 0;
                 }
+                previous_single = single;
                 done = b.tell(Vector::Ones(X.cols()));
             }
         CHECK(a.p->stats.evaluations == b.p->stats.evaluations);

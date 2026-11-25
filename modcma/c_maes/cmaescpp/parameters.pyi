@@ -925,18 +925,3 @@ class CoordinateMapping:
 
     def transform(self, x: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """A copy of the point x, (d,), with the integer variables rounded."""
-
-class EvaluationQueue:
-    """
-    The points that wait for their objective values (Parameters.queue): ask() returns them, tell() passes each request's values to the module that queued it. Read-only, for debugging.
-    """
-
-    @property
-    def size(self) -> int:
-        """The number of pending points."""
-
-    @property
-    def sources(self) -> list[str]:
-        """
-        The module that queued each pending request, in order: 'population', 'extra-points' (TPA), 'restart-center' or 'hill-valley' (repelling).
-        """

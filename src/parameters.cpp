@@ -32,8 +32,7 @@ Parameters::Parameters(const Settings &settings) :
     bounds(bounds::get(settings.modules.bound_correction, settings.dim, generator)),
     repelling(repelling::get(settings.modules)),
     center_placement(center::get(settings.modules.center_placement)),
-    coordinate_mapping(mapping::get(settings.integer_variables, settings.dim, weights.mueff)),
-    queue(settings.dim)
+    coordinate_mapping(mapping::get(settings.integer_variables, settings.dim, weights.mueff))
 {
     criteria.reset(*this);
 }
@@ -99,7 +98,7 @@ size_t Parameters::budget_left(const evaluation::Step next) const
     size_t reserved = next <= evaluation::Step::RESTART ? min_lambda_after_restart : 0;
     for (int s = static_cast<int>(next); s < evaluation::n_steps; ++s)
         reserved += reserved_points(static_cast<evaluation::Step>(s));
-    const size_t used = stats.evaluations + static_cast<size_t>(queue.size()) + reserved;
+    const size_t used = stats.evaluations + reserved;
     return settings.budget > used ? settings.budget - used : 0;
 }
 
@@ -140,9 +139,6 @@ void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
 
 void Parameters::finish_restart()
 {
-    // The modules are replaced below: no request of the run that ends may still wait for its values
-    if (!queue.empty())
-        throw std::logic_error("finish_restart: evaluations are still pending");
     const std::optional<Float> sigma = restart_sigma;
     restart_sigma.reset();
     fit_lambda_to_budget();

@@ -1,16 +1,13 @@
 #pragma once
 
-#include <string>
-#include <vector>
-
 #include "common.hpp"
 
 /**
- * The points to evaluate (#84). ModularCMAES::advance is the only place that queues them, step by
- * step (Step), each tagged with its source; ask() hands out what is queued, and tell() passes each
- * request's values to ModularCMAES::dispatch, a switch over the sources that calls the module (the
- * one in place at that time). Modules compute their points and receive their values; they never
- * queue points themselves, and none calls the objective. The queue is a plain container.
+ * The types of the evaluation flow (#84). ModularCMAES::advance is the only place that queues points
+ * to evaluate, step by step (Step), each request tagged with its source; ask() hands out the queued
+ * points, and tell() passes each request's values to ModularCMAES::dispatch, a switch over the
+ * sources that calls the module (the one in place at that time). Modules compute their points and
+ * receive their values; they never queue points themselves, and none calls the objective.
  */
 namespace evaluation
 {
@@ -52,8 +49,6 @@ enum class Source
     HILL_VALLEY,
 };
 
-//! The name of a source ("population", "extra-points", "restart-center", "hill-valley")
-const char *to_string(Source source);
 
 //! What a module receives: the values of its points, and the points that were evaluated (tell(f,
 //! X) may replace the asked ones)
@@ -65,7 +60,7 @@ struct Evaluations
     bool given;
 };
 
-//! A queued request: its points are columns begin..begin+size-1 of the batch
+//! A queued request: its points are columns begin..begin+size-1 of the batch of ask()
 struct Request
 {
     Source source;
@@ -75,51 +70,4 @@ struct Request
     Eigen::Index index;
 };
 
-class EvaluationQueue
-{
-  public:
-    explicit EvaluationQueue(size_t dim = 0) : points(static_cast<Eigen::Index>(dim), 0) {}
-
-    //! Queue the points X (copied), d x k
-    void push(Eigen::Ref<const Matrix> X, Source source, Eigen::Index index = 0);
-
-    /**
-     * Queue k points that the caller fills: the returned columns. The view is valid until the next
-     * push (which may move the buffer); fill it first.
-     */
-    Eigen::Ref<Matrix> push(Eigen::Index k, Source source, Eigen::Index index = 0);
-
-    [[nodiscard]] bool empty() const { return requests.empty(); }
-
-    //! The number of points that wait for their values
-    [[nodiscard]] Eigen::Index size() const { return n_points; }
-
-    //! The pending points, in push order (one per column)
-    [[nodiscard]] Eigen::Ref<const Matrix> batch() const { return points.leftCols(n_points); }
-
-    //! The source of every pending request, in push order
-    [[nodiscard]] std::vector<std::string> sources() const;
-
-    //! The pending batch, handed over by take(): its requests (in push order) and points
-    struct Batch
-    {
-        const std::vector<Request> &requests;
-        Eigen::Ref<const Matrix> points;
-    };
-
-    /**
-     * Hand over the pending batch: the queue is then empty, ready for the next points. The batch
-     * stays valid until the next take() (a swap of buffers: no copy).
-     */
-    Batch take();
-
-  private:
-    Matrix points;
-    Eigen::Index n_points = 0;
-    std::vector<Request> requests;
-
-    // The batch handed over by take()
-    Matrix taken_points;
-    std::vector<Request> taken;
-};
 } // namespace evaluation

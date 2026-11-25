@@ -87,16 +87,15 @@ reads from top to bottom. Adding a module that evaluates takes three changes:
 * **A source:** a value of `evaluation::Source`, and its `case` in `ModularCMAES::dispatch`
   (`src/c_maes.cpp`), which passes the values (`Evaluations`: `f`, the points `X`, and whether
   `tell(f, X)` gave them) to the module through `p`.
-* **A call at its step** in `advance()`, which asks the module for its points and queues them:
-  `p->queue.push(X, source, index)`. A module whose next point depends on the previous value
-  answers "do I need another point, and which?" (as repelling's `has_query()` and
+* **A call at its step** in `advance()`, which asks the module for its points and queues them
+  (`queue(X, source, index)`). A module whose next point depends on the previous value answers "do I need another point, and which?" (as repelling's `has_query()` and
   `query_point()`); its step then runs again until the module is done, as `RESTART` does for the
   hill-valley tests and `POPULATION` for the batches of sequential selection. A module that needs
   the objective at a new moment of the generation adds a step.
 * **The budget:** a fixed number of points per generation, the same in every generation of a
   configuration, goes into `Parameters::reserved_points(step)`, which the budget checks reserve.
   A variable number of points is limited by `p.budget_left(next)`, with `next` the step that runs
-  once the queue is empty; it keeps what the steps still to run reserve.
+  once the queued points have their values; it keeps what the steps still to run reserve.
 
 **Random numbers** are drawn when the module computes its points, never later. Ask–tell then stays
 identical to `run()`.

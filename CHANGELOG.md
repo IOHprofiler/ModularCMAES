@@ -42,13 +42,13 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   one abi3 wheel for 3.12+.
 * Docstrings for the whole API (`help()`, editors), type stubs (with `py.typed`), and a new
   documentation site.
-* An evaluation queue for every evaluation of the objective (#84): the optimizer queues the points
-  of its modules at fixed steps of a generation, and ask–tell, `step()`, `run()` and `mutate()`
-  evaluate them the same way. `es.p.queue` shows the points that wait, for debugging. Results are unchanged, but
-  with sequential selection TPA's two points are now evaluated with the population's first batch
-  (before: with its last batch, or after a population that sequential selection stopped). The
-  order of the objective calls changes, and so does the evaluation count recorded with the best
-  solution (`Solution.e`) when it is one of TPA's points.
+* One path for every evaluation of the objective (#84): the optimizer runs the fixed steps of a
+  generation and queues the points its modules need, and ask–tell, `step()`, `run()` and
+  `mutate()` evaluate them the same way. Results are unchanged, but with sequential selection
+  TPA's two points are now evaluated with the population's first batch (before: with its last
+  batch, or after a population that sequential selection stopped). The order of the objective
+  calls changes, and so does the evaluation count recorded with the best solution (`Solution.e`)
+  when it is one of TPA's points.
 * `ModularCMAES.xfavorite`: the mean of the search distribution as a solution, as pycma's
   `xfavorite`; with noise and a large population often closer to the optimum than the best
   evaluated point, whose recorded value is biased low (#24).

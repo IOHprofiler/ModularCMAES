@@ -821,21 +821,6 @@ void define_parameters(nb::module_ &main)
              nb::arg("x"),
              "A copy of the point x, (d,), with the integer variables rounded.");
 
-    // The evaluation queue (#84): read-only, for debugging
-    nb::class_<evaluation::EvaluationQueue>(
-        m,
-        "EvaluationQueue",
-        "The points that wait for their objective values (Parameters.queue): ask() returns "
-        "them, tell() passes each request's values to the module that queued it. Read-only, "
-        "for debugging.")
-        .def_prop_ro("size",
-                     &evaluation::EvaluationQueue::size,
-                     "The number of pending points.")
-        .def_prop_ro("sources",
-                     &evaluation::EvaluationQueue::sources,
-                     "The module that queued each pending request, in order: 'population', "
-                     "'extra-points' (TPA), 'restart-center' or 'hill-valley' (repelling).");
-
     nb::class_<Parameters>(
         main,
         "Parameters",
@@ -930,11 +915,6 @@ void define_parameters(nb::module_ &main)
                 &Parameters::weights,
                 "The recombination weights and learning rates in use (Weights).")
         .def_rw("pop", &Parameters::pop, "The population of the current generation.")
-        .def_prop_ro(
-            "queue",
-            [](Parameters &p) -> evaluation::EvaluationQueue & { return p.queue; },
-            nb::rv_policy::reference_internal,
-            "The points waiting for their objective values (`EvaluationQueue`).")
         .def_rw("old_pop",
                 &Parameters::old_pop,
                 "The population of the previous generation (the parents for elitism).")

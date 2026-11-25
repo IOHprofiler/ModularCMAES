@@ -437,10 +437,6 @@ class Parameters:
     def pop(self, arg: Population, /) -> None: ...
 
     @property
-    def queue(self) -> parameters.EvaluationQueue:
-        """The points waiting for their objective values (`EvaluationQueue`)."""
-
-    @property
     def old_pop(self) -> Population:
         """The population of the previous generation (the parents for elitism)."""
 

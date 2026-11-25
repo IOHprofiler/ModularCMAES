@@ -66,17 +66,9 @@ Usually `k` is the population size λ. Some modules ask for other batches:
 So do not assume `k == λ`: always evaluate the rows of what `ask()` returned. `ask()` returns the
 same points until `tell()` is called, so asking twice is harmless.
 
-Behind this is one queue of points to evaluate (`es.p.queue`): at fixed moments of a generation
-the optimizer queues the points its modules need, and the generation waits for `tell()` until they
-are evaluated. For
-debugging, `es.p.queue.sources` shows which modules wait:
-
-```python
-es = modcma.ModularCMAES(modcma.settings_from_dict(5, ssa="TPA", seed=1))
-X = es.ask()
-print(X.shape, es.p.queue.sources)
-# (10, 5) ['population', 'extra-points']
-```
+Behind this, the optimizer runs the fixed steps of a generation and, at each, queues the points its
+modules need; the generation waits for `tell()` until they are evaluated. `es.has_pending` tells
+whether points wait for their values.
 
 ### Repaired or injected points
 

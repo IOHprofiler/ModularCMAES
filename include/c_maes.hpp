@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <vector>
 
 #include "parameters.hpp"
 
@@ -15,9 +16,8 @@
  *    ways give the same results.
  *
  * A generation is a sequence of steps, in advance(): a restart when one is due, the population,
- * selection, then recombination and adaptation. advance() is the only place that queues points
- * (Parameters::queue); a step runs again, or the next one runs, once tell() has given their
- * values.
+ * selection, then recombination and adaptation. advance() is the only place that queues points;
+ * a step runs again, or the next one runs, once tell() has given their values.
  * ask() returns everything that is queued: a whole population (with TPA's two points), or, with
  * sequential selection, the individuals up to the first one after which it can stop (with TPA's
  * points), then one (or a mirrored pair) at a time; a restart asks for the final mean, then for the
@@ -95,11 +95,16 @@ struct ModularCMAES
     bool tell(Eigen::Ref<const Vector> f, Eigen::Ref<const Matrix> X);
 
     //! Whether ask() has points that wait for tell()
-    [[nodiscard]] bool has_pending() const { return !p->queue.empty(); }
+    [[nodiscard]] bool has_pending() const { return n_pending != 0; }
 
   private:
-    //! The step of the generation that runs once the queue is empty (evaluation::Step)
+    //! The step of the generation that runs once the queued points have their values
     evaluation::Step next = evaluation::Step::BEGIN;
+    //! The queued points (the first n_pending columns: what ask() returns), and the requests they
+    //! belong to, in queue order
+    Matrix batch;
+    Eigen::Index n_pending = 0;
+    std::vector<evaluation::Request> requests;
     //! The first individual of the population's next batch
     Eigen::Index next_individual = 0;
     //! The objective values of the queued points in step() and mutate()
@@ -116,7 +121,11 @@ struct ModularCMAES
      * point of the population has its value.
      */
     bool advance(bool stop_before_selection = false);
-    //! Queue the next batch of the population (Strategy::sample_next_batch)
+    //! Queue k points for a source: returns their columns, to be filled before the next queue()
+    Eigen::Ref<Matrix> queue(Eigen::Index k, evaluation::Source source, Eigen::Index index = 0);
+    //! Queue the points X (copied)
+    void queue(Eigen::Ref<const Matrix> X, evaluation::Source source, Eigen::Index index = 0);
+    //! Queue the next batch of the population (Strategy::sample_batch_from)
     void queue_population_batch();
     //! Queue the extra points of the step-size adaptation (TPA's)
     void queue_extra_points();

@@ -37,7 +37,7 @@ void ModularCMAES::adapt() const
 
 void ModularCMAES::require_no_generation(const char *step) const
 {
-    if (next != evaluation::Step::BEGIN || !p->queue.empty())
+    if (next != evaluation::Step::BEGIN || n_pending != 0)
         throw std::logic_error(std::string(step) +
                                " while a generation started by ask() is in progress: tell() the "
                                "values of its points, or evaluate them with mutate(), first");
@@ -48,14 +48,14 @@ void ModularCMAES::mutate(FunctionType &objective)
     // Up to selection: a new generation, or the one that ask() started. The rest is the user's:
     // select(), recombine() and adapt() act on the state, and the next mutate() or ask() starts a
     // new generation, as in 1.x
-    while (!p->queue.empty() || next != evaluation::Step::SELECT)
+    while (n_pending != 0 || next != evaluation::Step::SELECT)
     {
-        if (p->queue.empty())
+        if (n_pending == 0)
             advance(true);
         else
         {
             evaluate(objective);
-            answer(values.head(p->queue.size()), nullptr);
+            answer(values.head(n_pending), nullptr);
         }
     }
     next = evaluation::Step::BEGIN;
@@ -66,7 +66,7 @@ bool ModularCMAES::step(FunctionType &objective)
     ask();
     do
         evaluate(objective);
-    while (!tell(values.head(p->queue.size())));
+    while (!tell(values.head(n_pending)));
     return !break_conditions();
 }
 
@@ -109,15 +109,15 @@ bool ModularCMAES::break_conditions() const
 }
 
 // -----------------------------------------------------------------------------
-// Ask-tell: the steps of a generation over the evaluation queue (#84)
+// Ask-tell: the steps of a generation, and the points they queue (#84)
 // -----------------------------------------------------------------------------
 
 Eigen::Ref<const Matrix> ModularCMAES::ask()
 {
     // Starts a generation when none is in progress
-    while (p->queue.empty())
+    while (n_pending == 0)
         advance();
-    return p->queue.batch();
+    return batch.leftCols(n_pending);
 }
 
 bool ModularCMAES::tell(Eigen::Ref<const Vector> f) { return tell(f, nullptr); }
@@ -135,23 +135,33 @@ bool ModularCMAES::tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matri
 
 void ModularCMAES::answer(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X)
 {
-    const auto n = p->queue.size();
-    if (p->queue.empty())
+    const auto n = n_pending;
+    if (n == 0)
         throw std::logic_error("tell() without pending points: call ask() first");
     if (f.size() != n)
         throw std::invalid_argument("tell() expects " + std::to_string(n) +
                                     " objective values (the points of ask()), got " +
                                     std::to_string(f.size()));
-    if (X != nullptr && (X->rows() != p->queue.batch().rows() || X->cols() != n))
+    if (X != nullptr && (X->rows() != batch.rows() || X->cols() != n))
         throw std::invalid_argument("tell() expects the points as a " +
-                                    std::to_string(p->queue.batch().rows()) + " x " +
+                                    std::to_string(batch.rows()) + " x " +
                                     std::to_string(n) + " matrix, got " +
                                     std::to_string(X->rows()) + " x " + std::to_string(X->cols()));
 
-    // Each request's values go to its module, in the order they were queued
-    const auto batch = p->queue.take();
-    const Eigen::Ref<const Matrix> evaluated = X != nullptr ? *X : batch.points;
-    for (const auto &r : batch.requests)
+    // Each request's values go to its module, in the order they were queued. Nothing is pending
+    // afterwards, also when a module throws (a clear() keeps the capacity: no allocation)
+    struct Clear
+    {
+        ModularCMAES &es;
+        ~Clear()
+        {
+            es.n_pending = 0;
+            es.requests.clear();
+        }
+    } clear{*this};
+    const Eigen::Ref<const Matrix> evaluated =
+        X != nullptr ? *X : Eigen::Ref<const Matrix>(batch.leftCols(n));
+    for (const auto &r : requests)
         dispatch(r,
                  evaluation::Evaluations{f.segment(r.begin, r.size),
                                          evaluated.middleCols(r.begin, r.size),
@@ -186,7 +196,7 @@ bool ModularCMAES::advance(const bool stop_before_selection)
     // tell() has given their values.
     using evaluation::Source;
     using evaluation::Step;
-    while (p->queue.empty())
+    while (n_pending == 0)
     {
         switch (next)
         {
@@ -194,7 +204,7 @@ bool ModularCMAES::advance(const bool stop_before_selection)
             // A restart first when the criteria fired: the final mean of the run that ends
             if (p->begin_generation())
             {
-                p->queue.push(p->restart_center(), Source::RESTART_CENTER);
+                queue(p->restart_center(), Source::RESTART_CENTER);
                 next = Step::RESTART;
             }
             else
@@ -206,7 +216,7 @@ bool ModularCMAES::advance(const bool stop_before_selection)
             // points, one at a time (each depends on the value of the one before); then the
             // modules are reset for the new run
             if (p->repelling->has_query())
-                p->queue.push(p->repelling->query_point(), Source::HILL_VALLEY);
+                queue(p->repelling->query_point(), Source::HILL_VALLEY);
             else
             {
                 p->finish_restart();
@@ -254,21 +264,41 @@ void ModularCMAES::queue_population_batch()
 {
     const Eigen::Index begin = next_individual;
     const Eigen::Index size = p->mutation->sample_batch_from(begin, *p);
-    p->queue.push(p->pop.X_transformed.middleCols(begin, size), evaluation::Source::POPULATION, begin);
+    queue(p->pop.X_transformed.middleCols(begin, size), evaluation::Source::POPULATION, begin);
     next_individual += size;
 }
 
 void ModularCMAES::queue_extra_points()
 {
     if (const auto k = static_cast<Eigen::Index>(p->mutation->n_extra_points()); k != 0)
-        p->mutation->extra_points(p->queue.push(k, evaluation::Source::EXTRA_POINTS), *p);
+        p->mutation->extra_points(queue(k, evaluation::Source::EXTRA_POINTS), *p);
+}
+
+Eigen::Ref<Matrix> ModularCMAES::queue(const Eigen::Index k,
+                                       const evaluation::Source source,
+                                       const Eigen::Index index)
+{
+    const Eigen::Index needed = n_pending + k;
+    if (batch.rows() != static_cast<Eigen::Index>(p->settings.dim) || batch.cols() < needed)
+        // Grows rarely (a population of a new size), keeping the queued points
+        batch.conservativeResize(static_cast<Eigen::Index>(p->settings.dim),
+                                 std::max(needed, static_cast<Eigen::Index>(p->lambda) + 2));
+    requests.push_back(evaluation::Request{source, n_pending, k, index});
+    n_pending = needed;
+    return batch.middleCols(needed - k, k);
+}
+
+void ModularCMAES::queue(Eigen::Ref<const Matrix> X,
+                         const evaluation::Source source,
+                         const Eigen::Index index)
+{
+    queue(X.cols(), source, index) = X;
 }
 
 void ModularCMAES::evaluate(FunctionType &objective)
 {
-    const auto batch = p->queue.batch();
-    if (values.size() < batch.cols())
-        values.resize(batch.cols());
-    for (Eigen::Index j = 0; j < batch.cols(); ++j)
+    if (values.size() < n_pending)
+        values.resize(n_pending);
+    for (Eigen::Index j = 0; j < n_pending; ++j)
         values(j) = objective(batch.col(j));
 }
