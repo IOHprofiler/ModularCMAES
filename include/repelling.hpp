@@ -128,7 +128,8 @@ struct Repelling
     void update_archive(FunctionType &objective, parameters::Parameters &p);
 
     //! Start the archive update after a restart (the last center and solution are in p.stats):
-    //! queues the first hill-valley point; each answer queues the next until the update is done
+    //! the first hill-valley point is query_point(); each answer() sets the next, until has_query()
+    //! is false
     void begin_update(parameters::Parameters &p);
 
     //! Whether the update waits for the objective value of query_point()

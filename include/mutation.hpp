@@ -150,34 +150,26 @@ struct Strategy
 
     virtual ~Strategy() = default;
 
-    //! Sample and evaluate a population of n_offspring with an objective function, with the extra
-    //! points (TPA's): begin_population and push_extra_points, then the queue is evaluated
-    void mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p);
-
     /*
-     * The population on the evaluation queue (#84). begin_population queues the first batch:
-     * individuals 0..first_stop(0). Its values come back through tell_batch, which passes each to
-     * evaluated() and queues the next batch, or, once the population is complete, calls
-     * end_population. A sample does not depend on the objective values of the ones before it, so
-     * a batch is sampled when it is queued.
+     * The population, in batches (ModularCMAES::advance queues them and keeps track of the next
+     * individual). begin_population starts it; sample_batch_from samples the individuals from i up
+     * to the first after which sequential selection can stop; tell_batch passes their values to
+     * evaluated(), and ends the population when it is complete (pop.n is then the number of
+     * evaluated individuals). A sample does not depend on the objective values of the ones before
+     * it, so a batch is sampled before it is evaluated.
      */
 
-    //! Start a population of n_offspring (pop.n): sigmas, bound and repelling state; queues the
-    //! first batch
+    //! Start a population of n_offspring (pop.n): sigmas, bound and repelling state
     void begin_population(const size_t n_offspring, parameters::Parameters &p);
 
-    //! Sample individuals i..first_stop(i) and queue them (evaluation::Source::POPULATION)
-    void push_batch(const Eigen::Index i, parameters::Parameters &p);
+    //! Sample the batch of individuals i..first_stop(i); returns its size
+    Eigen::Index sample_batch_from(const Eigen::Index i, parameters::Parameters &p);
 
     //! The values of the batch that starts at individual i (tell(f, X): a point that differs from
-    //! the asked one replaces it); queues the next batch, or ends the population
+    //! the asked one replaces it); ends the population when it is complete
     void tell_batch(const Eigen::Index i,
                     const evaluation::Evaluations &e,
                     parameters::Parameters &p);
-
-    //! Queue the extra points of the step-size adaptation (TPA's), after the population's first
-    //! batch: they do not depend on its values (evaluation::Source::EXTRA_POINTS)
-    void push_extra_points(parameters::Parameters &p);
 
     /**
      * Sample individuals begin..begin+k-1. Their y are one matrix product, Y = A Z; an individual

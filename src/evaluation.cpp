@@ -74,8 +74,8 @@ void EvaluationQueue::answer(parameters::Parameters &p,
                                     std::to_string(X->rows()) + " x " +
                                     std::to_string(X->cols()));
 
-    // The answered batch moves aside (a swap of buffers: no copy); the modules push to the next
-    // one. A request left from a dispatch that threw is dropped here (requests.clear())
+    // The answered batch moves aside (a swap of buffers: no copy); the queue is empty while the
+    // values are dispatched. A request left from a dispatch that threw is dropped here
     const Eigen::Index n = n_points;
     std::swap(points, answering_points);
     std::swap(requests, answering);
@@ -92,17 +92,5 @@ void EvaluationQueue::answer(parameters::Parameters &p,
                                evaluated.middleCols(r.begin, r.size),
                                X != nullptr});
     answering.clear();
-}
-
-void EvaluationQueue::drain(parameters::Parameters &p, FunctionType &objective)
-{
-    Vector f;
-    while (!empty())
-    {
-        f.resize(n_points);
-        for (Eigen::Index j = 0; j < n_points; ++j)
-            f(j) = objective(points.col(j));
-        answer(p, f);
-    }
 }
 } // namespace evaluation

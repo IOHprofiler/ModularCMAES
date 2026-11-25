@@ -62,6 +62,8 @@ ACCEPTED = {
         "overload with a DeprecationWarning); positional calls are unchanged",
     "overload not accepted: cmaescpp.mutation.NoSequentialSelection.__init__(mirror, seq_cuttoff_factor=1.0)":
         "as SequentialSelection: the keyword is seq_cutoff_factor, the old one is deprecated",
+    "missing: cmaescpp.mutation.Strategy.mutate":
+        "internal: ModularCMAES.advance samples and queues the population (#84)",
 }
 
 

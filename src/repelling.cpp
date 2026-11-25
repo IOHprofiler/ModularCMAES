@@ -175,7 +175,11 @@ void Repelling::adapt_radii_after_sampling(parameters::Parameters & /*p*/)
 void Repelling::update_archive(FunctionType &objective, parameters::Parameters &p)
 {
     begin_update(p);
-    p.queue.drain(p, objective);
+    while (has_query())
+    {
+        const Vector x = query.x;
+        answer(objective(x), x, p);
+    }
 }
 
 bool Repelling::is_rejected(Eigen::Ref<const Vector> xi, parameters::Parameters &p)
@@ -257,7 +261,7 @@ void Repelling::next_query(parameters::Parameters &p)
     // first generation after the restart (the run ends soon after: the archive keeps the candidate
     // unless a test so far found a shared basin). The number of points varies: they use what the
     // budget leaves at the restart (Parameters::budget_left)
-    if (query.j >= archive.size() || p.budget_left(evaluation::Step::FINISH_RESTART) == 0)
+    if (query.j >= archive.size() || p.budget_left(evaluation::Step::RESTART) == 0)
     {
         query.active = false;
         on_update_end(*query.candidate, query.accept, p);
@@ -268,9 +272,8 @@ void Repelling::next_query(parameters::Parameters &p)
     const Solution &v = archive[query.j].solution;
     const Float a =
         static_cast<Float>(query.k) / (static_cast<Float>(hill_valley_points) + 1.0);
+    // One point at a time (has_query, query_point): the next depends on this one's value (answer)
     query.x = p.coordinate_mapping->transform(v.x + a * (u.x - v.x));
-    // One point at a time: the next point depends on this one's value (answer)
-    p.queue.push(query.x, evaluation::Source::HILL_VALLEY);
 }
 
 void Repelling::answer(const Float y, Eigen::Ref<const Vector> x, parameters::Parameters &p)

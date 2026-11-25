@@ -4,11 +4,9 @@ Mutation: the sampling of a population and the step-size adaptation.
 The optimizer holds a `Strategy` subclass as `es.p.mutation`, selected by `Modules.ssa` (`options.StepSizeAdaptation`) and created anew at every restart. It holds the threshold convergence (`Modules.threshold_convergence`), the sequential selection (`Modules.sequential_selection`) and the sampler of the step sizes (`Modules.sample_sigma`). The step-size adaptations are described in de Nobel et al. (2021).
 """
 
-from collections.abc import Callable
 from typing import Annotated, overload
 
 import numpy
-import numpy.typing
 from numpy.typing import NDArray
 
 import modcma.c_maes.cmaescpp
@@ -211,7 +209,7 @@ class Strategy:
     """
     Base class of the step-size adaptations; also samples and evaluates a population.
 
-    `mutate` samples and evaluates a population, `adapt` updates sigma after selection. The base class does not change sigma. The optimizer creates the subclass of `Modules.ssa`; each subclass has the same constructor.
+    The optimizer samples a population through it, in batches, and `adapt` updates sigma after selection. The base class does not change sigma. The optimizer creates the subclass of `Modules.ssa`; each subclass has the same constructor.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -248,22 +246,6 @@ class Strategy:
             The statistics of the run.
         lamb : int
             The population size lambda.
-        """
-
-    def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], n_offspring: int, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
-        """
-        Sample and evaluate a population.
-
-        Per individual: z from the sampler (lengthened by threshold convergence), y = A z, x = m + sigma_i y and bound correction; with RESAMPLE or repelling a rejected individual is sampled again. Sequential selection can stop the population early. With TPA the two extra points are evaluated with the first batch.
-
-        Parameters
-        ----------
-        objective : Callable[[numpy.ndarray], float]
-            The objective function.
-        n_offspring : int
-            The number of individuals.
-        parameters : Parameters
-            The state of the optimizer (`es.p`); `pop` is written.
         """
 
     @property

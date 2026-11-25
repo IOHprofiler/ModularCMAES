@@ -11,14 +11,11 @@ struct Parameters;
 }
 
 /**
- * Every evaluation of the objective goes through one queue (#84). A module that needs objective
- * values pushes a request: its points, tagged with their source. ask() hands out what is queued;
- * tell() passes each request's values to Parameters::dispatch, a switch over the sources that calls
- * the module through the parameters (the module in place at that time: never a pointer kept since
- * the push). The module may then push follow-up requests. No module calls the objective itself.
- *
- * When a module pushes is fixed by the steps of a generation (Step): ModularCMAES::advance calls
- * the modules at each step, in order, and waits for tell() whenever the queue is not empty.
+ * The points to evaluate (#84). ModularCMAES::advance is the only place that queues them, step by
+ * step (Step), each tagged with its source; ask() hands out what is queued, and tell() passes each
+ * request's values to Parameters::dispatch, a switch over the sources that calls the module (the
+ * one in place at that time). Modules compute their points and receive their values; they never
+ * queue points themselves, and none calls the objective.
  */
 namespace evaluation
 {
@@ -29,13 +26,16 @@ namespace evaluation
 enum class Step
 {
     //! A new generation. When the restart criteria fired, the final mean of the run that ends is
-    //! queued; its value starts the hill-valley tests of the repelling archive, one at a time
+    //! queued
     BEGIN,
-    //! The restart's points have their values: the modules are reset for the new run
-    FINISH_RESTART,
-    //! The population's first batch is queued (each batch queues the next), with the points that
-    //! do not depend on the population's values (TPA's two)
+    //! The restart: the hill-valley points of the repelling archive are queued one at a time, then
+    //! the modules are reset for the new run
+    RESTART,
+    //! A new population: its first batch is queued, with the points that do not depend on its
+    //! values (TPA's two)
     SAMPLE,
+    //! The next batch of the population is queued until it is complete (sequential selection)
+    POPULATION,
     //! Every point of the population has its value: selection
     SELECT,
     //! Recombination and adaptation; the generation is complete
@@ -114,9 +114,7 @@ class EvaluationQueue
                 Eigen::Ref<const Vector> f,
                 const Eigen::Ref<const Matrix> *X = nullptr);
 
-    //! Evaluate the pending points with an objective function until the queue is empty
-    void drain(parameters::Parameters &p, FunctionType &objective);
-
+    
   private:
     Matrix points;
     Eigen::Index n_points = 0;

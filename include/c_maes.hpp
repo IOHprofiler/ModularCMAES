@@ -15,8 +15,9 @@
  *    ways give the same results.
  *
  * A generation is a sequence of steps, in advance(): a restart when one is due, the population,
- * selection, then recombination and adaptation. A step may queue points (Parameters::queue); the
- * next step runs once tell() has given their values.
+ * selection, then recombination and adaptation. advance() is the only place that queues points
+ * (Parameters::queue); a step runs again, or the next one runs, once tell() has given their
+ * values.
  * ask() returns everything that is queued: a whole population (with TPA's two points), or, with
  * sequential selection, the individuals up to the first one after which it can stop (with TPA's
  * points), then one (or a mirrored pair) at a time; a restart asks for the final mean, then for the
@@ -99,6 +100,8 @@ struct ModularCMAES
   private:
     //! The step of the generation that runs once the queue is empty (evaluation::Step)
     evaluation::Step next = evaluation::Step::BEGIN;
+    //! The first individual of the population's next batch
+    Eigen::Index next_individual = 0;
     //! The objective values of the queued points in step() and mutate()
     Vector values;
 
@@ -109,6 +112,10 @@ struct ModularCMAES
      * point of the population has its value.
      */
     bool advance(bool stop_before_selection = false);
+    //! Queue the next batch of the population (Strategy::sample_next_batch)
+    void queue_population_batch();
+    //! Queue the extra points of the step-size adaptation (TPA's)
+    void queue_extra_points();
     //! The objective values of the queued points
     void evaluate(FunctionType &objective);
     //! select() and adapt() of the 1.x API: not while a generation waits for tell()

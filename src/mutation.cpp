@@ -92,13 +92,6 @@ void NoSigmaSampler::sample(const Float sigma, parameters::Parameters &p)
     apply_integer_bounds(p);
 }
 
-void Strategy::mutate(FunctionType &objective, const size_t n_offspring, parameters::Parameters &p)
-{
-    begin_population(n_offspring, p);
-    push_extra_points(p);
-    p.queue.drain(p, objective);
-}
-
 void Strategy::begin_population(const size_t n_offspring, parameters::Parameters &p)
 {
     p.pop.reserve(n_offspring);
@@ -108,10 +101,9 @@ void Strategy::begin_population(const size_t n_offspring, parameters::Parameters
         tc->threshold(p.sampler->expected_length(), p.settings.budget, p.stats.evaluations);
     p.bounds->n_out_of_bounds = 0;
     p.repelling->prepare_sampling(p);
-    push_batch(0, p);
 }
 
-void Strategy::push_batch(const Eigen::Index i, parameters::Parameters &p)
+Eigen::Index Strategy::sample_batch_from(const Eigen::Index i, parameters::Parameters &p)
 {
     const auto n = static_cast<Eigen::Index>(p.pop.n);
     const auto stop = first_stop(static_cast<size_t>(i), p);
@@ -119,15 +111,14 @@ void Strategy::push_batch(const Eigen::Index i, parameters::Parameters &p)
         stop >= static_cast<size_t>(n) ? n - 1 : static_cast<Eigen::Index>(stop);
     const Eigen::Index k = last - i + 1;
     sample_batch(i, k, p);
-    p.queue.push(p.pop.X_transformed.middleCols(i, k), evaluation::Source::POPULATION, i);
+    return k;
 }
 
 void Strategy::tell_batch(const Eigen::Index i,
                           const evaluation::Evaluations &e,
                           parameters::Parameters &p)
 {
-    const Eigen::Index k = e.f.size();
-    for (Eigen::Index j = 0; j < k; ++j)
+    for (Eigen::Index j = 0; j < e.f.size(); ++j)
     {
         // tell(f, X): a point that differs from the asked one replaces it
         if (e.given && e.X.col(j) != p.pop.X_transformed.col(i + j))
@@ -138,13 +129,6 @@ void Strategy::tell_batch(const Eigen::Index i,
             return;
         }
     }
-    push_batch(i + k, p);
-}
-
-void Strategy::push_extra_points(parameters::Parameters &p)
-{
-    if (const auto k = static_cast<Eigen::Index>(n_extra_points()); k != 0)
-        extra_points(p.queue.push(k, evaluation::Source::EXTRA_POINTS), p);
 }
 
 void Strategy::sample_batch(const Eigen::Index begin,

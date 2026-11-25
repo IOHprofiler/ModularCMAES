@@ -64,8 +64,16 @@ void Parameters::perform_restart(FunctionType &objective, const std::optional<Fl
 
 void Parameters::complete_restart(FunctionType &objective)
 {
-    push_restart_center();
-    queue.drain(*this, objective);
+    // The restart steps of ModularCMAES::advance, with an objective function
+    {
+        const Vector x = restart_center();
+        tell_restart_center(objective(x), x);
+    }
+    while (repelling->has_query())
+    {
+        const Vector x = repelling->query_point();
+        repelling->answer(objective(x), x, *this);
+    }
     finish_restart();
 }
 
@@ -107,7 +115,7 @@ size_t Parameters::budget_left(const evaluation::Step next) const
     // What the rest of the generation reserves: the reserved points of the steps still to run, and
     // at a restart the first generation of the next run, which fit_lambda_to_budget gives the rest
     // of the budget (at least min_lambda_after_restart)
-    size_t reserved = next <= evaluation::Step::FINISH_RESTART ? min_lambda_after_restart : 0;
+    size_t reserved = next <= evaluation::Step::RESTART ? min_lambda_after_restart : 0;
     for (int s = static_cast<int>(next); s < evaluation::n_steps; ++s)
         reserved += reserved_points(static_cast<evaluation::Step>(s));
     const size_t used = stats.evaluations + static_cast<size_t>(queue.size()) + reserved;
@@ -138,11 +146,6 @@ void Parameters::begin_restart(const std::optional<Float> &sigma)
     restart_sigma = sigma;
     stats.solutions.push_back(stats.current_best);
     pending_restart_center = coordinate_mapping->transform(adaptation->m);
-}
-
-void Parameters::push_restart_center()
-{
-    queue.push(pending_restart_center, evaluation::Source::RESTART_CENTER);
 }
 
 void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)

@@ -362,8 +362,9 @@ static void test_functions()
     CHECK(functions::to_string(functions::RASTRIGIN) == "rastrigin");
 }
 
-// #84: the evaluation queue. Requests are answered in push order, each by its source; a module
-// may queue follow-up points, which form the next batch; wrong sizes and an empty queue are errors.
+// #84: the evaluation queue. Requests are answered in push order, each by its source (the module in
+// place when the values arrive); wrong sizes and an empty queue are errors. The test queues the
+// points as ModularCMAES::advance does.
 static void test_evaluation_queue()
 {
     parameters::Modules m;
@@ -377,8 +378,15 @@ static void test_evaluation_queue()
 
     // The population's first batch (individuals 0..first_stop(0)), then TPA's two points
     p.mutation->begin_population(p.lambda, p);
-    const Eigen::Index first = q.size();
-    p.mutation->push_extra_points(p);
+    Eigen::Index next = 0;
+    const auto queue_batch = [&p, &q, &next] {
+        const Eigen::Index size = p.mutation->sample_batch_from(next, p);
+        q.push(p.pop.X_transformed.middleCols(next, size), evaluation::Source::POPULATION, next);
+        next += size;
+        return size;
+    };
+    const Eigen::Index first = queue_batch();
+    p.mutation->extra_points(q.push(2, evaluation::Source::EXTRA_POINTS), p);
     CHECK(first >= 1 && first < static_cast<Eigen::Index>(p.lambda));
     CHECK(q.size() == first + 2);
     CHECK((q.sources() == std::vector<std::string>{"population", "extra-points"}));
@@ -418,10 +426,13 @@ static void test_evaluation_queue()
     CHECK(tpa && tpa->rank_tpa == tpa->a_tpa + tpa->b_tpa);
     CHECK(p.stats.evaluations == static_cast<size_t>(first) + 2);
 
-    // The population was not stopped: its next individual is queued, on its own (a follow-up)
-    CHECK(q.size() == 1 && (q.sources() == std::vector<std::string>{"population"}));
-    while (!q.empty())
+    // The population was not stopped: nothing is queued until the driver queues the next batch
+    CHECK(q.empty() && next < static_cast<Eigen::Index>(p.pop.n));
+    while (next < static_cast<Eigen::Index>(p.pop.n))
+    {
+        queue_batch();
         q.answer(p, Vector::Constant(q.size(), 1.0));
+    }
     CHECK(p.stats.evaluations == p.lambda + 2);
 
     raised = false;
@@ -450,109 +461,14 @@ static void test_budget_left()
     p.stats.evaluations = 60;
     p.queue.push(Matrix::Zero(2, 5), evaluation::Source::HILL_VALLEY);
     // At a restart: the smallest first generation of the next run and TPA's two points
-    CHECK(p.budget_left(Step::FINISH_RESTART) ==
+    CHECK(p.budget_left(Step::RESTART) ==
           100 - 60 - 5 - parameters::Parameters::min_lambda_after_restart - 2);
-    // Once the population is queued (SELECT runs next): nothing later is reserved
+    // Once the population is queued: nothing later is reserved
+    CHECK(p.budget_left(Step::POPULATION) == 35);
     CHECK(p.budget_left(Step::SELECT) == 35);
     CHECK(p.budget_left(Step::UPDATE) == 35);
     p.stats.evaluations = 99;
     CHECK(p.budget_left(Step::UPDATE) == 0); // not below 0
-}
-
-// A hypothetical module with a variable number of evaluations per generation (#84): when the
-// population is complete, it re-evaluates a random number (0..3) of its best points, clipped to the
-// budget, and averages the values. It is a step-size adaptation (CSA) whose extra points
-// (Source::EXTRA_POINTS) are queued when the population is complete: a batch of their own.
-struct RandomReevaluation : mutation::CSA
-{
-    using CSA::CSA;
-    std::vector<Eigen::Index> idx;
-
-    void tell_extra_points(Eigen::Ref<const Vector> f,
-                           Eigen::Ref<const Matrix>,
-                           parameters::Parameters &p) override
-    {
-        p.stats.evaluations += static_cast<size_t>(f.size());
-        for (size_t j = 0; j < idx.size(); ++j)
-            p.pop.f(idx[j]) = 0.5 * (p.pop.f(idx[j]) + f(static_cast<Eigen::Index>(j)));
-    }
-
-  protected:
-    void on_population_complete(parameters::Parameters &p) override
-    {
-        // The random number is drawn when the points are queued, at a fixed point of the generation
-        std::uniform_int_distribution<int> draw(0, 3);
-        const size_t k = std::min({static_cast<size_t>(draw(*p.generator)),
-                                   p.budget_left(evaluation::Step::SELECT),
-                                   p.pop.n});
-        idx.resize(p.pop.n);
-        std::iota(idx.begin(), idx.end(), 0);
-        std::partial_sort(idx.begin(), idx.begin() + k, idx.end(), [&p](auto a, auto b) {
-            return p.pop.f(a) < p.pop.f(b);
-        });
-        idx.resize(k);
-        if (k != 0)
-            p.queue.push(p.pop.X_transformed(Eigen::all, idx), evaluation::Source::EXTRA_POINTS);
-    }
-};
-
-static void add_random_reevaluation(parameters::Parameters &p)
-{
-    const auto &s = *p.mutation;
-    p.mutation = std::make_shared<RandomReevaluation>(s.tc, s.sq, s.ss, s.sigma);
-}
-
-// #84: with a variable number of evaluations per generation, ask-tell and the steps of a
-// generation (mutate, select, recombine, adapt) give the trajectory of run(), and the budget is
-// never exceeded. (Configurations without restarts: a restart replaces the step-size adaptation.)
-static void test_variable_evaluations_module()
-{
-    for (const int config : {0, 2})
-    {
-        auto settings = ask_tell_settings(config);
-        settings.budget = 2003; // not a multiple of anything
-        settings.seed = 11;
-        FunctionType f = rastrigin;
-
-        ModularCMAES a(settings);
-        add_random_reevaluation(*a.p);
-        a(f);
-
-        ModularCMAES b(settings);
-        add_random_reevaluation(*b.p);
-        size_t rounds = 0, generations = 0;
-        while (!b.break_conditions())
-        {
-            for (bool done = false; !done; rounds++)
-            {
-                const Matrix X = b.ask();
-                Vector values(X.cols());
-                for (Eigen::Index j = 0; j < X.cols(); ++j)
-                    values(j) = rastrigin(X.col(j));
-                done = b.tell(values);
-            }
-            generations++;
-        }
-
-        ModularCMAES c(settings);
-        add_random_reevaluation(*c.p);
-        while (!c.break_conditions())
-        {
-            c.mutate(f);
-            c.select();
-            c.recombine();
-            c.adapt();
-        }
-
-        for (const auto *other : {&b, &c})
-        {
-            CHECK(a.p->stats.evaluations == other->p->stats.evaluations);
-            CHECK(a.p->adaptation->m == other->p->adaptation->m);
-            CHECK(a.p->mutation->sigma == other->p->mutation->sigma);
-        }
-        CHECK(a.p->stats.evaluations <= settings.budget);
-        CHECK(rounds > generations); // some generations asked twice (the re-evaluations)
-    }
 }
 
 // (c) The hill-valley tests of repelling (a variable number of points, at a restart) leave the
@@ -651,7 +567,6 @@ int main()
     test_tell_errors();
     test_evaluation_queue();
     test_budget_left();
-    test_variable_evaluations_module();
     test_budget_with_restarts();
     test_decomposed_steps();
     test_split_median();

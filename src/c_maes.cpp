@@ -137,54 +137,87 @@ bool ModularCMAES::tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matri
 
 bool ModularCMAES::advance(const bool stop_before_selection)
 {
-    // The steps of a generation, in order. A step that queues points returns control: ask() hands
-    // them out, and the next step runs once tell() has given all their values.
+    // The steps of a generation, in order. This is the only place that queues points: a step that
+    // queues some returns control (ask() hands them out), and runs again, or the next step, once
+    // tell() has given their values.
+    using evaluation::Source;
+    using evaluation::Step;
     while (p->queue.empty())
     {
         switch (next)
         {
-        case evaluation::Step::BEGIN:
-            // A restart first when the criteria fired: the final mean of the run that ends is
-            // evaluated, and its value starts the hill-valley tests of the repelling archive
+        case Step::BEGIN:
+            // A restart first when the criteria fired: the final mean of the run that ends
             if (p->begin_generation())
             {
-                p->push_restart_center();
-                next = evaluation::Step::FINISH_RESTART;
+                p->queue.push(p->restart_center(), Source::RESTART_CENTER);
+                next = Step::RESTART;
             }
             else
-                next = evaluation::Step::SAMPLE;
+                next = Step::SAMPLE;
             break;
 
-        case evaluation::Step::FINISH_RESTART:
-            // Every point of the restart has its value: the modules are reset for the new run
-            p->finish_restart();
-            next = evaluation::Step::SAMPLE;
+        case Step::RESTART:
+            // The final mean's value started the update of the repelling archive: its hill-valley
+            // points, one at a time (each depends on the value of the one before); then the
+            // modules are reset for the new run
+            if (p->repelling->has_query())
+                p->queue.push(p->repelling->query_point(), Source::HILL_VALLEY);
+            else
+            {
+                p->finish_restart();
+                next = Step::SAMPLE;
+            }
             break;
 
-        case evaluation::Step::SAMPLE:
-            // The population's first batch (each batch queues the next), with the extra points
-            // of the step-size adaptation (TPA's), which do not depend on the population's values
+        case Step::SAMPLE:
+            // A new population: its first batch, with the extra points of the step-size adaptation
+            // (TPA's), which do not depend on the population's values
             p->mutation->begin_population(p->lambda, *p);
-            p->mutation->push_extra_points(*p);
-            next = evaluation::Step::SELECT;
+            next_individual = 0;
+            queue_population_batch();
+            queue_extra_points();
+            next = Step::POPULATION;
             break;
 
-        case evaluation::Step::SELECT:
-            // Every point of the population has its value
+        case Step::POPULATION:
+            // With sequential selection the population comes in batches, until every individual
+            // has its value (a stop shortens pop.n to the evaluated individuals)
+            if (next_individual >= static_cast<Eigen::Index>(p->pop.n))
+                next = Step::SELECT;
+            else
+                queue_population_batch();
+            break;
+
+        case Step::SELECT:
             if (stop_before_selection)
                 return false;
             p->selection->select(*p);
-            next = evaluation::Step::UPDATE;
+            next = Step::UPDATE;
             break;
 
-        case evaluation::Step::UPDATE:
+        case Step::UPDATE:
             recombine();
             p->adapt();
-            next = evaluation::Step::BEGIN;
+            next = Step::BEGIN;
             return true;
         }
     }
     return false;
+}
+
+void ModularCMAES::queue_population_batch()
+{
+    const Eigen::Index begin = next_individual;
+    const Eigen::Index size = p->mutation->sample_batch_from(begin, *p);
+    p->queue.push(p->pop.X_transformed.middleCols(begin, size), evaluation::Source::POPULATION, begin);
+    next_individual += size;
+}
+
+void ModularCMAES::queue_extra_points()
+{
+    if (const auto k = static_cast<Eigen::Index>(p->mutation->n_extra_points()); k != 0)
+        p->mutation->extra_points(p->queue.push(k, evaluation::Source::EXTRA_POINTS), *p);
 }
 
 void ModularCMAES::evaluate(FunctionType &objective)

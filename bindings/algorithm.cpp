@@ -1651,7 +1651,8 @@ void define_mutation(nb::module_ &main)
         m,
         "Strategy",
         "Base class of the step-size adaptations; also samples and evaluates a population.\n\n"
-        "`mutate` samples and evaluates a population, `adapt` updates sigma after selection. "
+        "The optimizer samples a population through it, in batches, and `adapt` updates sigma "
+        "after selection. "
         "The base class does not change sigma. The optimizer creates the subclass of "
         "`Modules.ssa`; each subclass has the same constructor.")
         .def(nb::init<std::shared_ptr<ThresholdConvergence>,
@@ -1696,25 +1697,6 @@ void define_mutation(nb::module_ &main)
              "    The statistics of the run.\n"
              "lamb : int\n"
              "    The population size lambda.")
-        .def("mutate",
-             &Strategy::mutate,
-             nb::arg("objective"),
-             nb::arg("n_offspring"),
-             nb::arg("parameters"),
-             "Sample and evaluate a population.\n\n"
-             "Per individual: z from the sampler (lengthened by threshold convergence), "
-             "y = A z, x = m + sigma_i y and bound correction; with RESAMPLE or repelling a "
-             "rejected individual is sampled again. Sequential selection can stop the "
-             "population early. With TPA the two extra points are evaluated with the first "
-             "batch.\n\n"
-             "Parameters\n"
-             "----------\n"
-             "objective : Callable[[numpy.ndarray], float]\n"
-             "    The objective function.\n"
-             "n_offspring : int\n"
-             "    The number of individuals.\n"
-             "parameters : Parameters\n"
-             "    The state of the optimizer (`es.p`); `pop` is written.")
         .def_rw("threshold_convergence",
                 &Strategy::tc,
                 "The threshold convergence (`ThresholdConvergence` or "

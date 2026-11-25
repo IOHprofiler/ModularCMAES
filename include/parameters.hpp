@@ -87,7 +87,7 @@ struct Parameters
      * The evaluations that a request with a variable number of points may use, queued while `next`
      * is the step that runs once the queue is empty: the budget minus the evaluations, the queued
      * points, the reserved points of `next` and the steps after it, and, at a restart
-     * (FINISH_RESTART: the hill-valley tests), the smallest first generation of the next run
+     * (RESTART: the hill-valley tests), the smallest first generation of the next run
      * (min_lambda_after_restart). A module with a variable number of points clips its requests to
      * it.
      */
@@ -101,9 +101,10 @@ struct Parameters
 
     /*
      * The same, in steps (ask-tell). begin_generation makes the previous population old_pop and
-     * decides whether to restart. A restart then queues the center (push_restart_center); its
-     * value (tell_restart_center) starts the update of the repelling archive, which queues its
-     * hill-valley points one at a time; once they are evaluated, finish_restart resets the modules.
+     * decides whether to restart. ModularCMAES::advance then queues the center (restart_center());
+     * its value (tell_restart_center) starts the update of the repelling archive, whose hill-valley
+     * points advance queues one at a time (repelling->query_point()); once they are evaluated,
+     * finish_restart resets the modules.
      */
 
     //! Returns whether a restart started (then restart_center() waits for its objective value)
@@ -113,9 +114,6 @@ struct Parameters
 
     //! The point at which a restart evaluates the objective (the center, in objective space)
     [[nodiscard]] const Vector &restart_center() const { return pending_restart_center; }
-
-    //! Queue the center of a started restart (evaluation::Source::RESTART_CENTER)
-    void push_restart_center();
 
     //! The objective value y of the center x; starts the repelling archive update
     void tell_restart_center(const Float y, Eigen::Ref<const Vector> x);

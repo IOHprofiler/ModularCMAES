@@ -66,8 +66,9 @@ Usually `k` is the population size λ. Some modules ask for other batches:
 So do not assume `k == λ`: always evaluate the rows of what `ask()` returned. `ask()` returns the
 same points until `tell()` is called, so asking twice is harmless.
 
-Behind this is one queue of points to evaluate (`es.p.queue`): the modules queue points at fixed
-moments of a generation, and the generation waits for `tell()` until they are evaluated. For
+Behind this is one queue of points to evaluate (`es.p.queue`): at fixed moments of a generation
+the optimizer queues the points its modules need, and the generation waits for `tell()` until they
+are evaluated. For
 debugging, `es.p.queue.sources` shows which modules wait:
 
 ```python

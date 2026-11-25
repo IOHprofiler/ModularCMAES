@@ -79,32 +79,27 @@ ctest --test-dir build --output-on-failure
 
 ## A module that evaluates the objective
 
-No module calls the objective. A module that needs objective values queues points, and
-receives their values when the user calls `tell()`, or when `run()` evaluates them
-(`include/evaluation.hpp`). Adding one takes three steps:
+No module calls the objective, and no module queues points itself. `ModularCMAES::advance()`
+(`src/c_maes.cpp`) is the only place that queues points: it runs the steps of a generation in
+order (`evaluation::Step`: `BEGIN`, `RESTART`, `SAMPLE`, `POPULATION`, `SELECT`, `UPDATE`) and
+reads from top to bottom. Adding a module that evaluates takes three changes:
 
 * **A source:** a value of `evaluation::Source`, and its `case` in `Parameters::dispatch`
   (`src/parameters.cpp`), which passes the values (`Evaluations`: `f`, the points `X`, and whether
-  `tell(f, X)` gave them) to the module through `p`. Never keep a pointer to the module in the
-  request: the module in place when the values arrive receives them.
-* **A call at its step** in `ModularCMAES::advance()` (`src/c_maes.cpp`), which runs the steps of
-  a generation in order (`evaluation::Step`): `BEGIN` (a restart queues the final mean),
-  `FINISH_RESTART`, `SAMPLE` (the population; points that do not depend on its values join its
-  first batch, as TPA's), `SELECT` and `UPDATE`. The call queues the points: `p.queue.push(X,
-  source, index)`. The module may queue follow-up points when it receives the values; they form
-  the next batch, as the batches of sequential selection and the hill-valley tests do. A module
-  that needs a new point in the generation adds a step.
+  `tell(f, X)` gave them) to the module through `p`.
+* **A call at its step** in `advance()`, which asks the module for its points and queues them:
+  `p->queue.push(X, source, index)`. A module whose next point depends on the previous value
+  answers "do I need another point, and which?" (as repelling's `has_query()` and
+  `query_point()`); its step then runs again until the module is done, as `RESTART` does for the
+  hill-valley tests and `POPULATION` for the batches of sequential selection. A module that needs
+  the objective at a new moment of the generation adds a step.
 * **The budget:** a fixed number of points per generation, the same in every generation of a
   configuration, goes into `Parameters::reserved_points(step)`, which the budget checks reserve.
-  A variable number of points is clipped to `p.budget_left(next)`, with `next` the step that runs
+  A variable number of points is limited by `p.budget_left(next)`, with `next` the step that runs
   once the queue is empty; it keeps what the steps still to run reserve.
 
-**Random numbers** are drawn when the points are queued, never later. Ask–tell then stays
+**Random numbers** are drawn when the module computes its points, never later. Ask–tell then stays
 identical to `run()`.
-
-`tests/cpp/test_main.cpp` (`RandomReevaluation`) has an example: a module that re-evaluates a
-random number of points after every population, built on the extra points of the step-size
-adaptation.
 
 ## Planned work
 
