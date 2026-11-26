@@ -522,11 +522,11 @@ class ModularCMAES:
         """
 
     @property
-    def xfavorite(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+    def center_of_mass(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The favorite solution, (d,) array: the mean of the search distribution as a point of the objective (integer variables rounded; inside the bounds when a bound correction is used), as pycma's `xfavorite`.
+        The center of mass, (d,) array: the mean of the search distribution as a point of the objective (integer variables rounded; inside the bounds when a bound correction is used), pycma's `xfavorite`. The current mean: during a run it moves with every generation.
 
-        Not evaluated. With a noisy objective the value of `p.stats.global_best` is biased low (it was selected for being low); the mean averages over the population and, with a large population, is often closer to the optimum.
+        Every run ends with its evaluation, recorded in `p.stats.centers` (#111). With a noisy objective the value of `p.stats.global_best` is biased low (it was selected for being low); the mean averages over the population and, with a large population, is often closer to the optimum.
         """
 
     def recombine(self) -> None:
@@ -540,7 +540,7 @@ class ModularCMAES:
         """
         Sample and evaluate a generation: the first step of a generation.
 
-        Restarts first when a restart criterion holds (the restart evaluates its center with objective). Then select(), recombine() and adapt() complete the generation. Every call samples a new generation, as in 1.x; only a generation that ask() started is completed instead (its points evaluated with objective).
+        Restarts first when a restart criterion holds (the run that ends evaluates its center of mass with objective). Then select(), recombine() and adapt() complete the generation. Every call samples a new generation, as in 1.x; only a generation that ask() started is completed instead (its points evaluated with objective). When the optimizer stops (stop_conditions()), it evaluates the final center of mass instead of a generation, and select(), recombine() and adapt() then do nothing: the 1.x loop `while not es.break_conditions(): es.mutate(f); es.select(); ...` ends as run() does.
 
         Parameters
         ----------
@@ -566,6 +566,8 @@ class ModularCMAES:
         """
         Run one generation (with a restart first, when one is due).
 
+        When the optimizer stops (stop_conditions()), the call evaluates the final center of mass instead, one evaluation, and returns False.
+
         Parameters
         ----------
         objective : callable
@@ -576,7 +578,7 @@ class ModularCMAES:
         Returns
         -------
         bool
-            False when a break condition holds after this generation (see break_conditions), True otherwise.
+            False when the optimizer has stopped (see break_conditions), True otherwise.
         """
 
     def __call__(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> None:
@@ -586,7 +588,7 @@ class ModularCMAES:
         """
         Run generations while no break condition holds.
 
-        The break conditions are checked before every generation, the first one too: the run never exceeds the budget, and an optimizer that has stopped does not run again. The result is in p.stats (global_best, evaluations). A vectorized objective saves a Python call per evaluation.
+        The break conditions are checked before every generation, the first one too: the run never exceeds the budget, and an optimizer that has stopped does not run again. Every run ends with the evaluation of its center of mass, the last one too (#111). The result is in p.stats (global_best, evaluations, centers). A vectorized objective saves a Python call per evaluation.
 
         Parameters
         ----------
@@ -600,7 +602,7 @@ class ModularCMAES:
         """
         The points to evaluate next, a new (k, d) array (row i is point i).
 
-        Starts a generation when none is in progress; until tell(), it returns the same points. k >= 1 is the largest batch that can be evaluated in any order: usually lambda (lambda + 2 with TPA step-size adaptation). With sequential selection, the points up to the first one after which the generation may stop, then one point at a time (a pair with pairwise mirroring). A restart asks for its center first and, with repelling restarts, for the points of the hill-valley tests, one at a time.
+        Starts a generation when none is in progress; until tell(), it returns the same points. k >= 1 is the largest batch that can be evaluated in any order: usually lambda (lambda + 2 with TPA step-size adaptation). With sequential selection, the points up to the first one after which the generation may stop, then one point at a time (a pair with pairwise mirroring). Every run ends with its center of mass, one point: a restart asks for it first and, with repelling restarts, for the points of the hill-valley tests, one at a time; when the optimizer stops (stop_conditions()), the last ask() returns it, and break_conditions() holds after its tell().
         """
 
     def tell(self, f: numpy.typing.ArrayLike, X: numpy.typing.ArrayLike | None = None) -> bool:
@@ -619,7 +621,7 @@ class ModularCMAES:
         Returns
         -------
         bool
-            True when this completed a generation, False when ask() has more points of this generation.
+            True when this completed a generation (or the final center of mass, when the optimizer stops), False when ask() has more points of this generation.
 
         Raises
         ------
@@ -635,9 +637,16 @@ class ModularCMAES:
 
     def break_conditions(self) -> bool:
         """
-        Whether the run should stop; meaningful between generations (after tell() returned True).
+        Whether the optimizer has stopped; meaningful between generations (after tell() returned True).
 
-        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the next generation (lambda points, and the 2 extra points of TPA) would exceed settings.budget; a restart is due, but its center and the smallest first generation of the new run would exceed settings.budget; or restart_strategy is STOP and a restart criterion holds.
+        True when stop_conditions() hold and the final center of mass has been evaluated (the last ask() and tell(), or step()). False again when the stop conditions no longer hold, after the budget was raised: the run continues.
+        """
+
+    def stop_conditions(self) -> bool:
+        """
+        Whether the optimizer should stop: then the next ask() (or step()) evaluates the final center of mass, and break_conditions() holds after it.
+
+        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the next generation (lambda points, and the 2 extra points of TPA) would leave no evaluation of settings.budget for the final center of mass; a restart is due, but its center, the smallest first generation of the new run and its center of mass would exceed settings.budget; or restart_strategy is STOP and a restart criterion holds.
         """
 
     @property

@@ -10,7 +10,7 @@ restart) and repelling restarts (where *not* to).
 | `restart_strategy` | when a criterion holds |
 |---|---|
 | `NONE` | nothing happens; the run continues until the budget is used (default) |
-| `STOP` | the run stops (`break_conditions()` is true) |
+| `STOP` | the run ends, and the optimizer stops (`stop_conditions()`, then `break_conditions()`) |
 | `RESTART` | restart with the same λ |
 | `IPOP` | restart with λ doubled (Auger & Hansen 2005) |
 | `BIPOP` | alternate between a regime of large populations (doubling) and one of small populations with a random size, giving each about the same budget (Hansen 2009) |
@@ -40,7 +40,7 @@ settings = modcma.settings_from_dict(
 es = modcma.ModularCMAES(settings)
 print([criterion.name for criterion in es.p.criteria.items])
 es.run(rastrigin, vectorized=True)
-print("restarts:", len(es.p.stats.centers), "final lambda:", es.p.lamb)
+print("runs:", len(es.p.stats.centers), "final lambda:", es.p.lamb)
 ```
 
 The tolerances are class attributes, shared by all optimizers (set them before creating one):
@@ -70,13 +70,22 @@ class BudgetPerRun(modcma.restart.Criterion):
 es = modcma.ModularCMAES(modcma.settings_from_dict(5, restart_strategy="RESTART", budget=5_000, seed=1))
 es.p.criteria.items = [BudgetPerRun()]
 es.run(rastrigin, vectorized=True)
-print("restarts:", len(es.p.stats.centers))
+print("runs:", len(es.p.stats.centers))
 ```
 
-The final means of the runs that ended are in `es.p.stats.centers`, with their values.
+Every run ends with an evaluation of its center of mass (the mean, clipped to the bounds), at a
+restart and when the optimizer stops, as pycma's `eval_final_mean`. `es.p.stats.centers` holds a
+record of every run (`Center`): the evaluated point (`x`, `y`), the step size `sigma` and the shape
+`metric` the run ended with, the `reasons` it ended, and `std`, σ times the longest axis of the
+shape, which tells how far the run converged:
 
-* Evaluating the final mean costs one evaluation per restart.
-* Repelling restarts archive the better of the final mean and the best solution of the run.
+```python
+for center in es.p.stats.centers:
+    print(f"y = {center.y:9.3g}  std = {center.std:.1e}  reasons = {center.reasons}")
+```
+
+* Evaluating the center of mass costs one evaluation per run; the budget always keeps it.
+* Repelling restarts archive the better of the center of mass and the best solution of the run.
 * The center of the new run, chosen by `center_placement`, is not evaluated.
 
 ## Where a restart begins
@@ -89,8 +98,8 @@ the optima found so far.
 ## Repelling restarts
 
 Repelling restarts keep each new run away from the optima found before (de Nobel et al. 2024): the
-final means of earlier runs become *taboo points*, with a region around each, and samples in a taboo
-region are rejected unless a hill–valley test shows that they are in a different basin of attraction.
+centers of mass of earlier runs (or their best points, when better) become *taboo points*, with a
+region around each, and samples in a taboo region are rejected unless a hill–valley test shows that they are in a different basin of attraction.
 This helps to find *different* optima, for example when several good solutions are wanted, and
 avoids spending restarts on optima that are already known.
 

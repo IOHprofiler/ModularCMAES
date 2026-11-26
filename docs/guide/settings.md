@@ -12,7 +12,7 @@ other argument is a keyword argument with a default:
 | `x0` | the center of the bounds | the starting point (with `center_placement=X0`) |
 | `sigma0` | 2.0 | the initial step size σ₀; rule of thumb: 0.3 × the width of the search region |
 | `lb`, `ub` | −5 and 5 in every coordinate | the bounds, arrays of length d ([bounds](bound-correction.md)) |
-| `budget` | 10 000 × d | the maximum number of evaluations; at least the first generation (λ, and TPA's two points) |
+| `budget` | 10 000 × d | the maximum number of evaluations; at least the first generation (λ, and TPA's two points) and the evaluation of the final center of mass |
 | `target` | none | stop when the best value is at or below the target |
 | `max_generations` | none | stop after this many generations |
 | `lambda0` | 4 + ⌊3 ln d⌋ | the population size λ, at least 1 (1 is the (1+1)-ES; 2 and 3 work poorly with many modules, see [compatibility](compatibility.md)) |
@@ -26,7 +26,7 @@ other argument is a keyword argument with a default:
 
 An invalid value raises `ValueError` that names the argument: a dimension or `lambda0` of 0, a
 non-positive `sigma0`, vectors that do not have length d, `lb` above `ub`, or a budget smaller than
-the first generation.
+the first generation and the final center of mass.
 
 ```python
 import numpy as np

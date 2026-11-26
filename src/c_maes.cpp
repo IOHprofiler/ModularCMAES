@@ -4,18 +4,24 @@
 
 void ModularCMAES::recombine() const
 {
+    if (steps_skipped)
+        return;
     require_no_generation("recombine()");
     p->recombine();
 }
 
 void ModularCMAES::select() const
 {
+    if (steps_skipped)
+        return;
     require_no_generation("select()");
     p->selection->select(*p);
 }
 
 void ModularCMAES::adapt() const
 {
+    if (steps_skipped)
+        return;
     require_no_generation("adapt()");
     p->adapt();
 }
@@ -34,10 +40,19 @@ void ModularCMAES::mutate(FunctionType &objective)
     // Up to selection: a new generation, or the one that ask() started. The rest is the user's:
     // select(), recombine() and adapt() act on the state, and the next mutate() or ask() starts a
     // new generation, as in 1.x
+    steps_skipped = false;
     while (n_pending != 0 || next != Step::SELECT)
     {
         if (n_pending == 0)
-            advance(true);
+        {
+            // With stop_before_selection, advance() returns true only when the run has ended (its
+            // final center of mass has its value): there is no generation for the steps after
+            if (advance(true))
+            {
+                steps_skipped = true;
+                return;
+            }
+        }
         else
         {
             evaluate(objective);
@@ -66,36 +81,45 @@ void ModularCMAES::operator()(FunctionType &objective)
         ;
 }
 
-Vector ModularCMAES::xfavorite() const
+ModularCMAES::StopFlags ModularCMAES::stop_flags() const
 {
-    Vector x = p->coordinate_mapping->transform(p->adaptation->m);
-    if (p->settings.has_bounds &&
-        p->settings.modules.bound_correction != parameters::CorrectionMethod::NONE)
-        x = x.cwiseMax(p->settings.lb).cwiseMin(p->settings.ub);
-    return x;
-}
-
-bool ModularCMAES::break_conditions() const
-{
-    const auto target_reached =
-        p->settings.target and p->settings.target.value() >= p->stats.global_best.y;
-    // Stop when the next generation (lambda points, plus the reserved points: TPA's) would exceed
-    // the budget; a generation that ends exactly at the budget is still run. A generation that
-    // starts with a restart evaluates the center first (and hill-valley points of repelling, while
-    // the budget allows) and takes at most the rest of the budget (fit_lambda_to_budget).
+    StopFlags flags;
+    flags.target = p->settings.target and p->settings.target.value() >= p->stats.global_best.y;
+    // Stop when the next generation (lambda points, plus the reserved points: TPA's) would leave no
+    // evaluation for the final center of mass (#111); a generation that ends one evaluation before
+    // the budget is still run. A generation that starts with a restart evaluates the center first
+    // (and hill-valley points of repelling, while the budget allows) and takes at most the rest of
+    // the budget, less the new run's center of mass (fit_lambda_to_budget).
     const auto restart_due =
         p->settings.modules.restart_strategy != parameters::RestartStrategyType::STOP &&
         p->criteria.any();
-    const auto budget_used_up =
-        restart_due ? !p->restart_fits()
-                    : (p->stats.evaluations + p->lambda + p->reserved_points()) >
-                          p->settings.budget;
-    const auto exceed_gens =
-        p->settings.max_generations and p->stats.t >= p->settings.max_generations;
-    const auto restart_strategy_criteria =
+    flags.budget = restart_due ? !p->restart_fits()
+                               : (p->stats.evaluations + p->lambda + p->reserved_points() + 1) >
+                                     p->settings.budget;
+    flags.generations = p->settings.max_generations and p->stats.t >= p->settings.max_generations;
+    flags.criteria =
         p->settings.modules.restart_strategy == parameters::RestartStrategyType::STOP and
         p->criteria.any();
-    return exceed_gens or target_reached or budget_used_up or restart_strategy_criteria;
+    return flags;
+}
+
+bool ModularCMAES::stop_conditions() const { return stop_flags().any(); }
+
+bool ModularCMAES::break_conditions() const { return ended && stop_conditions(); }
+
+std::vector<std::string> ModularCMAES::reasons(const StopFlags &flags) const
+{
+    std::vector<std::string> names;
+    for (const auto &criterion : p->criteria.items)
+        if (criterion->met)
+            names.push_back(criterion->name);
+    if (flags.budget)
+        names.emplace_back("budget");
+    if (flags.target)
+        names.emplace_back("target");
+    if (flags.generations)
+        names.emplace_back("max_generations");
+    return names;
 }
 
 // -----------------------------------------------------------------------------
@@ -175,8 +199,10 @@ void ModularCMAES::dispatch(const Request &request,
     case Source::EXTRA_POINTS:
         p->mutation->tell_extra_points(f, X, *p);
         return;
-    case Source::RESTART_CENTER:
-        p->tell_restart_center(f(0), X.col(0));
+    case Source::CENTER_OF_MASS:
+        // Queued by BEGIN, which set next: RESTART at a restart, END when the optimizer stops
+        p->tell_center_of_mass(f(0), X.col(0), std::move(end_reasons), next == Step::RESTART);
+        end_reasons.clear();
         return;
     case Source::HILL_VALLEY:
         p->repelling->answer(f(0), X.col(0), *p);
@@ -193,19 +219,39 @@ bool ModularCMAES::advance(const bool stop_before_selection)
     {
         switch (next)
         {
-        case Step::BEGIN:
-            // A restart first when the criteria fired: the final mean of the run that ends
-            if (p->begin_generation())
+        case Step::BEGIN: {
+            // Every run ends with the evaluation of its center of mass (#111): when the optimizer
+            // stops, and when a restart is due (the restart criteria fired)
+            const auto flags = stop_flags();
+            if (!flags.any())
+                ended = false; // the stop no longer holds (the budget was raised): continue
+            if (flags.any() && !ended)
             {
-                queue(p->restart_center(), Source::RESTART_CENTER);
+                end_reasons = reasons(flags);
+                p->end_run();
+                queue(p->center_of_mass(), Source::CENTER_OF_MASS);
+                next = Step::END;
+            }
+            else if (p->begin_generation())
+            {
+                end_reasons = reasons(StopFlags{});
+                queue(p->center_of_mass(), Source::CENTER_OF_MASS);
                 next = Step::RESTART;
             }
             else
                 next = Step::SAMPLE;
             break;
+        }
+
+        case Step::END:
+            // The final center of mass has its value: the optimizer has stopped. A later ask()
+            // (ignoring break_conditions) continues with generations, as before the end
+            ended = true;
+            next = Step::BEGIN;
+            return true;
 
         case Step::RESTART:
-            // The final mean's value started the update of the repelling archive: its hill-valley
+            // The center's value started the update of the repelling archive: its hill-valley
             // points, one at a time (each depends on the value of the one before); then the
             // modules are reset for the new run
             if (p->repelling->has_query())
@@ -222,6 +268,7 @@ bool ModularCMAES::advance(const bool stop_before_selection)
         case Step::SAMPLE:
             // A new population: its first batch, with the extra points of the step-size adaptation
             // (TPA's), which do not depend on the population's values
+            steps_skipped = false;
             p->mutation->begin_population(p->lambda, *p);
             next_individual = 0;
             queue_population_batch();

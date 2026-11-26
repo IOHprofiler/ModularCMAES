@@ -94,8 +94,8 @@ rule under comma selection; the median success rule (MSR, Ait ElHara et al. 2013
 for exactly that setting.
 
 The success ratio is counted once per generation and is not reset at a restart. The points
-evaluated outside the generation (TPA's two points, the restart centers) do not count; before 2.0
-they did.
+evaluated outside the generation (TPA's two points, the centers of mass that end the runs) do not
+count; before 2.0 they did.
 
 **Compared with the framework paper.** The paper's success is "better than the best of the
 previous generation". With elitism this is the same as the best of the run.

@@ -19,8 +19,10 @@
  * a step runs again, or the next one runs, once tell() has given their values.
  * ask() returns everything that is queued: a whole population (with TPA's two points), or, with
  * sequential selection, the individuals up to the first one after which it can stop (with TPA's
- * points), then one (or a mirrored pair) at a time; a restart asks for the final mean, then for the
- * hill-valley points of the repelling archive, one at a time.
+ * points), then one (or a mirrored pair) at a time. Every run ends with the evaluation of its
+ * center of mass, one point (#111): when a restart is due, followed by the hill-valley points of
+ * the repelling archive, one at a time; and when the optimizer stops, after which
+ * break_conditions() holds.
  */
 struct ModularCMAES
 {
@@ -44,6 +46,9 @@ struct ModularCMAES
      * 1.x, mutate() always starts a new generation (or completes one that ask() started), and the
      * other steps act on the state as it is. select(), recombine() and adapt() refuse to run while
      * the points of a generation wait for their values (after ask(), or an interrupted mutate()).
+     * When the optimizer stops, mutate() evaluates the final center of mass instead of a
+     * generation, and select(), recombine() and adapt() then do nothing, so that the 1.x loop
+     * ends as run() does.
      */
 
     void recombine() const;
@@ -52,25 +57,39 @@ struct ModularCMAES
 
     void adapt() const;
 
-    //! Sample and evaluate a generation, up to selection (after a restart, when one is due)
+    //! Sample and evaluate a generation, up to selection (after a restart, when one is due); when
+    //! the optimizer stops, evaluate the final center of mass instead
     void mutate(FunctionType &objective);
 
-    //! One generation; returns false when a break condition holds
+    //! One generation (when the optimizer stops: the evaluation of the final center of mass);
+    //! returns false when a break condition holds
     bool step(FunctionType &objective);
 
     //! Run generations while no break condition holds (checked before each generation)
     void operator()(FunctionType &objective);
 
+    /**
+     * Whether the optimizer has stopped: a stop condition holds (stop_conditions()) and the run's
+     * final center of mass has been evaluated. False again when the stop conditions no longer
+     * hold (the budget was raised): the run continues.
+     */
     bool break_conditions() const;
 
     /**
-     * The favorite solution: the mean of the search distribution as a point of the objective
-     * (integer variables rounded; inside the bounds when a bound correction is used), as pycma's
-     * xfavorite. Not evaluated. With a noisy objective the value of the best evaluated point is
-     * biased low; the mean averages over the population and, with a large population, is often
-     * closer to the optimum.
+     * Whether the optimizer should stop: the target was reached, max_generations was reached, the
+     * next generation would leave no evaluation for the final center of mass (or a restart is
+     * due and does not fit), or a restart criterion holds with restart_strategy STOP.
      */
-    Vector xfavorite() const;
+    bool stop_conditions() const;
+
+    /**
+     * The center of mass: the mean of the search distribution as a point of the objective
+     * (integer variables rounded; inside the bounds when a bound correction is used), pycma's
+     * xfavorite. Every run ends with its evaluation (stats.centers, #111). With a noisy objective
+     * the value of the best evaluated point is biased low; the mean averages over the population
+     * and, with a large population, is often closer to the optimum.
+     */
+    Vector center_of_mass() const { return p->center_of_mass(); }
 
     /**
      * The points to evaluate next, the columns of a d x k matrix (k >= 1, in the space of the
@@ -103,9 +122,11 @@ struct ModularCMAES
      */
     enum class Step
     {
-        //! A new generation. When the restart criteria fired, the final mean of the run that ends
-        //! is queued
+        //! A new generation. When the optimizer stops or a restart is due, the center of mass of
+        //! the run that ends is queued first
         BEGIN,
+        //! The final center of mass has its value: the optimizer has stopped
+        END,
         //! The restart: the hill-valley points of the repelling archive, one at a time; then the
         //! modules are reset for the new run
         RESTART,
@@ -127,8 +148,8 @@ struct ModularCMAES
         POPULATION,
         //! The extra points of the step-size adaptation (TPA)
         EXTRA_POINTS,
-        //! The final mean of the run that ends at a restart
-        RESTART_CENTER,
+        //! The center of mass of the run that ends
+        CENTER_OF_MASS,
         //! A point of a hill-valley test of the repelling archive
         HILL_VALLEY,
     };
@@ -154,6 +175,26 @@ struct ModularCMAES
     Eigen::Index next_individual = 0;
     //! The objective values of the queued points in step() and mutate()
     Vector values;
+    //! The run's final center of mass has its value (break_conditions())
+    bool ended = false;
+    //! The last mutate() evaluated the final center of mass: select(), recombine() and adapt() do
+    //! nothing until the next generation
+    bool steps_skipped = false;
+    //! Why the run that ends now ends, for its record (queued with its center of mass)
+    std::vector<std::string> end_reasons;
+
+    //! The stop conditions, each on its own
+    struct StopFlags
+    {
+        bool target = false;
+        bool budget = false;
+        bool generations = false;
+        bool criteria = false;
+        [[nodiscard]] bool any() const { return target || budget || generations || criteria; }
+    };
+    [[nodiscard]] StopFlags stop_flags() const;
+    //! The names of the restart criteria that are met, and the stop flags that hold
+    [[nodiscard]] std::vector<std::string> reasons(const StopFlags &flags) const;
 
     bool tell(Eigen::Ref<const Vector> f, const Eigen::Ref<const Matrix> *X);
     //! The values of the queued points: each request's values to its module (dispatch)

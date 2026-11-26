@@ -50,12 +50,13 @@ class TestSettingsValidation(unittest.TestCase):
         Settings(3, lb=[0.0, -np.inf, 1.0], ub=[1.0, np.inf, 1.0])  # infinite and zero widths
 
     def test_budget_of_the_first_generation(self):
-        self.assert_rejected("budget", lambda0=10, budget=9)
-        Settings(3, lambda0=10, budget=10)
+        # The first generation and the evaluation of the final center of mass (#111)
+        self.assert_rejected("budget", lambda0=10, budget=10)
+        Settings(3, lambda0=10, budget=11)
         tpa = c_maes.Modules()
         tpa.ssa = c_maes.options.StepSizeAdaptation.TPA
-        self.assert_rejected("budget", modules=tpa, lambda0=10, budget=11)
-        Settings(3, tpa, lambda0=10, budget=12)
+        self.assert_rejected("budget", modules=tpa, lambda0=10, budget=12)
+        Settings(3, tpa, lambda0=10, budget=13)
         with self.assertRaisesRegex(ValueError, "budget"):
             fmin(sphere, np.ones(10), 0.5, budget=5)
 
@@ -89,11 +90,12 @@ class TestBudget(unittest.TestCase):
     """#114: run() checks the break conditions before every generation"""
 
     def test_run_never_exceeds_the_budget(self):
-        for budget in (8, 15, 25):
+        # Every generation leaves one evaluation for the final center of mass (#111)
+        for budget in (9, 16, 25, 33):
             es = ModularCMAES(Settings(4, lambda0=8, budget=budget, seed=1))
             es.run(sphere)
             self.assertLessEqual(es.p.stats.evaluations, budget)
-            self.assertEqual(es.p.stats.evaluations, 8 * (budget // 8))
+            self.assertEqual(es.p.stats.evaluations, 8 * ((budget - 1) // 8) + 1)
 
     def test_a_finished_optimizer_does_not_run_again(self):
         for vectorized in (False, True):
@@ -178,7 +180,7 @@ class TestActiveZeroStep(unittest.TestCase):
             for _ in range(3):
                 es.step(sphere)
             X = es.ask().copy()
-            X[-1] = es.xfavorite  # the mean, with the worst value: a negative weight, y = 0
+            X[-1] = es.center_of_mass  # the mean, with the worst value: a negative weight, y = 0
             f = [sphere(x) for x in X]
             f[-1] = 1e9
             es.tell(f, X)

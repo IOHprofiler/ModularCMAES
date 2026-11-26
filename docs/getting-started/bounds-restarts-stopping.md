@@ -71,15 +71,21 @@ add your own; see [restarts](../guide/restarts.md). Where the search restarts is
 
 ## Stopping
 
-A run stops when the first of these holds (`es.break_conditions()`, checked before every
+A run stops when the first of these holds (`es.stop_conditions()`, checked before every
 generation):
 
 | condition | set by |
 |---|---|
-| the next generation would exceed the budget of evaluations | `budget` (default 10 000 × d) |
+| the next generation would leave no evaluation for the final center of mass | `budget` (default 10 000 × d) |
 | the best value is at or below the target | `target` (default: none) |
 | the number of generations is reached | `max_generations` (default: none) |
 | a restart criterion holds, with `restart_strategy=STOP` | the restart criteria |
 
-The result is in `es.p.stats`: `global_best` (`.x`, `.y`), `evaluations`, `t` (generations), and the
-best solution of the current run, `current_best`.
+Every run then ends with one evaluation of its center of mass, `es.center_of_mass` (the mean of the
+distribution, clipped to the bounds), as pycma's `eval_final_mean`: the budget always keeps that
+evaluation. After it `es.break_conditions()` holds.
+
+The result is in `es.p.stats`: `global_best` (`.x`, `.y`), `evaluations`, `t` (generations), the
+best solution of the current run, `current_best`, and a record of every run in `centers`: its
+evaluated center of mass with `sigma`, the `metric` and the `reasons` it ended, and `std`, the
+longest semi-axis of its final one-sigma ellipsoid (how far it converged).

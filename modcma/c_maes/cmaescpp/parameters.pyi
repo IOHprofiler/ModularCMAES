@@ -11,6 +11,7 @@ import numpy
 import numpy.typing
 from numpy.typing import NDArray
 
+import modcma.c_maes.cmaescpp.matrix_adaptation
 import modcma.c_maes.cmaescpp.options
 
 
@@ -253,6 +254,41 @@ class Solution:
     def __repr__(self) -> str:
         """x and y as text."""
 
+class Center(Solution):
+    """
+    The record of a finished run: its evaluated center of mass, with the distribution the run ended with, and why it ended (#111).
+
+    Every run ends with an evaluation of its center of mass (`ModularCMAES.center_of_mass`), at a restart and when the optimizer stops: x and y are that point and its value, t the last generation of the run and e the evaluations after it. The run ended with the distribution N(x, sigma^2 C), C = B diag(d)^2 B^T, with d and B in `metric`. Every run is recorded, converged or not: `std` and `reasons` tell how it ended.
+    """
+
+    def __init__(self) -> None:
+        """An empty record: x is empty, y is +inf, no metric, no reasons."""
+
+    @property
+    def sigma(self) -> float:
+        """The step size at the end of the run."""
+
+    @property
+    def metric(self) -> modcma.c_maes.cmaescpp.matrix_adaptation.Metric:
+        """
+        The shape of the distribution at the end of the run, `matrix_adaptation.Metric` (the run's last `Adaptation.metric()`).
+        """
+
+    @property
+    def reasons(self) -> list[str]:
+        """
+        list of str: why the run ended: the names of the restart criteria that were met, and "budget", "target" or "max_generations" when one of those ended it.
+        """
+
+    @property
+    def std(self) -> float:
+        """
+        sigma * max(metric.d): the longest semi-axis of the run's one-sigma ellipsoid, the radius of the smallest ball that contains it. How far the run converged (NaN for an empty record).
+        """
+
+    def __repr__(self) -> str:
+        """x, y and std as text."""
+
 class Stats:
     """The progress of a run: counters and the best solutions."""
 
@@ -282,7 +318,7 @@ class Stats:
         """
         The number of objective function evaluations so far.
 
-        Includes the extra points of TPA, the centers of restarts and the hill-valley tests of repelling restarts.
+        Includes the extra points of TPA, the center of mass that ends every run and the hill-valley tests of repelling restarts.
         """
 
     @evaluations.setter
@@ -300,18 +336,20 @@ class Stats:
     @property
     def solutions(self) -> list[Solution]:
         """
-        list of Solution: the best solution of every finished run, appended at each restart (a copy).
+        list of Solution: the best solution of every finished run, appended when it ends, at a restart and when the optimizer stops (a copy). Its center of mass, evaluated after it, can be better: see centers.
         """
 
     @solutions.setter
     def solutions(self, arg: Sequence[Solution], /) -> None: ...
 
     @property
-    def centers(self) -> list[Solution]:
-        """list of Solution: the center evaluated at each restart (a copy)."""
+    def centers(self) -> list[Center]:
+        """
+        list of Center: the record of every finished run, appended when it ends, at a restart and when the optimizer stops: its evaluated center of mass, with sigma, the metric and why it ended (a copy). One per run, as solutions.
+        """
 
     @centers.setter
-    def centers(self, arg: Sequence[Solution], /) -> None: ...
+    def centers(self, arg: Sequence[Center], /) -> None: ...
 
     @property
     def current_best(self) -> Solution:
@@ -611,7 +649,7 @@ class Settings:
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, and IPOP or BIPOP become RESTART;
         - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim and center the zero vector.
 
-        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, lb above ub, or a budget smaller than the first generation.
+        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, lb above ub, or a budget smaller than the first generation and the evaluation of the final center of mass.
 
         Parameters
         ----------
@@ -624,7 +662,7 @@ class Settings:
         max_generations : int, optional
             Stop after this many generations. Default None: no limit.
         budget : int, optional
-            The maximum number of evaluations, default 10000 * dim; at least the first generation (lambda0, and TPA's 2 points). A generation runs only when it fits: the run stops when the evaluations so far plus lambda (and TPA's 2 points) would exceed it.
+            The maximum number of evaluations, default 10000 * dim; at least the first generation (lambda0, and TPA's 2 points) and the final center of mass. A generation runs only when it leaves one evaluation: the run stops when the evaluations so far plus lambda (and TPA's 2 points) plus 1 would exceed it, and every run ends with the evaluation of its center of mass (#111).
         sigma0 : float, optional
             The initial step size, default 2.0, positive and finite; also the step size after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in [0, 1)).
         mu0 : int, optional

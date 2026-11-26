@@ -259,9 +259,11 @@ class TestInterface(unittest.TestCase):
 
         cma = make(modules={"ssa": "TPA"}, lambda0=6, mu0=3, budget=400)
         cma.run(objective, vectorized=True)
-        self.assertTrue(all(shape == (8, 4) for shape in calls), set(calls))
-        self.assertEqual(len(calls), cma.p.stats.t)
-        self.assertEqual(cma.p.stats.evaluations, 8 * len(calls))
+        # One call per generation, then one for the final center of mass (#111)
+        self.assertTrue(all(shape == (8, 4) for shape in calls[:-1]), set(calls))
+        self.assertEqual(calls[-1], (1, 4))
+        self.assertEqual(len(calls), cma.p.stats.t + 1)
+        self.assertEqual(cma.p.stats.evaluations, 8 * cma.p.stats.t + 1)
 
     def test_run_keyword_only_vectorized(self):
         cma = make(budget=200)

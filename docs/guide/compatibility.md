@@ -107,7 +107,7 @@ noted; with the current version. Most are recorded for fixing.
 | `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |
 | `orthogonal` with `EQUAL` weights and a step-size rule other than `CSA` | C shrinks while σ grows |
 | `active` + `elitist` with a step-size rule other than `CSA` | poor convergence; with `CHOLESKY` or `SEPARABLE` and `XNES`/`MXNES`, σ diverges |
-| `UNIFORM`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` with infinite bounds | NaN restart centers [F19] |
+| `UNIFORM`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` with infinite bounds | NaN centers of new runs [F19] |
 | `ssa=XNES` without `NATURAL_GRADIENT`, or with `matrix_adaptation=NONE` | slow (a small default learning rate) [F27] |
 | `weights=UTILITY` with `elitist` | the mean drifts away: the utilities contrast the better and worse halves around the population's center, which with elitism is not the distribution's |
 | `weights=UTILITY` with `bound_correction=TOROIDAL` or `sample_transformation=CAUCHY` | far points (wrapped around, heavy tails) pull the mean through their negative utilities |

@@ -96,7 +96,9 @@ Result run_once(const std::string &config, const int dim, const size_t generatio
     const auto allocations0 = modcma_malloc_count();
     double t[4] = {0, 0, 0, 0};
     size_t measured = 0;
-    while (!cma.break_conditions())
+    // Generations only: stop_conditions(), not break_conditions(), which holds after the final
+    // center of mass (one evaluation, not a generation)
+    while (!cma.stop_conditions())
     {
         const auto a = Clock::now();
         cma.mutate(objective);

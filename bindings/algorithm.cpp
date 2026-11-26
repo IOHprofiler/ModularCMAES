@@ -6,23 +6,6 @@ namespace modcma_python
 {
 namespace
 {
-//! A copy of a matrix_adaptation::Metric that owns its vectors: what Python receives (a view could
-//! outlive the adaptation's update, #115)
-struct MetricCopy
-{
-    Vector d;
-    std::optional<Matrix> B;
-
-    explicit MetricCopy(const matrix_adaptation::Metric &metric) :
-        d(metric.d)
-    {
-        if (metric.B != nullptr)
-            B = *metric.B;
-    }
-
-    [[nodiscard]] matrix_adaptation::Metric view() const { return {d, B ? &*B : nullptr}; }
-};
-
 //! The members that every matrix adaptation shows in its repr
 void adaptation_repr(std::stringstream &ss, const matrix_adaptation::Adaptation &a)
 {
@@ -758,7 +741,9 @@ void define_matrix_adaptation(nb::module_ &main)
             "Whether C is diagonal (B is None).")
         .def(
             "eigenvalues",
-            [](const MetricCopy &metric) { return metric.view().eigenvalues(); },
+            [](const MetricCopy &metric) {
+                return matrix_adaptation::Metric::of(metric).eigenvalues();
+            },
             "The eigenvalues of C, d**2, in the order of `d`.\n\n"
             "Returns\n"
             "-------\n"
@@ -766,15 +751,15 @@ void define_matrix_adaptation(nb::module_ &main)
             "    Shape (d,).")
         .def(
             "inv_C",
-            [](const MetricCopy &metric) { return metric.view().inv_C(); },
+            [](const MetricCopy &metric) { return matrix_adaptation::Metric::of(metric).inv_C(); },
             "C^-1 = B diag(d)^-2 B^T, computed on call (O(d^3); a diagonal matrix when C is "
             "diagonal, where 1 / d**2 is the cheap form).\n\n"
             "On a convex-quadratic function with Hessian H, CMA-ES adapts C towards H^-1 up to a "
             "constant factor: Hansen (2016), The CMA Evolution Strategy: A Tutorial, Section 0.4, "
             "\"we assume that the optimal covariance matrix equals to the inverse Hessian matrix, "
             "up to a constant factor\" (an assumption with strong empirical support; \"a rigorous "
-            "proof is missing\"). pycma uses the same relation (`inverse_hessian_scalar_correction` "
-            "fits the factor). So C^-1 estimates the shape of the Hessian, not its scale; sigma "
+            "proof is missing\"). pycma uses the same relation "
+            "(`inverse_hessian_scalar_correction` fits the factor). So C^-1 estimates the shape of the Hessian, not its scale; sigma "
             "does not give the scale, it follows the distance to the optimum. The relation needs a "
             "full matrix: SEPARABLE can only match a diagonal Hessian, and NONE keeps C = I.\n\n"
             "Returns\n"
@@ -783,7 +768,9 @@ void define_matrix_adaptation(nb::module_ &main)
             "    Shape (d, d).")
         .def(
             "inv_root_C",
-            [](const MetricCopy &metric) { return metric.view().inv_root_C(); },
+            [](const MetricCopy &metric) {
+                return matrix_adaptation::Metric::of(metric).inv_root_C();
+            },
             "C^-1/2 = B diag(d)^-1 B^T, computed on call (O(d^3); a diagonal matrix when C is "
             "diagonal).\n\n"
             "Returns\n"
@@ -835,7 +822,7 @@ void define_matrix_adaptation(nb::module_ &main)
                 "update.")
         .def(
             "metric",
-            [](Adaptation &a) { return MetricCopy(a.metric()); },
+            [](Adaptation &a) { return a.metric().copy(); },
             "The metric of the sampled distribution: its axis lengths d and eigenvectors B, "
             "without sigma (see `Metric`).\n\n"
             "`CovarianceAdaptation`, `SeparableAdaptation` and `NoAdaptation` keep it: it costs "

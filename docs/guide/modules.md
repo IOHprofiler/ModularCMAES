@@ -52,7 +52,7 @@ Not everything you can switch on is a module. The distinction matters for how yo
 | evaluation: ask–tell, vectorized objectives, injected or repaired points | `ask`, `tell(f, X)`, `run(..., vectorized=True)` |
 | stopping and restarting: which restart criteria apply, their tolerances, your own criteria | `es.p.criteria`, `modcma.restart` |
 | reproducibility and speed: seeds, threads, the fast random generator, LAPACK and BLAS | `Settings(seed, fast_sampling)`, `modcma.constants` |
-| results: the best solution, the favorite solution (the mean) | `es.p.stats`, `es.xfavorite` |
+| results: the best solution, the center of mass (the mean), the record of every run | `es.p.stats`, `es.center_of_mass`, `es.p.stats.centers` |
 
 The numeric settings that change the strategy's behaviour (λ, µ, σ₀, the learning rates) are
 parameters of the algorithm rather than features: they can be tuned along with the modules
