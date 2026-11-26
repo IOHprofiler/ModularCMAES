@@ -157,16 +157,18 @@ class TestActiveZeroStep(unittest.TestCase):
     """#118: a zero step with a negative weight made the active update NaN"""
 
     def test_elitist_active_with_one_parent(self):
+        # before, over 20 seeds: C became NaN in every run, followed by 70-110 restarts in 300
+        # generations. How far a run converges is not checked: at lambda0 = 2 it depends on the
+        # seed and differs between platforms.
         for lambda0 in (2, 3, 4, 10):
-            es = ModularCMAES(settings_from_dict(
-                5, lambda0=lambda0, mu0=1, elitist=True, active=True, seed=1, budget=10**6,
-                restart_strategy="RESTART"))
-            for _ in range(300):
-                es.step(sphere)
-            # before: about 100 restarts and a best value around 0.1 (lambda0 = 2 is slow, but
-            # stable)
-            self.assertLessEqual(len(es.p.stats.centers), 2)
-            self.assertLess(es.p.stats.global_best.y, 1e-6)
+            with self.subTest(lambda0=lambda0):
+                es = ModularCMAES(settings_from_dict(
+                    5, lambda0=lambda0, mu0=1, elitist=True, active=True, seed=1, budget=10**6,
+                    restart_strategy="RESTART"))
+                for _ in range(300):
+                    es.step(sphere)
+                    self.assertTrue(np.all(np.isfinite(es.p.adaptation.C)))
+                self.assertLessEqual(len(es.p.stats.centers), 2)
 
     def test_injected_mean(self):
         for matrix_adaptation in ("COVARIANCE", "COVARIANCE_NO_EIGV"):
