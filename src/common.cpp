@@ -41,14 +41,6 @@ void sort_order(Eigen::Ref<const Vector> v, std::vector<size_t> &idx)
     });
 }
 
-std::vector<size_t> sort_indexes(const Vector &v)
-{
-    std::vector<size_t> idx(v.size());
-    std::iota(idx.begin(), idx.end(), 0);
-    sort_index_inplace(v, idx);
-    return idx;
-}
-
 std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, const size_t budget)
 {
     size_t successful_runs = 0, total_rt = 0;

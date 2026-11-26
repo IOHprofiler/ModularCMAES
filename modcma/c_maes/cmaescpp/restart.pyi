@@ -79,7 +79,9 @@ class ExceededMaxIter(Criterion):
     """
 
     def __init__(self) -> None:
-        """The criterion; `max_iter` is set by the first reset."""
+        """
+        The criterion; `max_iter` is set by the first reset (or, added to a running optimizer, before its first update).
+        """
 
     @property
     def max_iter(self) -> int:
@@ -98,7 +100,9 @@ class NoImprovement(Criterion):
     """
 
     def __init__(self) -> None:
-        """The criterion; `n_bin` is set by the first reset."""
+        """
+        The criterion; `n_bin` is set by the first reset (or, added to a running optimizer, before its first update).
+        """
 
     @property
     def n_bin(self) -> int:
@@ -161,7 +165,9 @@ class FlatFitness(Criterion):
     """
 
     def __init__(self) -> None:
-        """The criterion; its parameters are set by the first reset."""
+        """
+        The criterion; its parameters are set by the first reset (or, added to a running optimizer, before its first update).
+        """
 
     @property
     def max_flat_fitness(self) -> int:
@@ -285,7 +291,9 @@ class Stagnation(Criterion):
     """
 
     def __init__(self) -> None:
-        """The criterion; `n_stagnation` is set by the first reset."""
+        """
+        The criterion; `n_stagnation` is set by the first reset (or, added to a running optimizer, before its first update).
+        """
 
     @property
     def n_stagnation(self) -> int:

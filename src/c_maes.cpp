@@ -58,6 +58,10 @@ bool ModularCMAES::step(FunctionType &objective)
 
 void ModularCMAES::operator()(FunctionType &objective)
 {
+    // The break conditions are checked before every generation, the first one too: a run never
+    // exceeds the budget, and an optimizer that has stopped does not run again (#114)
+    if (break_conditions())
+        return;
     while (step(objective))
         ;
 }

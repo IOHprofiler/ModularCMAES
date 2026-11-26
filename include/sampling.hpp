@@ -289,6 +289,10 @@ struct CachedSampler : Sampler
     //! The cached samples are those of the wrapped sampler
     Float expected_length() override { return sampler->expected_length(); }
 
+    //! A restart resets the wrapped sampler (a Mirrored or Orthogonal state) while it fills the
+    //! cache; the cached samples are kept (#117)
+    void reset(const parameters::Modules &m, const size_t l) override { sampler->reset(m, l); }
+
   private:
     static size_t first_size(const std::vector<Vector> &cache)
     {

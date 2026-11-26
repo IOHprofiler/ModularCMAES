@@ -50,7 +50,10 @@ void define_population(nb::module_ &main)
         "active columns that shares memory with the population: X, X_transformed, Z, Y and S are "
         "(d, n) matrices, f and t are (n,) vectors. Assigning an array replaces the whole buffer "
         "and leaves n unchanged. The buffers can hold more than n columns, e.g. after sequential "
-        "selection stopped a generation early; those columns hold no population data.")
+        "selection stopped a generation early; those columns hold no population data.\n\n"
+        "A view is valid until the next generation: the optimizer then swaps pop and old_pop, "
+        "and a restart or a larger population replaces the buffers (the view would read freed "
+        "memory). Copy an array (`.copy()`) to keep its values.")
         .def(nb::init<size_t, size_t>(),
              nb::arg("dimension"),
              nb::arg("n"),
@@ -162,9 +165,18 @@ void define_population(nb::module_ &main)
                      view,
                      "(n,) array: the generation (Stats.t) in which each individual was sampled.")
         .def_rw("d", &Population::d, "The dimension: the number of rows of the arrays.")
-        .def_rw("n",
-                &Population::n,
-                "The number of active individuals: the columns 0..n-1 of the buffers.")
+        .def_prop_rw(
+            "n",
+            [](const Population &p) { return p.n; },
+            [](Population &p, const size_t n) {
+                if (n > p.capacity())
+                    throw nb::value_error(("Population.n: at most the capacity, " +
+                                           std::to_string(p.capacity()))
+                                              .c_str());
+                p.n = n;
+            },
+            "The number of active individuals: the columns 0..n-1 of the buffers (at most "
+            "capacity; otherwise ValueError).")
         .def_prop_ro("capacity",
                      &Population::capacity,
                      "The number of columns of the buffers (at least n).");
@@ -295,9 +307,13 @@ void define_parameters(nb::module_ &main)
 
     nb::class_<Solution>(m, "Solution", "A point with its objective value and when it was found.")
         .def(nb::init<>(), "An empty solution: x is empty, y is +inf, t and e are 0.")
-        .def_rw("x",
-                &Solution::x,
-                "(d,) array: the point, as evaluated (integer variables rounded).")
+        .def_prop_rw(
+            "x",
+            [](const Solution &s) { return s.x; },
+            [](Solution &s, const Vector &x) { s.x = x; },
+            "(d,) array: the point, as evaluated (integer variables rounded). A copy: it keeps its "
+            "values when the optimizer finds a better point, and changing it does not change the "
+            "optimizer.")
         .def_rw("y", &Solution::y, "The objective value of x; +inf for an empty solution.")
         .def_rw("t", &Solution::t, "The generation in which x was found.")
         .def_rw("e", &Solution::e, "The number of evaluations when x was found.")
@@ -603,6 +619,10 @@ void define_parameters(nb::module_ &main)
             "RESTART;\n"
             "- when the box lb..ub is not finite, has_bounds is False, diameter 10, volume "
             "10**dim and center the zero vector.\n\n"
+            "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
+            "sigma0 that is not positive and finite, x0, lb or ub of a length other "
+            "than dim, a non-finite x0, lb above ub, or a budget smaller than the first "
+            "generation.\n\n"
             "Parameters\n"
             "----------\n"
             "dim : int\n"
@@ -615,17 +635,21 @@ void define_parameters(nb::module_ &main)
             "max_generations : int, optional\n"
             "    Stop after this many generations. Default None: no limit.\n"
             "budget : int, optional\n"
-            "    The maximum number of evaluations, default 10000 * dim. A generation runs only "
-            "when it fits: the run stops when the evaluations so far plus lambda (and TPA's 2 "
-            "points) would exceed it.\n"
+            "    The maximum number of evaluations, default 10000 * dim; at least the first "
+            "generation (lambda0, and TPA's 2 points). A generation runs only when it fits: the "
+            "run stops when the evaluations so far plus lambda (and TPA's 2 points) would exceed "
+            "it.\n"
             "sigma0 : float, optional\n"
-            "    The initial step size, default 2.0; also the step size after a restart (the "
-            "small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in [0, 1)).\n"
+            "    The initial step size, default 2.0, positive and finite; also the step size "
+            "after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u "
+            "uniform in [0, 1)).\n"
             "mu0 : int, optional\n"
             "    The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or "
-            "matrix_adaptation CMSA).\n"
+            "matrix_adaptation CMSA); at least 1.\n"
             "lambda0 : int, optional\n"
-            "    The number of offspring per generation, default 4 + floor(3 ln(dim)).\n"
+            "    The number of offspring per generation, default 4 + floor(3 ln(dim)); at least 1 "
+            "(1 is the (1+1)-ES). Many modules work poorly with 2 or 3 (see the compatibility "
+            "page).\n"
             "x0 : array_like, optional\n"
             "    (dim,) the initial mean of the search distribution. Default None: the center of "
             "the bounds (the zero vector when the box is not finite); after a restart, "
@@ -709,14 +733,21 @@ void define_parameters(nb::module_ &main)
                 &Settings::lambda0,
                 "The initial number of offspring per generation, default 4 + floor(3 ln(dim)).\n\n"
                 "Parameters.lamb is the current value, which IPOP and BIPOP restarts change.")
-        .def_rw("x0",
-                &Settings::x0,
-                "(dim,) array: the initial mean of the search distribution, or None (default) "
-                "for `center`, the center of the bounds.")
+        .def_prop_rw(
+            "x0",
+            [](const Settings &s) { return s.x0; },
+            [](Settings &s, const std::optional<Vector> &x0) {
+                if (x0)
+                    s.require_length("x0", *x0);
+                s.x0 = x0;
+            },
+            "(dim,) array: the initial mean of the search distribution, or None (default) for "
+            "`center`, the center of the bounds. A length other than dim raises ValueError.")
         .def_prop_rw(
             "lb",
             [](const Settings &s) { return s.lb; },
             [](Settings &s, const Vector &lb) {
+                s.require_length("lb", lb);
                 s.lb = lb;
                 s.update_bounds();
             },
@@ -726,6 +757,7 @@ void define_parameters(nb::module_ &main)
             "ub",
             [](const Settings &s) { return s.ub; },
             [](Settings &s, const Vector &ub) {
+                s.require_length("ub", ub);
                 s.ub = ub;
                 s.update_bounds();
             },
@@ -850,9 +882,11 @@ void define_parameters(nb::module_ &main)
              nb::arg("new_mu"),
              nb::arg("new_lambda"),
              "Change the population size now.\n\n"
-             "Sets mu and lamb and resets the sampler, the weights and pop (old_pop keeps its "
-             "size). The restart strategies do not call it: they change mu and lamb, which the "
-             "reset of the restart then uses.\n\n"
+             "Sets mu and lamb and resets the sampler and the weights. The populations keep their "
+             "contents: the next generation compares with this one (elitism, MSR, PSR, "
+             "sequential selection) and reserves the columns it needs. The restart strategies do "
+             "not call it: they change mu and lamb, which the reset of the restart then "
+             "uses.\n\n"
              "Parameters\n"
              "----------\n"
              "new_mu : int\n"
@@ -935,7 +969,10 @@ Matrix to_points(nb::handle X)
 {
     static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
     nb::object a = asarray(X, nb::arg("dtype") = "float64");
-    if (nb::cast<size_t>(a.attr("ndim")) == 1)
+    const auto ndim = nb::cast<size_t>(a.attr("ndim"));
+    if (ndim == 0 || ndim > 2)
+        throw nb::value_error("tell(f, X): X must be a (k, d) array of points");
+    if (ndim == 1)
         a = a.attr("reshape")(1, -1);
     return nb::cast<RowMatrix>(a).transpose();
 }
@@ -973,6 +1010,9 @@ void run(ModularCMAES &c, nb::handle objective, const bool vectorized)
         c(f);
         return;
     }
+    // As ModularCMAES::operator(): the break conditions are checked before every generation
+    if (c.break_conditions())
+        return;
     while (step(c, objective, true))
         ;
 }
@@ -1100,7 +1140,9 @@ void define_cmaes(nb::module_ &m)
              nb::arg("objective"),
              nb::kw_only(),
              nb::arg("vectorized") = false,
-             "Run generations until a break condition holds.\n\n"
+             "Run generations while no break condition holds.\n\n"
+             "The break conditions are checked before every generation, the first one too: the "
+             "run never exceeds the budget, and an optimizer that has stopped does not run again. "
              "The result is in p.stats (global_best, evaluations). A vectorized objective saves "
              "a Python call per evaluation.\n\n"
              "Parameters\n"

@@ -71,11 +71,12 @@ add your own; see [restarts](../guide/restarts.md). Where the search restarts is
 
 ## Stopping
 
-A run stops when the first of these holds (`es.break_conditions()`):
+A run stops when the first of these holds (`es.break_conditions()`, checked before every
+generation):
 
 | condition | set by |
 |---|---|
-| the budget of evaluations is used up | `budget` (default 10 000 × d) |
+| the next generation would exceed the budget of evaluations | `budget` (default 10 000 × d) |
 | the best value is at or below the target | `target` (default: none) |
 | the number of generations is reached | `max_generations` (default: none) |
 | a restart criterion holds, with `restart_strategy=STOP` | the restart criteria |

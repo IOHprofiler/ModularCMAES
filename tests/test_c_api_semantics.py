@@ -47,6 +47,14 @@ class TestArraySemantics(unittest.TestCase):
         settings.ub = np.full(3, np.inf)
         self.assertFalse(settings.has_bounds)
 
+    def test_solution_x_is_a_copy(self):
+        # #115: a view of current_best.x read freed memory after the next improvement, and
+        # global_best.x changed under a stored reference
+        x = self.p.stats.global_best.x
+        self.assertFalse(np.shares_memory(x, self.p.stats.global_best.x))
+        x[...] = 1e9
+        self.assertNotEqual(self.p.stats.global_best.x.flat[0], 1e9)
+
     def test_other_eigen_members_are_writable_views(self):
         # pybind11 returned read-only views; nanobind's are writable and writes reach the C++
         # object (a deliberate change, in the changelog: nothing that worked before breaks)
@@ -54,7 +62,6 @@ class TestArraySemantics(unittest.TestCase):
             lambda: self.p.adaptation.C,
             lambda: self.p.adaptation.m,
             lambda: self.p.weights.positive,
-            lambda: self.p.stats.global_best.x,
         ):
             a = get()
             self.assertIsInstance(a, np.ndarray)

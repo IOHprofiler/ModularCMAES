@@ -70,7 +70,9 @@ void MuCommaLambdaES::step(FunctionType &objective)
         f(i) = objective(X.col(i));
         e++;
     }
-    const auto idx = utils::sort_indexes(f);
+    // NaN last, ties in index order (#117: a comparison with < is undefined for NaN)
+    std::vector<size_t> idx;
+    utils::sort_order(f, idx);
     X = X(Eigen::all, idx).eval();
     S = S(Eigen::all, idx).eval();
     f = f(idx).eval();
@@ -94,7 +96,8 @@ void MuCommaLambdaES::step(FunctionType &objective)
 
 void MuCommaLambdaES::operator()(FunctionType &objective)
 {
-    while (e < budget && f_min > target)
+    // A generation (lambda evaluations) runs only when it fits the budget (#117)
+    while (e + lambda <= budget && f_min > target)
         step(objective);
 }
 } // namespace es

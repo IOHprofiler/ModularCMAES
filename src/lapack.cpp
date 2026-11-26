@@ -232,10 +232,13 @@ void gemm(const double alpha,
 
 bool cholesky_factor(const Matrix &C, Matrix &L)
 {
+    // LAPACK when asked for (constants::cholesky_solver 1) and available, or automatically from
+    // lapack_min_dim on; Eigen otherwise (also when LAPACK is asked for but missing, #117)
     const int solver =
-        constants::cholesky_solver >= 0
-            ? constants::cholesky_solver
-            : (available() && static_cast<size_t>(C.rows()) >= constants::lapack_min_dim ? 1 : 0);
+        !available() ? 0
+                     : (constants::cholesky_solver >= 0
+                            ? constants::cholesky_solver
+                            : (static_cast<size_t>(C.rows()) >= constants::lapack_min_dim ? 1 : 0));
     if (solver == 1)
         return cholesky(C, L);
 

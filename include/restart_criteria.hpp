@@ -18,6 +18,8 @@ struct Criterion
     bool met;
     std::string name;
     size_t last_restart;
+    //! Whether reset() ran (the built-in criteria size their buffers in on_reset)
+    bool was_reset = false;
 
     Criterion(const std::string &name) :
         met(false),
@@ -33,6 +35,15 @@ struct Criterion
     virtual void update(const parameters::Parameters &p) = 0;
 
     virtual void on_reset(const parameters::Parameters &p) {};
+
+  protected:
+    //! For a built-in criterion that sizes its buffers in on_reset: reset it when it was added
+    //! after the last reset (from Python, #119), before its first update
+    void reset_if_new(const parameters::Parameters &p)
+    {
+        if (!was_reset)
+            reset(p);
+    }
 };
 
 using vCriteria = std::vector<std::shared_ptr<restart::Criterion>>;

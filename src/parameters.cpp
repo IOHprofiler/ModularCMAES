@@ -39,15 +39,13 @@ Parameters::Parameters(const size_t dim) :
 
 void Parameters::resize_population(const size_t new_mu, const size_t new_lambda)
 {
-    // TODO: Check validity
+    // The populations keep their contents: the next generation makes pop old_pop (elitism, MSR,
+    // PSR and sequential selection compare with it) and reserves the columns it needs (#117)
     mu = new_mu;
     lambda = new_lambda;
 
     sampler->reset(settings.modules, lambda);
     weights.init(mu, lambda, settings);
-    pop = Population(settings.dim, lambda);
-
-    // old_pop = Population(settings.dim, lambda);
 }
 
 size_t Parameters::reserved_points() const
@@ -123,7 +121,9 @@ void Parameters::fit_lambda_to_budget()
     const size_t remaining = settings.budget > used ? settings.budget - used : 0;
     if (lambda <= remaining)
         return;
-    size_t capped = std::max(min_lambda_after_restart, remaining);
+    // Never more than lambda: past the budget (ask-tell that ignores break_conditions), a (1+1)-ES
+    // stays one (#114)
+    size_t capped = std::min(lambda, std::max(min_lambda_after_restart, remaining));
     if (settings.modules.mirrored == parameters::Mirror::PAIRWISE)
         capped -= capped % 2;
     mu = std::clamp<size_t>(static_cast<size_t>(std::round(static_cast<Float>(mu) *

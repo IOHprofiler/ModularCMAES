@@ -1,5 +1,8 @@
 #pragma once
 
+#include <stdexcept>
+#include <string>
+
 #include "common.hpp"
 #include "modules.hpp"
 
@@ -68,7 +71,7 @@ struct Settings
              std::optional<Float> acov = std::nullopt,
              bool verbose = false,
              bool always_compute_eigv = false) :
-        dim(dim),
+        dim(checked_dim(dim)),
         modules(mod.value_or(Modules())),
         target(target),
         max_generations(max_generations),
@@ -80,11 +83,6 @@ struct Settings
         lb(lb.value_or(Vector::Ones(dim) * -5)),
         ub(ub.value_or(Vector::Ones(dim) * 5)),
         integer_variables(integer_variables.value_or(Indices{})),
-        db(this->ub - this->lb),
-        center(this->lb + (db * 0.5)),
-        diameter(db.norm()),
-        volume(db.prod()),
-        has_bounds(true),
         cs(cs),
         cc(cc),
         cmu(cmu),
@@ -94,6 +92,22 @@ struct Settings
         verbose(verbose),
         one_plus_one(false)
     {
+        // Invalid values raise std::invalid_argument (ValueError in Python) here, instead of a
+        // crash or a silent misbehaviour later (#113)
+        require(lambda0 >= 1, "lambda0 must be at least 1");
+        require(!mu || *mu >= 1, "mu0 must be at least 1");
+        require(std::isfinite(sigma0) && sigma0 > 0,
+                "sigma0 must be positive and finite, got " + std::to_string(sigma0));
+        require_length("lb", this->lb);
+        require_length("ub", this->ub);
+        require((this->lb.array() <= this->ub.array()).all(),
+                "lb must not exceed ub (and neither may be NaN)");
+        if (this->x0)
+        {
+            require_length("x0", *this->x0);
+            require(this->x0->allFinite(), "x0 must be finite");
+        }
+
         if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
             lambda0++;
 
@@ -151,7 +165,23 @@ struct Settings
                 modules.restart_strategy = RestartStrategyType::RESTART;
         }
 
+        // The first generation must fit: lambda0 and the points that every generation evaluates
+        // besides the population, TPA's two (Parameters::reserved_points)
+        const size_t first_generation = lambda0 + (modules.ssa == StepSizeAdaptation::TPA ? 2 : 0);
+        require(this->budget >= first_generation,
+                "budget " + std::to_string(this->budget) +
+                    " is smaller than the first generation (" + std::to_string(first_generation) +
+                    " evaluations)");
+
         update_bounds();
+    }
+
+    //! The length of a vector of the dimension (lb, ub, x0); std::invalid_argument otherwise
+    void require_length(const char *name, const Vector &v) const
+    {
+        require(static_cast<size_t>(v.size()) == dim,
+                std::string(name) + " must have length dim = " + std::to_string(dim) + ", got " +
+                    std::to_string(v.size()));
     }
 
     //! Recompute the values derived from lb and ub (after a change of the bounds)
@@ -169,6 +199,19 @@ struct Settings
             volume = pow(diameter, dim);
             center.setConstant(0);
         }
+    }
+
+  private:
+    static size_t checked_dim(const size_t dim)
+    {
+        require(dim >= 1, "dim must be at least 1");
+        return dim;
+    }
+
+    static void require(const bool condition, const std::string &message)
+    {
+        if (!condition)
+            throw std::invalid_argument("Settings: " + message);
     }
 };
 

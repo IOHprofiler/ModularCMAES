@@ -329,6 +329,36 @@ static void test_budget_with_restarts()
     CHECK(cut_short > 0); // the budget did cut tests short
 }
 
+// #117: LAPACK asked for (constants) but not in the build: the decompositions use Eigen instead
+// of failing at every lazy update (a restart each time)
+static void test_lapack_fallback()
+{
+    if (lapack::available())
+    {
+        std::printf("(LAPACK in this build: test_lapack_fallback skipped)\n");
+        return;
+    }
+    const int eigen_solver = constants::eigen_solver;
+    const int cholesky_solver = constants::cholesky_solver;
+    constants::eigen_solver = 1;
+    constants::cholesky_solver = 1;
+    for (const auto type : {parameters::MatrixAdaptationType::COVARIANCE,
+                            parameters::MatrixAdaptationType::CMSA})
+    {
+        parameters::Modules m;
+        m.matrix_adaptation = type;
+        parameters::Settings settings(4, m);
+        ModularCMAES es(settings);
+        FunctionType sphere = [](Eigen::Ref<const Vector> x) { return x.squaredNorm(); };
+        for (int g = 0; g < 60; g++)
+            es.step(sphere);
+        CHECK(es.p->stats.centers.empty()); // no restart: every decomposition succeeded
+        CHECK(es.p->stats.global_best.y < 1e-6);
+    }
+    constants::eigen_solver = eigen_solver;
+    constants::cholesky_solver = cholesky_solver;
+}
+
 int main()
 {
     test_uniform_is_open_interval();
@@ -338,6 +368,7 @@ int main()
     test_budget_with_restarts();
     test_split_median();
     test_lapack_eigen();
+    test_lapack_fallback();
     test_natural_gradient_low_rank_update();
     test_functions();
     if (failures)

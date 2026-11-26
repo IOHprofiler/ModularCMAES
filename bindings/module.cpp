@@ -30,6 +30,15 @@ std::string compiler_version()
 struct constants_w
 {
 };
+
+//! The LAPACK helpers take square matrices: ValueError otherwise (#113)
+void require_square(const char *name, const Matrix &M)
+{
+    if (M.rows() != M.cols())
+        throw nb::value_error((std::string(name) + ": the matrix must be square, got " +
+                               std::to_string(M.rows()) + " x " + std::to_string(M.cols()))
+                                  .c_str());
+}
 } // namespace
 
 void define_constants(nb::module_ &m)
@@ -631,6 +640,7 @@ void define_utils(nb::module_ &main)
     m.def(
         "lapack_eigh",
         [](const Matrix &C, int method) {
+            require_square("lapack_eigh", C);
             Vector w;
             Matrix V;
             lapack::Workspace ws;
@@ -660,6 +670,7 @@ void define_utils(nb::module_ &main)
     m.def(
         "lapack_cholesky",
         [](const Matrix &C) {
+            require_square("lapack_cholesky", C);
             Matrix L;
             if (!lapack::cholesky(C, L))
                 throw std::runtime_error("LAPACK Cholesky failed or not available");
@@ -672,6 +683,7 @@ void define_utils(nb::module_ &main)
     m.def(
         "lapack_inverse",
         [](const Matrix &M) {
+            require_square("lapack_inverse", M);
             Matrix inverse;
             if (!lapack::inverse(M, inverse))
                 throw std::runtime_error("LAPACK inverse failed (singular) or not available");
@@ -686,6 +698,8 @@ void define_utils(nb::module_ &main)
         [](const Matrix &A, const Matrix &B, bool transpose_a, bool transpose_b) {
             if (!lapack::available())
                 throw std::runtime_error("BLAS not available");
+            if ((transpose_a ? A.rows() : A.cols()) != (transpose_b ? B.cols() : B.rows()))
+                throw nb::value_error("blas_gemm: the inner dimensions of op(A) and op(B) differ");
             Matrix C = Matrix::Zero(transpose_a ? A.cols() : A.rows(),
                                     transpose_b ? B.rows() : B.cols());
             lapack::gemm(1.0, A, transpose_a, B, transpose_b, 0.0, C);

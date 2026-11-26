@@ -58,7 +58,7 @@ struct ModularCMAES
     //! One generation; returns false when a break condition holds
     bool step(FunctionType &objective);
 
-    //! Run until a break condition holds
+    //! Run generations while no break condition holds (checked before each generation)
     void operator()(FunctionType &objective);
 
     bool break_conditions() const;

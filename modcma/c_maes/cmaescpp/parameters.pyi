@@ -222,7 +222,9 @@ class Solution:
 
     @property
     def x(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
-        """(d,) array: the point, as evaluated (integer variables rounded)."""
+        """
+        (d,) array: the point, as evaluated (integer variables rounded). A copy: it keeps its values when the optimizer finds a better point, and changing it does not change the optimizer.
+        """
 
     @x.setter
     def x(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
@@ -609,6 +611,8 @@ class Settings:
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, and IPOP or BIPOP become RESTART;
         - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim and center the zero vector.
 
+        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, lb above ub, or a budget smaller than the first generation.
+
         Parameters
         ----------
         dim : int
@@ -620,13 +624,13 @@ class Settings:
         max_generations : int, optional
             Stop after this many generations. Default None: no limit.
         budget : int, optional
-            The maximum number of evaluations, default 10000 * dim. A generation runs only when it fits: the run stops when the evaluations so far plus lambda (and TPA's 2 points) would exceed it.
+            The maximum number of evaluations, default 10000 * dim; at least the first generation (lambda0, and TPA's 2 points). A generation runs only when it fits: the run stops when the evaluations so far plus lambda (and TPA's 2 points) would exceed it.
         sigma0 : float, optional
-            The initial step size, default 2.0; also the step size after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in [0, 1)).
+            The initial step size, default 2.0, positive and finite; also the step size after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in [0, 1)).
         mu0 : int, optional
-            The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA).
+            The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA); at least 1.
         lambda0 : int, optional
-            The number of offspring per generation, default 4 + floor(3 ln(dim)).
+            The number of offspring per generation, default 4 + floor(3 ln(dim)); at least 1 (1 is the (1+1)-ES). Many modules work poorly with 2 or 3 (see the compatibility page).
         x0 : array_like, optional
             (dim,) the initial mean of the search distribution. Default None: the center of the bounds (the zero vector when the box is not finite); after a restart, center_placement X0 uses the same point.
         lb : array_like, optional
@@ -752,7 +756,7 @@ class Settings:
     @property
     def x0(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')] | None:
         """
-        (dim,) array: the initial mean of the search distribution, or None (default) for `center`, the center of the bounds.
+        (dim,) array: the initial mean of the search distribution, or None (default) for `center`, the center of the bounds. A length other than dim raises ValueError.
         """
 
     @x0.setter
