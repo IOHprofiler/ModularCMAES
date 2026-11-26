@@ -227,8 +227,8 @@ namespace
 {
 /**
  * The covariance adaptation, when B and d hold the eigendecomposition of C; null otherwise. B14:
- * COVARIANCE_NO_EIGV is a CovarianceAdaptation but never computes B and d, and the criteria read
- * their initial values (identity, ones) instead.
+ * COVARIANCE_NO_EIGV is a CovarianceAdaptation, but its B and d are not kept up to date (they are
+ * the identity and ones, or the last metric() asked, #123), so the criteria must not read them.
  */
 const matrix_adaptation::CovarianceAdaptation *eigendecomposition(const parameters::Parameters &p)
 {

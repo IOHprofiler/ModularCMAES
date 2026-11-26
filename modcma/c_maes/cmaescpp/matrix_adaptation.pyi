@@ -13,6 +13,68 @@ import modcma.c_maes.cmaescpp
 import modcma.c_maes.cmaescpp.parameters
 
 
+class Metric:
+    """
+    The metric of a search distribution: its shape without the step size, from `Adaptation.metric()`.
+
+    A sample is x = m + sigma * B (d * z), z ~ N(0, I), so the samples have the covariance sigma^2 C with C = B diag(d)^2 B^T: the one-sigma ellipsoid around m has the semi-axes sigma * d_i along the columns B_i.
+
+    It describes the distribution that is sampled. `CovarianceAdaptation` and `CovarianceNoEigvAdaptation` update C every generation but decompose it only every `es.p.weights.lazy_update_interval` generations, and sample with the last decomposition, so the metric can be that many generations behind their `C` (with the default settings they decompose every generation up to d = 82). `coordinate_wise_variances`, the diagonal of the latest C, can be ahead of it by as much.
+
+    Strictly, the metric (the matrix of the Mahalanobis distance) is C^-1; this holds the decomposition, from which C and C^-1 follow. A copy: it does not change with the optimizer.
+    """
+
+    @property
+    def d(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """
+        The axis lengths, the square roots of the eigenvalues of C (pycma's D), shape (d,), in the order of the columns of `B`. For the diagonal adaptations (SEPARABLE, NONE) in the order of the coordinates.
+        """
+
+    @property
+    def B(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')] | None:
+        """
+        The eigenvectors of C as columns, shape (d, d), in the order of `d`; None when C is diagonal (SEPARABLE, NONE), where B is the identity.
+        """
+
+    @property
+    def is_diagonal(self) -> bool:
+        """Whether C is diagonal (B is None)."""
+
+    def eigenvalues(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """
+        The eigenvalues of C, d**2, in the order of `d`.
+
+        Returns
+        -------
+        numpy.ndarray
+            Shape (d,).
+        """
+
+    def inv_C(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
+        """
+        C^-1 = B diag(d)^-2 B^T, computed on call (O(d^3); a diagonal matrix when C is diagonal, where 1 / d**2 is the cheap form).
+
+        On a convex-quadratic function with Hessian H, CMA-ES adapts C towards H^-1 up to a constant factor: Hansen (2016), The CMA Evolution Strategy: A Tutorial, Section 0.4, "we assume that the optimal covariance matrix equals to the inverse Hessian matrix, up to a constant factor" (an assumption with strong empirical support; "a rigorous proof is missing"). pycma uses the same relation (`inverse_hessian_scalar_correction` fits the factor). So C^-1 estimates the shape of the Hessian, not its scale; sigma does not give the scale, it follows the distance to the optimum. The relation needs a full matrix: SEPARABLE can only match a diagonal Hessian, and NONE keeps C = I.
+
+        Returns
+        -------
+        numpy.ndarray
+            Shape (d, d).
+        """
+
+    def inv_root_C(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
+        """
+        C^-1/2 = B diag(d)^-1 B^T, computed on call (O(d^3); a diagonal matrix when C is diagonal).
+
+        Returns
+        -------
+        numpy.ndarray
+            Shape (d, d).
+        """
+
+    def __repr__(self) -> str:
+        """A summary of the state (mean, paths and matrices)."""
+
 class Adaptation:
     """
     Base class of the matrix adaptations: the mean, the evolution path of the step size and the sampling transformation y = A z.
@@ -76,6 +138,24 @@ class Adaptation:
 
     @coordinate_wise_variances.setter
     def coordinate_wise_variances(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    def metric(self) -> Metric:
+        """
+        The metric of the sampled distribution: its axis lengths d and eigenvectors B, without sigma (see `Metric`).
+
+        `CovarianceAdaptation`, `SeparableAdaptation` and `NoAdaptation` keep it: it costs nothing. The others decompose C = F F^T of their sampling factor F (M, or A) when asked, O(d^3), and reuse the result while `factor_version` is unchanged; nothing is computed unless something asks. A value written from Python to their matrices is seen after the next change of the factor (an update or a restart). NaN when the factor is not finite.
+
+        Returns
+        -------
+        Metric
+            A copy.
+        """
+
+    @property
+    def factor_version(self) -> int:
+        """
+        A counter increased wherever the sampling factor changes (an update of the matrix, a decomposition, a restart): `metric()` recomputes only when it changed.
+        """
 
     def adapt_evolution_paths(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings, mu: int) -> None:
         """
@@ -284,7 +364,7 @@ class CovarianceAdaptation(Adaptation):
     @property
     def d(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The square roots of the eigenvalues of C (the standard deviations along the principal axes), shape (d,), in the order of the columns of B (ones at the start).
+        The square roots of the eigenvalues of C (the standard deviations along the principal axes), shape (d,), in the order of the columns of B (ones at the start). With B, the `metric()`. In `CovarianceNoEigvAdaptation` filled only by `metric()`.
         """
 
     @d.setter
@@ -293,7 +373,7 @@ class CovarianceAdaptation(Adaptation):
     @property
     def B(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The eigenvectors of C as columns, shape (d, d) (the identity at the start).
+        The eigenvectors of C as columns, shape (d, d) (the identity at the start). In `CovarianceNoEigvAdaptation` filled only by `metric()`.
         """
 
     @B.setter
@@ -316,12 +396,6 @@ class CovarianceAdaptation(Adaptation):
 
     @A.setter
     def A(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
-
-    @property
-    def inv_root_C(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
-        """
-        C^-1/2 = B diag(d)^-1 B^T, shape (d, d), computed from B and d on access (the updates do not form it). `CovarianceNoEigvAdaptation` does not compute B and d: there it is the identity (#117).
-        """
 
     @property
     def hs(self) -> bool:
@@ -547,7 +621,7 @@ class CovarianceNoEigvAdaptation(CovarianceAdaptation):
     """
     CMA-ES with a Cholesky factorization instead of an eigendecomposition (`MatrixAdaptationType.COVARIANCE_NO_EIGV`).
 
-    C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower triangular (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see `constants.cholesky_solver`), which is several times cheaper than an eigendecomposition; B and d keep their initial values. ps is updated with dz instead of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of COVARIANCE for the other step-size adaptations.
+    C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower triangular (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see `constants.cholesky_solver`), which is several times cheaper than an eigendecomposition. B and d are filled only by `metric()`, from A A^T, the C of the last factorization. ps is updated with dz instead of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of COVARIANCE for the other step-size adaptations.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:

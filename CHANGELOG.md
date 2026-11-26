@@ -16,6 +16,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * Internal helpers of repelling: `repelling.hill_valley_test`, `TabooPoint.shares_basin` and
   `Repelling.update_archive` (the optimizer runs the hill-valley tests itself, #84); and
   `mutation.Strategy.mutate`.
+* `CovarianceAdaptation.inv_root_C` (internal): use `es.p.adaptation.metric().inv_root_C()`, which
+  every matrix adaptation has (#123).
 * `Parameters.start` and `Parameters.perform_restart` (internal): only the optimizer evaluates a
   restart (#84). To force one, add a restart criterion that is met: the next generation starts
   with the restart.
@@ -79,6 +81,11 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `seq_cutoff_factor`. The old names still work, with a `DeprecationWarning` (#82).
 * Python constructors for the step-size adaptations (`mutation.CSA`, `TPA`, ...) and
   `CovarianceNoEigvAdaptation`.
+* `Adaptation.metric()`: the shape of the sampled distribution, without σ, for every matrix
+  adaptation: a `matrix_adaptation.Metric` with the axis lengths `d`, the eigenvectors `B`,
+  `eigenvalues()`, `inv_C()` and `inv_root_C()` (#123). `COVARIANCE`, `SEPARABLE` and `NONE` keep
+  it; the others compute it when asked (O(d³)) and reuse it until their factor changes
+  (`Adaptation.factor_version`). Results are unchanged.
 
 ### Deprecated
 
@@ -212,5 +219,6 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * Small fixes (#117): `CachedSampler` passes a restart's reset to the sampler it wraps; a zero
   eigenvalue is rejected like a negative one; LAPACK asked for in `constants` but missing falls
   back to Eigen; `resize_population` keeps the previous generation; `inv_root_C` of
-  `COVARIANCE_NO_EIGV` is computed (it was the identity); `MuCommaLambdaES` stays within its budget
+  `COVARIANCE_NO_EIGV` was the identity (it is now `metric().inv_root_C()`, computed for every
+  adaptation, #123); `MuCommaLambdaES` stays within its budget
   and sorts NaN last.

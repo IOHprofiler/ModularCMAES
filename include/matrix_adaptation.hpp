@@ -29,6 +29,44 @@ inline bool clip_injected_step(Eigen::Ref<Vector> y, Eigen::Ref<Vector> z)
     return true;
 }
 
+/**
+ * The metric of a search distribution: its shape without the step size (#123). A sample is
+ * x = m + sigma B (d * z), z ~ N(0, I), so the samples have the covariance sigma^2 C with
+ * C = B diag(d)^2 B^T. It describes the distribution that is sampled: for COVARIANCE and
+ * COVARIANCE_NO_EIGV the C of the last decomposition, which can be up to lazy_update_interval
+ * generations behind their C. Strictly, the metric (the matrix of the Mahalanobis distance) is
+ * C^-1; this holds the decomposition, from which C and C^-1 follow.
+ *
+ * A view, on the adaptation's own vectors (COVARIANCE, SEPARABLE, NONE) or on the metric it
+ * computed (the others): valid until the next update of the matrix, restart, or metric() of the
+ * adaptation.
+ */
+struct Metric
+{
+    //! The axis lengths: the square roots of the eigenvalues of C (pycma's D)
+    const Vector &d;
+    //! The eigenvectors of C as columns, in the order of d; null when C is diagonal (B = I)
+    const Matrix *B;
+
+    [[nodiscard]] bool is_diagonal() const { return B == nullptr; }
+
+    //! The eigenvalues of C, d^2, in the order of d
+    [[nodiscard]] Vector eigenvalues() const { return d.array().square().matrix(); }
+
+    //! C^-1 = B diag(d)^-2 B^T, (d, d)
+    [[nodiscard]] Matrix inv_C() const;
+
+    //! C^-1/2 = B diag(d)^-1 B^T, (d, d)
+    [[nodiscard]] Matrix inv_root_C() const;
+};
+
+/**
+ * The eigendecomposition of a sampled covariance S = F F^T (metric() of the adaptations without a
+ * decomposition): axes = the square roots of its eigenvalues (rounding errors below zero clipped
+ * to 0), vectors = its eigenvectors. NaN when S is not finite or the eigensolver fails.
+ */
+void decompose_sampled_covariance(const Matrix &s, Vector &axes, Matrix &vectors);
+
 struct Adaptation
 {
     Vector m, m_old, dm, ps, dz;
@@ -141,6 +179,7 @@ struct Adaptation
         ps.setZero();
         dz.setZero();
         coordinate_wise_variances.setOnes();
+        ++factor_version;
     }
 
     Float distance(const Vector u, const Vector &v)
@@ -150,14 +189,59 @@ struct Adaptation
     }
 
     Float distance_from_center(const Vector &xi) { return distance(m, xi); }
+
+    /**
+     * The metric of the sampled distribution (#123). COVARIANCE, SEPARABLE and NONE return a view
+     * on what they keep, at no cost. The others decompose C = F F^T of their sampling factor F on
+     * request, O(d^3), and reuse it while factor_version is unchanged: nothing is computed unless
+     * something asks.
+     */
+    virtual Metric metric() = 0;
+
+    //! Increased wherever the sampling factor changes: an update of the matrix, a decomposition,
+    //! a restart. A computed metric is reused while it is unchanged; a write to the matrices from
+    //! Python does not increase it.
+    size_t factor_version = 0;
+
+  protected:
+    /**
+     * metric() of the adaptations without a decomposition: the decomposition of the sampled
+     * covariance S = F F^T, formed by form_s, into axes and vectors; done only when the factor
+     * changed since the last request.
+     */
+    template <typename FormS> Metric computed_metric(Vector &axes, Matrix &vectors, FormS &&form_s)
+    {
+        if (metric_version != factor_version)
+        {
+            Matrix s;
+            form_s(s);
+            decompose_sampled_covariance(s, axes, vectors);
+            metric_version = factor_version;
+        }
+        return {axes, &vectors};
+    }
+
+    //! The storage of a computed metric, allocated on the first request
+    Vector metric_d;
+    Matrix metric_B;
+
+  private:
+    //! The factor_version of the computed metric (none at the start)
+    size_t metric_version = std::numeric_limits<size_t>::max();
 };
 
 struct None final : Adaptation
 {
+    //! The axes of the metric: C = I
+    Vector ones;
+
     None(const size_t dim, const Vector &x0) :
-        Adaptation(dim, x0)
+        Adaptation(dim, x0),
+        ones(Vector::Ones(dim))
     {
     }
+
+    Metric metric() override { return {ones, nullptr}; }
 
     bool adapt_matrix_inner(const parameters::Weights &w,
                             const Population &pop,
@@ -187,22 +271,13 @@ struct CovarianceAdaptation : Adaptation
     Matrix A;
     bool hs = true;
 
-    //! Whether B and d hold the eigendecomposition of C (false for COVARIANCE_NO_EIGV, which
-    //! factorizes C with a Cholesky decomposition and leaves B and d at their initial values)
+    //! Whether B and d hold the eigendecomposition of C, kept up to date by the update (false for
+    //! COVARIANCE_NO_EIGV, which factorizes C with a Cholesky decomposition and fills B and d
+    //! only when metric() is asked)
     [[nodiscard]] virtual bool has_eigendecomposition() const { return true; }
 
-    //! C^-1/2 = B D^-1 B^T. Not kept up to date (an O(d^3) product per eigendecomposition): the
-    //! updates use B and d directly; this computes it. Without an eigendecomposition
-    //! (COVARIANCE_NO_EIGV), from one of C made here (#117).
-    [[nodiscard]] Matrix inv_root_C() const
-    {
-        if (has_eigendecomposition())
-            return B * d.cwiseInverse().asDiagonal() * B.transpose();
-        const Eigen::SelfAdjointEigenSolver<Matrix> decomposition(C);
-        return decomposition.eigenvectors() *
-               decomposition.eigenvalues().cwiseSqrt().cwiseInverse().asDiagonal() *
-               decomposition.eigenvectors().transpose();
-    }
+    //! A view on d and B, which the decomposition updates in place (#123)
+    Metric metric() override { return {d, &B}; }
 
     // Reused by the matrix update: the eigensolver with its workspace
     Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
@@ -261,6 +336,9 @@ struct SeparableAdaptation : Adaptation
     {
     }
 
+    //! A view on d, which the update keeps (C is diagonal)
+    Metric metric() override { return {d, nullptr}; }
+
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
@@ -294,6 +372,9 @@ struct MatrixAdaptation final : Adaptation
     {
     }
 
+    //! Computed on request from C = M M^T
+    Metric metric() override;
+
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
@@ -322,10 +403,10 @@ struct CholeskyAdaptation final : Adaptation
     Matrix A;
     Vector pc;
     /*
-    First, as only triangular matrices have to be stored, the storage complexity is optimal.
-    Second, the diagonal elements of a triangular Cholesky factor are the square roots of the
-    eigenvalues of the factorized matrix, that is, we get the eigenvalues of the covariance matrix
-    for free*/
+    Only a triangular matrix is stored, so the storage complexity is optimal (Krause et al. 2016).
+    The diagonal of A gives det C = prod(A_ii)^2, but not the eigenvalues of C: they are the
+    squared singular values of A (for A = [[1, 0], [1, 1]]: 2.618 and 0.382, while A_ii = 1).
+    metric() computes them.*/
 
     CholeskyAdaptation(const size_t dim, const Vector &x0) :
         Adaptation(dim, x0),
@@ -333,6 +414,9 @@ struct CholeskyAdaptation final : Adaptation
         pc(Vector::Zero(dim))
     {
     }
+
+    //! Computed on request from C = A A^T
+    Metric metric() override;
 
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
@@ -366,6 +450,9 @@ struct SelfAdaptation final : Adaptation
     {
     }
 
+    //! Computed on request from C, which the update factorizes every generation (C = A A^T)
+    Metric metric() override;
+
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
@@ -395,6 +482,10 @@ struct CovarianceNoEigvAdaptation : CovarianceAdaptation
     bool perform_eigendecomposition(const parameters::Settings &settings) override;
 
     bool has_eigendecomposition() const override { return false; }
+
+    //! Computed on request from A A^T, the C of the last factorization, into d and B (which this
+    //! adaptation does not use otherwise)
+    Metric metric() override;
 
     //! A is the lower triangular Cholesky factor here
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
@@ -447,6 +538,9 @@ struct NaturalGradientAdaptation final : Adaptation
         outdated_A_inv(false)
     {
     }
+
+    //! Computed on request from C = A A^T
+    Metric metric() override;
 
     void compute_gradients(const Population &pop,
                            const parameters::Weights &w,

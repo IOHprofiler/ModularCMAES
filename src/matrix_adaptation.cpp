@@ -177,8 +177,8 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     // Negative weights are rescaled by d / ||C^-1/2 y_i||^2 (Hansen, The CMA Evolution Strategy: A
     // Tutorial, 2016, eq. 46); the positive ones, i < mu, are used as they are.
     // ||C^-1/2 y||^2 = y^T C^-1 y = ||A^-1 y||^2 for any factor C = A A^T, so invert_y serves both
-    // the eigendecomposition (A = B D) and the Cholesky variant (COVARIANCE_NO_EIGV, which never
-    // computes inv_root_C).
+    // the eigendecomposition (A = B D) and the Cholesky variant (COVARIANCE_NO_EIGV, which has no
+    // C^-1/2: no eigendecomposition is kept up to date).
     scratch_vector.resize(popY.rows()); // invert_y_into writes through a Ref: it cannot resize
     // The negative weights follow the non-negative ones (the weights decrease with the rank): mu
     // for the usual weights, fewer for UTILITY, whose last parents can have negative utilities
@@ -206,43 +206,97 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     coordinate_wise_variances.noalias() = C.diagonal();
 }
 
-bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
+/**
+ * The eigendecomposition of the symmetric S: the eigenvalues (ascending) into values, the
+ * eigenvectors as columns into vectors. LAPACK when asked for (constants::eigen_solver 1 or 2) and
+ * available, or automatically from lapack_min_dim on; Eigen otherwise (also when LAPACK is asked
+ * for but missing, #117). Returns false when the solver fails.
+ */
+static bool symmetric_eigen(const Matrix &s,
+                            Vector &values,
+                            Matrix &vectors,
+                            Eigen::SelfAdjointEigenSolver<Matrix> &eigen_solver,
+                            lapack::Workspace &lapack_workspace,
+                            const bool verbose)
 {
-    // LAPACK when asked for (constants::eigen_solver 1 or 2) and available, or automatically from
-    // lapack_min_dim on; Eigen otherwise (also when LAPACK is asked for but missing, #117)
     const int solver =
         !lapack::available()
             ? 0
             : (constants::eigen_solver >= 0
                    ? constants::eigen_solver
-                   : (static_cast<size_t>(C.rows()) >= constants::lapack_min_dim ? 1 : 0));
+                   : (static_cast<size_t>(s.rows()) >= constants::lapack_min_dim ? 1 : 0));
     if (solver != 0)
     {
         // LAPACK (constants::eigen_solver: 1 dsyevd, 2 dsyevr)
         const auto method = solver == 2 ? lapack::Method::SYEVR : lapack::Method::SYEVD;
-        if (!lapack::symmetric_eigen(C, d, B, method, lapack_workspace))
+        if (!lapack::symmetric_eigen(s, values, vectors, method, lapack_workspace))
         {
-            if (settings.verbose)
+            if (verbose)
                 std::cout << "LAPACK eigenvalue solver failed, we need to restart\n";
             return false;
         }
+        return true;
     }
-    else
-    {
-        eigen_solver.compute(C);
 
-        if (eigen_solver.info() != Eigen::Success)
+    eigen_solver.compute(s);
+    if (eigen_solver.info() != Eigen::Success)
+    {
+        if (verbose)
         {
-            if (settings.verbose)
-            {
-                std::cout << "Eigenvalue solver failed, we need to restart reason:"
-                          << eigen_solver.info() << '\n';
-            }
-            return false;
+            std::cout << "Eigenvalue solver failed, we need to restart reason:"
+                      << eigen_solver.info() << '\n';
         }
-        d = eigen_solver.eigenvalues();
-        B = eigen_solver.eigenvectors();
+        return false;
     }
+    values = eigen_solver.eigenvalues();
+    vectors = eigen_solver.eigenvectors();
+    return true;
+}
+
+//! S = F F^T, exactly symmetric: the lower triangle by a rank update, mirrored
+static void gram(const Matrix &f, Matrix &s)
+{
+    s.setZero(f.rows(), f.rows());
+    s.selfadjointView<Eigen::Lower>().rankUpdate(f);
+    s.triangularView<Eigen::StrictlyUpper>() = s.transpose();
+}
+
+Matrix Metric::inv_C() const
+{
+    const Vector inverse = d.array().square().inverse().matrix();
+    if (is_diagonal())
+        return inverse.asDiagonal();
+    return *B * inverse.asDiagonal() * B->transpose();
+}
+
+Matrix Metric::inv_root_C() const
+{
+    const Vector inverse = d.cwiseInverse();
+    if (is_diagonal())
+        return inverse.asDiagonal();
+    return *B * inverse.asDiagonal() * B->transpose();
+}
+
+void decompose_sampled_covariance(const Matrix &s, Vector &axes, Matrix &vectors)
+{
+    const auto n = s.rows();
+    Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
+    lapack::Workspace lapack_workspace;
+    if (!s.allFinite() || !symmetric_eigen(s, axes, vectors, eigen_solver, lapack_workspace, false))
+    {
+        axes.setConstant(n, std::numeric_limits<Float>::quiet_NaN());
+        vectors.setConstant(n, n, std::numeric_limits<Float>::quiet_NaN());
+        return;
+    }
+    // S = F F^T is positive semi-definite: a negative eigenvalue is a rounding error
+    axes = axes.cwiseMax(Float{0}).cwiseSqrt();
+}
+
+bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
+{
+    ++factor_version;
+    if (!symmetric_eigen(C, d, B, eigen_solver, lapack_workspace, settings.verbose))
+        return false;
 
     // A zero eigenvalue is rejected as a negative one (pycma): adapt_ps and invert_y divide by d
     if (!d.allFinite() || !B.allFinite() || d.minCoeff() <= 0.0)
@@ -338,7 +392,7 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
                                              const parameters::Settings &settings,
                                              parameters::Stats &stats)
 {
-
+    ++factor_version;
     stats.last_update = stats.t;
     stats.n_updates++;
 
@@ -403,7 +457,7 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
                                           const Settings &settings,
                                           parameters::Stats &stats)
 {
-
+    ++factor_version;
     stats.last_update = stats.t;
     stats.n_updates++;
 
@@ -510,7 +564,7 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
                                             const parameters::Settings &settings,
                                             parameters::Stats &stats)
 {
-
+    ++factor_version;
     stats.last_update = stats.t;
     stats.n_updates++;
 
@@ -583,6 +637,7 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
                                         const parameters::Settings &settings,
                                         parameters::Stats &stats)
 {
+    ++factor_version;
     stats.last_update = stats.t;
     stats.n_updates++;
 
@@ -646,6 +701,7 @@ void CovarianceNoEigvAdaptation::adapt_ps(const Weights &w) { Adaptation::adapt_
 
 bool CovarianceNoEigvAdaptation::perform_eigendecomposition(const parameters::Settings &settings)
 {
+    ++factor_version;
     // Eigen's LLT, or LAPACK dpotrf in high dimension (constants::cholesky_solver)
     if (!lapack::cholesky_factor(C, A))
     {
@@ -759,7 +815,7 @@ bool NaturalGradientAdaptation::adapt_matrix_inner(const parameters::Weights &w,
                                                    const parameters::Settings &settings,
                                                    parameters::Stats &stats)
 {
-
+    ++factor_version;
     stats.last_update = stats.t;
     stats.n_updates++;
 
@@ -845,5 +901,39 @@ void NaturalGradientAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen:
         outdated_A_inv = false;
     }
     z.noalias() = A_inv * y;
+}
+
+// -----------------------------------------------------------------------------
+// metric() of the adaptations without a decomposition (#123): C = F F^T of the sampling factor F,
+// decomposed on request and reused while factor_version is unchanged
+// -----------------------------------------------------------------------------
+
+Metric MatrixAdaptation::metric()
+{
+    return computed_metric(metric_d, metric_B, [this](Matrix &s) { gram(M, s); });
+}
+
+Metric CholeskyAdaptation::metric()
+{
+    return computed_metric(metric_d, metric_B, [this](Matrix &s) {
+        gram(Matrix(A.triangularView<Eigen::Lower>()), s);
+    });
+}
+
+Metric SelfAdaptation::metric()
+{
+    return computed_metric(metric_d, metric_B, [this](Matrix &s) { s = C; });
+}
+
+Metric CovarianceNoEigvAdaptation::metric()
+{
+    // The C of the last factorization, A A^T, which the samples come from (C can be ahead)
+    return computed_metric(
+        d, B, [this](Matrix &s) { gram(Matrix(A.triangularView<Eigen::Lower>()), s); });
+}
+
+Metric NaturalGradientAdaptation::metric()
+{
+    return computed_metric(metric_d, metric_B, [this](Matrix &s) { gram(A, s); });
 }
 } // namespace matrix_adaptation

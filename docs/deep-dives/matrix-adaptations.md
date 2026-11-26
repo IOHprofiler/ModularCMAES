@@ -154,3 +154,39 @@ damps; the active update is off. The same as pycma with `CMA_on=False`.
 | `CMSA` | CMSA-ES (Beyer & Sendhoff 2008) | `ssa=SA`, `weights=EQUAL` | sampled step sizes per coordinate [F1] |
 | `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010) | `ssa=XNES`, `weights=UTILITY` | none measurable |
 | `NONE` | CSA-ES | defaults | |
+
+## The metric of each adaptation
+
+`es.p.adaptation.metric()` gives the shape of the distribution that is sampled, without σ: the
+axis lengths d (the square roots of the eigenvalues of C) and the eigenvectors B. Where each
+adaptation takes it from:
+
+| matrix adaptation | metric | cost |
+|---|---|---|
+| `COVARIANCE` | its own d and B, which the eigendecomposition updates | none |
+| `SEPARABLE` | its own d (B = I) | none |
+| `NONE` | ones (C = I) | none |
+| `COVARIANCE_NO_EIGV` | an eigendecomposition of L Lᵀ, from the last Cholesky factor L | O(d³), when asked |
+| `CMSA` | an eigendecomposition of C | O(d³), when asked |
+| `MATRIX`, `CHOLESKY`, `NATURAL_GRADIENT` | an eigendecomposition of F Fᵀ, F = M or A | O(d³), when asked |
+
+A computed metric is reused until the factor changes (`factor_version`, increased by an update of
+the matrix, a decomposition or a restart), so the requests of one state share one decomposition.
+
+**The sampled distribution, not the latest C.** `COVARIANCE` and `COVARIANCE_NO_EIGV` update C every
+generation but decompose it only every 1/(10 d (c1 + cµ)) generations, and sample with the last
+decomposition. With the default settings they decompose every generation up to d = 82; at d = 100
+the decomposition can be one generation behind C, at d = 1000 eight. The metric follows the
+decomposition: it describes the points that were sampled. `coordinate_wise_variances`, the
+diagonal of the latest C, can be ahead of it by as much.
+
+**Cholesky-CMA-ES.** The diagonal of the Cholesky factor A gives det C = ∏ Aᵢᵢ², not the eigenvalues
+of C, which are the squared singular values of A (for A = [[1, 0], [1, 1]]: 2.618 and 0.382, while
+Aᵢᵢ = 1). So `CHOLESKY`'s metric is computed as well.
+
+**The Hessian.** On a convex-quadratic function with Hessian H, C approaches H⁻¹ up to a constant
+factor: Hansen (2016), Section 0.4, "we assume that the optimal covariance matrix equals to the
+inverse Hessian matrix, up to a constant factor", with "a rigorous proof is missing". pycma uses
+the relation (`inverse_hessian_scalar_correction` fits the factor). So `metric().inv_C()` estimates
+the shape of the Hessian, not its scale, for the adaptations that learn a full matrix; `SEPARABLE`
+can only match a diagonal Hessian.

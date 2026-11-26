@@ -350,8 +350,9 @@ class TestBindingArgumentNames(unittest.TestCase):
 
 class TestCriteriaWithoutEigendecomposition(unittest.TestCase):
     """B14: COVARIANCE_NO_EIGV is a CovarianceAdaptation, but it factorizes C with a Cholesky
-    decomposition and never computes B and d. The criteria that read the eigendecomposition used
-    their initial values (identity, ones); they now treat it like any adaptation without one.
+    decomposition and does not keep B and d up to date (they are filled only by metric(), #123).
+    The criteria that read the eigendecomposition used their initial values (identity, ones); they
+    now treat it like any adaptation without one.
     Criteria.get only adds ConditionC and NoEffectAxis for COVARIANCE, so this matters when they
     are added by hand."""
 
