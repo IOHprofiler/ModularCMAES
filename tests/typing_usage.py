@@ -32,4 +32,4 @@ def typical_use() -> float:
     other = modcma.settings_from_dict(d, matrix_adaptation="SEPARABLE", budget=1000, x0=np.ones(d))
     space = modcma.get_configspace(d)
     from_config = modcma.settings_from_config(d, space.get_default_configuration(), budget=10)
-    return float(fopt + es.xfavorite[0] + other.budget + from_config.budget + evaluations)
+    return float(fopt + es.center_of_mass[0] + other.budget + from_config.budget + evaluations)

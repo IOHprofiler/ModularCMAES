@@ -70,9 +70,15 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   calls changes, and so does the evaluation count recorded with the best solution (`Solution.e`)
   when it is one of TPA's points. Every evaluation is counted in one place, when its value
   arrives.
-* `ModularCMAES.xfavorite`: the mean of the search distribution as a solution, as pycma's
+* `ModularCMAES.center_of_mass`: the mean of the search distribution as a solution, pycma's
   `xfavorite`; with noise and a large population often closer to the optimum than the best
   evaluated point, whose recorded value is biased low (#24).
+* **Every run ends with an evaluation of its center of mass**, the last one too, as pycma's
+  `eval_final_mean` (#111). `stats.centers` holds a record of every run, a `Center`: the evaluated
+  point (`x`, `y`), the step size `sigma` and the shape `metric` the run ended with, the `reasons` it
+  ended (the met restart criteria, `"budget"`, `"target"`, `"max_generations"`) and `std`, the
+  longest semi-axis of its one-sigma ellipsoid. `ModularCMAES.stop_conditions()` tells that the
+  optimizer should stop; `break_conditions()` holds once the final center of mass is evaluated.
 * `RecombinationWeights.UTILITY`: the utilities of NES/xNES (summing to zero) for the mean and every
   matrix update; with `NATURAL_GRADIENT` and `ssa=XNES` it is xNES (the same evaluations as
   `cmaes`' XNES within 1 %).
@@ -120,6 +126,15 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   * **IPOP:** the population size is limited to 2⁹ λ₀ (was (d λ₀)²).
   * **Pairwise selection with the active update:** the losers of the mirrored pairs get no negative
     weights, as in pycma.
+* **The end of a run** (#111): every run ends with an evaluation of its center of mass, also when
+  the optimizer stops (it was evaluated only at a restart). The budget always keeps that
+  evaluation: a generation runs only when it leaves one, `Settings` rejects a budget smaller than
+  the first generation plus one, and when the generations would use the budget up exactly, the last
+  one is dropped for the center. `break_conditions()` holds once the final center of mass is
+  evaluated: the last `ask()` returns it, a single point, and the last `step()` evaluates only it;
+  after it the 1.x steps `select()`, `recombine()` and `adapt()` do nothing. `stats.solutions`, like
+  `stats.centers`, has one entry per run, the last one too. Trajectories are unchanged until the
+  last generations of a run (all 260 golden configurations).
 
 ### Fixed
 
@@ -143,13 +158,19 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   restart).
 * Without `x0` the first run started at the origin, restarts at the center of the bounds.
 * A run stopped one generation early when the budget was a multiple of lambda (budget 5000, lambda
-  10: 4990 evaluations); with TPA it could exceed the budget.
+  10: 4990 evaluations); with TPA it could exceed the budget. Now a generation runs when it leaves
+  one evaluation for the final center of mass (#111): budget 5000, lambda 10 gives 499 generations
+  and the center, 4991 evaluations.
 * A restart near the end of the budget could exceed it: by up to lambda + 1 (the restart center, and
   the population that IPOP and BIPOP had grown), and by the hill-valley tests of repelling, which had
   no budget check. The first generation after a restart now takes at most the rest of the budget,
   and the hill-valley tests stop when the budget runs short.
 * Points given to `tell(f, X)` far outside the distribution enter the update clipped (Hansen 2011,
   as pycma).
+* A restart evaluated the raw mean, which can lie outside the box (with `UTILITY` weights, injected
+  points, an `x0` outside the box, or integer rounding past an edge): wasted on SBOX-COST and
+  archived by repelling. It now evaluates the center of mass, clipped when a bound correction is
+  used (#111).
 * COTN could place a coordinate outside the bounds for a large sigma.
 * `OnePlusOneES` checked the bounds of the parent, not of the candidate; `MuCommaLambdaES` shared a
   sampler between instances.

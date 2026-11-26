@@ -58,6 +58,15 @@ struct Metric
 
     //! C^-1/2 = B diag(d)^-1 B^T, (d, d)
     [[nodiscard]] Matrix inv_root_C() const;
+
+    //! An owned copy (what a run's record and Python keep)
+    [[nodiscard]] MetricCopy copy() const
+    {
+        return {d, B != nullptr ? std::optional<Matrix>(*B) : std::nullopt};
+    }
+
+    //! A view on an owned copy
+    static Metric of(const MetricCopy &copy) { return {copy.d, copy.B ? &*copy.B : nullptr}; }
 };
 
 /**

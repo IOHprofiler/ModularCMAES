@@ -72,32 +72,49 @@ struct Parameters
      */
     void inject(const Eigen::Index i, Eigen::Ref<const Vector> x);
 
+    /**
+     * The center of mass: the mean of the search distribution as a point of the objective
+     * (integer variables rounded; clipped to the bounds when a bound correction is used), pycma's
+     * xfavorite. Every run ends with its evaluation (#111).
+     */
+    [[nodiscard]] Vector center_of_mass() const;
+
     /*
-     * The start of a generation, and a restart, in steps (ModularCMAES::advance). begin_generation
-     * makes the previous population old_pop and decides whether to restart. advance then queues
-     * the center (restart_center()); its value (tell_restart_center) starts the update of the
-     * repelling archive, whose hill-valley points advance queues one at a time
+     * The end of a run, and a restart, in steps (ModularCMAES::advance). Every run ends with the
+     * evaluation of its center of mass, when it stops and when a restart is due (#111): end_run
+     * (the run's best joins stats.solutions), then advance queues center_of_mass(); its value
+     * (tell_center_of_mass) records the run in stats.centers. At a restart, begin_generation
+     * decides it, begin_restart calls end_run, and the value of the center starts the update of
+     * the repelling archive, whose hill-valley points advance queues one at a time
      * (repelling->query_point()); once they are evaluated, finish_restart resets the modules.
      */
 
-    //! Returns whether a restart started (then restart_center() waits for its objective value)
+    //! Returns whether a restart started (then the center of mass waits for its value)
     bool begin_generation();
 
-    //! A restart, with step size sigma for the new run: the run's best joins stats.solutions, and
-    //! its final mean becomes the center to evaluate
+    //! The run ends: its best joins stats.solutions
+    void end_run();
+
+    //! A restart, with step size sigma for the new run: the run ends (end_run)
     void begin_restart(Float sigma);
 
-    //! The point at which a restart evaluates the objective (the center, in objective space)
-    [[nodiscard]] const Vector &restart_center() const { return pending_restart_center; }
-
-    //! The objective value y of the center x; starts the repelling archive update
-    void tell_restart_center(const Float y, Eigen::Ref<const Vector> x);
+    /**
+     * The value y of the run's center of mass, evaluated at x: the run's record joins
+     * stats.centers, with the distribution it ended with (sigma, metric) and reasons, and x may
+     * become the best solution. At a restart, it starts the update of the repelling archive.
+     */
+    void tell_center_of_mass(Float y,
+                             Eigen::Ref<const Vector> x,
+                             std::vector<std::string> reasons,
+                             bool restarting);
 
     void finish_restart();
-    //! Caps lambda (and mu, in proportion) at the remaining budget; called by finish_restart
+    //! Caps lambda (and mu, in proportion) at the remaining budget, less the evaluation of the
+    //! new run's center of mass; called by finish_restart
     void fit_lambda_to_budget();
     //! Whether a restart that starts now still fits: one more evaluation (the center, or a
-    //! hill-valley point), then the smallest first generation and its reserved points (TPA's)
+    //! hill-valley point), then the smallest first generation and its reserved points (TPA's), and
+    //! the evaluation of the new run's center of mass
     [[nodiscard]] bool restart_fits() const;
 
     void resize_population(const size_t new_mu, const size_t new_lambda);
@@ -105,7 +122,6 @@ struct Parameters
   private:
     //! The step size of the new run, from begin_restart to finish_restart
     Float restart_sigma = 0;
-    Vector pending_restart_center;
 };
 
 } // namespace parameters

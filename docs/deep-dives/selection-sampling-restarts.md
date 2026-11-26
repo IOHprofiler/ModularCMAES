@@ -106,9 +106,11 @@ same behaviour as now) but stretched every sample on larger boxes.
 * **IPOP** (Auger & Hansen 2005): λ doubles at every restart (µ in the same ratio), up to 2⁹ λ₀,
   as in the framework paper (`IPOP.max_lambda_factor`; before 2.0, (d λ₀)²). σ and the mean are
   reset. No budget per run: the restart criteria
-  end a run. The first generation after a restart takes at most the rest of the budget (λ, and µ
-  in proportion, are capped; at least 2 points); the hill-valley tests of repelling restarts stop
-  when the budget runs short.
+  end a run. Every run ends with an evaluation of its center of mass, the last one too, as pycma's
+  `eval_final_mean`; the budget always keeps that evaluation (pycma can exceed `maxfevals` by one).
+  The first generation after a restart takes at most the rest of the budget, less the new run's
+  center of mass (λ, and µ in proportion, are capped; at least 2 points); the hill-valley tests of
+  repelling restarts stop when the budget runs short.
 * **BIPOP** (Hansen 2009): after the first run, the remaining budget is split into two halves, one
   for the regime of large populations (λ doubling) and one for small ones,
   λ_s = ⌊λ₀ (λ_large/(2λ₀))^(U²)⌋ with σ = σ₀·10^(−2U); the regime with more budget left runs next.

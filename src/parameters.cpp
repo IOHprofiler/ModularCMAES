@@ -76,17 +76,40 @@ void Parameters::begin_restart(const Float sigma)
                   << sigma << ")\n";
     }
     restart_sigma = sigma;
-    stats.solutions.push_back(stats.current_best);
-    pending_restart_center = coordinate_mapping->transform(adaptation->m);
+    end_run();
 }
 
-void Parameters::tell_restart_center(const Float y, Eigen::Ref<const Vector> x)
+Vector Parameters::center_of_mass() const
 {
-    // The center belongs to the last generation of the run that ends (0 before any)
-    stats.centers.emplace_back(x, y, stats.t > 0 ? stats.t - 1 : 0, stats.evaluations);
+    Vector x = coordinate_mapping->transform(adaptation->m);
+    if (settings.has_bounds && settings.modules.bound_correction != CorrectionMethod::NONE)
+        x = x.cwiseMax(settings.lb).cwiseMin(settings.ub);
+    return x;
+}
+
+void Parameters::end_run() { stats.solutions.push_back(stats.current_best); }
+
+void Parameters::tell_center_of_mass(const Float y,
+                                     Eigen::Ref<const Vector> x,
+                                     std::vector<std::string> reasons,
+                                     const bool restarting)
+{
+    // The record of the run that ends: the evaluated center (of the last generation of the run, 0
+    // before any) with the distribution the run ended with. Nothing has changed sigma and the
+    // matrix since the run ended (a restart resets them in finish_restart), and the restart
+    // criteria read the same metric (the same factor_version, #123): for the adaptations that
+    // compute it, at most one decomposition per run.
+    stats.centers.emplace_back(x,
+                               y,
+                               stats.t > 0 ? stats.t - 1 : 0,
+                               stats.evaluations,
+                               mutation->sigma,
+                               adaptation->metric().copy(),
+                               std::move(reasons));
     stats.update_best(stats.centers.back().x, stats.centers.back().y);
     stats.has_improved = false;
-    repelling->begin_update(*this);
+    if (restarting)
+        repelling->begin_update(*this);
 }
 
 void Parameters::finish_restart()
@@ -113,10 +136,11 @@ void Parameters::finish_restart()
 void Parameters::fit_lambda_to_budget()
 {
     // The first generation after a restart takes at most the remaining budget (the center and the
-    // repelling queries are evaluated by now; TPA adds its two points): a restart near the end of
-    // the budget, where IPOP and BIPOP may also have grown lambda, would otherwise exceed it.
+    // repelling queries are evaluated by now; TPA adds its two points; the new run keeps one
+    // evaluation for its own center of mass, #111): a restart near the end of the budget, where
+    // IPOP and BIPOP may also have grown lambda, would otherwise exceed it.
     // At least min_lambda_after_restart points; pairwise selection needs an even lambda.
-    const size_t extra = reserved_points();
+    const size_t extra = reserved_points() + 1;
     const size_t used = stats.evaluations + extra;
     const size_t remaining = settings.budget > used ? settings.budget - used : 0;
     if (lambda <= remaining)
@@ -135,7 +159,8 @@ void Parameters::fit_lambda_to_budget()
 
 bool Parameters::restart_fits() const
 {
-    return stats.evaluations + 1 + min_lambda_after_restart + reserved_points() <= settings.budget;
+    return stats.evaluations + 1 + min_lambda_after_restart + reserved_points() + 1 <=
+           settings.budget;
 }
 
 void Parameters::recombine()

@@ -137,6 +137,18 @@ struct Solution
 
 inline std::ostream &operator<<(std::ostream &os, const Solution &s) { return os << s.repr(); }
 
+/**
+ * The shape of a search distribution, owned: a copy of matrix_adaptation::Metric (#123), which
+ * views the state of the adaptation. A sample is x = m + sigma B (d * z), so C = B diag(d)^2 B^T.
+ */
+struct MetricCopy
+{
+    //! The axis lengths: the square roots of the eigenvalues of C
+    Vector d;
+    //! The eigenvectors of C as columns, in the order of d; none when C is diagonal (B = I)
+    std::optional<Matrix> B;
+};
+
 namespace utils
 {
 /**

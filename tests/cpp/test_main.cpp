@@ -264,7 +264,8 @@ static void test_evaluation_queue()
 }
 
 // (c) A restart that starts now fits the budget when its next point leaves room for the smallest
-// first generation of the next run and the points every generation reserves (TPA's two)
+// first generation of the next run, the points every generation reserves (TPA's two) and the
+// evaluation of the next run's center of mass (#111)
 static void test_reserved_points()
 {
     parameters::Modules m;
@@ -273,7 +274,7 @@ static void test_reserved_points()
     settings.verbose = false;
     parameters::Parameters p(settings);
     CHECK(p.reserved_points() == 2);
-    const size_t room = parameters::Parameters::min_lambda_after_restart + 2;
+    const size_t room = parameters::Parameters::min_lambda_after_restart + 2 + 1;
     p.stats.evaluations = 100 - room - 1;
     CHECK(p.restart_fits());
     p.stats.evaluations = 100 - room;

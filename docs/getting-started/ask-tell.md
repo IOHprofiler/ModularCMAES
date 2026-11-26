@@ -27,7 +27,9 @@ print(es.p.stats.global_best.y)
 
 `ask()` returns the points to evaluate as a `(k, d)` array; `tell(f)` takes their objective values,
 in the same order, and returns `True` when it completed a generation. Check the break conditions
-after a completed generation:
+after a completed generation. When the optimizer should stop (`es.stop_conditions()`), one more
+`ask()` returns the run's center of mass, a single point; `break_conditions()` holds after its
+`tell()`. The loop below handles that without a special case:
 
 ```python
 def sphere(x):
@@ -60,7 +62,7 @@ Usually `k` is the population size λ. Some modules ask for other batches:
 | default | the λ points of a generation |
 | TPA step-size adaptation (`ssa=TPA`) | λ + 2 points: the population and the two TPA test points |
 | sequential selection | the points up to the first one after which the generation may stop (with TPA, its two points too), then one point at a time (two with pairwise mirroring) |
-| at a restart | the final mean of the run that ends, one point |
+| at the end of every run: a restart, and when the optimizer stops | the run's center of mass, one point (recorded in `es.p.stats.centers`) |
 | repelling restarts | the points of the hill–valley tests, one at a time |
 
 So do not assume `k == λ`: always evaluate the rows of what `ask()` returned. `ask()` returns the

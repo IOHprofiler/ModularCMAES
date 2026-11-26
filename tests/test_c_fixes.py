@@ -56,10 +56,13 @@ def restart_next_generation(es):
 
 
 class TestBudget(unittest.TestCase):
-    def test_a_generation_that_ends_at_the_budget_is_run(self):
-        es = modcma.ModularCMAES(modcma.Settings(5, lambda0=10, budget=5000, seed=1))
+    def test_a_generation_that_leaves_one_evaluation_is_run(self):
+        # The last generation ends one evaluation before the budget, which the final center of
+        # mass takes (#111): the budget is used exactly
+        es = modcma.ModularCMAES(modcma.Settings(5, lambda0=10, budget=5001, seed=1))
         es.run(lambda x: 1.0)  # a flat function: no restarts, every generation is complete
-        self.assertEqual(es.p.stats.evaluations, 5000)
+        self.assertEqual(es.p.stats.evaluations, 5001)
+        self.assertEqual(es.p.stats.t, 500)
 
     def test_tpa_does_not_exceed_the_budget(self):
         for budget in (1000, 1001, 1002, 1003):
@@ -355,16 +358,16 @@ class TestSettingsAndHelpers(unittest.TestCase):
                              c_maes.repelling.mahalanobis(u, v, np.eye(2)))
 
 
-class TestFavorite(unittest.TestCase):
-    def test_xfavorite_is_the_mean(self):
+class TestCenterOfMass(unittest.TestCase):
+    def test_center_of_mass_is_the_mean(self):
         es = modcma.ModularCMAES(modcma.Settings(4, integer_variables=[1], seed=1))
         es.step(sphere)
         m = np.array(es.p.adaptation.m)
         expected = m.copy()
         expected[1] = np.round(expected[1])
-        np.testing.assert_allclose(es.xfavorite, expected)
+        np.testing.assert_allclose(es.center_of_mass, expected)
 
-    def test_xfavorite_under_noise(self):
+    def test_center_of_mass_under_noise(self):
         # With noise the recorded value of the best point is biased low, and with a large
         # population the mean is closer to the optimum (median over seeds; measured 12-15 of 20
         # runs, about 1.6 times closer)
@@ -377,7 +380,7 @@ class TestFavorite(unittest.TestCase):
             )
             es = modcma.ModularCMAES(settings)
             es.run(noisy)
-            favorite.append(sphere(es.xfavorite - 1))
+            favorite.append(sphere(es.center_of_mass - 1))
             best.append(sphere(es.p.stats.global_best.x - 1))
             biased += es.p.stats.global_best.y < best[-1]
         self.assertLess(np.median(favorite), np.median(best))

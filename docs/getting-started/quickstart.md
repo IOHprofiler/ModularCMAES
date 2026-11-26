@@ -67,7 +67,8 @@ best = es.p.stats.global_best
 print(best.x, best.y, es.p.stats.evaluations, es.p.stats.t)
 ```
 
-`es.xfavorite` is the mean of the search distribution as a solution (not evaluated). With a noisy
+`es.center_of_mass` is the mean of the search distribution as a solution. Every run ends with its
+evaluation, recorded with the run's final step size and shape in `es.p.stats.centers`. With a noisy
 objective the recorded value of the best point is biased low, and with a large population the mean
 is often closer to the optimum than the best point.
 

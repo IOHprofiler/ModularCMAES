@@ -166,12 +166,14 @@ struct Settings
         }
 
         // The first generation must fit: lambda0 and the points that every generation evaluates
-        // besides the population, TPA's two (Parameters::reserved_points)
+        // besides the population, TPA's two (Parameters::reserved_points), and the evaluation of
+        // the run's center of mass that ends every run (#111)
         const size_t first_generation = lambda0 + (modules.ssa == StepSizeAdaptation::TPA ? 2 : 0);
-        require(this->budget >= first_generation,
+        require(this->budget >= first_generation + 1,
                 "budget " + std::to_string(this->budget) +
-                    " is smaller than the first generation (" + std::to_string(first_generation) +
-                    " evaluations)");
+                    " is smaller than the first generation and the evaluation of the final "
+                    "center of mass (" +
+                    std::to_string(first_generation + 1) + " evaluations)");
 
         update_bounds();
     }

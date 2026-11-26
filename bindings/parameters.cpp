@@ -319,6 +319,41 @@ void define_parameters(nb::module_ &main)
         .def_rw("e", &Solution::e, "The number of evaluations when x was found.")
         .def("__repr__", &Solution::repr, "x and y as text.");
 
+    nb::class_<Center, Solution>(
+        m,
+        "Center",
+        "The record of a finished run: its evaluated center of mass, with the distribution the "
+        "run ended with, and why it ended (#111).\n\n"
+        "Every run ends with an evaluation of its center of mass (`ModularCMAES.center_of_mass`), "
+        "at a restart and when the optimizer stops: x and y are that point and its value, t the "
+        "last generation of the run and e the evaluations after it. The run ended with the "
+        "distribution N(x, sigma^2 C), C = B diag(d)^2 B^T, with d and B in `metric`. Every run "
+        "is recorded, converged or not: `std` and `reasons` tell how it ended.")
+        .def(nb::init<>(), "An empty record: x is empty, y is +inf, no metric, no reasons.")
+        .def_ro("sigma", &Center::sigma, "The step size at the end of the run.")
+        .def_ro("metric",
+                &Center::metric,
+                "The shape of the distribution at the end of the run, "
+                "`matrix_adaptation.Metric` (the run's last `Adaptation.metric()`).")
+        .def_ro("reasons",
+                &Center::reasons,
+                "list of str: why the run ended: the names of the restart criteria that were met, "
+                "and \"budget\", \"target\" or \"max_generations\" when one of those ended it.")
+        .def_prop_ro(
+            "std",
+            [](const Center &c) { return c.max_std(); },
+            "sigma * max(metric.d): the longest semi-axis of the run's one-sigma ellipsoid, the "
+            "radius of the smallest ball that contains it. How far the run converged (NaN for an "
+            "empty record).")
+        .def(
+            "__repr__",
+            [](const Center &c) {
+                return repr("Center", [&](std::stringstream &ss) {
+                    ss << " x: (" << c.x.transpose() << ") y: " << c.y << " std: " << c.max_std();
+                });
+            },
+            "x, y and std as text.");
+
     nb::class_<Stats>(m, "Stats", "The progress of a run: counters and the best solutions.")
         .def(nb::init<>(), "Empty statistics: no generation, no evaluation, no solution.")
         .def_rw("t",
@@ -332,19 +367,22 @@ void define_parameters(nb::module_ &main)
         .def_rw("evaluations",
                 &Stats::evaluations,
                 "The number of objective function evaluations so far.\n\n"
-                "Includes the extra points of TPA, the centers of restarts and the hill-valley "
-                "tests of repelling restarts.")
+                "Includes the extra points of TPA, the center of mass that ends every run and the "
+                "hill-valley tests of repelling restarts.")
         .def_rw("current_avg",
                 &Stats::current_avg,
                 "The mean objective value of the population after the last selection (+inf "
                 "before the first).")
         .def_rw("solutions",
                 &Stats::solutions,
-                "list of Solution: the best solution of every finished run, appended at each "
-                "restart (a copy).")
+                "list of Solution: the best solution of every finished run, appended when it "
+                "ends, at a restart and when the optimizer stops (a copy). Its center of mass, "
+                "evaluated after it, can be better: see centers.")
         .def_rw("centers",
                 &Stats::centers,
-                "list of Solution: the center evaluated at each restart (a copy).")
+                "list of Center: the record of every finished run, appended when it ends, at a "
+                "restart and when the optimizer stops: its evaluated center of mass, with sigma, "
+                "the metric and why it ended (a copy). One per run, as solutions.")
         .def_rw("current_best",
                 &Stats::current_best,
                 "The best solution of the current run (since the last restart).")
@@ -622,7 +660,7 @@ void define_parameters(nb::module_ &main)
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
             "sigma0 that is not positive and finite, x0, lb or ub of a length other "
             "than dim, a non-finite x0, lb above ub, or a budget smaller than the first "
-            "generation.\n\n"
+            "generation and the evaluation of the final center of mass.\n\n"
             "Parameters\n"
             "----------\n"
             "dim : int\n"
@@ -636,9 +674,10 @@ void define_parameters(nb::module_ &main)
             "    Stop after this many generations. Default None: no limit.\n"
             "budget : int, optional\n"
             "    The maximum number of evaluations, default 10000 * dim; at least the first "
-            "generation (lambda0, and TPA's 2 points). A generation runs only when it fits: the "
-            "run stops when the evaluations so far plus lambda (and TPA's 2 points) would exceed "
-            "it.\n"
+            "generation (lambda0, and TPA's 2 points) and the final center of mass. A generation "
+            "runs only when it leaves one evaluation: the run stops when the evaluations so far "
+            "plus lambda (and TPA's 2 points) plus 1 would exceed it, and every run ends with "
+            "the evaluation of its center of mass (#111).\n"
             "sigma0 : float, optional\n"
             "    The initial step size, default 2.0, positive and finite; also the step size "
             "after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u "
@@ -1060,14 +1099,16 @@ void define_cmaes(nb::module_ &m)
             nb::arg("args"),
             nb::arg("kwargs"),
             "The signature of modcma 1.x (the pure-Python implementation): raises TypeError.")
-        .def_prop_ro("xfavorite",
-                     &ModularCMAES::xfavorite,
-                     "The favorite solution, (d,) array: the mean of the search distribution as "
-                     "a point of the objective (integer variables rounded; inside the bounds "
-                     "when a bound correction is used), as pycma's `xfavorite`.\n\n"
-                     "Not evaluated. With a noisy objective the value of `p.stats.global_best` is "
-                     "biased low (it was selected for being low); the mean averages over the "
-                     "population and, with a large population, is often closer to the optimum.")
+        .def_prop_ro("center_of_mass",
+                     &ModularCMAES::center_of_mass,
+                     "The center of mass, (d,) array: the mean of the search distribution as a "
+                     "point of the objective (integer variables rounded; inside the bounds when a "
+                     "bound correction is used), pycma's `xfavorite`. The current mean: during a "
+                     "run it moves with every generation.\n\n"
+                     "Every run ends with its evaluation, recorded in `p.stats.centers` (#111). "
+                     "With a noisy objective the value of `p.stats.global_best` is biased low (it "
+                     "was selected for being low); the mean averages over the population and, "
+                     "with a large population, is often closer to the optimum.")
         .def("recombine",
              &ModularCMAES::recombine,
              "Move the mean to the weighted mean of the mu best individuals.\n\n"
@@ -1081,10 +1122,14 @@ void define_cmaes(nb::module_ &m)
             [](ModularCMAES &c, FunctionType objective) { c.mutate(objective); },
             nb::arg("objective"),
             "Sample and evaluate a generation: the first step of a generation.\n\n"
-            "Restarts first when a restart criterion holds (the restart evaluates its center "
-            "with objective). Then select(), recombine() and adapt() complete the generation. "
-            "Every call samples a new generation, as in 1.x; only a generation that ask() "
-            "started is completed instead (its points evaluated with objective).\n\n"
+            "Restarts first when a restart criterion holds (the run that ends evaluates its "
+            "center of mass with objective). Then select(), recombine() and adapt() complete the "
+            "generation. Every call samples a new generation, as in 1.x; only a generation that "
+            "ask() started is completed instead (its points evaluated with objective). When the "
+            "optimizer stops (stop_conditions()), it evaluates the final center of mass instead "
+            "of a generation, and select(), recombine() and adapt() then do nothing: the 1.x "
+            "loop `while not es.break_conditions(): es.mutate(f); es.select(); ...` ends as "
+            "run() does.\n\n"
             "Parameters\n"
             "----------\n"
             "objective : callable\n"
@@ -1112,6 +1157,8 @@ void define_cmaes(nb::module_ &m)
              nb::kw_only(),
              nb::arg("vectorized") = false,
              "Run one generation (with a restart first, when one is due).\n\n"
+             "When the optimizer stops (stop_conditions()), the call evaluates the final center "
+             "of mass instead, one evaluation, and returns False.\n\n"
              "Parameters\n"
              "----------\n"
              "objective : callable\n"
@@ -1123,8 +1170,8 @@ void define_cmaes(nb::module_ &m)
              "Returns\n"
              "-------\n"
              "bool\n"
-             "    False when a break condition holds after this generation (see "
-             "break_conditions), True otherwise.")
+             "    False when the optimizer has stopped (see break_conditions), True "
+             "otherwise.")
         .def("__call__",
              &run,
              nb::sig("def __call__(self, objective: collections.abc.Callable[[numpy.typing."
@@ -1143,8 +1190,9 @@ void define_cmaes(nb::module_ &m)
              "Run generations while no break condition holds.\n\n"
              "The break conditions are checked before every generation, the first one too: the "
              "run never exceeds the budget, and an optimizer that has stopped does not run again. "
-             "The result is in p.stats (global_best, evaluations). A vectorized objective saves "
-             "a Python call per evaluation.\n\n"
+             "Every run ends with the evaluation of its center of mass, the last one too (#111). "
+             "The result is in p.stats (global_best, evaluations, centers). A vectorized "
+             "objective saves a Python call per evaluation.\n\n"
              "Parameters\n"
              "----------\n"
              "objective : callable\n"
@@ -1160,8 +1208,11 @@ void define_cmaes(nb::module_ &m)
              "points. k >= 1 is the largest batch that can be evaluated in any order: usually "
              "lambda (lambda + 2 with TPA step-size adaptation). With sequential selection, the "
              "points up to the first one after which the generation may stop, then one point at "
-             "a time (a pair with pairwise mirroring). A restart asks for its center first and, "
-             "with repelling restarts, for the points of the hill-valley tests, one at a time.")
+             "a time (a pair with pairwise mirroring). Every run ends with its center of mass, "
+             "one point: a restart asks for it first and, with repelling restarts, for the "
+             "points of the hill-valley tests, one at a time; when the optimizer stops "
+             "(stop_conditions()), the last ask() returns it, and break_conditions() holds after "
+             "its tell().")
         .def("tell",
              &tell,
              nb::sig("def tell(self, f: numpy.typing.ArrayLike, X: numpy.typing.ArrayLike | None "
@@ -1183,8 +1234,8 @@ void define_cmaes(nb::module_ &m)
              "Returns\n"
              "-------\n"
              "bool\n"
-             "    True when this completed a generation, False when ask() has more points of "
-             "this generation.\n\n"
+             "    True when this completed a generation (or the final center of mass, when the "
+             "optimizer stops), False when ask() has more points of this generation.\n\n"
              "Raises\n"
              "------\n"
              "RuntimeError\n"
@@ -1196,12 +1247,20 @@ void define_cmaes(nb::module_ &m)
                      "Whether ask() has points that wait for tell().")
         .def("break_conditions",
              &ModularCMAES::break_conditions,
-             "Whether the run should stop; meaningful between generations (after tell() "
+             "Whether the optimizer has stopped; meaningful between generations (after tell() "
              "returned True).\n\n"
+             "True when stop_conditions() hold and the final center of mass has been evaluated "
+             "(the last ask() and tell(), or step()). False again when the stop conditions no "
+             "longer hold, after the budget was raised: the run continues.")
+        .def("stop_conditions",
+             &ModularCMAES::stop_conditions,
+             "Whether the optimizer should stop: then the next ask() (or step()) evaluates the "
+             "final center of mass, and break_conditions() holds after it.\n\n"
              "True when one of these holds: p.stats.t reached settings.max_generations; the "
              "best objective value is at most settings.target; the next generation (lambda "
-             "points, and the 2 extra points of TPA) would exceed settings.budget; a restart is "
-             "due, but its center and the smallest first generation of the new run would exceed "
+             "points, and the 2 extra points of TPA) would leave no evaluation of "
+             "settings.budget for the final center of mass; a restart is due, but its center, "
+             "the smallest first generation of the new run and its center of mass would exceed "
              "settings.budget; or restart_strategy is STOP and a restart criterion holds.")
         .def_ro("p",
                 &ModularCMAES::p,
