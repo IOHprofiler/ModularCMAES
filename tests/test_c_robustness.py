@@ -223,7 +223,9 @@ class TestSmallFixes(unittest.TestCase):
             es.step(lambda x: float(np.sum(weights * (rotation @ x) ** 2)))
         a = es.p.adaptation
         self.assertIsInstance(a, c_maes.cmaescpp.matrix_adaptation.CovarianceNoEigvAdaptation)
-        np.testing.assert_allclose(a.inv_root_C @ a.C @ a.inv_root_C, np.eye(4), atol=1e-8)
+        # inv_root_C moved to the metric (#123); at d = 4 every update is factorized: C is sampled
+        inv_root_c = a.metric().inv_root_C()
+        np.testing.assert_allclose(inv_root_c @ a.C @ inv_root_c, np.eye(4), atol=1e-8)
 
     def test_resize_population_keeps_the_previous_generation(self):
         es = ModularCMAES(Settings(4, lambda0=8, seed=1))

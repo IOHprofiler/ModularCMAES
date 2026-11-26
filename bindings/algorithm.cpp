@@ -6,6 +6,23 @@ namespace modcma_python
 {
 namespace
 {
+//! A copy of a matrix_adaptation::Metric that owns its vectors: what Python receives (a view could
+//! outlive the adaptation's update, #115)
+struct MetricCopy
+{
+    Vector d;
+    std::optional<Matrix> B;
+
+    explicit MetricCopy(const matrix_adaptation::Metric &metric) :
+        d(metric.d)
+    {
+        if (metric.B != nullptr)
+            B = *metric.B;
+    }
+
+    [[nodiscard]] matrix_adaptation::Metric view() const { return {d, B ? &*B : nullptr}; }
+};
+
 //! The members that every matrix adaptation shows in its repr
 void adaptation_repr(std::stringstream &ss, const matrix_adaptation::Adaptation &a)
 {
@@ -706,6 +723,83 @@ void define_matrix_adaptation(nb::module_ &main)
         "in what they learn and in their cost per generation: O(d^3) with a decomposition "
         "(COVARIANCE, COVARIANCE_NO_EIGV, CMSA), O(d^2 lambda) for MA-ES, Cholesky-CMA-ES and "
         "xNES, O(d lambda) for SEPARABLE and NONE (see docs/performance.md).");
+
+    nb::class_<MetricCopy>(
+        m,
+        "Metric",
+        "The metric of a search distribution: its shape without the step size, from "
+        "`Adaptation.metric()`.\n\n"
+        "A sample is x = m + sigma * B (d * z), z ~ N(0, I), so the samples have the covariance "
+        "sigma^2 C with C = B diag(d)^2 B^T: the one-sigma ellipsoid around m has the semi-axes "
+        "sigma * d_i along the columns B_i.\n\n"
+        "It describes the distribution that is sampled. `CovarianceAdaptation` and "
+        "`CovarianceNoEigvAdaptation` update C every generation but decompose it only every "
+        "`es.p.weights.lazy_update_interval` generations, and sample with the last decomposition, "
+        "so the metric can be that many generations behind their `C` (with the default settings "
+        "they decompose every generation up to d = 82). `coordinate_wise_variances`, the diagonal "
+        "of the latest C, can be ahead of it by as much.\n\n"
+        "Strictly, the metric (the matrix of the Mahalanobis distance) is C^-1; this holds the "
+        "decomposition, from which C and C^-1 follow. A copy: it does not change with the "
+        "optimizer.")
+        .def_prop_ro(
+            "d",
+            [](const MetricCopy &metric) { return metric.d; },
+            "The axis lengths, the square roots of the eigenvalues of C (pycma's D), shape (d,), "
+            "in the order of the columns of `B`. For the diagonal adaptations (SEPARABLE, NONE) in "
+            "the order of the coordinates.")
+        .def_prop_ro(
+            "B",
+            [](const MetricCopy &metric) { return metric.B; },
+            "The eigenvectors of C as columns, shape (d, d), in the order of `d`; None when C is "
+            "diagonal (SEPARABLE, NONE), where B is the identity.")
+        .def_prop_ro(
+            "is_diagonal",
+            [](const MetricCopy &metric) { return !metric.B.has_value(); },
+            "Whether C is diagonal (B is None).")
+        .def(
+            "eigenvalues",
+            [](const MetricCopy &metric) { return metric.view().eigenvalues(); },
+            "The eigenvalues of C, d**2, in the order of `d`.\n\n"
+            "Returns\n"
+            "-------\n"
+            "numpy.ndarray\n"
+            "    Shape (d,).")
+        .def(
+            "inv_C",
+            [](const MetricCopy &metric) { return metric.view().inv_C(); },
+            "C^-1 = B diag(d)^-2 B^T, computed on call (O(d^3); a diagonal matrix when C is "
+            "diagonal, where 1 / d**2 is the cheap form).\n\n"
+            "On a convex-quadratic function with Hessian H, CMA-ES adapts C towards H^-1 up to a "
+            "constant factor: Hansen (2016), The CMA Evolution Strategy: A Tutorial, Section 0.4, "
+            "\"we assume that the optimal covariance matrix equals to the inverse Hessian matrix, "
+            "up to a constant factor\" (an assumption with strong empirical support; \"a rigorous "
+            "proof is missing\"). pycma uses the same relation (`inverse_hessian_scalar_correction` "
+            "fits the factor). So C^-1 estimates the shape of the Hessian, not its scale; sigma "
+            "does not give the scale, it follows the distance to the optimum. The relation needs a "
+            "full matrix: SEPARABLE can only match a diagonal Hessian, and NONE keeps C = I.\n\n"
+            "Returns\n"
+            "-------\n"
+            "numpy.ndarray\n"
+            "    Shape (d, d).")
+        .def(
+            "inv_root_C",
+            [](const MetricCopy &metric) { return metric.view().inv_root_C(); },
+            "C^-1/2 = B diag(d)^-1 B^T, computed on call (O(d^3); a diagonal matrix when C is "
+            "diagonal).\n\n"
+            "Returns\n"
+            "-------\n"
+            "numpy.ndarray\n"
+            "    Shape (d, d).")
+        .def(
+            "__repr__",
+            [](const MetricCopy &metric) {
+                return repr("Metric", [&](std::stringstream &ss) {
+                    ss << " d: " << metric.d.transpose();
+                    ss << " diagonal: " << !metric.B.has_value();
+                });
+            },
+            repr_doc);
+
     auto adaptation = nb::class_<Adaptation>(
         m,
         "Adaptation",
@@ -739,6 +833,25 @@ void define_matrix_adaptation(nb::module_ &main)
                 "diagonal of C = A A^T (without sigma^2), shape (d,). Used for the lower bound on "
                 "the step size of integer variables; a NaN or inf in it fails the matrix "
                 "update.")
+        .def(
+            "metric",
+            [](Adaptation &a) { return MetricCopy(a.metric()); },
+            "The metric of the sampled distribution: its axis lengths d and eigenvectors B, "
+            "without sigma (see `Metric`).\n\n"
+            "`CovarianceAdaptation`, `SeparableAdaptation` and `NoAdaptation` keep it: it costs "
+            "nothing. The others decompose C = F F^T of their sampling factor F (M, or A) when "
+            "asked, O(d^3), and reuse the result while `factor_version` is unchanged; nothing is "
+            "computed unless something asks. A value written from Python to their matrices is seen "
+            "after the next change of the factor (an update or a restart). NaN when the "
+            "factor is not finite.\n\n"
+            "Returns\n"
+            "-------\n"
+            "Metric\n"
+            "    A copy.")
+        .def_ro("factor_version",
+                &Adaptation::factor_version,
+                "A counter increased wherever the sampling factor changes (an update of the "
+                "matrix, a decomposition, a restart): `metric()` recomputes only when it changed.")
         .def("adapt_evolution_paths",
              &Adaptation::adapt_evolution_paths,
              nb::arg("pop"),
@@ -917,10 +1030,12 @@ void define_matrix_adaptation(nb::module_ &main)
                 &CovarianceAdaptation::d,
                 "The square roots of the eigenvalues of C (the standard deviations along the "
                 "principal axes), shape (d,), in the order of the columns of B (ones at the "
-                "start).")
+                "start). With B, the `metric()`. In `CovarianceNoEigvAdaptation` filled only by "
+                "`metric()`.")
         .def_rw("B",
                 &CovarianceAdaptation::B,
-                "The eigenvectors of C as columns, shape (d, d) (the identity at the start).")
+                "The eigenvectors of C as columns, shape (d, d) (the identity at the start). In "
+                "`CovarianceNoEigvAdaptation` filled only by `metric()`.")
         .def_rw("C",
                 &CovarianceAdaptation::C,
                 "The covariance matrix (without sigma^2), symmetric, shape (d, d) (the identity "
@@ -929,11 +1044,6 @@ void define_matrix_adaptation(nb::module_ &main)
                 &CovarianceAdaptation::A,
                 "The sampling matrix, y = A z, shape (d, d): B diag(d) (the lower triangular "
                 "Cholesky factor of C in `CovarianceNoEigvAdaptation`).")
-        .def_prop_ro("inv_root_C",
-                     &CovarianceAdaptation::inv_root_C,
-                     "C^-1/2 = B diag(d)^-1 B^T, shape (d, d), computed from B and d on access "
-                     "(the updates do not form it). `CovarianceNoEigvAdaptation` does not compute "
-                     "B and d: there it is the identity (#117).")
         .def_rw("hs",
                 &CovarianceAdaptation::hs,
                 "The indicator h_sigma: False when ||ps|| is large (the step size is growing "
@@ -988,7 +1098,7 @@ void define_matrix_adaptation(nb::module_ &main)
                 return repr("CovarianceAdaptation", [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
                     ss << " pc: " << a.pc.transpose() << " d: " << a.d.transpose();
-                    ss << " B: " << a.B << " C: " << a.C << " inv_root_C: " << a.inv_root_C();
+                    ss << " B: " << a.B << " C: " << a.C;
                     ss << " dd: " << a.dd;
                     ss << " hs: " << a.hs;
                 });
@@ -1101,7 +1211,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower "
         "triangular (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see "
         "`constants.cholesky_solver`), which is several times cheaper than an "
-        "eigendecomposition; B and d keep their initial values. ps is updated with dz instead "
+        "eigendecomposition. B and d are filled only by `metric()`, from A A^T, the C of the last "
+        "factorization. ps is updated with dz instead "
         "of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of "
         "COVARIANCE for the other step-size adaptations.");
     adaptation_init(no_eigv);

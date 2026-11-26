@@ -50,6 +50,43 @@ The adaptation is `es.p.adaptation`: the mean `m`, the evolution paths `pc` and 
 matrix (`C` and its eigendecomposition `B`, `d` for `COVARIANCE`; `M` for `MATRIX`; `A` for
 `CHOLESKY` and `NATURAL_GRADIENT`). See the [reference](../reference/matrix_adaptation.md).
 
+### The shape of the distribution: `metric()`
+
+Every adaptation gives the shape of its search distribution in one form, without σ:
+`es.p.adaptation.metric()`. A sample is x = m + σ B (d ∘ z), so the one-sigma ellipsoid around m
+has the semi-axes σ dᵢ along the columns of B.
+
+* `d`: the axis lengths, the square roots of the eigenvalues of C;
+* `B`: the eigenvectors, or `None` for `SEPARABLE` and `NONE` (C is diagonal);
+* `eigenvalues()` (d²), `inv_C()` (C⁻¹) and `inv_root_C()` (C^-1/2).
+
+`COVARIANCE`, `SEPARABLE` and `NONE` keep d (and B), so the metric costs nothing. The other
+adaptations compute it when asked, an O(d³) eigendecomposition, and reuse it until their matrix
+changes. It describes the distribution the points were sampled from: `COVARIANCE` decomposes C only
+every few generations in high dimension, and the metric follows the decomposition, not the latest C.
+
+```python
+import numpy as np
+import modcma
+
+rotation, _ = np.linalg.qr(np.random.default_rng(0).normal(size=(5, 5)))
+weights = 10.0 ** np.arange(5)  # the Hessian has condition 1e4
+
+def rotated_ellipsoid(x):
+    return float(np.sum(weights * (rotation @ x) ** 2))
+
+es = modcma.ModularCMAES(modcma.settings_from_dict(5, target=1e-6, seed=1))
+es.run(rotated_ellipsoid)
+metric = es.p.adaptation.metric()
+print(f"condition of C: {metric.eigenvalues().max() / metric.eigenvalues().min():.3g}")
+print(f"longest semi-axis: {es.p.mutation.sigma * metric.d.max():.2e}")
+```
+
+On a convex-quadratic function C approaches the inverse Hessian up to a constant factor (Hansen
+2016, Section 0.4, an assumption with strong empirical support): here the condition of C ends near
+the Hessian's 10⁴. So `inv_C()` estimates the shape of the Hessian, not its scale, for the
+adaptations that learn a full matrix.
+
 ## The options
 
 <!-- options: MatrixAdaptationType -->
