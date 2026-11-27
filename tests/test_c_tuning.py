@@ -1,3 +1,4 @@
+import random
 import unittest
 from copy import deepcopy
 from modcma import c_maes
@@ -37,11 +38,10 @@ class TestTuning(unittest.TestCase):
         self.assertEqual(settings.modules.sampler, c_maes.options.BaseSampler.UNIFORM)
 
         changed = deepcopy(default)
-        changed["cc_factor"] = 0.5
+        changed["cc"] = 0.1
         changed["sampler"] = "HALTON"
         settings_changed = c_maes.settings_from_config(2, changed)
-        weights = c_maes.Parameters(settings).weights
-        self.assertAlmostEqual(settings_changed.cc, 0.5 * weights.cc)
+        self.assertEqual(settings_changed.cc, 0.1)
         self.assertEqual(
             settings_changed.modules.sampler, c_maes.options.BaseSampler.HALTON
         )
@@ -53,7 +53,7 @@ class TestTuning(unittest.TestCase):
         numeric = {
             name: value
             for name, value in dict(defaults).items()
-            if name in ("lambda0", "sigma0") or name.endswith("_factor")
+            if name in ("lambda0", "mu0", "sigma0") + NUMERIC
         }
         self.assertEqual(numeric["lambda0"], c_maes.Settings(dim).lambda0)
         for modules in pairwise_configs(module_options()) + [{}]:
@@ -68,27 +68,36 @@ class TestTuning(unittest.TestCase):
                 for name in NUMERIC + ("mueff", "lazy_update_interval"):
                     self.assertEqual(getattr(w_config, name), getattr(w_plain, name), name)
 
-    def test_factors_are_relative_to_the_defaults_of_the_modules(self):
+    def test_a_default_value_is_the_default_of_the_modules(self):
+        """The numeric names, ranges and defaults are those of master's space, and its rule holds:
+        a value equal to the default of the space is not passed, any other is."""
         dim = 8
-        for ssa in ("CSA", "XNES", "SR", "SA"):
-            modules = dict(ssa=ssa, matrix_adaptation="SEPARABLE")
-            plain = c_maes.Parameters(c_maes.settings_from_dict(dim, **modules)).weights
-            config = dict(modules, cs_factor=2.0, c1_factor=0.5, damps_factor=3.0, mu0_factor=0.5)
-            settings = c_maes.settings_from_config(dim, config)
-            weights = c_maes.Parameters(settings).weights
-            self.assertAlmostEqual(weights.cs, 2 * plain.cs)
-            self.assertAlmostEqual(weights.c1, 0.5 * plain.c1)
-            self.assertAlmostEqual(weights.damps, 3 * plain.damps)
-            reference = c_maes.settings_from_dict(dim, **modules)
-            self.assertEqual(settings.mu0, max(1, round(0.5 * reference.mu0)))
-            self.assertIsNone(settings.cc)  # no factor: the default, from the new cs
-
-    def test_mu_is_between_1_and_lambda(self):
-        for factor in (0.1, 2.0):
-            settings = c_maes.settings_from_config(
-                5, {"lambda0": 3, "mu0_factor": factor, "ssa": "SA"}
-            )
-            self.assertTrue(1 <= settings.mu0 <= 3)
+        cspace = c_maes.get_configspace(dim)
+        for name in ("lambda0", "mu0", "sigma0") + NUMERIC:
+            self.assertIn(name, cspace)
+        self.assertEqual((cspace["cs"].lower, cspace["cs"].upper), (0, 1))
+        self.assertEqual((cspace["damps"].lower, cspace["damps"].upper), (0, 10))
+        self.assertEqual((cspace["lambda0"].lower, cspace["lambda0"].upper), (1, 50 * dim))
+        defaults = dict(cspace.get_default_configuration())
+        rng = random.Random(3)
+        for _ in range(60):
+            modules = {
+                name: rng.choice(options)
+                for name, options in c_maes.get_all_module_options().items()
+            }
+            numeric = {}
+            for name in NUMERIC + ("sigma0",):
+                if rng.random() < 0.5:
+                    numeric[name] = rng.uniform(0.01, 0.9)
+                else:
+                    numeric[name] = defaults[name]  # the default of the modules
+            settings = c_maes.settings_from_config(dim, {**modules, **numeric})
+            # master's reference: only what differs from the default goes to Settings
+            passed = {k: v for k, v in numeric.items() if v != defaults[k]}
+            reference = c_maes.settings_from_dict(dim, **modules, **passed)
+            self.assertEqual(str(settings.modules), str(reference.modules))
+            for name in ("lambda0", "mu0", "sigma0") + NUMERIC:
+                self.assertEqual(getattr(settings, name), getattr(reference, name), name)
 
     def test_sampled_mu_equal_to_the_default_is_kept(self):
         # lambda0 = 20, mu0 = 3 ran with mu0 = 10; mu0 = 10 is the default of lambda0 = 20
@@ -98,6 +107,13 @@ class TestTuning(unittest.TestCase):
         self.assertEqual(settings.mu0, 10)  # the default of SA is 5
         settings = c_maes.settings_from_config(5, {"lambda0": 20, "mu0": 10, "cs": 0.3})
         self.assertEqual((settings.mu0, settings.cs), (10, 0.3))
+        # mu0 equal to its default (lambda0 // 2 of the default lambda0 = 7) with another lambda0
+        default = c_maes.get_configspace(5).get_default_configuration()
+        settings = c_maes.settings_from_config(5, {"lambda0": 20, "mu0": default["mu0"]})
+        self.assertEqual(settings.mu0, default["mu0"])
+        # no lambda0, mu0 equal to its default: the default of the modules (lambda / 4 for SA)
+        settings = c_maes.settings_from_config(5, {"mu0": default["mu0"], "ssa": "SA"})
+        self.assertEqual(settings.mu0, c_maes.settings_from_dict(5, ssa="SA").mu0)
 
     def test_no_none_sample_transformation(self):
         cspace = c_maes.get_configspace(3)
@@ -119,24 +135,24 @@ class TestTuning(unittest.TestCase):
                 restarts and config["repelling_type"] != "NONE",
             )
             self.assertEqual("active" in names, ma != "NONE" and config["lambda0"] > 1)
-            self.assertEqual("mu0_factor" in names, config["lambda0"] > 1)
+            self.assertEqual("mu0" in names, config["lambda0"] > 1)
             one = config["lambda0"] == 1
             for name in ("elitist", "sequential_selection", "weights"):
                 self.assertEqual(name in names, not one, name)
             self.assertEqual(
-                "damps_factor" in names, one or ssa in ("CSA", "MSR", "PSR", "SR")
+                "damps" in names, one or ssa in ("CSA", "MSR", "PSR", "SR")
             )
             if one:
                 self.assertNotIn(config["restart_strategy"], ("IPOP", "BIPOP"))
-            self.assertEqual("cc_factor" in names, ma not in ("NONE", "MATRIX", "CMSA"))
+            self.assertEqual("cc" in names, ma not in ("NONE", "MATRIX", "CMSA"))
             self.assertEqual(
-                "cs_factor" in names,
+                "cs" in names,
                 ssa not in ("SR", "SA") or ma not in ("NONE", "CHOLESKY", "CMSA"),
             )
             c1_active = ma in ("COVARIANCE", "COVARIANCE_NO_EIGV", "SEPARABLE", "MATRIX", "CHOLESKY")
             c1_active |= ma in ("CMSA", "NATURAL_GRADIENT") and bool(config.get("active"))
-            self.assertEqual("c1_factor" in names, bool(c1_active))
-            self.assertEqual("cmu_factor" in names, "c1_factor" in names)
+            self.assertEqual("c1" in names, bool(c1_active))
+            self.assertEqual("cmu" in names, "c1" in names)
             self.assertNotEqual(config["sample_transformation"], "NONE")
             if ma == "COVARIANCE":
                 self.assertEqual(ssa, "CSA")
@@ -216,8 +232,8 @@ class TestTuning(unittest.TestCase):
 
     @staticmethod
     def _has_hyperparameter(cspace, name, modules):
-        """Whether `<name>_factor` is active for the modules, by the conditions of the space."""
-        child = f"{name}_factor"
+        """Whether `<name>` is active for the modules, by the conditions of the space."""
+        child = f"{name}"
         for condition in cspace.conditions:
             children = {c.child.name for c in getattr(condition, "components", [condition])}
             if child in children:

@@ -101,23 +101,21 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 
 ### Changed
 
-* The configuration space of `get_configspace` and `settings_from_config` (#81). This breaks code
-  and saved configurations that use the old names:
-  * `cs`, `cc`, `cmu`, `c1`, `damps` and `mu0` are now `cs_factor`, `cc_factor`, `cmu_factor`,
-    `c1_factor`, `damps_factor` and `mu0_factor`: a factor in [0.1, 10] (log scale, default 1; for
-    mu in [0.1, 2]) of the default of the chosen modules. The old absolute values were the defaults
-    of `CSA` with `COVARIANCE` and overrode the defaults of `XNES`, `MXNES`, `LPXNES`, `SR`,
-    `NATURAL_GRADIENT`, `SEPARABLE` and of mu = lambda / 4 (F23). `settings_from_config` accepts
-    a dict with the old absolute names; it passes them to `Settings` as they are.
+* The configuration space of `get_configspace` and `settings_from_config` (#81). The numeric
+  hyperparameters keep their names, ranges and defaults.
   * Hyperparameters without an effect are inactive (conditions): `active`, `center_placement`,
-    `repelling_type`, `repelling_metric`, the factors of `cs`, `cc`, `cmu`, `c1`, `damps` and `mu0`.
-    A sampled configuration no longer contains them.
+    `repelling_type`, `repelling_metric`, `cs`, `cc`, `cmu`, `c1`, `damps`, `mu0`, and (for
+    lambda0 = 1) `elitist`, `sequential_selection` and `weights`. A sampled configuration no longer
+    contains them; the evidence is in the source. A configuration with a value for an inactive
+    hyperparameter is not valid for `Configuration(space, ...)`; `settings_from_config` still
+    takes it as a dict.
   * `sample_transformation=NONE` is not in the space (`get_all_module_options` still lists it).
-  * `COVARIANCE` with another `ssa` than `CSA` is forbidden: `Settings` turns it into
-    `COVARIANCE_NO_EIGV`. `get_configspace(remove_duplicates=False)` keeps it.
-  * `settings_from_config` passes every numeric value of the configuration to `Settings`, also when
-    it equals the default of the space. A sampled `mu0` equal to the default was dropped, so
-    `lambda0 = 20, mu0 = 3` ran with `mu0 = 10`. `lambda0` and `sigma0` stay absolute.
+  * `COVARIANCE` with another `ssa` than `CSA`, and `IPOP` or `BIPOP` with `lambda0 = 1`, are
+    forbidden: `Settings` turns them into another configuration of the space.
+    `get_configspace(remove_duplicates=False)` keeps them.
+  * `settings_from_config` passed `mu0` only when it differed from its default, so a sampled `mu0`
+    equal to the default was dropped and `lambda0 = 20, mu0 = 3` ran with `mu0 = 10`. It passes
+    `mu0` now whenever `lambda0` is passed.
 * Requires Python ≥ 3.10 and numpy ≥ 2.0 (was Python ≥ 3.8).
 * The bindings use nanobind instead of pybind11; the Python API of `modcma.c_maes` is unchanged
   (checked against a dump of the 1.x API).

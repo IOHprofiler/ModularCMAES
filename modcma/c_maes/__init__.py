@@ -11,6 +11,7 @@ from ConfigSpace import (
     EqualsCondition,
     ForbiddenAndConjunction,
     ForbiddenEqualsClause,
+    ForbiddenGreaterThanRelation,
     ForbiddenInClause,
     GreaterThanCondition,
     InCondition,
@@ -110,8 +111,11 @@ def get_all_module_options() -> dict:
 def _make_numeric_parameter(
     name: str, dim: int, lb: float, ub: float
 ) -> Union[UniformIntegerHyperparameter, NormalFloatHyperparameter]:
-    """An absolute numeric hyperparameter (`lambda0`, `sigma0`), with the default of `Settings`."""
-    default = getattr(Settings(dim), name)
+
+    settings = Parameters(Settings(dim))
+    default = getattr(settings.weights, name, None)
+    if default is None:
+        default = getattr(settings.settings, name)
 
     if isinstance(default, int):
         return UniformIntegerHyperparameter(name, lb, ub, default, log=True)
@@ -129,19 +133,6 @@ def _make_numeric_parameter(
 #: Options that `get_configspace` leaves out of a module, though `Modules` has them (#81, F22 of
 #: #76: the raw uniform samples have mean 0.5, which fails everywhere; a testing option).
 _EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
-
-#: The numeric parameters of the space that are a factor of the default of the chosen modules
-#: (`<name>_factor`): the name, and the range of the factor. The range is an open decision
-#: (#81): [0.1, 10] on a log scale is the proposal of the issue; the factor of mu is at most 2,
-#: since mu is at most lambda (the default mu is lambda / 2 or lambda / 4).
-_FACTOR_RANGES = {
-    "mu0": (0.1, 2.0),
-    "cs": (0.1, 10.0),
-    "cc": (0.1, 10.0),
-    "cmu": (0.1, 10.0),
-    "c1": (0.1, 10.0),
-    "damps": (0.1, 10.0),
-}
 
 #: When a hyperparameter has no effect (#81). Each entry is read from the C++ code: a
 #: hyperparameter is inactive only where the code never reads it. A hyperparameter is active when
@@ -171,7 +162,7 @@ _FACTOR_RANGES = {
 #: * `elitist`, `sequential_selection`, `weights`: Settings overrides them for lambda0 = 1, a
 #:   (1+1)-ES (settings.hpp:153-161). `ssa` is overridden too (SR), but not before Settings turns
 #:   COVARIANCE into COVARIANCE_NO_EIGV for an `ssa` other than CSA (settings.hpp:125-130), so it
-#:   stays active. The (1+1)-ES runs SR, which reads `damps` (mutation.cpp:372), so `damps_factor`
+#:   stays active. The (1+1)-ES runs SR, which reads `damps` (mutation.cpp:372), so `damps`
 #:   is also active for lambda0 = 1.
 #: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:163-165): forbidden.
 #: * `center_placement`, `repelling_type`: used when a run restarts (parameters.cpp:128,
@@ -182,9 +173,9 @@ _FACTOR_RANGES = {
 #: * `repelling_metric`: read by CoverageRepelling and AdaptiveRepelling only (repelling.cpp:28,
 #:   47); `repelling.hpp:235` gives `NoRepelling` for NONE.
 _INACTIVE_FOR = {
-    "damps_factor": {"ssa": ("TPA", "XNES", "MXNES", "LPXNES", "SA")},
-    "cc_factor": {"matrix_adaptation": ("NONE", "MATRIX", "CMSA")},
-    "cs_factor": {"ssa": ("SR", "SA"), "matrix_adaptation": ("NONE", "CHOLESKY", "CMSA")},
+    "damps": {"ssa": ("TPA", "XNES", "MXNES", "LPXNES", "SA")},
+    "cc": {"matrix_adaptation": ("NONE", "MATRIX", "CMSA")},
+    "cs": {"ssa": ("SR", "SA"), "matrix_adaptation": ("NONE", "CHOLESKY", "CMSA")},
     "center_placement": {"restart_strategy": ("STOP",)},
     "repelling_type": {"restart_strategy": ("STOP",)},
     "repelling_metric": {"repelling_type": ("NONE",)},
@@ -200,11 +191,6 @@ def _in_condition(child, parent, options: tuple, excluded: tuple = ()):
     """`child` is active when `parent` has an option that is not in `excluded`."""
     active = [o for o in options if o not in excluded]
     return InCondition(child, parent, active)
-
-
-def _factor_parameter(name: str) -> UniformFloatHyperparameter:
-    lower, upper = _FACTOR_RANGES[name]
-    return UniformFloatHyperparameter(f"{name}_factor", lower, upper, default_value=1.0, log=True)
 
 
 def _any_of(conditions: list):
@@ -231,11 +217,11 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
             _in_condition(cspace[child], cspace[parent], options[parent], excluded)
             for parent, excluded in parents.items()
         ]
-        if child == "damps_factor" and "lambda0" in present:
+        if child == "damps" and "lambda0" in present:
             conditions.append(LessThanCondition(cspace[child], cspace["lambda0"], 2))
         cspace.add(_any_of(conditions))
 
-    for child in ("c1_factor", "cmu_factor"):
+    for child in ("c1", "cmu"):
         if child not in present:
             continue
         read_always = _in_condition(
@@ -247,8 +233,8 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
         )
         cspace.add(OrConjunction(read_always, with_active))
 
-    if "mu0_factor" in present:
-        cspace.add(GreaterThanCondition(cspace["mu0_factor"], cspace["lambda0"], 1))
+    if "mu0" in present:
+        cspace.add(GreaterThanCondition(cspace["mu0"], cspace["lambda0"], 1))
     if "lambda0" in present:
         for child in _ONE_PLUS_ONE_OVERRIDDEN:
             cspace.add(GreaterThanCondition(cspace[child], cspace["lambda0"], 1))
@@ -285,16 +271,15 @@ def get_configspace(
     `sample_transformation` has no `NONE` (raw uniform samples, a testing option that fails
     everywhere). The numeric hyperparameters are:
 
-    - `lambda0`: an integer in [1, 50 * dim], log scale, with the default of `Settings(dim)`;
-    - `mu0_factor`: mu as a factor of its default (lambda / 2, or lambda / 4 for `SA` and
-      `CMSA`), in [0.1, 2], log scale, default 1; mu is at least 1 and at most lambda;
+    - `lambda0` and `mu0`: integers in [1, 50 * dim], log scale, with the condition mu0 <= lambda0;
     - `sigma0`: a normal distribution around its default, truncated to [1e-15, 1e15];
-    - `cs_factor`, `cc_factor`, `cmu_factor`, `c1_factor`, `damps_factor`: a factor of the
-      default of the chosen modules, in [0.1, 10], log scale, default 1.
+    - `cs`, `cc`, `cmu`, `c1` in [0, 1] and `damps` in [0, 10]: normal distributions around
+      their defaults.
 
-    A factor is relative to the default of the modules of the configuration, which differs per
-    step-size rule and matrix adaptation, so the default configuration is the standard CMA-ES and
-    every other configuration is as far from its own default (see `settings_from_config`).
+    The defaults are those of `Settings(dim)` with the default modules (CSA with COVARIANCE). The
+    normal distributions have standard deviation 0.3 * min(default - lower, upper - default).
+    `settings_from_config` treats a value equal to its default as "the default of the chosen
+    modules", which differs per step-size rule and matrix adaptation.
 
     Hyperparameters without an effect are inactive (ConfigSpace conditions, absent from a sampled
     configuration):
@@ -303,14 +288,14 @@ def get_configspace(
     - `center_placement` and `repelling_type` are inactive for `restart_strategy` `STOP` (the
       criteria stop the run; `NONE` still restarts when the adaptation fails), and
       `repelling_metric` needs `repelling_type` other than `NONE`;
-    - `cs_factor` is inactive when `ssa` is `SR` or `SA` and `matrix_adaptation` is `NONE`,
-      `CHOLESKY` or `CMSA`; `damps_factor` for `TPA`, `XNES`, `MXNES`, `LPXNES` and `SA`;
-    - `cc_factor` is inactive for `matrix_adaptation` `NONE`, `MATRIX` and `CMSA`;
-    - `cmu_factor` and `c1_factor` are inactive for `NONE`, and for `CMSA` and
+    - `cs` is inactive when `ssa` is `SR` or `SA` and `matrix_adaptation` is `NONE`,
+      `CHOLESKY` or `CMSA`; `damps` for `TPA`, `XNES`, `MXNES`, `LPXNES` and `SA`;
+    - `cc` is inactive for `matrix_adaptation` `NONE`, `MATRIX` and `CMSA`;
+    - `cmu` and `c1` are inactive for `NONE`, and for `CMSA` and
       `NATURAL_GRADIENT` without `active` (with `active` they scale the negative weights);
-    - `mu0_factor`, `elitist`, `sequential_selection` and `weights` need `lambda0` above 1
+    - `mu0`, `elitist`, `sequential_selection` and `weights` need `lambda0` above 1
       (a (1+1)-ES has mu = 1, is elitist, with equal weights); it runs `SR` whatever `ssa` is, but
-      `ssa` stays, since it decides whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`; `damps_factor`
+      `ssa` stays, since it decides whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`; `damps`
       is active for `lambda0` = 1, which runs `SR`.
 
     A hyperparameter is inactive only where the C++ code never reads it; the evidence, with file
@@ -320,9 +305,9 @@ def get_configspace(
     `CSA`, so the two are one configuration there. With `remove_duplicates`, `COVARIANCE` with
     another `ssa` than `CSA` is forbidden, and so is `IPOP` or `BIPOP` with `lambda0` = 1
     (`RESTART` there). Two duplicates stay: `mirrored=PAIRWISE` makes an odd `lambda0` even, so
-    `lambda0` = k and k + 1 (k odd) are one configuration; and with mu = lambda (`mu0_factor` at
-    its largest) `active` and `sequential_selection` have nothing to act on (there are no
-    negative weights, no unselected offspring). The space does not forbid them.
+    `lambda0` = k and k + 1 (k odd) are one configuration; and with mu = lambda
+    `active` and `sequential_selection` have nothing to act on (there are no negative weights, no
+    unselected offspring). The space does not forbid them.
 
     The numeric parameters not in this list (`ipop_factor`, the threshold of threshold
     convergence, ...) are not hyperparameters.
@@ -335,11 +320,11 @@ def get_configspace(
         The dimension, for the numeric defaults. Without it, and with any numeric
         hyperparameter, a warning is issued and dim = 2 is used.
     add_popsize : bool, default True
-        Add `lambda0` and `mu0_factor`.
+        Add `lambda0` and `mu0`.
     add_sigma : bool, default True
         Add `sigma0`.
     add_learning_rates : bool, default True
-        Add `cs_factor`, `cc_factor`, `cmu_factor`, `c1_factor` and `damps_factor`.
+        Add `cs`, `cc`, `cmu`, `c1` and `damps`.
     remove_duplicates : bool, default True
         Forbid the configurations that `Settings` turns into another one of the space
         (`COVARIANCE` with an `ssa` other than `CSA`).
@@ -367,14 +352,16 @@ def get_configspace(
 
     if add_popsize:
         cspace.add(_make_numeric_parameter("lambda0", dim, 1, 50 * dim))
-        cspace.add(_factor_parameter("mu0"))
+        cspace.add(_make_numeric_parameter("mu0", dim, 1, 50 * dim))
+        cspace.add(ForbiddenGreaterThanRelation(cspace["mu0"], cspace["lambda0"]))
 
     if add_sigma:
         cspace.add(_make_numeric_parameter("sigma0", dim, 1e-15, 1e15))
 
     if add_learning_rates:
         for name in ("cs", "cc", "cmu", "c1", "damps"):
-            cspace.add(_factor_parameter(name))
+            ub = 10.0 if name == "damps" else 1.0
+            cspace.add(_make_numeric_parameter(name, dim, 0, ub))
 
     _add_conditions(cspace, options, remove_duplicates)
     return cspace
@@ -443,15 +430,14 @@ def settings_from_dict(dim: int, **config: Any) -> Settings:
 def settings_from_config(dim: int, config: Mapping[str, Any], **kwargs: Any) -> Settings:
     """`Settings` from a configuration of the space of `get_configspace`.
 
-    The module hyperparameters set the modules. `lambda0`, `sigma0` and any other name that is
-    not a module go to `Settings` as they are, also when they equal the default. A hyperparameter
-    `<name>_factor` (`mu0`, `cs`, `cc`, `cmu`, `c1`, `damps`) multiplies the default of the chosen
-    modules, with the population size of the configuration: for the factor 1 (or an inactive
-    hyperparameter, which is absent from `config`) nothing is passed, and `Settings` computes the
-    default itself. The factors are relative to the defaults of the configuration without the
-    other factors: `cc_factor = 2` doubles the `cc` that `Settings` gives for the chosen modules,
-    also when `cs_factor` changes the default `cc` of `NATURAL_GRADIENT`. mu is rounded, at least
-    1 and at most lambda.
+    The module hyperparameters set the modules. A numeric hyperparameter is passed to `Settings`
+    only when it differs from its default in `get_configspace(dim)`; a value equal to the default
+    stands for the default of the chosen modules, which `Settings` computes itself (the defaults of
+    the step-size rules, the matrix adaptations and of mu = lambda / 4 differ from those of
+    `CSA` with `COVARIANCE`, which the space has). A different value is passed as it is. `mu0` is
+    the exception: it is passed whenever `lambda0` is passed, and whenever it differs from its
+    default, so a `mu0` equal to the default is kept next to a `lambda0` that differs from its own
+    (the default mu0 is lambda0 // 2 of the default lambda0).
 
     Parameters
     ----------
@@ -459,8 +445,7 @@ def settings_from_config(dim: int, config: Mapping[str, Any], **kwargs: Any) -> 
         The dimension.
     config : ConfigSpace.Configuration or mapping
         The configuration, e.g. from a tuner or `get_configspace(dim).sample_configuration()`; or a
-        dict of the same names. A dict may also give the numeric `Settings` arguments themselves
-        (`cs`, `mu0`, ...), as the spaces before 2.0 did.
+        dict of the same names.
     **kwargs
         Further `Settings` keyword arguments, e.g. `lb`, `ub` or `budget`.
 
@@ -470,28 +455,19 @@ def settings_from_config(dim: int, config: Mapping[str, Any], **kwargs: Any) -> 
         The settings of the configuration.
     """
     via_settings = kwargs
+    default_config = dict(get_configspace(dim).get_default_configuration())
     modules = Modules()
-    factors = {}
     for name, value in dict(config).items():
         if set_module(modules, name, value):
             continue
-        base = name[: -len("_factor")]
-        if name.endswith("_factor") and base in _FACTOR_RANGES:
-            if value != 1.0:
-                factors[base] = value
+        if name == "mu0":
             continue
-        via_settings[name] = value
+        if name not in default_config or default_config[name] != value:
+            via_settings[name] = value
 
-    if factors:
-        # the defaults of these modules at this lambda, from Settings and Weights
-        reference = Settings(dim, modules, **via_settings)
-        weights = Parameters(reference).weights
-        for name, factor in factors.items():
-            if name == "mu0":
-                mu = round(reference.mu0 * factor)
-                via_settings[name] = min(max(1, mu), reference.lambda0)
-            else:
-                via_settings[name] = getattr(weights, name) * factor
+    mu0 = dict(config).get("mu0")
+    if mu0 is not None and ("lambda0" in via_settings or default_config.get("mu0") != mu0):
+        via_settings["mu0"] = mu0
 
     settings = Settings(dim, modules, **via_settings)
     return settings

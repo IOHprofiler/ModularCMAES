@@ -23,21 +23,17 @@ configuration of the space is the standard CMA-ES: `space.get_default_configurat
 
 ## The numeric parameters
 
-* `lambda0` and `sigma0` are absolute values, with the defaults of `Settings(dim)`. `lambda0` is an
-  integer in [1, 50 d] on a log scale.
-* `cs_factor`, `cc_factor`, `cmu_factor`, `c1_factor`, `damps_factor` and `mu0_factor` are factors
-  of the default of the chosen modules, on a log scale with the default 1: [0.1, 10] for the
-  learning rates, [0.1, 2] for µ. The defaults differ per module (for example `cs` of `XNES`,
-  `SR` and `CSA`, or µ = λ/4 for `SA` and `CMSA`), so a factor means the same for every
-  combination, and the default configuration is the same standard CMA-ES whichever modules are
-  chosen. `settings_from_config` gives the factor 1 no value: `Settings` computes the default itself,
-  from the population size of the configuration. The factors are relative to the defaults without the other
-  factors (`cc_factor` doubles the `cc` that `Settings` gives, also when `cs_factor` changes it).
-  µ is rounded, at least 1 and at most λ.
+`lambda0`, `mu0` (integers in [1, 50 d], log scale, with µ ≤ λ), `sigma0` (a normal distribution
+around its default), `cs`, `cc`, `cmu`, `c1` (in [0, 1]) and `damps` (in [0, 10]) are absolute
+values. Their defaults are those of `Settings(dim)` with the default modules, CSA with `COVARIANCE`.
 
-`settings_from_config` passes every value of the configuration to `Settings`, also one that equals
-the default. A dict may carry absolute values under the `Settings` names (`cs`, `mu0`, ...);
-they are passed as they are.
+The defaults of other modules differ (for example `cs` of `XNES`, `SR` and `CSA`, or µ = λ/4 for
+`SA` and `CMSA`). So `settings_from_config` passes a numeric value to `Settings` only when it
+differs from the default of the space: a value equal to the default stands for the default of the
+chosen modules, which `Settings` computes itself. Any other value is passed as it is.
+`mu0` is passed whenever `lambda0` is passed and whenever it differs from its default, so a sampled
+`mu0` that equals the default is kept (`lambda0 = 20, mu0 = 3` runs with µ = 3, and so does
+`mu0 = 10` next to a `lambda0` that differs from the default).
 
 ## Conditions
 
@@ -49,11 +45,11 @@ tuner does not spend evaluations on it.
 | `active` | `matrix_adaptation` is `NONE`, or `lambda0` is 1 |
 | `center_placement`, `repelling_type` | `restart_strategy` is `STOP` |
 | `repelling_metric` | `repelling_type` is `NONE` |
-| `cs_factor` | `ssa` is `SR` or `SA`, and `matrix_adaptation` is `NONE`, `CHOLESKY` or `CMSA` |
-| `damps_factor` | `ssa` is `TPA`, `XNES`, `MXNES`, `LPXNES` or `SA`, and `lambda0` is above 1 (a (1+1)-ES runs `SR`) |
-| `cc_factor` | `matrix_adaptation` is `NONE`, `MATRIX` or `CMSA` |
-| `cmu_factor`, `c1_factor` | `matrix_adaptation` is `NONE`, or `CMSA` or `NATURAL_GRADIENT` without `active` |
-| `mu0_factor`, `elitist`, `sequential_selection`, `weights` | `lambda0` is 1 (a (1+1)-ES: mu = 1, elitist, equal weights; `Settings` overrides them) |
+| `cs` | `ssa` is `SR` or `SA`, and `matrix_adaptation` is `NONE`, `CHOLESKY` or `CMSA` |
+| `damps` | `ssa` is `TPA`, `XNES`, `MXNES`, `LPXNES` or `SA`, and `lambda0` is above 1 (a (1+1)-ES runs `SR`) |
+| `cc` | `matrix_adaptation` is `NONE`, `MATRIX` or `CMSA` |
+| `cmu`, `c1` | `matrix_adaptation` is `NONE`, or `CMSA` or `NATURAL_GRADIENT` without `active` |
+| `mu0`, `elitist`, `sequential_selection`, `weights` | `lambda0` is 1 (a (1+1)-ES: mu = 1, elitist, equal weights; `Settings` overrides them) |
 
 A hyperparameter is inactive only where the C++ code never reads the parameter; the file and line
 of each reason are in the comment of `_INACTIVE_FOR` in `modcma/c_maes/__init__.py`. Where it is read
@@ -77,9 +73,9 @@ are not hyperparameters.
 * Not removed, so the space holds the same algorithm more than once:
   * `mirrored=PAIRWISE` makes an odd `lambda0` even, so `lambda0` = k and k + 1 (k odd) are one
     configuration. Forbidding every odd value would add a clause per value.
-  * With µ = λ (`mu0_factor` at its largest for the default µ = λ/2) there are no negative weights
-    and no unselected offspring, so `active` and `sequential_selection` have nothing to act on. µ is
-    a factor, so this is not a condition on a hyperparameter.
+  * With µ = λ there are no negative weights and no unselected offspring, so `active` and
+    `sequential_selection` have nothing to act on. This is a relation of two hyperparameters, not
+    a condition.
   * `ssa` stays a hyperparameter for `lambda0` = 1, although `Settings` runs `SR` there: it decides
     whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`.
 
