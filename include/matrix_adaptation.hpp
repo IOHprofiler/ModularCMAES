@@ -448,8 +448,55 @@ struct MatrixAdaptation final : Adaptation
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
 
+    //! The generations with elitism in which the low-rank (Woodbury) update of M_inv could not be
+    //! applied (the decay a <= 0, or a singular or badly conditioned k x k system), since the
+    //! adaptation was created; M_inv is then computed when invert_y needs it (#74)
+    size_t inverse_fallbacks = 0;
+
+    /**
+     * With elitism and d <= inverse_recompute_max_dim, M_inv is computed exactly from M after
+     * every this many generations of a run (the generations since the last restart), and updated
+     * by the Woodbury identity in between. The maintainer's choice on #74 (#159). The update's
+     * rounding errors grow with the active update at small d: max |M M_inv - I| over 5000
+     * generations without the recomputation (rotated ellipsoid, condition 1e6, 5 seeds): with
+     * active 2.4 to 26 at d = 10 (above 1e-10 from generation 785 to 950 on), 1.3e-8 to 6.4e-8 at
+     * d = 20, at most 4.3e-11 at d = 30, 6.3e-13 at d = 40, below 1e-13 at d = 50, 100 and 200;
+     * without active at most 4.5e-12 at every d. With it, at d = 10 and active at most 3.7e-7.
+     */
+    static constexpr size_t inverse_recompute_interval = 1000;
+
+    /**
+     * The largest dimension with the exact recomputation of M_inv (inverse_recompute_interval):
+     * the smallest d at which the drift without it stayed below 1e-10 over 5000 generations in
+     * every run measured (see above). The maintainer's choice on #74 (#159). One recomputation
+     * costs about 1.3 to 2.9 elitist generations at d = 100 to 1000 (0.07, 0.50, 6.7 ms against
+     * 55, 282, 2306 us), 0.1 to 0.3 % per 1000 generations.
+     */
+    static constexpr size_t inverse_recompute_max_dim = 30;
+
   private:
     bool outdated_M_inv;
+
+    //! M_inv = M^-1: an LU inverse (LAPACK) from blas_min_dim on, the pseudo-inverse below or
+    //! when M is singular
+    void recompute_inverse();
+
+    /**
+     * M_inv <- F^-1 M_inv for the update M <- M F, F = a I + U D U^T with U = [ps, Z] and
+     * D = diag(tau_1, tau_m w): by the Woodbury identity F^-1 = (1/a) [I - U D (a I_k + U^T U
+     * D)^-1 U^T], which has no D^-1 and holds for zero and negative weights. O(k d^2) + O(k^3).
+     * Returns false (M_inv unchanged) when it cannot be applied.
+     */
+    bool update_inverse(Eigen::Ref<const Matrix> Z,
+                        const Vector &w,
+                        Float tau_1,
+                        Float tau_m,
+                        Float a);
+
+    // Buffers of update_inverse
+    Matrix wood_U, wood_K, wood_Kinv, wood_W, wood_P, wood_F;
+    Vector wood_D;
+    Eigen::PartialPivLU<Matrix> wood_lu;
 };
 
 struct CholeskyAdaptation final : Adaptation

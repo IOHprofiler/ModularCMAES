@@ -592,12 +592,145 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     else
         M.noalias() += batch_scratch * popZ.transpose();
 
-    // The inverse is computed again when invert_y needs it (elitism, injected and repaired points).
-    // With elitism it was updated incrementally, and drifted from the inverse of M (a relative
-    // error of 0.98 after 60 generations), so the elites' z were wrong (#74, F18)
-    outdated_M_inv = true;
+    // With elitism, invert_y recomputes the z of the elites every generation: M_inv is kept with M,
+    // M_inv <- F^-1 M_inv by the Woodbury identity (update_inverse). The former incremental update,
+    // M_inv <- a M_inv + tau_1 ps (ps^T M_inv) + Y diag(tau_m w) (Z^T M_inv), is not the inverse of
+    // M F and drifted from it (a relative error of 0.98 after 60 generations), so the elites' z
+    // were wrong (#74, F18; the maintainer's decision on #159). The Woodbury update accumulates
+    // rounding errors with the active update at small d (above 1e-6 after 1500 generations at
+    // d = 10), so up to d = inverse_recompute_max_dim M_inv is computed exactly from M after every
+    // inverse_recompute_interval generations of the run (the maintainer's choice, #159; the
+    // measurements are in the header). Otherwise, and when the update cannot be applied, the
+    // inverse is computed when invert_y needs it (injected and repaired points).
+    if (settings.modules.elitist && !settings.one_plus_one)
+    {
+        if (static_cast<size_t>(M.rows()) <= inverse_recompute_max_dim &&
+            (stats.t_run + 1) % inverse_recompute_interval == 0)
+            recompute_inverse();
+        else if (!outdated_M_inv)
+            outdated_M_inv = !update_inverse(popZ, weights, tau_1, tau_m, decay_m);
+    }
+    else
+        outdated_M_inv = true;
 
     coordinate_wise_variances.noalias() = (M.array().square().rowwise().sum()).matrix();
+    return true;
+}
+
+bool MatrixAdaptation::update_inverse(Eigen::Ref<const Matrix> Z,
+                                      const Vector &w,
+                                      const Float tau_1,
+                                      const Float tau_m,
+                                      const Float a)
+{
+    // The system is badly conditioned when F is close to singular (the negative weights of the
+    // active update can make it so): its error would enter M_inv, so M_inv is then computed from M
+    // instead. The test is the ratio of the smallest to the largest pivot of the elimination with
+    // partial pivoting (Eigen's rcond() estimate allocates, and costs more than the update at
+    // d = 10)
+    constexpr Float min_pivot_ratio = 1e-8;
+    const auto fallback = [this] {
+        ++inverse_fallbacks;
+        return false;
+    };
+    if (!(a > 0.0))
+        return fallback();
+    const Eigen::Index d = M.rows();
+    const Eigen::Index k = Z.cols() + 1;
+    const bool blas = lapack::use_blas(d);
+    wood_U.resize(d, k);
+    wood_U.col(0) = ps;
+    wood_U.rightCols(k - 1) = Z;
+    wood_D.resize(k);
+    wood_D(0) = tau_1;
+    wood_D.tail(k - 1) = tau_m * w;
+
+    if (k >= d)
+    {
+        // At least as many terms as dimensions (large populations): F itself is the smaller
+        // system, M_inv <- F^-1 M_inv with an LU of F, O(d^2 k + d^3), not more than the O(k d^2)
+        // of the former incremental update
+        wood_W.noalias() = wood_U * wood_D.asDiagonal();
+        wood_F.resize(d, d);
+        if (blas)
+            lapack::gemm(1.0, wood_W, false, wood_U, true, 0.0, wood_F);
+        else
+            wood_F.noalias() = wood_W * wood_U.transpose();
+        wood_F.diagonal().array() += a;
+        wood_lu.compute(wood_F);
+        const auto pivots = wood_lu.matrixLU().diagonal().cwiseAbs();
+        if (!(pivots.minCoeff() > min_pivot_ratio * pivots.maxCoeff()))
+            return fallback();
+        wood_P = wood_lu.solve(M_inv);
+        if (!wood_P.allFinite())
+            return fallback();
+        M_inv.swap(wood_P);
+        return true;
+    }
+
+    // K = a I_k + U^T U D (k < d), inverted by Gauss-Jordan elimination with partial pivoting:
+    // O(k^3), for the k of a population cheaper than a factorization with d right-hand sides
+    wood_K.resize(k, k);
+    wood_K.noalias() = wood_U.transpose() * wood_U;
+    wood_K.array().rowwise() *= wood_D.transpose().array();
+    wood_K.diagonal().array() += a;
+    // Scalar loops: k is small, and expressions per row cost more than the arithmetic
+    wood_Kinv.setIdentity(k, k);
+    Float *K = wood_K.data();
+    Float *Kinv = wood_Kinv.data();
+    const auto at = [k](const Eigen::Index r, const Eigen::Index c) { return r + c * k; };
+    Float min_pivot = std::numeric_limits<Float>::infinity(), max_pivot = 0.0;
+    for (Eigen::Index c = 0; c < k; ++c)
+    {
+        Eigen::Index p = c;
+        for (Eigen::Index r = c + 1; r < k; ++r)
+            if (std::abs(K[at(r, c)]) > std::abs(K[at(p, c)]))
+                p = r;
+        const Float pivot = std::abs(K[at(p, c)]);
+        if (!(pivot > 0.0) || !std::isfinite(pivot))
+            return fallback();
+        min_pivot = std::min(min_pivot, pivot);
+        max_pivot = std::max(max_pivot, pivot);
+        if (p != c)
+            for (Eigen::Index j = 0; j < k; ++j)
+            {
+                std::swap(K[at(c, j)], K[at(p, j)]);
+                std::swap(Kinv[at(c, j)], Kinv[at(p, j)]);
+            }
+        const Float inverse_pivot = 1.0 / K[at(c, c)];
+        for (Eigen::Index j = 0; j < k; ++j)
+        {
+            K[at(c, j)] *= inverse_pivot;
+            Kinv[at(c, j)] *= inverse_pivot;
+        }
+        for (Eigen::Index r = 0; r < k; ++r)
+        {
+            const Float factor = K[at(r, c)];
+            if (r == c || factor == 0.0)
+                continue;
+            for (Eigen::Index j = c; j < k; ++j)
+                K[at(r, j)] -= factor * K[at(c, j)];
+            for (Eigen::Index j = 0; j < k; ++j)
+                Kinv[at(r, j)] -= factor * Kinv[at(c, j)];
+        }
+    }
+    if (!(min_pivot > min_pivot_ratio * max_pivot) || !wood_Kinv.allFinite())
+        return fallback();
+
+    // M_inv <- (1/a) (M_inv - (U D K^-1) (U^T M_inv)): two products of O(k d^2), as the former
+    // incremental update
+    wood_P.resize(k, d);
+    if (blas)
+        lapack::gemm(1.0, wood_U, true, M_inv, false, 0.0, wood_P);
+    else
+        wood_P.noalias() = wood_U.transpose() * M_inv;
+    wood_U.array().rowwise() *= wood_D.transpose().array(); // U D
+    wood_W.noalias() = wood_U * wood_Kinv;
+    if (blas)
+        lapack::gemm(-1.0, wood_W, false, wood_P, false, 1.0, M_inv);
+    else
+        M_inv.noalias() -= wood_W * wood_P;
+    M_inv *= 1.0 / a;
     return true;
 }
 
@@ -629,13 +762,16 @@ void MatrixAdaptation::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Ma
 void MatrixAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z)
 {
     if (outdated_M_inv)
-    {
-        // LU (LAPACK) from blas_min_dim on, the pseudo-inverse below or when M is singular
-        if (!(lapack::use_blas(M.rows()) && lapack::inverse(M, M_inv)))
-            M_inv = M.completeOrthogonalDecomposition().pseudoInverse();
-        outdated_M_inv = false;
-    }
+        recompute_inverse();
     z.noalias() = M_inv * y;
+}
+
+void MatrixAdaptation::recompute_inverse()
+{
+    // LU (LAPACK) from blas_min_dim on, the pseudo-inverse below or when M is singular
+    if (!(lapack::use_blas(M.rows()) && lapack::inverse(M, M_inv)))
+        M_inv = M.completeOrthogonalDecomposition().pseudoInverse();
+    outdated_M_inv = false;
 }
 
 void CholeskyAdaptation::adapt_evolution_paths_inner(const Population &pop,

@@ -189,11 +189,38 @@ class TestFactorUpdates(unittest.TestCase):
             for _ in range(200):
                 es.step(ellipsoid)
             a = es.p.adaptation
-            a.invert_y(np.ones(10))  # brings M_inv up to date
+            # kept with M by the Woodbury update (no invert_y needed)
             self.assertLess(np.linalg.norm(a.M @ a.M_inv - np.eye(10)), 1e-8)
+            self.assertEqual(a.inverse_fallbacks, 0)
             es.run(ellipsoid)
             solved += es.p.stats.global_best.y < 1e-8
         self.assertEqual(solved, 5)
+
+    def test_the_woodbury_update_with_active_and_its_recomputation(self):
+        # With active at d = 10 the update's rounding errors grow (above 1e-6 after 1500
+        # generations without a recomputation); M_inv is computed from M every 1000 generations
+        A = modcma.matrix_adaptation.MatrixAdaptation
+        self.assertEqual((A.inverse_recompute_interval, A.inverse_recompute_max_dim), (1000, 30))
+        rng = np.random.default_rng(0)
+        Q, _ = np.linalg.qr(rng.standard_normal((10, 10)))
+
+        def rotated(X):
+            return np.sum(10 ** (6 * np.arange(10) / 9) * (np.asarray(X) @ Q.T) ** 2, axis=1)
+
+        settings = modcma.settings_from_dict(
+            10, matrix_adaptation="MATRIX", elitist=True, active=True, seed=1, budget=10**8
+        )
+        es = ModularCMAES(settings)
+        a = es.p.adaptation
+        worst = 0.0
+        for g in range(1, 2001):
+            es.step(rotated, vectorized=True)
+            if g % 50 == 0 or g == 1000:
+                worst = max(worst, float(np.max(np.abs(a.M @ a.M_inv - np.eye(10)))))
+            if g == 1000:
+                # just recomputed
+                self.assertLess(np.max(np.abs(a.M @ a.M_inv - np.eye(10))), 1e-12)
+        self.assertLess(worst, 1e-6)
 
 
 if __name__ == "__main__":

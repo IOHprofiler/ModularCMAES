@@ -4,7 +4,7 @@ Matrix adaptations: the mean and the shape of the search distribution.
 The optimizer holds one as `es.p.adaptation`, selected by `Modules.matrix_adaptation` (`options.MatrixAdaptationType`). A sample is x = m + sigma * y with y = A z, z drawn by the sampler, and A the sampling matrix of the adaptation (C = A A^T). They differ in what they learn and in their cost per generation: O(d^3) with a decomposition (COVARIANCE, COVARIANCE_NO_EIGV, CMSA), O(d^2 lambda) for MA-ES, Cholesky-CMA-ES and xNES, O(d lambda) for SEPARABLE and NONE (see docs/performance.md).
 """
 
-from typing import Annotated
+from typing import Annotated, Final
 
 import numpy
 from numpy.typing import NDArray
@@ -543,11 +543,29 @@ class MatrixAdaptation(Adaptation):
     @property
     def M_inv(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The inverse of M, shape (d, d). Recomputed only when `invert_y` needs it (elitism, injected and repaired points; an LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can lag behind M. Before 2.0 it was updated incrementally with elitism, and drifted from the inverse of M.
+        The inverse of M, shape (d, d).
+
+        With elitism (lambda > 1) it is updated with M every generation: M <- M F with F = a I + U D U^T (U = [ps, the selected z], D = diag(c1/2, cmu/2 w)), so M_inv <- F^-1 M_inv by the Woodbury identity, O(k d^2); up to d = `inverse_recompute_max_dim` (30) it is computed exactly from M after every `inverse_recompute_interval` (1000) generations of a run, which bounds the rounding error that the update accumulates with the active update at small d (the maintainer's choice, #74). When the update cannot be applied (`inverse_fallbacks`), and without elitism, it is computed only when `invert_y` needs it (injected and repaired points; an LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can lag behind M. Before 2.0 the update with elitism was not the inverse of M F, and drifted from the inverse of M.
         """
 
     @M_inv.setter
     def M_inv(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+
+    @property
+    def inverse_fallbacks(self) -> int:
+        """
+        The generations with elitism in which the Woodbury update of `M_inv` could not be applied, since the adaptation was created (read-only): the decay a = 1 - c1/2 - cmu/2 sum(w) was not positive, or the k x k system was singular or badly conditioned (the ratio of its smallest to its largest pivot below 1e-8). M_inv is then computed when `invert_y` needs it, and the update continues from it.
+        """
+
+    inverse_recompute_interval: Final[int] = ...
+    """
+    With elitism and d <= `inverse_recompute_max_dim`, M_inv is computed exactly from M after every this many generations of a run, and updated by the Woodbury identity in between (1000, the maintainer's choice on #74). Without it, the largest entry of M M_inv - I over 5000 generations reached 2.4 to 26 with the active update at d = 10 and 1e-8 at d = 20; with it, at most 3.7e-7 at d = 10.
+    """
+
+    inverse_recompute_max_dim: Final[int] = ...
+    """
+    The largest dimension with the exact recomputation of M_inv every `inverse_recompute_interval` generations (30, the maintainer's choice on #74): the smallest d at which the drift without it stayed below 1e-10 over 5000 generations in every run measured (at most 4.3e-11 at d = 30, below 1e-12 from d = 40 on, with the active update).
+    """
 
     def __repr__(self) -> str:
         """A summary of the state (mean, paths and matrices)."""

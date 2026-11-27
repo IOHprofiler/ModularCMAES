@@ -71,8 +71,34 @@ active update modcma uses the active CMA-ES update (Hansen 2016, Eq. (47)) writt
 order, as MA-ES derives its own update: (cµ/2)(Σ w°ᵢ zᵢ zᵢᵀ − Σ wᵢ I), with the negative weights
 rescaled by d/‖zᵢ‖² in w° and the unscaled weights in the sum (#73; before, the update assumed
 Σ wᵢ = 1 and did not rescale). On the ellipsoid (d = 10) it needs about 23 % fewer evaluations than
-without. The inverse of M, which elitism and injected or repaired points need, is computed when
-they need it; with elitism it was updated incrementally and drifted from the inverse (#74).
+without.
+
+**The inverse of M** (#74). Elitism needs M⁻¹ every generation, for the steps z of the parents.
+Since M ← M F with F = a I + U D Uᵀ (U = [p_σ, the selected z], D = diag(c1/2, cµ/2 · w)), M⁻¹ is
+updated as M⁻¹ ← F⁻¹ M⁻¹ by the Woodbury identity, F⁻¹ = (1/a)[I − U D (a I + Uᵀ U D)⁻¹ Uᵀ], in
+O(k d²) as the incremental update it replaces, which was not the inverse of M F and drifted from it
+(a relative error of 0.98 after 60 generations, so the parents' steps were wrong). When a ≤ 0 or
+the k × k system is singular or badly conditioned, M⁻¹ is computed from M when it is next needed
+(`MatrixAdaptation.inverse_fallbacks`; it never happened in the runs below). The update
+accumulates rounding errors with the active update at small d. The maintainer's choice: up to
+d = 30 (`inverse_recompute_max_dim`), M⁻¹ is computed exactly from M after every 1000 generations
+of a run (`inverse_recompute_interval`). Measured on a rotated ellipsoid (condition 10⁶, no target,
+5000 generations, 3 to 5 seeds), the largest entry of M M⁻¹ − I:
+
+| d | without the recomputation, active | without, no active | with it, active |
+|---|---|---|---|
+| 10 | 2.4 to 26 (above 1e-10 from generation 785 to 950) | 4.5e-12 | at most 3.7e-7 |
+| 20 | 1.3e-8 to 6.4e-8 | 4.2e-12 | |
+| 30 | at most 4.3e-11 | 1.5e-12 | |
+| 40 | at most 6.3e-13 | 5.8e-13 | |
+| 50, 100, 200 | below 1e-13 | below 4e-13 | |
+
+The condition numbers of F (1.1 to 1.4) and of M (10² to 10⁴) do not follow the error, nor does
+convergence: at d = 10 the error grows by about 0.5 to 1.5 % per generation, before and long after
+the run has converged, and at d = 20 while it is still far from the optimum. Against the exact
+inverse in every generation, the BBOB results do not change (`matrix_elitist` and
+`matrix_elitist_active`, d = 5 and 20, no significant cell). One recomputation costs 1.3 to 2.9
+elitist generations at d = 100 to 1000 (0.07, 0.5 and 6.7 ms against 55, 282 and 2306 µs).
 
 **Closest configuration:** `matrix_adaptation=MATRIX`, `active=False`.
 

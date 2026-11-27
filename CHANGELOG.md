@@ -109,9 +109,10 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   generations a restart strategy allows a run; `restart.MaxSigma.start`; `restart.BIPOP.used_small`,
   `used_large` and `large_run` (#80). `restart.MaxDSigma.sigma_start` and
   `restart.MinDSigma.sigma_start`, the step size at the start of the run (#139).
-* `Weights.cs_path`, the learning rate of the path p_σ (#72), and
-  `CholeskyAdaptation.skipped_downdates`, the downdates of the active update that were skipped
-  (#74).
+* `Weights.cs_path`, the learning rate of the path p_σ (#72);
+  `CholeskyAdaptation.skipped_downdates`, the downdates of the active update that were skipped;
+  `MatrixAdaptation.inverse_fallbacks`, `inverse_recompute_interval` and
+  `inverse_recompute_max_dim`, of the update of M⁻¹ with elitism (#74).
 
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
 * `tools/count_variants.py` counts the distinct variants from the code, and the guide documents
@@ -410,10 +411,13 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   among the "negative" weights, which the active update applied as positive (#73).
 * `CHOLESKY` with the active update used a factor that a failed rank-one downdate had left partly
   updated; the downdate is now skipped (#74).
-* `MATRIX` with elitism updated the inverse of M incrementally, and it drifted from the inverse
-  (relative error 0.98 after 60 generations), so the elites' steps were wrong; it is now computed
-  when needed (#74), an O(d³) inverse per generation (at d = 100 a generation takes 215 instead of
-  98 µs). On BBOB (d = 5, 20) it solves 249 instead of 105 of 350 runs.
+* `MATRIX` with elitism updated the inverse of M incrementally, which is not the inverse of the
+  updated M, and it drifted from the inverse (relative error 0.98 after 60 generations), so the
+  elites' steps were wrong. It is now updated by the Woodbury identity, in O(k d²) as before, and up
+  to d = 30 computed exactly from M after every 1000 generations of a run, which bounds the
+  rounding errors that the update accumulates with the active update at small d (#74; the
+  constants `MatrixAdaptation.inverse_recompute_interval` and `inverse_recompute_max_dim` are the
+  maintainer's choice). On BBOB (d = 5, 20) it solves 249 instead of 105 of 350 runs.
 * `NATURAL_GRADIENT` with `active` used CMA-ES's negative weights, which made σ shrink even on a
   linear function; it now uses xNES's utilities (`weights=UTILITY`).
 * `fmin` ignored `x0` (it used only its length) and started at the origin.
