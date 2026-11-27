@@ -62,9 +62,9 @@ successes). Measured between macOS (clang 21, arm64) and Linux (gcc 13, x86-64):
 configuration differs by more than a relative 1e-3 from generation 3 on the sphere at d = 12 to
 40, and on the ellipsoid at d = 20 and 40.
 
-In the golden trajectories (d ≤ 10; macOS clang 21 against Linux gcc 13, the best f at generation
-10 within a relative 1e-12), 223 of 225 runs with the default sampler agree, 18 of 19 with
-`HALTON` and 13 of 16 with `SOBOL`; the rest differ in the last bits.
+In the golden trajectories (d ≤ 10; macOS clang 21 against Linux gcc 13, σ and the best f at
+generation 10 within a relative 1e-12), 238 of 241 runs with the default sampler agree, 15 of 16
+with `HALTON` and 12 of 14 with `SOBOL`; the rest differ in the last bits.
 
 So for results that agree across platforms up to these last bits, fix the seed and stay below
 d = 12 with `COVARIANCE` and CSA (or use another matrix adaptation), and below the LAPACK
