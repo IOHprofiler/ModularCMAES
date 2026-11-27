@@ -13,8 +13,12 @@ organized and the habits that keep results reproducible.
 * Only the C++ implementation and its bindings. The old pure-Python implementation lives on the
   branch `legacy-python`; never change it.
 * `~/code/ModCMA-Journal-paper` (the framework paper, under review) is read-only. Use it as a
-  source and cite it, but do not edit it. Where the code and the paper disagree, record it (the
-  `decision` issues).
+  source and cite it, but do not edit it.
+  * Where the code and the paper disagree, say so in the PR description under a heading
+    `## Paper`: what the paper says (file and line) and what the code does.
+  * Open an issue only when the code or the docs have to change because of it. The board holds
+    work on the code.
+  * The paper is revised after the 2.0 release, from these PR sections.
 
 ## Where the work is
 
