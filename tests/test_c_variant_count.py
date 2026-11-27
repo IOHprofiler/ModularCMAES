@@ -15,6 +15,10 @@ def load_tool():
     return module
 
 
+@unittest.skipUnless(
+    (ROOT / "tools" / "count_variants.py").exists() and (ROOT / "docs").is_dir(),
+    "the tool and the documentation are not available (the tests of a wheel)",
+)
 class TestVariantCount(unittest.TestCase):
     def test_guide_states_the_counts_of_the_code(self):
         """A new module or option changes the counts: run tools/count_variants.py, update the guide."""
