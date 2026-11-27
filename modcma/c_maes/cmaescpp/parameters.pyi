@@ -649,7 +649,7 @@ class Settings:
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, and IPOP or BIPOP become RESTART;
         - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim and center the zero vector.
 
-        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, lb above ub, or a budget smaller than the first generation and the evaluation of the final center of mass.
+        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, lb above ub, an integer variable without an integer value in [lb, ub], or a budget smaller than the first generation and the evaluation of the final center of mass.
 
         Parameters
         ----------
@@ -676,7 +676,7 @@ class Settings:
         ub : array_like, optional
             (dim,) the upper bounds, default 5 in every coordinate.
         integer_variables : sequence of int, optional
-            The indices of the variables that take integer values: they are rounded before evaluation and their step size has a lower bound. Default: none.
+            The indices of the variables that take integer values: they are rounded before evaluation (a value in [lb, ub] to the nearest integer in [lb, ub]) and their step size has a lower bound. Each needs an integer value in [lb, ub]. Default: none.
         cs : float, optional
             The learning rate of the step-size adaptation. Default depends on ssa (see Weights.cs); for CSA (mueff + 2) / (dim + mueff + 3).
         cc : float, optional
@@ -803,7 +803,7 @@ class Settings:
     @property
     def lb(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        (dim,) array: the lower bounds, default -5. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`.
+        (dim,) array: the lower bounds, default -5; -inf for none. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when an integer variable has no integer value in [lb, ub].
         """
 
     @lb.setter
@@ -812,7 +812,7 @@ class Settings:
     @property
     def ub(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        (dim,) array: the upper bounds, default 5. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`.
+        (dim,) array: the upper bounds, default 5; inf for none. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when an integer variable has no integer value in [lb, ub].
         """
 
     @ub.setter
@@ -852,7 +852,7 @@ class Settings:
     @property
     def has_bounds(self) -> bool:
         """
-        Whether the box lb..ub is finite; bound correction only acts when it is.
+        Whether the box lb..ub is finite (`diameter`, `volume` and `center` depend on it). Bound correction does not: it corrects every finite bound.
         """
 
     @has_bounds.setter
@@ -946,7 +946,7 @@ class CoordinateMapping:
     """
     Maps a sample to the point that is evaluated: the integer variables are rounded.
 
-    Rounding is to the nearest integer, halfway cases away from zero.
+    Rounding is to the nearest integer, halfway cases away from zero. A coordinate inside the bounds [lb, ub] is rounded to the nearest integer in [ceil(lb), floor(ub)], so it stays inside; a coordinate outside them is rounded to the nearest integer (#79).
     """
 
     def __init__(self, integer_variables: Sequence[int], d: int) -> None:
@@ -961,5 +961,19 @@ class CoordinateMapping:
             The dimension.
         """
 
-    def transform(self, x: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
-        """A copy of the point x, (d,), with the integer variables rounded."""
+    def transform(self, x: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], lb: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')] | None = None, ub: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')] | None = None) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """
+        A copy of the point x with the integer variables rounded.
+
+        Parameters
+        ----------
+        x : numpy.ndarray
+            The point, shape (d,).
+        lb, ub : numpy.ndarray, optional
+            The bounds, shape (d,); an integer variable of x inside them is rounded to the nearest integer inside them. Default None: no bound.
+
+        Returns
+        -------
+        numpy.ndarray
+            The rounded point, shape (d,).
+        """

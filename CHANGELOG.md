@@ -262,3 +262,20 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   `COVARIANCE_NO_EIGV` was the identity (it is now `metric().inv_root_C()`, computed for every
   adaptation, #123); `MuCommaLambdaES` stays within its budget
   and sorts NaN last.
+* Infinite bounds and integer variables in the box (#79). Results with finite bounds, and integer
+  bounds on the integer variables, are unchanged.
+  * A box with an infinite bound turned the bound correction off in every coordinate, also at the
+    finite bounds. Each coordinate and each side is now corrected on its own. `MIRROR`,
+    `TOROIDAL`, `COTN` and `UNIFORM_RESAMPLE` need the width ub - lb: in a coordinate with one
+    infinite bound they set a value that crosses the finite bound to that bound, as `SATURATE`.
+    The final center of mass is clipped to every finite bound. `Settings.has_bounds` (the box is
+    finite) no longer switches the correction off.
+  * `UNIFORM`, `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` placed the centers of restarts at NaN when a
+    bound was infinite. In such a coordinate they now sample uniformly in x0 ± 2 sigma0, shifted
+    inside a finite bound.
+  * An integer variable could be rounded out of the box: with lb = 0.3, the value 0.4 was
+    evaluated at 0. An integer coordinate in the box is now rounded to the nearest integer in
+    [ceil(lb), floor(ub)]. `Settings` reject an integer variable without an integer in [lb, ub]
+    (lb = 0.6, ub = 0.9), also when `lb` or `ub` is set later.
+  * Internals: `CoordinateMapping.transform(x, lb=None, ub=None)` takes the bounds; the
+    `correct_x` of every bound correction applies the rule for infinite bounds.

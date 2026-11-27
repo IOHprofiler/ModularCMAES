@@ -339,7 +339,11 @@ void define_options(nb::module_ &main)
         "[lb, ub]; the mutation vector of the sample is then recomputed from the corrected "
         "point, so the adaptation learns from the point that was evaluated. The methods are "
         "those of Caraffini, Kononova & Corne (2019), \"Infeasibility and structural bias in "
-        "differential evolution\".")
+        "differential evolution\".\n\n"
+        "Bounds may be infinite; each coordinate and each side is corrected separately, and an "
+        "infinite bound is never crossed. MIRROR, COTN, UNIFORM_RESAMPLE and TOROIDAL need the "
+        "width ub - lb: in a coordinate with one infinite bound they set a coordinate that "
+        "crosses the finite bound to that bound, as SATURATE does.")
         .value("NONE",
                CorrectionMethod::NONE,
                "No correction, the default: points outside the bounds are evaluated as they are "
@@ -470,19 +474,23 @@ void define_options(nb::module_ &main)
         .value("ZERO", CenterPlacement::ZERO, "At the origin.")
         .value("UNIFORM",
                CenterPlacement::UNIFORM,
-               "At a uniform random point in the bounds: every restart starts elsewhere.")
+               "At a uniform random point in the bounds: every restart starts elsewhere. In a "
+               "coordinate with an infinite bound, uniform in x0 +- 2 sigma0 (moved inside a "
+               "finite bound; x0 is `Settings.x0` or the center).")
         .value("CENTER", CenterPlacement::CENTER, "At the centre of the bounds, (lb + ub) / 2.")
         .value("NOVELTY_WEIGHTED",
                CenterPlacement::NOVELTY_WEIGHTED,
                "At one of 512 uniform random candidates in the bounds, drawn with a probability "
                "proportional to its squared distance to the nearest point of the repelling "
                "archive (distances relative to the domain width). Uniform while the archive is "
-               "empty; the archive needs `Modules.repelling_type`.")
+               "empty; the archive needs `Modules.repelling_type`. With an infinite bound, as "
+               "UNIFORM.")
         .value("MAXIMIN_TABOO",
                CenterPlacement::MAXIMIN_TABOO,
                "At the one of 512 uniform random candidates in the bounds that is farthest from "
                "its nearest point of the repelling archive (maximin). Uniform while the archive "
-               "is empty; the archive needs `Modules.repelling_type`.");
+               "is empty; the archive needs `Modules.repelling_type`. With an infinite bound, as "
+               "UNIFORM.");
 
     nb::enum_<RepellingType>(
         m,

@@ -107,6 +107,7 @@ struct Settings
             require_length("x0", *this->x0);
             require(this->x0->allFinite(), "x0 must be finite");
         }
+        require_integer_values(this->lb, this->ub);
 
         if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
             lambda0++;
@@ -184,6 +185,18 @@ struct Settings
         require(static_cast<size_t>(v.size()) == dim,
                 std::string(name) + " must have length dim = " + std::to_string(dim) + ", got " +
                     std::to_string(v.size()));
+    }
+
+    //! Every integer variable has an integer value in [lb, ub]: [ceil(lb), floor(ub)] is not empty
+    //! (#79 F21); std::invalid_argument otherwise. An index out of range is reported when the
+    //! Parameters are created (mapping::CoordinateMapping).
+    void require_integer_values(const Vector &lb, const Vector &ub) const
+    {
+        for (const auto idx : integer_variables)
+            if (idx >= 0 && static_cast<size_t>(idx) < dim)
+                require(std::ceil(lb(idx)) <= std::floor(ub(idx)),
+                        "integer variable " + std::to_string(idx) + " has no integer value in [" +
+                            std::to_string(lb(idx)) + ", " + std::to_string(ub(idx)) + "]");
     }
 
     //! Recompute the values derived from lb and ub (after a change of the bounds)

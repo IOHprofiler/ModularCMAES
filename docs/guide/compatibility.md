@@ -29,7 +29,8 @@ used.
 | `mirrored=PAIRWISE` with `sequential_selection` | the generation stops only after complete pairs, at 2µ points at the earliest |
 | `matrix_adaptation=NATURAL_GRADIENT` | the learning rate `cs` of the step-size rule is xNES's (*known issue*: for every step-size rule, not only `XNES` [F3]) |
 | `matrix_adaptation=SEPARABLE` | `cmu` × (d + 2)/3 (Ros & Hansen 2008) |
-| infinite or half-infinite bounds | no bound correction at all (*known issue*: also on the finite side of a half-infinite box [F20]) |
+| a coordinate with one infinite bound | `MIRROR`, `TOROIDAL`, `COTN` and `UNIFORM_RESAMPLE` set a value that crosses its finite bound to that bound, as `SATURATE` (they need the width ub − lb); the coordinates with two finite bounds use the method ([infinite bounds](bound-correction.md#infinite-bounds)) |
+| `UNIFORM`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` with an infinite bound | in that coordinate, the centers are uniform in x0 ± 2σ0, shifted inside a finite bound ([restarts](restarts.md#where-a-restart-begins)) |
 
 ## Options without effect
 
@@ -46,7 +47,7 @@ used.
 | `COVARIANCE` vs `COVARIANCE_NO_EIGV` | identical when `ssa` is not `CSA` (converted) |
 | restart criteria `TolX`, `ConditionC`, `NoEffectAxis`, `NoEffectCoord` | with any matrix adaptation but `COVARIANCE` (so also when `ssa` is not `CSA`) [F25] |
 | all restart criteria but `UnableToAdapt` | with `restart_strategy=NONE` |
-| `bound_correction` | with infinite bounds |
+| `bound_correction` | in the coordinates with two infinite bounds |
 | `threshold_convergence` | late in a run: its threshold decays to 0 with the budget |
 | learning rates | `cs` with `ssa=SA`; `damps` except with `CSA` and `SR`; `c1`, `cmu` with `CMSA` and `NATURAL_GRADIENT` (which uses `cc`); `cc` with `MATRIX`, `CMSA`, `NONE` |
 
@@ -81,9 +82,10 @@ algorithms.
 * **Threshold convergence** applies its threshold to z (E‖z‖ at the start of a run, decaying with
   the budget); it lengthens the samples that length-based step-size rules (`XNES`, `MXNES`)
   measure.
-* **Integer variables** are rounded after the bound correction (*known issue*: a rounded value can
-  leave the box [F21]); their step-size floor biases the step-size rules that read sampled step
-  sizes (`SA`, `LPXNES`).
+* **Integer variables** are rounded after the bound correction, to the nearest integer in
+  [⌈lb⌉, ⌊ub⌋], so a value in the box stays in it; `Settings` reject an integer variable without
+  an integer in `[lb, ub]` ([integer variables](integer-variables.md#integer-variables-and-bounds)).
+  Their step-size floor biases the step-size rules that read sampled step sizes (`SA`, `LPXNES`).
 * **`SR` with λ > 1** counts one success per generation, when its best beats the best of the run
   so far. SR is designed for elitist selection; without elitism the best of the run takes the
   parent's role. `MSR` is the success rule meant for non-elitist selection.
@@ -107,7 +109,6 @@ noted; with the current version. Most are recorded for fixing.
 | `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |
 | `orthogonal` with `EQUAL` weights and a step-size rule other than `CSA` | C shrinks while σ grows |
 | `active` + `elitist` with a step-size rule other than `CSA` | poor convergence; with `CHOLESKY` or `SEPARABLE` and `XNES`/`MXNES`, σ diverges |
-| `UNIFORM`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` with infinite bounds | NaN centers of new runs [F19] |
 | `ssa=XNES` without `NATURAL_GRADIENT`, or with `matrix_adaptation=NONE` | slow (a small default learning rate) [F27] |
 | `weights=UTILITY` with `elitist` | the mean drifts away: the utilities contrast the better and worse halves around the population's center, which with elitism is not the distribution's |
 | `weights=UTILITY` with `bound_correction=TOROIDAL` or `sample_transformation=CAUCHY` | far points (wrapped around, heavy tails) pull the mean through their negative utilities |

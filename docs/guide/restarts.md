@@ -95,6 +95,14 @@ for center in es.p.stats.centers:
 or, with repelling restarts, `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO`, which favour points far from
 the optima found so far.
 
+`UNIFORM`, `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` sample their points in the box `[lb, ub]`. In a
+coordinate with an infinite bound there is no uniform distribution; they sample uniformly in
+[x0 − 2σ0, x0 + 2σ0] instead, with x0 the starting point (`Settings.x0`, or `Settings.center`,
+which is 0 when the box is not finite). With one finite bound the interval is shifted so that it
+starts at lb (or ends at ub) when it would cross it. `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO`
+divide the distances in such a coordinate by the width of this interval, 4σ0, as they divide
+the others by ub − lb.
+
 ## Repelling restarts
 
 Repelling restarts keep each new run away from the optima found before (de Nobel et al. 2024): the

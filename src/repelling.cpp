@@ -203,7 +203,8 @@ void Repelling::next_query(parameters::Parameters &p)
     const Float a =
         static_cast<Float>(query.k) / (static_cast<Float>(hill_valley_points) + 1.0);
     // One point at a time (has_query, query_point): the next depends on this one's value (answer)
-    query.x = p.coordinate_mapping->transform(v.x + a * (u.x - v.x));
+    query.x =
+        p.coordinate_mapping->transform(v.x + a * (u.x - v.x), p.settings.lb, p.settings.ub);
 }
 
 void Repelling::answer(const Float y, Eigen::Ref<const Vector> x, parameters::Parameters &p)

@@ -38,10 +38,48 @@ Which method is best depends on the problem; de Nobel et al. (2021) compared the
 BBOB. With `NONE` the objective must accept any point; for an unconstrained problem, set the
 bounds to ±∞.
 
+## Infinite bounds
+
+Any bound can be infinite (`-np.inf` in `lb`, `np.inf` in `ub`), for example a variable that
+must be positive. Every coordinate and every side is corrected on its own: an infinite bound is
+never crossed, and a finite bound is corrected even when the other bound of its coordinate, or of
+another coordinate, is infinite.
+
+| the coordinate has | a value that crosses a finite bound is ... |
+|---|---|
+| two finite bounds | corrected by the method |
+| one finite bound | set to that bound, as `SATURATE` does, whatever the method |
+| no finite bound | never corrected |
+
+`MIRROR`, `TOROIDAL`, `COTN` and `UNIFORM_RESAMPLE` need the width ub − lb of the coordinate
+(the period of the reflection, the wrap-around, the distance from the bound, the interval), which
+is infinite with one infinite bound. `RESAMPLE` samples the point again, as with a finite box.
+With a correction other than `NONE`, the center of mass evaluated at the end of a run is clipped
+to every finite bound.
+
+```python
+lb = np.array([0.0, -np.inf])  # x[0] >= 0
+ub = np.array([np.inf, 1.0])   # x[1] <= 1
+
+def outside(x):
+    return float((x[0] + 3) ** 2 + (x[1] - 3) ** 2)  # the minimum (-3, 3) is outside
+
+es = modcma.ModularCMAES(
+    modcma.settings_from_dict(2, lb=lb, ub=ub, bound_correction="MIRROR", seed=1, budget=1_000)
+)
+es.run(outside)
+print(es.p.stats.global_best.x)  # the corner (0, 1)
+```
+
+`Settings.has_bounds` is `False` when the box is not finite; then `diameter` is 10, `volume`
+10^d and `center` the zero vector. The bound correction does not depend on it. The center
+placements `UNIFORM`, `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` sample in the box; in a coordinate
+with an infinite bound they sample in x0 ± 2σ0 instead ([restarts](restarts.md#where-a-restart-begins)).
+
 ## The options
 
 <!-- options: CorrectionMethod -->
-**`modcma.options.CorrectionMethod`**: What happens to a sample outside the box bounds (`Modules.bound_correction`; default NONE). The bounds are `Settings.lb` and `Settings.ub` (default [-5, 5] in every coordinate). The methods other than RESAMPLE move each coordinate that is out of bounds into [lb, ub]; the mutation vector of the sample is then recomputed from the corrected point, so the adaptation learns from the point that was evaluated. The methods are those of Caraffini, Kononova & Corne (2019), "Infeasibility and structural bias in differential evolution".
+**`modcma.options.CorrectionMethod`**: What happens to a sample outside the box bounds (`Modules.bound_correction`; default NONE). The bounds are `Settings.lb` and `Settings.ub` (default [-5, 5] in every coordinate). The methods other than RESAMPLE move each coordinate that is out of bounds into [lb, ub]; the mutation vector of the sample is then recomputed from the corrected point, so the adaptation learns from the point that was evaluated. The methods are those of Caraffini, Kononova & Corne (2019), "Infeasibility and structural bias in differential evolution". Bounds may be infinite; each coordinate and each side is corrected separately, and an infinite bound is never crossed. MIRROR, COTN, UNIFORM_RESAMPLE and TOROIDAL need the width ub - lb: in a coordinate with one infinite bound they set a coordinate that crosses the finite bound to that bound, as SATURATE does.
 
 | value | |
 |---|---|

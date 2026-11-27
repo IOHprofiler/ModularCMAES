@@ -21,18 +21,34 @@ struct CoordinateMapping
         }
     }
 
-    //! out = x with the integer variables rounded (no allocation)
-    void transform_into(Eigen::Ref<const Vector> x, Eigen::Ref<Vector> out) const
+    //! out = x with the integer variables rounded (no allocation). A coordinate inside [lb, ub]
+    //! is rounded to the nearest integer in [ceil(lb), floor(ub)], so it stays inside (#79 F21:
+    //! with lb = 0.3, 0.4 was rounded to 0); Settings reject an integer variable without an
+    //! integer in [lb, ub]. A coordinate outside the box (bound_correction NONE, the last sample
+    //! of RESAMPLE, TPA's points) is rounded to the nearest integer and stays outside. With
+    //! integral bounds this is plain rounding.
+    void transform_into(Eigen::Ref<const Vector> x,
+                        Eigen::Ref<Vector> out,
+                        const Vector &lb,
+                        const Vector &ub) const
     {
         out = x;
         for (const auto idx : integer_idx)
-            out(idx) = std::round(out(idx));
+        {
+            const Float xi = x(idx);
+            Float r = std::round(xi);
+            if (r < lb(idx) && xi >= lb(idx))
+                r = std::ceil(lb(idx));
+            else if (r > ub(idx) && xi <= ub(idx))
+                r = std::floor(ub(idx));
+            out(idx) = r;
+        }
     }
 
-    [[nodiscard]] Vector transform(const Vector &x) const
+    [[nodiscard]] Vector transform(const Vector &x, const Vector &lb, const Vector &ub) const
     {
         Vector y(x.size());
-        transform_into(x, y);
+        transform_into(x, y, lb, ub);
         return y;
     }
 };
