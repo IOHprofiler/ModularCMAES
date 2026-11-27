@@ -11,6 +11,7 @@ import numpy
 import numpy.typing
 from numpy.typing import NDArray
 
+from modcma.c_maes import preset as preset
 import modcma.c_maes.cmaescpp.matrix_adaptation
 import modcma.c_maes.cmaescpp.options
 
@@ -633,7 +634,7 @@ class Settings:
     A strategy parameter left None gets its default when the Parameters are created (see Weights). The constructor computes the derived values (db, center, diameter, volume, has_bounds) and adjusts the modules; setting lb or ub afterwards updates the derived values, changing the modules afterwards does not adjust them.
     """
 
-    def __init__(self, dim: int, modules: Modules | None = None, *, target: float | None = None, max_generations: int | None = None, budget: int | None = None, sigma0: float | None = None, mu0: int | None = None, lambda0: int | None = None, x0: numpy.typing.ArrayLike | None = None, lb: numpy.typing.ArrayLike | None = None, ub: numpy.typing.ArrayLike | None = None, integer_variables: numpy.typing.ArrayLike | None = None, cs: float | None = None, cc: float | None = None, cmu: float | None = None, c1: float | None = None, damps: float | None = None, acov: float | None = None, verbose: bool = False, always_compute_eigv: bool = False, seed: int | None = None, fast_sampling: bool = False) -> None:
+    def __init__(self, dim: int, modules: Modules | None = None, *, target: float | None = None, max_generations: int | None = None, budget: int | None = None, sigma0: float | None = None, mu0: int | None = None, lambda0: int | None = None, x0: numpy.typing.ArrayLike | None = None, lb: numpy.typing.ArrayLike | None = None, ub: numpy.typing.ArrayLike | None = None, integer_variables: numpy.typing.ArrayLike | None = None, cs: float | None = None, cc: float | None = None, cmu: float | None = None, c1: float | None = None, damps: float | None = None, acov: float | None = None, verbose: bool = False, always_compute_eigv: bool = False, seed: int | None = None, fast_sampling: bool = False, C0: numpy.typing.ArrayLike | None = None) -> None:
         """
         Settings for a problem of dimension dim.
 
@@ -649,7 +650,7 @@ class Settings:
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, and IPOP or BIPOP become RESTART;
         - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim and center the zero vector.
 
-        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, lb above ub, an integer variable without an integer value in [lb, ub], or a budget smaller than the first generation and the evaluation of the final center of mass.
+        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, lb above ub, an integer variable without an integer value in [lb, ub], a budget smaller than the first generation and the evaluation of the final center of mass, or a C0 that is not a symmetric positive definite (dim, dim) matrix (or with matrix_adaptation NONE).
 
         Parameters
         ----------
@@ -697,6 +698,8 @@ class Settings:
             The seed of the optimizer's own random generator. Default None: the optimizer starts from a copy of the global generator (set_seed) when it is created.
         fast_sampling : bool, default False
             Sample with xoshiro256++ and a ziggurat instead of mt19937 and the inverse normal CDF (the default UNIFORM + GAUSSIAN sampler only): faster, but a different random stream.
+        C0 : array_like, optional
+            (dim, dim) the initial covariance matrix C, symmetric positive definite: the first generation samples N(x0, sigma0**2 C0). Default None: the identity. See the attribute C0; modcma.warm_start estimates x0, sigma0 and C0 from the solutions of a related task.
         """
 
     @property
@@ -724,6 +727,19 @@ class Settings:
 
     @fast_sampling.setter
     def fast_sampling(self, arg: bool, /) -> None: ...
+
+    @property
+    def C0(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')] | None:
+        """
+        (dim, dim) array: the initial covariance matrix C, or None (default) for the identity.
+
+        The first generation samples N(x0, sigma0**2 C0) (warm starting, Nomura et al. 2021; see modcma.warm_start). Each matrix adaptation starts its matrix from a factor F of C0, F F^T = C0: COVARIANCE from the eigendecomposition, COVARIANCE_NO_EIGV, CHOLESKY and CMSA from the lower Cholesky factor, MATRIX and NATURAL_GRADIENT from the symmetric square root. SEPARABLE uses only the diagonal of C0; matrix_adaptation NONE rejects C0 (ValueError). Every restart starts from C0 again, as from sigma0 and x0.
+
+        Setting it checks it: a (dim, dim) finite matrix, symmetric up to rounding (a relative difference ||C0 - C0^T|| <= 1e-10 ||C0||, Frobenius norm; its symmetric part (C0 + C0^T) / 2 is stored) and positive definite, otherwise ValueError. Set it before the optimizer is created; the getter returns a copy.
+        """
+
+    @C0.setter
+    def C0(self, arg: numpy.typing.ArrayLike | None, /) -> None: ...
 
     @property
     def modules(self) -> Modules:
