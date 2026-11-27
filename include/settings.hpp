@@ -17,7 +17,7 @@ namespace parameters
  * After construction, the set_* methods change one field (the Python setters call them, #136).
  * A setter checks only its own field (its length, NaN, sign or range) and recomputes the values
  * derived from it, so the fields may be set in any order and through invalid intermediate states.
- * The checks between fields (require_consistent: lb <= ub, the integer variables, mu0 <= lambda0,
+ * The checks between fields (require_consistent: lb <= ub, c1 + cmu <= 1, the integer variables, mu0 <= lambda0,
  * the budget, ...) run in the constructor and again when an optimizer is created from the
  * settings (Parameters calls require_valid). Assigning a field directly skips the setter, not
  * require_valid; it does not recompute the derived values.
@@ -158,6 +158,8 @@ struct Settings
         require_ub(this->ub);
         require_target(this->target);
         require_x0(this->x0);
+        require_max_generations(this->max_generations);
+        require_rates(this->cs, this->cc, this->cmu, this->c1, this->damps, this->acov);
         mu0_given = mu.has_value();
 
         // The (1+1)-ES has no mirrored pairs to select from: PAIRWISE becomes NONE (the
@@ -255,6 +257,47 @@ struct Settings
         target = value;
     }
 
+    //! max_generations: None (no limit) or at least 1 (#147)
+    void set_max_generations(const std::optional<size_t> &value)
+    {
+        require_max_generations(value);
+        max_generations = value;
+    }
+
+    //! The learning rates and the damping: None (the module's default) or a number in the range
+    //! of the field (#147; require_cs ... require_acov). The sum c1 + cmu waits for
+    //! require_consistent.
+    void set_cs(const std::optional<Float> &value)
+    {
+        require_cs(value);
+        cs = value;
+    }
+    void set_cc(const std::optional<Float> &value)
+    {
+        require_cc(value);
+        cc = value;
+    }
+    void set_cmu(const std::optional<Float> &value)
+    {
+        require_cmu(value);
+        cmu = value;
+    }
+    void set_c1(const std::optional<Float> &value)
+    {
+        require_c1(value);
+        c1 = value;
+    }
+    void set_damps(const std::optional<Float> &value)
+    {
+        require_damps(value);
+        damps = value;
+    }
+    void set_acov(const std::optional<Float> &value)
+    {
+        require_acov(value);
+        acov = value;
+    }
+
     void set_budget(const size_t value)
     {
         require_budget(value);
@@ -297,6 +340,82 @@ struct Settings
     static void require_target(const std::optional<Float> &value)
     {
         require(!value || !std::isnan(*value), "target must not be NaN (None: no target)");
+    }
+
+    //! At least 1: 0 stops the run before its first generation (#147)
+    static void require_max_generations(const std::optional<size_t> &value)
+    {
+        require(!value || *value >= 1,
+                "max_generations must be at least 1 (None: no limit), got " +
+                    std::to_string(value.value_or(0)));
+    }
+
+    // The learning rates (#147). None keeps the module's default. The bounds are Hansen, "The CMA
+    // Evolution Strategy: A Tutorial" (2016, arXiv:1604.00772v2), list of symbols: c_c <= 1,
+    // c_sigma < 1, c_1 <= 1 - c_mu, c_mu <= 1 - c_1; Eq. (15): 0 < c_mu <= 1 (c_mu = 0: no
+    // learning); Table 1: alpha_cov = 2. The tutorial gives d_sigma only as ~ 1; d_sigma > 0 is
+    // ours: it divides the step-size update, and a negative one makes sigma grow.
+    // cs = 1 is allowed although the tutorial writes c_sigma < 1: cs (2 - cs) = 1 and the run
+    // works. cs > 1 makes cs (2 - cs) smaller than 1 and, above 2, negative: NaN or a diverging
+    // sigma. c1 and cmu are at most 1 because the other is not negative; their sum is checked in
+    // require_consistent.
+
+    //! cs in (0, 1]
+    static void require_cs(const std::optional<Float> &value)
+    {
+        require(!value || (*value > 0 && *value <= 1),
+                "cs must be in (0, 1] (None: the default), got " + str(value.value_or(0)));
+    }
+
+    //! cc in (0, 1]
+    static void require_cc(const std::optional<Float> &value)
+    {
+        require(!value || (*value > 0 && *value <= 1),
+                "cc must be in (0, 1] (None: the default), got " + str(value.value_or(0)));
+    }
+
+    //! cmu in [0, 1]; 0 switches the rank-mu update off
+    static void require_cmu(const std::optional<Float> &value)
+    {
+        require(!value || (*value >= 0 && *value <= 1),
+                "cmu must be in [0, 1] (None: the default), got " + str(value.value_or(0)));
+    }
+
+    //! c1 in [0, 1]; 0 switches the rank-one update off
+    static void require_c1(const std::optional<Float> &value)
+    {
+        require(!value || (*value >= 0 && *value <= 1),
+                "c1 must be in [0, 1] (None: the default), got " + str(value.value_or(0)));
+    }
+
+    //! damps > 0 (not NaN; +inf switches the step-size update off)
+    static void require_damps(const std::optional<Float> &value)
+    {
+        require(!value || *value > 0,
+                "damps must be positive (None: the default), got " + str(value.value_or(0)));
+    }
+
+    //! acov > 0 and finite: the factor alpha_cov of c1 and cmu (Hansen 2016, (57), (58))
+    static void require_acov(const std::optional<Float> &value)
+    {
+        require(!value || (*value > 0 && std::isfinite(*value)),
+                "acov must be positive and finite (None: the default 2), got " +
+                    str(value.value_or(0)));
+    }
+
+    static void require_rates(const std::optional<Float> &cs,
+                              const std::optional<Float> &cc,
+                              const std::optional<Float> &cmu,
+                              const std::optional<Float> &c1,
+                              const std::optional<Float> &damps,
+                              const std::optional<Float> &acov)
+    {
+        require_cs(cs);
+        require_cc(cc);
+        require_cmu(cmu);
+        require_c1(c1);
+        require_damps(damps);
+        require_acov(acov);
     }
 
     static void require_lambda0(const size_t value)
@@ -402,6 +521,12 @@ struct Settings
                 fail("integer variable " + i + " has no integer value in [lb[" + i + "], ub[" + i +
                      "]] = [" + str(lb(idx)) + ", " + str(ub(idx)) + "]");
             }
+        // C stays positive definite only if c1 + cmu <= 1 (Hansen 2016, c_1 <= 1 - c_mu). Checked
+        // when both are given: a default is computed from mu_eff (Weights), which is not known
+        // here, and changes with the population size at a restart.
+        require(!(c1 && cmu) || *c1 + *cmu <= 1,
+                "c1 + cmu must be at most 1 to keep C positive definite, got c1 = " +
+                    str(*c1) + ", cmu = " + str(*cmu));
         require(mu0 <= lambda0,
                 "mu0 = " + std::to_string(mu0) + " exceeds lambda0 = " + std::to_string(lambda0));
         // The first generation must fit: lambda0 and the points that every generation evaluates
@@ -441,6 +566,8 @@ struct Settings
         require_ub(ub);
         require_target(target);
         require_x0(x0);
+        require_max_generations(max_generations);
+        require_rates(cs, cc, cmu, c1, damps, acov);
         require_consistent();
     }
 

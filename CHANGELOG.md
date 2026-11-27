@@ -214,6 +214,14 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   views); set `lb`, `ub` or `x0` instead. Setting one raises Python's "property 'db' of 'Settings'
   object has no setter". The setters of `x0`, `lb` and `ub` take array_like, as the constructor
   (they took only numpy arrays).
+* **`Settings` rejects learning rates that make a run diverge, and `max_generations` of 0** (#147),
+  in the constructor and the setters, with a `ValueError` that names the field: `cs`, `cc` in
+  (0, 1]; `c1`, `cmu` in [0, 1]; `damps` > 0; `acov` > 0 and finite; `max_generations` >= 1. `None`
+  is still the default. `c1 + cmu > 1`, which makes the decay of C negative, is rejected at creation
+  when both are given. Before, `cs=3` or `damps=-1` ran and ended with sigma at 1e26 or more.
+  Hansen (2016) has c_c <= 1, c_sigma < 1, c_1 + c_mu <= 1; `cs = 1` stays allowed (it works).
+  The default of one of `c1`, `cmu` against a given other is not checked. `es.p.settings.<field> =`
+  on a running optimizer is not checked either.
 * **`Settings` rejects `mu0` above `lambda0`** (#136) with a `ValueError` that names both; 1.x
   replaced it by `lambda0 // 2` (but not with SA or CMSA). A (1+1)-ES (`lambda0 = 1`) still uses
   µ = 1 whatever `mu0` is. **A NaN `target`** raises `ValueError` too: it never stopped a run.

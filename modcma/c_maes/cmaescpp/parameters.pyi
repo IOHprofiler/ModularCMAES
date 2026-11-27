@@ -662,7 +662,7 @@ class Settings:
         target : float, optional
             Stop when the best objective value is at most target; not NaN. Default None: no target.
         max_generations : int, optional
-            Stop after this many generations. Default None: no limit.
+            Stop after this many generations, at least 1. Default None: no limit.
         budget : int, optional
             The maximum number of evaluations, default 10000 * dim; at least the first generation (lambda0, and TPA's 2 points) and the final center of mass. A generation runs only when it leaves one evaluation: the run stops when the evaluations so far plus lambda (and TPA's 2 points) plus 1 would exceed it, and every run ends with the evaluation of its center of mass (#111).
         sigma0 : float, optional
@@ -680,17 +680,17 @@ class Settings:
         integer_variables : sequence of int, optional
             The indices of the variables that take integer values: they are rounded before evaluation (a value in [lb, ub] to the nearest integer in [lb, ub]) and their step size has a lower bound. Each needs an integer value in [lb, ub]. Default: none.
         cs : float, optional
-            The learning rate of the step-size adaptation. Default depends on ssa (see Weights.cs); for CSA (mueff + 2) / (dim + mueff + 5) (Hansen, The CMA Evolution Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55)).
+            The learning rate of the step-size adaptation, in (0, 1]. Default depends on ssa (see Weights.cs); for CSA (mueff + 2) / (dim + mueff + 5) (Hansen, The CMA Evolution Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55)).
         cc : float, optional
-            The learning rate of the evolution path pc. Default (4 + mueff / dim) / (dim + 4 + 2 mueff / dim) (see Weights.cc).
+            The learning rate of the evolution path pc, in (0, 1]. Default (4 + mueff / dim) / (dim + 4 + 2 mueff / dim) (see Weights.cc).
         cmu : float, optional
-            The learning rate of the rank-mu update. Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((dim + 2)**2 + acov mueff / 2)) (see Weights.cmu).
+            The learning rate of the rank-mu update, in [0, 1]. Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((dim + 2)**2 + acov mueff / 2)) (see Weights.cmu).
         c1 : float, optional
-            The learning rate of the rank-one update. Default acov / ((dim + 1.3)**2 + mueff) (see Weights.c1).
+            The learning rate of the rank-one update, in [0, 1]; with cmu, c1 + cmu <= 1. Default acov / ((dim + 1.3)**2 + mueff) (see Weights.c1).
         damps : float, optional
-            The damping of the step-size update. Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (dim + 1)) - 1) + cs (see Weights.damps).
+            The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (dim + 1)) - 1) + cs (see Weights.damps).
         acov : float, optional
-            The factor alpha_cov in the defaults of c1 and cmu, default 2.
+            The factor alpha_cov in the defaults of c1 and cmu, positive, default 2.
         verbose : bool, default False
             Print a message at every restart and when a decomposition of the matrix fails.
         always_compute_eigv : bool, default False
@@ -761,7 +761,9 @@ class Settings:
 
     @property
     def max_generations(self) -> int | None:
-        """Stop after this many generations; None (default): no limit."""
+        """
+        Stop after this many generations, at least 1 (ValueError); None (default): no limit.
+        """
 
     @max_generations.setter
     def max_generations(self, arg: int | None, /) -> None: ...
@@ -872,7 +874,7 @@ class Settings:
     @property
     def cs(self) -> float | None:
         """
-        The learning rate cs given to the constructor, or None for the default.
+        The learning rate cs given to the constructor, or None for the default; in (0, 1] (ValueError).
 
         The value in use is Parameters.weights.cs.
         """
@@ -883,7 +885,7 @@ class Settings:
     @property
     def cc(self) -> float | None:
         """
-        The learning rate cc given to the constructor, or None for the default.
+        The learning rate cc given to the constructor, or None for the default; in (0, 1] (ValueError).
 
         The value in use is Parameters.weights.cc.
         """
@@ -894,7 +896,7 @@ class Settings:
     @property
     def cmu(self) -> float | None:
         """
-        The learning rate cmu given to the constructor, or None for the default.
+        The learning rate cmu given to the constructor, or None for the default; in [0, 1] (ValueError). With c1 given, c1 + cmu must be at most 1 (ValueError when the optimizer is created).
 
         The value in use is Parameters.weights.cmu.
         """
@@ -905,7 +907,7 @@ class Settings:
     @property
     def c1(self) -> float | None:
         """
-        The learning rate c1 given to the constructor, or None for the default.
+        The learning rate c1 given to the constructor, or None for the default; in [0, 1] (ValueError). With cmu given, c1 + cmu must be at most 1 (ValueError when the optimizer is created).
 
         The value in use is Parameters.weights.c1.
         """
@@ -916,7 +918,7 @@ class Settings:
     @property
     def damps(self) -> float | None:
         """
-        The damping given to the constructor, or None for the default.
+        The damping given to the constructor, or None for the default; positive (ValueError).
 
         The value in use is Parameters.weights.damps.
         """
@@ -927,7 +929,7 @@ class Settings:
     @property
     def acov(self) -> float | None:
         """
-        The factor alpha_cov of the defaults of c1 and cmu, or None for the default 2.
+        The factor alpha_cov of the defaults of c1 and cmu, or None for the default 2; positive and finite (ValueError).
         """
 
     @acov.setter
