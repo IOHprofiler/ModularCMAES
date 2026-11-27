@@ -177,7 +177,7 @@ paper and the Python implementation draw one per point.
 | `CSA` (default) | the path p_σ | every matrix adaptation | `COVARIANCE` uses C^-1/2 Δm, the others the weighted z |
 | `TPA` | two extra evaluations | every | |
 | `MSR`, `PSR` | the f-values of two generations | every | with pairwise selection the ranked points only |
-| `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | not with `elitist` or `MATRIX` (σ collapses in some runs) |
+| `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | not with `MATRIX`, `CHOLESKY` or `elitist`: the runs stall (#160) |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
 | `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | |
 | `SR` | successes against the best of the run | λ = 1 (automatic) | one success per generation for λ > 1 |
