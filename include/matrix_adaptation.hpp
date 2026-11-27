@@ -462,6 +462,10 @@ struct CholeskyAdaptation final : Adaptation
     squared singular values of A (for A = [[1, 0], [1, 1]]: 2.618 and 0.382, while A_ii = 1).
     metric() computes them.*/
 
+    //! The rank-one downdates of the active update that were skipped since the adaptation was
+    //! created (restarts included), because their result would not be positive definite (#74)
+    size_t skipped_downdates = 0;
+
     CholeskyAdaptation(const size_t dim, const Vector &x0) :
         Adaptation(dim, x0),
         A(Matrix::Identity(dim, dim)),

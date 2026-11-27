@@ -164,9 +164,9 @@ from the code, `tools/count_variants.py`:
 | What is counted | Combinations | Distinct variants |
 |---|---|---|
 | The framework paper (de Nobel et al. 2026, [citing](../citing.md)): 14 modules | | 14,859,936 |
-| 14 modules: the 13 algorithmic modules and bound correction | 36,578,304 | 21,430,080 |
-| 13 algorithmic modules (bound correction counted as an option) | 5,225,472 | 3,061,440 |
-| All 17 fields of `Modules`, every value | 2,194,698,240 | 686,685,216 |
+| 14 modules: the 13 algorithmic modules and bound correction | 36,578,304 | 19,797,120 |
+| 13 algorithmic modules (bound correction counted as an option) | 5,225,472 | 2,828,160 |
+| All 17 fields of `Modules`, every value | 2,194,698,240 | 632,156,448 |
 
 **The 13 algorithmic modules** are the components of the search, whose options are alternative
 mechanisms from the literature and act on any problem: `sampler`, `sample_transformation`,
@@ -190,9 +190,9 @@ counts with two dependencies (`active` needs a matrix adaptation, repelling need
 strategy); the code counts more:
 
 * the adjustments of `Settings` (see [above](#combinations-that-are-adjusted)): `UTILITY` weights
-  switch the active update on, `NATURAL_GRADIENT` with `active` switches to `UTILITY`, `NONE`
-  switches `active` off; of all 17 fields, these alone leave 1,569,818,880 of the 2,194,698,240
-  combinations;
+  switch the active update on, `NATURAL_GRADIENT` with `active` switches to `UTILITY`, `NONE` and
+  `CMSA` switch `active` off; of all 17 fields, these alone leave 1,466,942,400 of the
+  2,194,698,240 combinations;
 * the options without effect of the [compatibility](compatibility.md) page, each checked in the
   code: `sample_sigma` is forced on for `SA` and `LPXNES`; sequential selection with `PAIRWISE`
   and the default µ = λ/2 has no effect (its earliest stop is the whole generation); with
@@ -202,8 +202,8 @@ strategy); the code counts more:
 
 **Repelling with `restart_strategy=NONE`.** The module counts follow the paper: repelling needs a
 restart strategy. `NONE` still restarts a run whose matrix cannot be updated (`UnableToAdapt`),
-where repelling acts; counted that way, the 14 modules give 25,716,096 variants and the 13 give
-3,673,728. The count of all 17 fields uses this rule.
+where repelling acts; counted that way, the 14 modules give 23,756,544 variants and the 13 give
+3,393,792. The count of all 17 fields uses this rule.
 
 Not applied, because they depend on the problem: `X0` = `CENTER` without an `x0`, `ZERO` =
 `CENTER` for a symmetric box, bound correction in an infinite box. Equivalences that are not

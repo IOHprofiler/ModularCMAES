@@ -6,8 +6,8 @@ when they cannot give different runs on any problem:
 
 * `Settings` turns them into the same modules (its own adjustments, read back from
   `Settings.modules`: COVARIANCE becomes COVARIANCE_NO_EIGV unless ssa is CSA, UTILITY weights
-  switch the active update on, NATURAL_GRADIENT with active switches to UTILITY, NONE switches
-  active off); or
+  switch the active update on, NATURAL_GRADIENT with active switches to UTILITY, NONE and CMSA
+  switch active off); or
 * they differ only in an option that has no effect there (docs/guide/compatibility.md, each rule
   checked in the code, see `RULES` below).
 

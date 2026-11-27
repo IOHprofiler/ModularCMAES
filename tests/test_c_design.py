@@ -119,29 +119,25 @@ class TestPairwiseActive(unittest.TestCase):
         w = p.weights
         self.assertTrue(w.pairwise)
         full = w.for_population(10)
-        self.assertTrue(np.all(full[3:] < 0))
-        # In the update only the 5 winners are ranked: the losers (after n_ranked) get 0
-        pop = Population(4, 10)
-        pop.f = np.arange(10, dtype=float)
-        pop.n_ranked = 5
-        p.pop = pop
-        c_before = p.adaptation.C.copy()
-        p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
-        self.assertFalse(np.allclose(c_before, p.adaptation.C))
+        # mu = 3: the negative weights of a population of 2 mu, on the 3 worst ranks, as pycma
+        # with CMA_mu (#73): with PAIRWISE these ranks are always losers
+        self.assertTrue(np.all(full[3:7] == 0) and np.all(full[7:] < 0))
 
-    def test_with_default_mu_active_has_no_effect(self):
-        # mu = lambda / 2 winners: every negative weight would go to a loser
-        rng = np.random.default_rng(1)
-        results = []
-        for active in (False, True):
-            p = make(lambda0=10, active=active, mirrored="PAIRWISE")
-            p.pop = Population(4, 10)
-            p.pop.Y = rng.standard_normal((4, 10)) if not results else results[0][1]
-            p.pop.f = np.arange(10, dtype=float)
-            p.pop.n_ranked = 5
-            p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
-            results.append((p.adaptation.C.copy(), p.pop.Y.copy()))
-        np.testing.assert_allclose(results[0][0], results[1][0])
+    def test_active_has_no_effect(self):
+        # The negative weights fall on the worst mu ranks (lambda - mu with mu > lambda / 2), all
+        # beyond the lambda / 2 winners: every negative weight would go to a loser
+        for mu0 in (5, 3, 7):
+            rng = np.random.default_rng(1)
+            results = []
+            for active in (False, True):
+                p = make(lambda0=10, mu0=mu0, active=active, mirrored="PAIRWISE")
+                p.pop = Population(4, 10)
+                p.pop.Y = rng.standard_normal((4, 10)) if not results else results[0][1]
+                p.pop.f = np.arange(10, dtype=float)
+                p.pop.n_ranked = 5  # the winners; the losers after them get no negative weight
+                p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
+                results.append((p.adaptation.C.copy(), p.pop.Y.copy()))
+            np.testing.assert_allclose(results[0][0], results[1][0], err_msg=str(mu0))
 
 
 class TestElitismRuns(unittest.TestCase):

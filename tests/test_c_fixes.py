@@ -224,9 +224,24 @@ class TestNaturalGradient(unittest.TestCase):
             self.assertAlmostEqual(spread / sigma0, 1.0, delta=0.1)
 
     def test_learning_rate_of_xnes(self):
+        # eta_sigma = eta_B = (9 + 3 ln d) / (5 d sqrt(d)) (Glasmachers et al. 2010, Table 1):
+        # cs of XNES, and cc = eta_B / 2 the rate of A, with every step-size rule (#72, F3)
         d = 10
-        es = modcma.ModularCMAES(modcma.settings_from_dict(d, matrix_adaptation="NATURAL_GRADIENT"))
-        self.assertAlmostEqual(es.p.weights.cs, (9 + 3 * math.log(d)) / (5 * d * math.sqrt(d)))
+        eta = (9 + 3 * math.log(d)) / (5 * d * math.sqrt(d))
+        es = modcma.ModularCMAES(
+            modcma.settings_from_dict(d, matrix_adaptation="NATURAL_GRADIENT", ssa="XNES")
+        )
+        self.assertAlmostEqual(es.p.weights.cs, eta)
+        self.assertAlmostEqual(es.p.weights.cc, eta / 2)
+        csa = modcma.ModularCMAES(modcma.settings_from_dict(d)).p.weights
+        for ssa in ("CSA", "TPA", "MSR", "LPXNES", "MXNES"):
+            w = modcma.ModularCMAES(
+                modcma.settings_from_dict(d, matrix_adaptation="NATURAL_GRADIENT", ssa=ssa)
+            ).p.weights
+            self.assertAlmostEqual(w.cc, eta / 2, msg=ssa)
+            self.assertNotAlmostEqual(w.cs, eta, msg=ssa)
+            if ssa == "CSA":
+                self.assertEqual((w.cs, w.damps), (csa.cs, csa.damps))
 
 
 class TestRestarts(unittest.TestCase):

@@ -51,22 +51,22 @@ tuner does not spend evaluations on it.
 
 | Hyperparameter | Inactive when (otherwise active) |
 |---|---|
-| `active` | `matrix_adaptation` is `NONE`, or `lambda0` is 1 |
+| `active` | `matrix_adaptation` is `NONE` or `CMSA` (`Settings` switches it off), or `lambda0` is 1 |
 | `center_placement`, `repelling_type` | `restart_strategy` is `STOP` |
 | `repelling_metric` | `repelling_type` is `NONE` |
-| `cs` | `ssa` is `SR` or `SA` (or `lambda0` is 1, which runs `SR`), and `matrix_adaptation` is `NONE`, `CHOLESKY` or `CMSA` |
+| `cs` | `ssa` is `SR` or `SA` (or `lambda0` is 1, which runs `SR`), and `matrix_adaptation` is `NONE`, `CHOLESKY`, `CMSA` or `NATURAL_GRADIENT` |
 | `damps` | `ssa` is `TPA`, `XNES`, `MXNES`, `LPXNES` or `SA`, and `lambda0` is above 1 (a (1+1)-ES runs `SR`) |
 | `cc` | `matrix_adaptation` is `NONE`, `MATRIX` or `CMSA` |
-| `cmu`, `c1` | `matrix_adaptation` is `NONE`, or `CMSA` or `NATURAL_GRADIENT` without `active` |
+| `cmu`, `c1` | `matrix_adaptation` is `NONE` or `CMSA`, or `NATURAL_GRADIENT` without `active` |
 | `mu0`, `elitist`, `sequential_selection`, `weights`, `ssa` | `lambda0` is 1 (a (1+1)-ES: mu = 1, elitist, equal weights, `SR`; `Settings` overrides them) |
 
 A hyperparameter is inactive only where the C++ code never reads the parameter; the file and line
-of each reason are in the comment of `_INACTIVE_FOR` in `modcma/c_maes/__init__.py`. Where it is read
-in some combinations only, it stays active, which costs a tuner some budget but hides no
-dimension. For example, `restart_strategy=NONE` still restarts when the adaptation fails, so
-`center_placement` stays active; `cmu` and `c1` scale the negative weights, so they matter for
-`CMSA` and `NATURAL_GRADIENT` with `active`. `tests/test_c_tuning.py` checks that changing an
-inactive parameter leaves a run unchanged, for every pair of step-size rule and matrix adaptation.
+(or function) of each reason are in the comment of `_INACTIVE_FOR` in `modcma/c_maes/__init__.py`.
+Where it is read in some combinations only, it stays active, which costs a tuner some budget but
+hides no dimension. For example, `restart_strategy=NONE` still restarts when the adaptation fails,
+so `center_placement` stays active; `cmu` and `c1` scale the negative weights, so they matter for
+`NATURAL_GRADIENT` with `active`. `tests/test_c_tuning.py` checks that changing an inactive
+parameter leaves a run unchanged, for every pair of step-size rule and matrix adaptation.
 The thresholds of threshold convergence, `ipop_factor` and the other numeric parameters of modules
 are not hyperparameters.
 

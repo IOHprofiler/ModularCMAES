@@ -309,7 +309,9 @@ void define_options(nb::module_ &main)
         .value("XNES",
                StepSizeAdaptation::XNES,
                "The step-size update of xNES (Glasmachers et al. 2010), from the weighted squared "
-               "lengths of the samples; with NATURAL_GRADIENT, from its natural gradient.")
+               "lengths of the samples (xNES SA, with the learning rate of Krause, Glasmachers & "
+               "Igel (2017)); with NATURAL_GRADIENT, from its natural gradient, with xNES's "
+               "learning rate.")
         .value("MXNES",
                StepSizeAdaptation::MXNES,
                "A variant of the xNES update from the length of the weighted mean of the "
@@ -464,7 +466,8 @@ void define_options(nb::module_ &main)
                "CMSA-ES (Beyer & Sendhoff 2008), covariance matrix self-adaptation: C is an "
                "exponential average of the selected y y^T with time constant 1 + d (d + 1) / "
                "(2 mueff), factorized with a Cholesky decomposition every generation. Meant for "
-               "StepSizeAdaptation.SA; makes the default mu lambda / 4.")
+               "StepSizeAdaptation.SA; makes the default mu lambda / 4. Disables "
+               "`Modules.active`: CMSA has no active variant.")
         .value("COVARIANCE_NO_EIGV",
                MatrixAdaptationType::COVARIANCE_NO_EIGV,
                "The covariance update of COVARIANCE, with C factorized by a Cholesky "
@@ -475,11 +478,13 @@ void define_options(nb::module_ &main)
         .value("NATURAL_GRADIENT",
                MatrixAdaptationType::NATURAL_GRADIENT,
                "xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is "
-               "updated with the matrix exponential of the natural gradient, A <- A expm(eta G); "
-               "a low-rank form keeps it O(d^2 lambda) for lambda < d. With "
-               "StepSizeAdaptation.XNES also xNES's update of sigma, and with "
-               "RecombinationWeights.UTILITY (also selected by `Modules.active` with the default "
-               "weights) xNES's utilities for the mean and the matrix: then it is xNES.");
+               "updated with the matrix exponential of the natural gradient, A <- A expm(cc G) "
+               "with xNES's cc = eta_B / 2; a low-rank form keeps it O(d^2 lambda) for lambda < "
+               "d. With StepSizeAdaptation.XNES also xNES's update of sigma, with xNES's "
+               "learning rate cs = eta_sigma (the other step-size adaptations keep their own "
+               "cs), and with RecombinationWeights.UTILITY (also selected by `Modules.active` "
+               "with the default weights) xNES's utilities for the mean and the matrix: all "
+               "three together are xNES.");
 
     nb::enum_<CenterPlacement>(
         m,

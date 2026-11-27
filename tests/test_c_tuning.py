@@ -135,7 +135,9 @@ class TestTuning(unittest.TestCase):
                 "repelling_metric" in names,
                 restarts and config["repelling_type"] != "NONE",
             )
-            self.assertEqual("active" in names, ma != "NONE" and config["lambda0"] > 1)
+            self.assertEqual(
+                "active" in names, ma not in ("NONE", "CMSA") and config["lambda0"] > 1
+            )
             self.assertEqual("mu0" in names, config["lambda0"] > 1)
             one = config["lambda0"] == 1
             for name in ("elitist", "sequential_selection", "weights", "ssa"):
@@ -151,10 +153,11 @@ class TestTuning(unittest.TestCase):
             self.assertEqual("cc" in names, ma not in ("NONE", "MATRIX", "CMSA"))
             self.assertEqual(
                 "cs" in names,
-                ssa not in ("SR", "SA") or ma not in ("NONE", "CHOLESKY", "CMSA"),
+                ssa not in ("SR", "SA")
+                or ma not in ("NONE", "CHOLESKY", "CMSA", "NATURAL_GRADIENT"),
             )
             c1_active = ma in ("COVARIANCE", "COVARIANCE_NO_EIGV", "SEPARABLE", "MATRIX", "CHOLESKY")
-            c1_active |= ma in ("CMSA", "NATURAL_GRADIENT") and bool(config.get("active"))
+            c1_active |= ma == "NATURAL_GRADIENT" and bool(config.get("active"))
             self.assertEqual("c1" in names, bool(c1_active))
             self.assertEqual("cmu" in names, "c1" in names)
             self.assertNotEqual(config["sample_transformation"], "NONE")

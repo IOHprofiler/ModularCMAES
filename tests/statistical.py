@@ -85,6 +85,30 @@ CONFIGS = {
     "ipop_cmsa": {"restart_strategy": "IPOP", "matrix_adaptation": "CMSA"},
     "ipop_natural_gradient": {"restart_strategy": "IPOP", "matrix_adaptation": "NATURAL_GRADIENT"},
     "ipop_none": {"restart_strategy": "IPOP", "matrix_adaptation": "NONE"},
+    # #72: the learning rates of NATURAL_GRADIENT and of the xNES rules, the rate of ps
+    "natural_gradient_xnes": {"matrix_adaptation": "NATURAL_GRADIENT", "ssa": "XNES"},
+    "natural_gradient_lpxnes": {"matrix_adaptation": "NATURAL_GRADIENT", "ssa": "LPXNES"},
+    "natural_gradient_mxnes": {"matrix_adaptation": "NATURAL_GRADIENT", "ssa": "MXNES"},
+    "xnes": {"ssa": "XNES"},
+    "xnes_utility": {"ssa": "XNES", "weights": "UTILITY"},
+    "lpxnes": {"ssa": "LPXNES"},
+    "lpxnes_ipop": {"ssa": "LPXNES", "restart_strategy": "IPOP"},
+    "mxnes_matrix": {"ssa": "MXNES", "matrix_adaptation": "MATRIX"},
+    # #73: the active update outside COVARIANCE, the weights for mu != lambda / 2, SEPARABLE's cap
+    "separable_active": {"matrix_adaptation": "SEPARABLE", "active": True},
+    "ipop_separable_active": {
+        "restart_strategy": "IPOP",
+        "matrix_adaptation": "SEPARABLE",
+        "active": True,
+    },
+    "matrix_active": {"matrix_adaptation": "MATRIX", "active": True},
+    "cholesky_active": {"matrix_adaptation": "CHOLESKY", "active": True},
+    "cholesky_utility": {"matrix_adaptation": "CHOLESKY", "weights": "UTILITY"},
+    "cmsa_active": {"matrix_adaptation": "CMSA", "active": True},
+    "mu_low_active": {"lambda0": 10, "mu0": 3, "active": True},
+    "mu_high_active": {"lambda0": 10, "mu0": 7, "active": True},
+    # #74: the inverse of M with elitism
+    "matrix_elitist": {"matrix_adaptation": "MATRIX", "elitist": True},
     "bipop_pairwise": {"restart_strategy": "BIPOP", "mirrored": "PAIRWISE"},
     # #75, #76, #116: mirrored pairs per generation, pairwise values, orthogonal blocks per
     # generation and without the sign bias, the expected lengths, portable HALTON and SOBOL (run
