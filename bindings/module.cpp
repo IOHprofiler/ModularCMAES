@@ -404,9 +404,9 @@ void define_options(nb::module_ &main)
         .value("BIPOP",
                RestartStrategyType::BIPOP,
                "BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles "
-               "every time it is used (without IPOP's upper limit, as pycma), and a small one "
-               "with a random size between lambda0 and the last large population (as pycma) and "
-               "a smaller initial sigma. Each restart uses the regime that has used fewer "
+               "every time it is used up to 2^9 lambda0 (as IPOP), and a small one with a random "
+               "size between lambda0 and the latest large population (as pycma) and a smaller "
+               "initial sigma. Each restart uses the regime that has used fewer "
                "evaluations so far, so both get about half of the evaluations; a small run takes "
                "at most half of what the large regime has used. See `restart.BIPOP`.");
 

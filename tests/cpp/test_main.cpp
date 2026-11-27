@@ -364,17 +364,19 @@ static void test_lapack_fallback()
 
 // #140: BIPOP's population sizes over the restarts are those of pycma 4.6.0's fmin with
 // bipop=True and an integer popsize, transcribed below with pycma's names
-// (cma/evolution_strategy.py:5355-5381, 5566-5570). The random stream is fixed: a copy of the
-// optimizer's generator replays the numbers BIPOP::update draws, u for lambda_small at every
-// restart, then u' for sigma at a small one (pycma draws its two in the other order). The runs
-// last a scripted number of generations; they include twelve large runs, past 2^9 lambda0: the
-// large population has no upper limit, as in pycma.
+// (cma/evolution_strategy.py:5355-5381, 5566-5570), with IPOP's limit of 2^9 lambda0 on its
+// multiplier, which pycma does not have. The random stream is fixed: a copy of the optimizer's
+// generator replays the numbers BIPOP::update draws, u for lambda_small at every restart, then u'
+// for sigma at a small one (pycma draws its two in the other order). The runs last a scripted
+// number of generations; they include fourteen large runs, the 9th to the 14th at the limit, and
+// the small runs after them stay within it.
 static void test_bipop_populations_match_pycma()
 {
     parameters::Modules m;
     m.restart_strategy = parameters::RestartStrategyType::BIPOP;
     parameters::Settings settings(5, m);
     settings.verbose = false;
+    settings.seed = 140;
     parameters::Parameters p(settings);
     const auto bipop = std::dynamic_pointer_cast<restart::BIPOP>(p.restart_strategy);
     CHECK(bipop != nullptr);
@@ -384,12 +386,16 @@ static void test_bipop_populations_match_pycma()
     std::uniform_int_distribution<size_t> generations(1, 100);
 
     const size_t popsize0 = settings.lambda0; // 8
+    const size_t max_lambda_factor = restart::default_max_lambda_factor;
+    CHECK(bipop->max_lambda_factor == max_lambda_factor);
+    CHECK(max_lambda_factor == 512);
+    size_t at_the_limit = 0;
     size_t irun = 0, runs_with_small = 0, n_large = 0, n_small = 0, largest = 0;
     Float sum_small = 0, sum_large = 0;
     bool small = true; // the first run: poptype = 'small' (5355-5360)
     size_t popsize = popsize0;
     Float maxiter = 1e9; // maxiter0, no cap
-    while (n_large < 12 && irun < 5000)
+    while (n_large < 14 && irun < 5000)
     {
         // The run ends after its generations and the evaluation of its center of mass
         const Float g = std::min(static_cast<Float>(generations(lengths)), std::max(1.0, maxiter));
@@ -406,8 +412,9 @@ static void test_bipop_populations_match_pycma()
         if (small)
         {
             runs_with_small++; // 5367: before the multiplier, which is then the last large run's
-            sigma_factor = std::pow(0.01, uniform(replay));                          // 5369
-            const size_t popsize_multiplier = size_t{1} << (irun - runs_with_small); // 5370
+            sigma_factor = std::pow(0.01, uniform(replay)); // 5369
+            const size_t popsize_multiplier =
+                std::min(size_t{1} << (irun - runs_with_small), max_lambda_factor); // 5370
             // 5371: int(popsize0 * popsize_multiplier**(np.random.uniform()**2)), u * u for u**2
             popsize = static_cast<size_t>(static_cast<Float>(popsize0) *
                                           std::pow(static_cast<Float>(popsize_multiplier), u * u));
@@ -416,12 +423,15 @@ static void test_bipop_populations_match_pycma()
         }
         else
         {
-            const size_t popsize_multiplier = size_t{1} << (irun - runs_with_small); // 5380
-            popsize = popsize0 * popsize_multiplier;                                 // 5381
+            const size_t popsize_multiplier =
+                std::min(size_t{1} << (irun - runs_with_small), max_lambda_factor); // 5380
+            popsize = popsize0 * popsize_multiplier;                                // 5381
             maxiter = 1e9;
             n_large++;
+            at_the_limit += popsize_multiplier == max_lambda_factor;
         }
         largest = std::max(largest, popsize);
+        CHECK(popsize <= max_lambda_factor * popsize0);
 
         CHECK(bipop->large_run == !small);
         CHECK(p.lambda == popsize);
@@ -431,8 +441,9 @@ static void test_bipop_populations_match_pycma()
         CHECK(bipop->max_iter ==
               (small ? static_cast<size_t>(maxiter) : std::numeric_limits<size_t>::max()));
     }
-    CHECK(n_large == 12 && n_small > 12);
-    CHECK(largest == popsize0 << 12);
+    CHECK(n_large == 14 && n_small > 14);
+    CHECK(at_the_limit == 6); // the 9th to the 14th large run
+    CHECK(largest == max_lambda_factor * popsize0);
 }
 
 // #89: C++ code can assign Settings::C0 without set_C0; the optimizer checks it again, so a matrix

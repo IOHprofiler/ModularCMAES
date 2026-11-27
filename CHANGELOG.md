@@ -189,6 +189,12 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   at most half the evaluations of the large regime so far (`ExceededMaxIter`, from
   `Strategy.max_iter`). λ of a small run is rounded down, as in the paper; up to even only with
   `PAIRWISE` (it was always even).
+* **BIPOP's large population** stops growing at `BIPOP.max_lambda_factor` λ₀ = 2⁹ λ₀, the limit of
+  IPOP, and restarts continue at that size; it had no limit (#140). pycma's `fmin` has none
+  either, but stops after `restarts` large runs, 2⁹ λ₀ with `restarts=9` (Hansen 2009). The limit
+  acts from the 10th large run on; the golden runs and the statistical grid (3000 d) reach 8 λ₀ at
+  most, and are unchanged. `restart.BIPOP.lambda_large` (internal) is now the λ of the latest large
+  run instead of the next one, and the new `restart.BIPOP.max_lambda_factor` sets the limit.
 * **Setting a field of `Settings`** (#133, #136) checks that field alone, as the constructor does
   (`lambda0`, `mu0`, `sigma0`, `budget`, `x0`, `lb`, `ub`: a wrong length, NaN, +inf in `lb` or
   -inf in `ub`, a sign or a range). The checks between fields (`lb` <= `ub`, the integer
@@ -219,10 +225,9 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * The negative weights of the active update were scaled with 1 + c1 / mu instead of 1 + c1 / cmu.
 * `NATURAL_GRADIENT` ignored `sigma0` (A started at I / sigma) and its learning rate was
   (9 + 3 + ln d) / (5 d sqrt d) instead of xNES's (9 + 3 ln d) / (5 d sqrt d).
-* BIPOP's small populations were at most the initial lambda; now they are between it and the last
-  large population, as pycma's `fmin` (Hansen 2009's text: half of it; #140). BIPOP's large
-  population has no upper limit, as in pycma. IPOP's growth limit never applied, and a non-integer
-  `ipop_factor` acted as its integer part.
+* BIPOP's small populations were at most the initial lambda; now they are between it and the
+  latest large population, as pycma's `fmin` (Hansen 2009's text: half of it; #140). IPOP's growth
+  limit never applied, and a non-integer `ipop_factor` acted as its integer part.
 * BIPOP's budgets left wrapped around (unsigned) when a run used more than its regime had left:
   one regime then ran for the rest of the budget (Rastrigin, d = 2, budget 20000, seed 0) (#80).
 * Orthogonal sampling did not produce orthogonal samples (the norms were read while overwritten),

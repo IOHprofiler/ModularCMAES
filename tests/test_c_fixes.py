@@ -231,8 +231,9 @@ class TestNaturalGradient(unittest.TestCase):
 
 class TestRestarts(unittest.TestCase):
     def test_bipop_small_populations(self):
-        # lambda_small = floor(lambda_init (lambda_large / (2 lambda_init))^(U^2)), in
-        # [lambda_init, lambda_large / 2]; before: at most lambda_init
+        # lambda_small = floor(lambda_init (lambda_large / lambda_init)^(U^2)), in
+        # [lambda_init, lambda_large] with lambda_large the latest large population (#140);
+        # before: at most lambda_init
         settings = modcma.settings_from_dict(
             5, restart_strategy="BIPOP", budget=60_000, seed=3, x0=np.full(5, 3.0)
         )

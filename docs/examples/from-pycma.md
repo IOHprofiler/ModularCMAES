@@ -22,8 +22,9 @@ Differences to keep in mind:
   `restart_strategy="STOP"` and restart it with `RESTART`, `IPOP` or `BIPOP`
   ([restarts](../guide/restarts.md)).
 * **Restarts.** `fmin(..., restarts=n)` stops after n restarts with a larger population; modcma
-  restarts until the budget or the target is reached. IPOP's population stops growing at 2⁹ λ₀;
-  BIPOP's large population keeps doubling, and its population sizes are those of
+  restarts until the budget or the target is reached. The populations of IPOP and of BIPOP's
+  large runs stop growing at 2⁹ λ₀, the largest population of `fmin` with `restarts=9`, and
+  restarts continue at that size. Up to that limit, BIPOP's population sizes are those of
   `fmin(..., bipop=True)` with an integer `popsize`. (pycma's default popsize, 4 + 3 ln d, is not
   rounded there: at d = 5 its large runs have 17, 35, 70, … points, modcma's 16, 32, 64, ….)
 * **Results.** The best solution is `es.p.stats.global_best` (`.x`, `.y`), the center of mass (the
