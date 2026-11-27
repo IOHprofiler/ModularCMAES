@@ -284,12 +284,14 @@ class TestIntegerVariablesInTheBox(unittest.TestCase):
         settings = parameters.Settings(
             2, lb=np.array([0.6, 0.0]), ub=np.array([1.3, 1.0]), integer_variables=[0]
         )
+        # The setters check their own field; the box is checked when the optimizer is created
+        settings.ub = np.array([0.9, 1.0])
         with self.assertRaisesRegex(ValueError, "integer variable 0"):
-            settings.ub = np.array([0.9, 1.0])
+            modcma.ModularCMAES(settings)
+        settings.ub = np.array([1.3, 1.0])
+        settings.lb = np.array([1.1, 0.0])
         with self.assertRaisesRegex(ValueError, "integer variable 0"):
-            settings.lb = np.array([1.1, 0.0])
-        np.testing.assert_array_equal(settings.ub, [1.3, 1.0])
-        np.testing.assert_array_equal(settings.lb, [0.6, 0.0])
+            modcma.ModularCMAES(settings)
         # A continuous variable may have such bounds; infinite bounds have integers
         parameters.Settings(2, lb=np.array([0.6, -INF]), ub=np.array([0.9, INF]),
                             integer_variables=[1])
@@ -374,19 +376,55 @@ class TestDegenerateBox(unittest.TestCase):
             with self.subTest(case=name), self.assertRaises(ValueError):
                 parameters.Settings(2, lb=np.array(lb), ub=np.array(ub))
 
-    def test_empty_coordinate_in_setters(self):
+    def test_setters_check_their_own_field(self):
         settings = parameters.Settings(2, lb=np.zeros(2), ub=np.ones(2))
-        for bad in ([INF, 0.0], [2.0, 0.0], [np.nan, 0.0]):
+        for bad in ([INF, 0.0], [np.nan, 0.0]):
             with self.subTest(lb=bad), self.assertRaises(ValueError):
                 settings.lb = np.array(bad)
-        for bad in ([-INF, 1.0], [-1.0, 1.0], [np.nan, 1.0]):
+        for bad in ([-INF, 1.0], [np.nan, 1.0]):
             with self.subTest(ub=bad), self.assertRaises(ValueError):
                 settings.ub = np.array(bad)
         np.testing.assert_array_equal(settings.lb, [0.0, 0.0])
         np.testing.assert_array_equal(settings.ub, [1.0, 1.0])
+
+    def test_either_order(self):
+        for first in ("lb", "ub"):
+            with self.subTest(first=first):
+                settings = parameters.Settings(2)
+                new = {"lb": np.array([6.0, 6.0]), "ub": np.array([10.0, 10.0])}
+                if first == "ub":
+                    new = dict(reversed(list(new.items())))
+                for name, value in new.items():  # the first assignment crosses the old box
+                    setattr(settings, name, value)
+                np.testing.assert_array_equal(settings.db, [4.0, 4.0])
+                modcma.ModularCMAES(settings)
+
+    def test_empty_box_rejected_when_the_optimizer_is_created(self):
+        cases = {
+            "lb > ub": ([2.0, 0.0], [1.0, 1.0]),
+        }
+        for name, (lb, ub) in cases.items():
+            with self.subTest(case=name):
+                settings = parameters.Settings(2)
+                settings.lb = np.array(lb)
+                settings.ub = np.array(ub)
+                with self.assertRaises(ValueError):
+                    modcma.ModularCMAES(settings)
+                with self.assertRaises(ValueError):
+                    Parameters(settings)
+
+    def test_integer_variables_checked_when_the_optimizer_is_created(self):
+        settings = parameters.Settings(2, integer_variables=[0])
+        settings.lb = np.array([0.6, 0.0])
+        settings.ub = np.array([0.9, 1.0])
+        with self.assertRaisesRegex(ValueError, "integer variable 0"):
+            modcma.ModularCMAES(settings)
+
+    def test_fixed_coordinate_set_later(self):
+        settings = parameters.Settings(2, lb=np.zeros(2), ub=np.ones(2))
         settings.lb = np.array([1.0, 0.0])  # lb_0 == ub_0: a fixed variable
         np.testing.assert_array_equal(settings.db, [0.0, 1.0])
-        settings.ub = np.array([INF, INF])
+        modcma.ModularCMAES(settings)
 
 
 if __name__ == "__main__":

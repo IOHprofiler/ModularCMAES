@@ -312,6 +312,8 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
     `correct_x` of every bound correction applies the rule for infinite bounds.
 * Degenerate boxes (#133). A fixed coordinate (lb_i == ub_i) made `MIRROR` and `TOROIDAL` evaluate
   NaN points (division by the width 0); every correction now keeps it at lb_i. `Settings` and the
-  `lb`/`ub` setters reject an empty coordinate (lb_i = +inf, ub_i = -inf, so also
-  lb_i = ub_i = ±inf) with a ValueError; the setters also reject lb_i > ub_i and NaN, as the
-  constructor did. Results of boxes with positive widths are unchanged.
+  lb_i = ub_i = ±inf) with a ValueError. The `lb` and `ub` setters check only their own field (no
+  NaN; no +inf for `lb`, no -inf for `ub`), so they may be set in either order; lb <= ub, the
+  empty box and the integer variables are checked in the constructor and when the optimizer is
+  created from the Settings (this replaces the integer check of the setters added in #79). Results
+  of boxes with positive widths are unchanged.

@@ -64,9 +64,11 @@ while the others are tuned. Every correction puts a value that leaves the box at
 dividing by the width, which is zero (as for a coordinate with an infinite bound, the method is
 replaced by `SATURATE`).
 
-An empty coordinate is rejected with a `ValueError`, by `Settings` and by the `lb` and `ub`
-setters: `lb[i] > ub[i]`, `lb[i] = +inf`, `ub[i] = -inf` (so also `lb[i] = ub[i] = ±inf`, whose
-width is NaN), or a NaN bound.
+An empty coordinate is rejected with a `ValueError`: `lb[i] > ub[i]`, `lb[i] = +inf`,
+`ub[i] = -inf` (so also `lb[i] = ub[i] = ±inf`, whose width is NaN), or a NaN bound. The
+constructor of `Settings` checks it, and so does the creation of an optimizer from the Settings
+(`ModularCMAES`). The `lb` and `ub` setters check only their own field (no NaN; no `+inf` in `lb`,
+no `-inf` in `ub`), so the two may be set in either order.
 
 ```python
 lb = np.array([0.0, -np.inf])  # x[0] >= 0

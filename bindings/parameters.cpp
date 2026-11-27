@@ -831,29 +831,29 @@ void define_parameters(nb::module_ &main)
             [](const Settings &s) { return s.lb; },
             [](Settings &s, const Vector &lb) {
                 s.require_length("lb", lb);
-                Settings::require_nonempty_box(lb, s.ub);
-                s.require_integer_values(lb, s.ub);
+                Settings::require_valid_lb(lb);
                 s.lb = lb;
                 s.update_bounds();
             },
             "(dim,) array: the lower bounds, default -5; -inf for none. Setting it updates "
-            "`db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when a coordinate "
-            "is empty (lb_i > ub_i, lb_i = +inf, ub_i = -inf, NaN) or an integer variable has no "
-            "integer value in [lb, ub]. lb_i == ub_i, finite, fixes the variable.")
+            "`db`, `center`, `diameter`, `volume` and `has_bounds`. ValueError for NaN or +inf. "
+            "Its relation to `ub` (lb <= ub, an empty box, the integer variables) is checked "
+            "when the optimizer is created, so lb and ub may be set in either order. "
+            "lb_i == ub_i, finite, fixes the variable.")
         .def_prop_rw(
             "ub",
             [](const Settings &s) { return s.ub; },
             [](Settings &s, const Vector &ub) {
                 s.require_length("ub", ub);
-                Settings::require_nonempty_box(s.lb, ub);
-                s.require_integer_values(s.lb, ub);
+                Settings::require_valid_ub(ub);
                 s.ub = ub;
                 s.update_bounds();
             },
             "(dim,) array: the upper bounds, default 5; inf for none. Setting it updates "
-            "`db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when a coordinate "
-            "is empty (lb_i > ub_i, lb_i = +inf, ub_i = -inf, NaN) or an integer variable has no "
-            "integer value in [lb, ub]. lb_i == ub_i, finite, fixes the variable.")
+            "`db`, `center`, `diameter`, `volume` and `has_bounds`. ValueError for NaN or -inf. "
+            "Its relation to `lb` (lb <= ub, an empty box, the integer variables) is checked "
+            "when the optimizer is created, so lb and ub may be set in either order. "
+            "lb_i == ub_i, finite, fixes the variable.")
         .def_rw("db", &Settings::db, "(dim,) array: the widths of the box, ub - lb.")
         .def_rw("center",
                 &Settings::center,

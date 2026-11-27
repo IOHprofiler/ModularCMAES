@@ -2,9 +2,15 @@
 
 namespace parameters
 {
+static const Settings &checked(const Settings &settings)
+{
+    settings.validate_box();
+    return settings;
+}
+
 Parameters::Parameters(const Settings &settings) :
     successful_adaptation(true),
-    lambda(settings.lambda0),
+    lambda(checked(settings).lambda0),
     mu(settings.mu0),
     settings(settings),
     stats{},

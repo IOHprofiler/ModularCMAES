@@ -143,13 +143,12 @@ struct Settings
                 "sigma0 must be positive and finite, got " + std::to_string(sigma0));
         require_length("lb", this->lb);
         require_length("ub", this->ub);
-        require_nonempty_box(this->lb, this->ub);
+        validate_box();
         if (this->x0)
         {
             require_length("x0", *this->x0);
             require(this->x0->allFinite(), "x0 must be finite");
         }
-        require_integer_values(this->lb, this->ub);
 
         if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
             lambda0++;
@@ -227,6 +226,33 @@ struct Settings
         require(static_cast<size_t>(v.size()) == dim,
                 std::string(name) + " must have length dim = " + std::to_string(dim) + ", got " +
                     std::to_string(v.size()));
+    }
+
+    //! The checks between fields: lb <= ub, no empty coordinate, the integer variables against
+    //! the box. Run by the constructor and when an optimizer is created from the Settings, since
+    //! the setters check only their own field (#133); std::invalid_argument otherwise.
+    void validate_box() const
+    {
+        require_nonempty_box(lb, ub);
+        require_integer_values(lb, ub);
+    }
+
+    //! The lb setter's own check: no NaN, no +inf (#133)
+    static void require_valid_lb(const Vector &lb)
+    {
+        for (Eigen::Index i = 0; i < lb.size(); ++i)
+            require(!std::isnan(lb(i)) && lb(i) < std::numeric_limits<Float>::infinity(),
+                    "lb[" + std::to_string(i) + "] = " + std::to_string(lb(i)) +
+                        " is not allowed: a lower bound is neither NaN nor +inf");
+    }
+
+    //! The ub setter's own check: no NaN, no -inf (#133)
+    static void require_valid_ub(const Vector &ub)
+    {
+        for (Eigen::Index i = 0; i < ub.size(); ++i)
+            require(!std::isnan(ub(i)) && ub(i) > -std::numeric_limits<Float>::infinity(),
+                    "ub[" + std::to_string(i) + "] = " + std::to_string(ub(i)) +
+                        " is not allowed: an upper bound is neither NaN nor -inf");
     }
 
     //! No coordinate of the box is empty (#133); std::invalid_argument otherwise. A coordinate with

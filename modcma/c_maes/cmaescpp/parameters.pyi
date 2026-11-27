@@ -819,7 +819,7 @@ class Settings:
     @property
     def lb(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        (dim,) array: the lower bounds, default -5; -inf for none. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when a coordinate is empty (lb_i > ub_i, lb_i = +inf, ub_i = -inf, NaN) or an integer variable has no integer value in [lb, ub]. lb_i == ub_i, finite, fixes the variable.
+        (dim,) array: the lower bounds, default -5; -inf for none. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`. ValueError for NaN or +inf. Its relation to `ub` (lb <= ub, an empty box, the integer variables) is checked when the optimizer is created, so lb and ub may be set in either order. lb_i == ub_i, finite, fixes the variable.
         """
 
     @lb.setter
@@ -828,7 +828,7 @@ class Settings:
     @property
     def ub(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        (dim,) array: the upper bounds, default 5; inf for none. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when a coordinate is empty (lb_i > ub_i, lb_i = +inf, ub_i = -inf, NaN) or an integer variable has no integer value in [lb, ub]. lb_i == ub_i, finite, fixes the variable.
+        (dim,) array: the upper bounds, default 5; inf for none. Setting it updates `db`, `center`, `diameter`, `volume` and `has_bounds`. ValueError for NaN or -inf. Its relation to `lb` (lb <= ub, an empty box, the integer variables) is checked when the optimizer is created, so lb and ub may be set in either order. lb_i == ub_i, finite, fixes the variable.
         """
 
     @ub.setter
