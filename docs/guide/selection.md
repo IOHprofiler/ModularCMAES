@@ -10,12 +10,13 @@ average. The modules of this page change which points are selected and how they 
   *all* λ steps (the worse half pulls it away from the worse points), and every matrix update uses
   all of them (it sets `active`). With `NATURAL_GRADIENT` and `ssa=XNES` it is xNES; with the
   CMA-ES updates it needs 20–35 % more evaluations than `DEFAULT` on the sphere, a rotated ellipsoid
-  and Rosenbrock (d = 10), and with CMSA fewer. Avoid it with elitism and outlier-prone sampling
-  ([compatibility](compatibility.md#combinations-to-avoid)).
+  and Rosenbrock (d = 10), and with CMSA (which uses only the positive utilities) 14–22 % fewer on
+  the rotated ellipsoid and Rosenbrock, 8 % more on the sphere. Avoid it with elitism and
+  outlier-prone sampling ([compatibility](compatibility.md#combinations-to-avoid)).
 * `active=True`: the active covariance update (Jastrebski & Arnold 2006): the worst points get
   negative weights in the update of C, which shrinks the variance in unpromising directions. It
   often speeds up the adaptation (pycma uses it by default); not used with
-  `matrix_adaptation=NONE`.
+  `matrix_adaptation=NONE` or `CMSA`, which has no active variant.
 * `elitist=True`: (µ + λ) selection, the parents compete with the offspring, so the best point is
   never lost. Faster on unimodal problems, but more easily trapped in a local optimum.
 * `sequential_selection=True`: evaluate the points one by one and end the generation at the first

@@ -79,6 +79,12 @@ parameters::Modules make_modules(std::string name)
         m.active = true;
     else if (name == "elitist")
         m.elitist = true;
+    else if (name == "matrix-elitist")
+    {
+        // MA-ES with elitism keeps the inverse of M up to date every generation (#74)
+        m.matrix_adaptation = parameters::MatrixAdaptationType::MATRIX;
+        m.elitist = true;
+    }
     else if (name == "mirrored-orthogonal")
     {
         m.mirrored = parameters::Mirror::MIRRORED;

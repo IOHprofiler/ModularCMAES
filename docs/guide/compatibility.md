@@ -23,14 +23,17 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | `ssa` other than `CSA` with `matrix_adaptation=COVARIANCE`, also with `lambda0=1` (which runs `SR`) | `COVARIANCE_NO_EIGV` (unless `always_compute_eigv=True`): the same covariance update, sampled through a Cholesky factor |
 | `ssa=SA` or `matrix_adaptation=CMSA` | µ defaults to λ/4 (an explicit `mu0` wins), also for the new λ of an IPOP or BIPOP restart |
 | `matrix_adaptation=NONE` | `active` off |
+| `matrix_adaptation=CMSA` | `active` off: CMSA has no active variant, and its update with negative weights made C indefinite (#73); with `weights=UTILITY` CMSA uses the positive utilities |
 | `mirrored=PAIRWISE` and an odd λ above 1 | λ + 1; the default µ is half the new λ (a given `mu0` is kept) |
 | `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART`; `mirrored=PAIRWISE` becomes `NONE` (it has no pairs to select from; `MIRRORED` stays, without effect) |
 | `ssa=SA` or `LPXNES` | sampled step sizes (`sample_sigma`) are always on |
 | `weights=UTILITY` | `active` on (the utilities of the worse half are negative; every matrix update uses all of them) |
 | `matrix_adaptation=NATURAL_GRADIENT` with `active` and the default weights | `weights=UTILITY`: xNES's active form (CMA-ES's negative weights broke it) |
 | `mirrored=PAIRWISE` with `sequential_selection` | the generation stops only after complete pairs, at 2µ points at the earliest |
-| `matrix_adaptation=NATURAL_GRADIENT` | the learning rate `cs` of the step-size rule is xNES's (*known issue*: for every step-size rule, not only `XNES` [F3]) |
-| `matrix_adaptation=SEPARABLE` | `cmu` × (d + 2)/3 (Ros & Hansen 2008) |
+| `matrix_adaptation=NATURAL_GRADIENT` | `cc`, the learning rate of A, is xNES's η_B/2; with `ssa=XNES` also `cs` is xNES's η_σ. The other step-size rules keep their own `cs` (#72) |
+| `ssa=LPXNES` | `cs` = min(1, 9µ_eff/(10√d)): Krause et al.'s rate, capped at 1 by modcma (above 1 the update overshoots; 1.29 at d = 2) (#72) |
+| a `cs` above 1 (`XNES` with a large λ: 13.8 at d = 2, λ = 100) | the path p_σ (h_σ, MATRIX's rank-one update) has the rate 1, the current step (`Weights.cs_path`); with `cs` above 2 it became NaN (#72) |
+| `matrix_adaptation=SEPARABLE` | `c1` and `cmu` are pycma's separable rates (`CMA_diagonal`), `cmu` at most 1 − `c1`; `acov` is not used (#73) |
 | a coordinate with one infinite bound | `MIRROR`, `TOROIDAL`, `COTN` and `UNIFORM_RESAMPLE` set a value that crosses its finite bound to that bound, as `SATURATE` (they need the width ub − lb); the coordinates with two finite bounds use the method ([infinite bounds](bound-correction.md#infinite-bounds)) |
 | `UNIFORM`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` with an infinite bound | in that coordinate, the centers are uniform in x0 ± 2σ0, shifted inside a finite bound ([restarts](restarts.md#where-a-restart-begins)) |
 | `C0` with `matrix_adaptation=SEPARABLE` | only the diagonal of `C0` is used (for the `C0` of `warm_start`, the diagonal covariance of the paper's WS-sep-CMA-ES) |
@@ -40,7 +43,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 
 | option | no effect when |
 |---|---|
-| `active` | `matrix_adaptation=NONE`; λ = 1; µ = λ (no negative weights) |
+| `active` | `matrix_adaptation=NONE` or `CMSA` (switched off); λ = 1; µ = λ (no negative weights); `mirrored=PAIRWISE` with the default weights (the negative weights fall on losers, see below) |
 | `repelling_type`, `repelling_metric` | there are no restarts: `restart_strategy=STOP`, and `NONE` unless `UnableToAdapt` fires; `repelling_metric` also without `repelling_type`, and `CURRENT`/`ARCHIVED` equal `EUCLIDEAN` with `matrix_adaptation=NONE` |
 | `center_placement` | without restarts (as for repelling): it only places restarts, the first run starts at `x0` (or the center of the bounds). `X0` and `CENTER` coincide without `x0`, `ZERO` and `CENTER` for a symmetric box |
 | `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` | without repelling restarts (empty archive): they are `UNIFORM` |
@@ -53,7 +56,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | all restart criteria but `UnableToAdapt` | with `restart_strategy=NONE` |
 | `bound_correction` | in the coordinates with two infinite bounds |
 | `threshold_convergence` | late in a run: its threshold decays to 0 with the budget |
-| learning rates | `cs` with `ssa=SA`; `damps` except with `CSA` and `SR`; `c1`, `cmu` with `CMSA` and `NATURAL_GRADIENT` (which uses `cc`); `cc` with `MATRIX`, `CMSA`, `NONE` |
+| learning rates | `cs` with `ssa` `SR` or `SA` and a matrix adaptation that does not read the path p_σ (`NONE`, `CHOLESKY`, `CMSA`, `NATURAL_GRADIENT`); `damps` except with `CSA`, `MSR`, `PSR` and `SR`; `c1`, `cmu` with `CMSA`, and with `NATURAL_GRADIENT` (which uses `cc`) without `active`; `cc` with `MATRIX`, `CMSA`, `NONE` |
 
 These equivalences mean that the number of combinations overstates the number of distinct
 algorithms.
@@ -69,9 +72,17 @@ algorithms.
   population, which differed also with integer variables; #71.)
 * **Pairwise selection.** Only the better point of each mirrored pair is ranked; the losers follow
   the ranked points, with their real values (`Population.n_ranked`). The losers get no negative
-  weights in the active update (as pycma: mirrored points never get negative weights), so with the
-  default µ = λ/2 the active update has no effect with pairwise selection. `MSR` and `PSR` compare
-  the ranked points only; the statistics and the restart criteria read every value.
+  weights in the active update (as pycma: mirrored points never get negative weights). The default
+  weights give negative weights only to the worst µ ranks (or the worst λ − µ, for µ > λ/2), all
+  beyond the λ/2 winners, so the active update has no effect with pairwise selection, whatever µ;
+  with `EQUAL` or `EXPONENTIAL` weights and µ < λ/2 the winners from rank µ + 1 on get negative
+  weights. `MSR` and `PSR` compare the ranked points only; the statistics and the restart criteria
+  read every value.
+* **µ other than λ/2 with the default weights** (`mu0`, or IPOP's ratio of an odd λ₀): the weights
+  of a population of 2µ, as pycma with `CMA_mu` (#73): w′ᵢ = ln(µ + ½) − ln i, positive for the µ
+  best; the µ negative ones go to the worst ranks, with weight 0 for the ranks in between when
+  λ > 2µ, and only the last λ − µ of them when λ < 2µ. A generation that sequential selection stops
+  before the first negative rank has no negative weights.
 * **`weights=UTILITY`** recombines the mean from all λ points: the worse points move the mean too
   (away from themselves), so outliers matter, unlike with the other weights, where only the µ best
   do. The evolution paths are normalized with the utilities' selection mass (`mueff_mean`).
@@ -140,14 +151,11 @@ noted; with the current version. Most are recorded for fixing.
 |---|---|
 | `sample_transformation=NONE` | the raw base sampler, for testing: uniform samples with mean 0.5, which fail everywhere |
 | `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `MSR`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | σ diverges or collapses: the step-size rules assume finite variance |
-| `active` with `CMSA` | C becomes indefinite: restarts every few generations [F6] |
 | `ssa=SA` with the default λ on ill-conditioned functions, d = 20 | σ shrinks before the matrix adapts: BBOB f2 and f8 (d = 20) reach 1e-8 in 0 of 25 runs each within 3000·d evaluations (`CSA`: 25 and 22); λ = 40 or 80 did not help within 60,000 evaluations (4 runs each). The step sizes per coordinate before #71 hid this on separable functions (25 of 25 on f2), at the cost of rotation invariance (0 of 25 on f10 and f12) |
-| `ssa=LPXNES` for d ≤ 5 | its learning rate cs = 9µ_eff/(10√d) (Krause et al. 2017) is above 1 (1.05 at d = 5, 1.29 at d = 2): the update overshoots the selected step sizes; f2 (d = 5) reaches 1e-8 in 11 of 25 runs |
-| `MATRIX` with `elitist` | the inverse of M drifts, the elites' steps are wrong [F18] |
-| `mu0` above λ/2 with the active update | some "negative" weights are positive [F8] |
 | `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |
-| `active` + `elitist` with a step-size rule other than `CSA` | poor convergence; with `CHOLESKY` or `SEPARABLE` and `XNES`/`MXNES`, σ diverges |
-| `ssa=XNES` without `NATURAL_GRADIENT`, or with `matrix_adaptation=NONE` | slow (a small default learning rate) [F27] |
+| `active` + `elitist` | poor convergence. With a step-size rule other than `CSA` already on the sphere: with `COVARIANCE`, `CHOLESKY`, `SEPARABLE` and `MATRIX`, `TPA` solves 0–1 of 5 runs, `XNES` 2–5, `LPXNES` 2–5, `MSR` 3–4 (`CSA`, `PSR` and `MXNES` 5). With `CSA` on ill-conditioned rotated functions: BBOB f10 and f12 (d = 10, 3000 d evaluations), `COVARIANCE` solves 0 of 25 runs (25 without `active`), `MATRIX` 23 and 0 |
+| `ssa=XNES` with `MATRIX` or `CHOLESKY`, or with `elitist` | the run stalls with an ill-conditioned matrix (cond(M) > 1e12; #160): XNES keeps σ too small, the path that the rank-one term reads (p_σ for `MATRIX`, p_c for `CHOLESKY`) grows long and stretches the matrix. Runs solved of 20 at d = 5 / 10 / 20: `MATRIX` 14 / 13 / 20 on the sphere and 0 / 0 / 0 on the ellipsoid; `CHOLESKY` 20 on the sphere and 3 / 0 / 0 on the ellipsoid. Before #72 (cs = 0.01) `MATRIX` solved the sphere but also 0 / 0 / 0 on the ellipsoid, by another route; `CHOLESKY` solved both. `MATRIX` with `SA` fails the same way (ellipsoid, d = 10: 0 of 20). With `elitist`, XNES solves at most 3 of 20 runs on the ellipsoid at d ≥ 10 with every matrix adaptation tested (`COVARIANCE`, `NATURAL_GRADIENT`, `CHOLESKY`, `MATRIX`) |
+| `matrix_adaptation=NATURAL_GRADIENT` with `ssa=LPXNES` at small d | LPXNES keeps its own rate (cs = 1 at d = 5; before #72 NATURAL_GRADIENT gave it xNES's 0.25): BBOB at d = 5 (7 functions, 25 runs each) solves 66 of 175 runs, 118 on master 20bdf27; at d = 20 79 of 175, 0 on master |
 | `weights=UTILITY` with `elitist` | the mean drifts away: the utilities contrast the better and worse halves around the population's center, which with elitism is not the distribution's |
 | `weights=UTILITY` with `bound_correction=TOROIDAL` or `sample_transformation=CAUCHY` | far points (wrapped around, heavy tails) pull the mean through their negative utilities |
 | `lambda0=2` | allowed for experiments, but many modules fail. On a rotated ellipsoid (d = 5, 5 seeds), 0 of 5 runs converge with `elitist`, `MATRIX`, `CMSA`, `MSR`, `PSR`, `SR`, `MXNES`, and with `restart_strategy` `RESTART` or `STOP`, whose criteria end the runs early. The default configuration needs about 6× the evaluations of λ = 4 |

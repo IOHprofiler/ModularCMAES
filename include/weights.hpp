@@ -9,6 +9,11 @@ struct Weights
     Vector weights;
     Vector positive;
     Vector negative;
+    //! The unscaled negative weights that the scaling of `negative` and mueff_neg are computed
+    //! from: `negative` before the scaling, except with DEFAULT weights and lambda < 2 mu: the mu
+    //! negative weights of a population of 2 mu, of which negative has the last lambda - mu (as
+    //! pycma, #73)
+    Vector negative_reference;
     Float mueff, mueff_neg;
     //! The variance effective selection mass of the weights the mean is recombined with,
     //! 1 / sum(w_i^2): mueff, except for UTILITY, where the mean uses all lambda utilities
@@ -19,6 +24,9 @@ struct Weights
     //! Mirror::PAIRWISE: the losers of the mirrored pairs get no negative weights
     bool pairwise = false;
     Float c1, cmu, cc, cs;
+    //! The learning rate of the path p_sigma: min(cs, 1). LPXNES's cs exceeds 1 for large mueff,
+    //! and as the rate of the path made it NaN (#72)
+    Float cs_path;
     Float damps, acov;
     Float sqrt_cc_mueff, sqrt_cs_mueff;
     Float lazy_update_interval;
@@ -45,8 +53,6 @@ struct Weights
     //! The weights the mean is recombined with for n evaluated points: the mu positive weights, or
     //! with UTILITY the utilities of all n points
     void mean_weights_into(const size_t n, Vector &out) const;
-
-    Vector clipped() const;
 
     /**
      * @brief The weights for a population of n evaluated individuals, mu < n <= lambda (when

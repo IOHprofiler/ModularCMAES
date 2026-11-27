@@ -1160,10 +1160,11 @@ void define_matrix_adaptation(nb::module_ &main)
         "SeparableAdaptation",
         "Separable CMA-ES: a diagonal covariance matrix (`MatrixAdaptationType.SEPARABLE`).\n\n"
         "Only the d variances are learned, with the rank-one and rank-mu updates of CMA-ES "
-        "applied per coordinate (the default cmu multiplied by (d + 2) / 3); samples are "
-        "y = d * z. "
-        "O(d lambda) per generation: for separable functions, and for high dimension, where a "
-        "full matrix is slow to learn. Ros & Hansen (2008).");
+        "applied per coordinate, with pycma's separable learning rates (c1_sep, cmu_sep: see "
+        "`Weights.c1`, `Weights.cmu`); samples are y = d * z. With `Modules.active` the "
+        "negative weights are multiplied by d / sum_j (y_ij / d_j)^2, the Mahalanobis length in "
+        "the diagonal C, as in pycma. O(d lambda) per generation: for separable functions, and "
+        "for high dimension, where a full matrix is slow to learn. Ros & Hansen (2008).");
     adaptation_init(separable);
     separable
         .def_rw("c",
@@ -1193,9 +1194,14 @@ void define_matrix_adaptation(nb::module_ &main)
         "MatrixAdaptation",
         "MA-ES, the matrix adaptation evolution strategy (`MatrixAdaptationType.MATRIX`).\n\n"
         "Learns the sampling matrix M directly, y = M z, without a covariance matrix, an "
-        "evolution path pc or a decomposition: M = (1 - c1/2 - cmu/2) M + (c1/2) (M ps) ps^T + "
-        "(cmu/2) sum_i w_i y_i z_i^T. O(d^2 lambda) per generation (BLAS from d = "
-        "`constants.blas_min_dim`), so it suits high dimension. Beyer & Sendhoff (2017).");
+        "evolution path pc or a decomposition: M = (1 - c1/2 - cmu/2 sum(w)) M + (c1/2) (M ps) "
+        "ps^T + (cmu/2) sum_i w_i y_i z_i^T, with sum(w) = 1 for the positive weights. O(d^2 "
+        "lambda) per generation (BLAS from d = `constants.blas_min_dim`), so it suits high "
+        "dimension. Beyer & Sendhoff (2017).\n\n"
+        "MA-ES has no active update. With `Modules.active` this is the active update of the "
+        "CMA-ES (Hansen 2016, Eq. (47)) written for M, as MA-ES derives its own update: sum(w) "
+        "includes the negative weights, and the negative weights are multiplied by d / "
+        "||z_i||^2.");
     adaptation_init(matrix);
     matrix
         .def_rw("M",
@@ -1203,9 +1209,42 @@ void define_matrix_adaptation(nb::module_ &main)
                 "The sampling matrix, y = M z, shape (d, d) (the identity at the start).")
         .def_rw("M_inv",
                 &MatrixAdaptation::M_inv,
-                "The inverse of M, shape (d, d). Updated with M under elitism (lambda > 1); "
-                "otherwise recomputed only when `invert_y` needs it (an LU inverse from d = "
-                "`constants.blas_min_dim`, else the pseudo-inverse), so it can lag behind M.")
+                "The inverse of M, shape (d, d).\n\n"
+                "With elitism (lambda > 1) it is updated with M every generation: M <- M F with "
+                "F = a I + U D U^T (U = [ps, the selected z], D = diag(c1/2, cmu/2 w)), so M_inv "
+                "<- F^-1 M_inv by the Woodbury identity, O(k d^2); up to d = "
+                "`inverse_recompute_max_dim` (30) it is computed exactly from M after every "
+                "`inverse_recompute_interval` (400) generations of a run, which bounds the "
+                "rounding error that the update accumulates with the active update at small d "
+                "(the maintainer's choice, #74). When the "
+                "update cannot be applied (`inverse_fallbacks`), and without elitism, it is "
+                "computed only when `invert_y` needs it (injected and repaired points; an LU "
+                "inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can "
+                "lag behind M. Before 2.0 the update with elitism was not the inverse of M F, and "
+                "drifted from the inverse of M.")
+        .def_ro("inverse_fallbacks",
+                &MatrixAdaptation::inverse_fallbacks,
+                nb::name("inverse_fallbacks"),
+                "The generations with elitism in which the Woodbury update of `M_inv` could not "
+                "be applied, since the adaptation was created (read-only): the decay a = 1 - c1/2 "
+                "- cmu/2 sum(w) was not positive, or the k x k system was singular or badly "
+                "conditioned (the ratio of its smallest to its largest pivot below 1e-8). M_inv "
+                "is then computed when `invert_y` needs it, and the update continues from it.")
+        .def_ro_static("inverse_recompute_interval",
+                       &MatrixAdaptation::inverse_recompute_interval,
+                       "With elitism and d <= `inverse_recompute_max_dim`, M_inv is computed "
+                       "exactly from M after every this many generations of a run, and updated by "
+                       "the Woodbury identity in between (400, the maintainer's choice on #74). "
+                       "Without it, the largest entry of M M_inv - I over 5000 generations reached "
+                       "2.4 to 26 with the active update at d = 10 and 1e-8 at d = 20; with it, at "
+                       "most 1.4e-9 at d = 10.")
+        .def_ro_static("inverse_recompute_max_dim",
+                       &MatrixAdaptation::inverse_recompute_max_dim,
+                       "The largest dimension with the exact recomputation of M_inv every "
+                       "`inverse_recompute_interval` generations (30, the maintainer's choice on "
+                       "#74): the smallest d at which the drift without it stayed below 1e-10 "
+                       "over 5000 generations in every run measured (at most 4.3e-11 at d = 30, "
+                       "below 1e-12 from d = 40 on, with the active update).")
         .def(
             "__repr__",
             [](MatrixAdaptation &a) {
@@ -1223,7 +1262,11 @@ void define_matrix_adaptation(nb::module_ &main)
         "(`MatrixAdaptationType.CHOLESKY`).\n\n"
         "The rank-one (pc) and rank-mu updates of C = A A^T are applied to A as rank-one "
         "Cholesky updates, one per selected individual, so there is no decomposition: "
-        "O(d^2 lambda) per generation and O(d^2) memory. Krause et al. (2016).");
+        "O(d^2 lambda) per generation and O(d^2) memory. Krause et al. (2016).\n\n"
+        "With `Modules.active` the negative weights, multiplied by d / ||A^-1 y_i||^2 as in "
+        "COVARIANCE, are rank-one downdates, and A is scaled by sqrt(1 - c1 - cmu sum(w)) with "
+        "the negative weights in the sum. A downdate whose result would not be positive "
+        "definite is skipped (`skipped_downdates`).");
     adaptation_init(cholesky);
     cholesky
         .def_rw("A",
@@ -1232,7 +1275,16 @@ void define_matrix_adaptation(nb::module_ &main)
                 "at the start).")
         .def_rw("pc",
                 &CholeskyAdaptation::pc,
-                "The evolution path of the rank-one update, shape (d,) (zeros at the start).");
+                "The evolution path of the rank-one update, shape (d,) (zeros at the start).")
+        .def_ro("skipped_downdates",
+                &CholeskyAdaptation::skipped_downdates,
+                nb::name("skipped_downdates"),
+                "The rank-one downdates of the active update that were skipped, since the "
+                "adaptation was created (read-only; restarts do not reset it).\n\n"
+                "A downdate is skipped when its result would not be positive definite: the "
+                "factor from before the downdates of the generation is restored and they are "
+                "applied again without it. The rescaled negative weights prevent this in exact "
+                "arithmetic; UTILITY's weights do not.");
 
     auto self = nb::class_<SelfAdaptation, Adaptation>(
         m,
@@ -1275,7 +1327,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "The sampling matrix is updated multiplicatively, A = A expm(cc G), with the natural "
         "gradient G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace part, `sigma_g`, "
         "goes to the step size with `StepSizeAdaptation.XNES`) and cc = "
-        "`es.p.weights.cc`. For lambda < d and d >= 16 the matrix exponential is computed "
+        "`es.p.weights.cc`, xNES's eta_B / 2 by default. For lambda < d and d >= 16 the matrix "
+        "exponential is computed "
         "exactly from a thin QR of the samples, O(d^2 lambda); otherwise as a dense d x d "
         "exponential. Glasmachers et al. (2010).")
         .def(nb::init<size_t, Vector>(),
@@ -1719,7 +1772,7 @@ void define_mutation(nb::module_ &main)
         "step-size adaptations LPXNES and SA). One step size per individual, as in CMSA-ES "
         "(Beyer & Sendhoff 2008) and lp-xNES (Krause, Glasmachers & Igel 2017, Sec. 4.4).\n\n"
         "beta = `es.p.weights.beta`: 1 / sqrt(2 d) with SA (CMSA's tau; Spettel, Beyer & "
-        "Hellwig 2018, Table I), ln 2 / (sqrt(d) ln d) with LPXNES (Krause et al. 2017, "
+        "Hellwig 2018, Table I), ln 2 / (sqrt(d) ln(max(d, 2))) with LPXNES (Krause et al. 2017, "
         "Table 3), 1 / sqrt(2 mueff) otherwise. The step sizes are the columns of "
         "`es.p.pop.S`; the lower bound of an integer variable can raise single coordinates.")
         .def(nb::init<Float>(),
@@ -1892,9 +1945,11 @@ void define_mutation(nb::module_ &main)
         "XNES",
         "The step-size update of xNES (`StepSizeAdaptation.XNES`).\n\n"
         "With NATURAL_GRADIENT: sigma *= exp(cs / 2 * sigma_g), sigma_g the trace part of the "
-        "natural gradient (`NaturalGradientAdaptation.sigma_g`). With the other matrix "
-        "adaptations: sigma *= exp(cs / sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the "
-        "positive weights. Glasmachers et al. (2010).");
+        "natural gradient (`NaturalGradientAdaptation.sigma_g`), cs = xNES's eta_sigma = (9 + "
+        "3 ln(d)) / (5 d sqrt(d)) (Glasmachers et al. 2010). With the other matrix "
+        "adaptations, the xNES SA of Krause, Glasmachers & Igel (2017): sigma *= exp(cs / "
+        "sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the positive weights (`Weights.positive`, "
+        "summing to 1), cs = mueff / (2 ln(max(2, d)) sqrt(d)).");
     strategy_init(ssa_xnes);
     auto ssa_mxnes = nb::class_<MXNES, Strategy>(
         m,
@@ -1913,10 +1968,14 @@ void define_mutation(nb::module_ &main)
         "A variant of the xNES step-size update on sampled step sizes "
         "(`StepSizeAdaptation.LPXNES`).\n\n"
         "Every individual samples its own step size sigma_i (a `SigmaSampler` is always "
-        "used, with beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i ln(sigma_i / "
-        "sigma)) over the positive weights (ln sigma_i: the mean of the logarithms of the "
-        "column of `pop.S`), which moves sigma towards the step sizes of the better "
-        "individuals. lp-xNES of Krause, Glasmachers & Igel (2017), Sec. 4.4, "
+        "used, with beta = ln 2 / (sqrt(d) ln(max(d, 2)))); sigma *= exp(cs sum_i w_i "
+        "ln(sigma_i / sigma)) over the positive weights (`Weights.positive`, summing to 1; "
+        "ln sigma_i: the mean of the logarithms of the column of `pop.S`), which moves "
+        "sigma towards the step sizes of the better individuals; cs = min(1, 9 mueff / (10 "
+        "sqrt(d))). The rate is that of Krause et al.; the cap is modcma's: above 1 the "
+        "update overshoots the weighted geometric mean of the step sizes (1.29 at d = 2, "
+        "1.05 at d = 5 with the default lambda). lp-xNES of Krause, Glasmachers & Igel "
+        "(2017), Sec. 4.4, "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
     strategy_init(ssa_lpxnes);

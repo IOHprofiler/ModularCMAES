@@ -2,37 +2,50 @@
 
 ## Recombination weights
 
-* `DEFAULT`: wᵢ ∝ ln((λ + 1)/⌊λ/µ⌋) − ln i, which for µ = λ/2 are the weights of Hansen (2016) and
-  pycma. *Known issue* [F8]: for µ > λ/2 some of the "negative" weights come out positive.
+* `DEFAULT`: wᵢ ∝ ln((λ + 1)/2) − ln i for the default µ = ⌊λ/2⌋, the weights of Hansen (2016,
+  Eq. (49)) and pycma. For another µ (`mu0`, or IPOP's ratio with an odd λ₀) the weights of a
+  population of 2µ, ln(µ + ½) − ln i, as pycma with `CMA_mu` (#73): the µ negative ones go to the
+  worst ranks, with 0 for the ranks in between when λ > 2µ, and only the last λ − µ of them when
+  λ < 2µ (the scaling below is that of all µ). They agree with pycma 4.6.0's `RecombinationWeights`
+  to 2e-16 for (µ, λ) = (3, 10), (6, 10), (5, 10), (2, 20). Before, the weights came from
+  ln((λ + 1)/⌊λ/µ⌋) − ln i, and for µ > λ/2 some of the "negative" weights were positive.
 * `EQUAL`: 1/µ (intermediate recombination); the negative ones −1/µ.
 * `EXPONENTIAL`: wᵢ = 2⁻ⁱ + 1/(µ 2^µ), summing to 1 (the framework paper).
 * `UTILITY`: the utilities of NES/xNES (Wierstra et al. 2014; Glasmachers et al. 2010),
   uₖ = max(0, ln(λ/2 + 1) − ln k)/Σⱼ max(0, ln(λ/2 + 1) − ln j) − 1/λ, summing to zero; identical to
   `cmaes`' XNES. The mean moves by Σ uₖ(xₖ − m) over all λ points, the paths are normalized with
-  1/Σuₖ², every matrix update uses all of them, unscaled (`active` is set), and the modules that need
-  convex weights (SA, LPXNES) use their non-negative part. With sequential selection the utilities of
+  1/Σuₖ², every matrix update uses all of them (`active` is set), and the modules that need
+  convex weights (SA, CMSA, and XNES without `NATURAL_GRADIENT` and LPXNES) use their non-negative
+  part, normalized to sum 1. With sequential selection the utilities of
   the n evaluated points are used.
 
 The negative weights (active update) are scaled so that their absolute values sum to
-min(1 + c1/cµ, 1 + 2µ_eff⁻/(µ_eff + 2), (1 − c1 − cµ)/(d cµ)) (Hansen 2016). The mean is always
-recombined from the µ positive weights.
+min(1 + c1/cµ, 1 + 2µ_eff⁻/(µ_eff + 2), (1 − c1 − cµ)/(d cµ)) (Hansen 2016, Eq. (51)–(53)). The
+mean is recombined from the µ positive weights (from all λ utilities with `UTILITY`).
 
 ## The active update, per matrix adaptation
 
 | matrix adaptation | negative weights | rescaled by d/‖A⁻¹y‖² | decay accounts for them | in tests |
 |---|---|---|---|---|
 | `COVARIANCE`, `COVARIANCE_NO_EIGV` | yes | yes (Hansen 2016) | yes | faster (about 30 % on an ellipsoid) |
-| `SEPARABLE` | yes | no | yes | faster |
-| `MATRIX` | yes | no | no [F7] | faster |
-| `CHOLESKY` | as rank-one downdates | no | no [F7] | faster; failed downdates undetected [F5] |
-| `CMSA` | yes | no | no | breaks [F6] |
+| `SEPARABLE` | yes | yes, with the diagonal C (as pycma) | yes | faster (about 27 %) |
+| `MATRIX` | yes, in M (MA-ES has none: the CMA-ES update to first order) | yes, d/‖z‖² | yes | faster (about 23 %) |
+| `CHOLESKY` | as rank-one downdates; one that fails is skipped | yes | yes | faster (about 27 %) |
+| `CMSA` | switched off (no active variant; C became indefinite) | | | |
 | `NATURAL_GRADIENT` | all λ, the utilities (`active` selects `UTILITY`) | no (unscaled, as xNES) | (trace-free) | xNES |
 | `NONE` | switched off | | | |
+
+The rescaling and the decay of `SEPARABLE`, `MATRIX` and `CHOLESKY` are those of `COVARIANCE` since
+#73; "in tests" is the median number of evaluations to 1e-8 on the ellipsoid (d = 10, 10 runs),
+with active against without (COVARIANCE: 27 %). Before, the three ignored the rescaling (and
+`MATRIX` and `CHOLESKY` the negative weights in the decay), which was a few percent faster on this
+ellipsoid but does not keep C positive definite.
 
 With pairwise selection the losers of the mirrored pairs get no negative weights, as in pycma
 (which never gives injected or mirrored points negative weights): a loser's step is the winner's
 mirrored, so a negative update would cancel the winner's positive one on the same direction. With
-the default µ = λ/2 the active update then has no effect.
+the default weights every negative weight falls on a loser, whatever µ (#73), so the active update
+then has no effect.
 
 ## Elitism
 

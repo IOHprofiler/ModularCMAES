@@ -152,20 +152,18 @@ _EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
 #: * `cc`: read by the path pc of COVARIANCE, COVARIANCE_NO_EIGV (matrix_adaptation.cpp:155, 163),
 #:   SEPARABLE (386, 399), CHOLESKY (558) and the (1+1) path (144, 376, 553), and by the step
 #:   of NATURAL_GRADIENT (822). MATRIX (444-452) and CMSA (624-632) and NONE have no pc.
-#: * `cs`: updates the path ps in every adaptation (matrix_adaptation.cpp:107, 134) and is read
-#:   directly by TPA, MSR, PSR and the xNES rules (mutation.cpp:249, 282, 319, 333-363). ps is
-#:   used by CSA (mutation.cpp:217), by MATRIX (matrix_adaptation.cpp:482-485) and, through h_sigma,
-#:   by COVARIANCE and COVARIANCE_NO_EIGV (152-155) and SEPARABLE (383-386). The default of cc
-#:   uses it for NATURAL_GRADIENT (weights.cpp:78). SR (mutation.cpp:372) and SA never read it,
-#:   and neither do NONE, CHOLESKY (546-558) or CMSA (624-632) read ps: with both, cs is unread.
-#: * `c1`, `cmu`: read by COVARIANCE, COVARIANCE_NO_EIGV (matrix_adaptation.cpp:175, 200, 204;
-#:   `lazy_update_interval`, weights.cpp:197, used at 328), SEPARABLE (407, 412), MATRIX (474,
-#:   475) and CHOLESKY (576-594). They also scale the negative weights (weights.cpp:186-189), which
-#:   the update of every adaptation reads with `active` (for_population_into: 166, 402, 465, 592,
-#:   648, 771), so CMSA and NATURAL_GRADIENT read them only with `active`. NONE reads no
-#:   weights (it has no matrix update).
-#: * `active`: read by every adaptation but NONE (matrix_adaptation.cpp:165, 401, 464, 590, 647,
-#:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:205, 214).
+#: * `cs`: is read directly by TPA, MSR, PSR and the xNES rules (mutation.cpp, their `adapt`), and
+#:   is the rate of the path ps, at most 1 (`Weights.cs_path`, Adaptation::adapt_ps), for every
+#:   step-size rule. ps is used by CSA (CSA::adapt), by MATRIX (its rank-one update) and, through
+#:   h_sigma, by COVARIANCE, COVARIANCE_NO_EIGV and SEPARABLE. SR and SA
+#:   never read cs, and neither do NONE, CHOLESKY, CMSA or NATURAL_GRADIENT read ps: with both, cs
+#:   is unread. (Before #72 the default cc of NATURAL_GRADIENT was cs / 2.)
+#: * `c1`, `cmu`: read by COVARIANCE, COVARIANCE_NO_EIGV (also through `lazy_update_interval`),
+#:   SEPARABLE, MATRIX and CHOLESKY. They also scale the negative weights (Weights::init_weights),
+#:   which the update of every adaptation reads with `active` (for_population_into), so
+#:   NATURAL_GRADIENT reads them only with `active`. NONE and CMSA read no negative weights.
+#: * `active`: read by every adaptation but NONE and CMSA; Settings switches it off for NONE and
+#:   CMSA (#73) and for lambda0 = 1 (the Settings constructor).
 #: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:211).
 #: * `elitist`, `sequential_selection`, `weights`, `ssa`: Settings overrides them for lambda0 = 1,
 #:   a (1+1)-ES (settings.hpp:209-222). Settings turns COVARIANCE into COVARIANCE_NO_EIGV after
@@ -184,7 +182,10 @@ _EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
 _INACTIVE_FOR = {
     "damps": {"ssa": ("TPA", "XNES", "MXNES", "LPXNES", "SA")},
     "cc": {"matrix_adaptation": ("NONE", "MATRIX", "CMSA")},
-    "cs": {"ssa": ("SR", "SA"), "matrix_adaptation": ("NONE", "CHOLESKY", "CMSA")},
+    "cs": {
+        "ssa": ("SR", "SA"),
+        "matrix_adaptation": ("NONE", "CHOLESKY", "CMSA", "NATURAL_GRADIENT"),
+    },
     "center_placement": {"restart_strategy": ("STOP",)},
     "repelling_type": {"restart_strategy": ("STOP",)},
     "repelling_metric": {"repelling_type": ("NONE",)},
@@ -192,7 +193,9 @@ _INACTIVE_FOR = {
 #: Modules that Settings overrides for lambda0 = 1
 _ONE_PLUS_ONE_OVERRIDDEN = ("elitist", "sequential_selection", "weights", "ssa")
 #: `c1` and `cmu` also when `active` with these matrix adaptations (see above)
-_ACTIVE_ONLY_MATRIX = ("CMSA", "NATURAL_GRADIENT")
+_ACTIVE_ONLY_MATRIX = ("NATURAL_GRADIENT",)
+#: Settings switches `active` off with these matrix adaptations (#73 for CMSA)
+_NO_ACTIVE_MATRIX = ("NONE", "CMSA")
 _NO_MATRIX_UPDATE_OF_C = ("NONE", "CMSA", "NATURAL_GRADIENT")
 
 
@@ -211,9 +214,9 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
     present = set(cspace.keys())
     ssa, matrix = cspace["ssa"], cspace["matrix_adaptation"]
 
-    # active: needs a matrix, and a population (lambda0 = 1 switches it off)
+    # active: needs a matrix other than CMSA, and a population (lambda0 = 1 switches it off)
     active: list[Any] = [
-        _in_condition(cspace["active"], matrix, options["matrix_adaptation"], ("NONE",))
+        _in_condition(cspace["active"], matrix, options["matrix_adaptation"], _NO_ACTIVE_MATRIX)
     ]
     if "lambda0" in present:
         active.append(GreaterThanCondition(cspace["active"], cspace["lambda0"], 1))

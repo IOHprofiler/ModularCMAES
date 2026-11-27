@@ -191,15 +191,21 @@ class TestSequentialSelectionPopulation(unittest.TestCase):
     def test_weights_for_population(self):
         modules = c_maes.Modules()
         modules.active = True
-        w = c_maes.Parameters(c_maes.Settings(5, modules, lambda0=12, mu0=3, verbose=False)).weights
+        w = c_maes.Parameters(c_maes.Settings(5, modules, lambda0=12, verbose=False)).weights
         full = np.array(w.weights)
         np.testing.assert_array_equal(w.for_population(12), full)
-        for n in (4, 7, 11):
+        for n in (7, 9, 11):
             part = np.array(w.for_population(n))
             self.assertEqual(len(part), n)
-            np.testing.assert_array_equal(part[:3], full[:3])
-            self.assertAlmostEqual(part[3:].sum(), full[3:].sum(), places=12)
-            np.testing.assert_allclose(part[3:] / full[3:n], part[3] / full[3])
+            np.testing.assert_array_equal(part[:6], full[:6])
+            self.assertAlmostEqual(part[6:].sum(), full[6:].sum(), places=12)
+            np.testing.assert_allclose(part[6:] / full[6:n], part[6] / full[6])
+        # mu = 3 < lambda / 2: the negative weights of 2 mu on the worst ranks, zeros between
+        # (as pycma, #73). A generation that stops before them has no negative weights
+        w = c_maes.Parameters(c_maes.Settings(5, modules, lambda0=12, mu0=3, verbose=False)).weights
+        np.testing.assert_array_equal(w.for_population(7)[3:], 0.0)
+        part, full = np.array(w.for_population(11)), np.array(w.weights)
+        self.assertAlmostEqual(part[3:].sum(), full[3:].sum(), places=12)
 
     def test_active_update_uses_renormalised_weights(self):
         for g, n, cma, _ in self.run_until_stop(active=True):

@@ -109,11 +109,15 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   generations a restart strategy allows a run; `restart.MaxSigma.start`; `restart.BIPOP.used_small`,
   `used_large` and `large_run` (#80). `restart.MaxDSigma.sigma_start` and
   `restart.MinDSigma.sigma_start`, the step size at the start of the run (#139).
+* `Weights.cs_path`, the learning rate of the path p_σ (#72);
+  `CholeskyAdaptation.skipped_downdates`, the downdates of the active update that were skipped;
+  `MatrixAdaptation.inverse_fallbacks`, `inverse_recompute_interval` and
+  `inverse_recompute_max_dim`, of the update of M⁻¹ with elitism (#74).
 
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
 * `tools/count_variants.py` counts the distinct variants from the code, and the guide documents
-  the counts (Modules, "How many variants"): 21,430,080 for the 14 modules of the framework paper with today's options (3,061,440 for the 13
-  algorithmic modules, without bound correction), 686,685,216 for all 17 fields of `Modules`. The
+  the counts (Modules, "How many variants"): 19,797,120 for the 14 modules of the framework paper with today's options (2,828,160 for the 13
+  algorithmic modules, without bound correction), 632,156,448 for all 17 fields of `Modules`. The
   paper counted 14,859,936 (#130).
 
 ### Deprecated
@@ -171,6 +175,32 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   configuration with CSA changes; on BBOB (d = 2, 5, 20) the median number of evaluations changes
   by +1 % (geometric mean), threshold convergence needs 9–52 % fewer evaluations on the unimodal
   functions at d = 2 and 5, and the other step-size rules are unchanged.
+* **The learning rates of the xNES step-size rules and of `NATURAL_GRADIENT`** (#72). `XNES`
+  without `NATURAL_GRADIENT` has the rate of Krause, Glasmachers & Igel (2017), Table 3,
+  cs = µ_eff/(2 ln d √d), instead of 0.01: on the sphere (d = 10) it needs 750–1070 evaluations
+  instead of 3650–9950. `NATURAL_GRADIENT` gives xNES's η_σ only to `XNES`; the other step-size
+  rules keep their own cs (and CSA its damps), and `cc`, the rate of A, is xNES's η_B/2 with every
+  rule (it was cs/2). `XNES` and `LPXNES` weight the µ best with `Weights.positive`, which sums to
+  1, as in Krause et al.; with `UTILITY` they used the positive utilities, which sum to less. The
+  rate of the path p_σ is cs, at most 1 (`Weights.cs_path`).
+* **The active update of `SEPARABLE`, `MATRIX` and `CHOLESKY`** is that of `COVARIANCE` (#73; Hansen
+  2016, Eq. (46), (47); pycma): the negative weights are rescaled by d/‖A⁻¹y‖², and the decay of
+  `MATRIX` and `CHOLESKY` includes them. For `MATRIX` (MA-ES has no active update) this is the
+  active CMA-ES update written in M. `CMSA` has no active variant: `Settings` switches `active` off
+  (with negative weights C became indefinite), and `get_configspace` has no `active`, `c1` and `cmu`
+  for it.
+* **The default weights for µ ≠ λ/2** (`mu0`, IPOP with an odd λ₀, and the default µ = λ/4 of SA
+  and CMSA) are those of a population of 2µ, as pycma with `CMA_mu` (#73): ln(µ + ½) − ln i for the
+  µ best, and the µ negative weights on the worst ranks (0 between them when λ > 2µ; the last λ − µ
+  of them when λ < 2µ). They were ln((λ + 1)/⌊λ/µ⌋) − ln i for all ranks. With pairwise selection
+  every negative weight now falls on a loser, so the active update has no effect there.
+* **`SEPARABLE`'s learning rates** are pycma's separable rates (`CMA_diagonal`, pycma 4.6.0): c1 =
+  1/(d + 2√d + µ_eff/d), cµ = min(1 − c1, (0.25 + µ_eff + 1/µ_eff − 2)/(d + 4√d + µ_eff/2)), the
+  cap last (#73). They were the full update's c1 and its cµ × (d + 2)/3, attributed to Ros & Hansen
+  (2008) but not checked against the paper. c1 is 4× to 40× larger at d = 10 to 100; `acov` no
+  longer affects `SEPARABLE`.
+* `get_configspace`: `cs` is inactive with `NATURAL_GRADIENT` for `ssa` `SR` and `SA` (its default
+  `cc` no longer reads `cs`, #72).
 * **The end of a run** (#111): every run ends with an evaluation of its center of mass, also when
   the optimizer stops (it was evaluated only at a restart). The budget always keeps that
   evaluation: a generation runs only when it leaves one, `Settings` rejects a budget smaller than
@@ -369,6 +399,25 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * `MaxDSigma`, `MinDSigma` and `NoEffectAxis` used the fourth root of the eigenvalues instead of
   the square root (now as pycma).
 * The stagnation criterion took O(t) per generation (5× slower long BIPOP runs).
+* `LPXNES`: β = ln 2/(√d ln d) was infinite at d = 1 (now ln(max(d, 2))); its cs, 9µ_eff/(10√d),
+  is above 2 for µ_eff > 2.22√d (d = 2, λ = 12, or IPOP), and as the rate of p_σ it made p_σ NaN.
+  With `NATURAL_GRADIENT` it had xNES's rate and did not converge (#72). Its cs is now capped at 1
+  (ours; above 1 the update overshoots, 1.29 at d = 2 with the default λ), and the rate of p_σ is
+  at most 1 for every rule.
+* `SEPARABLE`: the cap c1 + cµ ≤ 1 was applied before cµ was multiplied by (d + 2)/3, so with large
+  populations (IPOP) cµ exceeded 1 and the decay of C was negative (#73; now pycma's rates, capped
+  last).
+* The default weights with µ > λ/2 (and some µ < λ/2, such as µ = 4, λ = 10) had positive values
+  among the "negative" weights, which the active update applied as positive (#73).
+* `CHOLESKY` with the active update used a factor that a failed rank-one downdate had left partly
+  updated; the downdate is now skipped (#74).
+* `MATRIX` with elitism updated the inverse of M incrementally, which is not the inverse of the
+  updated M, and it drifted from the inverse (relative error 0.98 after 60 generations), so the
+  elites' steps were wrong. It is now updated by the Woodbury identity, in O(k d²) as before, and up
+  to d = 30 computed exactly from M after every 400 generations of a run, which bounds the
+  rounding errors that the update accumulates with the active update at small d (#74; the
+  constants `MatrixAdaptation.inverse_recompute_interval` and `inverse_recompute_max_dim` are the
+  maintainer's choice). On BBOB (d = 5, 20) it solves 249 instead of 105 of 350 runs.
 * `NATURAL_GRADIENT` with `active` used CMA-ES's negative weights, which made σ shrink even on a
   linear function; it now uses xNES's utilities (`weights=UTILITY`).
 * `fmin` ignored `x0` (it used only its length) and started at the origin.

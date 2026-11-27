@@ -106,17 +106,28 @@ first, would count each tied parent as a success of 1/n² in z; on BBOB with eli
 
 ## XNES, MXNES, LPXNES
 
+The learning rates of the three are those of Krause, Glasmachers & Igel (2017), Table 3, except
+XNES with `NATURAL_GRADIENT`, which has xNES's. Their cs is a learning rate of log σ, and also the
+rate of the path p_σ, which h_σ and MATRIX's rank-one update read, at most 1
+(`Weights.cs_path`): LPXNES's cs exceeds 2 for µ_eff > 2.22√d, and p_σ became NaN (#72).
+
 * **XNES with `NATURAL_GRADIENT`** is xNES's rule: σ ← σ·exp((η_σ/2)·tr(G)/d), from the natural
-  gradient G of the matrix update ([matrix adaptations](matrix-adaptations.md#natural_gradient-xnes)).
-* **XNES with another matrix adaptation** is a length rule:
-  σ ← σ·exp((cs/√d)·Σ wᵢ(‖zᵢ‖² − d)) with cs = 0.01, which is slow (*known issue* [F27]). The
+  gradient G of the matrix update ([matrix adaptations](matrix-adaptations.md#natural_gradient-xnes)),
+  with η_σ = (9 + 3 ln d)/(5 d √d) (Glasmachers et al. 2010).
+* **XNES with another matrix adaptation** is the xNES SA of Krause et al. (2017), a length rule:
+  σ ← σ·exp((cs/√d)·Σ wᵢ(‖zᵢ‖² − d)) over the µ best, with their convex weights (summing to 1, also
+  for `UTILITY`) and cs = µ_eff/(2 ln d √d) (ln(max(2, d)) at d = 1, as 1.x). It was 0.01 until
+  #72: a median of 3650–9950 evaluations on the sphere at d = 10 instead of 750–1070 (5 runs). The
   framework paper's description of the xNES rule (the length of the weighted mean of z) is MXNES.
-* **MXNES** (m-xNES, Krause, Glasmachers & Igel 2017): σ ← σ·exp((cs/d)(µ_eff‖Σwᵢzᵢ‖² − d)), cs = 1:
-  the length of the mean step, unbiased under random selection.
+* **MXNES** (m-xNES, Krause, Glasmachers & Igel 2017): σ ← σ·exp((cs/d)(µ_eff‖Σwᵢzᵢ‖² − d)), cs = 1
+  (also with `NATURAL_GRADIENT` since #72): the length of the mean step, unbiased under random
+  selection.
 * **LPXNES** (lp-xNES, same paper, Sec. 4.4): each point samples its own step size σᵢ (log-normal
-  around σ, β = ln 2/(√d ln d)), and σ ← σ·exp(cs·Σ wᵢ log(σᵢ/σ)) with cs = 9µ_eff/(10√d), the
-  paper's values (its Table 3). One step size per point, as in the paper; it was drawn per
-  coordinate (#71). *Known issue*: β is infinite at d = 1 [F16].
+  around σ, β = ln 2/(√d ln(max(d, 2))), finite at d = 1 since #72), and σ ← σ·exp(cs·Σ wᵢ
+  log(σᵢ/σ)) over the µ best, with the convex weights and cs = min(1, 9µ_eff/(10√d)): Krause et
+  al.'s rate (their Table 3), capped at 1 by modcma, since above 1 the update overshoots the
+  weighted geometric mean of the step sizes (1.29 at d = 2 and 1.05 at d = 5 with the default λ).
+  One step size per point, as in the paper; it was drawn per coordinate (#71).
 
 ## SR: success rule
 
@@ -166,7 +177,7 @@ paper and the Python implementation draw one per point.
 | `CSA` (default) | the path p_σ | every matrix adaptation | `COVARIANCE` uses C^-1/2 Δm, the others the weighted z |
 | `TPA` | two extra evaluations | every | |
 | `MSR`, `PSR` | the f-values of two generations | every | with pairwise selection the ranked points only |
-| `XNES` | the natural gradient, or the lengths of z | `NATURAL_GRADIENT` (xNES's rule; with `weights=UTILITY` all of xNES) | slow elsewhere [F27] |
+| `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | not with `MATRIX`, `CHOLESKY` or `elitist`: the runs stall (#160) |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
 | `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | |
 | `SR` | successes against the best of the run | λ = 1 (automatic) | one success per generation for λ > 1 |

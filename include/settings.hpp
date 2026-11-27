@@ -200,7 +200,11 @@ struct Settings
             modules.active = true;
         }
 
-        if (modules.matrix_adaptation == MatrixAdaptationType::NONE)
+        // CMSA has no active variant (Beyer & Sendhoff 2008): its update with negative weights, not
+        // rescaled and not in the decay, made C indefinite, with an UnableToAdapt restart every few
+        // generations (#73, F6). With UTILITY, CMSA uses the positive utilities.
+        if (modules.matrix_adaptation == MatrixAdaptationType::NONE ||
+            modules.matrix_adaptation == MatrixAdaptationType::CMSA)
         {
             modules.active = false;
         }

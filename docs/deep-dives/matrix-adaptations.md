@@ -37,20 +37,23 @@ interval) instead of an eigendecomposition: cheaper. The step-size path uses L�
 C^-1/2 Δm up to a rotation that changes with every decomposition, so CSA's path is not exactly
 CMA-ES's (the same approximation Krause et al. 2016 argue for). There is no published counterpart.
 It is chosen automatically when the step-size rule is not CSA; with CSA it gave the same results
-as `COVARIANCE` on the sphere and a rotated ellipsoid (d = 5 to 20), despite the docstring's
-caution [F28].
+as `COVARIANCE` on the sphere and a rotated ellipsoid (d = 5 to 20).
 
 ## SEPARABLE: sep-CMA-ES
 
 **What modcma does.** Adapts only the diagonal of C (O(dλ) per generation) with the same update
 restricted to the diagonal; the step-size path uses D⁻¹Δm, exact here.
 
-**Compared with Ros & Hansen (2008) and pycma.** Only cµ is scaled by (d + 2)/3; c1 and cc keep
-the values of the full update. pycma's separable mode uses its own, larger rates (at d = 100:
-c1 = 8.3·10⁻³ against modcma's 1.95·10⁻⁴). `cmaes`' `SepCMA` scales the same way as modcma.
-With the active update the negative weights are not rescaled. *Known issue* [F4]: the cap
-cµ ≤ 1 − c1 is applied before the scaling, so with large populations (IPOP) the decay of C turns
-negative.
+**Compared with Ros & Hansen (2008) and pycma.** c1 and cµ are pycma 4.6.0's separable rates
+(`CMA_diagonal`, `options_parameters.py:988-994, 1073, 1100`), with the degrees of freedom d of a
+diagonal C: c1 = 1/(d + 2√d + µ_eff/d) and cµ = min(1 − c1, (0.25 + µ_eff + 1/µ_eff − 2)/(d + 4√d +
+µ_eff/2)), the cap last, so that the decay of C stays non-negative with large populations (#73,
+the maintainer's decision). They agree with pycma's c1_sep and cmu_sep to 3e-17. Until #73, c1
+was the full update's and cµ the full update's × (d + 2)/3, with the cap before the factor (at
+d = 100: c1 = 1.95·10⁻⁴, now 8.3·10⁻³). That factor is attributed to Ros & Hansen (2008); it was
+**not checked against the paper**, which could not be retrieved. cc keeps the value of the full
+update (pycma has its own cc_sep). `cmaes`' `SepCMA` scales by (d + 2)/3 as modcma did. With the active update the negative weights are rescaled by d/‖D⁻¹y‖², the
+Mahalanobis length in the diagonal C, as pycma's diagonal sampler (#73).
 
 **Closest configuration:** `matrix_adaptation=SEPARABLE`, `active=False`.
 
@@ -63,9 +66,40 @@ M ← M [I + (c1/2)(s sᵀ − I) + (cµ/2)(Σ wᵢ zᵢ zᵢᵀ − I)],
 computed in O(d²λ), with s the step-size path from the weighted z, updated before M as in Beyer &
 Sendhoff (2017).
 
-**Differences.** The learning rates are CMA-ES's defaults. MA-ES has no active variant: with the
-active update the weights no longer sum to 1, which the update assumes, and the negative weights are
-not rescaled [F7]; in tests MATRIX with the active update still converged, faster than without.
+**Differences.** The learning rates are CMA-ES's defaults. MA-ES has no active variant. With the
+active update modcma uses the active CMA-ES update (Hansen 2016, Eq. (47)) written in M to first
+order, as MA-ES derives its own update: (cµ/2)(Σ w°ᵢ zᵢ zᵢᵀ − Σ wᵢ I), with the negative weights
+rescaled by d/‖zᵢ‖² in w° and the unscaled weights in the sum (#73; before, the update assumed
+Σ wᵢ = 1 and did not rescale). On the ellipsoid (d = 10) it needs about 23 % fewer evaluations than
+without.
+
+**The inverse of M** (#74). Elitism needs M⁻¹ every generation, for the steps z of the parents.
+Since M ← M F with F = a I + U D Uᵀ (U = [p_σ, the selected z], D = diag(c1/2, cµ/2 · w)), M⁻¹ is
+updated as M⁻¹ ← F⁻¹ M⁻¹ by the Woodbury identity, F⁻¹ = (1/a)[I − U D (a I + Uᵀ U D)⁻¹ Uᵀ], in
+O(k d²) as the incremental update it replaces, which was not the inverse of M F and drifted from it
+(a relative error of 0.98 after 60 generations, so the parents' steps were wrong). When a ≤ 0 or
+the k × k system is singular or badly conditioned, M⁻¹ is computed from M when it is next needed
+(`MatrixAdaptation.inverse_fallbacks`; it never happened in the runs below). The update
+accumulates rounding errors with the active update at small d. The maintainer's choice: up to
+d = 30 (`inverse_recompute_max_dim`), M⁻¹ is computed exactly from M after every 400 generations
+of a run (`inverse_recompute_interval`). Measured on a rotated ellipsoid (condition 10⁶, no target,
+5000 generations, 3 to 5 seeds), the largest entry of M M⁻¹ − I:
+
+| d | without the recomputation, active | without, no active | every 400 generations, active |
+|---|---|---|---|
+| 10 | 2.4 to 26 (above 1e-10 from generation 785 to 950) | 4.5e-12 | at most 1.4e-9 (every 1000: 3.7e-7) |
+| 20 | 1.3e-8 to 6.4e-8 | 4.2e-12 | at most 1.5e-11 |
+| 30 | at most 4.3e-11 | 1.5e-12 | |
+| 40 | at most 6.3e-13 | 5.8e-13 | |
+| 50, 100, 200 | below 1e-13 | below 4e-13 | |
+
+The condition numbers of F (1.1 to 1.4) and of M (10² to 10⁴) do not follow the error, nor does
+convergence: at d = 10 the error grows by about 0.5 to 1.5 % per generation, before and long after
+the run has converged, and at d = 20 while it is still far from the optimum. Against the exact
+inverse in every generation, the BBOB results do not change (`matrix_elitist` and
+`matrix_elitist_active`, d = 5 and 20, no significant cell). Above d = 30 the recomputation is
+not needed; it would cost 1.3 to 2.9 elitist generations at d = 100 to 1000 (0.07, 0.5 and 6.7 ms
+against 55, 282 and 2306 µs).
 
 **Closest configuration:** `matrix_adaptation=MATRIX`, `active=False`.
 
@@ -76,8 +110,12 @@ not rescaled [F7]; in tests MATRIX with the active update still converged, faste
 with p_c and µ rank-one updates with the selected y; the step-size path uses A⁻¹Δm. Exact: A Aᵀ
 equals the covariance update to rounding. p_c is not stalled by h_σ.
 
-**Differences.** With the active update the negative weights are applied as rank-one downdates
-without rescaling, and a downdate that fails is not detected (*known issue* [F5]).
+**Differences.** Krause et al. (2016) have no active update. With it, modcma scales A by
+√(1 − c1 − cµ Σ wᵢ) (the negative weights in the sum) and applies the negative weights, rescaled by
+d/‖A⁻¹y‖² as in `COVARIANCE`, as rank-one downdates (#73). A downdate whose result would not be
+positive definite (possible with `UTILITY`, whose weights are not limited for it, or by rounding) is
+skipped: A from before the downdates is restored and they are applied again without it
+(`CholeskyAdaptation.skipped_downdates` counts them, #74).
 
 **Closest configuration:** `matrix_adaptation=CHOLESKY`, `active=False`.
 
@@ -96,7 +134,8 @@ factorized by a Cholesky decomposition every generation; µ = λ/4 by default.
   operator with Ahrari et al.'s correction, as the framework paper describes).
 * The weights are the CMA-ES log weights with µ_eff; `weights=EQUAL` gives the original
   intermediate recombination.
-* *Known issue* [F6]: the active update breaks it.
+* `Settings` switches the active update off: CMSA has no active variant, and with negative weights
+  (not rescaled, not in the decay) C became indefinite (#73).
 
 **Closest configuration:** `matrix_adaptation=CMSA`, `ssa=SA`, `weights=EQUAL`.
 
@@ -115,9 +154,10 @@ the shape B, with the learning rates η_σ = η_B = (9 + 3 ln d)/(5 d √d).
 * **With the default weights** G = Σ wᵢ(zᵢzᵢᵀ − I) uses the µ positive CMA-ES weights and the mean
   is the usual recombination of the µ best: no −1/λ baseline. It needs about as many evaluations as
   xNES (2–6 % fewer at d = 5, 7–8 % more at d = 20; 10 runs, not tested for significance).
-* With `ssa` other than `XNES` (CSA by default) the step size comes from that rule instead of the
-  trace of G.
-* *Known issue* [F3]: `NATURAL_GRADIENT` sets the learning rate of every step-size rule to η_σ.
+* With `ssa` other than `XNES` (CSA by default) the step size comes from that rule, with its own
+  learning rate, instead of the trace of G. The learning rate of A is η_B/2 with every rule. Before
+  #72, `NATURAL_GRADIENT` gave every step-size rule xNES's η_σ, which LPXNES did not converge
+  with.
 
 Before 2.0, `active=True` used CMA-ES's negative weights, which do not sum to zero and are scaled
 for CMA-ES: σ shrank even on a linear function and runs converged prematurely (F2, fixed by using

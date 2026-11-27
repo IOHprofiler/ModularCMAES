@@ -426,9 +426,14 @@ void XNES::adapt(const parameters::Weights &w,
         return;
     }
 
+    // xNES SA (Krause, Glasmachers & Igel 2017, Sec. 4.2): sigma *= exp(cs / sqrt(d) sum_i w_i
+    // (||z_i||^2 - d)) with the convex weights of CMA-ES (their Sec. 2: w_i >= 0, sum 1, nonzero
+    // for the mu best), `positive`. The weights clipped at 0 were used: the same, except with
+    // UTILITY, whose positive utilities sum to less than 1 (#72)
+    const auto k = std::min<Eigen::Index>(w.positive.size(), static_cast<Eigen::Index>(pop.n));
     const Float z =
-        ((pop.Z.leftCols(pop.n)).colwise().squaredNorm().array() - adaptation->dd).matrix() *
-        w.clipped().head(pop.n);
+        ((pop.Z.leftCols(k)).colwise().squaredNorm().array() - adaptation->dd).matrix() *
+        w.positive.head(k);
     sigma *= std::exp((w.cs / std::sqrt(adaptation->dd)) * z);
 }
 
@@ -449,9 +454,13 @@ void LPXNES::adapt(const parameters::Weights &w,
                    const Population &old_pop,
                    const parameters::Stats &stats)
 {
-    const auto logS = (pop.S.leftCols(pop.n).array() / sigma).log();
+    // prior-xNES SA (Krause et al. 2017, Sec. 4.4): sigma = sigma^(1 - cs) exp(cs sum_i w_i ln
+    // sigma_i), here sigma *= exp(cs sum_i w_i ln(sigma_i / sigma)), with the convex weights of
+    // the mu best (`positive`, as XNES); the step sizes of an individual are averaged in log
+    const auto k = std::min<Eigen::Index>(w.positive.size(), static_cast<Eigen::Index>(pop.n));
+    const auto logS = (pop.S.leftCols(k).array() / sigma).log();
     const Vector per_sample = logS.colwise().mean().transpose();
-    const Float rel_log = per_sample.dot(w.clipped().head(pop.n));
+    const Float rel_log = per_sample.dot(w.positive.head(k));
     sigma *= std::exp(w.cs * rel_log);
 }
 
