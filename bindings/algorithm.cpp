@@ -1214,7 +1214,7 @@ void define_matrix_adaptation(nb::module_ &main)
                 "F = a I + U D U^T (U = [ps, the selected z], D = diag(c1/2, cmu/2 w)), so M_inv "
                 "<- F^-1 M_inv by the Woodbury identity, O(k d^2); up to d = "
                 "`inverse_recompute_max_dim` (30) it is computed exactly from M after every "
-                "`inverse_recompute_interval` (1000) generations of a run, which bounds the "
+                "`inverse_recompute_interval` (400) generations of a run, which bounds the "
                 "rounding error that the update accumulates with the active update at small d "
                 "(the maintainer's choice, #74). When the "
                 "update cannot be applied (`inverse_fallbacks`), and without elitism, it is "
@@ -1234,10 +1234,10 @@ void define_matrix_adaptation(nb::module_ &main)
                        &MatrixAdaptation::inverse_recompute_interval,
                        "With elitism and d <= `inverse_recompute_max_dim`, M_inv is computed "
                        "exactly from M after every this many generations of a run, and updated by "
-                       "the Woodbury identity in between (1000, the maintainer's choice on #74). "
+                       "the Woodbury identity in between (400, the maintainer's choice on #74). "
                        "Without it, the largest entry of M M_inv - I over 5000 generations reached "
                        "2.4 to 26 with the active update at d = 10 and 1e-8 at d = 20; with it, at "
-                       "most 3.7e-7 at d = 10.")
+                       "most 1.4e-9 at d = 10.")
         .def_ro_static("inverse_recompute_max_dim",
                        &MatrixAdaptation::inverse_recompute_max_dim,
                        "The largest dimension with the exact recomputation of M_inv every "

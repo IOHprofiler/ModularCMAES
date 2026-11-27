@@ -155,7 +155,7 @@ class SigmaSampler:
     """
     Sampled step sizes: each individual gets its own step size, sigma_i = sigma * exp(beta n_i) with n_i standard normal, the same in every coordinate, so the point m + sigma_i y_i lies along y_i (`Modules.sample_sigma`; always used by the step-size adaptations LPXNES and SA). One step size per individual, as in CMSA-ES (Beyer & Sendhoff 2008) and lp-xNES (Krause, Glasmachers & Igel 2017, Sec. 4.4).
 
-    beta = `es.p.weights.beta`: 1 / sqrt(2 d) with SA (CMSA's tau; Spettel, Beyer & Hellwig 2018, Table I), ln 2 / (sqrt(d) ln d) with LPXNES (Krause et al. 2017, Table 3), 1 / sqrt(2 mueff) otherwise. The step sizes are the columns of `es.p.pop.S`; the lower bound of an integer variable can raise single coordinates.
+    beta = `es.p.weights.beta`: 1 / sqrt(2 d) with SA (CMSA's tau; Spettel, Beyer & Hellwig 2018, Table I), ln 2 / (sqrt(d) ln(max(d, 2))) with LPXNES (Krause et al. 2017, Table 3), 1 / sqrt(2 mueff) otherwise. The step sizes are the columns of `es.p.pop.S`; the lower bound of an integer variable can raise single coordinates.
     """
 
     def __init__(self, dimension: float) -> None:
@@ -426,7 +426,7 @@ class XNES(Strategy):
     """
     The step-size update of xNES (`StepSizeAdaptation.XNES`).
 
-    With NATURAL_GRADIENT: sigma *= exp(cs / 2 * sigma_g), sigma_g the trace part of the natural gradient (`NaturalGradientAdaptation.sigma_g`). With the other matrix adaptations: sigma *= exp(cs / sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the positive weights. Glasmachers et al. (2010).
+    With NATURAL_GRADIENT: sigma *= exp(cs / 2 * sigma_g), sigma_g the trace part of the natural gradient (`NaturalGradientAdaptation.sigma_g`), cs = xNES's eta_sigma = (9 + 3 ln(d)) / (5 d sqrt(d)) (Glasmachers et al. 2010). With the other matrix adaptations, the xNES SA of Krause, Glasmachers & Igel (2017): sigma *= exp(cs / sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the positive weights (`Weights.positive`, summing to 1), cs = mueff / (2 ln(max(2, d)) sqrt(d)).
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -472,7 +472,7 @@ class LPXNES(Strategy):
     """
     A variant of the xNES step-size update on sampled step sizes (`StepSizeAdaptation.LPXNES`).
 
-    Every individual samples its own step size sigma_i (a `SigmaSampler` is always used, with beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i ln(sigma_i / sigma)) over the positive weights (ln sigma_i: the mean of the logarithms of the column of `pop.S`), which moves sigma towards the step sizes of the better individuals. lp-xNES of Krause, Glasmachers & Igel (2017), Sec. 4.4, "Qualitative and quantitative assessment of step size adaptation rules".
+    Every individual samples its own step size sigma_i (a `SigmaSampler` is always used, with beta = ln 2 / (sqrt(d) ln(max(d, 2)))); sigma *= exp(cs sum_i w_i ln(sigma_i / sigma)) over the positive weights (`Weights.positive`, summing to 1; ln sigma_i: the mean of the logarithms of the column of `pop.S`), which moves sigma towards the step sizes of the better individuals; cs = min(1, 9 mueff / (10 sqrt(d))). The rate is that of Krause et al.; the cap is modcma's: above 1 the update overshoots the weighted geometric mean of the step sizes (1.29 at d = 2, 1.05 at d = 5 with the default lambda). lp-xNES of Krause, Glasmachers & Igel (2017), Sec. 4.4, "Qualitative and quantitative assessment of step size adaptation rules".
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:

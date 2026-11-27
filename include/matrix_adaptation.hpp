@@ -461,16 +461,18 @@ struct MatrixAdaptation final : Adaptation
      * generations without the recomputation (rotated ellipsoid, condition 1e6, 5 seeds): with
      * active 2.4 to 26 at d = 10 (above 1e-10 from generation 785 to 950 on), 1.3e-8 to 6.4e-8 at
      * d = 20, at most 4.3e-11 at d = 30, 6.3e-13 at d = 40, below 1e-13 at d = 50, 100 and 200;
-     * without active at most 4.5e-12 at every d. With it, at d = 10 and active at most 3.7e-7.
+     * without active at most 4.5e-12 at every d. With it every 400 generations, with active at
+     * most 1.4e-9 at d = 10 and 1.5e-11 at d = 20 (every 1000: 3.7e-7 at d = 10). 400 keeps
+     * d = 10 below 1e-8.
      */
-    static constexpr size_t inverse_recompute_interval = 1000;
+    static constexpr size_t inverse_recompute_interval = 400;
 
     /**
      * The largest dimension with the exact recomputation of M_inv (inverse_recompute_interval):
      * the smallest d at which the drift without it stayed below 1e-10 over 5000 generations in
-     * every run measured (see above). The maintainer's choice on #74 (#159). One recomputation
-     * costs about 1.3 to 2.9 elitist generations at d = 100 to 1000 (0.07, 0.50, 6.7 ms against
-     * 55, 282, 2306 us), 0.1 to 0.3 % per 1000 generations.
+     * every run measured (see above). The maintainer's choice on #74 (#159). Above it the
+     * recomputation is not needed; it would cost about 1.3 to 2.9 elitist generations at d = 100
+     * to 1000 (0.07, 0.50, 6.7 ms against 55, 282, 2306 us).
      */
     static constexpr size_t inverse_recompute_max_dim = 30;
 

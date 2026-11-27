@@ -81,14 +81,14 @@ O(k d²) as the incremental update it replaces, which was not the inverse of M F
 the k × k system is singular or badly conditioned, M⁻¹ is computed from M when it is next needed
 (`MatrixAdaptation.inverse_fallbacks`; it never happened in the runs below). The update
 accumulates rounding errors with the active update at small d. The maintainer's choice: up to
-d = 30 (`inverse_recompute_max_dim`), M⁻¹ is computed exactly from M after every 1000 generations
+d = 30 (`inverse_recompute_max_dim`), M⁻¹ is computed exactly from M after every 400 generations
 of a run (`inverse_recompute_interval`). Measured on a rotated ellipsoid (condition 10⁶, no target,
 5000 generations, 3 to 5 seeds), the largest entry of M M⁻¹ − I:
 
-| d | without the recomputation, active | without, no active | with it, active |
+| d | without the recomputation, active | without, no active | every 400 generations, active |
 |---|---|---|---|
-| 10 | 2.4 to 26 (above 1e-10 from generation 785 to 950) | 4.5e-12 | at most 3.7e-7 |
-| 20 | 1.3e-8 to 6.4e-8 | 4.2e-12 | |
+| 10 | 2.4 to 26 (above 1e-10 from generation 785 to 950) | 4.5e-12 | at most 1.4e-9 (every 1000: 3.7e-7) |
+| 20 | 1.3e-8 to 6.4e-8 | 4.2e-12 | at most 1.5e-11 |
 | 30 | at most 4.3e-11 | 1.5e-12 | |
 | 40 | at most 6.3e-13 | 5.8e-13 | |
 | 50, 100, 200 | below 1e-13 | below 4e-13 | |
@@ -97,8 +97,9 @@ The condition numbers of F (1.1 to 1.4) and of M (10² to 10⁴) do not follow t
 convergence: at d = 10 the error grows by about 0.5 to 1.5 % per generation, before and long after
 the run has converged, and at d = 20 while it is still far from the optimum. Against the exact
 inverse in every generation, the BBOB results do not change (`matrix_elitist` and
-`matrix_elitist_active`, d = 5 and 20, no significant cell). One recomputation costs 1.3 to 2.9
-elitist generations at d = 100 to 1000 (0.07, 0.5 and 6.7 ms against 55, 282 and 2306 µs).
+`matrix_elitist_active`, d = 5 and 20, no significant cell). Above d = 30 the recomputation is
+not needed; it would cost 1.3 to 2.9 elitist generations at d = 100 to 1000 (0.07, 0.5 and 6.7 ms
+against 55, 282 and 2306 µs).
 
 **Closest configuration:** `matrix_adaptation=MATRIX`, `active=False`.
 

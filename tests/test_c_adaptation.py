@@ -198,9 +198,9 @@ class TestFactorUpdates(unittest.TestCase):
 
     def test_the_woodbury_update_with_active_and_its_recomputation(self):
         # With active at d = 10 the update's rounding errors grow (above 1e-6 after 1500
-        # generations without a recomputation); M_inv is computed from M every 1000 generations
+        # generations without a recomputation); M_inv is computed from M every 400 generations
         A = modcma.matrix_adaptation.MatrixAdaptation
-        self.assertEqual((A.inverse_recompute_interval, A.inverse_recompute_max_dim), (1000, 30))
+        self.assertEqual((A.inverse_recompute_interval, A.inverse_recompute_max_dim), (400, 30))
         rng = np.random.default_rng(0)
         Q, _ = np.linalg.qr(rng.standard_normal((10, 10)))
 
@@ -215,12 +215,12 @@ class TestFactorUpdates(unittest.TestCase):
         worst = 0.0
         for g in range(1, 2001):
             es.step(rotated, vectorized=True)
-            if g % 50 == 0 or g == 1000:
+            if g % 50 == 0 or g == 400:
                 worst = max(worst, float(np.max(np.abs(a.M @ a.M_inv - np.eye(10)))))
-            if g == 1000:
+            if g == 400:
                 # just recomputed
                 self.assertLess(np.max(np.abs(a.M @ a.M_inv - np.eye(10))), 1e-12)
-        self.assertLess(worst, 1e-6)
+        self.assertLess(worst, 1e-8)
 
 
 if __name__ == "__main__":

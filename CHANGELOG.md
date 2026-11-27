@@ -414,7 +414,7 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * `MATRIX` with elitism updated the inverse of M incrementally, which is not the inverse of the
   updated M, and it drifted from the inverse (relative error 0.98 after 60 generations), so the
   elites' steps were wrong. It is now updated by the Woodbury identity, in O(k d²) as before, and up
-  to d = 30 computed exactly from M after every 1000 generations of a run, which bounds the
+  to d = 30 computed exactly from M after every 400 generations of a run, which bounds the
   rounding errors that the update accumulates with the active update at small d (#74; the
   constants `MatrixAdaptation.inverse_recompute_interval` and `inverse_recompute_max_dim` are the
   maintainer's choice). On BBOB (d = 5, 20) it solves 249 instead of 105 of 350 runs.

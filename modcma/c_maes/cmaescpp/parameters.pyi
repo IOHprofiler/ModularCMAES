@@ -42,7 +42,7 @@ class Modules:
         """
         bool, default False: active covariance matrix update.
 
-        The worst individuals enter the update of the matrix with negative weights (Jastrebski and Arnold). Settings turns it off for matrix_adaptation NONE and for a (1+1)-ES.
+        The worst individuals enter the update of the matrix with negative weights (Jastrebski and Arnold), rescaled by d / ||A^-1 y||^2 as in Hansen (2016), Eq. (46). Settings turns it off for matrix_adaptation NONE and CMSA (which has no active variant) and for a (1+1)-ES.
         """
 
     @active.setter
@@ -463,7 +463,7 @@ class Weights:
     @property
     def mueff_neg(self) -> float:
         """
-        The variance effective selection mass of the negative weights, sum(negative)**2 / sum(negative**2).
+        The variance effective selection mass of the negative weights, sum(negative)**2 / sum(negative**2) (of the mu negative weights of a population of 2 mu when mu > lambda / 2, see `negative`).
         """
 
     @mueff_neg.setter
@@ -474,7 +474,7 @@ class Weights:
         """
         The learning rate of the rank-one update of the matrix.
 
-        Default acov / ((d + 1.3)**2 + mueff); 2 / (d**2 + 6) for a (1+1)-ES (lambda0 = 1).
+        Default acov / ((d + 1.3)**2 + mueff); for SEPARABLE pycma's separable rate 1 / (d + 2 sqrt(d) + mueff / d) (c1_sep of CMA_diagonal, pycma 4.6.0); 2 / (d**2 + 6) for a (1+1)-ES (lambda0 = 1).
         """
 
     @c1.setter
@@ -485,7 +485,7 @@ class Weights:
         """
         The learning rate of the rank-mu update of the matrix.
 
-        Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)**2 + acov mueff / 2)), multiplied by (d + 2) / 3 for SEPARABLE; 2 / (d**2 + 6) for lambda0 = 1.
+        Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)**2 + acov mueff / 2)); for SEPARABLE pycma's separable rate min(1 - c1, (0.25 + mueff + 1 / mueff - 2) / (d + 4 sqrt(d) + mueff / 2)) (cmu_sep of CMA_diagonal, pycma 4.6.0), so that c1 + cmu <= 1; 2 / (d**2 + 6) for lambda0 = 1.
         """
 
     @cmu.setter
@@ -496,7 +496,7 @@ class Weights:
         """
         The learning rate of the evolution path pc.
 
-        Default (4 + mueff / d) / (d + 4 + 2 mueff / d); 2 / (d + 2) for a (1+1)-ES; with NATURAL_GRADIENT cs / 2, or 1 / (4 d**1.5) for a (1+1)-ES.
+        Default (4 + mueff / d) / (d + 4 + 2 mueff / d); 2 / (d + 2) for a (1+1)-ES. With NATURAL_GRADIENT the learning rate of A <- A expm(cc G): xNES's eta_B / 2 = (9 + 3 ln(d)) / (10 d sqrt(d)) (Glasmachers et al. 2010) with every ssa, or 1 / (4 d**1.5) for a (1+1)-ES.
         """
 
     @cc.setter
@@ -507,11 +507,22 @@ class Weights:
         """
         The learning rate of the step-size adaptation.
 
-        Default by ssa: CSA (mueff + 2) / (d + mueff + 5) (Hansen, The CMA Evolution Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55); pycma uses d + mueff + 3 and caps cs at 1/2); SR 2 / (d + 2); XNES 0.01; MXNES 1; LPXNES 9 mueff / (10 sqrt(d)); otherwise (TPA, MSR, PSR, SA) 0.3. With matrix_adaptation NATURAL_GRADIENT (any ssa): (9 + 3 ln(d)) / (5 d sqrt(d)).
+        Default by ssa: CSA (mueff + 2) / (d + mueff + 5) (Hansen, The CMA Evolution Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55); pycma uses d + mueff + 3 and caps cs at 1/2); SR 2 / (d + 2); XNES mueff / (2 ln(max(2, d)) sqrt(d)), or with NATURAL_GRADIENT xNES's eta_sigma = (9 + 3 ln(d)) / (5 d sqrt(d)) (Glasmachers et al. 2010); MXNES 1; LPXNES min(1, 9 mueff / (10 sqrt(d))); otherwise (TPA, MSR, PSR, SA) 0.3. The rates of XNES, MXNES and LPXNES are those of Krause, Glasmachers & Igel (2017), Table 3; the cap of LPXNES's at 1 is modcma's (above 1 its update overshoots). cs is also the rate of the path ps, at most 1 (see `cs_path`).
         """
 
     @cs.setter
     def cs(self, arg: float, /) -> None: ...
+
+    @property
+    def cs_path(self) -> float:
+        """
+        The learning rate of the evolution path ps: min(cs, 1).
+
+        The default cs of XNES, mueff / (2 ln(d) sqrt(d)), exceeds 1 for large populations (13.8 at d = 2, lambda = 100), and LPXNES's exceeded 2 before it was capped; as the rate of ps a cs above 2 made ps NaN. At 1 ps is the current step, sqrt(mueff) dz, as with MXNES (cs = 1). ps is read by CSA, by MATRIX (its rank-one update) and by h_sigma of COVARIANCE, COVARIANCE_NO_EIGV and SEPARABLE.
+        """
+
+    @cs_path.setter
+    def cs_path(self, arg: float, /) -> None: ...
 
     @property
     def damps(self) -> float:
@@ -536,7 +547,7 @@ class Weights:
     @property
     def sqrt_cs_mueff(self) -> float:
         """
-        sqrt(cs (2 - cs) mueff_mean): the normalisation of the update of the path ps (mueff_mean = mueff, or 1 / sum u_i^2 for the utilities of UTILITY).
+        sqrt(cs_path (2 - cs_path) mueff_mean): the normalisation of the update of the path ps (mueff_mean = mueff, or 1 / sum u_i^2 for the utilities of UTILITY).
         """
 
     @sqrt_cs_mueff.setter
@@ -574,7 +585,7 @@ class Weights:
         """
         The learning rate of the sampled step sizes (sample_sigma): the standard deviation of the logarithm of an individual's step size.
 
-        1 / sqrt(2 d) with SA (CMSA's tau, Beyer & Sendhoff 2008); log(2) / (sqrt(d) log(d)) with LPXNES (Krause et al. 2017, Table 3); 1 / sqrt(2 mueff) otherwise.
+        1 / sqrt(2 d) with SA (CMSA's tau, Beyer & Sendhoff 2008); ln(2) / (sqrt(d) ln(max(d, 2))) with LPXNES (Krause et al. 2017, Table 3, with ln(max(d, 2)) for d = 1); 1 / sqrt(2 mueff) otherwise.
         """
 
     @beta.setter
@@ -591,6 +602,8 @@ class Weights:
     def positive(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
         (mu,) array: the weights of the mu best individuals, normalised to sum 1.
+
+        DEFAULT: ln((n + 1) / 2) - ln(i), i = 1..mu, with n = lambda for the default mu = lambda // 2 (Hansen 2016, Eq. (49)) and n = 2 mu for another mu (as pycma with CMA_mu). With UTILITY the non-negative utilities of the mu best, normalised: the convex weights of SA, CMSA and of XNES (without NATURAL_GRADIENT) and LPXNES.
         """
 
     @positive.setter
@@ -601,7 +614,7 @@ class Weights:
         """
         (lambda - mu,) array: the weights of the other individuals, for the active update.
 
-        Scaled so that their absolute values sum to min(1 + c1 / cmu, 1 + 2 mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu)) (Hansen 2016); with UTILITY the utilities are used as they are (they sum to zero, as in NES).
+        Scaled so that their absolute values sum to max(0, min(1 + c1 / cmu, 1 + 2 mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu))) (Hansen 2016, Eq. (51) to (53)). DEFAULT with the default mu: ln((lambda + 1) / 2) - ln(i), i = mu + 1..lambda. DEFAULT with another mu, as pycma with CMA_mu: the mu negative weights ln(mu + 1/2) - ln(i), i = mu + 1..2 mu, of a population of 2 mu go to the worst ranks; for lambda > 2 mu the ranks in between get 0, for lambda < 2 mu the worst lambda - mu ranks get the last lambda - mu of them (the scaling is that of all mu). With UTILITY the utilities are used as they are (they sum to zero, as in NES).
         """
 
     @negative.setter
@@ -646,7 +659,7 @@ class Settings:
 
         - with mirrored PAIRWISE, an odd lambda0 above 1 is increased by one;
         - with ssa SA or matrix_adaptation CMSA, the default mu0 is lambda0 // 4;
-        - with matrix_adaptation NONE, active is turned off;
+        - with matrix_adaptation NONE or CMSA, active is turned off;
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, mirrored PAIRWISE becomes NONE, and IPOP or BIPOP become RESTART;
         - then, when ssa is not CSA (so also for lambda0 = 1), matrix_adaptation COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);
         - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim; center is computed per coordinate (see `center`).
@@ -690,7 +703,7 @@ class Settings:
         damps : float, optional
             The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (dim + 1)) - 1) + cs (see Weights.damps).
         acov : float, optional
-            The factor alpha_cov in the defaults of c1 and cmu, positive, default 2.
+            The factor alpha_cov in the defaults of c1 and cmu, positive, default 2 (not used by SEPARABLE, whose defaults are pycma's separable rates).
         verbose : bool, default False
             Print a message at every restart and when a decomposition of the matrix fails.
         always_compute_eigv : bool, default False
@@ -929,7 +942,7 @@ class Settings:
     @property
     def acov(self) -> float | None:
         """
-        The factor alpha_cov of the defaults of c1 and cmu, or None for the default 2; positive and finite (ValueError).
+        The factor alpha_cov of the defaults of c1 and cmu, or None for the default 2; positive and finite (ValueError). SEPARABLE does not use it: its defaults are pycma's separable rates.
         """
 
     @acov.setter
