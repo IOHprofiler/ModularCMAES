@@ -1,5 +1,6 @@
 """Regression tests for the bugs fixed in WP0 (dev/overhaul-2.0.md, section 1 and T0.3)."""
 
+import math
 import unittest
 
 import numpy as np
@@ -235,9 +236,9 @@ class TestSequentialSelectionPopulation(unittest.TestCase):
 
 class TestRepellingMetric(unittest.TestCase):
     """B4: taboo points used a never-updated identity matrix (Euclidean distance). The metric is
-    now an explicit option: EUCLIDEAN (default, the behaviour since July 2026), CURRENT (the
-    current search distribution, as before July 2026) and ARCHIVED (the shape of the basin's
-    own run)."""
+    now an explicit option: CURRENT (the current search distribution, as before July 2026, and
+    the default since #158: the paper's Mahalanobis distance), EUCLIDEAN (the default from July
+    2026 until #158) and ARCHIVED (the shape of the basin's own run)."""
 
     def make(self, metric):
         c_maes.set_seed(5)
@@ -258,9 +259,9 @@ class TestRepellingMetric(unittest.TestCase):
             return c_maes.repelling.TabooPoint(solution, 1.0)
         return c_maes.repelling.TabooPoint(solution, 1.0, metric)
 
-    def test_default_is_euclidean(self):
+    def test_default_is_current(self):
         self.assertEqual(
-            c_maes.Modules().repelling_metric, c_maes.options.RepellingMetric.EUCLIDEAN
+            c_maes.Modules().repelling_metric, c_maes.options.RepellingMetric.CURRENT
         )
 
     def test_euclidean(self):
@@ -305,6 +306,84 @@ class TestRepellingMetric(unittest.TestCase):
                 pass
             self.assertTrue(cma.p.repelling.archive, metric)
             self.assertEqual(cma.p.repelling.archive[0].metric.size > 0, stored, metric)
+
+
+class RestartAt(c_maes.restart.Criterion):
+    """Met in the given generations"""
+
+    def __init__(self, *generations):
+        super().__init__("RestartAt")
+        self.generations = set(generations)
+
+    def update(self, parameters):
+        self.met = parameters.stats.t in self.generations
+
+
+class TestCoverageRadius(unittest.TestCase):
+    """#158: the radius of CoverageRepelling, de Nobel et al. (2024), Eqs. (10), (11), with the
+    volume in sigma0 units: r = (S n_rep / (c sigma0^d N))^(1/d) Gamma(d/2 + 1)^(1/d) / sqrt(pi)."""
+
+    @staticmethod
+    def expected(d, volume_log, sigma0, coverage, n_rep, n_runs):
+        log_r = (volume_log + math.log(n_rep) - math.log(coverage * n_runs)) / d
+        log_r += -math.log(sigma0) + math.lgamma(d / 2 + 1) / d - 0.5 * math.log(math.pi)
+        return math.exp(log_r)
+
+    def run_until_archive(self, d, matrix="COVARIANCE", **kwargs):
+        settings = c_maes.settings_from_dict(
+            d, restart_strategy="RESTART", repelling_type="COVERAGE", seed=1,
+            matrix_adaptation=matrix, budget=10**6, **kwargs,
+        )
+        es = c_maes.ModularCMAES(settings)
+        es.p.criteria.items.append(RestartAt(2, 5))
+        while len(es.p.stats.centers) < 2:
+            es.step(lambda x: float(np.sum(np.cos(3 * x)) + np.dot(x, x)))
+        return es
+
+    def test_radius(self):
+        for d, sigma0, lb, ub in ((2, 2.0, -5.0, 5.0), (5, 0.5, -1.0, 3.0), (10, 2.0, -5.0, 5.0)):
+            with self.subTest(d=d, sigma0=sigma0):
+                es = self.run_until_archive(
+                    d, sigma0=sigma0, lb=np.full(d, lb), ub=np.full(d, ub)
+                )
+                p = es.p
+                n_runs = len(p.stats.solutions)
+                for point in p.repelling.archive:
+                    r = self.expected(d, d * math.log(ub - lb), sigma0, p.repelling.coverage,
+                                      point.n_rep, n_runs)
+                    self.assertAlmostEqual(point.radius / r, 1.0, places=12)
+
+    def test_scale_invariant(self):
+        # the box and sigma0 scaled together give the same radius (it was not, with sigma0^1)
+        radii = []
+        for scale in (1.0, 10.0):
+            es = self.run_until_archive(
+                4, sigma0=2.0 * scale, lb=np.full(4, -5.0 * scale), ub=np.full(4, 5.0 * scale)
+            )
+            radii.append([point.radius for point in es.p.repelling.archive])
+        np.testing.assert_allclose(radii[0][:1], radii[1][:1], rtol=1e-12)
+
+    def test_large_dimension(self):
+        # S = 10^500 overflows, Gamma(251) too: the radius is computed in logarithms
+        d = 500
+        es = self.run_until_archive(d, matrix="SEPARABLE")
+        p = es.p
+        self.assertTrue(p.repelling.archive)
+        for point in p.repelling.archive:
+            self.assertTrue(math.isfinite(point.radius) and point.radius > 0)
+            r = self.expected(d, d * math.log(10.0), 2.0, p.repelling.coverage, point.n_rep,
+                              len(p.stats.solutions))
+            self.assertAlmostEqual(point.radius / r, 1.0, places=10)
+
+    def test_unbounded_box(self):
+        d = 3
+        es = self.run_until_archive(d, lb=np.full(d, -np.inf), ub=np.full(d, np.inf))
+        p = es.p
+        for point in p.repelling.archive:
+            # an infinite box counts as a box of width 10 (Settings.diameter)
+            r = self.expected(d, d * math.log(10.0), 2.0, p.repelling.coverage, point.n_rep,
+                              len(p.stats.solutions))
+            self.assertAlmostEqual(point.radius / r, 1.0, places=12)
 
 
 class TestNonFiniteMatrixRestarts(unittest.TestCase):

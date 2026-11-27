@@ -296,11 +296,12 @@ void define_options(nb::module_ &main)
                "selection and shrinks when it is shorter.")
         .value("TPA",
                StepSizeAdaptation::TPA,
-               "Two-point step-size adaptation (Hansen 2008): two extra points m +- sigma * dm "
-               "along the last step dm of the mean are evaluated every generation (two more "
-               "evaluations); sigma grows when the point ahead is the better one. With a bound "
-               "correction both points move toward m, symmetrically, until both are in the "
-               "box.")
+               "Two-point step-size adaptation (Hansen 2008): two extra points m +- 0.5 "
+               "sigma_old dm, half the last step of the mean (Eqs. 8, 9), are evaluated every "
+               "generation (two more evaluations); sigma grows when the point ahead is the "
+               "better one. With a bound correction both points move toward m, symmetrically, "
+               "until both are in the box. Before 2.0 the points were m +- sigma dm, about one "
+               "step of the mean (#167). `TPA_INPLACE` is the version within the population.")
         .value("MSR",
                StepSizeAdaptation::MSR,
                "Median success rule (Ait ElHara et al. 2013): counts the individuals that are "
@@ -344,7 +345,24 @@ void define_options(nb::module_ &main)
                "weighted geometric mean of the step sizes "
                "of the selected individuals, divided by that of the population (the CMSA-ES "
                "operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of "
-               "Ahrari et al. 2017). Meant for CMSA; makes the default mu lambda / 4.");
+               "Ahrari et al. 2017). Meant for CMSA; makes the default mu lambda / 4.")
+        .value("TPA_INPLACE",
+               StepSizeAdaptation::TPA_INPLACE,
+               "Two-point step-size adaptation within the population, as pycma 4.6.0's "
+               "CMAAdaptSigmaTPA (after Hansen, Atamna & Auger 2014, Eq. (6) and Algorithm 3). "
+               "From the second generation of a run on, offspring 1 and 2 are a mirrored pair "
+               "along the last mean shift, z = +-||N(0, I)|| A^-1 dm / ||A^-1 dm||, so no extra "
+               "evaluations. With z the difference of their ranks among the n offspring divided "
+               "by n - 1, s <- (1 - cs) s + cs sign(z) |z|^0.5 and sigma <- sigma exp(s / damps); "
+               "cs = 0.3, damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)). pycma departs from "
+               "the paper in the |z|^0.5 (the paper uses z), the damping (the paper: sqrt(d)), "
+               "and the update in the first generation of a run, from two ordinary samples (the "
+               "paper updates from the second generation on). Needs lambda >= 2 (with lambda = 1 "
+               "a generation is not updated). Works with mirrored sampling (the test points are "
+               "the first pair), pairwise selection (the ranks are of all offspring), sequential "
+               "selection (which cannot stop before both are evaluated; n is then the evaluated "
+               "offspring) and elitism (the ranks are of the offspring); with orthogonal sampling "
+               "the test points are not orthogonal to the other samples. #173.");
 
     nb::enum_<CorrectionMethod>(
         m,
@@ -531,28 +549,32 @@ void define_options(nb::module_ &main)
         .value("NONE", RepellingType::NONE, "No repelling, the default.")
         .value("COVERAGE",
                RepellingType::COVERAGE,
-               "Radii from a coverage of the search volume: the radius of a taboo point grows "
-               "with the number of runs that ended in its basin and shrinks as the total number "
-               "of runs grows.")
+               "Radii from a coverage of the search volume (de Nobel et al. 2024): the radius "
+               "of a taboo point grows with the number of runs that ended in its basin and "
+               "shrinks as the total number of runs grows; in units of sigma, from the volume of "
+               "the box in sigma0 units (`repelling.CoverageRepelling`).")
         .value("ADAPTIVE",
                RepellingType::ADAPTIVE,
-               "Radii adapted from the rejection rate of the samples and the evaluations the "
-               "runs need, between a minimum and a maximum radius.");
+               "Experimental (modcma's own, without a published source): radii adapted from the "
+               "rejection rate of the samples and the evaluations the runs need, between a "
+               "minimum and a maximum radius.");
 
     nb::enum_<RepellingMetric>(
         m,
         "RepellingMetric",
         "The distance between a sample and a taboo point of repelling "
-        "(`Modules.repelling_metric`; default EUCLIDEAN).\n\n"
+        "(`Modules.repelling_metric`; default CURRENT).\n\n"
         "Every metric divides the distance by the current sigma before comparing it with the "
-        "radius of the taboo point.")
+        "radius of the taboo point. The default was EUCLIDEAN until #158; the framework paper "
+        "measures the Mahalanobis distance (Eq. (8)).")
         .value("EUCLIDEAN",
                RepellingMetric::EUCLIDEAN,
-               "||x - x_t||, the Euclidean distance, the default.")
+               "||x - x_t||, the Euclidean distance (the default before #158).")
         .value("CURRENT",
                RepellingMetric::CURRENT,
                "||A^-1 (x - x_t)||, with A of the current run: the Mahalanobis distance in the "
-               "current search distribution.")
+               "current search distribution (the paper's Eq. (8)), the default. With "
+               "matrix_adaptation NONE it is the Euclidean distance.")
         .value("ARCHIVED",
                RepellingMetric::ARCHIVED,
                "||A_t^-1 (x - x_t)||, with A_t of the run that found x_t, scaled to unit "

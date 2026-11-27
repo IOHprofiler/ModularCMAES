@@ -8,7 +8,7 @@ matrix, or a factor of it). Each module replaces one of those parts:
 | module (`Modules` field) | options (default first) | what it changes | guide |
 |---|---|---|---|
 | `matrix_adaptation` | `COVARIANCE`, `MATRIX`, `SEPARABLE`, `CHOLESKY`, `CMSA`, `COVARIANCE_NO_EIGV`, `NATURAL_GRADIENT`, `NONE` | how the shape of the distribution is learned | [matrix adaptation](matrix-adaptation.md) |
-| `ssa` | `CSA`, `TPA`, `MSR`, `XNES`, `MXNES`, `LPXNES`, `PSR`, `SR`, `SA` | how the step size is adapted | [step-size adaptation](step-size-adaptation.md) |
+| `ssa` | `CSA`, `TPA`, `MSR`, `XNES`, `MXNES`, `LPXNES`, `PSR`, `SR`, `SA`, `TPA_INPLACE` | how the step size is adapted | [step-size adaptation](step-size-adaptation.md) |
 | `active` | off, on | negative weights for the worst points in the covariance update | [selection](selection.md) |
 | `elitist` | off, on | (µ + λ) instead of (µ, λ) selection | [selection](selection.md) |
 | `sequential_selection` | off, on | stop a generation early once it has enough improvements | [selection](selection.md) |
@@ -21,8 +21,8 @@ matrix, or a factor of it). Each module replaces one of those parts:
 | `threshold_convergence` | off, on | a minimum length of the mutations, decreasing over time | [sampling](sampling.md) |
 | `restart_strategy` | `NONE`, `STOP`, `RESTART`, `IPOP`, `BIPOP` | what happens when the search has converged | [restarts](restarts.md) |
 | `center_placement` | `X0`, `ZERO`, `UNIFORM`, `CENTER`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` | where a (re)start begins | [restarts](restarts.md) |
-| `repelling_type` | `NONE`, `COVERAGE`, `ADAPTIVE` | keep restarts away from the optima found before | [restarts](restarts.md) |
-| `repelling_metric` | `EUCLIDEAN`, `CURRENT`, `ARCHIVED` | the distance used by repelling restarts | [restarts](restarts.md) |
+| `repelling_type` | `NONE`, `COVERAGE`, `ADAPTIVE` (experimental) | keep restarts away from the optima found before | [restarts](restarts.md) |
+| `repelling_metric` | `CURRENT`, `EUCLIDEAN`, `ARCHIVED` | the distance used by repelling restarts | [restarts](restarts.md) |
 | `bound_correction` | `NONE`, `MIRROR`, `COTN`, `UNIFORM_RESAMPLE`, `SATURATE`, `TOROIDAL`, `RESAMPLE` | what happens to points outside the bounds | [bound correction](bound-correction.md) |
 
 Not every combination is a different algorithm, and not every field of `Modules` is a module of
@@ -164,9 +164,9 @@ from the code, `tools/count_variants.py`:
 | What is counted | Combinations | Distinct variants |
 |---|---|---|
 | The framework paper (de Nobel et al. 2026, [citing](../citing.md)): 14 modules | | 14,859,936 |
-| 14 modules: the 13 algorithmic modules and bound correction | 36,578,304 | 19,797,120 |
-| 13 algorithmic modules (bound correction counted as an option) | 5,225,472 | 2,828,160 |
-| All 17 fields of `Modules`, every value | 2,194,698,240 | 632,156,448 |
+| 14 modules: the 13 algorithmic modules and bound correction | 40,642,560 | 21,954,240 |
+| 13 algorithmic modules (bound correction counted as an option) | 5,806,080 | 3,136,320 |
+| All 17 fields of `Modules`, every value | 2,438,553,600 | 708,676,416 |
 
 **The 13 algorithmic modules** are the components of the search, whose options are alternative
 mechanisms from the literature and act on any problem: `sampler`, `sample_transformation`,
@@ -184,15 +184,16 @@ the problem's `x0` and box), `repelling_metric` (the distance of repelling) and 
 in the framework paper, so the table counts it both ways: it handles the constraints of a bounded
 problem, as the [integer variables](integer-variables.md) do, which are not a module.
 
-**The paper's 14 modules are the same 13 and bound correction.** Two modules have gained options
-since: `weights` has `UTILITY`, and repelling has `ADAPTIVE` next to `COVERAGE`. The paper
+**The paper's 14 modules are the same 13 and bound correction.** Three modules have gained options
+since: `weights` has `UTILITY`, `ssa` has `TPA_INPLACE`, and repelling has `ADAPTIVE` (experimental)
+next to `COVERAGE`. The paper
 counts with two dependencies (`active` needs a matrix adaptation, repelling needs a restart
 strategy); the code counts more:
 
 * the adjustments of `Settings` (see [above](#combinations-that-are-adjusted)): `UTILITY` weights
   switch the active update on, `NATURAL_GRADIENT` with `active` switches to `UTILITY`, `NONE` and
-  `CMSA` switch `active` off; of all 17 fields, these alone leave 1,466,942,400 of the
-  2,194,698,240 combinations;
+  `CMSA` switch `active` off; of all 17 fields, these alone leave 1,626,972,480 of the
+  2,438,553,600 combinations;
 * the options without effect of the [compatibility](compatibility.md) page, each checked in the
   code: `sample_sigma` is forced on for `SA` and `LPXNES`; sequential selection with `PAIRWISE`
   and the default µ = λ/2 has no effect (its earliest stop is the whole generation); with
@@ -202,8 +203,8 @@ strategy); the code counts more:
 
 **Repelling with `restart_strategy=NONE`.** The module counts follow the paper: repelling needs a
 restart strategy. `NONE` still restarts a run whose matrix cannot be updated (`UnableToAdapt`),
-where repelling acts; counted that way, the 14 modules give 23,756,544 variants and the 13 give
-3,393,792. The count of all 17 fields uses this rule.
+where repelling acts; counted that way, the 14 modules give 26,345,088 variants and the 13 give
+3,763,584. The count of all 17 fields uses this rule.
 
 Not applied, because they depend on the problem: `X0` = `CENTER` without an `x0`, `ZERO` =
 `CENTER` for a symmetric box, bound correction in an infinite box. Equivalences that are not

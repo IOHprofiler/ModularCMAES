@@ -144,7 +144,7 @@ class TestTuning(unittest.TestCase):
                 self.assertEqual(name in names, not one, name)
             ssa = "SR" if one else config["ssa"]  # a (1+1)-ES runs SR (#131)
             self.assertEqual(
-                "damps" in names, one or ssa in ("CSA", "MSR", "PSR", "SR")
+                "damps" in names, one or ssa in ("CSA", "MSR", "PSR", "SR", "TPA_INPLACE")
             )
             if one:
                 self.assertNotIn(config["restart_strategy"], ("IPOP", "BIPOP"))
@@ -154,7 +154,7 @@ class TestTuning(unittest.TestCase):
             self.assertEqual(
                 "cs" in names,
                 ssa not in ("SR", "SA")
-                or ma not in ("NONE", "CHOLESKY", "CMSA", "NATURAL_GRADIENT"),
+                or ma not in ("NONE", "CMSA", "NATURAL_GRADIENT"),
             )
             c1_active = ma in ("COVARIANCE", "COVARIANCE_NO_EIGV", "SEPARABLE", "MATRIX", "CHOLESKY")
             c1_active |= ma == "NATURAL_GRADIENT" and bool(config.get("active"))

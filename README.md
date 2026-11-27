@@ -91,7 +91,7 @@ adaptations in [the benchmarks](docs/performance.md).
 | module | options |
 |---|---|
 | matrix adaptation | full covariance (default), MA-ES, separable, Cholesky, CMSA, natural gradient, none |
-| step-size adaptation | CSA (default), TPA, MSR, PSR, xNES variants, 1/5th success rule, self-adaptation |
+| step-size adaptation | CSA (default), TPA (with extra points, or within the population), MSR, PSR, xNES variants, 1/5th success rule, self-adaptation |
 | restarts | none, stop, restart, IPOP, BIPOP; repelling restarts; where to restart |
 | selection | active update, elitism, sequential selection, recombination weights |
 | sampling | mirrored, pairwise, orthogonal; Sobol and Halton sequences; Gaussian, Cauchy, Laplace, ... mutations; sampled step sizes; threshold convergence |

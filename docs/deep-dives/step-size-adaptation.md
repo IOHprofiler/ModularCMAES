@@ -39,18 +39,27 @@ logistic and double-Weibull transformations their own, not √d as before 2.0
 
 ## TPA: two-point adaptation
 
-**What modcma does.** Two extra points per generation, x± = m ± σ·Δm (Δm the last mean shift in
-units of the step size, as for [CSA](#csa)), evaluated with the population (in its first batch:
-they do not depend on its values);
-s ← (1 − c)s + c·r with r = −0.5 when f(x−) < f(x+) and 0.5 otherwise, c = 0.3, then σ ← σ·eˢ.
-With ask–tell, `ask()` returns λ + 2 points.
+**What modcma does.** Two extra points per generation, x± = m ± ½σ⟨y⟩: half the last step of
+the mean, with ⟨y⟩ = Δm the last mean shift in units of the step size (as for [CSA](#csa)) and σ
+the step size that sampled it. They are evaluated with the population (in its first batch: they
+do not depend on its values); s ← (1 − c)s + c·r with r = −0.5 when f(x−) < f(x+), 0.5 when
+f(x+) < f(x−) and 0 on a tie, c = 0.3, then σ ← σ·eˢ. With ask–tell, `ask()` returns λ + 2
+points.
 
-**Compared with Hansen (2008) and pycma.** pycma takes the two points from the λ offspring (no extra
-evaluations), rescales them to a random length, uses the rank difference among all λ, compresses it
-and damps the update by 0.7 + 2 ln d + …; modcma follows the Python implementation of the framework
-(and ModEA). A tie (f(x−) = f(x+), as after a restart, when Δm = 0) gives r = 0, as the sign of
-the rank difference in pycma. Before 2.0 a tie counted as a success: σ grew by 16 % after every
-restart, and diverged with elitism.
+**Compared with Hansen (2008).** The paper's test points are x± = m ± α σ⟨y⟩ with α = 0.5
+(Eqs. (8), (9), (13)) and the σ that sampled the generation ("the original step-size is used for
+updating m", Sec. 2.2). A full-length step "extends the step further" and biases the step size
+low, so the paper takes half of it. Its update is α_s ← (1 − c)α_s + c α_act with α_act = −α′ when
+x− is better and α′ otherwise (Eq. (10), α′ = 0.5, β = 0), σ ← σ exp(α_s), c = 0.3: modcma's, but
+for the tie. Before #167 the points were m ± σ_new⟨y⟩, about one step of the mean (between 0.6 and
+1.65 steps), from the Python implementation of the framework and ModEA, which used exactly one
+step. On BBOB (f1, f2, f10, f15; d = 5 and 20; 15 runs) the length changed the evaluations by 2 %
+or less, within the noise (#167).
+
+**Compared with pycma.** pycma's `CMAAdaptSigmaTPA` is the later version of Hansen, Atamna & Auger
+(2014): `TPA_INPLACE` below. A tie (f(x−) = f(x+), as after a restart, when Δm = 0) gives r = 0,
+as the sign of the rank difference in pycma. Before 2.0 a tie counted as a success: σ grew by 16 %
+after every restart, and diverged with elitism.
 
 **Bounds.** With a bound correction other than `NONE`, both points move toward m by the same
 factor until both are in the box, then their integer coordinates are rounded. The test steps stay
@@ -62,6 +71,36 @@ reached 1e-8 in 16 and 13 fewer of 350 runs than with the points left outside th
 clipped points (for `RESAMPLE`) solved f2 (d = 20) in 10 to 15 of 25 runs instead of 25. The
 method moves the points only when m itself is outside the box. The points were only rounded
 before, so TPA evaluated points outside the box, and one could be reported as the best (#98).
+
+## TPA_INPLACE: two-point adaptation within the population
+
+**What modcma does** (#173). From the second generation of a run on, offspring 1 and 2 are a
+mirrored pair along the last mean shift: z₁ = ‖n‖·A⁻¹Δm/‖A⁻¹Δm‖ with n an ordinary sample of the
+sampler, and z₂ = −z₁, so y₁ = A z₁ lies along Δm and both points are as far from m as a sample.
+They are part of the λ offspring: no extra evaluations. When the offspring are evaluated,
+
+* z = (#{f < f₂} − #{f < f₁})/(n − 1), the difference of their ranks among the n offspring (the
+  parents of elitism not included), in [−1, 1];
+* s ← (1 − c)s + c·sign(z)|z|^0.5, with c = 0.3 (`cs`);
+* σ ← σ·exp(s/d_σ), with d_σ = 0.7 + 2 ln d + 2 ln max(1, λ − d) (`damps`).
+
+**Compared with pycma and Hansen, Atamna & Auger (2014).** modcma follows pycma 4.6.0's
+`CMAAdaptSigmaTPA` (`sigma_adaptation.py`, `evolution_strategy.py`:2251–2254, 2575–2576), which
+is "loosely based on Hansen 2008, … more tightly reflecting Hansen et al. 2014": its step-size
+trajectory on scripted objective values is pycma's to rounding (`tests/test_c_tpa_inplace.py`).
+pycma departs from the paper's Eq. (6) and Algorithm 3 in three places, and modcma with it:
+
+* the transform |z|^0.5 (pycma's `z_exponent`), which enlarges small rank differences; the paper
+  averages z itself;
+* the damping 0.7 + 2 ln d + 2 ln max(1, λ − d); the paper's d_σ = √d was tuned on the sphere with
+  the default λ only, and the two are close for d = 2 to 9;
+* the update in the first generation of a run, from the ranks of two ordinary samples (pycma's
+  `update2` runs at every `tell`); the paper updates from the second generation on (t > 0).
+
+The direction needs A⁻¹Δm: a triangular solve with most matrix adaptations; `MATRIX` keeps M⁻¹
+with M every generation for it (as with elitism, by the Woodbury identity); `NATURAL_GRADIENT`
+inverts A every generation, O(d³). See the [compatibility](../guide/compatibility.md) page for
+mirrored and orthogonal sampling, pairwise and sequential selection, sampled step sizes and bounds.
 
 ## MSR: median success rule
 
@@ -114,6 +153,13 @@ rate of the path p_σ, which h_σ and MATRIX's rank-one update read, at most 1
 * **XNES with `NATURAL_GRADIENT`** is xNES's rule: σ ← σ·exp((η_σ/2)·tr(G)/d), from the natural
   gradient G of the matrix update ([matrix adaptations](matrix-adaptations.md#natural_gradient-xnes)),
   with η_σ = (9 + 3 ln d)/(5 d √d) (Glasmachers et al. 2010).
+* **With elitism** both forms read the offspring alone, ranked among themselves, with the same
+  weights (#172). xNES's gradient is an estimate from the samples of the current distribution,
+  "{(zᵢ, xᵢ)} sorted with respect to f(xᵢ)" (Glasmachers et al. 2010, Algorithm 1), and xNES SA "is
+  based solely on the immediate offspring" (Krause et al. 2017, Sec. 4.2). The parents' z,
+  recomputed against the mean they recombined, have ‖z‖²/d of 0.3 to 0.6; among the µ best they
+  pulled σ down by a term that grows with d, and σ settled 3 to 14 times too small (the ellipsoid
+  at d = 10 and 20: 0 of 20 runs with `COVARIANCE`, 3 and 0 with `NATURAL_GRADIENT`; now 20 of 20).
 * **XNES with another matrix adaptation** is the xNES SA of Krause et al. (2017), a length rule:
   σ ← σ·exp((cs/√d)·Σ wᵢ(‖zᵢ‖² − d)) over the µ best, with their convex weights (summing to 1, also
   for `UTILITY`) and cs = µ_eff/(2 ln d √d) (ln(max(2, d)) at d = 1, as 1.x). It was 0.01 until
@@ -175,9 +221,10 @@ paper and the Python implementation draw one per point.
 | step-size rule | reads | works with | notes |
 |---|---|---|---|
 | `CSA` (default) | the path p_σ | every matrix adaptation | `COVARIANCE` uses C^-1/2 Δm, the others the weighted z |
-| `TPA` | two extra evaluations | every | |
+| `TPA` | two extra evaluations | every | with `elitist` σ collapses in some runs |
+| `TPA_INPLACE` | the ranks of two offspring | every (`NATURAL_GRADIENT` inverts A every generation) | |
 | `MSR`, `PSR` | the f-values of two generations | every | with pairwise selection the ranked points only |
-| `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | not with `MATRIX`, `CHOLESKY` or `elitist`: the runs stall (#160) |
+| `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | with elitism the offspring only (#172); `MATRIX` and `CHOLESKY` stall their rank-one term by h_σ (#160) |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
 | `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | |
 | `SR` | successes against the best of the run | λ = 1 (automatic) | one success per generation for λ > 1 |

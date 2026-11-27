@@ -9,7 +9,7 @@ other implementations.
 
 * [Matrix adaptations](matrix-adaptations.md): CMA-ES, sep-CMA-ES, MA-ES, Cholesky-CMA-ES,
   CMSA-ES, xNES, and the variants without a published counterpart.
-* [Step-size adaptation](step-size-adaptation.md): CSA, TPA, MSR, PSR, the xNES rules, the success
+* [Step-size adaptation](step-size-adaptation.md): CSA, TPA, TPA_INPLACE, MSR, PSR, the xNES rules, the success
   rule and self-adaptation.
 * [Selection, sampling and restarts](selection-sampling-restarts.md): the recombination weights,
   the active update per matrix adaptation, elitism, sequential and pairwise selection, the samplers,

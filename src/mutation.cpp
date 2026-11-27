@@ -100,6 +100,7 @@ void Strategy::begin_population(const size_t n_offspring, parameters::Parameters
     p.pop.reserve(n_offspring);
     p.pop.n = n_offspring;
     p.pop.n_ranked = std::numeric_limits<size_t>::max();
+    p.pop.n_pool = 0;
     // A new generation: a new block of orthogonal samples, no pair sampled ahead (#75, #76)
     p.sampler->begin_generation();
     partner_sampled = false;
@@ -108,6 +109,7 @@ void Strategy::begin_population(const size_t n_offspring, parameters::Parameters
         tc->threshold(p.sampler->expected_length(), p.settings.budget, p.stats.evaluations);
     p.bounds->n_out_of_bounds = 0;
     p.repelling->prepare_sampling(p);
+    on_population_begin(p);
 }
 
 Eigen::Index Strategy::sample_batch_from(const Eigen::Index i, parameters::Parameters &p)
@@ -162,6 +164,8 @@ void Strategy::sample_batch(const Eigen::Index begin,
     for (Eigen::Index i = first; i < end; ++i)
     {
         p.pop.t(i) = p.stats.t;
+        if (sample_special(i, p))
+            continue;
         if (mirrored && i % 2 == 1)
             p.pop.Z.col(i) = -p.pop.Z.col(i - 1);
         else
@@ -172,7 +176,7 @@ void Strategy::sample_batch(const Eigen::Index begin,
 
     for (Eigen::Index i = first; i < end;)
     {
-        const Eigen::Index size = mirrored && i + 1 < n ? 2 : 1;
+        const Eigen::Index size = (mirrored && i + 1 < n) || special_pair(i) ? 2 : 1;
         for (Eigen::Index j = i; j < i + size; ++j)
         {
             tc->apply(p.pop.Z.col(j), p.pop.Y.col(j), generation_threshold);
@@ -181,8 +185,9 @@ void Strategy::sample_batch(const Eigen::Index begin,
         size_t n_rejections = 0;
         while (rejected(i, size, n_rejections, p))
         {
-            p.sampler->sample(p.pop.Z.col(i));
-            if (size == 2)
+            if (!sample_special(i, p))
+                p.sampler->sample(p.pop.Z.col(i));
+            if (size == 2 && !sample_special(i + 1, p))
                 p.pop.Z.col(i + 1) = -p.pop.Z.col(i);
             for (Eigen::Index j = i; j < i + size; ++j)
             {
@@ -294,9 +299,13 @@ void TPA::extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) 
     // box +-4: TOROIDAL, UNIFORM_RESAMPLE, COTN and RESAMPLE lost 5 to 16 of 350 runs; with the
     // shrink they solve as many as with the points outside the box). The method (correct_point)
     // only moves the points when m itself is outside. Then the integer variables are rounded.
+    // The test steps are half the last mean step, alpha sigma <y> with alpha = 0.5 and the step
+    // size that sampled the generation (Hansen, CMA-ES with Two-Point Step-Size Adaptation,
+    // arXiv:0805.0231, 2008, Eqs. (8), (9), (13); Sec. 2.2: a step of the full length "extends the
+    // step further" and biases sigma low). They were sigma_new dm, about one mean step (#167)
     const Vector &lb = p.settings.lb, &ub = p.settings.ub;
     const Float sigma = p.mutation->sigma;
-    Vector step = sigma * p.adaptation->dm;
+    Vector step = (0.5 * sigma_old) * p.adaptation->dm;
     if (p.settings.modules.bound_correction != parameters::CorrectionMethod::NONE)
         step *= symmetric_fraction(p.adaptation->m, step, lb, ub);
     for (const Eigen::Index k : {Eigen::Index{0}, Eigen::Index{1}})
@@ -312,8 +321,8 @@ void TPA::tell_extra_points(Eigen::Ref<const Vector> f,
                             parameters::Parameters &p)
 {
     const Float f_pos = f(0), f_neg = f(1);
-    p.stats.update_best(X.col(0), f_pos);
-    p.stats.update_best(X.col(1), f_neg);
+    p.stats.update_best(X.col(0), f_pos, p.settings.in_domain(X.col(0)));
+    p.stats.update_best(X.col(1), f_neg, p.settings.in_domain(X.col(1)));
     // A tie (as after a restart, when dm = 0 and both points are the mean) is no signal: 0, as the
     // sign of the rank difference in pycma's TPA; it counted as a success (sigma grew by 16 %)
     this->rank_tpa = f_neg < f_pos ? -a_tpa : (f_pos < f_neg ? a_tpa + b_tpa : Float(0.0));
@@ -325,8 +334,81 @@ void TPA::adapt(const parameters::Weights &w,
                 const Population &old_pop,
                 const parameters::Stats &stats)
 {
+    sigma_old = sigma;
     s = ((1.0 - w.cs) * s) + (w.cs * this->rank_tpa);
     sigma *= std::exp(s);
+}
+
+void TPAInPlace::on_population_begin(parameters::Parameters &p)
+{
+    // The test points: in every generation of a run but the first (no mean shift yet), when the
+    // population has two individuals (lambda can be 1 when a restart caps it at the budget)
+    test_points = p.stats.t_run > 0 && p.pop.n >= 2;
+    if (!test_points)
+        return;
+    // The direction of the last mean shift in z: y = A z then lies along dm, x - m along m - m_old
+    // (as pycma's injected direction, whose Mahalanobis length it rescales,
+    // evolution_strategy.py:2251-2254, 2322-2333). A zero shift gives z = 0: both points are the
+    // mean, a tie (pycma warns and does the same)
+    direction.resize(p.adaptation->dm.size());
+    p.adaptation->invert_y_into(p.adaptation->dm, direction);
+    const Float length = direction.norm();
+    if (length > 0 && std::isfinite(length))
+        direction /= length;
+    else
+        direction.setZero();
+}
+
+bool TPAInPlace::sample_special(const Eigen::Index i, parameters::Parameters &p)
+{
+    if (!test_points || i > 1)
+        return false;
+    if (i == 1)
+    {
+        // The mirror of the first, with its step size (sampled step sizes differ per individual)
+        p.pop.Z.col(1) = -p.pop.Z.col(0);
+        p.pop.S.col(1) = p.pop.S.col(0);
+        return true;
+    }
+    // ||N(0, I)|| times the direction (Hansen et al. 2014, Eq. (6)): an ordinary sample of the
+    // sampler gives the length, so the test point is as long as a sample
+    p.sampler->sample(p.pop.Z.col(0));
+    p.pop.Z.col(0) = p.pop.Z.col(0).norm() * direction;
+    return true;
+}
+
+void TPAInPlace::on_population_complete(parameters::Parameters &p)
+{
+    // The normalised rank difference of individuals 0 and 1 among the n offspring, before elitism
+    // adds the parents: (#{f < f_1} - #{f < f_0}) / (n - 1), in [-1, 1] (pycma,
+    // sigma_adaptation.py:829-830; Hansen et al. 2014, Algorithm 3, line 16, with lambda = n).
+    // pycma also updates in the first generation of a run, from two ordinary samples
+    const auto n = static_cast<Eigen::Index>(p.pop.n);
+    pending = n >= 2;
+    if (!pending)
+        return;
+    const auto f = p.pop.f.head(n).array();
+    const Float better_than_1 = (f < p.pop.f(1)).cast<Float>().sum();
+    const Float better_than_0 = (f < p.pop.f(0)).cast<Float>().sum();
+    rank_difference = (better_than_1 - better_than_0) / static_cast<Float>(n - 1);
+}
+
+void TPAInPlace::adapt(const parameters::Weights &w,
+                       std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+                       Population &pop,
+                       const Population &old_pop,
+                       const parameters::Stats &stats)
+{
+    if (!pending)
+        return;
+    pending = false;
+    // s <- (1 - c) s + c sign(z) |z|^0.5 with c = 0.3, sigma <- sigma exp(s / damp) (pycma 4.6.0,
+    // CMAAdaptSigmaTPA.update2, sigma_adaptation.py:789-847: z_exponent 0.5, tpa_dampdown_fac and
+    // TPA_dampfac 1; Hansen et al. 2014 use z itself and d_sigma = sqrt(d))
+    const Float z = rank_difference;
+    const Float sign = z > 0 ? 1.0 : (z < 0 ? -1.0 : 0.0);
+    s = (1.0 - w.cs) * s + w.cs * sign * std::sqrt(std::abs(z));
+    sigma *= std::exp(s / w.damps);
 }
 
 void MSR::adapt(const parameters::Weights &w,
@@ -413,16 +495,68 @@ void PSR::adapt(const parameters::Weights &w,
     }
 }
 
+void XNES::on_population_complete(parameters::Parameters &p)
+{
+    // With elitism the selected points include parents, whose z are recomputed against the mean
+    // they recombined: ||z||^2 / d is 0.3 to 0.6 instead of 1, and every parent among the mu best
+    // pulled sigma down by a term that grows with d. sigma settled 3 to 14 times too small, and the
+    // matrix learned the wrong shape (the ellipsoid at d = 10, 20: 0 of 20 runs solved, with
+    // COVARIANCE and NATURAL_GRADIENT). xNES's gradient is an estimate from the samples of the
+    // current distribution, "{(z_i, x_i)} sorted with respect to f(x_i)" (Glasmachers et al. 2010,
+    // Algorithm 1), and xNES SA "is based solely on the immediate offspring" (Krause, Glasmachers
+    // & Igel 2017, Sec. 4.2): so the statistic is taken from the offspring alone, ranked among
+    // themselves (the losers of pairwise selection last), with the same weights (#172). Without
+    // elitism the offspring are the selected points: adapt() reads the population.
+    if (!p.settings.modules.elitist)
+        return;
+    const auto n = static_cast<Eigen::Index>(p.pop.n);
+    const size_t n_ranked = p.selection->pairwise->rank(p.pop.f.head(n), p.pop.n, order);
+    const Float d = p.adaptation->dd;
+    const auto squared_norm = [&](const Eigen::Index i) {
+        return p.pop.Z.col(static_cast<Eigen::Index>(order[static_cast<size_t>(i)])).squaredNorm();
+    };
+    if (std::dynamic_pointer_cast<matrix_adaptation::NaturalGradientAdaptation>(p.adaptation))
+    {
+        // sigma_g = trace(G) / d with G = sum_i w_i (z_i z_i^T - I), with the weights of the
+        // natural gradient (NaturalGradientAdaptation::compute_gradients)
+        if (p.settings.modules.active)
+            p.weights.for_population_into(p.pop.n, weights, n_ranked);
+        else
+            weights = p.weights.positive;
+        const Eigen::Index k = std::min<Eigen::Index>(weights.size(), n);
+        Float sum = 0.0;
+        for (Eigen::Index i = 0; i < k; ++i)
+            sum += weights(i) * squared_norm(i);
+        offspring_statistic = (sum - weights.head(k).sum() * d) / d;
+        return;
+    }
+    const Eigen::Index k = std::min<Eigen::Index>(p.weights.positive.size(), n);
+    Float sum = 0.0;
+    for (Eigen::Index i = 0; i < k; ++i)
+        sum += p.weights.positive(i) * (squared_norm(i) - d);
+    offspring_statistic = sum;
+}
+
 void XNES::adapt(const parameters::Weights &w,
                  std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
                  Population &pop,
                  const Population &old_pop,
                  const parameters::Stats &stats)
 {
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::NaturalGradientAdaptation>(adaptation))
+    const auto natural_gradient =
+        std::dynamic_pointer_cast<matrix_adaptation::NaturalGradientAdaptation>(adaptation);
+    if (offspring_statistic)
     {
-        sigma *= std::exp(w.cs / 2.0 * dynamic->sigma_g);
+        // With elitism: the statistic of the offspring (on_population_complete, #172)
+        const Float statistic = *offspring_statistic;
+        offspring_statistic.reset();
+        sigma *= natural_gradient ? std::exp(w.cs / 2.0 * statistic)
+                                  : std::exp((w.cs / std::sqrt(adaptation->dd)) * statistic);
+        return;
+    }
+    if (natural_gradient)
+    {
+        sigma *= std::exp(w.cs / 2.0 * natural_gradient->sigma_g);
         return;
     }
 
@@ -552,6 +686,8 @@ std::shared_ptr<Strategy> get(const parameters::Modules &m,
         return std::make_shared<SR>(tc, sq, ss, sigma);
     case StepSizeAdaptation::SA:
         return std::make_shared<SA>(tc, sq, ss, sigma);
+    case StepSizeAdaptation::TPA_INPLACE:
+        return std::make_shared<TPAInPlace>(tc, sq, ss, sigma);
     default:
     case StepSizeAdaptation::CSA:
         return std::make_shared<CSA>(tc, sq, ss, sigma);

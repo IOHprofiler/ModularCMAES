@@ -123,13 +123,15 @@ script/tuning/data_new/*
 solutions_*/*
 data_old
 
-# test fixtures: golden trajectories (tests/golden.py), API dumps (tests/api_dump.py) and the
-# reference values of cmaes for warm_start (tests/test_c_warm_start.py)
+# test fixtures: golden trajectories (tests/golden.py), API dumps (tests/api_dump.py), the
+# reference values of cmaes for warm_start (tests/test_c_warm_start.py) and of pycma for
+# TPA_INPLACE (tests/test_c_tpa_inplace.py)
 !tests/data/
 tests/data/*
 !tests/data/golden/
 !tests/data/api/
 !tests/data/warm_start/
+!tests/data/tpa_inplace/
 
 # Output of the BBOB example
 bbob-data/

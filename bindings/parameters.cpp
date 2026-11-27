@@ -139,6 +139,15 @@ void define_population(nb::module_ &main)
             "active update, and MSR and PSR compare the ranked individuals only. Set by the "
             "selection; `sort`, `keep_only` and adding populations make every individual "
             "ranked again.")
+        .def_rw("n_pool",
+                &Population::n_pool,
+                "With elitism, the size of the sorted (mu + lambda) pool of which the selection "
+                "kept the first n (0 or at most n: no point was dropped).\n\n"
+                "The columns n..n_pool-1 of the buffers then hold the dropped points, the worst "
+                "of the pool, in their order (they are not part of the arrays X, Z, Y, f, ...): "
+                "the active update of the matrix gives them the negative weights (the framework "
+                "paper's \"lambda - mu worst individuals\", #161). Set by the selection; "
+                "`keep_only` and adding populations reset it to 0.")
         .def(
             "__add__",
             [](const Population &self, const Population &other) {
@@ -321,8 +330,8 @@ void define_parameters(nb::module_ &main)
                 "points). See modcma.c_maes.options.RepellingType.")
         .def_rw("repelling_metric",
                 &Modules::repelling_metric,
-                "options.RepellingMetric, default EUCLIDEAN: the distance between a sample and "
-                "a taboo point of repelling restarts.\n\n"
+                "options.RepellingMetric, default CURRENT (EUCLIDEAN before #158): the distance "
+                "between a sample and a taboo point of repelling restarts.\n\n"
                 "See modcma.c_maes.options.RepellingMetric for the choices.")
         .def_rw("matrix_adaptation",
                 &Modules::matrix_adaptation,
@@ -418,8 +427,9 @@ void define_parameters(nb::module_ &main)
         .def_rw("solutions",
                 &Stats::solutions,
                 "list of Solution: the best solution of every finished run, appended when it "
-                "ends, at a restart and when the optimizer stops (a copy). Its center of mass, "
-                "evaluated after it, can be better: see centers.")
+                "ends, at a restart and when the optimizer stops (a copy of current_best, so with "
+                "RESAMPLE possibly outside the box). Its center of mass, evaluated after it, can "
+                "be better: see centers.")
         .def_rw("centers",
                 &Stats::centers,
                 "list of Center: the record of every finished run, appended when it ends, at a "
@@ -427,10 +437,18 @@ void define_parameters(nb::module_ &main)
                 "the metric and why it ended (a copy). One per run, as solutions.")
         .def_rw("current_best",
                 &Stats::current_best,
-                "The best solution of the current run (since the last restart).")
+                "The best solution of the current run (since the last restart), of every "
+                "evaluated point; the success rules and the restarts read it. With RESAMPLE it "
+                "can lie outside the box (see global_best).")
         .def_rw("global_best",
                 &Stats::global_best,
-                "The best solution found so far, over all runs.")
+                "The best feasible solution found so far, over all runs: what `run()` and `fmin` "
+                "return.\n\n"
+                "With a bound correction (not NONE) only a point inside [lb, ub] becomes "
+                "global_best: RESAMPLE evaluates a point outside the box after 5 d rejected tries, "
+                "and such a point is not returned (#168). Without a bound correction the box does "
+                "not constrain the points, and every point counts. Before 2.0 it could lie "
+                "outside the box.")
         .def_rw("has_improved",
                 &Stats::has_improved,
                 "Whether the last selection improved current_best.")
@@ -1555,7 +1573,10 @@ void define_es(nb::module_ &main)
         .def_rw("decay",
                 &OnePlusOneES::decay,
                 "The exponent of the step-size update, 1 / sqrt(d + 1).")
-        .def_rw("x", &OnePlusOneES::x, "(d,) array: the current (best) point.")
+        .def_rw("x",
+                &OnePlusOneES::x,
+                "(d,) array: the current (best) point. With a bound correction a point outside "
+                "the box [-5, 5]^d (RESAMPLE gives up after 5 d tries) does not replace it (#168).")
         .def_rw("f", &OnePlusOneES::f, "The objective value of x.")
         .def_rw("t", &OnePlusOneES::t, "The number of evaluations, including x0.")
         .def_rw("budget", &OnePlusOneES::budget, "The maximum number of evaluations.")
@@ -1637,7 +1658,8 @@ void define_es(nb::module_ &main)
         .def_rw("f_min", &MuCommaLambdaES::f_min, "The best objective value found (+inf at first).")
         .def_rw("x_min",
                 &MuCommaLambdaES::x_min,
-                "(d,) array: the best point found (NaN before the first generation).")
+                "(d,) array: the best point found (NaN before the first generation). With a bound "
+                "correction only a point in the box [-5, 5]^d (#168).")
         .def_rw("t", &MuCommaLambdaES::t, "The number of generations.")
         .def_rw("e", &MuCommaLambdaES::e, "The number of evaluations.")
         .def_rw("budget", &MuCommaLambdaES::budget, "The maximum number of evaluations.")

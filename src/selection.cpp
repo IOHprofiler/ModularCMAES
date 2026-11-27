@@ -16,6 +16,9 @@ void Strategy::select(parameters::Parameters &p) const
     const size_t n_offspring = p.pop.n;
     (*elitsm)(p);
     pairwise->sort(p.pop, n_offspring);
+    // With elitism the pool can exceed lambda: the dropped points stay after the population, for
+    // the active update (#161)
+    p.pop.n_pool = p.pop.n;
     p.pop.resize_cols(p.lambda);
 
     p.stats.current_avg = p.pop.f.head(p.pop.n).array().mean();
@@ -24,16 +27,34 @@ void Strategy::select(parameters::Parameters &p) const
     // work without elitism: it is beaten about every other generation even at a good sigma, far
     // above the target 2/11, and sigma diverges (#83). Counted once per generation.
     const bool success = p.pop.f(0) < p.stats.current_best.y;
-    p.stats.update_best(p.pop.X_transformed(Eigen::all, 0), p.pop.f(0));
+    const auto &X = p.pop.X_transformed;
+    const bool feasible = p.settings.in_domain(X.col(0));
+    p.stats.update_best(X.col(0), p.pop.f(0), feasible);
     p.stats.update_success(success);
+    if (!feasible)
+    {
+        // Only a point in the domain becomes global_best (#168): the best of the generation is
+        // outside the box (RESAMPLE gave up), so the best one inside it, of all evaluated points
+        // (the points that elitism dropped included)
+        const auto pool = static_cast<Eigen::Index>(std::max(p.pop.n_pool, p.pop.n));
+        Eigen::Index best = -1;
+        for (Eigen::Index i = 1; i < pool; ++i)
+            if (!std::isnan(p.pop.f(i)) && (best < 0 || p.pop.f(i) < p.pop.f(best)) &&
+                p.settings.in_domain(X.col(i)))
+                best = i;
+        if (best >= 0)
+            p.stats.update_global_best(X.col(best), p.pop.f(best));
+    }
 }
 
 void Pairwise::operator()(parameters::Parameters &p) const { sort(p.pop, p.pop.n); }
 
-void Pairwise::sort(Population &pop, const size_t n_offspring) const
+size_t Pairwise::rank(Eigen::Ref<const Vector> f,
+                      const size_t n_offspring,
+                      std::vector<size_t> &out) const
 {
-    const size_t n = pop.n;
-    const auto f = [&pop](const size_t i) { return pop.f(static_cast<Eigen::Index>(i)); };
+    const auto n = static_cast<size_t>(f.size());
+    const auto value = [&f](const size_t i) { return f(static_cast<Eigen::Index>(i)); };
 
     // The loser of each pair: the second when the first is better (a NaN value is worse than any
     // number), the first otherwise (on a tie, as before #75). An odd last offspring is unpaired.
@@ -41,18 +62,19 @@ void Pairwise::sort(Population &pop, const size_t n_offspring) const
     size_t n_losers = 0;
     for (size_t i = 0; i + 1 < std::min(n_offspring, n); i += 2, ++n_losers)
     {
-        const bool first_better = f(i) < f(i + 1) || (std::isnan(f(i + 1)) && !std::isnan(f(i)));
+        const bool first_better =
+            value(i) < value(i + 1) || (std::isnan(value(i + 1)) && !std::isnan(value(i)));
         loser[first_better ? i + 1 : i] = 1;
     }
 
     // The ranked individuals by f, then the losers by f; within each, ties in index order and NaN
     // last, as Population::sort
-    order.resize(n);
-    std::iota(order.begin(), order.end(), size_t{0});
-    std::sort(order.begin(), order.end(), [&](const size_t a, const size_t b) {
+    out.resize(n);
+    std::iota(out.begin(), out.end(), size_t{0});
+    std::sort(out.begin(), out.end(), [&](const size_t a, const size_t b) {
         if (loser[a] != loser[b])
             return loser[a] < loser[b];
-        const Float fa = f(a), fb = f(b);
+        const Float fa = value(a), fb = value(b);
         const bool nan_a = std::isnan(fa), nan_b = std::isnan(fb);
         if (nan_a != nan_b)
             return nan_b;
@@ -60,8 +82,22 @@ void Pairwise::sort(Population &pop, const size_t n_offspring) const
             return fa < fb;
         return a < b;
     });
+    return n - n_losers;
+}
+
+void Pairwise::sort(Population &pop, const size_t n_offspring) const
+{
+    const size_t n_ranked = rank(pop.f.head(static_cast<Eigen::Index>(pop.n)), n_offspring, order);
     pop.reorder(order);
-    pop.n_ranked = n - n_losers;
+    pop.n_ranked = n_ranked;
+}
+
+size_t NoPairwise::rank(Eigen::Ref<const Vector> f,
+                        const size_t /*n_offspring*/,
+                        std::vector<size_t> &out) const
+{
+    utils::sort_order(f, out);
+    return out.size();
 }
 
 void NoPairwise::sort(Population &pop, const size_t /*n_offspring*/) const { pop.sort(); }

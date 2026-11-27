@@ -85,7 +85,9 @@ class OnePlusOneES:
 
     @property
     def x(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
-        """(d,) array: the current (best) point."""
+        """
+        (d,) array: the current (best) point. With a bound correction a point outside the box [-5, 5]^d (RESAMPLE gives up after 5 d tries) does not replace it (#168).
+        """
 
     @x.setter
     def x(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
@@ -277,7 +279,9 @@ class MuCommaLambdaES:
 
     @property
     def x_min(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
-        """(d,) array: the best point found (NaN before the first generation)."""
+        """
+        (d,) array: the best point found (NaN before the first generation). With a bound correction only a point in the box [-5, 5]^d (#168).
+        """
 
     @x_min.setter
     def x_min(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...

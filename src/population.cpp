@@ -63,13 +63,15 @@ Population &Population::operator+=(const Population &other)
     t.segment(k, m) = other.t.head(m);
     n += other.n;
     n_ranked = std::numeric_limits<size_t>::max();
+    n_pool = 0;
     return *this;
 }
 
 void Population::resize_cols(const size_t size)
 {
     // Only the number of active columns changes; the buffers keep their capacity (elitism appends
-    // the parents every generation, which would otherwise reallocate twice per generation)
+    // the parents every generation, which would otherwise reallocate twice per generation), and
+    // the columns from size on keep their contents (n_pool)
     n = std::min(size, n);
 }
 
@@ -88,6 +90,7 @@ void Population::keep_only(const std::vector<size_t> &idx)
     t = t(idx).eval();
     n = idx.size();
     n_ranked = std::numeric_limits<size_t>::max();
+    n_pool = 0;
 }
 
 size_t Population::n_finite() const

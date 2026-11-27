@@ -8,7 +8,8 @@ its expected length under random selection, and increases σ when the steps add 
 | option | idea | notes |
 |---|---|---|
 | `CSA` | cumulative step-size adaptation (Hansen & Ostermeier 2001) | the default |
-| `TPA` | two-point adaptation: evaluate the mean moved forward and backward along its last step (Hansen 2008) | evaluates 2 extra points per generation (`ask()` returns λ + 2) |
+| `TPA` | two-point adaptation: evaluate the mean moved forward and backward by half its last step (Hansen 2008) | evaluates 2 extra points per generation (`ask()` returns λ + 2) |
+| `TPA_INPLACE` | two-point adaptation within the population: offspring 1 and 2 along the last mean step, compared by their ranks (pycma; Hansen, Atamna & Auger 2014) | no extra points |
 | `MSR` | median success rule: does the median point beat the 0.3λ-th best of the previous generation? (Ait ElHara et al. 2013) | |
 | `PSR` | population success rule: rank the current and the previous generation together (Loshchilov 2014) | |
 | `XNES`, `MXNES`, `LPXNES` | natural-gradient step-size updates in the style of xNES (Glasmachers et al. 2010) and variants | |
@@ -26,7 +27,7 @@ import modcma
 def sphere(X):
     return np.sum(X**2, axis=1)
 
-for ssa in ["CSA", "TPA", "MSR", "PSR", "XNES"]:
+for ssa in ["CSA", "TPA", "TPA_INPLACE", "MSR", "PSR", "XNES"]:
     es = modcma.ModularCMAES(modcma.settings_from_dict(
         10, ssa=ssa, x0=np.full(10, 3.0), budget=10_000, target=1e-8, seed=1
     ))
@@ -46,7 +47,7 @@ The current step size is `es.p.mutation.sigma`; the method's state and parameter
 | value | |
 |---|---|
 | `CSA` | Cumulative step-size adaptation (Hansen & Ostermeier 2001), the default: sigma grows when the evolution path p_sigma is longer than expected under random selection and shrinks when it is shorter. |
-| `TPA` | Two-point step-size adaptation (Hansen 2008): two extra points m +- sigma * dm along the last step dm of the mean are evaluated every generation (two more evaluations); sigma grows when the point ahead is the better one. With a bound correction both points move toward m, symmetrically, until both are in the box. |
+| `TPA` | Two-point step-size adaptation (Hansen 2008): two extra points m +- 0.5 sigma_old dm, half the last step of the mean (Eqs. 8, 9), are evaluated every generation (two more evaluations); sigma grows when the point ahead is the better one. With a bound correction both points move toward m, symmetrically, until both are in the box. Before 2.0 the points were m +- sigma dm, about one step of the mean (#167). `TPA_INPLACE` is the version within the population. |
 | `MSR` | Median success rule (Ait ElHara et al. 2013): counts the individuals that are better than the 0.3 lambda-th best of the previous generation; sigma grows when more than half are. |
 | `XNES` | The step-size update of xNES (Glasmachers et al. 2010), from the weighted squared lengths of the samples (xNES SA, with the learning rate of Krause, Glasmachers & Igel (2017)); with NATURAL_GRADIENT, from its natural gradient, with xNES's learning rate. |
 | `MXNES` | A variant of the xNES update from the length of the weighted mean of the selected samples, mueff \|\|sum w_i z_i\|\|^2 - d, instead of their individual lengths (m-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules"). |
@@ -54,4 +55,5 @@ The current step size is `es.p.mutation.sigma`; the method's state and parameter
 | `PSR` | Population success rule (Loshchilov 2014, LM-CMA-ES): ranks the current and the previous generation together and adapts sigma towards a target success ratio of 0.25. |
 | `SR` | Success rule of the (1+1)-ES: sigma grows when the success ratio is above the target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically when lambda = 1. Designed for elitist selection; without elitism a success is measured against the best of the run, which plays the parent's role. |
 | `SA` | Self-adaptation: every individual gets its own step size, sampled log-normally around sigma (learning rate 1 / sqrt(2 d), CMSA's), and sigma moves to the weighted geometric mean of the step sizes of the selected individuals, divided by that of the population (the CMSA-ES operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of Ahrari et al. 2017). Meant for CMSA; makes the default mu lambda / 4. |
+| `TPA_INPLACE` | Two-point step-size adaptation within the population, as pycma 4.6.0's CMAAdaptSigmaTPA (after Hansen, Atamna & Auger 2014, Eq. (6) and Algorithm 3). From the second generation of a run on, offspring 1 and 2 are a mirrored pair along the last mean shift, z = +-\|\|N(0, I)\|\| A^-1 dm / \|\|A^-1 dm\|\|, so no extra evaluations. With z the difference of their ranks among the n offspring divided by n - 1, s <- (1 - cs) s + cs sign(z) \|z\|^0.5 and sigma <- sigma exp(s / damps); cs = 0.3, damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)). pycma departs from the paper in the \|z\|^0.5 (the paper uses z), the damping (the paper: sqrt(d)), and the update in the first generation of a run, from two ordinary samples (the paper updates from the second generation on). Needs lambda >= 2 (with lambda = 1 a generation is not updated). Works with mirrored sampling (the test points are the first pair), pairwise selection (the ranks are of all offspring), sequential selection (which cannot stop before both are evaluated; n is then the evaluated offspring) and elitism (the ranks are of the offspring); with orthogonal sampling the test points are not orthogonal to the other samples. #173. |
 <!-- /options -->

@@ -62,6 +62,13 @@ with.
 pycma's `CMA_elitist` is different: it re-injects only the best solution so far, when it beats the
 generation's best, rescaled to a random length.
 
+With the active update the negative weights of the matrix update go to the λ − µ worst points of
+the µ + λ, which the selection dropped, as the framework paper defines the active update and as
+pycma's weights for a population longer than λ do (#161); before, they went to ranks µ+1..λ, which
+are parents and good offspring. The step-size rules that read the individual steps of the selected
+points read the offspring alone with elitism: `XNES` (#172) and `TPA_INPLACE` (#173)
+([step-size adaptation](step-size-adaptation.md)).
+
 ## Sequential selection
 
 A generation stops at the first point (from the µ-th on, after complete pairs with pairwise
@@ -256,8 +263,28 @@ Before 2.0 only `COVARIANCE` had the four criteria (and so only with CSA). pycma
 ## Repelling restarts and center placement
 
 Repelling restarts follow de Nobel et al. (2024) (`COVERAGE`); `ADAPTIVE`, which adapts the
-radius to the rate of rejected samples, is modcma's own. Center placement only places restarts:
-the first run starts at `x0`, or at the center of the bounds.
+radius to the rate of rejected samples, is modcma's own and experimental (no published source; in
+the experiment of #158 it solved fewer runs than no repelling). Center placement only places
+restarts: the first run starts at `x0`, or at the center of the bounds.
+
+**The radius of `COVERAGE`** (#158). The paper rejects x when d_m(x, x_T, C⁻¹)/σ < γ^n_rej δ(T)
+(Eq. (8): the Mahalanobis distance, divided by the current σ), with V(T) = n_T S / (c σ₀ R) "the
+volume of the repelling region, normalized for σ₀" (Eq. (10)) and δ(T) = V(T)^(1/d)
+Γ(d/2 + 1)^(1/d)/√π (Eq. (11)). modcma:
+
+* divides the volume by σ₀^d instead of σ₀, the maintainer's decision: δ is a length in σ units, so
+  the volume must be in σ₀^d units for δ not to change when the box and σ₀ are scaled together
+  (with σ₀ alone, scaling both by k changed δ by k^((d−1)/d));
+* has no extra factor 1/√d, which the code had and Eq. (11) does not;
+* counts N, the paper's R, as the runs so far, including the one that just ended;
+* uses the problem's σ₀ (`Settings.sigma0`) in every run, also in BIPOP's small runs, as Eq. (10)
+  has one σ₀, the input of the algorithm;
+* measures the distance with `repelling_metric`, by default `CURRENT`, the paper's Mahalanobis
+  distance in the current distribution (the default was `EUCLIDEAN` before #158).
+
+In the experiment of #158 (BBOB f19, f21, f22; d = 5, 10, 20; `RESTART` and `IPOP`), this radius
+with `CURRENT` solved 128 of 270 runs, the former radius 109, and no repelling 101 (Fisher's exact
+test against no repelling, p = 0.023).
 
 `ADAPTIVE` grows the radius of a taboo point whose basin a run found again by
 exp(0.15 min(w, 3)), with w the evaluations of that run over their running average: the first

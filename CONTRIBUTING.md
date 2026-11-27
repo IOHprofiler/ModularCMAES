@@ -43,7 +43,7 @@ ctest --test-dir build --output-on-failure
 ## What a change needs
 
 * **Tests.** `python -m unittest discover -s tests -t .` and `ctest` pass.
-* **Results.** `tests/golden.py` keeps the trajectories of 260 configurations per compiler
+* **Results.** `tests/golden.py` keeps the trajectories of 271 configurations per compiler
   (`tests/data/golden/`). A change that is not meant to change results must leave them bit-exact
   (`python -m tests.golden check --drivers all`). A change that does change results (a bug fix, a
   new default) needs a reason in the pull request and a statistical comparison on BBOB

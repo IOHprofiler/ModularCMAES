@@ -63,18 +63,35 @@ struct Stats
     size_t last_update = 0;
     size_t n_updates = 0;
 
-    //! x by reference (a column of the population): copied only when it improves
-    void update_best(Eigen::Ref<const Vector> x, const Float y)
+    /**
+     * An evaluated point (x by reference, a column of the population: copied only when it
+     * improves). Every point can become current_best, the best of the run, which the success rules
+     * and the restarts read. Only a feasible one (Settings::in_domain: inside [lb, ub] with a bound
+     * correction) can become global_best (#168): RESAMPLE evaluates a point outside the box after
+     * 5 d rejected tries, and the best point that run() and fmin return must lie in the box.
+     */
+    void update_best(Eigen::Ref<const Vector> x, const Float y, const bool feasible = true)
     {
         has_improved = false;
         if (y < current_best.y)
         {
             current_best = Solution(x, y, t, evaluations);
-
-            if (current_best < global_best)
-                global_best = current_best;
-
             has_improved = true;
+        }
+        if (feasible)
+            update_global_best(x, y);
+    }
+
+    //! A feasible point that is not the best of its generation: it can only become global_best
+    void update_global_best(Eigen::Ref<const Vector> x, const Float y)
+    {
+        if (y < global_best.y)
+        {
+            // In place: no allocation once x has its size
+            global_best.x = x;
+            global_best.y = y;
+            global_best.t = t;
+            global_best.e = evaluations;
         }
     }
 

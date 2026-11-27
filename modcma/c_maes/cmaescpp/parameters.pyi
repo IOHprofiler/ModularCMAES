@@ -172,7 +172,7 @@ class Modules:
     @property
     def repelling_metric(self) -> modcma.c_maes.cmaescpp.options.RepellingMetric:
         """
-        options.RepellingMetric, default EUCLIDEAN: the distance between a sample and a taboo point of repelling restarts.
+        options.RepellingMetric, default CURRENT (EUCLIDEAN before #158): the distance between a sample and a taboo point of repelling restarts.
 
         See modcma.c_maes.options.RepellingMetric for the choices.
         """
@@ -337,7 +337,7 @@ class Stats:
     @property
     def solutions(self) -> list[Solution]:
         """
-        list of Solution: the best solution of every finished run, appended when it ends, at a restart and when the optimizer stops (a copy). Its center of mass, evaluated after it, can be better: see centers.
+        list of Solution: the best solution of every finished run, appended when it ends, at a restart and when the optimizer stops (a copy of current_best, so with RESAMPLE possibly outside the box). Its center of mass, evaluated after it, can be better: see centers.
         """
 
     @solutions.setter
@@ -354,14 +354,20 @@ class Stats:
 
     @property
     def current_best(self) -> Solution:
-        """The best solution of the current run (since the last restart)."""
+        """
+        The best solution of the current run (since the last restart), of every evaluated point; the success rules and the restarts read it. With RESAMPLE it can lie outside the box (see global_best).
+        """
 
     @current_best.setter
     def current_best(self, arg: Solution, /) -> None: ...
 
     @property
     def global_best(self) -> Solution:
-        """The best solution found so far, over all runs."""
+        """
+        The best feasible solution found so far, over all runs: what `run()` and `fmin` return.
+
+        With a bound correction (not NONE) only a point inside [lb, ub] becomes global_best: RESAMPLE evaluates a point outside the box after 5 d rejected tries, and such a point is not returned (#168). Without a bound correction the box does not constrain the points, and every point counts. Before 2.0 it could lie outside the box.
+        """
 
     @global_best.setter
     def global_best(self, arg: Solution, /) -> None: ...

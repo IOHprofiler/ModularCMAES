@@ -568,6 +568,18 @@ struct Settings
                     "increases an odd lambda0 by one)");
     }
 
+    /**
+     * Whether x lies in the domain (#168): inside [lb, ub] when a bound correction is used. With
+     * bound_correction NONE the objective is evaluated outside the box, which does not constrain
+     * the points: every point is in the domain. Only a point in the domain becomes global_best.
+     */
+    [[nodiscard]] bool in_domain(Eigen::Ref<const Vector> x) const
+    {
+        if (modules.bound_correction == CorrectionMethod::NONE)
+            return true;
+        return !((x.array() < lb.array()) || (x.array() > ub.array())).any();
+    }
+
     //! Every check: each field (as its setter does) and require_consistent. An optimizer runs it
     //! when it is created from the settings (Parameters).
     void require_valid() const

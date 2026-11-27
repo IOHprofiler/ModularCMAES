@@ -43,8 +43,8 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 
 | option | no effect when |
 |---|---|
-| `active` | `matrix_adaptation=NONE` or `CMSA` (switched off); λ = 1; µ = λ (no negative weights); `mirrored=PAIRWISE` with the default weights (the negative weights fall on losers, see below) |
-| `repelling_type`, `repelling_metric` | there are no restarts: `restart_strategy=STOP`, and `NONE` unless `UnableToAdapt` fires; `repelling_metric` also without `repelling_type`, and `CURRENT`/`ARCHIVED` equal `EUCLIDEAN` with `matrix_adaptation=NONE` |
+| `active` | `matrix_adaptation=NONE` or `CMSA` (switched off); λ = 1; µ = λ (no negative weights); `mirrored=PAIRWISE` with the default weights (the negative weights fall on losers, see below; with `elitist` too, where they go to the worst points of the pool, mostly losers) |
+| `repelling_type`, `repelling_metric` | there are no restarts: `restart_strategy=STOP`, and `NONE` unless `UnableToAdapt` fires; `repelling_metric` also without `repelling_type`, and `CURRENT` (the default) and `ARCHIVED` equal `EUCLIDEAN` with `matrix_adaptation=NONE` |
 | `center_placement` | without restarts (as for repelling): it only places restarts, the first run starts at `x0` (or the center of the bounds). `X0` and `CENTER` coincide without `x0`, `ZERO` and `CENTER` for a symmetric box |
 | `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` | without repelling restarts (empty archive): they are `UNIFORM` |
 | `sample_sigma=False` | with `ssa=SA` or `LPXNES` (forced on) |
@@ -56,7 +56,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | all restart criteria but `UnableToAdapt` | with `restart_strategy=NONE` |
 | `bound_correction` | in the coordinates with two infinite bounds |
 | `threshold_convergence` | late in a run: its threshold decays to 0 with the budget |
-| learning rates | `cs` with `ssa` `SR` or `SA` and a matrix adaptation that does not read the path p_σ (`NONE`, `CHOLESKY`, `CMSA`, `NATURAL_GRADIENT`); `damps` except with `CSA`, `MSR`, `PSR` and `SR`; `c1`, `cmu` with `CMSA`, and with `NATURAL_GRADIENT` (which uses `cc`) without `active`; `cc` with `MATRIX`, `CMSA`, `NONE` |
+| learning rates | `cs` with `ssa` `SR` or `SA` and a matrix adaptation that does not read the path p_σ (`NONE`, `CMSA`, `NATURAL_GRADIENT`; `CHOLESKY` reads it for h_σ since #160, except in a (1+1)-ES); `damps` except with `CSA`, `MSR`, `PSR`, `SR` and `TPA_INPLACE`; `c1`, `cmu` with `CMSA`, and with `NATURAL_GRADIENT` (which uses `cc`) without `active`; `cc` with `MATRIX`, `CMSA`, `NONE` |
 
 These equivalences mean that the number of combinations overstates the number of distinct
 algorithms.
@@ -90,12 +90,52 @@ algorithms.
   recomputed in the current distribution with the generation's σ. `MSR`, `PSR` and `TPA` then
   compare against the elite. With `PSR` the parents are in both generations it ranks; equal
   values share their mean rank, so a parent counts for neither generation (#120).
-* **TPA with a bound correction.** Its two points m ± σΔm are not corrected by the method:
+  * **With `active`** the negative weights of the matrix update go to the λ − µ worst points of
+    the (µ+λ) pool, the points that the selection dropped (`Population.n_pool`), as the framework
+    paper defines the active update ("the λ − µ worst individuals") and as pycma does with
+    `CMA_elitist`; the mean, the paths and the step-size rules read the λ selected points as
+    before. Ranks µ+1..λ of the pool, which had them before #161, are parents and good
+    offspring: the negative weights removed variance along the flat directions, and `COVARIANCE`
+    with `elitist` and `active` solved BBOB f10 and f12 (d = 10) in 0 of 25 runs.
+  * **`XNES`** reads the offspring alone, ranked among themselves, in both forms (xNES SA and the
+    natural gradient's σ part): xNES's gradient is an estimate from the samples of the current
+    distribution. The parents' z, recomputed against the mean they recombined, are short
+    (‖z‖²/d of 0.3 to 0.6), and as part of the µ best they kept σ 3 to 14 times too small (#172).
+  * **`TPA_INPLACE`** ranks its two test points among the offspring, without the parents.
+  * **`weights=UTILITY`** recombines the mean from the λ best of the pool, parents included, with
+    utilities that sum to zero. It was listed as a combination to avoid (the mean drifted away);
+    most of that failure was the active update's negative weights on good points, which `UTILITY`
+    switches on: on BBOB (7 functions, d = 5 and 20, 25 runs) `weights=UTILITY` with `elitist`
+    solves 242 of 350 runs since #161, 179 before (the default configuration: 251), and
+    `NATURAL_GRADIENT` with `elitist` and `active` (which uses `UTILITY`) 217, 0 before.
+* **TPA's test points** are m ± ½σ⟨y⟩, half the last step of the mean with the step size that
+  sampled it (Hansen 2008, Eqs. (8), (9)). Before #167 they were m ± σ_new⟨y⟩, about one step.
+* **TPA with a bound correction.** Its two points m ± ½σ⟨y⟩ are not corrected by the method:
   whatever the method, both move toward m by the same factor until both are in the box, so TPA
   still compares two points at the same distance from m (#98). The method corrects them only
   when m itself is outside the box. Corrected one by one, as the samples, they lost runs: on BBOB
   in a box of ±4 (7 functions, d = 5 and 20), `TOROIDAL` and `UNIFORM_RESAMPLE` reached 1e-8 in
   16 and 13 fewer of 350 runs than with the points left outside the box.
+* **`TPA_INPLACE`** (#173) samples offspring 1 and 2 as a mirrored pair along the last mean
+  shift, from the second generation of a run on.
+  * With `MIRRORED` and `PAIRWISE` they are the first pair. With `PAIRWISE` the worse of them is
+    not ranked for the update, but the rank difference reads the values of all offspring, as pycma.
+  * Sequential selection cannot stop a generation before both are evaluated (its earliest stop is
+    after µ + 1 ≥ 2 points); the ranks are then among the evaluated offspring.
+  * With orthogonal sampling the first draw of the block gives the length of the pair, and the
+    pair is not orthogonal to the other samples.
+  * With sampled step sizes (`sample_sigma`) the second point takes the step size of the first.
+  * A bound correction corrects each point on its own, as pycma's boundary handler does, so a
+    corrected pair is no longer symmetric; RESAMPLE and repelling sample the pair again as a pair.
+  * With λ = 1 (a run whose λ a restart capped at the end of the budget) there is no pair and
+    no update; `lambda0=1` runs `SR`.
+* **MATRIX and CHOLESKY with a step-size rule other than `CSA`** stall their rank-one update by
+  h_σ, as `COVARIANCE` does (Hansen 2016, after Eq. (45); #160): `CHOLESKY` stalls p_c and
+  compensates the variance in the decay; `MATRIX`, whose rank-one term reads p_σ, skips the term
+  in that generation. With `CSA` neither has h_σ: MA-ES with CSA is as published (CSA updates σ
+  from the same path, so a long path raises σ and shortens itself). Without it, `XNES` and `SA`,
+  which keep σ small, left the path long, and the rank-one term stretched the matrix until the
+  run stalled.
 * **Sequential selection** stops a generation at the first point better than the best of the
   previous generation. With elitism that is the best of the run so far.
 * **Orthogonal sampling** orthogonalizes the n independent samples of each generation (n = λ,
@@ -136,7 +176,24 @@ algorithms.
 
     With `ssa` other than `CSA`, and with λ = 1, `COVARIANCE` becomes `COVARIANCE_NO_EIGV`, and so
     loses `ConditionC` and `NoEffectAxis` (unless `always_compute_eigv=True`).
-* **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is.
+* **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is. Such a point can be
+  selected and move the mean, but it never becomes `es.p.stats.global_best`, the best point that
+  `run()` and `fmin` return: with a bound correction only a point in [lb, ub] does (#168). With a
+  large σ₀ against the box (σ₀ = 2, box [−1, 0.5]^d) RESAMPLE gives up for most points from
+  d = 5 on; the best point is then the best one in the box, at worst the final center of mass,
+  which is clipped into it. `stats.current_best` and `stats.solutions` (the best of each run, which
+  the success rules and the restarts read) include every point.
+* **`COVERAGE` repelling's radius** is in units of σ: the distance to a taboo point is divided by
+  the current σ (the paper's Eq. (8)), and the radius comes from the volume of the box in
+  σ₀ units, (S n_T / (c σ₀^d N))^(1/d) Γ(d/2 + 1)^(1/d) / √π (Eqs. (10), (11), with σ₀^d; #158).
+  σ₀ is the problem's, also in BIPOP's small runs, which start at σ₀ 10^(−2U). The radius grows with
+  the width of the box over σ₀: a large box with a small σ₀ gives a radius of many σ, which rejects
+  every sample near a taboo point (`TooMuchRepelling` then ends the run). For large d it tends to
+  √(d / (2πe)) (width / σ₀), about 0.24 √d times the ratio. With σ₀ = 2 in [−5, 5]^d (the
+  defaults) it is 2.7 at d = 5, 4.0 at d = 10 and 5.6 at d = 20 for a point found in one of two
+  runs, about 1.25 √d; a sample lies about √d σ from the mean (in the Mahalanobis distance of
+  `CURRENT`, the default), so while the mean is near a taboo point most samples are rejected.
+  Computed in logarithms, so it stays finite at large d.
 * **`C0`** is the matrix of the first generation of every run, the first and each restart. Every
   matrix adaptation but `NONE` starts from a factor of it
   ([deep dive](../deep-dives/matrix-adaptations.md#the-initial-matrix-c0)); `TolX`, `ConditionC`
@@ -153,10 +210,9 @@ noted; with the current version. Most are recorded for fixing.
 | `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `MSR`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | σ diverges or collapses: the step-size rules assume finite variance |
 | `ssa=SA` with the default λ on ill-conditioned functions, d = 20 | σ shrinks before the matrix adapts: BBOB f2 and f8 (d = 20) reach 1e-8 in 0 of 25 runs each within 3000·d evaluations (`CSA`: 25 and 22); λ = 40 or 80 did not help within 60,000 evaluations (4 runs each). The step sizes per coordinate before #71 hid this on separable functions (25 of 25 on f2), at the cost of rotation invariance (0 of 25 on f10 and f12) |
 | `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |
-| `active` + `elitist` | poor convergence. With a step-size rule other than `CSA` already on the sphere: with `COVARIANCE`, `CHOLESKY`, `SEPARABLE` and `MATRIX`, `TPA` solves 0–1 of 5 runs, `XNES` 2–5, `LPXNES` 2–5, `MSR` 3–4 (`CSA`, `PSR` and `MXNES` 5). With `CSA` on ill-conditioned rotated functions: BBOB f10 and f12 (d = 10, 3000 d evaluations), `COVARIANCE` solves 0 of 25 runs (25 without `active`), `MATRIX` 23 and 0 |
-| `ssa=XNES` with `MATRIX` or `CHOLESKY`, or with `elitist` | the run stalls with an ill-conditioned matrix (cond(M) > 1e12; #160): XNES keeps σ too small, the path that the rank-one term reads (p_σ for `MATRIX`, p_c for `CHOLESKY`) grows long and stretches the matrix. Runs solved of 20 at d = 5 / 10 / 20: `MATRIX` 14 / 13 / 20 on the sphere and 0 / 0 / 0 on the ellipsoid; `CHOLESKY` 20 on the sphere and 3 / 0 / 0 on the ellipsoid. Before #72 (cs = 0.01) `MATRIX` solved the sphere but also 0 / 0 / 0 on the ellipsoid, by another route; `CHOLESKY` solved both. `MATRIX` with `SA` fails the same way (ellipsoid, d = 10: 0 of 20). With `elitist`, XNES solves at most 3 of 20 runs on the ellipsoid at d ≥ 10 with every matrix adaptation tested (`COVARIANCE`, `NATURAL_GRADIENT`, `CHOLESKY`, `MATRIX`) |
+| `ssa=TPA` with `elitist` | σ collapses in some runs: on the sphere (d = 5, x0 uniform in [−3, 3]^d, σ₀ = 2, 10,000 evaluations, 20 seeds) 13 of 20 runs reach 1e-8 (without `elitist` 20), 10 with `active` as well; before #167 11 and 2 (2026-11-27). Not investigated |
+| `repelling_type=ADAPTIVE` | experimental: modcma's own work in progress, without a published source. In the experiment of #158 (BBOB f21 and f22, d = 5 to 40, `RESTART` and `IPOP`) it solved 99 of 240 runs, against 107 without repelling and 144 with `COVERAGE` |
 | `matrix_adaptation=NATURAL_GRADIENT` with `ssa=LPXNES` at small d | LPXNES keeps its own rate (cs = 1 at d = 5; before #72 NATURAL_GRADIENT gave it xNES's 0.25): BBOB at d = 5 (7 functions, 25 runs each) solves 66 of 175 runs, 118 on master 20bdf27; at d = 20 79 of 175, 0 on master |
-| `weights=UTILITY` with `elitist` | the mean drifts away: the utilities contrast the better and worse halves around the population's center, which with elitism is not the distribution's |
 | `weights=UTILITY` with `bound_correction=TOROIDAL` or `sample_transformation=CAUCHY` | far points (wrapped around, heavy tails) pull the mean through their negative utilities |
 | `lambda0=2` | allowed for experiments, but many modules fail. On a rotated ellipsoid (d = 5, 5 seeds), 0 of 5 runs converge with `elitist`, `MATRIX`, `CMSA`, `MSR`, `PSR`, `SR`, `MXNES`, and with `restart_strategy` `RESTART` or `STOP`, whose criteria end the runs early. The default configuration needs about 6× the evaluations of λ = 4 |
 | `lambda0=3` | close to λ = 4 for most modules (same measurement), except `sample_transformation=CAUCHY` (0 of 5) and `MXNES` (0 of 5 on the ellipsoid); `SR`, `CMSA` and `MSR` need about 2× the evaluations |

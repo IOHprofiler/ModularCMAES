@@ -227,7 +227,7 @@ void Repelling::answer(const Float y, Eigen::Ref<const Vector> x, parameters::Pa
     }
     else
     {
-        p.stats.update_best(x, y);
+        p.stats.update_best(x, y, p.settings.in_domain(x));
         if (++query.k > hill_valley_points)
         {
             query.accept = false;
@@ -261,18 +261,27 @@ void CoverageRepelling::on_update_end(const Solution &candidate_point,
         archive.emplace_back(candidate_point, 1.0, archived_metric(p));
     }
 
+    // The radius of de Nobel et al. (2024), "Avoiding Redundant Restarts in Multimodal Global
+    // Optimization", Eqs. (10) and (11), in units of the current sigma (the distance is divided by
+    // it, Eq. (8)): the taboo regions of the archive cover 1 / c of the box,
+    //     V(T) = n_T S / (c sigma0^d N),  delta(T) = V(T)^(1/d) Gamma(d/2 + 1)^(1/d) / sqrt(pi),
+    // with S the volume of the box, c the coverage, N the runs so far and n_T the runs that
+    // converged to T. sigma0 is the problem's (Settings), in BIPOP's small runs too (#158).
+    // The volume is in sigma0 units, sigma0^d (the maintainer's decision on #158): the paper's
+    // Eq. (10) divides by sigma0 alone, so the radius changed when the box and sigma0 were scaled
+    // together; the radius had an extra 1 / sqrt(d), which Eq. (11) does not have. In logarithms:
+    // S, sigma0^d and Gamma(d/2 + 1) overflow or underflow at large d (S = 10^500 for the box
+    // [-5, 5]^500, tgamma is inf from d = 343). A box of width 0 in a coordinate gives radius 0.
+    const Float d = p.adaptation->dd;
     const Float n_solutions = static_cast<Float>(std::max<size_t>(1, p.stats.solutions.size()));
-
-    const Float volume_per_n = p.settings.volume / (p.settings.sigma0 * coverage * n_solutions);
-
-    const Float n = p.adaptation->dd;
-
-    const Float gamma_f = std::pow(std::tgamma(n / 2.0 + 1.0), 1.0 / n) / std::sqrt(M_PI);
+    const Float log_volume = p.settings.has_bounds ? p.settings.db.array().log().sum()
+                                                   : d * std::log(p.settings.diameter);
+    const Float log_radius_base = (log_volume - std::log(coverage * n_solutions)) / d -
+                                  std::log(p.settings.sigma0) + std::lgamma(d / 2.0 + 1.0) / d -
+                                  0.5 * std::log(M_PI);
 
     for (auto &point : archive)
-    {
-        point.radius = (std::pow(volume_per_n * point.n_rep, 1.0 / n) * gamma_f) / std::sqrt(n);
-    }
+        point.radius = std::exp(log_radius_base + std::log(static_cast<Float>(point.n_rep)) / d);
 }
 
 // -----------------------------------------------------------------------------

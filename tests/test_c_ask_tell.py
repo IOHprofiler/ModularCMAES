@@ -159,10 +159,13 @@ class TestBatches(unittest.TestCase):
             ask_tell_generation(cma, sphere)
         X = cma.ask()
         self.assertEqual(X.shape, (8, 4))
-        a, sigma = cma.p.adaptation, cma.p.mutation.sigma
-        # not bitwise: a compiler may fuse m + sigma * dm into one multiply-add
-        np.testing.assert_allclose(X[-2], a.m + sigma * a.dm, rtol=1e-14, atol=1e-15)
-        np.testing.assert_allclose(X[-1], a.m + sigma * -a.dm, rtol=1e-14, atol=1e-15)
+        a, sigma_old = cma.p.adaptation, cma.p.mutation.sigma_old
+        # Half the last mean step, with the step size that sampled it (#167). Not bitwise: a
+        # compiler may fuse m + s * dm into one multiply-add
+        step = 0.5 * sigma_old * a.dm
+        np.testing.assert_allclose(X[-2], a.m + step, rtol=1e-14, atol=1e-15)
+        np.testing.assert_allclose(X[-1], a.m - step, rtol=1e-14, atol=1e-15)
+        np.testing.assert_allclose(X[-2] - X[-1], a.m - a.m_old, rtol=1e-12, atol=1e-15)
 
     def test_restart_asks_center(self):
         cma = make(modules={"restart_strategy": "RESTART"})

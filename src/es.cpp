@@ -26,7 +26,9 @@ void OnePlusOneES::step(FunctionType &objective)
 {
     const auto x1 = sample();
     const auto f1 = objective(x1);
-    const bool has_improved = f1 < f;
+    // x is the parent and the best point: only a point in the domain (#168; with RESAMPLE a point
+    // can stay outside the box after 5 d tries) replaces it
+    const bool has_improved = f1 < f && settings.in_domain(x1);
     sigma *= pow(std::exp(static_cast<Float>(has_improved) - 0.2), decay);
     if (has_improved)
     {
@@ -77,11 +79,18 @@ void MuCommaLambdaES::step(FunctionType &objective)
     S = S(Eigen::all, idx).eval();
     f = f(idx).eval();
 
-    if (f[0] < f_min)
-    {
-        f_min = f[0];
-        x_min = X.col(0);
-    }
+    // The best point so far: only a point in the domain (#168), the best of the generation that
+    // lies in it
+    for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(lambda); ++i)
+        if (settings.in_domain(X.col(i)))
+        {
+            if (f[i] < f_min)
+            {
+                f_min = f[i];
+                x_min = X.col(i);
+            }
+            break;
+        }
 
     sigma.setZero();
     m.setZero();
