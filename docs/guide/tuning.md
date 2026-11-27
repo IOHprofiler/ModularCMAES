@@ -25,7 +25,8 @@ configuration of the space is the standard CMA-ES: `space.get_default_configurat
 
 `lambda0`, `mu0` (integers in [1, 50 d], log scale, with µ ≤ λ), `sigma0` (a normal distribution
 around its default), `cs`, `cc`, `cmu`, `c1` (in [0, 1]) and `damps` (in [0, 10]) are absolute
-values. Their defaults are those of `Settings(dim)` with the default modules, CSA with `COVARIANCE`.
+values. The lower bound of `cs`, `cc` and `damps` is 1e-6, because `Settings` rejects a value of 0
+or less; `cmu` and `c1` may be 0. Their defaults are those of `Settings(dim)` with the default modules, CSA with `COVARIANCE`.
 
 The defaults of other modules differ (for example `cs` of `XNES`, `SR` and `CSA`, or µ = λ/4 for
 `SA` and `CMSA`). So `settings_from_config` passes a numeric value to `Settings` only when it
@@ -34,6 +35,14 @@ chosen modules, which `Settings` computes itself. Any other value is passed as i
 `mu0` is passed whenever `lambda0` is passed and whenever it differs from its default, so a sampled
 `mu0` that equals the default is kept (`lambda0 = 20, mu0 = 3` runs with µ = 3, and so does
 `mu0 = 10` next to a `lambda0` that differs from the default).
+
+### Configurations that are rejected
+
+The ranges of `c1` and `cmu` are independent, so a sample can have c1 + cmu > 1. `Settings`
+rejects it, because the covariance matrix would lose positive definiteness (Hansen 2016). The
+`ValueError` is raised by `settings_from_config`, when it builds the `Settings`, and names both
+values. A tuner should record the configuration as a crashed run. Every other draw of the space is
+valid.
 
 ## Conditions
 

@@ -214,6 +214,12 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   views); set `lb`, `ub` or `x0` instead. Setting one raises Python's "property 'db' of 'Settings'
   object has no setter". The setters of `x0`, `lb` and `ub` take array_like, as the constructor
   (they took only numpy arrays).
+* **The lower bound of `cs`, `cc` and `damps` in `get_configspace` is 1e-6, not 0** (#169), since
+  `Settings` rejects a value of 0 (#147). Names and defaults are unchanged. A configuration saved
+  from the old space still loads unless a value is exactly 0 (a draw of a normal distribution,
+  so practically never). `c1` and `cmu` keep [0, 1]; a sample with `c1 + cmu > 1` makes
+  `settings_from_config` raise `ValueError`, which a tuner should record as a crash (documented on
+  the tuning page).
 * **`Settings` rejects learning rates that make a run diverge, and `max_generations` of 0** (#147),
   in the constructor and the setters, with a `ValueError` that names the field: `cs`, `cc` in
   (0, 1]; `c1`, `cmu` in [0, 1]; `damps` > 0; `acov` > 0 and finite; `max_generations` >= 1. `None`
