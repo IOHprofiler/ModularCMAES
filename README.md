@@ -97,6 +97,9 @@ adaptations in [the benchmarks](docs/performance.md).
 | sampling | mirrored, pairwise, orthogonal; Sobol and Halton sequences; Gaussian, Cauchy, Laplace, ... mutations; sampled step sizes; threshold convergence |
 | bounds | none, saturate, mirror, toroidal, COTN, uniform resampling, resampling |
 
+With the gradient of the objective, `run(f, gradient=g)` injects a point along the negative
+gradient into every generation ([gradient injection](https://modularcmaes.readthedocs.io/en/latest/guide/gradients/)).
+
 What each does and when to use it: [the user guide](https://modularcmaes.readthedocs.io/en/latest/guide/modules/).
 
 ## Documentation

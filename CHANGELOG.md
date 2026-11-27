@@ -55,6 +55,15 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `ask()`, or an interrupted `mutate()` or `step()`).
 * **Vectorized objectives**: `run(f, vectorized=True)` and `step(f, vectorized=True)` evaluate a
   whole batch per call.
+* **Gradient injection** (#90): with the gradient of the objective, every generation one point
+  along the negative gradient from the mean, x = m − σ c C g / √(gᵀ C g) with c = E‖N(0, I)‖,
+  replaces a sample (Hansen 2011, "Injecting external solutions into CMA-ES", Eq. 14; libcmaes'
+  gradient injection). `run(f, gradient=g)`, `step`, `mutate` and `fmin(..., gradient=g)`; with
+  ask–tell, `es.inject_gradient(g)` while `es.accepts_gradient`. Without a gradient nothing
+  changes. On BBOB f2, f10 and f12 (d = 10 to 100) the exact gradient saves 8 to 46 % of the
+  evaluations; a bad gradient costs about the replaced sample. Guide: "Coming from gradient-based
+  optimization". In C++: `GradientType`, `ModularCMAES::inject_gradient` and
+  `Adaptation::apply_transpose_into` (y = A z's transpose).
 * **Per-optimizer random generators**: `Settings(seed=...)`; without a seed an optimizer copies the
   global generator (`modcma.set_seed`) when it is created. Optimizers run independently in parallel
   threads; the module supports free-threaded CPython 3.14t (no GIL).

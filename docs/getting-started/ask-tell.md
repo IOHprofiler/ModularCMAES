@@ -86,6 +86,29 @@ es.tell([sphere(x) for x in X], X)
 print(es.p.stats.global_best.y)  # 0.0
 ```
 
+### Gradient injection
+
+With the gradient of the objective, `inject_gradient(g)` replaces one point of a new population by
+a point along the negative gradient from the mean ([gradient injection](../guide/gradients.md)).
+It is accepted between the `ask()` that starts a population and its `tell()`
+(`es.accepts_gradient`); ask again for the points with the gradient point:
+
+```python
+def sphere_gradient(x):
+    return 2.0 * x
+
+es = modcma.ModularCMAES(modcma.Settings(10, budget=10_000, seed=1))
+while True:
+    X = es.ask()
+    if es.accepts_gradient:
+        es.inject_gradient(sphere_gradient(es.center_of_mass))
+        X = es.ask()
+    if es.tell([sphere(x) for x in X]) and es.break_conditions():
+        break
+```
+
+This gives the same results as `es.run(sphere, gradient=sphere_gradient)`.
+
 ## Parallel evaluation
 
 With ask–tell the batch can be evaluated in parallel, for example in processes:

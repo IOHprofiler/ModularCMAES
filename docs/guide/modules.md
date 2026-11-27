@@ -47,7 +47,7 @@ Not everything you can switch on is a module. The distinction matters for how yo
 |---|---|
 | the problem: dimension, bounds (the box; what happens to points outside it is the `bound_correction` module), integer variables | `Settings(dim, lb, ub, integer_variables)` |
 | the run: starting point and step size, population size, learning rates, budget, target, generations | `Settings(x0, sigma0, lambda0, mu0, cs, ..., budget, target, max_generations)` |
-| evaluation: ask–tell, vectorized objectives, injected or repaired points | `ask`, `tell(f, X)`, `run(..., vectorized=True)` |
+| evaluation: ask–tell, vectorized objectives, injected or repaired points, the gradient ([gradient injection](gradients.md)) | `ask`, `tell(f, X)`, `run(..., vectorized=True)`, `run(..., gradient=g)`, `inject_gradient` |
 | stopping and restarting: which restart criteria apply, their tolerances, your own criteria | `es.p.criteria`, `modcma.restart` |
 | reproducibility and speed: seeds, threads, the fast random generator, LAPACK and BLAS | `Settings(seed, fast_sampling)`, `modcma.constants` |
 | results: the best solution, the center of mass (the mean), the record of every run | `es.p.stats`, `es.center_of_mass`, `es.p.stats.centers` |
