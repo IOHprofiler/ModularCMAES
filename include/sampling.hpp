@@ -150,7 +150,7 @@ struct Mirrored : Sampler
     Mirrored(const std::shared_ptr<Sampler> sampler) :
         Sampler(sampler->d),
         sampler(sampler),
-        previous(sampler->d)
+        previous(Vector::Zero(static_cast<Eigen::Index>(sampler->d)))
     {
     }
 
@@ -200,7 +200,7 @@ struct Orthogonal : Sampler
         sampler(sampler),
         n(std::max<size_t>(1, n_samples)),
         qr(d, d),
-        samples(d, d),
+        samples(Matrix::Zero(d, d)),
         lengths(d)
     {
     }

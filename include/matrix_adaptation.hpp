@@ -97,7 +97,7 @@ struct Adaptation
 
     Adaptation(const size_t dim, const Vector &x0) :
         m(x0),
-        m_old(dim),
+        m_old(Vector::Zero(dim)),
         dm(Vector::Zero(dim)),
         ps(Vector::Zero(dim)),
         coordinate_wise_variances(Vector::Ones(dim)),

@@ -44,14 +44,16 @@ struct Population
     //! Grow the buffers to at least the given number of columns, keeping their contents
     void reserve(const size_t columns);
 
+    //! The buffers start at 0 (not uninitialized memory): the columns that no generation has
+    //! written yet are saved with the state, which is then the same for the same run (#91)
     Population(const size_t d, const size_t n) :
-        X(d, n),
-        X_transformed(d, n),
-        Z(d, n),
-        Y(d, n),
-        S(d, n),
+        X(Matrix::Zero(d, n)),
+        X_transformed(Matrix::Zero(d, n)),
+        Z(Matrix::Zero(d, n)),
+        Y(Matrix::Zero(d, n)),
+        S(Matrix::Zero(d, n)),
         f(Vector::Constant(n, std::numeric_limits<Float>::infinity())),
-        t(n),
+        t(Vector::Zero(n)),
         d(d),
         n(n)
     {
@@ -68,7 +70,7 @@ struct Population
         Y(Y),
         S(S),
         f(f),
-        t(f.rows()),
+        t(Vector::Zero(f.rows())),
         d(X.rows()),
         n(X.cols())
     {

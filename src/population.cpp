@@ -4,14 +4,17 @@ void Population::reserve(const size_t columns)
 {
     if (capacity() >= columns)
         return;
+    // The new columns start at 0 (f at +inf), as in the constructor: the state that is saved
+    // (#91) holds no uninitialized memory
     const auto c = static_cast<Eigen::Index>(columns);
-    X.conservativeResize(Eigen::NoChange, c);
-    X_transformed.conservativeResize(Eigen::NoChange, c);
-    Y.conservativeResize(Eigen::NoChange, c);
-    Z.conservativeResize(Eigen::NoChange, c);
-    S.conservativeResize(Eigen::NoChange, c);
-    f.conservativeResize(c);
-    t.conservativeResize(c);
+    const Matrix zero = Matrix::Zero(X.rows(), c);
+    X.conservativeResizeLike(zero);
+    X_transformed.conservativeResizeLike(zero);
+    Y.conservativeResizeLike(zero);
+    Z.conservativeResizeLike(zero);
+    S.conservativeResizeLike(zero);
+    f.conservativeResizeLike(Vector::Constant(c, std::numeric_limits<Float>::infinity()));
+    t.conservativeResizeLike(Vector::Zero(c));
 }
 
 void Population::sort()
