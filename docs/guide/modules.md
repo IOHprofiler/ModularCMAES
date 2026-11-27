@@ -25,10 +25,15 @@ matrix, or a factor of it). Each module replaces one of those parts:
 | `repelling_metric` | `EUCLIDEAN`, `CURRENT`, `ARCHIVED` | the distance used by repelling restarts | [restarts](restarts.md) |
 | `bound_correction` | `NONE`, `MIRROR`, `COTN`, `UNIFORM_RESAMPLE`, `SATURATE`, `TOROIDAL`, `RESAMPLE` | what happens to points outside the bounds | [bound correction](bound-correction.md) |
 
-Not every combination is a different algorithm (`active` has no effect without a matrix
-adaptation, repelling none without restarts); taking this into account, the fourteen modules of the
-framework paper (de Nobel et al. 2026, [citing](../citing.md)) give 14,859,936 distinct variants
-with the default parameters.
+The 17 modules have 2,194,698,240 combinations of options, but not every combination is a
+different algorithm: `Settings` converts some into others (`COVARIANCE` becomes
+`COVARIANCE_NO_EIGV` unless `ssa` is `CSA`), and some options have no effect in some combinations
+(`active` without a matrix adaptation, repelling without restarts; see
+[compatibility](compatibility.md)). Leaving these out, 686,685,216 distinct variants remain with
+the default parameters. The count comes from the code (`tools/count_variants.py`); it does not
+apply equivalences that depend on the problem, such as `X0` and `CENTER` without an `x0`. The
+framework paper (de Nobel et al. 2026, [citing](../citing.md)) counted 14,859,936 for its fourteen
+modules.
 
 The defaults are the standard CMA-ES (Hansen & Ostermeier 2001; Hansen 2016): full covariance
 matrix, cumulative step-size adaptation, (µ/µ_w, λ) selection with the default weights.

@@ -79,9 +79,9 @@ are not hyperparameters.
   * `ssa` stays a hyperparameter for `lambda0` = 1, although `Settings` runs `SR` there: it decides
     whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`.
 
-The modules are now more than in the framework paper, so its count of variants (14,859,936)
-does not describe this space: with the conditions above the module options alone give 736,985,088
-configurations (without `sample_transformation=NONE`, with `COVARIANCE` only for `CSA`).
+The module part of this space is not the number of distinct variants (686,685,216, see
+[modules](modules.md)): it leaves out `sample_transformation=NONE`, and its conditions and
+forbidden clauses remove only part of the combinations that coincide.
 
 A complete example, a random search for the best configuration on a few functions, is
 [tuning a configuration](../examples/tuning.md). The study of de Nobel et al. (2021) used SMAC on
