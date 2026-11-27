@@ -370,7 +370,8 @@ void define_restart_strategy(nb::module_ &main)
                 "is rounded).")
         .def_rw("max_lambda_factor",
                 &IPOP::max_lambda_factor,
-                "The largest population size as a multiple of lambda0 (default 512 = 2^9).");
+                "The largest population size as a multiple of lambda0 (default 512 = 2^9, the same "
+                "for BIPOP's large regime).");
 
     nb::class_<BIPOP, Strategy>(
         m,
@@ -379,13 +380,23 @@ void define_restart_strategy(nb::module_ &main)
         "regime.\n\n"
         "Each regime counts the evaluations of its runs; the first run counts as small (pycma's "
         "fmin; Hansen 2009 disregards it). A restart uses the regime that has used fewer "
-        "evaluations, the large one on a tie, so the first restart is large. The large regime "
-        "doubles lambda_large each time and restarts with sigma0. The small regime draws "
-        "lambda_small = floor(lambda_init (lambda_large / (2 lambda_init))^(u^2)) (rounded up to "
-        "even for PAIRWISE, at least 2) and restarts with sigma0 * 10^(-2u'), u and u' uniform "
-        "in [0, 1); a small run takes at most half the evaluations of the large regime so far "
-        "(`Strategy.max_iter`, which `ExceededMaxIter` enforces). mu is lambda * mu_factor (at "
-        "least 1).")
+        "evaluations, the large one on a tie, so the first restart is large. A large run "
+        "doubles lambda_large, the population of the latest large run (lambda_init before the "
+        "first), up to `max_lambda_factor` * lambda_init (2^9 lambda_init, as IPOP), and "
+        "restarts with sigma0. A small run draws lambda_small = floor(lambda_init (lambda_large "
+        "/ lambda_init)^(u^2)) (rounded up to even for PAIRWISE, at least 2), between "
+        "lambda_init and the latest large population, and restarts with sigma0 * 10^(-2u'), u "
+        "and u' uniform in [0, 1); it takes at most half the evaluations of the large regime so "
+        "far (`Strategy.max_iter`, which `ExceededMaxIter` enforces). mu is lambda * mu_factor "
+        "(at least 1).\n\n"
+        "Up to the limit, the population sizes are those of pycma 4.6.0's `fmin` "
+        "(cma/evolution_strategy.py:5362-5381) given an integer popsize (its default, 4 + 3 ln "
+        "d, is not rounded there) and without PAIRWISE. Hansen (2009) writes the same formula "
+        "with lambda_l / 2 in place of lambda_l, lambda_l the latest large population: half of "
+        "pycma's range. pycma has no limit on the population, but its `fmin` stops after "
+        "`restarts` large runs; with 9 (restarts=True), as Hansen (2009), its largest population "
+        "is 2^9 lambda_def, this limit. modcma keeps restarting at the limit until the budget "
+        "is used.")
         .def("large",
              &BIPOP::large,
              "Whether the next run is large: the large regime has used no more evaluations than "
@@ -394,9 +405,16 @@ void define_restart_strategy(nb::module_ &main)
         .def_rw("lambda_init", &BIPOP::lambda_init, "The initial lambda.")
         .def_rw("lambda_large",
                 &BIPOP::lambda_large,
-                "lambda of the next large run (0 before the first restart, then 2 lambda_init, "
-                "doubled after each large run).")
-        .def_rw("lambda_small", &BIPOP::lambda_small, "lambda of the last small-regime draw.")
+                "lambda of the latest large run (0 before the first restart, then 2 "
+                "lambda_init, doubled at each large run up to max_lambda_factor * lambda_init).")
+        .def_rw("lambda_small",
+                &BIPOP::lambda_small,
+                "lambda of the last small-regime draw (one at every restart), in [lambda_init, "
+                "lambda_large]: up to the latest large population.")
+        .def_rw("max_lambda_factor",
+                &BIPOP::max_lambda_factor,
+                "The largest population of the large regime as a multiple of lambda_init "
+                "(default 512 = 2^9, as `IPOP.max_lambda_factor`).")
         .def_rw("used_small",
                 &BIPOP::used_small,
                 "The evaluations used by the small regime, the first run included.")

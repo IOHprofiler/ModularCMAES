@@ -20,11 +20,16 @@ struct Strategy
     virtual Float update(parameters::Parameters &p);
 };
 
+//! The largest population of IPOP and BIPOP, as a multiple of lambda0: 2^9 (the framework paper,
+//! Sec. 4.5). pycma's fmin has no such limit, but stops after `restarts` large runs; with 9, as
+//! Hansen (2009), its largest population is the same 2^9 lambda0
+inline constexpr size_t default_max_lambda_factor = 512;
+
 struct IPOP : Strategy
 {
     Float ipop_factor = 2.0;
-    //! The largest population: max_lambda_factor * lambda0 (2^9, the framework paper)
-    size_t max_lambda_factor = 512;
+    //! The largest population: max_lambda_factor * lambda0
+    size_t max_lambda_factor = default_max_lambda_factor;
     Float update(parameters::Parameters &) override;
 };
 
@@ -32,8 +37,13 @@ struct BIPOP : Strategy
 {
     size_t lambda_init;
     Float mu_factor;
+    //! The largest population of the large regime: max_lambda_factor * lambda_init, as IPOP's
+    size_t max_lambda_factor = default_max_lambda_factor;
 
+    //! The population of the latest large run (Hansen 2009's lambda_l): 0 before the first
+    //! restart, then 2 lambda_init, doubled at each large run up to max_lambda_factor lambda_init
     size_t lambda_large = 0;
+    //! The last draw of the small regime, in [lambda_init, lambda_large] (pycma's fmin)
     size_t lambda_small = 0;
     //! The evaluations used by the runs of each regime. They only grow (the budgets left, which
     //! every run decreased, wrapped around, #80). The first run counts as small (pycma)

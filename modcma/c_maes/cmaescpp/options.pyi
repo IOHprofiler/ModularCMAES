@@ -234,12 +234,12 @@ class RestartStrategy(enum.Enum):
 
     IPOP = 3
     """
-    IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies mu and lambda by `restart.IPOP.ipop_factor` (2). Larger populations help on multimodal functions with a global structure.
+    IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies mu and lambda by `restart.IPOP.ipop_factor` (2), up to 2^9 lambda0 (`restart.IPOP.max_lambda_factor`). Larger populations help on multimodal functions with a global structure.
     """
 
     BIPOP = 4
     """
-    BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used, and a small one with a random size and a smaller initial sigma. Each restart uses the regime that has used fewer evaluations so far, so both get about half of the evaluations; a small run takes at most half of what the large regime has used. See `restart.BIPOP`.
+    BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used up to 2^9 lambda0 (as IPOP), and a small one with a random size between lambda0 and the latest large population (as pycma) and a smaller initial sigma. Each restart uses the regime that has used fewer evaluations so far, so both get about half of the evaluations; a small run takes at most half of what the large regime has used. See `restart.BIPOP`.
     """
 
 class MatrixAdaptationType(enum.Enum):

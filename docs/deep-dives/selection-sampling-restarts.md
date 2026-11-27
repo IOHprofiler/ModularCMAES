@@ -111,14 +111,30 @@ same behaviour as now) but stretched every sample on larger boxes.
   The first generation after a restart takes at most the rest of the budget, less the new run's
   center of mass (λ, and µ in proportion, are capped; at least 2 points); the hill-valley tests of
   repelling restarts stop when the budget runs short.
-* **BIPOP** (Hansen 2009): two regimes, one of large populations (λ doubling) and one of small
-  ones, λ_s = ⌊λ₀ (λ_large/(2λ₀))^(U²)⌋ with σ = σ₀·10^(−2U′), where λ_large is the λ of the next
-  large run (twice the last one). Each regime counts the evaluations of its runs; a restart uses
+* **BIPOP** (Hansen 2009): two regimes, one of large populations (λ doubling, up to 2⁹ λ₀ as
+  IPOP) and one of small ones, λ_s = ⌊λ₀ (λ_large/λ₀)^(U²)⌋ with σ = σ₀·10^(−2U′), where λ_large
+  is the λ of the latest large run. Each regime counts the evaluations of its runs; a restart uses
   the regime that has used fewer, the large one on a tie, so the first restart is large. As in
   pycma's `fmin`, the first run counts as small (Hansen 2009 disregards it), and a small run takes
   at most half the evaluations of the large regime so far: `restart.BIPOP` sets
   `max_iter` = ½ (large evaluations)/λ_s generations, which `ExceededMaxIter` enforces (pycma's
   `maxiter`). λ_s is rounded down, as in the paper and pycma; up to even only with `PAIRWISE`.
+  Up to the limit, the population sizes are pycma's (4.6.0, `fmin`,
+  `cma/evolution_strategy.py`:5362–5381): λ_s lies between λ₀ and the latest large population,
+  because pycma counts the small run (`runs_with_small += 1`) before it computes the multiplier,
+  which is then the latest large run's. Hansen (2009) writes λ_ℓ/(2λ_def) in place of λ_ℓ/λ_def,
+  with λ_ℓ "the latest population size from the first regime", and the range [λ_def, λ_ℓ/2], half
+  of pycma's; modcma follows pycma (#140). The large population stops growing at
+  `BIPOP.max_lambda_factor` λ₀ = 2⁹ λ₀, the limit of IPOP (`default_max_lambda_factor` in
+  `restart_strategy.hpp`), and λ_s then stays within it (#140). pycma has no such limit, but its
+  `fmin` stops after `restarts` large runs; with 9 (`restarts=True`), as Hansen (2009), its
+  largest population is 2⁹ λ_def, the same. modcma keeps restarting at the limit until the budget
+  is used. The limit acts only from the 10th large run on: in the golden runs and the BIPOP
+  configurations of `tests/statistical.py` (budget 3000 d) λ_large reaches at most 8 λ₀. With its
+  default popsize, pycma multiplies the unrounded 4 + 3 ln d (17, 35, 70, … at d = 5), modcma and
+  the paper the integer λ₀. A C++ test (`tests/cpp/test_main.cpp`) compares λ, µ, σ and the cap
+  of every run with a transcription of pycma's rule, for a fixed random stream, over fourteen
+  large runs.
   Before 2.0, the budget left after the first run was split into halves that each run decreased
   (unsigned: a run longer than its regime's rest wrapped it around, and BIPOP became IPOP), λ_s
   was always even, and small runs had no cap (#80).

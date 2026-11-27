@@ -12,8 +12,8 @@ restart) and repelling restarts (where *not* to).
 | `NONE` | nothing happens; the run continues until the budget is used (default) |
 | `STOP` | the run ends, and the optimizer stops (`stop_conditions()`, then `break_conditions()`) |
 | `RESTART` | restart with the same λ |
-| `IPOP` | restart with λ doubled (Auger & Hansen 2005) |
-| `BIPOP` | alternate between a regime of large populations (doubling) and one of small populations with a random size: each restart uses the regime that has used fewer evaluations so far (Hansen 2009) |
+| `IPOP` | restart with λ doubled, up to 2⁹ λ₀ (Auger & Hansen 2005) |
+| `BIPOP` | alternate between a regime of large populations (doubling, up to 2⁹ λ₀ as IPOP) and one of small populations with a random size between λ₀ and the latest large one: each restart uses the regime that has used fewer evaluations so far (Hansen 2009; the population sizes as pycma's `fmin`) |
 
 IPOP and BIPOP are the strongest choices on multimodal functions with a global structure (such as
 Rastrigin); see the [multimodal example](../examples/multimodal.md).
@@ -133,8 +133,8 @@ They change what `ask()` returns: the points of the hill–valley tests are aske
 | `NONE` | No restart criteria other than `restart.UnableToAdapt`, the default: the optimizer only restarts (with the same population size) when its adaptation fails. |
 | `STOP` | Use the restart criteria as stopping criteria: the run ends when one of them is met, without a restart. |
 | `RESTART` | Restart with the same population size whenever a restart criterion is met. |
-| `IPOP` | IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies mu and lambda by `restart.IPOP.ipop_factor` (2). Larger populations help on multimodal functions with a global structure. |
-| `BIPOP` | BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used, and a small one with a random size and a smaller initial sigma. Each restart uses the regime that has used fewer evaluations so far, so both get about half of the evaluations; a small run takes at most half of what the large regime has used. See `restart.BIPOP`. |
+| `IPOP` | IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies mu and lambda by `restart.IPOP.ipop_factor` (2), up to 2^9 lambda0 (`restart.IPOP.max_lambda_factor`). Larger populations help on multimodal functions with a global structure. |
+| `BIPOP` | BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used up to 2^9 lambda0 (as IPOP), and a small one with a random size between lambda0 and the latest large population (as pycma) and a smaller initial sigma. Each restart uses the regime that has used fewer evaluations so far, so both get about half of the evaluations; a small run takes at most half of what the large regime has used. See `restart.BIPOP`. |
 <!-- /options -->
 
 <!-- options: RepellingType -->
