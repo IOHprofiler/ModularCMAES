@@ -177,7 +177,9 @@ void define_samplers(nb::module_ &main)
         .def_ro("n_samples", &CachedSampler::n_samples, "The number of points in the cycle.")
         .def_ro("cache",
                 &CachedSampler::cache,
-                "The points (with a wrapped sampler: filled as they are drawn).");
+                "The points (with a wrapped sampler: filled as they are drawn), a list of numpy "
+                "views of them: writing to one changes the sampler's point. The views stay valid "
+                "while the sampler exists (the points are never reallocated; #176).");
 
     nb::class_<Orthogonal, Sampler>(
         m,

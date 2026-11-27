@@ -158,7 +158,9 @@ class CachedSampler(Sampler):
 
     @property
     def cache(self) -> list[Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]]:
-        """The points (with a wrapped sampler: filled as they are drawn)."""
+        """
+        The points (with a wrapped sampler: filled as they are drawn), a list of numpy views of them: writing to one changes the sampler's point. The views stay valid while the sampler exists (the points are never reallocated; #176).
+        """
 
 class Orthogonal(Sampler):
     """
