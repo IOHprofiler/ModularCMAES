@@ -367,7 +367,7 @@ class Parameters:
     @property
     def mu(self) -> int:
         """
-        The current number of parents: settings.mu0 at first, changed by IPOP and BIPOP restarts.
+        The current number of parents: settings.mu0 at first. A restart that changes lamb (IPOP, BIPOP, the cap of the first generation at the budget) sets it to the default of the new lambda, lamb // 2 (lamb // 4 with ssa SA or matrix_adaptation CMSA), or, when settings.mu0 was given, to mu0 / lambda0 of lamb, rounded half up, at least 1.
         """
 
     @mu.setter

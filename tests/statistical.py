@@ -101,7 +101,20 @@ CONFIGS = {
     "laplace": {"sample_transformation": "LAPLACE"},
     "logistic": {"sample_transformation": "LOGISTIC"},
     "double_weibull": {"sample_transformation": "DOUBLE_WEIBULL"},
+    # #121, #139, #150: adaptive repelling's run lengths, the criteria per run, mu after a restart
+    # (an odd lambda0 at d = 3, 6, 7; a given mu0; a quarter with SA)
+    "restart_adaptive": {"restart_strategy": "RESTART", "repelling_type": "ADAPTIVE"},
+    "ipop_adaptive": {"restart_strategy": "IPOP", "repelling_type": "ADAPTIVE"},
+    "bipop_adaptive": {"restart_strategy": "BIPOP", "repelling_type": "ADAPTIVE"},
+    "ipop_mu0": {"restart_strategy": "IPOP", "mu0": 3},
+    "bipop_mu0": {"restart_strategy": "BIPOP", "mu0": 3},
+    "ipop_sa": {"restart_strategy": "IPOP", "ssa": "SA"},
+    "restart_max_iter": {"restart_strategy": "RESTART", "max_iter": 30},
+    "ipop_max_iter": {"restart_strategy": "IPOP", "max_iter": 30},
 }
+
+#: Settings arguments next to the module options
+SETTINGS = ("lambda0", "mu0")
 
 
 def cells(dims=DIMS):
@@ -120,9 +133,12 @@ def run_one(task):
     problem = ioh.get_problem(fid, 1, dim, ioh.ProblemClass.BBOB)
     modules = c_maes.Modules()
     extra = {}  # Settings arguments (lambda0, mu0) next to the module options
+    max_iter = None  # the most generations of a run (restart.Strategy.max_iter)
     for name, value in CONFIGS[config].items():
-        if name in ("lambda0", "mu0"):
+        if name in SETTINGS:
             extra[name] = value
+        elif name == "max_iter":
+            max_iter = value
         elif not c_maes.set_module(modules, name, value):
             raise ValueError(f"unknown module option {name}={value}")
     c_maes.set_seed(seed)
@@ -137,6 +153,13 @@ def run_one(task):
     )
     settings.target = problem.optimum.y + TARGET
     cma = c_maes.ModularCMAES(settings)
+    if max_iter is not None:
+        # ExceededMaxIter takes the smaller of its own limit and the strategy's at every reset;
+        # the first run was reset when the optimizer was created
+        cma.p.restart_strategy.max_iter = max_iter
+        for criterion in cma.p.criteria.items:
+            if criterion.name == "ExceededMaxIter":
+                criterion.max_iter = min(criterion.max_iter, max_iter)
     cma.run(lambda X: problem(X), vectorized=True)
     precision = max(float(cma.p.stats.global_best.y - problem.optimum.y), TARGET)
     return config, fid, dim, seed, int(cma.p.stats.evaluations), precision

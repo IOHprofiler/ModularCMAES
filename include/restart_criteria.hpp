@@ -91,6 +91,11 @@ struct Criteria
     static Criteria get(const parameters::Modules modules, const int lambda);
 };
 
+/**
+ * Met when the run has lasted max_iter generations, so a run takes at most max_iter generations:
+ * Hansen (2009), "MaxIter ... is the maximal number of iterations in each run", and pycma's
+ * maxiter (countiter >= maxiter, after each iteration). A run took max_iter + 2 (#139).
+ */
 struct ExceededMaxIter : Criterion
 {
     size_t max_iter;
@@ -181,24 +186,37 @@ struct TolX : Criterion
     void on_reset(const parameters::Parameters &p) override;
 };
 
+/**
+ * TolUpSigma (Hansen 2009; pycma's tolupsigma): met when sigma / sigma_start > tolerance max(D),
+ * with sigma_start the step size at the start of the run. Hansen (2009) divides by "sigma0", the
+ * initial step size of each run, smaller in BIPOP's small runs; pycma by es.sigma0, the sigma0 of
+ * the run's CMAEvolutionStrategy. It used Settings::sigma0 for every run (#139).
+ */
 struct MaxDSigma : Criterion
 {
     static inline Float tolerance = std::pow(10., 20.);
+    //! The step size at the start of the current run (sigma0, or the sigma of the restart)
+    Float sigma_start = 1.0;
     MaxDSigma() :
         Criterion("MaxDSigma")
     {
     }
     void update(const parameters::Parameters &p) override;
+    void on_reset(const parameters::Parameters &p) override;
 };
 
+//! As MaxDSigma, the other way (modcma's own): sigma / sigma_start < tolerance min(D)
 struct MinDSigma : Criterion
 {
     static inline Float tolerance = std::pow(10., -20.);
+    //! The step size at the start of the current run (sigma0, or the sigma of the restart)
+    Float sigma_start = 1.0;
     MinDSigma() :
         Criterion("MinDSigma")
     {
     }
     void update(const parameters::Parameters &p) override;
+    void on_reset(const parameters::Parameters &p) override;
 };
 
 struct ConditionC : Criterion

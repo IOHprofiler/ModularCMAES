@@ -15,11 +15,13 @@ Float IPOP::update(parameters::Parameters &p)
     const auto max_lambda = max_lambda_factor * p.settings.lambda0;
     if (p.lambda < max_lambda)
     {
-        const Float ratio = static_cast<Float>(p.mu) / static_cast<Float>(p.lambda);
         p.lambda = std::min(
             max_lambda,
             static_cast<size_t>(std::round(static_cast<Float>(p.lambda) * ipop_factor)));
-        p.mu = std::max<size_t>(1, static_cast<size_t>(std::round(ratio * p.lambda)));
+        // mu of the new lambda, as BIPOP (#150): the default, lambda / 2 (pycma's popsize // 2;
+        // the framework paper, Alg. 1, mu = floor(lambda / 2) at every restart), or the ratio of
+        // a given mu0. It kept the ratio mu / lambda of the previous run, rounded
+        p.mu = p.settings.mu_for(p.lambda);
     }
     return p.settings.sigma0;
 }
@@ -75,7 +77,10 @@ Float BIPOP::update(parameters::Parameters &p)
         lambda_small++;
 
     p.lambda = std::max(size_t{2}, large_run ? lambda_large : lambda_small);
-    p.mu = std::max(Float{1.0}, p.lambda * mu_factor);
+    // mu of the new lambda, as IPOP (#150): the default, lambda / 2 as pycma's fmin (each run
+    // takes the default CMA_mu, popsize // 2) and Hansen (2009), or the ratio of a given mu0. It
+    // was lambda mu0 / lambda0, truncated
+    p.mu = p.settings.mu_for(p.lambda);
 
     // A small run uses at most half the evaluations of the large regime so far: "a maximum number
     // of function evaluations of half of the recent large budget is enforced" (Hansen 2009); pycma

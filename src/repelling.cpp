@@ -332,17 +332,14 @@ void AdaptiveRepelling::adapt_radii_after_sampling(parameters::Parameters &p)
 
 void AdaptiveRepelling::on_update_begin(const Solution &, parameters::Parameters &p)
 {
-    const int current_evaluations = p.stats.evaluations;
+    const int current_evaluations = static_cast<int>(p.stats.evaluations);
 
-    restart_evals = 0.0;
-
-    if (last_restart_evaluations > 0)
-    {
-        restart_evals = static_cast<Float>(current_evaluations - last_restart_evaluations);
-    }
-
+    // The evaluations of the run that ended, since the previous update (0 before the first): the
+    // first run counts its full length. It counted as 1 evaluation (#121), which made the waste
+    // ratio of the first shared basins about one run length too high.
+    restart_evals =
+        std::max<Float>(1.0, static_cast<Float>(current_evaluations - last_restart_evaluations));
     last_restart_evaluations = current_evaluations;
-    restart_evals = std::max<Float>(1.0, restart_evals);
 
     average_restart_evaluations = (1.0 - restart_eval_alpha) * average_restart_evaluations +
                                   restart_eval_alpha * restart_evals;

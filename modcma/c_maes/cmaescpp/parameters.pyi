@@ -793,7 +793,7 @@ class Settings:
         """
         The initial number of parents, at least 1 (ValueError); default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA).
 
-        Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting lambda0 recomputes it. A mu0 above lambda0 raises ValueError: in the constructor, and after a setter when the optimizer is created. Parameters.mu is the current value, which IPOP and BIPOP restarts change.
+        Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting lambda0 recomputes it. A mu0 above lambda0 raises ValueError: in the constructor, and after a setter when the optimizer is created. Parameters.mu is the current value, which IPOP and BIPOP restarts change: to the default of the new lambda (as pycma), or, when mu0 was given, to mu0 / lambda0 of the new lambda.
         """
 
     @mu0.setter

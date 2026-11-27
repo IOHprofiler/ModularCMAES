@@ -133,7 +133,7 @@ They change what `ask()` returns: the points of the hill–valley tests are aske
 | `NONE` | No restart criteria other than `restart.UnableToAdapt`, the default: the optimizer only restarts (with the same population size) when its adaptation fails. |
 | `STOP` | Use the restart criteria as stopping criteria: the run ends when one of them is met, without a restart. |
 | `RESTART` | Restart with the same population size whenever a restart criterion is met. |
-| `IPOP` | IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies mu and lambda by `restart.IPOP.ipop_factor` (2), up to 2^9 lambda0 (`restart.IPOP.max_lambda_factor`). Larger populations help on multimodal functions with a global structure. |
+| `IPOP` | IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies lambda by `restart.IPOP.ipop_factor` (2), up to 2^9 lambda0 (`restart.IPOP.max_lambda_factor`); mu is the default of the new lambda, or the ratio of a given mu0. Larger populations help on multimodal functions with a global structure. |
 | `BIPOP` | BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used up to 2^9 lambda0 (as IPOP), and a small one with a random size between lambda0 and the latest large population (as pycma) and a smaller initial sigma. Each restart uses the regime that has used fewer evaluations so far, so both get about half of the evaluations; a small run takes at most half of what the large regime has used. See `restart.BIPOP`. |
 <!-- /options -->
 

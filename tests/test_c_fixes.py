@@ -266,6 +266,36 @@ class TestRestarts(unittest.TestCase):
         tolx.update(es.p)
         self.assertTrue(tolx.met)
 
+    def test_adaptive_repelling_counts_the_first_run(self):
+        # #121: the first run entered the running average of the run lengths as 1 evaluation
+        # (the average stayed 1.0 after it); now with its full length, smoothed from the start
+        # value 1: (1 - alpha) * 1 + alpha * n
+        es = modcma.ModularCMAES(
+            modcma.settings_from_dict(
+                3, restart_strategy="RESTART", repelling_type="ADAPTIVE", budget=20_000, seed=1
+            )
+        )
+        repelling = es.p.repelling
+        alpha = repelling.restart_eval_alpha
+        for _ in range(4):
+            es.step(sphere)
+        self.assertEqual(len(es.p.stats.centers), 0)
+        restart_next_generation(es)
+        es.step(sphere)  # the restart: the center of mass, then the update of the archive
+        self.assertEqual(len(es.p.stats.centers), 1)
+        n = es.p.stats.centers[0].e  # the evaluations of the first run, with its center
+        self.assertEqual(repelling.last_restart_evaluations, n)
+        self.assertAlmostEqual(repelling.average_restart_evaluations, (1 - alpha) + alpha * n)
+        # Every later run counts from the previous restart, its hill-valley points included
+        average = repelling.average_restart_evaluations
+        while len(es.p.stats.centers) < 2:
+            es.step(sphere)
+        m = repelling.last_restart_evaluations - n
+        self.assertEqual(repelling.last_restart_evaluations, es.p.stats.centers[1].e)
+        self.assertAlmostEqual(
+            repelling.average_restart_evaluations, (1 - alpha) * average + alpha * m
+        )
+
     def test_first_run_starts_at_the_center_of_the_bounds(self):
         settings = modcma.Settings(3, lb=np.zeros(3), ub=np.full(3, 10.0))
         es = modcma.ModularCMAES(settings)

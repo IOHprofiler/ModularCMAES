@@ -109,8 +109,8 @@ struct Parameters
                              bool restarting);
 
     void finish_restart();
-    //! Caps lambda (and mu, in proportion) at the remaining budget, less the evaluation of the
-    //! new run's center of mass; called by finish_restart
+    //! Caps lambda at the remaining budget, less the evaluation of the new run's center of mass,
+    //! with mu = Settings::mu_for(lambda); called by finish_restart
     void fit_lambda_to_budget();
     //! Whether a restart that starts now still fits: one more evaluation (the center, or a
     //! hill-valley point), then the smallest first generation and its reserved points (TPA's), and

@@ -80,7 +80,12 @@ void define_restart_criteria(nb::module_ &main)
     nb::class_<ExceededMaxIter, Criterion>(
         m,
         "ExceededMaxIter",
-        "Met when a run has lasted more than `max_iter` generations since the last restart.")
+        "Met when the run has lasted `max_iter` generations, so a run takes at most `max_iter` "
+        "generations (at least one).\n\n"
+        "As Hansen (2009), \"MaxIter ... the maximal number of iterations in each run\", and "
+        "pycma's maxiter (countiter >= maxiter). `update` counts the generation it is called "
+        "at: the optimizer updates the criteria at the end of a generation, before `Stats.t` "
+        "counts it. Before 2.0 a run took max_iter + 2 generations (#139).")
         .def(nb::init<>(),
              "The criterion; `max_iter` is set by the first reset (or, added to a running "
              "optimizer, before its first update).")
@@ -192,25 +197,36 @@ void define_restart_criteria(nb::module_ &main)
     nb::class_<MaxDSigma, Criterion>(
         m,
         "MaxDSigma",
-        "Met when sigma has grown too much relative to sigma0: sigma / sigma0 > tolerance * "
-        "max(D), with D the square roots of the eigenvalues of C (pycma's tolupsigma).\n\n"
+        "Met when sigma has grown too much relative to the step size at the start of the run: "
+        "sigma / sigma_start > tolerance * max(D), with D the square roots of the eigenvalues "
+        "of C (TolUpSigma of Hansen 2009; pycma's tolupsigma).\n\n"
+        "sigma_start is the sigma0 of the run, as in Hansen (2009) and pycma (es.sigma0, which "
+        "its fmin sets for each run): Settings.sigma0, or the step size of the restart, smaller "
+        "in the small runs of BIPOP. Before 2.0 it was Settings.sigma0 in every run (#139).\n\n"
         "D from `Adaptation.metric()` for COVARIANCE, SEPARABLE and NONE. The others use "
         "sqrt(max C_ii) (`Adaptation.coordinate_wise_variances`) instead of max(D): free, and it "
         "follows the scale of C. max C_ii is at most the largest eigenvalue, so the criterion "
         "fires earlier than with the eigenvalues; no source does this.")
-        .def(nb::init<>(), "The criterion.")
+        .def(nb::init<>(), "The criterion; `sigma_start` is set by the first reset.")
+        .def_rw("sigma_start",
+                &MaxDSigma::sigma_start,
+                "The step size at the start of the run, set at every reset.")
         .def_rw_static("tolerance", &MaxDSigma::tolerance, "The factor (default 1e20).");
 
     nb::class_<MinDSigma, Criterion>(
         m,
         "MinDSigma",
-        "Met when sigma has shrunk too much relative to sigma0: sigma / sigma0 < tolerance * "
-        "min(D), with D the square roots of the eigenvalues of C.\n\n"
+        "Met when sigma has shrunk too much relative to the step size at the start of the run: "
+        "sigma / sigma_start < tolerance * min(D), with D the square roots of the eigenvalues of "
+        "C. modcma's own counterpart of `MaxDSigma`; sigma_start as there (#139).\n\n"
         "D from `Adaptation.metric()` for COVARIANCE, SEPARABLE and NONE. The others use "
         "sqrt(min C_ii) (`Adaptation.coordinate_wise_variances`) instead of min(D). min C_ii is "
         "at least the smallest eigenvalue, so the criterion fires earlier than with the "
         "eigenvalues; no source does this.")
-        .def(nb::init<>(), "The criterion.")
+        .def(nb::init<>(), "The criterion; `sigma_start` is set by the first reset.")
+        .def_rw("sigma_start",
+                &MinDSigma::sigma_start,
+                "The step size at the start of the run, set at every reset.")
         .def_rw_static("tolerance", &MinDSigma::tolerance, "The factor (default 1e-20).");
 
     nb::class_<ConditionC, Criterion>(
@@ -361,9 +377,12 @@ void define_restart_strategy(nb::module_ &main)
     nb::class_<IPOP, Strategy>(
         m,
         "IPOP",
-        "IPOP (Auger & Hansen 2005): every restart multiplies lambda by `ipop_factor` (mu "
-        "keeps its ratio to lambda), up to `max_lambda_factor` * lambda0 (2^9 lambda0, the "
-        "framework paper).")
+        "IPOP (Auger & Hansen 2005): every restart multiplies lambda by `ipop_factor`, up to "
+        "`max_lambda_factor` * lambda0 (2^9 lambda0, the framework paper).\n\n"
+        "mu is the default of the new lambda, lambda // 2 (lambda // 4 with ssa SA or "
+        "matrix_adaptation CMSA), as pycma's fmin (popsize // 2) and the framework paper (Alg. "
+        "1); with a Settings.mu0 that was given, mu0 / lambda0 of the new lambda, rounded half "
+        "up (at least 1). Before 2.0 mu kept the ratio mu / lambda of the previous run (#150).")
         .def_rw("ipop_factor",
                 &IPOP::ipop_factor,
                 "The factor of the population size per restart (default 2; lambda * ipop_factor "
@@ -387,8 +406,9 @@ void define_restart_strategy(nb::module_ &main)
         "/ lambda_init)^(u^2)) (rounded up to even for PAIRWISE, at least 2), between "
         "lambda_init and the latest large population, and restarts with sigma0 * 10^(-2u'), u "
         "and u' uniform in [0, 1); it takes at most half the evaluations of the large regime so "
-        "far (`Strategy.max_iter`, which `ExceededMaxIter` enforces). mu is lambda * mu_factor "
-        "(at least 1).\n\n"
+        "far (`Strategy.max_iter`, which `ExceededMaxIter` enforces). mu follows lambda as in "
+        "`IPOP`: lambda // 2 (pycma's fmin, Hansen 2009), or the ratio of a given mu0 (#150; "
+        "before 2.0, lambda mu0 / lambda0, truncated).\n\n"
         "Up to the limit, the population sizes are those of pycma 4.6.0's `fmin` "
         "(cma/evolution_strategy.py:5362-5381) given an integer popsize (its default, 4 + 3 ln "
         "d, is not rounded there) and without PAIRWISE. Hansen (2009) writes the same formula "
@@ -401,7 +421,6 @@ void define_restart_strategy(nb::module_ &main)
              &BIPOP::large,
              "Whether the next run is large: the large regime has used no more evaluations than "
              "the small one.")
-        .def_rw("mu_factor", &BIPOP::mu_factor, "mu / lambda of the initial population.")
         .def_rw("lambda_init", &BIPOP::lambda_init, "The initial lambda.")
         .def_rw("lambda_large",
                 &BIPOP::lambda_large,

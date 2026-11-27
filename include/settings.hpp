@@ -577,13 +577,33 @@ struct Settings
         require_consistent();
     }
 
-    //! The default mu0 of the current lambda0 and modules, the constructor's rule: lambda0 / 2, or
-    //! lambda0 / 4 with ssa SA or matrix_adaptation CMSA; at least 1
-    [[nodiscard]] size_t default_mu0() const
+    //! The default mu0 of the current lambda0 and modules: default_mu(lambda0)
+    [[nodiscard]] size_t default_mu0() const { return default_mu(lambda0); }
+
+    //! The default number of parents of a population of lambda with the current modules, the
+    //! constructor's rule: lambda / 2, or lambda / 4 with ssa SA or matrix_adaptation CMSA; at
+    //! least 1
+    [[nodiscard]] size_t default_mu(const size_t lambda) const
     {
         const bool quarter = modules.ssa == StepSizeAdaptation::SA ||
                              modules.matrix_adaptation == MatrixAdaptationType::CMSA;
-        return std::max<size_t>(1, quarter ? lambda0 / 4 : lambda0 / 2);
+        return std::max<size_t>(1, quarter ? lambda / 4 : lambda / 2);
+    }
+
+    /**
+     * The number of parents of a run whose population a restart set to lambda (IPOP, BIPOP, and
+     * the cap of the first generation at the budget; #150): default_mu(lambda), as pycma's fmin,
+     * whose every run takes the default CMA_mu, popsize // 2 (Hansen 2009: mu = floor(lambda / 2)).
+     * When mu0 was given (to the constructor or set_mu0), its ratio to lambda0 instead:
+     * mu0 lambda / lambda0, rounded half up, between 1 and lambda (the recommendation of #150;
+     * pycma keeps a given CMA_mu as the same number in every run).
+     */
+    [[nodiscard]] size_t mu_for(const size_t lambda) const
+    {
+        if (!mu0_given)
+            return std::min(default_mu(lambda), lambda);
+        const size_t mu = (2 * mu0 * lambda + lambda0) / (2 * lambda0);
+        return std::clamp<size_t>(mu, 1, lambda);
     }
 
     //! Recompute the values derived from lb and ub (after a change of the bounds)
