@@ -283,11 +283,100 @@ def settings_from_config(dim: int, config: Configuration, **kwargs: Any) -> Sett
     return settings
 
 
+# The presets: published algorithms that are a selection of modules. Each entry has the keyword
+# arguments of `settings_from_dict` and the source of the algorithm (see `preset`).
+_PRESETS: dict[str, tuple[dict[str, Any], str]] = {
+    "cma-es": ({}, "Hansen & Ostermeier 2001; Hansen 2016"),
+    "active-cma-es": ({"active": True}, "Jastrebski & Arnold 2006"),
+    "sep-cma": ({"matrix_adaptation": "SEPARABLE"}, "Ros & Hansen 2008"),
+    "ma-es": ({"matrix_adaptation": "MATRIX"}, "Beyer & Sendhoff 2017"),
+    "cholesky-cma": ({"matrix_adaptation": "CHOLESKY"}, "Krause, Arbones & Igel 2016"),
+    "cmsa-es": ({"matrix_adaptation": "CMSA", "ssa": "SA"}, "Beyer & Sendhoff 2008"),
+    "xnes": (
+        {"matrix_adaptation": "NATURAL_GRADIENT", "ssa": "XNES", "weights": "UTILITY"},
+        "Glasmachers et al. 2010",
+    ),
+    "ipop": ({"restart_strategy": "IPOP"}, "Auger & Hansen 2005"),
+    "bipop": ({"restart_strategy": "BIPOP"}, "Hansen 2009"),
+    "(1+1)-cma-es": ({"lambda0": 1}, "Igel, Suttorp & Hansen 2006"),
+}
+
+
+def preset_names() -> tuple:
+    """The names of the presets of `preset`, in the order of the guide."""
+    return tuple(_PRESETS)
+
+
+def preset(name: str, dim: int, **config: Any) -> Settings:
+    """`Settings` of a published algorithm that is a selection of modules.
+
+    Also available as `Settings.preset(name, dim, ...)`, and as `fmin(..., preset=name)`. The
+    names are matched without regard to case; `_` and `-` are the same.
+
+    ================  ==========================================  ==============================
+    name              modules                                     source
+    ================  ==========================================  ==============================
+    `cma-es`          the defaults (COVARIANCE, CSA)              Hansen & Ostermeier 2001;
+                                                                  Hansen 2016
+    `active-cma-es`   `active=True`                               Jastrebski & Arnold 2006
+    `sep-cma`         `matrix_adaptation=SEPARABLE`               Ros & Hansen 2008
+    `ma-es`           `matrix_adaptation=MATRIX`                  Beyer & Sendhoff 2017
+    `cholesky-cma`    `matrix_adaptation=CHOLESKY`                Krause, Arbones & Igel 2016
+    `cmsa-es`         `matrix_adaptation=CMSA`, `ssa=SA`          Beyer & Sendhoff 2008
+    `xnes`            `matrix_adaptation=NATURAL_GRADIENT`,       Glasmachers et al. 2010
+                      `ssa=XNES`, `weights=UTILITY`
+    `ipop`            `restart_strategy=IPOP`                     Auger & Hansen 2005
+    `bipop`           `restart_strategy=BIPOP`                    Hansen 2009
+    `(1+1)-cma-es`    `lambda0=1`                                 Igel, Suttorp & Hansen 2006
+    ================  ==========================================  ==============================
+
+    The preset is the selection of modules; the learning rates and the population size keep the
+    defaults that `Settings` computes for those modules (for `sep-cma`, `cmu` is scaled as in Ros &
+    Hansen 2008). The `(1+1)-cma-es` is the elitist (1+1) strategy that `lambda0=1` gives: mu = 1,
+    plus selection, the 1/5th-type success rule for sigma (target success rate 2/11) and a
+    covariance update from a success-based evolution path. It is built from the modules of modcma,
+    and is not a reimplementation of the published algorithm, whose update differs in details.
+
+    Parameters
+    ----------
+    name : str
+        The name of the preset, see above. Unknown names raise ValueError, listing the valid ones.
+    dim : int
+        The dimension.
+    **config
+        Module options and `Settings` keyword arguments, as for `settings_from_dict`. They are
+        applied after the preset and override it: `preset("sep-cma", 10, active=True)` is
+        SEPARABLE with the active update, and `preset("ipop", 10, restart_strategy="BIPOP")` is
+        BIPOP.
+
+    Returns
+    -------
+    Settings
+        The settings of the preset.
+
+    Examples
+    --------
+    >>> settings = preset("sep-cma", 10, budget=5000)
+    >>> settings.modules.matrix_adaptation
+    <MatrixAdaptationType.SEPARABLE: 2>
+    """
+    key = str(name).strip().lower().replace("_", "-")
+    if key not in _PRESETS:
+        raise ValueError(f"unknown preset {name!r}; the presets are: {', '.join(_PRESETS)}")
+    return settings_from_dict(dim, **{**_PRESETS[key][0], **config})
+
+
+# Settings is a binding class; the preset is a Python helper, attached as a static method
+_preset = preset  # `fmin` has an argument of that name
+Settings.preset = staticmethod(preset)  # pyright: ignore[reportAttributeAccessIssue]
+
+
 def fmin(
     func: Callable[[np.ndarray], float],
     x0: Any,
     sigma0: float,
     budget: int,
+    preset: Optional[str] = None,
     **kwargs: Any,
 ) -> tuple[np.ndarray, float, int, ModularCMAES]:
     """Minimize a function with the modular CMA-ES.
@@ -306,6 +395,9 @@ def fmin(
     budget : int
         The maximum number of function evaluations, at least one generation (lambda0, and
         TPA's two points); a smaller budget raises ValueError.
+    preset : str, optional
+        The name of a published algorithm (see `modcma.preset`), e.g. `"sep-cma"`. The keyword
+        arguments below override it.
     **kwargs
         Module options and `Settings` keyword arguments, as for `settings_from_dict`, e.g.
         `active=True`, `matrix_adaptation="MATRIX"`, `lb=..., ub=...`, `target=1e-8`.
@@ -328,7 +420,11 @@ def fmin(
     >>> xopt, fopt, evals, es = fmin(lambda x: float(np.sum(x**2)), np.ones(5), 0.5, 2000)
     """
     x0 = np.asarray(x0, dtype=float)
-    settings = settings_from_dict(len(x0), x0=x0, sigma0=sigma0, budget=budget, **kwargs)
+    config = dict(x0=x0, sigma0=sigma0, budget=budget, **kwargs)
+    if preset is None:
+        settings = settings_from_dict(len(x0), **config)
+    else:
+        settings = _preset(preset, len(x0), **config)
     es = ModularCMAES(settings)
     es(func)
 
@@ -344,6 +440,8 @@ __all__ = (
     "fmin",
     "settings_from_dict",
     "settings_from_config",
+    "preset",
+    "preset_names",
     "get_configspace",
     "get_all_module_options",
     "Settings",

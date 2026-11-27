@@ -37,6 +37,10 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 
 ### Added
 
+* **Presets** for published algorithms that are a selection of modules: `modcma.preset(name, dim, ...)`,
+  `Settings.preset(...)` and `fmin(..., preset=name)`; names: `cma-es`, `active-cma-es`, `sep-cma`,
+  `ma-es`, `cholesky-cma`, `cmsa-es`, `xnes`, `ipop`, `bipop`, `(1+1)-cma-es`. Keyword arguments
+  override the preset; `modcma.preset_names()` lists the names (#92).
 * `import modcma` gives the C++ API (`modcma.fmin`, `modcma.ModularCMAES`, `modcma.Settings`, ...);
   `modcma.c_maes` stays as an alias. `modcma.__version__`. `matrix_adaptation` is exported with the
   other submodules (1.x had it only as `modcma.c_maes.cmaescpp.matrix_adaptation`).
