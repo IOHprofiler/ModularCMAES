@@ -16,8 +16,8 @@ pip install ioh
 Output (d = 5, 24 functions × 5 instances, budget 10 000 × d):
 
 ```text
-CMA-ES                 solved 59/120 (f - f_opt <= 1e-08), median 2080 evaluations when solved
-BIPOP active CMA-ES    solved 93/120 (f - f_opt <= 1e-08), median 1929 evaluations when solved
+CMA-ES                 solved 56/120 (f - f_opt <= 1e-08), median 2077 evaluations when solved
+BIPOP active CMA-ES    solved 93/120 (f - f_opt <= 1e-08), median 1833 evaluations when solved
 ```
 
 Upload the `bbob-data` folder (zipped) to IOHanalyzer to compare the two configurations function by

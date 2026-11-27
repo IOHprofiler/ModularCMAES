@@ -239,7 +239,7 @@ class RestartStrategy(enum.Enum):
 
     BIPOP = 4
     """
-    BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used, and a small one with a random size and a smaller initial sigma, giving both regimes about half of the budget (`Settings.budget`). See `restart.BIPOP`.
+    BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used, and a small one with a random size and a smaller initial sigma. Each restart uses the regime that has used fewer evaluations so far, so both get about half of the evaluations; a small run takes at most half of what the large regime has used. See `restart.BIPOP`.
     """
 
 class MatrixAdaptationType(enum.Enum):
@@ -251,7 +251,7 @@ class MatrixAdaptationType(enum.Enum):
 
     COVARIANCE = 1
     """
-    The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with rank-one and rank-mu update, the default. C is eigendecomposed every few generations (O(d^3), with LAPACK from `constants.lapack_min_dim` on). The only option for which the restart criteria TolX, ConditionC, NoEffectAxis and NoEffectCoord are used.
+    The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with rank-one and rank-mu update, the default. C is eigendecomposed every few generations (O(d^3), with LAPACK from `constants.lapack_min_dim` on). Keeps its metric (`Adaptation.metric()`), so the restart criteria ConditionC and NoEffectAxis are used, as with SEPARABLE and NONE.
     """
 
     NONE = 0

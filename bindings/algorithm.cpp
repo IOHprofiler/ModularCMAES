@@ -842,6 +842,13 @@ void define_matrix_adaptation(nb::module_ &main)
             "-------\n"
             "Metric\n"
             "    A copy.")
+        .def("keeps_metric",
+             &Adaptation::keeps_metric,
+             "Whether `metric()` costs nothing: True for `CovarianceAdaptation` (not "
+             "COVARIANCE_NO_EIGV), `SeparableAdaptation` and `NoAdaptation`, which keep it up to "
+             "date; False for the others, which decompose their matrix on request, O(d^3).\n\n"
+             "The restart criteria ConditionC and NoEffectAxis read the metric every generation; "
+             "they are created by default only when this is True.")
         .def_ro("factor_version",
                 &Adaptation::factor_version,
                 "A counter increased wherever the sampling factor changes (an update of the "

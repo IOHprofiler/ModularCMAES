@@ -115,14 +115,23 @@ struct NoImprovement : Criterion
     void on_reset(const parameters::Parameters &p) override;
 };
 
+/**
+ * TolXUp (Hansen 2016, App. B.3): met when sigma max(D) has grown by more than tolerance since the
+ * start of the run, with D the axis lengths of the distribution (the square roots of the
+ * eigenvalues of C). A far too small sigma0, or divergence. pycma's tolfacupx is the same test per
+ * coordinate (sigma sqrt(C_ii) > 1e3 sigma0).
+ */
 struct MaxSigma : Criterion
 {
     static inline Float tolerance = 1e4;
+    //! sigma max(D) at the start of the run
+    Float start = 1.0;
     MaxSigma() :
         Criterion("MaxSigma")
     {
     }
     void update(const parameters::Parameters &p) override;
+    void on_reset(const parameters::Parameters &p) override;
 };
 
 struct MinSigma : Criterion
@@ -202,9 +211,12 @@ struct ConditionC : Criterion
     void update(const parameters::Parameters &p) override;
 };
 
+//! pycma's noeffectaxis: met when m + 0.1 sigma D_i b_i == m in floating point, for the axis
+//! i = t mod d of generation t (Hansen 2016, App. B.3)
 struct NoEffectAxis : Criterion
 {
-    static inline Float tolerance = 10.0 * std::numeric_limits<Float>::epsilon();
+    //! The step along the axis, in standard deviations
+    static inline Float tolerance = 0.1;
     NoEffectAxis() :
         Criterion("NoEffectAxis")
     {
@@ -212,9 +224,12 @@ struct NoEffectAxis : Criterion
     void update(const parameters::Parameters &p) override;
 };
 
+//! pycma's noeffectcoord: met when m_i + 0.2 sigma sqrt(C_ii) == m_i in floating point, for some
+//! coordinate i (Hansen 2016, App. B.3)
 struct NoEffectCoord : Criterion
 {
-    static inline Float tolerance = 10.0 * std::numeric_limits<Float>::epsilon();
+    //! The step along the coordinate, in standard deviations
+    static inline Float tolerance = 0.2;
     NoEffectCoord() :
         Criterion("NoEffectCoord")
     {

@@ -13,7 +13,7 @@ restart) and repelling restarts (where *not* to).
 | `STOP` | the run ends, and the optimizer stops (`stop_conditions()`, then `break_conditions()`) |
 | `RESTART` | restart with the same λ |
 | `IPOP` | restart with λ doubled (Auger & Hansen 2005) |
-| `BIPOP` | alternate between a regime of large populations (doubling) and one of small populations with a random size, giving each about the same budget (Hansen 2009) |
+| `BIPOP` | alternate between a regime of large populations (doubling) and one of small populations with a random size: each restart uses the regime that has used fewer evaluations so far (Hansen 2009) |
 
 IPOP and BIPOP are the strongest choices on multimodal functions with a global structure (such as
 Rastrigin); see the [multimodal example](../examples/multimodal.md).
@@ -23,9 +23,13 @@ Rastrigin); see the [multimodal example](../examples/multimodal.md).
 A restart happens when any criterion in `es.p.criteria.items` is met. With `NONE` only
 `UnableToAdapt` is used (the matrix could not be updated); with the other strategies the list
 contains the stopping criteria of pycma: `MinSigma`, `MaxSigma`, `ExceededMaxIter`,
-`NoImprovement`, `Stagnation`, `MinDSigma`, `MaxDSigma`, `FlatFitness` and, for
-`COVARIANCE`, `TolX`, `ConditionC`, `NoEffectAxis`, `NoEffectCoord`; and `TooMuchRepelling`
-with repelling restarts. Each is described in the [reference](../reference/restart.md).
+`NoImprovement`, `Stagnation`, `MinDSigma`, `MaxDSigma`, `FlatFitness`, `TolX`, `NoEffectCoord`
+and, for `COVARIANCE`, `SEPARABLE` and `NONE`, `ConditionC` and `NoEffectAxis`; and
+`TooMuchRepelling` with repelling restarts. The other matrix adaptations would need an O(d³)
+decomposition per update for `ConditionC` and `NoEffectAxis`, and use the diagonal of C where the
+σ criteria need its largest or smallest eigenvalue
+([compatibility](compatibility.md#combinations-that-change-the-meaning-of-an-option)). Each
+criterion is described in the [reference](../reference/restart.md).
 
 ```python
 import numpy as np
@@ -130,7 +134,7 @@ They change what `ask()` returns: the points of the hill–valley tests are aske
 | `STOP` | Use the restart criteria as stopping criteria: the run ends when one of them is met, without a restart. |
 | `RESTART` | Restart with the same population size whenever a restart criterion is met. |
 | `IPOP` | IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies mu and lambda by `restart.IPOP.ipop_factor` (2). Larger populations help on multimodal functions with a global structure. |
-| `BIPOP` | BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used, and a small one with a random size and a smaller initial sigma, giving both regimes about half of the budget (`Settings.budget`). See `restart.BIPOP`. |
+| `BIPOP` | BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used, and a small one with a random size and a smaller initial sigma. Each restart uses the regime that has used fewer evaluations so far, so both get about half of the evaluations; a small run takes at most half of what the large regime has used. See `restart.BIPOP`. |
 <!-- /options -->
 
 <!-- options: RepellingType -->

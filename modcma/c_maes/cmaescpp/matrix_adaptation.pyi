@@ -151,6 +151,13 @@ class Adaptation:
             A copy.
         """
 
+    def keeps_metric(self) -> bool:
+        """
+        Whether `metric()` costs nothing: True for `CovarianceAdaptation` (not COVARIANCE_NO_EIGV), `SeparableAdaptation` and `NoAdaptation`, which keep it up to date; False for the others, which decompose their matrix on request, O(d^3).
+
+        The restart criteria ConditionC and NoEffectAxis read the metric every generation; they are created by default only when this is True.
+        """
+
     @property
     def factor_version(self) -> int:
         """

@@ -87,7 +87,8 @@ void define_restart_criteria(nb::module_ &main)
         .def_rw("max_iter",
                 &ExceededMaxIter::max_iter,
                 "The most generations of one run, set at every reset to "
-                "100 + 50 (d + 3)^2 / sqrt(lambda).");
+                "100 + 50 (d + 3)^2 / sqrt(lambda), or to the smaller `Strategy.max_iter` of the "
+                "restart strategy (BIPOP's small runs).");
 
     nb::class_<NoImprovement, Criterion>(
         m,
@@ -112,12 +113,26 @@ void define_restart_criteria(nb::module_ &main)
                        "(default 1e-20).");
 
     nb::class_<MaxSigma, Criterion>(
-        m, "MaxSigma", "Met when the step size sigma is larger than `MaxSigma.tolerance`.")
-        .def(nb::init<>(), "The criterion.")
+        m,
+        "MaxSigma",
+        "Met when sigma max(D) has grown by more than `MaxSigma.tolerance` since the start of "
+        "the run: TolXUp of Hansen (2016, App. B.3), \"usually indicates a far too small initial "
+        "sigma, or divergent behavior\".\n\n"
+        "D are the axis lengths of the distribution, the square roots of the eigenvalues of C, "
+        "from `Adaptation.metric()`, for COVARIANCE, SEPARABLE and NONE. The others, which "
+        "would decompose their matrix every generation, use sqrt(max C_ii) "
+        "(`Adaptation.coordinate_wise_variances`) instead of max(D): for them the test is "
+        "pycma's tolfacupx, sigma sqrt(C_ii) > 1e3 sigma0 for some i, with 1e4. max C_ii is at "
+        "most the largest eigenvalue, so it fires later than with the eigenvalues. Before 2.0 "
+        "the criterion compared sigma with 1e4, whatever sigma0 and C.")
+        .def(nb::init<>(), "The criterion; `start` is set by the first reset.")
+        .def_rw("start",
+                &MaxSigma::start,
+                "sigma max(D) at the start of the run, set at every reset.")
         .def_rw_static("tolerance",
                        &MaxSigma::tolerance,
-                       "The largest step size (default 1e4); also the upper limit of "
-                       "`constants.clip_sigma`.");
+                       "The largest growth of sigma max(D) (default 1e4). Also the upper limit of "
+                       "`constants.clip_sigma`, there as a step size.");
 
     nb::class_<MinSigma, Criterion>(
         m, "MinSigma", "Met when the step size sigma is smaller than `MinSigma.tolerance`.")
@@ -163,14 +178,15 @@ void define_restart_criteria(nb::module_ &main)
         "Met when the search distribution has become very small in every coordinate.\n\n"
         "Met when every entry of `tolx_vector` (sigma times the standard deviations sqrt(C_ii) "
         "and the absolute values of the evolution path p_c) is smaller than tolerance times the "
-        "step size at the start of the run (Hansen 2016; pycma's tolx). Only "
-        "applies to the covariance matrix adaptations (COVARIANCE, COVARIANCE_NO_EIGV); by "
-        "default used with COVARIANCE.")
+        "step size at the start of the run (Hansen 2016, App. B.3; pycma's tolx).\n\n"
+        "For every matrix adaptation: C_ii from `Adaptation.coordinate_wise_variances`, and "
+        "p_c where the adaptation has one (COVARIANCE, COVARIANCE_NO_EIGV, SEPARABLE, "
+        "CHOLESKY).")
         .def(nb::init<>(), "The criterion.")
         .def_rw("tolx_vector",
                 &TolX::tolx_vector,
-                "The 2 d values compared: sqrt(diag(C)) sigma / sigma0, then p_c sigma / "
-                "sigma0.")
+                "The values compared: sigma sqrt(C_ii) (d values), then sigma |p_c| (d more, for "
+                "the adaptations with p_c).")
         .def_rw_static("tolerance", &TolX::tolerance, "The tolerance (default 1e-11).");
 
     nb::class_<MaxDSigma, Criterion>(
@@ -178,7 +194,10 @@ void define_restart_criteria(nb::module_ &main)
         "MaxDSigma",
         "Met when sigma has grown too much relative to sigma0: sigma / sigma0 > tolerance * "
         "max(D), with D the square roots of the eigenvalues of C (pycma's tolupsigma).\n\n"
-        "D = 1 for matrix adaptations without an eigendecomposition.")
+        "D from `Adaptation.metric()` for COVARIANCE, SEPARABLE and NONE. The others use "
+        "sqrt(max C_ii) (`Adaptation.coordinate_wise_variances`) instead of max(D): free, and it "
+        "follows the scale of C. max C_ii is at most the largest eigenvalue, so the criterion "
+        "fires earlier than with the eigenvalues; no source does this.")
         .def(nb::init<>(), "The criterion.")
         .def_rw_static("tolerance", &MaxDSigma::tolerance, "The factor (default 1e20).");
 
@@ -187,7 +206,10 @@ void define_restart_criteria(nb::module_ &main)
         "MinDSigma",
         "Met when sigma has shrunk too much relative to sigma0: sigma / sigma0 < tolerance * "
         "min(D), with D the square roots of the eigenvalues of C.\n\n"
-        "D = 1 for matrix adaptations without an eigendecomposition.")
+        "D from `Adaptation.metric()` for COVARIANCE, SEPARABLE and NONE. The others use "
+        "sqrt(min C_ii) (`Adaptation.coordinate_wise_variances`) instead of min(D). min C_ii is "
+        "at least the smallest eigenvalue, so the criterion fires earlier than with the "
+        "eigenvalues; no source does this.")
         .def(nb::init<>(), "The criterion.")
         .def_rw_static("tolerance", &MinDSigma::tolerance, "The factor (default 1e-20).");
 
@@ -195,8 +217,10 @@ void define_restart_criteria(nb::module_ &main)
         m,
         "ConditionC",
         "Met when the condition number of the covariance matrix, max(D)^2 / min(D)^2, exceeds "
-        "the tolerance.\n\n"
-        "Only for COVARIANCE (the eigendecomposition gives D).")
+        "the tolerance (pycma's tolconditioncov).\n\n"
+        "D from `Adaptation.metric()`. Created by default for COVARIANCE, SEPARABLE and NONE, "
+        "which keep the metric; added to the others, it decomposes their matrix once per update "
+        "of it, O(d^3).")
         .def(nb::init<>(), "The criterion.")
         .def_rw_static(
             "tolerance", &ConditionC::tolerance, "The largest condition number (default 1e14).");
@@ -204,25 +228,33 @@ void define_restart_criteria(nb::module_ &main)
     nb::class_<NoEffectAxis, Criterion>(
         m,
         "NoEffectAxis",
-        "Met when a step of 0.1 sigma along a principal axis of C is negligible.\n\n"
-        "In generation t, axis i = t mod d: met when every coordinate of 0.1 sigma D_i b_i "
-        "(b_i the eigenvector, D_i the square root of its eigenvalue) is smaller in absolute "
-        "value than the tolerance. Only for COVARIANCE.")
+        "Met when a step of 0.1 standard deviations along a principal axis of C does not "
+        "change the mean (pycma's noeffectaxis; Hansen 2016, App. B.3).\n\n"
+        "In generation t, axis i = t mod d: met when m + 0.1 sigma D_i b_i == m in floating "
+        "point (b_i the eigenvector, D_i the square root of its eigenvalue, from "
+        "`Adaptation.metric()`). Created by default for COVARIANCE, SEPARABLE and NONE, which "
+        "keep the metric; added to the others, it decomposes their matrix once per update of "
+        "it, O(d^3).")
         .def(nb::init<>(), "The criterion.")
         .def_rw_static("tolerance",
                        &NoEffectAxis::tolerance,
-                       "The threshold (default 10 times the machine epsilon, about 2.2e-15).");
+                       "The step along the axis, in standard deviations (default 0.1, pycma). "
+                       "Before 2.0, an absolute threshold of the step (10 times the machine "
+                       "epsilon).");
 
     nb::class_<NoEffectCoord, Criterion>(
         m,
         "NoEffectCoord",
-        "Met when a step of 0.2 sigma sqrt(C_ii) in some coordinate i is smaller in absolute "
-        "value than the tolerance.\n\n"
-        "Only applies to the covariance matrix adaptations; by default used with COVARIANCE.")
+        "Met when a step of 0.2 standard deviations in some coordinate does not change the "
+        "mean: m_i + 0.2 sigma sqrt(C_ii) == m_i in floating point (pycma's noeffectcoord; "
+        "Hansen 2016, App. B.3).\n\n"
+        "For every matrix adaptation: C_ii from `Adaptation.coordinate_wise_variances`.")
         .def(nb::init<>(), "The criterion.")
         .def_rw_static("tolerance",
                        &NoEffectCoord::tolerance,
-                       "The threshold (default 10 times the machine epsilon, about 2.2e-15).");
+                       "The step along the coordinate, in standard deviations (default 0.2, "
+                       "pycma). Before 2.0, an absolute threshold of the step (10 times the "
+                       "machine epsilon).");
 
     nb::class_<Stagnation, Criterion>(
         m,
@@ -277,9 +309,10 @@ void define_restart_criteria(nb::module_ &main)
         "Criteria",
         "The restart criteria of an optimizer (`Parameters.criteria`).\n\n"
         "The defaults: `UnableToAdapt` always; with a restart strategy other than NONE also "
-        "MinSigma, MaxSigma, ExceededMaxIter, NoImprovement, Stagnation, MinDSigma, MaxDSigma "
-        "and, for lambda > 1, FlatFitness; with COVARIANCE also TolX, ConditionC, NoEffectAxis "
-        "and NoEffectCoord; with repelling also TooMuchRepelling.")
+        "MinSigma, MaxSigma, ExceededMaxIter, NoImprovement, Stagnation, MinDSigma, MaxDSigma, "
+        "FlatFitness (for lambda > 1), TolX and NoEffectCoord; ConditionC and NoEffectAxis with "
+        "COVARIANCE, SEPARABLE and NONE (the matrix adaptations that keep their metric); with "
+        "repelling also TooMuchRepelling.")
         .def_prop_rw(
             "items",
             [](Criteria &self) -> vCriteria & { return self.items; },
@@ -314,6 +347,11 @@ void define_restart_strategy(nb::module_ &main)
         "(`Parameters.restart_strategy`).\n\n"
         "This base class, used for RestartStrategy.NONE, STOP and RESTART, keeps mu and lambda "
         "and restarts with sigma0.")
+        .def_rw("max_iter",
+                &Strategy::max_iter,
+                "The most generations of the current run: `ExceededMaxIter` uses the smaller of "
+                "this and its own limit, at its reset. 2^64 - 1 (no limit) except in BIPOP's "
+                "small runs.")
         .def("update",
              &Strategy::update,
              nb::arg("parameters"),
@@ -339,29 +377,33 @@ void define_restart_strategy(nb::module_ &main)
         "BIPOP",
         "BIPOP (Hansen 2009): restarts alternate between a large and a small population "
         "regime.\n\n"
-        "At the first restart, the remaining budget is split in two halves. A restart uses "
-        "the regime with more of its budget left: the large regime doubles lambda_large "
-        "each time and restarts with sigma0; the small regime draws a random lambda_small "
-        "(even, at least 2) and restarts with sigma0 * 10^(-2u), u uniform in [0, 1). mu is "
-        "lambda * mu_factor (at least 1).")
+        "Each regime counts the evaluations of its runs; the first run counts as small (pycma's "
+        "fmin; Hansen 2009 disregards it). A restart uses the regime that has used fewer "
+        "evaluations, the large one on a tie, so the first restart is large. The large regime "
+        "doubles lambda_large each time and restarts with sigma0. The small regime draws "
+        "lambda_small = floor(lambda_init (lambda_large / (2 lambda_init))^(u^2)) (rounded up to "
+        "even for PAIRWISE, at least 2) and restarts with sigma0 * 10^(-2u'), u and u' uniform "
+        "in [0, 1); a small run takes at most half the evaluations of the large regime so far "
+        "(`Strategy.max_iter`, which `ExceededMaxIter` enforces). mu is lambda * mu_factor (at "
+        "least 1).")
         .def("large",
              &BIPOP::large,
-             "Whether the large regime is next: its budget is at least that of the small "
-             "regime (and positive).")
+             "Whether the next run is large: the large regime has used no more evaluations than "
+             "the small one.")
         .def_rw("mu_factor", &BIPOP::mu_factor, "mu / lambda of the initial population.")
         .def_rw("lambda_init", &BIPOP::lambda_init, "The initial lambda.")
-        .def_rw("budget", &BIPOP::budget, "The total evaluation budget (`Settings.budget`).")
         .def_rw("lambda_large",
                 &BIPOP::lambda_large,
-                "lambda of the large regime (0 before the first restart, then 2 lambda_init, "
-                "doubled each time the regime is used).")
+                "lambda of the next large run (0 before the first restart, then 2 lambda_init, "
+                "doubled after each large run).")
         .def_rw("lambda_small", &BIPOP::lambda_small, "lambda of the last small-regime draw.")
-        .def_rw("budget_small",
-                &BIPOP::budget_small,
-                "The evaluations left for the small regime.")
-        .def_rw("budget_large",
-                &BIPOP::budget_large,
-                "The evaluations left for the large regime.")
+        .def_rw("used_small",
+                &BIPOP::used_small,
+                "The evaluations used by the small regime, the first run included.")
+        .def_rw("used_large", &BIPOP::used_large, "The evaluations used by the large regime.")
+        .def_rw("large_run",
+                &BIPOP::large_run,
+                "Whether the current run belongs to the large regime (False for the first run).")
         .def_ro("used_budget",
                 &BIPOP::used_budget,
                 "The evaluations used up to the last restart.");
