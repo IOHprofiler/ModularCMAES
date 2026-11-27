@@ -45,7 +45,8 @@ coordinate outside the box (only with `bound_correction="NONE"`, after the last 
 integer. With integer bounds this is plain rounding.
 
 An integer variable needs an integer in `[lb, ub]`: `Settings` raise a `ValueError` when
-[⌈lb⌉, ⌊ub⌋] is empty, as for lb = 0.6, ub = 0.9.
+[⌈lb⌉, ⌊ub⌋] is empty, as for lb = 0.6, ub = 0.9. For bounds set after construction, the
+optimizer raises it when it is created.
 
 ```python
 settings = modcma.settings_from_dict(

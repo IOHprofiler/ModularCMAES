@@ -68,7 +68,8 @@ An empty coordinate is rejected with a `ValueError`: `lb[i] > ub[i]`, `lb[i] = +
 `ub[i] = -inf` (so also `lb[i] = ub[i] = ±inf`, whose width is NaN), or a NaN bound. The
 constructor of `Settings` checks it, and so does the creation of an optimizer from the Settings
 (`ModularCMAES`). The `lb` and `ub` setters check only their own field (no NaN; no `+inf` in `lb`,
-no `-inf` in `ub`), so the two may be set in either order.
+no `-inf` in `ub`), so the two may be set in either order
+([changing the settings](settings.md#changing-the-settings)).
 
 ```python
 lb = np.array([0.0, -np.inf])  # x[0] >= 0

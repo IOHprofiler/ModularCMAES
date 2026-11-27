@@ -32,6 +32,16 @@ template <typename Buffer> auto assign_buffer(Buffer Population::*member)
     return [member](Population &p, const Buffer &value) { p.*member = value; };
 }
 
+//! Getter of a vector of Settings derived from lb and ub: a read-only view (bound with
+//! rv_policy::reference_internal); set lb or ub instead (#136)
+auto derived_vector(Vector parameters::Settings::*member)
+{
+    return [member](const parameters::Settings &s) {
+        const Vector &v = s.*member;
+        return Eigen::Map<const Vector>(v.data(), v.size());
+    };
+}
+
 std::optional<Indices> to_indices(const std::optional<std::vector<int>> &idx)
 {
     if (!idx)
@@ -567,8 +577,15 @@ void define_parameters(nb::module_ &main)
         "strategy parameters.\n\n"
         "A strategy parameter left None gets its default when the Parameters are created (see "
         "Weights). The constructor computes the derived values (db, center, diameter, volume, "
-        "has_bounds) and adjusts the modules; setting lb or ub afterwards updates the derived "
-        "values, changing the modules afterwards does not adjust them.")
+        "has_bounds) and adjusts the modules.\n\n"
+        "Setting a field afterwards checks that field alone (ValueError for a wrong length, NaN, "
+        "a sign or a range) and recomputes what is derived from it: lb and ub the derived values "
+        "of the box, lambda0 the default mu0. The fields can therefore be set in any order. The "
+        "checks between fields (lb <= ub, the integer variables in the box, mu0 <= lambda0, the "
+        "budget against the first generation, lambda0 with the modules) run in the constructor "
+        "and again when an optimizer is created from the settings (ModularCMAES(settings), "
+        "Parameters(settings)): ValueError naming the fields. Changing the modules afterwards, "
+        "in place, does not adjust them.")
         .def(
             "__init__",
             [](Settings *self,
@@ -676,10 +693,11 @@ void define_parameters(nb::module_ &main)
             "10**dim and center the zero vector.\n\n"
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
             "sigma0 that is not positive and finite, x0, lb or ub of a length other "
-            "than dim, a non-finite x0, lb above ub, an integer variable without an integer "
-            "value in [lb, ub], a budget smaller than the first generation and the evaluation "
-            "of the final center of mass, or a C0 that is not a symmetric positive definite "
-            "(dim, dim) matrix (or with matrix_adaptation NONE).\n\n"
+            "than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above "
+            "ub, an integer variable without an integer value in [lb, ub], a budget smaller "
+            "than the first generation and the evaluation of the final center of mass, or a C0 "
+            "that is not a symmetric positive definite (dim, dim) matrix (or with "
+            "matrix_adaptation NONE).\n\n"
             "Parameters\n"
             "----------\n"
             "dim : int\n"
@@ -799,78 +817,104 @@ void define_parameters(nb::module_ &main)
         .def_rw("max_generations",
                 &Settings::max_generations,
                 "Stop after this many generations; None (default): no limit.")
-        .def_rw("budget",
-                &Settings::budget,
-                "The maximum number of evaluations, default 10000 * dim.\n\n"
-                "A generation runs only when it fits: the run stops when the evaluations so far "
-                "plus lambda (and TPA's 2 points) would exceed it.")
-        .def_rw("sigma0",
-                &Settings::sigma0,
-                "The initial step size, default 2.0; also the step size after a restart (smaller "
-                "for the small-population runs of BIPOP).")
-        .def_rw("mu0",
-                &Settings::mu0,
-                "The initial number of parents, default lambda0 // 2.\n\n"
-                "Parameters.mu is the current value, which IPOP and BIPOP restarts change.")
-        .def_rw("lambda0",
-                &Settings::lambda0,
-                "The initial number of offspring per generation, default 4 + floor(3 ln(dim)).\n\n"
-                "Parameters.lamb is the current value, which IPOP and BIPOP restarts change.")
+        .def_prop_rw(
+            "budget",
+            [](const Settings &s) { return s.budget; },
+            [](Settings &s, const size_t value) { s.set_budget(value); },
+            "The maximum number of evaluations, default 10000 * dim; at least 2 "
+            "(ValueError).\n\n"
+            "A generation runs only when it leaves one evaluation: the run stops when the "
+            "evaluations so far plus lambda (and TPA's 2 points) plus 1 would exceed it, "
+            "and every run ends with the evaluation of its center of mass (#111). The "
+            "budget must hold the first generation (lambda0, and TPA's 2 points) and the "
+            "final center of mass: the constructor checks it, and after a setter the "
+            "optimizer does when it is created (ValueError).")
+        .def_prop_rw(
+            "sigma0",
+            [](const Settings &s) { return s.sigma0; },
+            [](Settings &s, const Float value) { s.set_sigma0(value); },
+            "The initial step size, default 2.0; positive and finite (ValueError). Also "
+            "the step size after a restart (smaller for the small-population runs of "
+            "BIPOP).")
+        .def_prop_rw(
+            "mu0",
+            [](const Settings &s) { return s.mu0; },
+            [](Settings &s, const size_t value) { s.set_mu0(value); },
+            "The initial number of parents, at least 1 (ValueError); default lambda0 // 2 "
+            "(lambda0 // 4 with ssa SA or matrix_adaptation CMSA).\n\n"
+            "Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting "
+            "lambda0 recomputes it. It must not exceed lambda0: the constructor replaces a larger "
+            "value by lambda0 // 2; after a setter, the optimizer raises ValueError when it is "
+            "created. Parameters.mu is the current value, which IPOP and BIPOP restarts change.")
+        .def_prop_rw(
+            "lambda0",
+            [](const Settings &s) { return s.lambda0; },
+            [](Settings &s, const size_t value) { s.set_lambda0(value); },
+            "The initial number of offspring per generation, at least 1 (ValueError); default 4 "
+            "+ floor(3 ln(dim)).\n\n"
+            "Setting it recomputes mu0, unless mu0 was given. The setter does not apply the "
+            "adjustments of the constructor; the optimizer raises ValueError when it is created "
+            "with an odd lambda0 and mirrored PAIRWISE (the constructor adds one), with lambda0 "
+            "= 1 set after construction or another lambda0 for settings created with lambda0 = 1 "
+            "(the (1+1)-ES, for which the constructor adjusts the modules), or with a budget "
+            "that does not hold the first generation. Parameters.lamb is the current value, "
+            "which IPOP and BIPOP restarts change.")
         .def_prop_rw(
             "x0",
             [](const Settings &s) { return s.x0; },
-            [](Settings &s, const std::optional<Vector> &x0) {
-                if (x0)
-                    s.require_length("x0", *x0);
-                s.x0 = x0;
+            [](Settings &s, const std::optional<std::vector<Float>> &x0) {
+                s.set_x0(to_vector(x0));
             },
+            // array_like, as the constructor
+            nb::for_setter(nb::sig("def x0(self, arg: numpy.typing.ArrayLike | None, /) -> None")),
             "(dim,) array: the initial mean of the search distribution, or None (default) for "
-            "`center`, the center of the bounds. A length other than dim raises ValueError.")
+            "`center`, the center of the bounds. A length other than dim, or a value that is not "
+            "finite, raises ValueError.")
         .def_prop_rw(
             "lb",
             [](const Settings &s) { return s.lb; },
-            [](Settings &s, const Vector &lb) {
-                s.require_length("lb", lb);
-                Settings::require_valid_lb(lb);
-                s.lb = lb;
-                s.update_bounds();
-            },
-            "(dim,) array: the lower bounds, default -5; -inf for none. Setting it updates "
-            "`db`, `center`, `diameter`, `volume` and `has_bounds`. ValueError for NaN or +inf. "
-            "Its relation to `ub` (lb <= ub, an empty box, the integer variables) is checked "
-            "when the optimizer is created, so lb and ub may be set in either order. "
-            "lb_i == ub_i, finite, fixes the variable.")
+            [](Settings &s, const std::vector<Float> &lb) { s.set_lb(to_vector(lb)); },
+            nb::for_setter(nb::sig("def lb(self, arg: numpy.typing.ArrayLike, /) -> None")),
+            "(dim,) array: the lower bounds, default -5; -inf for none. lb_i == ub_i, finite, "
+            "fixes the variable. Setting it updates `db`, `center`, `diameter`, `volume` and "
+            "`has_bounds`; ValueError for a length other than dim, NaN or +inf. Its relation to "
+            "`ub` (lb <= ub, the integer variables in the box) is checked when the optimizer is "
+            "created, so lb and ub can be set in any order.")
         .def_prop_rw(
             "ub",
             [](const Settings &s) { return s.ub; },
-            [](Settings &s, const Vector &ub) {
-                s.require_length("ub", ub);
-                Settings::require_valid_ub(ub);
-                s.ub = ub;
-                s.update_bounds();
-            },
-            "(dim,) array: the upper bounds, default 5; inf for none. Setting it updates "
-            "`db`, `center`, `diameter`, `volume` and `has_bounds`. ValueError for NaN or -inf. "
-            "Its relation to `lb` (lb <= ub, an empty box, the integer variables) is checked "
-            "when the optimizer is created, so lb and ub may be set in either order. "
-            "lb_i == ub_i, finite, fixes the variable.")
-        .def_rw("db", &Settings::db, "(dim,) array: the widths of the box, ub - lb.")
-        .def_rw("center",
-                &Settings::center,
-                "(dim,) array: the center of the box, lb + (ub - lb) / 2; the zero vector when "
-                "the box is not finite.")
-        .def_rw("diameter",
+            [](Settings &s, const std::vector<Float> &ub) { s.set_ub(to_vector(ub)); },
+            nb::for_setter(nb::sig("def ub(self, arg: numpy.typing.ArrayLike, /) -> None")),
+            "(dim,) array: the upper bounds, default 5; inf for none. lb_i == ub_i, finite, "
+            "fixes the variable. Setting it updates `db`, `center`, `diameter`, `volume` and "
+            "`has_bounds`; ValueError for a length other than dim, NaN or -inf. Its relation to "
+            "`lb` (lb <= ub, the integer variables in the box) is checked when the optimizer is "
+            "created, so lb and ub can be set in any order.")
+        .def_prop_ro("db",
+                     derived_vector(&Settings::db),
+                     view,
+                     "(dim,) array: the widths of the box, ub - lb (read-only: derived from lb "
+                     "and ub).")
+        .def_prop_ro("center",
+                     derived_vector(&Settings::center),
+                     view,
+                     "(dim,) array: the center of the box, lb + (ub - lb) / 2; the zero vector "
+                     "when the box is not finite (read-only: derived from lb and ub; x0 sets the "
+                     "starting point).")
+        .def_ro("diameter",
                 &Settings::diameter,
                 "The length of the diagonal of the box, ||ub - lb||; 10 when the box is not "
-                "finite (then volume is 10^dim).")
+                "finite (then volume is 10^dim). Read-only: derived from lb and ub.")
         .def_ro("volume",
                 &Settings::volume,
-                "The volume of the box, prod(ub - lb); 10**dim when the box is not finite.")
-        .def_prop_rw("has_bounds",
-                     bool_getter(&Settings::has_bounds),
-                     bool_setter(&Settings::has_bounds),
-                     "Whether the box lb..ub is finite (`diameter`, `volume` and `center` depend on "
-                     "it). Bound correction does not: it corrects every finite bound.")
+                "The volume of the box, prod(ub - lb); 10**dim when the box is not finite. "
+                "Read-only: derived from lb and ub.")
+        .def_prop_ro(
+            "has_bounds",
+            bool_getter(&Settings::has_bounds),
+            "Whether the box lb..ub is finite (`diameter`, `volume` and `center` depend on "
+            "it); read-only, derived from lb and ub. Bound correction does not depend on "
+            "it: it corrects every finite bound.")
         .def_ro("integer_variables",
                 &Settings::integer_variables,
                 "(k,) int array: the indices of the integer variables (read-only).")

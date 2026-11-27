@@ -26,9 +26,9 @@ other argument is a keyword argument with a default:
 | `verbose` | `False` | print what happens at restarts |
 
 An invalid value raises `ValueError` that names the argument: a dimension or `lambda0` of 0, a
-non-positive `sigma0`, vectors that do not have length d, `lb` above `ub`, a budget smaller than
-the first generation and the final center of mass, or a `C0` that is not a symmetric positive
-definite (d, d) matrix.
+non-positive `sigma0`, vectors that do not have length d, NaN in the bounds, a lower bound of +∞ or
+an upper bound of −∞, `lb` above `ub`, a budget smaller than the first generation and the final
+center of mass, or a `C0` that is not a symmetric positive definite (d, d) matrix.
 
 ```python
 import numpy as np
@@ -47,6 +47,31 @@ settings = modcma.Settings(
 es = modcma.ModularCMAES(settings)
 print(es.p.lamb, es.p.mu, es.p.weights.mueff)
 ```
+
+## Changing the settings
+
+The fields can also be set after construction. A setter checks only its own field: a wrong
+length, NaN, a lower bound of +∞ or an upper bound of −∞, a non-finite `x0`, a non-positive
+`sigma0`, `lambda0` or `mu0` of 0, a budget below 2. The checks between fields (`lb` ≤ `ub`, the
+integer variables in the box, `mu0` ≤ `lambda0`, the budget against the first generation) run in
+the constructor and again when an optimizer is created from the settings (`ModularCMAES(settings)`
+or `Parameters(settings)`), so the fields can be set in any order:
+
+```python
+settings = modcma.Settings(2)
+settings.lb = [6.0, 6.0]    # above ub = 5 until ub is set
+settings.ub = [10.0, 10.0]
+settings.lambda0 = 12       # mu0 follows lambda0 until it is given: 6
+print(settings.center, settings.mu0)
+es = modcma.ModularCMAES(settings)  # ValueError here if the fields do not fit together
+```
+
+Setting a field recomputes what is derived from it: `lb` and `ub` recompute `db`, `center`,
+`diameter`, `volume` and `has_bounds`, which are read-only; `lambda0` recomputes `mu0`, unless
+`mu0` was given. The setters do not make the [adjustments](compatibility.md#combinations-that-are-adjusted)
+of the constructor. The optimizer rejects what they would have changed: an odd `lambda0` with
+mirrored `PAIRWISE`, `mu0` above `lambda0`, and a change of `lambda0` to or from 1 (the (1+1)-ES
+is set up by the constructor). Changes of `settings.modules` in place are not adjusted either.
 
 The values actually used (after defaults and [adjustments](modules.md#combinations-that-are-adjusted))
 are on the optimizer: `es.p.settings` for the settings and modules, `es.p.lamb` and `es.p.mu` for the

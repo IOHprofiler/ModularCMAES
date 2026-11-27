@@ -1,7 +1,7 @@
 #pragma once
 
-#include <sstream>
 #include <limits>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -10,6 +10,18 @@
 
 namespace parameters
 {
+/**
+ * The settings of a run. The constructor fills in the defaults, adjusts the modules so that they
+ * fit together and checks every value (std::invalid_argument).
+ *
+ * After construction, the set_* methods change one field (the Python setters call them, #136).
+ * A setter checks only its own field (its length, NaN, sign or range) and recomputes the values
+ * derived from it, so the fields may be set in any order and through invalid intermediate states.
+ * The checks between fields (require_consistent: lb <= ub, the integer variables, mu0 <= lambda0,
+ * the budget, ...) run in the constructor and again when an optimizer is created from the
+ * settings (Parameters calls require_valid). Assigning a field directly skips the setter, not
+ * require_valid; it does not recompute the derived values.
+ */
 struct Settings
 {
     size_t dim;
@@ -121,7 +133,10 @@ struct Settings
         budget(budget.value_or(dim * 1e4)),
         sigma0(sigma.value_or(2.0)),
         lambda0(lambda.value_or(4 + std::floor(3 * std::log(dim)))),
-        mu0(mu.value_or(lambda0 / 2)),
+        // modules and lambda0 are initialized by now. At least 1: lambda0 = 1 with PAIRWISE
+        // becomes lambda0 = 2 below and gave mu0 = 0, NaN weights (#136). With SA or CMSA mu0 is
+        // computed again below, after PAIRWISE has made lambda0 even.
+        mu0(mu.value_or(default_mu0())),
         x0(x0),
         lb(lb.value_or(Vector::Ones(dim) * -5)),
         ub(ub.value_or(Vector::Ones(dim) * 5)),
@@ -136,19 +151,16 @@ struct Settings
         one_plus_one(false)
     {
         // Invalid values raise std::invalid_argument (ValueError in Python) here, instead of a
-        // crash or a silent misbehaviour later (#113)
-        require(lambda0 >= 1, "lambda0 must be at least 1");
-        require(!mu || *mu >= 1, "mu0 must be at least 1");
-        require(std::isfinite(sigma0) && sigma0 > 0,
-                "sigma0 must be positive and finite, got " + std::to_string(sigma0));
-        require_length("lb", this->lb);
-        require_length("ub", this->ub);
-        validate_box();
-        if (this->x0)
-        {
-            require_length("x0", *this->x0);
-            require(this->x0->allFinite(), "x0 must be finite");
-        }
+        // crash or a silent misbehaviour later (#113): first each field, as its setter does
+        require_lambda0(lambda0);
+        if (mu)
+            require_mu0(*mu);
+        require_sigma0(sigma0);
+        require_budget(this->budget);
+        require_lb(this->lb);
+        require_ub(this->ub);
+        require_x0(this->x0);
+        mu0_given = mu.has_value();
 
         if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
             lambda0++;
@@ -156,7 +168,7 @@ struct Settings
         if (modules.ssa == StepSizeAdaptation::SA ||
             modules.matrix_adaptation == MatrixAdaptationType::CMSA)
         {
-            mu0 = mu.value_or(std::max<size_t>(1, lambda0 / 4));
+            mu0 = mu.value_or(default_mu0());
         }
 
         if (mu0 > lambda0)
@@ -207,20 +219,123 @@ struct Settings
                 modules.restart_strategy = RestartStrategyType::RESTART;
         }
 
-        // The first generation must fit: lambda0 and the points that every generation evaluates
-        // besides the population, TPA's two (Parameters::reserved_points), and the evaluation of
-        // the run's center of mass that ends every run (#111)
-        const size_t first_generation = lambda0 + (modules.ssa == StepSizeAdaptation::TPA ? 2 : 0);
-        require(this->budget >= first_generation + 1,
-                "budget " + std::to_string(this->budget) +
-                    " is smaller than the first generation and the evaluation of the final "
-                    "center of mass (" +
-                    std::to_string(first_generation + 1) + " evaluations)");
+        // Then the checks between fields, on the adjusted values
+        require_consistent();
 
         update_bounds();
     }
 
-    //! The length of a vector of the dimension (lb, ub, x0); std::invalid_argument otherwise
+    // The setters (#136): each checks its own field only, and recomputes what is derived from it;
+    // nothing changes when the check fails. The checks between fields wait for require_valid.
+
+    //! lambda0 (at least 1). mu0 follows it (default_mu0) until mu0 is given, to the constructor
+    //! or to set_mu0. The constructor's other rules for lambda0 (PAIRWISE makes it even, 1 makes a
+    //! (1+1)-ES) are not applied: require_consistent rejects what they would have changed.
+    void set_lambda0(const size_t value)
+    {
+        require_lambda0(value);
+        lambda0 = value;
+        if (!mu0_given)
+            mu0 = default_mu0();
+    }
+
+    //! mu0 (at least 1); from now on it no longer follows lambda0
+    void set_mu0(const size_t value)
+    {
+        require_mu0(value);
+        mu0 = value;
+        mu0_given = true;
+    }
+
+    void set_budget(const size_t value)
+    {
+        require_budget(value);
+        budget = value;
+    }
+
+    void set_sigma0(const Float value)
+    {
+        require_sigma0(value);
+        sigma0 = value;
+    }
+
+    void set_x0(const std::optional<Vector> &value)
+    {
+        require_x0(value);
+        x0 = value;
+    }
+
+    //! lb; recomputes db, center, diameter, volume and has_bounds
+    void set_lb(const Vector &value)
+    {
+        require_lb(value);
+        lb = value;
+        update_bounds();
+    }
+
+    //! ub; recomputes db, center, diameter, volume and has_bounds
+    void set_ub(const Vector &value)
+    {
+        require_ub(value);
+        ub = value;
+        update_bounds();
+    }
+
+    // The checks of one field, shared by the constructor, the setters and require_valid;
+    // std::invalid_argument naming the field otherwise
+
+    static void require_lambda0(const size_t value)
+    {
+        require(value >= 1, "lambda0 must be at least 1");
+    }
+
+    static void require_mu0(const size_t value) { require(value >= 1, "mu0 must be at least 1"); }
+
+    static void require_sigma0(const Float value)
+    {
+        require(std::isfinite(value) && value > 0,
+                "sigma0 must be positive and finite, got " + str(value));
+    }
+
+    //! At least 2, the smallest budget of any settings: the (1+1)-ES's first point and the final
+    //! center of mass. require_consistent checks it against the first generation.
+    static void require_budget(const size_t value)
+    {
+        require(value >= 2,
+                "budget must be at least 2 (a first generation and the evaluation of the final "
+                "center of mass), got " +
+                    std::to_string(value));
+    }
+
+    //! The length, and in each coordinate neither NaN nor +inf, which leaves no value (#133)
+    void require_lb(const Vector &value) const
+    {
+        require_length("lb", value);
+        for (Eigen::Index i = 0; i < value.size(); ++i)
+            if (std::isnan(value(i)) || value(i) == std::numeric_limits<Float>::infinity())
+                fail("lb[" + std::to_string(i) + "] = " + str(value(i)) +
+                     " is not allowed: a lower bound is neither NaN nor +inf");
+    }
+
+    //! The length, and in each coordinate neither NaN nor -inf, which leaves no value (#133)
+    void require_ub(const Vector &value) const
+    {
+        require_length("ub", value);
+        for (Eigen::Index i = 0; i < value.size(); ++i)
+            if (std::isnan(value(i)) || value(i) == -std::numeric_limits<Float>::infinity())
+                fail("ub[" + std::to_string(i) + "] = " + str(value(i)) +
+                     " is not allowed: an upper bound is neither NaN nor -inf");
+    }
+
+    void require_x0(const std::optional<Vector> &value) const
+    {
+        if (!value)
+            return;
+        require_length("x0", *value);
+        require(value->allFinite(), "x0 must be finite");
+    }
+
+    //! The length of a vector of the dimension (lb, ub, x0)
     void require_length(const char *name, const Vector &v) const
     {
         require(static_cast<size_t>(v.size()) == dim,
@@ -228,57 +343,97 @@ struct Settings
                     std::to_string(v.size()));
     }
 
-    //! The checks between fields: lb <= ub, no empty coordinate, the integer variables against
-    //! the box. Run by the constructor and when an optimizer is created from the Settings, since
-    //! the setters check only their own field (#133); std::invalid_argument otherwise.
-    void validate_box() const
-    {
-        require_nonempty_box(lb, ub);
-        require_integer_values(lb, ub);
-    }
-
-    //! The lb setter's own check: no NaN, no +inf (#133)
-    static void require_valid_lb(const Vector &lb)
-    {
-        for (Eigen::Index i = 0; i < lb.size(); ++i)
-            require(!std::isnan(lb(i)) && lb(i) < std::numeric_limits<Float>::infinity(),
-                    "lb[" + std::to_string(i) + "] = " + std::to_string(lb(i)) +
-                        " is not allowed: a lower bound is neither NaN nor +inf");
-    }
-
-    //! The ub setter's own check: no NaN, no -inf (#133)
-    static void require_valid_ub(const Vector &ub)
-    {
-        for (Eigen::Index i = 0; i < ub.size(); ++i)
-            require(!std::isnan(ub(i)) && ub(i) > -std::numeric_limits<Float>::infinity(),
-                    "ub[" + std::to_string(i) + "] = " + std::to_string(ub(i)) +
-                        " is not allowed: an upper bound is neither NaN nor -inf");
-    }
-
-    //! No coordinate of the box is empty (#133); std::invalid_argument otherwise. A coordinate with
-    //! lb_i == ub_i, finite, is a fixed variable and is accepted. Empty: lb_i > ub_i, a NaN bound,
-    //! lb_i = +inf, ub_i = -inf (this includes lb_i = ub_i = +inf or -inf, whose width is NaN).
+    /**
+     * No coordinate of the box is empty (#133); std::invalid_argument otherwise. A coordinate with
+     * lb_i == ub_i, finite, is a fixed variable and is accepted. Empty: lb_i > ub_i, a NaN bound,
+     * lb_i = +inf, ub_i = -inf (this includes lb_i = ub_i = +inf or -inf, whose width is NaN).
+     * The messages are built only for a coordinate that fails.
+     */
     static void require_nonempty_box(const Vector &lb, const Vector &ub)
     {
-        require((lb.array() <= ub.array()).all(), "lb must not exceed ub (and neither may be NaN)");
         for (Eigen::Index i = 0; i < lb.size(); ++i)
-            require(lb(i) < std::numeric_limits<Float>::infinity() &&
-                        ub(i) > -std::numeric_limits<Float>::infinity(),
-                    "the box is empty in coordinate " + std::to_string(i) + ": lb = " +
-                        std::to_string(lb(i)) + ", ub = " + std::to_string(ub(i)) +
-                        " (a bound of +inf for lb, or -inf for ub, leaves no value)");
+        {
+            if (!(lb(i) <= ub(i)))
+                fail("lb must not exceed ub (and neither may be NaN): lb[" + std::to_string(i) +
+                     "] = " + str(lb(i)) + ", ub[" + std::to_string(i) + "] = " + str(ub(i)));
+            if (lb(i) == std::numeric_limits<Float>::infinity() ||
+                ub(i) == -std::numeric_limits<Float>::infinity())
+                fail("the box is empty in coordinate " + std::to_string(i) +
+                     ": lb = " + str(lb(i)) + ", ub = " + str(ub(i)) +
+                     " (a bound of +inf for lb, or -inf for ub, leaves no value)");
+        }
     }
 
-    //! Every integer variable has an integer value in [lb, ub]: [ceil(lb), floor(ub)] is not empty
-    //! (#79 F21); std::invalid_argument otherwise. An index out of range is reported when the
-    //! Parameters are created (mapping::CoordinateMapping).
-    void require_integer_values(const Vector &lb, const Vector &ub) const
+    /**
+     * The checks between fields (#133, #136), on fields that passed their own checks: the box
+     * (require_nonempty_box), the integer variables in it, mu0 <= lambda0, the budget against the
+     * first generation, and lambda0 against one_plus_one and PAIRWISE. Each message names the
+     * fields and their conflicting values. The constructor makes mu0, lambda0, the modules and
+     * one_plus_one consistent; only setters (and changes of the modules in place) can break the
+     * last four checks.
+     */
+    void require_consistent() const
     {
+        require_nonempty_box(lb, ub);
+        // Every integer variable has an integer value in [lb, ub]: [ceil(lb), floor(ub)] is not
+        // empty (#79 F21). An index out of range is reported when the Parameters are created
+        // (mapping::CoordinateMapping).
         for (const auto idx : integer_variables)
-            if (idx >= 0 && static_cast<size_t>(idx) < dim)
-                require(std::ceil(lb(idx)) <= std::floor(ub(idx)),
-                        "integer variable " + std::to_string(idx) + " has no integer value in [" +
-                            std::to_string(lb(idx)) + ", " + std::to_string(ub(idx)) + "]");
+            if (idx >= 0 && static_cast<size_t>(idx) < dim &&
+                !(std::ceil(lb(idx)) <= std::floor(ub(idx))))
+            {
+                const auto i = std::to_string(idx);
+                fail("integer variable " + i + " has no integer value in [lb[" + i + "], ub[" + i +
+                     "]] = [" + str(lb(idx)) + ", " + str(ub(idx)) + "]");
+            }
+        require(mu0 <= lambda0,
+                "mu0 = " + std::to_string(mu0) + " exceeds lambda0 = " + std::to_string(lambda0));
+        // The first generation must fit: lambda0 and the points that every generation evaluates
+        // besides the population, TPA's two (Parameters::reserved_points), and the evaluation of
+        // the run's center of mass that ends every run (#111)
+        const bool tpa = modules.ssa == StepSizeAdaptation::TPA;
+        const size_t needed = lambda0 + (tpa ? 2 : 0) + 1;
+        require(budget >= needed,
+                "budget " + std::to_string(budget) +
+                    " is smaller than the first generation and the evaluation of the final "
+                    "center of mass: lambda0 = " +
+                    std::to_string(lambda0) + (tpa ? ", TPA's 2 points" : "") + " and 1, " +
+                    std::to_string(needed) + " evaluations");
+        require(!one_plus_one || lambda0 == 1,
+                "lambda0 = " + std::to_string(lambda0) +
+                    ", but these settings were created with lambda0 = 1, a (1+1)-ES "
+                    "(one_plus_one, with the modules adjusted for it): create new Settings for "
+                    "another lambda0");
+        require(one_plus_one || lambda0 != 1,
+                "lambda0 = 1 makes a (1+1)-ES (one_plus_one), for which the constructor adjusts "
+                "the modules: give lambda0 = 1 to the constructor");
+        require(modules.mirrored != Mirror::PAIRWISE || lambda0 % 2 == 0,
+                "lambda0 = " + std::to_string(lambda0) +
+                    " is odd, but mirrored PAIRWISE needs an even lambda0 (the constructor "
+                    "increases an odd lambda0 by one)");
+    }
+
+    //! Every check: each field (as its setter does) and require_consistent. An optimizer runs it
+    //! when it is created from the settings (Parameters).
+    void require_valid() const
+    {
+        require_lambda0(lambda0);
+        require_mu0(mu0);
+        require_sigma0(sigma0);
+        require_budget(budget);
+        require_lb(lb);
+        require_ub(ub);
+        require_x0(x0);
+        require_consistent();
+    }
+
+    //! The default mu0 of the current lambda0 and modules, the constructor's rule: lambda0 / 2, or
+    //! lambda0 / 4 with ssa SA or matrix_adaptation CMSA; at least 1
+    [[nodiscard]] size_t default_mu0() const
+    {
+        const bool quarter = modules.ssa == StepSizeAdaptation::SA ||
+                             modules.matrix_adaptation == MatrixAdaptationType::CMSA;
+        return std::max<size_t>(1, quarter ? lambda0 / 4 : lambda0 / 2);
     }
 
     //! Recompute the values derived from lb and ub (after a change of the bounds)
@@ -299,16 +454,32 @@ struct Settings
     }
 
   private:
+    //! Whether mu0 was given (to the constructor or set_mu0); until then it follows lambda0
+    bool mu0_given = false;
+
     static size_t checked_dim(const size_t dim)
     {
         require(dim >= 1, "dim must be at least 1");
         return dim;
     }
 
+    [[noreturn]] static void fail(const std::string &message)
+    {
+        throw std::invalid_argument("Settings: " + message);
+    }
+
     static void require(const bool condition, const std::string &message)
     {
         if (!condition)
-            throw std::invalid_argument("Settings: " + message);
+            fail(message);
+    }
+
+    //! A number for a message: 0.6, not std::to_string's 0.600000
+    static std::string str(const Float value)
+    {
+        std::ostringstream ss;
+        ss << value;
+        return ss.str();
     }
 };
 

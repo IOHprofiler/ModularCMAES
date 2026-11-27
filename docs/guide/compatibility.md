@@ -13,7 +13,9 @@ recorded for fixing (TASKS.md, WP23; the identifier in brackets).
 ## Combinations that are adjusted
 
 The `Settings` change some choices when they are created; `es.p.settings.modules` shows what is
-used.
+used. Only the constructor adjusts: setting `lambda0` or `mu0` later, or changing
+`settings.modules` in place, does not, and the optimizer rejects an odd λ with PAIRWISE, µ > λ
+and a change of λ to or from 1 when it is created ([settings](settings.md#changing-the-settings)).
 
 | when | then |
 |---|---|
@@ -22,7 +24,7 @@ used.
 | `mu0 > lambda0` | µ = λ/2 |
 | `matrix_adaptation=NONE` | `active` off |
 | `mirrored=PAIRWISE` and an odd λ | λ + 1 |
-| `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART` (*known issue* with PAIRWISE: NaN weights [F17]) |
+| `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART`. With `mirrored=PAIRWISE`, λ becomes 2 instead (above) and µ = 1 |
 | `ssa=SA` or `LPXNES` | sampled step sizes (`sample_sigma`) are always on |
 | `weights=UTILITY` | `active` on (the utilities of the worse half are negative; every matrix update uses all of them) |
 | `matrix_adaptation=NATURAL_GRADIENT` with `active` and the default weights | `weights=UTILITY`: xNES's active form (CMA-ES's negative weights broke it) |

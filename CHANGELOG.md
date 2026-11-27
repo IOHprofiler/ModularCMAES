@@ -188,6 +188,17 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   at most half the evaluations of the large regime so far (`ExceededMaxIter`, from
   `Strategy.max_iter`). λ of a small run is rounded down, as in the paper; up to even only with
   `PAIRWISE` (it was always even).
+* **Setting a field of `Settings`** (#133, #136) checks that field alone, as the constructor does
+  (`lambda0`, `mu0`, `sigma0`, `budget`, `x0`, `lb`, `ub`: a wrong length, NaN, +inf in `lb` or
+  -inf in `ub`, a sign or a range). The checks between fields (`lb` <= `ub`, the integer
+  variables in the box, `mu0` <= `lambda0`, the budget against the first generation, an odd
+  `lambda0` with `PAIRWISE`, `lambda0` changed to or from 1) run in the constructor and again when
+  an optimizer is created (`ModularCMAES(settings)`, `Parameters(settings)`), so the fields can be
+  set in any order; this replaces the integer check that the setters of `lb` and `ub` made (#79).
+  Setting `lambda0` recomputes `mu0`, unless `mu0` was given. `db`, `center`, `diameter` and
+  `has_bounds` are read-only: they are derived from `lb` and `ub` (`db` and `center` are read-only
+  views); set `lb`, `ub` or `x0` instead. The setters of `x0`, `lb` and `ub` take array_like, as
+  the constructor (they took only numpy arrays).
 
 ### Fixed
 
@@ -277,6 +288,11 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   memory, and `mu0=0`, a non-positive `sigma0` or `lb > ub` were accepted. They now raise
   `ValueError` (also from the setters of `x0`, `lb`, `ub`, and the internal LAPACK helpers,
   `Population.keep_only` and `Population.n`); `tell(f, X)` with a 3-d `X` raises `ValueError`.
+* The setters of `Settings` accepted what the constructor rejects (#133, #136): `lambda0 = 0`, or
+  `mu0` above `lambda0`, crashed the process when the optimizer was created or run; a NaN `x0`,
+  `lb`, `ub` or `sigma0`, a `budget` of 0 and `lb` above `ub` were accepted. They now raise
+  `ValueError` (see Changed). With `lambda0 = 1` and `mirrored=PAIRWISE`, which makes λ = 2, the
+  default µ was 0 and the weights NaN [F17]; it is 1 now.
 * `run()` and `fmin` ran a generation before they checked the budget, and a finished optimizer
   ran again at every `run()` (#114). The break conditions are now checked before every
   generation. Past the budget, the first generation after a restart no longer turns a (1+1)-ES
@@ -312,13 +328,12 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   * An integer variable could be rounded out of the box: with lb = 0.3, the value 0.4 was
     evaluated at 0. An integer coordinate in the box is now rounded to the nearest integer in
     [ceil(lb), floor(ub)]. `Settings` reject an integer variable without an integer in [lb, ub]
-    (lb = 0.6, ub = 0.9), also when `lb` or `ub` is set later.
+    (lb = 0.6, ub = 0.9); for `lb` or `ub` set later, the optimizer rejects it when it is created
+    (#133).
   * Internals: `CoordinateMapping.transform(x, lb=None, ub=None)` takes the bounds; the
     `correct_x` of every bound correction applies the rule for infinite bounds.
 * Degenerate boxes (#133). A fixed coordinate (lb_i == ub_i) made `MIRROR` and `TOROIDAL` evaluate
-  NaN points (division by the width 0); every correction now keeps it at lb_i. `Settings` and the
-  lb_i = ub_i = ±inf) with a ValueError. The `lb` and `ub` setters check only their own field (no
-  NaN; no +inf for `lb`, no -inf for `ub`), so they may be set in either order; lb <= ub, the
-  empty box and the integer variables are checked in the constructor and when the optimizer is
-  created from the Settings (this replaces the integer check of the setters added in #79). Results
-  of boxes with positive widths are unchanged.
+  NaN points (division by the width 0); every correction now keeps it at lb_i. An empty coordinate
+  (lb_i > ub_i, lb_i = +inf, ub_i = -inf, so also lb_i = ub_i = ±inf, or a NaN bound) raises
+  `ValueError`, from `Settings` and when the optimizer is created; the setters of `lb` and `ub`
+  check only their own field (see Changed). Results of boxes with positive widths are unchanged.

@@ -94,6 +94,11 @@ ACCEPTED = {
     "overload not accepted: cmaescpp.mutation.Strategy.adapt(weights, dynamic, population, old_population, stats, lamb)":
         "internal: lamb was not used",
 }
+# #136: derived from lb and ub, which recompute them; a value set directly was inconsistent with
+# the bounds (db is the width the bound corrections use, center the default x0)
+for name in ("db", "center", "diameter", "has_bounds"):
+    ACCEPTED[f"became read-only: cmaescpp.parameters.Settings.{name}"] = (
+        "derived from lb and ub (#136): set lb or ub; x0 sets the starting point")
 for name in ("Cholesky", "Covariance", "Matrix", "Self", "Separable"):
     ACCEPTED[f"overload not accepted: cmaescpp.matrix_adaptation.{name}Adaptation.__init__"
              "(dimension, x0, expected_length_z)"] = "internal: expected_length_z was not used"

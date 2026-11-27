@@ -68,6 +68,17 @@ class TestSettingsValidation(unittest.TestCase):
         settings.x0 = None
         settings.lb = np.zeros(3)
 
+    def test_lambda0_one_with_pairwise_has_a_parent(self):
+        # PAIRWISE makes lambda0 = 1 into 2; the default mu0 was lambda0 // 2 = 0 (NaN weights)
+        modules = c_maes.Modules()
+        modules.mirrored = c_maes.options.Mirror.PAIRWISE
+        settings = Settings(3, modules, lambda0=1, budget=200, seed=1)
+        self.assertEqual((settings.lambda0, settings.mu0, settings.one_plus_one), (2, 1, False))
+        es = ModularCMAES(settings)
+        es.run(sphere)
+        self.assertTrue(np.isfinite(es.p.weights.mueff))
+        self.assertLess(es.p.stats.global_best.y, 1.0)
+
     def test_internal_shapes(self):
         internal = c_maes.cmaescpp._internal
         for helper in (internal.lapack_eigh, internal.lapack_cholesky, internal.lapack_inverse):
@@ -84,6 +95,158 @@ class TestSettingsValidation(unittest.TestCase):
         es.ask()
         with self.assertRaisesRegex(ValueError, "points"):
             es.tell(np.zeros(es.p.lamb), np.zeros((es.p.lamb, 3, 1)))
+
+
+class TestSettingsSetters(unittest.TestCase):
+    """#136: a setter checks its own field as the constructor does; the checks between fields run
+    in the constructor and again when the optimizer is created, so the fields can be set in any
+    order; the derived fields follow the setters. The bounds in either order: test_c_bounds,
+    TestDegenerateBox (#133)"""
+
+    #: Per field: values that the constructor and the setter reject (the field's own checks)
+    INVALID = {
+        "lambda0": [0],
+        "mu0": [0],
+        "sigma0": [0.0, -1.0, float("nan"), float("inf")],
+        "budget": [0, 1],
+        "x0": [np.zeros(2), np.array([0.0, np.nan, 0.0]), np.array([np.inf, 0.0, 0.0])],
+        "lb": [np.zeros(2), np.array([0.0, np.nan, 0.0]), np.array([np.inf, 0.0, 0.0])],
+        "ub": [np.zeros(4), np.array([np.nan, 0.0, 0.0]), np.array([0.0, -np.inf, 0.0])],
+    }
+
+    def assert_creation_rejects(self, settings, pattern):
+        """Both ways to create an optimizer from the settings raise ValueError"""
+        with self.assertRaisesRegex(ValueError, pattern):
+            ModularCMAES(settings)
+        with self.assertRaisesRegex(ValueError, pattern):
+            c_maes.Parameters(settings)
+
+    def test_the_setter_rejects_what_the_constructor_rejects(self):
+        for name, values in self.INVALID.items():
+            for value in values:
+                with self.subTest(name=name, value=value):
+                    with self.assertRaisesRegex(ValueError, name):
+                        Settings(3, **{name: value})
+                    settings = Settings(3)
+                    before = getattr(settings, name)
+                    with self.assertRaisesRegex(ValueError, name):
+                        setattr(settings, name, value)
+                    np.testing.assert_array_equal(getattr(settings, name), before)
+                    ModularCMAES(settings)
+
+    def test_the_setters_take_array_like(self):
+        settings = Settings(2)
+        settings.lb, settings.ub, settings.x0 = [0, 1], (2.0, 3.0), [1, 2]
+        np.testing.assert_array_equal(settings.lb, [0.0, 1.0])
+        np.testing.assert_array_equal(settings.ub, [2.0, 3.0])
+        np.testing.assert_array_equal(settings.x0, [1.0, 2.0])
+
+    def test_population_in_any_order(self):
+        for order in (("mu0", "lambda0"), ("lambda0", "mu0")):
+            settings = Settings(3)
+            values = {"mu0": 20, "lambda0": 40}
+            for name in order:  # mu0 first: mu0 = 20 > lambda0 = 7 in between
+                setattr(settings, name, values[name])
+            self.assertEqual((settings.mu0, settings.lambda0), (20, 40))
+            ModularCMAES(settings)
+        settings = Settings(3)
+        settings.mu0 = 20
+        self.assert_creation_rejects(settings, "mu0 = 20 exceeds lambda0 = 7")
+
+    def test_budget_in_any_order(self):
+        settings = Settings(3, lambda0=10, budget=100)
+        settings.budget = 5  # smaller than the first generation until lambda0 is set
+        self.assert_creation_rejects(settings, "budget 5 .* lambda0 = 10 and 1, 11 evaluations")
+        settings.lambda0 = 4
+        ModularCMAES(settings)
+        tpa = c_maes.Modules()
+        tpa.ssa = c_maes.options.StepSizeAdaptation.TPA
+        settings = Settings(3, tpa, lambda0=10)
+        settings.budget = 12
+        self.assert_creation_rejects(settings, "budget 12 .* TPA's 2 points and 1, 13 evaluations")
+        settings.budget = 13
+        ModularCMAES(settings)
+
+    def test_lambda0_and_the_adjustments_of_the_constructor(self):
+        # The setter does not adjust: what the constructor would have changed is rejected
+        pairwise = c_maes.Modules()
+        pairwise.mirrored = c_maes.options.Mirror.PAIRWISE
+        settings = Settings(3, pairwise)
+        settings.lambda0 = 7
+        self.assert_creation_rejects(settings, "lambda0 = 7 is odd, but mirrored PAIRWISE")
+        settings.lambda0 = 8
+        ModularCMAES(settings)
+        settings = Settings(3)
+        settings.lambda0 = 1
+        self.assert_creation_rejects(settings, "give lambda0 = 1 to the constructor")
+        settings = Settings(3, lambda0=1)
+        settings.lambda0 = 10
+        self.assert_creation_rejects(settings, "lambda0 = 10, but these settings were created")
+        settings.lambda0 = 1
+        ModularCMAES(settings)
+
+    def test_mu0_follows_lambda0_until_it_is_given(self):
+        sa = c_maes.Modules()
+        sa.ssa = c_maes.options.StepSizeAdaptation.SA
+        for modules in (None, sa):
+            for lambda0 in (2, 5, 12, 100):
+                with self.subTest(modules=modules, lambda0=lambda0):
+                    settings = Settings(3, modules)
+                    settings.lambda0 = lambda0
+                    expected = Settings(3, modules, lambda0=lambda0)
+                    self.assertEqual(settings.mu0, expected.mu0)
+        settings = Settings(3, mu0=2)
+        settings.lambda0 = 30
+        self.assertEqual(settings.mu0, 2)
+        settings = Settings(3)
+        settings.mu0 = 3
+        settings.lambda0 = 30
+        self.assertEqual(settings.mu0, 3)
+
+    def test_the_derived_values_of_the_box(self):
+        lb, ub = np.array([-1.0, 0.0, 2.0]), np.array([1.0, 4.0, np.inf])
+        settings = Settings(3)
+        db = settings.db  # a read-only view: it follows lb and ub
+        settings.lb, settings.ub = lb, ub
+        expected = Settings(3, lb=lb, ub=ub)
+        for name in ("db", "center", "diameter", "volume", "has_bounds"):
+            np.testing.assert_array_equal(getattr(settings, name), getattr(expected, name))
+        np.testing.assert_array_equal(db, ub - lb)
+        for name in ("db", "center", "diameter", "volume", "has_bounds"):
+            with self.assertRaises(AttributeError):
+                setattr(settings, name, getattr(settings, name))
+        with self.assertRaisesRegex(ValueError, "read-only"):
+            settings.center[0] = 1.0
+
+    def test_a_run_after_the_setters_is_the_constructed_run(self):
+        values = dict(
+            x0=np.array([1.0, -2.0, 0.5]),
+            lb=np.array([-3.0, -4.0, -2.0]),
+            ub=np.array([3.0, 2.0, 4.0]),
+            sigma0=0.7,
+            budget=600,
+            lambda0=12,
+            target=1e-6,
+        )
+        sa = c_maes.Modules()
+        sa.ssa = c_maes.options.StepSizeAdaptation.SA
+        sa.bound_correction = c_maes.options.CorrectionMethod.SATURATE
+        for modules in (None, sa):
+            for mu0 in (None, 3):
+                with self.subTest(modules=modules, mu0=mu0):
+                    given = dict(values, **({} if mu0 is None else {"mu0": mu0}))
+                    constructed = ModularCMAES(Settings(3, modules, seed=4, **given))
+                    settings = Settings(3, modules, seed=4)
+                    for name, value in reversed(list(given.items())):
+                        setattr(settings, name, value)
+                    after_setters = ModularCMAES(settings)
+                    for es in (constructed, after_setters):
+                        es.run(lambda x: sphere(np.asarray(x) - 1))
+                    a, b = constructed.p, after_setters.p
+                    self.assertEqual((a.mu, a.lamb), (b.mu, b.lamb))
+                    self.assertEqual(a.stats.evaluations, b.stats.evaluations)
+                    self.assertEqual(a.stats.global_best.y, b.stats.global_best.y)
+                    np.testing.assert_array_equal(a.adaptation.m, b.adaptation.m)
 
 
 class TestBudget(unittest.TestCase):
