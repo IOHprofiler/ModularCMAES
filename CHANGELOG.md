@@ -108,11 +108,16 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   generations a restart strategy allows a run; `restart.MaxSigma.start`; `restart.BIPOP.used_small`,
   `used_large` and `large_run` (#80).
 
+* `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
+* `tools/count_variants.py` counts the distinct variants from the code, and the guide documents
+  the counts (Modules, "How many variants"): 21,430,080 for the 14 modules of the framework paper with today's options (3,061,440 for the 13
+  algorithmic modules, without bound correction), 686,685,216 for all 17 fields of `Modules`. The
+  paper counted 14,859,936 (#130).
+
 ### Deprecated
 
 * The misspelled names of 1.x (above), and `AdaptiveRepelling.target_rejection_rate` and
   `local_target_rejection_rate`, which never had an effect.
-* `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
 
 ### Changed
 
