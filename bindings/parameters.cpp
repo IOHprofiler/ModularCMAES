@@ -710,7 +710,7 @@ void define_parameters(nb::module_ &main)
             "    Stop when the best objective value is at most target; not NaN. Default None: "
             "no target.\n"
             "max_generations : int, optional\n"
-            "    Stop after this many generations. Default None: no limit.\n"
+            "    Stop after this many generations, at least 1. Default None: no limit.\n"
             "budget : int, optional\n"
             "    The maximum number of evaluations, default 10000 * dim; at least the first "
             "generation (lambda0, and TPA's 2 points) and the final center of mass. A generation "
@@ -741,23 +741,23 @@ void define_parameters(nb::module_ &main)
             "evaluation (a value in [lb, ub] to the nearest integer in [lb, ub]) and their step "
             "size has a lower bound. Each needs an integer value in [lb, ub]. Default: none.\n"
             "cs : float, optional\n"
-            "    The learning rate of the step-size adaptation. Default depends on ssa (see "
+            "    The learning rate of the step-size adaptation, in (0, 1]. Default depends on ssa (see "
             "Weights.cs); for CSA (mueff + 2) / (dim + mueff + 5) (Hansen, The CMA Evolution "
             "Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55)).\n"
             "cc : float, optional\n"
-            "    The learning rate of the evolution path pc. Default (4 + mueff / dim) / (dim + "
+            "    The learning rate of the evolution path pc, in (0, 1]. Default (4 + mueff / dim) / (dim + "
             "4 + 2 mueff / dim) (see Weights.cc).\n"
             "cmu : float, optional\n"
-            "    The learning rate of the rank-mu update. Default min(1 - c1, acov (mueff - 2 + "
+            "    The learning rate of the rank-mu update, in [0, 1]. Default min(1 - c1, acov (mueff - 2 + "
             "1 / mueff) / ((dim + 2)**2 + acov mueff / 2)) (see Weights.cmu).\n"
             "c1 : float, optional\n"
-            "    The learning rate of the rank-one update. Default acov / ((dim + 1.3)**2 + "
+            "    The learning rate of the rank-one update, in [0, 1]; with cmu, c1 + cmu <= 1. Default acov / ((dim + 1.3)**2 + "
             "mueff) (see Weights.c1).\n"
             "damps : float, optional\n"
-            "    The damping of the step-size update. Default for CSA 1 + 2 max(0, sqrt((mueff - "
+            "    The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, sqrt((mueff - "
             "1) / (dim + 1)) - 1) + cs (see Weights.damps).\n"
             "acov : float, optional\n"
-            "    The factor alpha_cov in the defaults of c1 and cmu, default 2.\n"
+            "    The factor alpha_cov in the defaults of c1 and cmu, positive, default 2.\n"
             "verbose : bool, default False\n"
             "    Print a message at every restart and when a decomposition of the matrix "
             "fails.\n"
@@ -825,9 +825,12 @@ void define_parameters(nb::module_ &main)
             [](Settings &s, const std::optional<Float> value) { s.set_target(value); },
             "Stop when the best objective value is at most target; None (default): no "
             "target. NaN raises ValueError: it would never stop the run.")
-        .def_rw("max_generations",
-                &Settings::max_generations,
-                "Stop after this many generations; None (default): no limit.")
+        .def_prop_rw(
+            "max_generations",
+            [](const Settings &s) { return s.max_generations; },
+            [](Settings &s, const std::optional<size_t> value) { s.set_max_generations(value); },
+            "Stop after this many generations, at least 1 (ValueError); None (default): no "
+            "limit.")
         .def_prop_rw(
             "budget",
             [](const Settings &s) { return s.budget; },
@@ -935,30 +938,49 @@ void define_parameters(nb::module_ &main)
                 &Settings::integer_variables,
                 nb::name("integer_variables"),
                 "(k,) int array: the indices of the integer variables (read-only).")
-        .def_rw("cs",
-                &Settings::cs,
-                "The learning rate cs given to the constructor, or None for the default.\n\n"
-                "The value in use is Parameters.weights.cs.")
-        .def_rw("cc",
-                &Settings::cc,
-                "The learning rate cc given to the constructor, or None for the default.\n\n"
-                "The value in use is Parameters.weights.cc.")
-        .def_rw("cmu",
-                &Settings::cmu,
-                "The learning rate cmu given to the constructor, or None for the default.\n\n"
-                "The value in use is Parameters.weights.cmu.")
-        .def_rw("c1",
-                &Settings::c1,
-                "The learning rate c1 given to the constructor, or None for the default.\n\n"
-                "The value in use is Parameters.weights.c1.")
-        .def_rw("damps",
-                &Settings::damps,
-                "The damping given to the constructor, or None for the default.\n\n"
-                "The value in use is Parameters.weights.damps.")
-        .def_rw("acov",
-                &Settings::acov,
-                "The factor alpha_cov of the defaults of c1 and cmu, or None for the default "
-                "2.")
+        .def_prop_rw(
+            "cs",
+            [](const Settings &s) { return s.cs; },
+            [](Settings &s, const std::optional<Float> value) { s.set_cs(value); },
+            "The learning rate cs given to the constructor, or None for the default; in (0, 1] "
+            "(ValueError).\n\n"
+            "The value in use is Parameters.weights.cs.")
+        .def_prop_rw(
+            "cc",
+            [](const Settings &s) { return s.cc; },
+            [](Settings &s, const std::optional<Float> value) { s.set_cc(value); },
+            "The learning rate cc given to the constructor, or None for the default; in (0, 1] "
+            "(ValueError).\n\n"
+            "The value in use is Parameters.weights.cc.")
+        .def_prop_rw(
+            "cmu",
+            [](const Settings &s) { return s.cmu; },
+            [](Settings &s, const std::optional<Float> value) { s.set_cmu(value); },
+            "The learning rate cmu given to the constructor, or None for the default; in [0, 1] "
+            "(ValueError). With c1 given, c1 + cmu must be at most 1 (ValueError when the "
+            "optimizer is created).\n\n"
+            "The value in use is Parameters.weights.cmu.")
+        .def_prop_rw(
+            "c1",
+            [](const Settings &s) { return s.c1; },
+            [](Settings &s, const std::optional<Float> value) { s.set_c1(value); },
+            "The learning rate c1 given to the constructor, or None for the default; in [0, 1] "
+            "(ValueError). With cmu given, c1 + cmu must be at most 1 (ValueError when the "
+            "optimizer is created).\n\n"
+            "The value in use is Parameters.weights.c1.")
+        .def_prop_rw(
+            "damps",
+            [](const Settings &s) { return s.damps; },
+            [](Settings &s, const std::optional<Float> value) { s.set_damps(value); },
+            "The damping given to the constructor, or None for the default; positive "
+            "(ValueError).\n\n"
+            "The value in use is Parameters.weights.damps.")
+        .def_prop_rw(
+            "acov",
+            [](const Settings &s) { return s.acov; },
+            [](Settings &s, const std::optional<Float> value) { s.set_acov(value); },
+            "The factor alpha_cov of the defaults of c1 and cmu, or None for the default 2; "
+            "positive and finite (ValueError).")
         .def_prop_rw("verbose",
                      bool_getter(&Settings::verbose),
                      bool_setter(&Settings::verbose),
