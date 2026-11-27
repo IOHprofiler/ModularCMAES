@@ -507,7 +507,7 @@ class Weights:
         """
         The learning rate of the step-size adaptation.
 
-        Default by ssa: CSA (mueff + 2) / (d + mueff + 3); SR 2 / (d + 2); XNES 0.01; MXNES 1; LPXNES 9 mueff / (10 sqrt(d)); otherwise (TPA, MSR, PSR, SA) 0.3. With matrix_adaptation NATURAL_GRADIENT (any ssa): (9 + 3 ln(d)) / (5 d sqrt(d)).
+        Default by ssa: CSA (mueff + 2) / (d + mueff + 5) (Hansen, The CMA Evolution Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55); pycma uses d + mueff + 3 and caps cs at 1/2); SR 2 / (d + 2); XNES 0.01; MXNES 1; LPXNES 9 mueff / (10 sqrt(d)); otherwise (TPA, MSR, PSR, SA) 0.3. With matrix_adaptation NATURAL_GRADIENT (any ssa): (9 + 3 ln(d)) / (5 d sqrt(d)).
         """
 
     @cs.setter
@@ -518,7 +518,7 @@ class Weights:
         """
         The damping of the step-size update.
 
-        Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs; for SR 1 + d / 2; for MSR max(1, 2 - 2 / d); otherwise (PSR among them) 1.
+        Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs (Hansen, arXiv:1604.00772v2, Table 1, Eq. (55)); for SR 1 + d / 2; for MSR max(1, 2 - 2 / d); otherwise (PSR among them) 1.
         """
 
     @damps.setter
@@ -680,7 +680,7 @@ class Settings:
         integer_variables : sequence of int, optional
             The indices of the variables that take integer values: they are rounded before evaluation (a value in [lb, ub] to the nearest integer in [lb, ub]) and their step size has a lower bound. Each needs an integer value in [lb, ub]. Default: none.
         cs : float, optional
-            The learning rate of the step-size adaptation. Default depends on ssa (see Weights.cs); for CSA (mueff + 2) / (dim + mueff + 3).
+            The learning rate of the step-size adaptation. Default depends on ssa (see Weights.cs); for CSA (mueff + 2) / (dim + mueff + 5) (Hansen, The CMA Evolution Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55)).
         cc : float, optional
             The learning rate of the evolution path pc. Default (4 + mueff / dim) / (dim + 4 + 2 mueff / dim) (see Weights.cc).
         cmu : float, optional

@@ -13,10 +13,12 @@ sum of the selected z for every other matrix adaptation (the same vector when th
 E‖z‖ is the expected length of the sampler: the χ_d approximation for Gaussian samples, an empirical
 median for Cauchy.
 
-**Compared with Hansen (2016) and pycma.** cs = (µ_eff + 2)/(d + µ_eff + 3) is pycma's (the
-tutorial: + 5); pycma also caps cs at 0.5, modcma does not (with very large populations cs tends
-to 1). damps is the tutorial's; pycma 4.6 adds terms for mirrored sampling and large µ_eff. The clip
-at ±1 is pycma's. The expected length of the uniform, Laplace, logistic and double-Weibull
+**Compared with Hansen (2016) and pycma.** cs = (µ_eff + 2)/(d + µ_eff + 5) and
+damps = 1 + 2 max(0, √((µ_eff − 1)/(d + 1)) − 1) + cs are the tutorial's (Table 1, Eq. (55); the
+same in its 2023 revision, arXiv:1604.00772v2) and those of `cmaes`. With very large populations cs
+tends to 1. pycma 4.6 has d + µ_eff + 3 in the denominator of cs and caps it at 0.5 (modcma 1.1 and
+1.2 had + 3 without the cap), and adds terms to damps for mirrored sampling and large µ_eff. The
+clip at ±1 is pycma's. The expected length of the uniform, Laplace, logistic and double-Weibull
 transformations is taken as √d instead of their own (*known issue* [F29]).
 
 ## TPA: two-point adaptation
