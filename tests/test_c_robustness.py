@@ -1,6 +1,7 @@
 """Invalid input, budgets, stale views and crashes found by the third and fourth reviews
 (#113, #114, #115, #117, #118, #119). None of these fixes changes the golden trajectories."""
 
+import sys
 import unittest
 
 import numpy as np
@@ -251,8 +252,10 @@ class TestSettingsSetters(unittest.TestCase):
             np.testing.assert_array_equal(getattr(settings, name), getattr(expected, name))
         np.testing.assert_array_equal(db, ub - lb)
         for name in ("db", "center", "diameter", "volume", "has_bounds"):
-            # The error names the field (the getter is named, the maintainer's decision on #136)
-            with self.assertRaisesRegex(AttributeError, f"property '{name}' .* has no setter"):
+            # The error names the field (the getter is named, the maintainer's decision on #136);
+            # Python before 3.13 says only "can't set attribute"
+            message = f"property '{name}' .* has no setter" if sys.version_info >= (3, 13) else ""
+            with self.assertRaisesRegex(AttributeError, message):
                 setattr(settings, name, getattr(settings, name))
         with self.assertRaisesRegex(ValueError, "read-only"):
             settings.center[0] = 1.0
