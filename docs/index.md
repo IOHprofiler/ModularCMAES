@@ -59,8 +59,8 @@ Wheels for Linux, macOS and Windows, CPython 3.10 to 3.14, including free-thread
     ---
 
     Reproducible seeds per optimizer, parallel threads on free-threaded Python, a ConfigSpace for
-    algorithm configuration, integer variables, and restarts and stopping criteria you can
-    inspect and replace. [User guide →](guide/modules.md)
+    algorithm configuration, integer variables, warm starts from a related task, and restarts and
+    stopping criteria you can inspect and replace. [User guide →](guide/modules.md)
 
 </div>
 

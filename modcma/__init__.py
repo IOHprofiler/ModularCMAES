@@ -41,6 +41,7 @@ from .c_maes import (
     set_seed,
     build_info,
     compute_ert,
+    warm_start,
 )
 
 try:
@@ -107,4 +108,5 @@ __all__ = (
     "preset",
     "preset_names",
     "settings_from_dict",
+    "warm_start",
 )

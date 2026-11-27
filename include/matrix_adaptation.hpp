@@ -191,6 +191,22 @@ struct Adaptation
         ++factor_version;
     }
 
+    /**
+     * Start from the covariance matrix C0 instead of I (Settings::C0, warm starting, #89): after
+     * the constructor and after restart(). Each adaptation sets its sampling factor F to a factor
+     * of C0, F F^T = C0, as its own update keeps it: COVARIANCE the eigendecomposition (F = B D),
+     * COVARIANCE_NO_EIGV, CHOLESKY and CMSA the lower Cholesky factor, MATRIX and NATURAL_GRADIENT
+     * the symmetric square root C0^1/2, SEPARABLE the square roots of the diagonal of C0; NONE
+     * rejects C0 (std::invalid_argument). Two factors of C0 differ by a rotation of z, so the
+     * sampled distribution is N(m, sigma^2 C0) with each. C0 is positive definite
+     * (Settings::set_C0).
+     */
+    virtual void start_from(const Matrix &C0, const parameters::Settings &settings)
+    {
+        coordinate_wise_variances = C0.diagonal();
+        ++factor_version;
+    }
+
     Float distance(const Vector u, const Vector &v)
     {
         const auto &delta = u - v;
@@ -266,6 +282,9 @@ struct None final : Adaptation
 
     [[nodiscard]] bool keeps_metric() const override { return true; }
 
+    //! C stays I: std::invalid_argument (Settings::set_C0 rejects C0 with NONE already)
+    void start_from(const Matrix &C0, const parameters::Settings &settings) override;
+
     bool adapt_matrix_inner(const parameters::Weights &w,
                             const Population &pop,
                             const size_t mu,
@@ -340,6 +359,8 @@ struct CovarianceAdaptation : Adaptation
 
     void restart(const parameters::Settings &settings) override;
 
+    void start_from(const Matrix &C0, const parameters::Settings &settings) override;
+
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
@@ -381,6 +402,8 @@ struct SeparableAdaptation : Adaptation
 
     void restart(const parameters::Settings &settings) override;
 
+    void start_from(const Matrix &C0, const parameters::Settings &settings) override;
+
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
@@ -416,6 +439,8 @@ struct MatrixAdaptation final : Adaptation
                             parameters::Stats &stats) override;
 
     void restart(const parameters::Settings &settings) override;
+
+    void start_from(const Matrix &C0, const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -462,6 +487,8 @@ struct CholeskyAdaptation final : Adaptation
 
     void restart(const parameters::Settings &settings) override;
 
+    void start_from(const Matrix &C0, const parameters::Settings &settings) override;
+
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
@@ -496,6 +523,8 @@ struct SelfAdaptation final : Adaptation
                             parameters::Stats &stats) override;
 
     void restart(const parameters::Settings &settings) override;
+
+    void start_from(const Matrix &C0, const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 
@@ -590,6 +619,8 @@ struct NaturalGradientAdaptation final : Adaptation
                             parameters::Stats &stats) override;
 
     void restart(const parameters::Settings &settings) override;
+
+    void start_from(const Matrix &C0, const parameters::Settings &settings) override;
 
     void compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y) override;
 

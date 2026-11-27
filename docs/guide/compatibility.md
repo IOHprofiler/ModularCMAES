@@ -31,6 +31,8 @@ used.
 | `matrix_adaptation=SEPARABLE` | `cmu` × (d + 2)/3 (Ros & Hansen 2008) |
 | a coordinate with one infinite bound | `MIRROR`, `TOROIDAL`, `COTN` and `UNIFORM_RESAMPLE` set a value that crosses its finite bound to that bound, as `SATURATE` (they need the width ub − lb); the coordinates with two finite bounds use the method ([infinite bounds](bound-correction.md#infinite-bounds)) |
 | `UNIFORM`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` with an infinite bound | in that coordinate, the centers are uniform in x0 ± 2σ0, shifted inside a finite bound ([restarts](restarts.md#where-a-restart-begins)) |
+| `C0` with `matrix_adaptation=SEPARABLE` | only the diagonal of `C0` is used (for the `C0` of `warm_start`, the diagonal covariance of the paper's WS-sep-CMA-ES) |
+| `C0` with `matrix_adaptation=NONE` | rejected (`ValueError`): C stays the identity |
 
 ## Options without effect
 
@@ -103,6 +105,10 @@ algorithms.
     With `ssa` other than `CSA`, `COVARIANCE` becomes `COVARIANCE_NO_EIGV`, and so loses
     `ConditionC` and `NoEffectAxis` (unless `always_compute_eigv=True`).
 * **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is.
+* **`C0`** is the matrix of the first generation of every run, the first and each restart. Every
+  matrix adaptation but `NONE` starts from a factor of it
+  ([deep dive](../deep-dives/matrix-adaptations.md#the-initial-matrix-c0)); `TolX`, `ConditionC`
+  and the other criteria that read C see it from the first generation on.
 
 ## Combinations to avoid
 

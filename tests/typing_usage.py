@@ -32,4 +32,7 @@ def typical_use() -> float:
     other = modcma.settings_from_dict(d, matrix_adaptation="SEPARABLE", budget=1000, x0=np.ones(d))
     space = modcma.get_configspace(d)
     from_config = modcma.settings_from_config(d, space.get_default_configuration(), budget=10)
+    solutions = [(x, sphere(x)) for x in np.random.default_rng(1).uniform(size=(100, d))]
+    warm = Settings(d, **modcma.warm_start(solutions, gamma=0.2), budget=1000)
+    warm.C0 = np.eye(d)
     return float(fopt + es.center_of_mass[0] + other.budget + from_config.budget + evaluations)

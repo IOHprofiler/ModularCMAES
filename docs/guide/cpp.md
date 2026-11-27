@@ -46,5 +46,7 @@ The repository also builds `modcma_tests` (the C++ unit tests, `ctest`) and
 * The objective is a `FunctionType`, `std::function<Float(Eigen::Ref<const Vector>)>`; `Float` is
   `double`.
 * `rng::set_seed(s)` seeds the global generator; `settings.seed` gives an optimizer its own.
+* `settings.set_C0(C)` sets the initial covariance matrix and checks it (`std::invalid_argument`
+  otherwise), as `Settings(C0=...)` in Python; `modcma.warm_start` exists only in Python.
 * The library is not header-only; link `modcma_core`.
 * The C++ API is not yet versioned separately from the Python package: pin a tag.

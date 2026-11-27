@@ -246,7 +246,7 @@ class MatrixAdaptationType(enum.Enum):
     """
     The adaptation of the shape of the search distribution (`Modules.matrix_adaptation`; default COVARIANCE).
 
-    The mutations are y = A z, with z from the sampler and A a factor of the covariance matrix, C = A A^T. The options differ in how A is adapted and in their cost per generation (docs/performance.md, "ModularCMAES matrix adaptations").
+    The mutations are y = A z, with z from the sampler and A a factor of the covariance matrix, C = A A^T. The options differ in how A is adapted and in their cost per generation (docs/performance.md, "ModularCMAES matrix adaptations"). C starts as the identity, or as `Settings.C0` (warm starting).
     """
 
     COVARIANCE = 1
@@ -256,7 +256,7 @@ class MatrixAdaptationType(enum.Enum):
 
     NONE = 0
     """
-    No matrix adaptation (C = I): only the step size is adapted. Disables `Modules.active`. O(d lambda) per generation.
+    No matrix adaptation (C = I): only the step size is adapted. Disables `Modules.active`, rejects `Settings.C0`. O(d lambda) per generation.
     """
 
     MATRIX = 2
@@ -266,7 +266,7 @@ class MatrixAdaptationType(enum.Enum):
 
     SEPARABLE = 3
     """
-    sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per generation. For separable problems and very high dimension; it cannot learn correlations between variables.
+    sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per generation. For separable problems and very high dimension; it cannot learn correlations between variables. Of `Settings.C0` it uses the diagonal.
     """
 
     CHOLESKY = 4

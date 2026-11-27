@@ -414,7 +414,8 @@ void define_options(nb::module_ &main)
         "default COVARIANCE).\n\n"
         "The mutations are y = A z, with z from the sampler and A a factor of the covariance "
         "matrix, C = A A^T. The options differ in how A is adapted and in their cost per "
-        "generation (docs/performance.md, \"ModularCMAES matrix adaptations\").")
+        "generation (docs/performance.md, \"ModularCMAES matrix adaptations\"). C starts as "
+        "the identity, or as `Settings.C0` (warm starting).")
         .value("COVARIANCE",
                MatrixAdaptationType::COVARIANCE,
                "The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with "
@@ -425,7 +426,7 @@ void define_options(nb::module_ &main)
         .value("NONE",
                MatrixAdaptationType::NONE,
                "No matrix adaptation (C = I): only the step size is adapted. Disables "
-               "`Modules.active`. O(d lambda) per generation.")
+               "`Modules.active`, rejects `Settings.C0`. O(d lambda) per generation.")
         .value("MATRIX",
                MatrixAdaptationType::MATRIX,
                "MA-ES (Beyer & Sendhoff 2017): adapts a matrix M with C = M M^T directly, "
@@ -435,7 +436,7 @@ void define_options(nb::module_ &main)
                MatrixAdaptationType::SEPARABLE,
                "sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per "
                "generation. For separable problems and very high dimension; it cannot learn "
-               "correlations between variables.")
+               "correlations between variables. Of `Settings.C0` it uses the diagonal.")
         .value("CHOLESKY",
                MatrixAdaptationType::CHOLESKY,
                "Cholesky-CMA-ES (Krause et al. 2016): adapts the lower triangular Cholesky factor "

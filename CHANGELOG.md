@@ -98,6 +98,12 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `eigenvalues()`, `inv_C()` and `inv_root_C()` (#123). `COVARIANCE`, `SEPARABLE` and `NONE` keep
   it; the others compute it when asked (O(d³)) and reuse it until their factor changes
   (`Adaptation.factor_version`). Results are unchanged.
+* **Warm starting** (#89): `Settings(C0=...)`, the initial covariance matrix C (default: the
+  identity), for every matrix adaptation (`SEPARABLE` uses its diagonal, `NONE` rejects it); every
+  restart starts from it again. `modcma.warm_start(solutions, gamma, alpha)` estimates `x0`,
+  `sigma0` and `C0` from the solutions of a related task, as WS-CMA-ES (Nomura et al. 2021) and
+  `cmaes`' `get_warm_start_mgd`, and returns them as `Settings` arguments. Results without `C0`
+  are unchanged.
 * `Adaptation.keeps_metric()`, whether `metric()` costs nothing; `restart.Strategy.max_iter`, the
   generations a restart strategy allows a run; `restart.MaxSigma.start`; `restart.BIPOP.used_small`,
   `used_large` and `large_run` (#80).
