@@ -77,7 +77,7 @@ organized and the habits that keep results reproducible.
 
 ## Results: golden fixtures and the statistical tier
 
-* `tests/golden.py` stores bit-exact trajectories of 260 configurations per toolchain
+* `tests/golden.py` stores bit-exact trajectories of 271 configurations per toolchain
   (`tests/data/golden/`): a pairwise covering set of all module options plus special cases.
 * **A change that is not meant to change results must leave every fixture bit-identical:**
   `python -m tests.golden check --drivers all`.
