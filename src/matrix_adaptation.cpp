@@ -89,8 +89,19 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
                                        const parameters::Settings &settings,
                                        const size_t mu)
 {
-    const auto sigma = pop.S.leftCols(pop.n).mean();
-    dm = (m - m_old) / sigma;
+    // dm: the step of the mean in units of the step size, (m - m_old) / sigma (Hansen 2016,
+    // Eq. (24); the paths use it in (43) and (45)), with sigma per coordinate the step size
+    // recombined from the selected points, sum_i w_i s_i (s_i: the column of S of point i; #71,
+    // F14, it was the mean of all of S):
+    // * every selected point has the step size sigma: (m - m_old) / sigma, the tutorial's;
+    // * the lower bound of integer variables (the same in every column): the step divided by the
+    //   raised step size of each coordinate, sum_i w_i y_i, as Marty et al. (2024), Eqs. (5)
+    //   and (7) (pycma divides by sigma and sigma_vec);
+    // * sampled step sizes: the step size recombined from the selected ones, as CMSA recombines
+    //   <sigma> (Beyer & Sendhoff 2008; Spettel, Beyer & Hellwig 2018, Alg. 3, line 33).
+    // (the recombined step size is computed into dm, then divided into the step: no allocation)
+    dm.noalias() = pop.S.leftCols(mu) * w.positive.head(mu);
+    dm = (m - m_old).cwiseQuotient(dm);
     if (w.utility)
     {
         // The z of the mean shift: all evaluated points with their utilities

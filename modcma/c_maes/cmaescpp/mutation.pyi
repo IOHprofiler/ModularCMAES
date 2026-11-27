@@ -153,9 +153,9 @@ class NoSequentialSelection(SequentialSelection):
 
 class SigmaSampler:
     """
-    Sampled step sizes: each individual gets its own step size per coordinate, sigma * exp(beta n) with n standard normal (`Modules.sample_sigma`; always used by the step-size adaptations LPXNES and SA).
+    Sampled step sizes: each individual gets its own step size, sigma_i = sigma * exp(beta n_i) with n_i standard normal, the same in every coordinate, so the point m + sigma_i y_i lies along y_i (`Modules.sample_sigma`; always used by the step-size adaptations LPXNES and SA). One step size per individual, as in CMSA-ES (Beyer & Sendhoff 2008) and lp-xNES (Krause, Glasmachers & Igel 2017, Sec. 4.4).
 
-    beta = `es.p.weights.beta` = 1 / sqrt(2 mueff) (ln 2 / (sqrt(d) ln d) with LPXNES). The step sizes are the columns of `es.p.pop.S`.
+    beta = `es.p.weights.beta`: 1 / sqrt(2 d) with SA (CMSA's tau; Spettel, Beyer & Hellwig 2018, Table I), ln 2 / (sqrt(d) ln d) with LPXNES (Krause et al. 2017, Table 3), 1 / sqrt(2 mueff) otherwise. The step sizes are the columns of `es.p.pop.S`; the lower bound of an integer variable can raise single coordinates.
     """
 
     def __init__(self, dimension: float) -> None:
@@ -165,7 +165,7 @@ class SigmaSampler:
         Parameters
         ----------
         dimension : float
-            The dimension d.
+            The dimension d (not used: the step size is one number per individual).
         """
 
     def apply_integer_bounds(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
@@ -180,7 +180,7 @@ class SigmaSampler:
 
     def sample(self, sigma: float, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
         """
-        Set the step sizes `pop.S` of the population from sigma, then apply the lower bounds of the integer variables.
+        Set the step sizes `pop.S` of the population from sigma (one per individual, constant in its column), then apply the lower bounds of the integer variables.
 
         Parameters
         ----------
@@ -320,7 +320,7 @@ class TPA(Strategy):
     """
     Two-point step-size adaptation (`StepSizeAdaptation.TPA`).
 
-    With every population (in its first batch) the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma.
+    With every population (in its first batch) the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma. With a bound correction other than NONE both points move toward m by the same factor until both are in the box, so the test steps stay symmetric about m (Hansen 2008, Sec. 2.2; pycma's boundary handler moves each point on its own); `BoundCorrection.correct_point` corrects them only when m itself is outside the box.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -396,7 +396,7 @@ class PSR(Strategy):
     """
     Population success rule (`StepSizeAdaptation.PSR`).
 
-    The current and the previous population are ranked together; with z the difference of their summed ranks (previous minus current) divided by n^2, minus success_ratio: s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by default (Loshchilov 2014, Alg. 6).
+    The current and the previous population are ranked together; with z the difference of their summed ranks (previous minus current) divided by n^2, minus success_ratio: s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by default (Loshchilov 2014, Alg. 6). Equal values share their mean rank (mid-ranks; the paper does not say), so a tie counts for neither population; with elitism the parents are in both.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -472,7 +472,7 @@ class LPXNES(Strategy):
     """
     A variant of the xNES step-size update on sampled step sizes (`StepSizeAdaptation.LPXNES`).
 
-    Every individual samples its own step sizes (a `SigmaSampler` is always used, with beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i mean_j ln(S_ij / sigma)) over the positive weights, which moves sigma towards the step sizes of the better individuals. lp-xNES of Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules".
+    Every individual samples its own step size sigma_i (a `SigmaSampler` is always used, with beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i ln(sigma_i / sigma)) over the positive weights (ln sigma_i: the mean of the logarithms of the column of `pop.S`), which moves sigma towards the step sizes of the better individuals. lp-xNES of Krause, Glasmachers & Igel (2017), Sec. 4.4, "Qualitative and quantitative assessment of step size adaptation rules".
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -520,7 +520,7 @@ class SA(Strategy):
     """
     Self-adaptation of the step size (`StepSizeAdaptation.SA`).
 
-    Every individual samples its own step sizes (a `SigmaSampler` is always used); sigma is multiplied by the weighted geometric mean of the step sizes of the mu selected individuals divided by the geometric mean over the whole population (Beyer & Sendhoff 2008, with the correction of Ahrari et al. 2017). With SA the default mu is lambda / 4.
+    Every individual samples its own step size sigma_i = sigma exp(n_i / sqrt(2 d)) (a `SigmaSampler` is always used; CMSA's tau = 1 / sqrt(2 d)); sigma is multiplied by the weighted geometric mean of the step sizes of the mu selected individuals divided by the geometric mean over the whole population (Beyer & Sendhoff 2008, with the correction of Ahrari et al. 2017). The step size of an individual is the geometric mean of its column of `pop.S`. With SA the default mu is lambda / 4.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:

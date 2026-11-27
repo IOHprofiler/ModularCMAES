@@ -535,5 +535,124 @@ class TestTpaAndThreshold(unittest.TestCase):
         self.assertTrue(np.all(np.isfinite(es.ask())))
 
 
+def generation(es, objective):
+    """One generation step by step; returns the step size it sampled with"""
+    es.mutate(objective)
+    es.select()
+    es.recombine()
+    sigma = es.p.mutation.sigma
+    es.adapt()
+    return sigma
+
+
+class TestSampledStepSizes(unittest.TestCase):
+    """#71: one sampled step size per individual (F1); dm divided by the recombined step size
+    (F14)"""
+
+    def test_one_step_size_per_individual(self):
+        for ssa in ("SA", "LPXNES", "CSA"):
+            with self.subTest(ssa=ssa):
+                es = c_maes.ModularCMAES(
+                    c_maes.settings_from_dict(5, ssa=ssa, sample_sigma=True, seed=1)
+                )
+                for _ in range(3):
+                    es.step(sphere)
+                S = es.p.pop.S
+                np.testing.assert_array_equal(S, np.broadcast_to(S[0], S.shape))
+                self.assertGreater(len(np.unique(S[0])), 1)
+
+    def test_integer_variables_raise_single_coordinates(self):
+        es = c_maes.ModularCMAES(c_maes.settings_from_dict(
+            4, ssa="SA", integer_variables=[0, 1], seed=1, budget=4000))
+        while es.step(sphere) and es.p.mutation.sigma > 1e-3:
+            pass
+        S = es.p.pop.S
+        np.testing.assert_array_equal(S[3], S[2])  # the continuous coordinates: sigma_i
+        self.assertTrue(np.all(S[:2] >= S[2]))
+        self.assertTrue(np.any(S[:2] > S[2]))  # the lower bound of the integer variables
+
+    def test_dm_is_divided_by_the_recombined_step_size(self):
+        cases = {
+            "default": {},
+            "elitist": {"elitist": True},
+            "integer": {"integer_variables": [0, 1]},
+            "sample_sigma": {"sample_sigma": True},
+            "SA": {"ssa": "SA"},
+        }
+        def shifted(x):
+            return sphere(x - 1.0)
+
+        for name, kwargs in cases.items():
+            with self.subTest(name):
+                es = c_maes.ModularCMAES(
+                    c_maes.settings_from_dict(4, seed=3, budget=10_000, **kwargs)
+                )
+                # until the lower bound of the integer variables is above sigma
+                for _ in range(25 if name == "integer" else 15):
+                    sigma = generation(es, shifted)
+                p, a = es.p, es.p.adaptation
+                S = p.pop.S
+                recombined = S[:, : p.mu] @ p.weights.positive
+                np.testing.assert_allclose(a.dm, (a.m - a.m_old) / recombined, rtol=1e-10)
+                if name in ("default", "elitist"):
+                    # every selected point has the step size sigma (the parents too)
+                    np.testing.assert_array_equal(S, sigma)
+                    np.testing.assert_allclose(a.dm, (a.m - a.m_old) / sigma, rtol=1e-10)
+                elif name == "integer":
+                    # sigma raised to the lower bound in the integer coordinates: dm is the step
+                    # of the mean divided by the step size of each coordinate (Marty et al. 2024,
+                    # Eqs. (5), (7)), not by sigma
+                    np.testing.assert_array_equal(S, np.broadcast_to(S[:, :1], S.shape))
+                    self.assertTrue(np.all(S[:2, 0] > sigma))
+                    np.testing.assert_allclose(a.dm, (a.m - a.m_old) / S[:, 0], rtol=1e-10)
+                    np.testing.assert_allclose(
+                        a.dm, p.pop.Y[:, : p.mu] @ p.weights.positive, rtol=1e-10
+                    )
+                else:
+                    # sampled step sizes: the recombined one, not sigma
+                    self.assertGreater(np.max(np.abs(recombined / sigma - 1)), 1e-3)
+
+    def test_cmsa_with_sa_solves_a_rotated_ellipsoid(self):
+        # With a step size per coordinate, CMSA + SA solved 0 of 5 (d = 10)
+        d = 10
+        ellipsoid = ellipsoid_rotated(d, seed=4)
+        x_opt = np.linspace(-3, 3, d)
+        solved = 0
+        for seed in range(5):
+            es = c_maes.ModularCMAES(c_maes.settings_from_dict(
+                d, matrix_adaptation="CMSA", ssa="SA", weights="EQUAL", seed=seed,
+                budget=100_000, target=1e-8))
+            es.run(lambda x: ellipsoid(x - x_opt))
+            solved += es.p.stats.global_best.y <= 1e-8
+        self.assertGreaterEqual(solved, 4)
+
+    def test_beta(self):
+        d = 9
+        for ssa, beta in (("SA", 1 / np.sqrt(2 * d)),
+                          ("LPXNES", np.log(2) / (np.sqrt(d) * np.log(d)))):
+            p = c_maes.Parameters(c_maes.settings_from_dict(d, ssa=ssa))
+            self.assertAlmostEqual(p.weights.beta, beta)
+        p = c_maes.Parameters(c_maes.settings_from_dict(d, sample_sigma=True))
+        self.assertAlmostEqual(p.weights.beta, 1 / np.sqrt(2 * p.weights.mueff))
+
+
+class TestOnePlusOneSettings(unittest.TestCase):
+    """#131: with lambda0 = 1 every ssa runs SR, and COVARIANCE follows SR"""
+
+    def test_every_ssa_gives_the_same_settings(self):
+        for ssa in c_maes.get_all_module_options()["ssa"]:
+            with self.subTest(ssa=ssa):
+                settings = c_maes.settings_from_dict(4, lambda0=1, ssa=ssa)
+                self.assertEqual(settings.modules.ssa, c_maes.options.StepSizeAdaptation.SR)
+                self.assertEqual(
+                    settings.modules.matrix_adaptation,
+                    c_maes.options.MatrixAdaptationType.COVARIANCE_NO_EIGV,
+                )
+                kept = c_maes.settings_from_dict(4, lambda0=1, ssa=ssa, always_compute_eigv=True)
+                self.assertEqual(
+                    kept.modules.matrix_adaptation, c_maes.options.MatrixAdaptationType.COVARIANCE
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

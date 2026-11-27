@@ -64,6 +64,29 @@ class BoundCorrection:
             The corrected point, shape (d,).
         """
 
+    def correct_point(self, xi: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], sigma: float, settings: modcma.c_maes.cmaescpp.parameters.Settings) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
+        """
+        A point that is not sampled from the search distribution moved into [lb, ub].
+
+        TPA moves its two points toward the mean first, both by the same factor, until both are in the box; it uses this only when the mean itself is outside.
+
+        As `correct_x` for the coordinates outside the bounds, without counting it in `n_out_of_bounds`. RESAMPLE cannot sample such a point again: it sets the coordinates outside on the bound they crossed, as SATURATE does. With NONE the point is returned as it is.
+
+        Parameters
+        ----------
+        xi : numpy.ndarray
+            The point, shape (d,).
+        sigma : float
+            The step size (used by COTN).
+        settings : Settings
+            The settings with the bounds lb and ub and the method (`modules.bound_correction`).
+
+        Returns
+        -------
+        numpy.ndarray
+            The point inside the box (unless the method is NONE), shape (d,).
+        """
+
     def delta_out_of_bounds(self, xi: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], oob: Annotated[NDArray[numpy.bool_], dict(shape=(None,), order='C')], settings: modcma.c_maes.cmaescpp.parameters.Settings) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
         The coordinates of xi where oob is True normalized to the box, (x - lb) / (ub - lb) (in [0, 1] inside it); the others unchanged.

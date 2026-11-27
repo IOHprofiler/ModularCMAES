@@ -203,6 +203,11 @@ void Weights::init_weights(const Settings &settings)
     expected_length_ps = (1.4 + (2.0 / (d + 1.0))) * expected_length_z;
 
     beta = 1.0 / std::sqrt(2.0 * mueff);
+    // SA is CMSA's operator: tau = 1 / sqrt(2 d) for its one step size per individual (Spettel,
+    // Beyer & Hellwig 2018, Table I, after Beyer & Sendhoff 2008; #71). 1 / sqrt(2 mueff), chosen
+    // when the step sizes were drawn per coordinate, stays for sample_sigma (no source)
+    if (settings.modules.ssa == StepSizeAdaptation::SA)
+        beta = 1.0 / std::sqrt(2.0 * d);
     if (settings.modules.ssa == StepSizeAdaptation::LPXNES)
         beta = std::log(2.0) / (std::sqrt(d) * std::log(d));
 

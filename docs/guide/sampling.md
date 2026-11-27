@@ -28,9 +28,10 @@ distribution of z, by default the standard normal.
 
 ## Step sizes per point and threshold convergence
 
-* `sample_sigma=True`: each point gets its own step size per coordinate, σ·exp(βn) with n
-  standard normal (log-normal around σ); always on with the step-size adaptations `SA` and
-  `LPXNES`.
+* `sample_sigma=True`: each point gets its own step size, σ·exp(βn) with n standard normal
+  (log-normal around σ), the same in every coordinate, so the point stays along its y; always on
+  with the step-size adaptations `SA` (β = 1/√(2d)) and `LPXNES` (β = ln 2/(√d ln d)); otherwise
+  β = 1/√(2µ_eff).
 * `threshold_convergence=True`: the mutations must be at least a minimum length, which decreases
   over the run; it prolongs the exploration of the beginning (Piad-Morffis et al. 2015).
 

@@ -84,9 +84,9 @@ class Modules:
     @property
     def sample_sigma(self) -> bool:
         """
-        bool, default False: every individual samples its own step sizes.
+        bool, default False: every individual samples its own step size.
 
-        The step sizes are drawn from a log-normal distribution around sigma, with learning rate Weights.beta (self-adaptation).
+        One step size per individual, the same in every coordinate, drawn from a log-normal distribution around sigma, sigma exp(beta n), with learning rate Weights.beta (self-adaptation). Always on with ssa SA and LPXNES.
         """
 
     @sample_sigma.setter
@@ -185,7 +185,7 @@ class Modules:
         """
         options.MatrixAdaptationType, default COVARIANCE: the adaptation of the shape of the search distribution.
 
-        Settings replaces COVARIANCE by COVARIANCE_NO_EIGV when ssa is not CSA (unless always_compute_eigv). See modcma.c_maes.options.MatrixAdaptationType.
+        Settings replaces COVARIANCE by COVARIANCE_NO_EIGV when ssa is not CSA, also for lambda0 = 1, which runs SR (unless always_compute_eigv). See modcma.c_maes.options.MatrixAdaptationType.
         """
 
     @matrix_adaptation.setter
@@ -572,9 +572,9 @@ class Weights:
     @property
     def beta(self) -> float:
         """
-        The learning rate of the sampled step sizes (sample_sigma).
+        The learning rate of the sampled step sizes (sample_sigma): the standard deviation of the logarithm of an individual's step size.
 
-        1 / sqrt(2 mueff); log(2) / (sqrt(d) log(d)) with LPXNES.
+        1 / sqrt(2 d) with SA (CMSA's tau, Beyer & Sendhoff 2008); log(2) / (sqrt(d) log(d)) with LPXNES (Krause et al. 2017, Table 3); 1 / sqrt(2 mueff) otherwise.
         """
 
     @beta.setter
@@ -646,9 +646,9 @@ class Settings:
 
         - with mirrored PAIRWISE, an odd lambda0 above 1 is increased by one;
         - with ssa SA or matrix_adaptation CMSA, the default mu0 is lambda0 // 4;
-        - when ssa is not CSA, matrix_adaptation COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);
         - with matrix_adaptation NONE, active is turned off;
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, mirrored PAIRWISE becomes NONE, and IPOP or BIPOP become RESTART;
+        - then, when ssa is not CSA (so also for lambda0 = 1), matrix_adaptation COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);
         - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim; center is computed per coordinate (see `center`).
 
         Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above ub, an integer variable without an integer value in [lb, ub], a budget smaller than the first generation and the evaluation of the final center of mass, or a C0 that is not a symmetric positive definite (dim, dim) matrix (or with matrix_adaptation NONE).

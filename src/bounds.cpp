@@ -48,6 +48,26 @@ void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters &p)
     p.adaptation->invert_y_into(p.pop.Y.col(i), p.pop.Z.col(i));
 }
 
+Vector BoundCorrection::correct_point(const Vector &xi,
+                                      const Float sigma,
+                                      const parameters::Settings &settings)
+{
+    if (!bounds::any_out_of_bounds(xi, settings.lb, settings.ub))
+        return xi;
+    switch (settings.modules.bound_correction)
+    {
+    case parameters::CorrectionMethod::NONE:
+        return xi;
+    case parameters::CorrectionMethod::RESAMPLE:
+        // A point that is not a sample cannot be sampled again: clipped, as the center of mass
+        // (Parameters::center_of_mass)
+        return xi.cwiseMax(settings.lb).cwiseMin(settings.ub);
+    default:
+        return correct_x(
+            xi, bounds::is_out_of_bounds(xi, settings.lb, settings.ub), sigma, settings);
+    }
+}
+
 Vector BoundCorrection::correct_x(const Vector &xi,
                                   const Mask &oob,
                                   const Float sigma,

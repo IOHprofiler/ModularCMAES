@@ -99,7 +99,7 @@ class Adaptation:
     @property
     def dm(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The last step of the mean divided by the step size, (m - m_old) / sigma, shape (d,), with sigma the mean step size of the population.
+        The last step of the mean in units of the step size, (m - m_old) / s, shape (d,), with s per coordinate the step size recombined from the mu selected individuals, sum_i w_i S_i (Hansen 2016, Eq. (24)): sigma when they all have the step size sigma; sigma raised by the lower bound of an integer variable (then dm = sum_i w_i y_i, as Marty et al. 2024); the recombined sampled step size with sample_sigma, SA and LPXNES.
         """
 
     @dm.setter
@@ -168,7 +168,7 @@ class Adaptation:
         """
         Update dm, dz and the evolution paths after selection.
 
-        Computes dm = (m - m_old) / sigma, dz = sum_i w_i z_i over the mu best (every point, with the utilities of `RecombinationWeights.UTILITY`), then the update of the subclass (ps, and pc where there is one). Called by `es.adapt()` before the step-size and matrix updates.
+        Computes dm = (m - m_old) / sum_i w_i S_i (per coordinate, over the mu best) and dz = sum_i w_i z_i over the mu best (every point, with the utilities of `RecombinationWeights.UTILITY`), then the update of the subclass (ps, and pc where there is one). Called by `es.adapt()` before the step-size and matrix updates.
 
         Parameters
         ----------
@@ -344,7 +344,7 @@ class CovarianceAdaptation(Adaptation):
     """
     The covariance matrix adaptation of CMA-ES (`MatrixAdaptationType.COVARIANCE`, the default).
 
-    C receives a rank-one update from the evolution path pc and a rank-mu update from the selected steps (with `Modules.active`, negative weights for the worst steps), and is decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = 1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the step-size adaptation is not CSA (unless `always_compute_eigv`). Hansen & Ostermeier (2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.
+    C receives a rank-one update from the evolution path pc and a rank-mu update from the selected steps (with `Modules.active`, negative weights for the worst steps), and is decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = 1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the step-size adaptation is not CSA, also for lambda0 = 1, which runs SR (unless `always_compute_eigv`). Hansen & Ostermeier (2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:

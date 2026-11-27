@@ -54,11 +54,11 @@ tuner does not spend evaluations on it.
 | `active` | `matrix_adaptation` is `NONE`, or `lambda0` is 1 |
 | `center_placement`, `repelling_type` | `restart_strategy` is `STOP` |
 | `repelling_metric` | `repelling_type` is `NONE` |
-| `cs` | `ssa` is `SR` or `SA`, and `matrix_adaptation` is `NONE`, `CHOLESKY` or `CMSA` |
+| `cs` | `ssa` is `SR` or `SA` (or `lambda0` is 1, which runs `SR`), and `matrix_adaptation` is `NONE`, `CHOLESKY` or `CMSA` |
 | `damps` | `ssa` is `TPA`, `XNES`, `MXNES`, `LPXNES` or `SA`, and `lambda0` is above 1 (a (1+1)-ES runs `SR`) |
 | `cc` | `matrix_adaptation` is `NONE`, `MATRIX` or `CMSA` |
 | `cmu`, `c1` | `matrix_adaptation` is `NONE`, or `CMSA` or `NATURAL_GRADIENT` without `active` |
-| `mu0`, `elitist`, `sequential_selection`, `weights` | `lambda0` is 1 (a (1+1)-ES: mu = 1, elitist, equal weights; `Settings` overrides them) |
+| `mu0`, `elitist`, `sequential_selection`, `weights`, `ssa` | `lambda0` is 1 (a (1+1)-ES: mu = 1, elitist, equal weights, `SR`; `Settings` overrides them) |
 
 A hyperparameter is inactive only where the C++ code never reads the parameter; the file and line
 of each reason are in the comment of `_INACTIVE_FOR` in `modcma/c_maes/__init__.py`. Where it is read
@@ -76,8 +76,9 @@ are not hyperparameters.
   as mutations, which fails everywhere ([compatibility](compatibility.md)). `Settings` accepts it,
   and `get_all_module_options` lists it.
 * `Settings` replaces `matrix_adaptation=COVARIANCE` by `COVARIANCE_NO_EIGV` for every `ssa` other
-  than `CSA`, so the two are the same configuration there. The space forbids `COVARIANCE` with
-  those; `get_configspace(remove_duplicates=False)` keeps it.
+  than `CSA`, and for `lambda0` = 1 (which runs `SR`), so the two are the same configuration
+  there. The space forbids `COVARIANCE` with those; `get_configspace(remove_duplicates=False)`
+  keeps it.
 * `IPOP` and `BIPOP` with `lambda0` = 1 are forbidden: `Settings` runs `RESTART` there; so is
   `mirrored=PAIRWISE` with `lambda0` = 1, which `Settings` turns into `NONE`.
 * Not removed, so the space holds the same algorithm more than once:

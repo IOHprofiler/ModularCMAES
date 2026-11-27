@@ -145,7 +145,8 @@ the [deep dives](../deep-dives/index.md). The main adjustments:
 
 * `ssa` other than `CSA` with `matrix_adaptation=COVARIANCE`: `COVARIANCE_NO_EIGV` is used, the
   same covariance update sampled through a Cholesky factor, because only CSA needs the
-  eigendecomposition (unless `always_compute_eigv=True`).
+  eigendecomposition (unless `always_compute_eigv=True`). The same for `lambda0=1`, which runs
+  `SR` whatever `ssa` is.
 * `ssa=SA` or `matrix_adaptation=CMSA`: µ defaults to λ/4 instead of λ/2.
 * `matrix_adaptation=NONE`: `active` is switched off (there is no matrix to update).
 * `mirrored=PAIRWISE`: λ is made even (for λ above 1), and the default µ is half the even λ.

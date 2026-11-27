@@ -81,7 +81,7 @@ BOUND_CORRECTION = "bound_correction"
 OPTION_FIELDS = ("center_placement", "repelling_metric", "sample_sigma")
 
 RULES = """\
-sample_sigma is forced on for SA and LPXNES (src/mutation.cpp:434)
+sample_sigma is forced on for SA and LPXNES (src/mutation.cpp:524)
 sequential selection with PAIRWISE stops at 2 mu at the earliest, the whole generation when
   2 mu >= lambda (include/mutation.hpp:58, src/mutation.cpp:43)
 STOP never restarts: center placement and repelling have no effect (NONE restarts when

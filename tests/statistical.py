@@ -111,6 +111,26 @@ CONFIGS = {
     "ipop_sa": {"restart_strategy": "IPOP", "ssa": "SA"},
     "restart_max_iter": {"restart_strategy": "RESTART", "max_iter": 30},
     "ipop_max_iter": {"restart_strategy": "IPOP", "max_iter": 30},
+    # #71: one sampled step size per individual (SA, LPXNES, sample_sigma); dm divided by the
+    # recombined step size
+    "sa": {"ssa": "SA"},
+    "sa_cmsa_equal": {"ssa": "SA", "matrix_adaptation": "CMSA", "weights": "EQUAL"},
+    "sa_elitist": {"ssa": "SA", "elitist": True},
+    "lpxnes": {"ssa": "LPXNES"},
+    "sample_sigma": {"sample_sigma": True},
+    "sample_sigma_tpa": {"sample_sigma": True, "ssa": "TPA"},
+    # #98: TPA's points corrected into the box (a box of +-4: BBOB's optima lie in [-4, 4]^d)
+    "tpa_saturate": {"ssa": "TPA", "bound_correction": "SATURATE", "box": 4.0},
+    "tpa_mirror": {"ssa": "TPA", "bound_correction": "MIRROR", "box": 4.0},
+    "tpa_cotn": {"ssa": "TPA", "bound_correction": "COTN", "box": 4.0},
+    "tpa_toroidal": {"ssa": "TPA", "bound_correction": "TOROIDAL", "box": 4.0},
+    "tpa_uniform_resample": {"ssa": "TPA", "bound_correction": "UNIFORM_RESAMPLE", "box": 4.0},
+    "tpa_resample": {"ssa": "TPA", "bound_correction": "RESAMPLE", "box": 4.0},
+    # #120: PSR's ties (certain with elitism)
+    "psr_elitist": {"ssa": "PSR", "elitist": True},
+    # #131: lambda0 = 1 runs SR whatever ssa is (one_plus_one above is the default, CSA)
+    "one_plus_one_tpa": {"lambda0": 1, "ssa": "TPA"},
+    "one_plus_one_sa": {"lambda0": 1, "ssa": "SA"},
 }
 
 #: Settings arguments next to the module options
@@ -134,8 +154,11 @@ def run_one(task):
     modules = c_maes.Modules()
     extra = {}  # Settings arguments (lambda0, mu0) next to the module options
     max_iter = None  # the most generations of a run (restart.Strategy.max_iter)
+    box = 5.0  # the box [-box, box]^d
     for name, value in CONFIGS[config].items():
-        if name in SETTINGS:
+        if name == "box":
+            box = value
+        elif name in SETTINGS:
             extra[name] = value
         elif name == "max_iter":
             max_iter = value
@@ -146,8 +169,8 @@ def run_one(task):
         dim,
         modules,
         budget=BUDGET_PER_DIM * dim,
-        lb=np.full(dim, -5.0),
-        ub=np.full(dim, 5.0),
+        lb=np.full(dim, -box),
+        ub=np.full(dim, box),
         verbose=False,
         **extra,
     )

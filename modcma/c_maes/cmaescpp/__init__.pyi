@@ -275,7 +275,7 @@ class Population:
         """
         (d, n) array: the step size of every individual and coordinate.
 
-        Every entry is sigma, unless sample_sigma is on (each individual draws its own step sizes around sigma) or the lower bound of an integer variable raises it.
+        Every entry is sigma, unless sample_sigma is on (each individual draws its own step size around sigma, the same in its whole column) or the lower bound of an integer variable raises it.
         """
 
     @S.setter

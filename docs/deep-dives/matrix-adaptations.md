@@ -89,17 +89,16 @@ factorized by a Cholesky decomposition every generation; µ = λ/4 by default.
 **Differences from Beyer & Sendhoff (2008).**
 
 * The step size is not self-adapted unless `ssa=SA` is set: the default is CSA.
-* With `ssa=SA`, each point gets its own step size, but *known issue* [F1]: one per coordinate
-  instead of one per point, which breaks rotation invariance (CMSA with SA fails on a rotated
-  ellipsoid, CMSA with CSA solves it).
+* With `ssa=SA`, each point gets its own step size, σᵢ = σ·exp(nᵢ/√(2d)), with CMSA's
+  τ = 1/√(2d). It was one per coordinate until #71, which broke rotation invariance: CMSA with SA
+  solved 0 of 5 rotated ellipsoids (d = 10), and solves 10 of 10 now.
 * σ is recombined as a weighted geometric mean normalized by the population's (the weighted SA
   operator with Ahrari et al.'s correction, as the framework paper describes).
 * The weights are the CMA-ES log weights with µ_eff; `weights=EQUAL` gives the original
   intermediate recombination.
 * *Known issue* [F6]: the active update breaks it.
 
-**Closest configuration:** `matrix_adaptation=CMSA`, `ssa=SA`, `weights=EQUAL` (until F1 is fixed,
-`ssa=CSA` works better).
+**Closest configuration:** `matrix_adaptation=CMSA`, `ssa=SA`, `weights=EQUAL`.
 
 ## NATURAL_GRADIENT: xNES
 
@@ -148,11 +147,11 @@ damps; the active update is off. The same as pycma with `CMA_on=False`, but for 
 | matrix adaptation | named after | closest configuration | main remaining differences |
 |---|---|---|---|
 | `COVARIANCE` | CMA-ES (Hansen 2016, pycma) | `active=True` | pycma's cs (+ 3, capped at 1/2), cµ offset and h_σ form |
-| `COVARIANCE_NO_EIGV` | (none) | with a step-size rule other than CSA | rotated step-size path |
+| `COVARIANCE_NO_EIGV` | (none) | with a step-size rule other than CSA, or λ = 1 | rotated step-size path |
 | `SEPARABLE` | sep-CMA-ES (Ros & Hansen 2008) | defaults | c1, cc not scaled |
 | `MATRIX` | MA-ES (Beyer & Sendhoff 2017) | defaults | CMA-ES learning rates |
 | `CHOLESKY` | Cholesky-CMA-ES (Krause et al. 2016) | defaults | no h_σ |
-| `CMSA` | CMSA-ES (Beyer & Sendhoff 2008) | `ssa=SA`, `weights=EQUAL` | sampled step sizes per coordinate [F1] |
+| `CMSA` | CMSA-ES (Beyer & Sendhoff 2008) | `ssa=SA`, `weights=EQUAL` | σ recombined as a normalized geometric mean (Ahrari et al.) |
 | `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010) | `ssa=XNES`, `weights=UTILITY` | none measurable |
 | `NONE` | CSA-ES | defaults | |
 

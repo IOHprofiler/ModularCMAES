@@ -1,15 +1,30 @@
 # Step-size adaptation compared with the published rules
 
-In modcma a point is x = m + σ·y with y = A z (or m + S∘y with sampled step sizes S). The step-size
+In modcma a point is x = m + σ·y with y = A z (or m + σᵢ·y with a sampled step size σᵢ per point;
+the lower bound of integer variables raises single coordinates of the step size). The step-size
 rule runs after the evolution paths and before the matrix update, for every matrix adaptation.
-When the rule is not CSA and the matrix adaptation is `COVARIANCE`, the Settings switch to
-`COVARIANCE_NO_EIGV` ([compatibility](../guide/compatibility.md)).
+When the rule is not CSA (or λ = 1, which runs SR) and the matrix adaptation is `COVARIANCE`, the
+Settings switch to `COVARIANCE_NO_EIGV` ([compatibility](../guide/compatibility.md)).
 
 ## CSA
 
 **What modcma does.** σ ← σ·exp(clip((cs/damps)(‖p_σ‖/E‖z‖ − 1), −1, 1)), with
-p_σ ← (1 − cs) p_σ + √(cs(2 − cs)µ_eff)·v, where v = C^-1/2 Δm/σ for `COVARIANCE` and the weighted
-sum of the selected z for every other matrix adaptation (the same vector when the points are m + σAz).
+p_σ ← (1 − cs) p_σ + √(cs(2 − cs)µ_eff)·v, where v = C^-1/2 Δm for `COVARIANCE` and v = Σ wᵢzᵢ,
+the weighted sum of the selected z, for every other matrix adaptation. Δm is the step of the mean
+in units of the step size, (m' − m)/σ (Hansen 2016, Eq. (24)), with σ per coordinate the step size
+recombined from the selected points, Σ wᵢsᵢ:
+
+* σ when every selected point has the step size σ; then C^-1/2 Δm = B Σ wᵢzᵢ;
+* σ raised by the lower bound of an integer variable in its coordinate: Δm = Σ wᵢyᵢ, the
+  increment of the paths of Marty et al. (2024), Eqs. (5) and (7) (pycma divides by σ and
+  `sigma_vec`);
+* with sampled step sizes (`sample_sigma`, `SA`, `LPXNES`), the recombined step size, as CMSA
+  recombines its ⟨σ⟩ (Spettel, Beyer & Hellwig 2018, Alg. 3, line 33).
+
+It was the step of the mean divided by the mean of all step sizes of the population (#71). On a
+mixed-integer ellipsoid (d = 10, 5 integer variables, 25 runs) the median evaluations went from
+6351 to 2461; dividing by σ alone took 9881.
+
 E‖z‖ is the expected length of the sampler: the χ_d approximation for Gaussian samples, E‖z‖ of
 the distribution for the other unit-variance transformations, an empirical median for Cauchy.
 
@@ -25,7 +40,8 @@ logistic and double-Weibull transformations their own, not √d as before 2.0
 ## TPA: two-point adaptation
 
 **What modcma does.** Two extra points per generation, x± = m ± σ·Δm (Δm the last mean shift in
-units of σ), evaluated with the population (in its first batch: they do not depend on its values);
+units of the step size, as for [CSA](#csa)), evaluated with the population (in its first batch:
+they do not depend on its values);
 s ← (1 − c)s + c·r with r = −0.5 when f(x−) < f(x+) and 0.5 otherwise, c = 0.3, then σ ← σ·eˢ.
 With ask–tell, `ask()` returns λ + 2 points.
 
@@ -35,6 +51,17 @@ and damps the update by 0.7 + 2 ln d + …; modcma follows the Python implementa
 (and ModEA). A tie (f(x−) = f(x+), as after a restart, when Δm = 0) gives r = 0, as the sign of
 the rank difference in pycma. Before 2.0 a tie counted as a success: σ grew by 16 % after every
 restart, and diverged with elitism.
+
+**Bounds.** With a bound correction other than `NONE`, both points move toward m by the same
+factor until both are in the box, then their integer coordinates are rounded. The test steps stay
+symmetric about m, as Hansen (2008, Sec. 2.2) chooses them; Hansen (2008) has no bounds. pycma
+passes them through its boundary handler like every other solution, which moves each point on
+its own. Corrected one by one with the method of the samples, TPA compared two points at
+different distances from m and lost runs on BBOB (box ±4): `TOROIDAL` and `UNIFORM_RESAMPLE`
+reached 1e-8 in 16 and 13 fewer of 350 runs than with the points left outside the box, and
+clipped points (for `RESAMPLE`) solved f2 (d = 20) in 10 to 15 of 25 runs instead of 25. The
+method moves the points only when m itself is outside the box. The points were only rounded
+before, so TPA evaluated points outside the box, and one could be reported as the best (#98).
 
 ## MSR: median success rule
 
@@ -70,6 +97,13 @@ compares their ranks:
 These constants are those of Loshchilov (2014), Alg. 6. Before 2.0, modcma used c = 0.9 and
 d_σ = 2 − 2/d; the Python implementation used c = 0.4.
 
+The paper does not say how equal values are ranked. modcma gives them the mean of their ranks
+(mid-ranks, as in rank tests), so a tie counts for neither generation. With elitism the parents
+are in both generations: about 3 of the 10 values tie in every generation (d = 10). The order of
+the previous generation's ranking decided before (#120). Index order, the current generation
+first, would count each tied parent as a success of 1/n² in z; on BBOB with elitism it took 7 to
+24 % more evaluations than mid-ranks on f1, f2 and f10.
+
 ## XNES, MXNES, LPXNES
 
 * **XNES with `NATURAL_GRADIENT`** is xNES's rule: σ ← σ·exp((η_σ/2)·tr(G)/d), from the natural
@@ -79,9 +113,10 @@ d_σ = 2 − 2/d; the Python implementation used c = 0.4.
   framework paper's description of the xNES rule (the length of the weighted mean of z) is MXNES.
 * **MXNES** (m-xNES, Krause, Glasmachers & Igel 2017): σ ← σ·exp((cs/d)(µ_eff‖Σwᵢzᵢ‖² − d)), cs = 1:
   the length of the mean step, unbiased under random selection.
-* **LPXNES** (lp-xNES, same paper): each point samples its own step sizes (log-normal around σ,
-  β = ln 2/(√d ln d)), and σ ← σ·exp(cs·Σ wᵢ·mean log(Sᵢ/σ)) with cs = 9µ_eff/(10√d). *Known
-  issues*: the step sizes are per coordinate [F1]; β is infinite at d = 1 [F16].
+* **LPXNES** (lp-xNES, same paper, Sec. 4.4): each point samples its own step size σᵢ (log-normal
+  around σ, β = ln 2/(√d ln d)), and σ ← σ·exp(cs·Σ wᵢ log(σᵢ/σ)) with cs = 9µ_eff/(10√d), the
+  paper's values (its Table 3). One step size per point, as in the paper; it was drawn per
+  coordinate (#71). *Known issue*: β is infinite at d = 1 [F16].
 
 ## SR: success rule
 
@@ -113,12 +148,16 @@ is to be corrected: "the best so far", or SR described for elitist selection (#8
 
 ## SA: self-adaptation
 
-**What modcma does.** Each point samples its step size (log-normal around σ, β = 1/√(2µ_eff)); σ
-moves to the weighted geometric mean of the selected points' step sizes divided by the geometric
-mean over the population: the weighted CMSA operator with the correction of Ahrari et al. (2017),
-as the framework paper describes. µ = λ/4 by default. *Known issue* [F1]: the step sizes are drawn
-per coordinate, which breaks rotation invariance; the paper and the Python implementation draw one
-per point.
+**What modcma does.** Each point samples its step size σᵢ = σ·exp(β nᵢ), one per point, with
+β = 1/√(2d), CMSA's τ (Beyer & Sendhoff 2008, as restated by Spettel, Beyer & Hellwig 2018,
+Alg. 3 and Table I); σ moves to the weighted geometric mean of the selected points' step sizes
+divided by the geometric mean over the population: the weighted CMSA operator with the correction
+of Ahrari et al. (2017), as the framework paper describes. µ = λ/4 by default.
+
+The step sizes were drawn per coordinate, with β = 1/√(2µ_eff), until #71: the points were not
+along y (no rotation invariance), and the signal of SA was averaged over d draws. CMSA with SA
+solved 0 of 5 rotated ellipsoids (d = 10); with one step size per point it solves 10 of 10. The
+paper and the Python implementation draw one per point.
 
 ## Which rule with which matrix adaptation
 
@@ -129,5 +168,5 @@ per point.
 | `MSR`, `PSR` | the f-values of two generations | every | with pairwise selection the ranked points only |
 | `XNES` | the natural gradient, or the lengths of z | `NATURAL_GRADIENT` (xNES's rule; with `weights=UTILITY` all of xNES) | slow elsewhere [F27] |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
-| `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | per coordinate [F1] |
+| `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | |
 | `SR` | successes against the best of the run | λ = 1 (automatic) | one success per generation for λ > 1 |

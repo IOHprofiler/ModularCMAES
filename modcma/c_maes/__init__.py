@@ -165,15 +165,15 @@ _EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
 #:   648, 771), so CMSA and NATURAL_GRADIENT read them only with `active`. NONE reads no
 #:   weights (it has no matrix update).
 #: * `active`: read by every adaptation but NONE (matrix_adaptation.cpp:165, 401, 464, 590, 647,
-#:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:204, 213).
-#: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:210).
-#: * `elitist`, `sequential_selection`, `weights`: Settings overrides them for lambda0 = 1, a
-#:   (1+1)-ES (settings.hpp:208-216). `ssa` is overridden too (SR), but not before Settings turns
-#:   COVARIANCE into COVARIANCE_NO_EIGV for an `ssa` other than CSA (settings.hpp:179-184), so it
-#:   stays active. The (1+1)-ES runs SR, which reads `damps` (mutation.cpp:372), so `damps`
-#:   is also active for lambda0 = 1.
-#: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:218-220): forbidden.
-#: * `mirrored` PAIRWISE becomes NONE for lambda0 = 1 (settings.hpp:167-168, #136): forbidden.
+#:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:205, 214).
+#: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:211).
+#: * `elitist`, `sequential_selection`, `weights`, `ssa`: Settings overrides them for lambda0 = 1,
+#:   a (1+1)-ES (settings.hpp:209-222). Settings turns COVARIANCE into COVARIANCE_NO_EIGV after
+#:   that, from the `ssa` that runs, SR (settings.hpp:224-232, #131), so `ssa` is never read and
+#:   COVARIANCE with lambda0 = 1 is COVARIANCE_NO_EIGV: forbidden. The (1+1)-ES runs SR, which
+#:   reads `damps` (mutation.cpp:372), so `damps` is active for lambda0 = 1.
+#: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:219-221): forbidden.
+#: * `mirrored` PAIRWISE becomes NONE for lambda0 = 1 (settings.hpp:170-171, #136): forbidden.
 #: * `center_placement`, `repelling_type`: used when a run restarts (parameters.cpp:127,
 #:   `Parameters::begin_restart`, repelling.cpp:174). The restart criteria of every strategy but
 #:   STOP include UnableToAdapt (restart_criteria.cpp:403), so NONE restarts when the adaptation
@@ -190,7 +190,7 @@ _INACTIVE_FOR = {
     "repelling_metric": {"repelling_type": ("NONE",)},
 }
 #: Modules that Settings overrides for lambda0 = 1
-_ONE_PLUS_ONE_OVERRIDDEN = ("elitist", "sequential_selection", "weights")
+_ONE_PLUS_ONE_OVERRIDDEN = ("elitist", "sequential_selection", "weights", "ssa")
 #: `c1` and `cmu` also when `active` with these matrix adaptations (see above)
 _ACTIVE_ONLY_MATRIX = ("CMSA", "NATURAL_GRADIENT")
 _NO_MATRIX_UPDATE_OF_C = ("NONE", "CMSA", "NATURAL_GRADIENT")
@@ -248,7 +248,9 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
         for child in _ONE_PLUS_ONE_OVERRIDDEN:
             cspace.add(GreaterThanCondition(cspace[child], cspace["lambda0"], 1))
 
-    if remove_duplicates and "CSA" in options["ssa"]:
+    if not remove_duplicates:
+        return
+    if "CSA" in options["ssa"]:
         # Settings turns COVARIANCE into COVARIANCE_NO_EIGV unless ssa is CSA
         others = [o for o in options["ssa"] if o != "CSA"]
         cspace.add(
@@ -256,22 +258,32 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
                 ForbiddenEqualsClause(matrix, "COVARIANCE"), ForbiddenInClause(ssa, others)
             )
         )
-        if "lambda0" in present and "restart_strategy" in options:
-            ipop = [o for o in ("IPOP", "BIPOP") if o in options["restart_strategy"]]
-            cspace.add(
-                ForbiddenAndConjunction(
-                    ForbiddenEqualsClause(cspace["lambda0"], 1),
-                    ForbiddenInClause(cspace["restart_strategy"], ipop),
-                )
+    if "lambda0" not in present:
+        return
+    # A (1+1)-ES runs SR whatever ssa is, so COVARIANCE becomes COVARIANCE_NO_EIGV (#131)
+    if "COVARIANCE" in options["matrix_adaptation"]:
+        cspace.add(
+            ForbiddenAndConjunction(
+                ForbiddenEqualsClause(cspace["lambda0"], 1),
+                ForbiddenEqualsClause(matrix, "COVARIANCE"),
             )
-        # Settings turns PAIRWISE into NONE for lambda0 = 1 (#136)
-        if "lambda0" in present and "PAIRWISE" in options.get("mirrored", ()):
-            cspace.add(
-                ForbiddenAndConjunction(
-                    ForbiddenEqualsClause(cspace["lambda0"], 1),
-                    ForbiddenEqualsClause(cspace["mirrored"], "PAIRWISE"),
-                )
+        )
+    if "restart_strategy" in options:
+        ipop = [o for o in ("IPOP", "BIPOP") if o in options["restart_strategy"]]
+        cspace.add(
+            ForbiddenAndConjunction(
+                ForbiddenEqualsClause(cspace["lambda0"], 1),
+                ForbiddenInClause(cspace["restart_strategy"], ipop),
             )
+        )
+    # Settings turns PAIRWISE into NONE for lambda0 = 1 (#136)
+    if "PAIRWISE" in options.get("mirrored", ()):
+        cspace.add(
+            ForbiddenAndConjunction(
+                ForbiddenEqualsClause(cspace["lambda0"], 1),
+                ForbiddenEqualsClause(cspace["mirrored"], "PAIRWISE"),
+            )
+        )
 
 
 def get_configspace(
@@ -316,18 +328,18 @@ def get_configspace(
     - `cc` is inactive for `matrix_adaptation` `NONE`, `MATRIX` and `CMSA`;
     - `cmu` and `c1` are inactive for `NONE`, and for `CMSA` and
       `NATURAL_GRADIENT` without `active` (with `active` they scale the negative weights);
-    - `mu0`, `elitist`, `sequential_selection` and `weights` need `lambda0` above 1
-      (a (1+1)-ES has mu = 1, is elitist, with equal weights); it runs `SR` whatever `ssa` is, but
-      `ssa` stays, since it decides whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`; `damps`
-      is active for `lambda0` = 1, which runs `SR`.
+    - `mu0`, `elitist`, `sequential_selection`, `weights` and `ssa` need `lambda0` above 1
+      (a (1+1)-ES has mu = 1, is elitist, with equal weights, and runs `SR` whatever `ssa` is);
+      `damps` is active for `lambda0` = 1, which runs `SR`.
 
     A hyperparameter is inactive only where the C++ code never reads it; the evidence, with file
     and line, is in the comment of `_INACTIVE_FOR` in the source.
 
     `Settings` replaces `matrix_adaptation=COVARIANCE` by `COVARIANCE_NO_EIGV` for every `ssa` but
-    `CSA`, so the two are one configuration there. With `remove_duplicates`, `COVARIANCE` with
-    another `ssa` than `CSA` is forbidden, and so are `IPOP` or `BIPOP` (`RESTART` there) and
-    `mirrored=PAIRWISE` (`NONE` there) with `lambda0` = 1. Two duplicates stay:
+    `CSA`, and for `lambda0` = 1 (which runs `SR`), so the two are one configuration there. With
+    `remove_duplicates`, `COVARIANCE` with another `ssa` than `CSA` or with `lambda0` = 1 is
+    forbidden, and so are `IPOP` or `BIPOP` (`RESTART` there) and `mirrored=PAIRWISE` (`NONE`
+    there) with `lambda0` = 1. Two duplicates stay:
     `mirrored=PAIRWISE` makes an odd `lambda0` above 1 even, so `lambda0` = k and k + 1 (k odd,
     k > 1) are one configuration; and with mu = lambda
     `active` and `sequential_selection` have nothing to act on (there are no negative weights, no
@@ -351,8 +363,8 @@ def get_configspace(
         Add `cs`, `cc`, `cmu`, `c1` and `damps`.
     remove_duplicates : bool, default True
         Forbid the configurations that `Settings` turns into another one of the space
-        (`COVARIANCE` with an `ssa` other than `CSA`; `IPOP`, `BIPOP` or `mirrored=PAIRWISE` with
-        `lambda0` = 1).
+        (`COVARIANCE` with an `ssa` other than `CSA`; `COVARIANCE`, `IPOP`, `BIPOP` or
+        `mirrored=PAIRWISE` with `lambda0` = 1).
 
     Returns
     -------
