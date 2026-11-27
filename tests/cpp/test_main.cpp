@@ -349,9 +349,11 @@ static void test_lapack_fallback()
         parameters::Modules m;
         m.matrix_adaptation = type;
         parameters::Settings settings(4, m);
+        settings.seed = 1; // not random_device (#141)
         ModularCMAES es(settings);
         FunctionType sphere = [](Eigen::Ref<const Vector> x) { return x.squaredNorm(); };
-        for (int g = 0; g < 60; g++)
+        // 200 generations: 60 reached 1e-6 in only ~95% of seeds; over seeds 1..300 200 give <= 2e-21
+        for (int g = 0; g < 200; g++)
             es.step(sphere);
         CHECK(es.p->stats.centers.empty()); // no restart: every decomposition succeeded
         CHECK(es.p->stats.global_best.y < 1e-6);
