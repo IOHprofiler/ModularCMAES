@@ -410,6 +410,59 @@ static void test_c0_assigned_directly()
     }
 }
 
+// #136: a field assigned directly (C++ only; Python goes through the setters, which check each
+// field) is checked when an optimizer is created from the settings
+static void test_settings_checked_at_creation()
+{
+    const auto rejected = [](const parameters::Settings &settings) {
+        try
+        {
+            parameters::Parameters p(settings);
+        }
+        catch (const std::invalid_argument &)
+        {
+            return true;
+        }
+        return false;
+    };
+    parameters::Settings valid(3);
+    CHECK(!rejected(valid));
+    {
+        auto s = valid;
+        s.mu0 = 0; // its own check
+        CHECK(rejected(s));
+    }
+    {
+        auto s = valid;
+        s.sigma0 = std::numeric_limits<Float>::quiet_NaN();
+        CHECK(rejected(s));
+    }
+    {
+        auto s = valid;
+        s.lb(1) = 6.0; // between fields: lb above ub
+        CHECK(rejected(s));
+    }
+    {
+        auto s = valid;
+        s.lb(0) = std::numeric_limits<Float>::infinity(); // its own check (#133)
+        CHECK(rejected(s));
+    }
+    {
+        auto s = valid;
+        s.lambda0 = 2; // mu0 = 3 above lambda0
+        CHECK(rejected(s));
+        s.set_lambda0(2); // the setter recomputes the default mu0
+        CHECK(s.mu0 == 1 && !rejected(s));
+    }
+    {
+        auto s = valid;
+        s.set_lb(Vector::Constant(3, 6.0)); // the setters take any order
+        CHECK(rejected(s));
+        s.set_ub(Vector::Constant(3, 10.0));
+        CHECK(!rejected(s) && s.center.isApproxToConstant(8.0));
+    }
+}
+
 int main()
 {
     test_uniform_is_open_interval();
@@ -423,6 +476,7 @@ int main()
     test_natural_gradient_low_rank_update();
     test_functions();
     test_c0_assigned_directly();
+    test_settings_checked_at_creation();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

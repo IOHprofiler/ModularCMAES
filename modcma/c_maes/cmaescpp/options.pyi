@@ -113,7 +113,7 @@ class Mirror(enum.Enum):
 
     PAIRWISE = 2
     """
-    Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored pair only the better one can be selected, so that the two do not cancel out in the recombination. Makes lambda even.
+    Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored pair only the better one can be selected, so that the two do not cancel out in the recombination. Makes lambda even; with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE.
     """
 
 class StepSizeAdaptation(enum.Enum):

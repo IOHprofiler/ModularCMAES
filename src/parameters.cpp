@@ -2,15 +2,22 @@
 
 namespace parameters
 {
-static const Settings &checked(const Settings &settings)
+namespace
 {
-    settings.validate_box();
+//! The settings, after every check (Settings::require_valid): the setters check only their own
+//! field, so the checks between fields (the box, #133; the population and the budget, #136) run
+//! again here, before anything is built from them
+const Settings &valid(const Settings &settings)
+{
+    settings.require_valid();
     return settings;
 }
+} // namespace
 
 Parameters::Parameters(const Settings &settings) :
     successful_adaptation(true),
-    lambda(checked(settings).lambda0),
+    // The first member built from the settings: they are checked here
+    lambda(valid(settings).lambda0),
     mu(settings.mu0),
     settings(settings),
     stats{},
