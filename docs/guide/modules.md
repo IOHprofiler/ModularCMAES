@@ -25,15 +25,8 @@ matrix, or a factor of it). Each module replaces one of those parts:
 | `repelling_metric` | `EUCLIDEAN`, `CURRENT`, `ARCHIVED` | the distance used by repelling restarts | [restarts](restarts.md) |
 | `bound_correction` | `NONE`, `MIRROR`, `COTN`, `UNIFORM_RESAMPLE`, `SATURATE`, `TOROIDAL`, `RESAMPLE` | what happens to points outside the bounds | [bound correction](bound-correction.md) |
 
-The 17 modules have 2,194,698,240 combinations of options, but not every combination is a
-different algorithm: `Settings` converts some into others (`COVARIANCE` becomes
-`COVARIANCE_NO_EIGV` unless `ssa` is `CSA`), and some options have no effect in some combinations
-(`active` without a matrix adaptation, repelling without restarts; see
-[compatibility](compatibility.md)). Leaving these out, 686,685,216 distinct variants remain with
-the default parameters. The count comes from the code (`tools/count_variants.py`); it does not
-apply equivalences that depend on the problem, such as `X0` and `CENTER` without an `x0`. The
-framework paper (de Nobel et al. 2026, [citing](../citing.md)) counted 14,859,936 for its fourteen
-modules.
+Not every combination is a different algorithm, and not every field of `Modules` is a module of
+the algorithm: [how many variants](#how-many-variants) counts them.
 
 The defaults are the standard CMA-ES (Hansen & Ostermeier 2001; Hansen 2016): full covariance
 matrix, cumulative step-size adaptation, (µ/µ_w, λ) selection with the default weights.
@@ -158,6 +151,61 @@ the [deep dives](../deep-dives/index.md). The main adjustments:
 * `mirrored=PAIRWISE`: λ is made even.
 * `lambda0=1`: a (1+1)-ES: µ = 1, elitist, equal weights, the 1/5th success rule (`ssa=SR`), no
   active update or sequential selection; IPOP and BIPOP become `RESTART`.
+
+## How many variants
+
+A *variant* is a combination of module options with the numerical parameters at their defaults.
+Two combinations are the same variant when they cannot give different runs: `Settings` turns them
+into the same modules, or they differ only in an option that has no effect there. The counts come
+from the code, `tools/count_variants.py`:
+
+| What is counted | Combinations | Distinct variants |
+|---|---|---|
+| The framework paper (de Nobel et al. 2026, [citing](../citing.md)): 14 modules | | 14,859,936 |
+| 14 modules: the 13 algorithmic modules and bound correction | 36,578,304 | 21,430,080 |
+| 13 algorithmic modules (bound correction counted as an option) | 5,225,472 | 3,061,440 |
+| All 17 fields of `Modules`, every value | 2,194,698,240 | 686,685,216 |
+
+**The 13 algorithmic modules** are the components of the search, whose options are alternative
+mechanisms from the literature and act on any problem: `sampler`, `sample_transformation`,
+`mirrored`, `orthogonal`, `threshold_convergence` (sampling); `elitist`, `sequential_selection`,
+`weights` (selection and recombination); `ssa` (step size); `active`, `matrix_adaptation` (the
+matrix); `restart_strategy`, `repelling_type` (restarts). Three values are not algorithmic options
+and are left out: `COVARIANCE_NO_EIGV` is `COVARIANCE` computed with a Cholesky factor (`Settings`
+switches to it unless `ssa` is `CSA`), `sample_transformation=NONE` is a testing option, and
+`restart_strategy=STOP` is run control (stop instead of continue).
+
+**The other fields are options of a module**, at their defaults in the module counts:
+`center_placement` (where the restart strategy starts a run; three of its six values differ only by
+the problem's `x0` and box), `repelling_metric` (the distance of repelling) and `sample_sigma`
+(per-individual step sizes, of the self-adaptive step-size rules). `bound_correction` is a module
+in the framework paper, so the table counts it both ways: it handles the constraints of a bounded
+problem, as the [integer variables](integer-variables.md) do, which are not a module.
+
+**The paper's 14 modules are the same 13 and bound correction.** Two modules have gained options
+since: `weights` has `UTILITY`, and repelling has `ADAPTIVE` next to `COVERAGE`. The paper
+counts with two dependencies (`active` needs a matrix adaptation, repelling needs a restart
+strategy); the code counts more:
+
+* the adjustments of `Settings` (see [above](#combinations-that-are-adjusted)): `UTILITY` weights
+  switch the active update on, `NATURAL_GRADIENT` with `active` switches to `UTILITY`, `NONE`
+  switches `active` off; of all 17 fields, these alone leave 1,569,818,880 of the 2,194,698,240
+  combinations;
+* the options without effect of the [compatibility](compatibility.md) page, each checked in the
+  code: `sample_sigma` is forced on for `SA` and `LPXNES`; sequential selection with `PAIRWISE`
+  and the default µ = λ/2 has no effect (its earliest stop is the whole generation); with
+  `restart_strategy=STOP` center placement and repelling have no effect; `repelling_metric` acts
+  only with repelling, and `CURRENT` and `ARCHIVED` equal `EUCLIDEAN` without a matrix;
+  `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` equal `UNIFORM` without repelling.
+
+**Repelling with `restart_strategy=NONE`.** The module counts follow the paper: repelling needs a
+restart strategy. `NONE` still restarts a run whose matrix cannot be updated (`UnableToAdapt`),
+where repelling acts; counted that way, the 14 modules give 25,716,096 variants and the 13 give
+3,673,728. The count of all 17 fields uses this rule.
+
+Not applied, because they depend on the problem: `X0` = `CENTER` without an `x0`, `ZERO` =
+`CENTER` for a symmetric box, bound correction in an infinite box. Equivalences that are not
+documented are not detected, so a count is the number of combinations not known to coincide.
 
 ## Configurations from a configuration space
 

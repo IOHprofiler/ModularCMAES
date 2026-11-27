@@ -109,9 +109,10 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `used_large` and `large_run` (#80).
 
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
-* `tools/count_variants.py` counts the distinct module configurations from the code: 686,685,216
-  with the default parameters, of 2,194,698,240 combinations of the options of the 17 modules. The
-  guide states this count; the framework paper's 14,859,936 counted its fourteen modules (#130).
+* `tools/count_variants.py` counts the distinct variants from the code, and the guide documents
+  the counts (Modules, "How many variants"): 21,430,080 for the 14 modules of the framework paper with today's options (3,061,440 for the 13
+  algorithmic modules, without bound correction), 686,685,216 for all 17 fields of `Modules`. The
+  paper counted 14,859,936 (#130).
 
 ### Deprecated
 

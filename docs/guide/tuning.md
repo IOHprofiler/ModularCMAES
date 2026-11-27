@@ -79,9 +79,9 @@ are not hyperparameters.
   * `ssa` stays a hyperparameter for `lambda0` = 1, although `Settings` runs `SR` there: it decides
     whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`.
 
-The module part of this space is not the number of distinct variants (686,685,216, see
-[modules](modules.md)): it leaves out `sample_transformation=NONE`, and its conditions and
-forbidden clauses remove only part of the combinations that coincide.
+The module part of this space is not a count of distinct variants (see
+[how many variants](modules.md#how-many-variants)): it leaves out `sample_transformation=NONE`,
+and its conditions and forbidden clauses remove only part of the combinations that coincide.
 
 A complete example, a random search for the best configuration on a few functions, is
 [tuning a configuration](../examples/tuning.md). The study of de Nobel et al. (2021) used SMAC on
