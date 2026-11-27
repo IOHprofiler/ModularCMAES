@@ -86,7 +86,13 @@ struct Stats
     void update_global_best(Eigen::Ref<const Vector> x, const Float y)
     {
         if (y < global_best.y)
-            global_best = Solution(x, y, t, evaluations);
+        {
+            // In place: no allocation once x has its size
+            global_best.x = x;
+            global_best.y = y;
+            global_best.t = t;
+            global_best.e = evaluations;
+        }
     }
 
     //! Once per generation (selection): a success when the best of the generation beats the best of

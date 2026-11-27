@@ -11,8 +11,8 @@ average. The modules of this page change which points are selected and how they 
   all of them (it sets `active`). With `NATURAL_GRADIENT` and `ssa=XNES` it is xNES; with the
   CMA-ES updates it needs 20–35 % more evaluations than `DEFAULT` on the sphere, a rotated ellipsoid
   and Rosenbrock (d = 10), and with CMSA (which uses only the positive utilities) 14–22 % fewer on
-  the rotated ellipsoid and Rosenbrock, 8 % more on the sphere. Avoid it with elitism and
-  outlier-prone sampling ([compatibility](compatibility.md#combinations-to-avoid)).
+  the rotated ellipsoid and Rosenbrock, 8 % more on the sphere. Avoid it with outlier-prone
+  sampling ([compatibility](compatibility.md#combinations-to-avoid)).
 * `active=True`: the active covariance update (Jastrebski & Arnold 2006): the worst points get
   negative weights in the update of C, which shrinks the variance in unpromising directions. It
   often speeds up the adaptation (pycma uses it by default); not used with

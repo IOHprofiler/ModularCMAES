@@ -102,6 +102,12 @@ algorithms.
     distribution. The parents' z, recomputed against the mean they recombined, are short
     (‖z‖²/d of 0.3 to 0.6), and as part of the µ best they kept σ 3 to 14 times too small (#172).
   * **`TPA_INPLACE`** ranks its two test points among the offspring, without the parents.
+  * **`weights=UTILITY`** recombines the mean from the λ best of the pool, parents included, with
+    utilities that sum to zero. It was listed as a combination to avoid (the mean drifted away);
+    most of that failure was the active update's negative weights on good points, which `UTILITY`
+    switches on: on BBOB (7 functions, d = 5 and 20, 25 runs) `weights=UTILITY` with `elitist`
+    solves 242 of 350 runs since #161, 179 before (the default configuration: 251), and
+    `NATURAL_GRADIENT` with `elitist` and `active` (which uses `UTILITY`) 217, 0 before.
 * **TPA's test points** are m ± ½σ⟨y⟩, half the last step of the mean with the step size that
   sampled it (Hansen 2008, Eqs. (8), (9)). Before #167 they were m ± σ_new⟨y⟩, about one step.
 * **TPA with a bound correction.** Its two points m ± ½σ⟨y⟩ are not corrected by the method:
@@ -207,7 +213,6 @@ noted; with the current version. Most are recorded for fixing.
 | `ssa=TPA` with `elitist` | σ collapses in some runs: on the sphere (d = 5, x0 uniform in [−3, 3]^d, σ₀ = 2, 10,000 evaluations, 20 seeds) 13 of 20 runs reach 1e-8 (without `elitist` 20), 10 with `active` as well; before #167 11 and 2 (2026-11-27). Not investigated |
 | `repelling_type=ADAPTIVE` | experimental: modcma's own work in progress, without a published source. In the experiment of #158 (BBOB f21 and f22, d = 5 to 40, `RESTART` and `IPOP`) it solved 99 of 240 runs, against 107 without repelling and 144 with `COVERAGE` |
 | `matrix_adaptation=NATURAL_GRADIENT` with `ssa=LPXNES` at small d | LPXNES keeps its own rate (cs = 1 at d = 5; before #72 NATURAL_GRADIENT gave it xNES's 0.25): BBOB at d = 5 (7 functions, 25 runs each) solves 66 of 175 runs, 118 on master 20bdf27; at d = 20 79 of 175, 0 on master |
-| `weights=UTILITY` with `elitist` | the mean drifts away: the utilities contrast the better and worse halves around the population's center, which with elitism is not the distribution's |
 | `weights=UTILITY` with `bound_correction=TOROIDAL` or `sample_transformation=CAUCHY` | far points (wrapped around, heavy tails) pull the mean through their negative utilities |
 | `lambda0=2` | allowed for experiments, but many modules fail. On a rotated ellipsoid (d = 5, 5 seeds), 0 of 5 runs converge with `elitist`, `MATRIX`, `CMSA`, `MSR`, `PSR`, `SR`, `MXNES`, and with `restart_strategy` `RESTART` or `STOP`, whose criteria end the runs early. The default configuration needs about 6× the evaluations of λ = 4 |
 | `lambda0=3` | close to λ = 4 for most modules (same measurement), except `sample_transformation=CAUCHY` (0 of 5) and `MXNES` (0 of 5 on the ellipsoid); `SR`, `CMSA` and `MSR` need about 2× the evaluations |

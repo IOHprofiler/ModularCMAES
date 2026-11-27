@@ -170,6 +170,7 @@ CONFIGS = {
         "elitist": True,
         "active": True,
     },
+    "utility_elitist": {"weights": "UTILITY", "elitist": True},
     # #172: XNES's sigma from the offspring alone, with elitism
     "xnes_elitist": {"ssa": "XNES", "elitist": True},
     "natural_gradient_xnes_elitist": {
