@@ -1,25 +1,57 @@
 name: Unittest
 
-on: [push]
+# Pull requests, pushes to master, and runs by hand: gh workflow run python-package.yml --ref <branch>
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+# A new push to a pull request cancels the run it supersedes (and a new run by hand on a branch the
+# one before it). Every master run gets a group of its own: in a shared group a newer run would
+# replace a pending one even without cancel-in-progress, and every master run must complete.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref == 'refs/heads/master' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/master' }}
 
 jobs:
   build:
     runs-on: ${{ matrix.os }}
+    env:
+      # The compile cache: sccache, stored in the GitHub Actions cache. CMake reads the launchers
+      # from the environment and runs every compiler through sccache.
+      SCCACHE_GHA_ENABLED: "true"
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
     strategy:
       fail-fast: false
       matrix:
-        # macOS only on master: its runners queue for a long time, so on other branches macOS is
-        # checked locally
+        # On master (github.ref is refs/heads/master for a push or a run by hand there): Python
+        # 3.10-3.14 on Linux, macOS and Windows. On a pull request (github.ref is
+        # refs/pull/N/merge) or another branch: Linux and Windows, Python 3.10, 3.12 and 3.14; 3.12
+        # writes the golden fixture of the runner's toolchain and the coverage report. macOS
+        # runners queue for a long time, so on a branch macOS is checked locally.
         os: ${{ fromJSON(github.ref == 'refs/heads/master' && '["ubuntu-latest", "macos-latest", "windows-latest"]' || '["ubuntu-latest", "windows-latest"]') }}
-        python-version: ['3.10', '3.11', '3.12', '3.13', '3.14']
+        python-version: ${{ fromJSON(github.ref == 'refs/heads/master' && '["3.10", "3.11", "3.12", "3.13", "3.14"]' || '["3.10", "3.12", "3.14"]') }}
         # free-threaded CPython: the module runs without the GIL
-        include: ${{ fromJSON(github.ref == 'refs/heads/master' && '[{"os":"ubuntu-latest","python-version":"3.14t"}, {"os":"macos-latest","python-version":"3.14t"}]' || '[{"os":"ubuntu-latest","python-version":"3.14t"}]') }}
+        include: ${{ fromJSON(github.ref == 'refs/heads/master' && '[{"os":"ubuntu-latest","python-version":"3.14t"}, {"os":"macos-latest","python-version":"3.14t"}]' || '[{"os":"ubuntu-latest","python-version":"3.14t"}, {"os":"macos-latest","python-version":"3.12"}]') }}
     steps:
     - uses: actions/checkout@v4
+      with:
+        # a pull request: its head commit, not the merge commit with master, so that the golden
+        # fixture is generated from the commit it names (as with the other two fixtures)
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+    - name: Compile cache (sccache)
+      uses: mozilla-actions/sccache-action@v0.0.11
+      with:
+        version: v0.20.1
+    - name: The MSVC environment, for the Ninja generator (Windows)
+      if: runner.os == 'Windows'
+      uses: ilammy/msvc-dev-cmd@v1.13.0
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
@@ -27,7 +59,29 @@ jobs:
         # for the BBOB example of the documentation (tests/test_c_docs.py); not on every platform
         python -m pip install ioh || echo "no ioh wheel: the BBOB example is skipped"
     - name: Install
-      run: python -m pip install -e . -v
+      shell: bash
+      run: |
+        # The build requirements of pyproject.toml, then the build without isolation: an isolated
+        # build installs nanobind into a new temporary directory each time, and the compile cache
+        # would miss every file that includes it.
+        python -m pip install 'tomli; python_version < "3.11"'
+        python - <<'EOF'
+        import subprocess, sys
+        try:
+            import tomllib
+        except ImportError:  # Python 3.10
+            import tomli as tomllib
+        with open("pyproject.toml", "rb") as f:
+            requires = tomllib.load(f)["build-system"]["requires"]
+        subprocess.run([sys.executable, "-m", "pip", "install", *requires], check=True)
+        EOF
+        if [ "$RUNNER_OS" = Windows ]; then
+          # Ninja with MSVC (the environment of the step before) instead of the Visual Studio
+          # generator: that one ignores the compiler launcher, and compiles one file at a time
+          export CMAKE_GENERATOR=Ninja CC=cl CXX=cl
+          python -m pip install ninja
+        fi
+        python -m pip install --no-build-isolation -e . -v
     - name: The module keeps the GIL disabled
       if: ${{ endsWith(matrix.python-version, 't') }}
       run: python -W error -c "import sys; from modcma import c_maes; assert not sys._is_gil_enabled()"
@@ -55,6 +109,8 @@ jobs:
       env:
         CODACY_PROJECT_TOKEN: ${{ secrets.CODACY_PROJECT_TOKEN }}
       run: |
+        # a pull request from a fork gets no secrets
+        if [ -z "$CODACY_PROJECT_TOKEN" ]; then echo "no Codacy token: not uploaded"; exit 0; fi
         coverage xml --include="modcma/*" -o cobertura.xml
         bash <(curl -Ls https://coverage.codacy.com/get.sh) report
 
@@ -64,6 +120,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
     - uses: actions/setup-python@v5
       with:
         python-version: '3.13'
@@ -79,6 +137,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
     - uses: actions/setup-python@v5
       with:
         python-version: '3.13'
@@ -90,8 +150,19 @@ jobs:
   cpp:
     # The C++ targets: library, benchmark harness and the C++ unit tests (ctest)
     runs-on: ubuntu-latest
+    env:
+      # the compile cache, as in the build job
+      SCCACHE_GHA_ENABLED: "true"
+      CMAKE_C_COMPILER_LAUNCHER: sccache
+      CMAKE_CXX_COMPILER_LAUNCHER: sccache
     steps:
     - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+    - name: Compile cache (sccache)
+      uses: mozilla-actions/sccache-action@v0.0.11
+      with:
+        version: v0.20.1
     - name: Build
       run: |
         cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
