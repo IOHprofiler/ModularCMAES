@@ -207,6 +207,18 @@ struct Adaptation
      */
     virtual Metric metric() = 0;
 
+    /**
+     * Whether metric() is a view on what the adaptation keeps up to date (COVARIANCE, SEPARABLE,
+     * NONE), so that reading it costs nothing. The others decompose their factor on request,
+     * O(d^3): the restart criteria that read the metric are not created for them by default
+     * (#80).
+     */
+    [[nodiscard]] virtual bool keeps_metric() const { return false; }
+
+    //! The evolution path p_c of the rank-one update, or null for the adaptations without one
+    //! (MATRIX, CMSA, NATURAL_GRADIENT, NONE); TolX reads it
+    [[nodiscard]] virtual const Vector *rank_one_path() const { return nullptr; }
+
     //! Increased wherever the sampling factor changes: an update of the matrix, a decomposition,
     //! a restart. A computed metric is reused while it is unchanged; a write to the matrices from
     //! Python does not increase it.
@@ -252,6 +264,8 @@ struct None final : Adaptation
 
     Metric metric() override { return {ones, nullptr}; }
 
+    [[nodiscard]] bool keeps_metric() const override { return true; }
+
     bool adapt_matrix_inner(const parameters::Weights &w,
                             const Population &pop,
                             const size_t mu,
@@ -280,13 +294,15 @@ struct CovarianceAdaptation : Adaptation
     Matrix A;
     bool hs = true;
 
-    //! Whether B and d hold the eigendecomposition of C, kept up to date by the update (false for
+    //! B and d hold the eigendecomposition of C, kept up to date by the update (not for
     //! COVARIANCE_NO_EIGV, which factorizes C with a Cholesky decomposition and fills B and d
     //! only when metric() is asked)
-    [[nodiscard]] virtual bool has_eigendecomposition() const { return true; }
+    [[nodiscard]] bool keeps_metric() const override { return true; }
 
     //! A view on d and B, which the decomposition updates in place (#123)
     Metric metric() override { return {d, &B}; }
+
+    [[nodiscard]] const Vector *rank_one_path() const override { return &pc; }
 
     // Reused by the matrix update: the eigensolver with its workspace
     Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
@@ -347,6 +363,10 @@ struct SeparableAdaptation : Adaptation
 
     //! A view on d, which the update keeps (C is diagonal)
     Metric metric() override { return {d, nullptr}; }
+
+    [[nodiscard]] bool keeps_metric() const override { return true; }
+
+    [[nodiscard]] const Vector *rank_one_path() const override { return &pc; }
 
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
@@ -427,6 +447,8 @@ struct CholeskyAdaptation final : Adaptation
     //! Computed on request from C = A A^T
     Metric metric() override;
 
+    [[nodiscard]] const Vector *rank_one_path() const override { return &pc; }
+
     void adapt_evolution_paths_inner(const Population &pop,
                                      const parameters::Weights &w,
                                      const parameters::Stats &stats,
@@ -490,7 +512,8 @@ struct CovarianceNoEigvAdaptation : CovarianceAdaptation
 
     bool perform_eigendecomposition(const parameters::Settings &settings) override;
 
-    bool has_eigendecomposition() const override { return false; }
+    //! Its metric is decomposed on request: B and d are not kept up to date
+    [[nodiscard]] bool keeps_metric() const override { return false; }
 
     //! Computed on request from A A^T, the C of the last factorization, into d and B (which this
     //! adaptation does not use otherwise)

@@ -10,6 +10,10 @@
  *
  * Usage: modcma_bench [--dims 2,10,40,100] [--generations 2000] [--repetitions 5]
  *                     [--configs default,matrix,separable] [--csv]
+ *
+ * A configuration name with the suffix "-restart" (before "-fast") uses RestartStrategy.RESTART:
+ * the restart criteria are updated every generation, and the sphere restarts the run whenever
+ * one fires.
  */
 #include <chrono>
 #include <cstdio>
@@ -44,11 +48,23 @@ bool is_fast(const std::string &name)
     return name.size() > 5 && name.compare(name.size() - 5, 5, "-fast") == 0;
 }
 
+//! A configuration name with the suffix "-restart" (before "-fast") uses RestartStrategy.RESTART
+bool has_suffix(const std::string &name, const std::string &suffix)
+{
+    return name.size() > suffix.size() &&
+           name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
+
 parameters::Modules make_modules(std::string name)
 {
     if (is_fast(name))
         name.resize(name.size() - 5);
     parameters::Modules m;
+    if (has_suffix(name, "-restart"))
+    {
+        name.resize(name.size() - 8);
+        m.restart_strategy = parameters::RestartStrategyType::RESTART;
+    }
     if (name == "default")
         return m;
     if (name == "matrix")

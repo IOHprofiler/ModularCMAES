@@ -111,11 +111,17 @@ same behaviour as now) but stretched every sample on larger boxes.
   The first generation after a restart takes at most the rest of the budget, less the new run's
   center of mass (λ, and µ in proportion, are capped; at least 2 points); the hill-valley tests of
   repelling restarts stop when the budget runs short.
-* **BIPOP** (Hansen 2009): after the first run, the remaining budget is split into two halves, one
-  for the regime of large populations (λ doubling) and one for small ones,
-  λ_s = ⌊λ₀ (λ_large/(2λ₀))^(U²)⌋ with σ = σ₀·10^(−2U); the regime with more budget left runs next.
-  pycma charges the first run to the small regime and caps the generations of small runs; modcma does
-  neither, and rounds λ_s up to an even number [F26].
+* **BIPOP** (Hansen 2009): two regimes, one of large populations (λ doubling) and one of small
+  ones, λ_s = ⌊λ₀ (λ_large/(2λ₀))^(U²)⌋ with σ = σ₀·10^(−2U′), where λ_large is the λ of the next
+  large run (twice the last one). Each regime counts the evaluations of its runs; a restart uses
+  the regime that has used fewer, the large one on a tie, so the first restart is large. As in
+  pycma's `fmin`, the first run counts as small (Hansen 2009 disregards it), and a small run takes
+  at most half the evaluations of the large regime so far: `restart.BIPOP` sets
+  `max_iter` = ½ (large evaluations)/λ_s generations, which `ExceededMaxIter` enforces (pycma's
+  `maxiter`). λ_s is rounded down, as in the paper and pycma; up to even only with `PAIRWISE`.
+  Before 2.0, the budget left after the first run was split into halves that each run decreased
+  (unsigned: a run longer than its regime's rest wrapped it around, and BIPOP became IPOP), λ_s
+  was always even, and small runs had no cap (#80).
 
 ## Restart criteria and pycma's termination criteria
 
@@ -128,20 +134,25 @@ in brackets.
 |---|---|---|
 | `ExceededMaxIter` (100 + 50(d + 3)²/√λ generations) | `maxiter` 100 + 150(d + 3)²/√λ | a third of pycma's |
 | `NoImprovement` (range of the generations' best over 10 + ⌈30d/λ⌉ generations ≤ 1e-20) | `tolfunhist` 1e-12 | tolerance; modcma has no `tolfun` (current and recent values, 1e-11) [WP17] |
-| `MaxSigma` (σ > 1e4) | `tolfacupx` (σ√Cᵢᵢ > 1e3 σ₀) | absolute instead of relative [F25] |
+| `MaxSigma` (σ max(D) grew by more than 1e4 in the run) | `tolfacupx` (σ√Cᵢᵢ > 1e3 σ₀) | Hansen (2016)'s TolXUp: the largest axis instead of each coordinate; before 2.0, σ > 1e4 |
 | `MinSigma` (σ < 1e-20) | none | |
 | `MaxDSigma` / `MinDSigma` | `tolupsigma` | `MinDSigma` is modcma's |
 | `TolX` (σ√Cᵢᵢ and σ\|p_c,ᵢ\| < 1e-11 σ₀) | `tolx` 1e-11 | relative to the run's σ₀, as Hansen (2016) |
 | `ConditionC` (cond(C) > 1e14) | `tolconditioncov` 1e14 | the same |
-| `NoEffectAxis`, `NoEffectCoord` | `noeffectaxis`, `noeffectcoord` | absolute instead of relative to m [F25] |
+| `NoEffectAxis`, `NoEffectCoord` | `noeffectaxis`, `noeffectcoord` | the same: m + 0.1σDᵢbᵢ == m, mᵢ + 0.2σ√Cᵢᵢ == mᵢ in floating point (before 2.0: the step below 10 ε) |
 | `FlatFitness` | `tolflatfitness` | different quantile |
 | `Stagnation` | `tolstagnation` | different windows of the history |
 | `UnableToAdapt` | (none) | the matrix could not be updated |
 | `TooMuchRepelling` | (none) | repelling restarts |
 
-`TolX`, `ConditionC`, `NoEffectAxis` and `NoEffectCoord` read the eigendecomposition and are only
-used with `COVARIANCE` (so only with CSA) [F25]. pycma's `tolfun`, `tolfunrel`, `tolxstagnation`
-and `timeout` are planned (WP17).
+Every matrix adaptation keeps the diagonal of C (`coordinate_wise_variances`), which `TolX` and
+`NoEffectCoord` read. D and B come from `Adaptation.metric()`: free for `COVARIANCE`,
+`SEPARABLE` and `NONE`, which get `ConditionC` and `NoEffectAxis`; the others would decompose their
+factor every generation (O(d³)), so they do not get them by default, and `MaxSigma`, `MaxDSigma`
+and `MinDSigma` use √max Cᵢᵢ and √min Cᵢᵢ instead of max(D) and min(D)
+([compatibility](../guide/compatibility.md#combinations-that-change-the-meaning-of-an-option)).
+Before 2.0 only `COVARIANCE` had the four criteria (and so only with CSA). pycma's `tolfun`,
+`tolfunrel`, `tolxstagnation` and `timeout` are planned (WP17).
 
 ## Repelling restarts and center placement
 
