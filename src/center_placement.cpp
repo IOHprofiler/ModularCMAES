@@ -148,9 +148,9 @@ void NoveltyWeighted::operator()(parameters::Parameters &p)
 
     if (!(total_score > 0.0) || !std::isfinite(total_score))
     {
-        // rng::random_integer, not std::uniform_int_distribution, whose algorithm is
-        // implementation-defined (#164); with #162 it draws from the raw outputs (rng::below)
-        const int idx = rng::random_integer(0, n_candidates, *p.generator);
+        // rng::below, from the raw outputs of the generator, not std::uniform_int_distribution,
+        // whose algorithm is implementation-defined (#164)
+        const auto idx = rng::below(static_cast<uint32_t>(n_candidates), *p.generator);
         p.adaptation->m = candidates[idx];
         return;
     }

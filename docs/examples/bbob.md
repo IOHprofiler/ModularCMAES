@@ -17,7 +17,7 @@ Output (d = 5, 24 functions × 5 instances, budget 10 000 × d):
 
 ```text
 CMA-ES                 solved 60/120 (f - f_opt <= 1e-08), median 2169 evaluations when solved
-BIPOP active CMA-ES    solved 92/120 (f - f_opt <= 1e-08), median 1897 evaluations when solved
+BIPOP active CMA-ES    solved 92/120 (f - f_opt <= 1e-08), median 1873 evaluations when solved
 ```
 
 Upload the `bbob-data` folder (zipped) to IOHanalyzer to compare the two configurations function by
