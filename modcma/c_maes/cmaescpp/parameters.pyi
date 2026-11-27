@@ -648,6 +648,7 @@ class Settings:
         - with ssa SA or matrix_adaptation CMSA, the default mu0 is lambda0 // 4;
         - with matrix_adaptation NONE, active is turned off;
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, mirrored PAIRWISE becomes NONE, and IPOP or BIPOP become RESTART;
+        - then, when ssa is not CSA (so also for lambda0 = 1), matrix_adaptation COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);
         - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim; center is computed per coordinate (see `center`).
 
         Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above ub, an integer variable without an integer value in [lb, ub], a budget smaller than the first generation and the evaluation of the final center of mass, or a C0 that is not a symmetric positive definite (dim, dim) matrix (or with matrix_adaptation NONE).

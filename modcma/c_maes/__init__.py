@@ -165,15 +165,15 @@ _EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
 #:   648, 771), so CMSA and NATURAL_GRADIENT read them only with `active`. NONE reads no
 #:   weights (it has no matrix update).
 #: * `active`: read by every adaptation but NONE (matrix_adaptation.cpp:165, 401, 464, 590, 647,
-#:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:199, 208).
-#: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:205).
+#:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:205, 214).
+#: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:211).
 #: * `elitist`, `sequential_selection`, `weights`, `ssa`: Settings overrides them for lambda0 = 1,
-#:   a (1+1)-ES (settings.hpp:203-216). Settings turns COVARIANCE into COVARIANCE_NO_EIGV after
-#:   that, from the `ssa` that runs, SR (settings.hpp:218-226, #131), so `ssa` is never read and
+#:   a (1+1)-ES (settings.hpp:209-222). Settings turns COVARIANCE into COVARIANCE_NO_EIGV after
+#:   that, from the `ssa` that runs, SR (settings.hpp:224-232, #131), so `ssa` is never read and
 #:   COVARIANCE with lambda0 = 1 is COVARIANCE_NO_EIGV: forbidden. The (1+1)-ES runs SR, which
 #:   reads `damps` (mutation.cpp:372), so `damps` is active for lambda0 = 1.
-#: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:213-215): forbidden.
-#: * `mirrored` PAIRWISE becomes NONE for lambda0 = 1 (settings.hpp:169-170, #136): forbidden.
+#: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:219-221): forbidden.
+#: * `mirrored` PAIRWISE becomes NONE for lambda0 = 1 (settings.hpp:170-171, #136): forbidden.
 #: * `center_placement`, `repelling_type`: used when a run restarts (parameters.cpp:127,
 #:   `Parameters::begin_restart`, repelling.cpp:174). The restart criteria of every strategy but
 #:   STOP include UnableToAdapt (restart_criteria.cpp:403), so NONE restarts when the adaptation
