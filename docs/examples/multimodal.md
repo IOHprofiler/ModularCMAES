@@ -15,7 +15,7 @@ Output:
 Rastrigin, d = 10, 10 runs each (solved: f <= 1e-8)
   CMA-ES         solved  0/10
   IPOP-CMA-ES    solved 10/10, median    72346 evaluations
-  BIPOP-CMA-ES   solved 10/10, median   145544 evaluations
+  BIPOP-CMA-ES   solved 10/10, median    89130 evaluations
 
 Himmelblau, d = 2, restarts from uniform random points, 20 runs each
   restarts             distinct optima found: mean 3.35 of 4, all four in 9/20 runs

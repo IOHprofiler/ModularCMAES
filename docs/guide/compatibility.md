@@ -21,7 +21,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | when | then |
 |---|---|
 | `ssa` other than `CSA` with `matrix_adaptation=COVARIANCE` | `COVARIANCE_NO_EIGV` (unless `always_compute_eigv=True`): the same covariance update, sampled through a Cholesky factor |
-| `ssa=SA` or `matrix_adaptation=CMSA` | µ defaults to λ/4 (an explicit `mu0` wins) |
+| `ssa=SA` or `matrix_adaptation=CMSA` | µ defaults to λ/4 (an explicit `mu0` wins), also for the new λ of an IPOP or BIPOP restart |
 | `matrix_adaptation=NONE` | `active` off |
 | `mirrored=PAIRWISE` and an odd λ above 1 | λ + 1; the default µ is half the new λ (a given `mu0` is kept) |
 | `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART`; `mirrored=PAIRWISE` becomes `NONE` (it has no pairs to select from; `MIRRORED` stays, without effect) |
@@ -96,6 +96,9 @@ algorithms.
   so far. SR is designed for elitist selection; without elitism the best of the run takes the
   parent's role. `MSR` is the success rule meant for non-elitist selection.
 * **`restart_strategy=NONE`** still restarts when the matrix cannot be adapted (`UnableToAdapt`).
+* **`mu0` with IPOP and BIPOP.** A given `mu0` keeps its ratio to λ at every restart (µ₀λ/λ₀,
+  rounded); without it µ is the default of each new λ, λ/2 or λ/4, as in pycma
+  ([restarts](restarts.md#restart-strategies)). pycma keeps a given `CMA_mu` as the same number.
 * **The restart criteria per matrix adaptation** (#80). `TolX`, `NoEffectCoord` and the σ criteria
   are used with every matrix adaptation; the criteria that need the eigenvalues of C read the
   metric (`es.p.adaptation.metric()`), which only `COVARIANCE`, `SEPARABLE` and `NONE` keep up to

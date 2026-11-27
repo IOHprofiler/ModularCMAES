@@ -19,8 +19,9 @@ Float IPOP::update(parameters::Parameters &p)
             max_lambda,
             static_cast<size_t>(std::round(static_cast<Float>(p.lambda) * ipop_factor)));
         // mu of the new lambda, as BIPOP (#150): the default, lambda / 2 (pycma's popsize // 2;
-        // the framework paper, Alg. 1, mu = floor(lambda / 2) at every restart), or the ratio of
-        // a given mu0. It kept the ratio mu / lambda of the previous run, rounded
+        // the framework paper's Alg. 1 sets mu = floor(lambda_0 / 2) in its restart block, after
+        // the strategy changed lambda_0), or the ratio of a given mu0. It kept the ratio mu /
+        // lambda of the previous run, rounded
         p.mu = p.settings.mu_for(p.lambda);
     }
     return p.settings.sigma0;

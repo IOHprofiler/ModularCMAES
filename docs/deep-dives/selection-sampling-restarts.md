@@ -154,22 +154,37 @@ same behaviour as now) but stretched every sample on larger boxes.
 
 ## IPOP and BIPOP
 
-* **IPOP** (Auger & Hansen 2005): λ doubles at every restart (µ in the same ratio), up to 2⁹ λ₀,
-  as in the framework paper (`IPOP.max_lambda_factor`; before 2.0, (d λ₀)²). σ and the mean are
+* **IPOP** (Auger & Hansen 2005): λ doubles at every restart, up to 2⁹ λ₀, as in the framework
+  paper (`IPOP.max_lambda_factor`; before 2.0, (d λ₀)²). σ and the mean are
   reset. No budget per run: the restart criteria
   end a run. Every run ends with an evaluation of its center of mass, the last one too, as pycma's
   `eval_final_mean`; the budget always keeps that evaluation (pycma can exceed `maxfevals` by one).
   The first generation after a restart takes at most the rest of the budget, less the new run's
-  center of mass (λ, and µ in proportion, are capped; at least 2 points); the hill-valley tests of
+  center of mass (λ is capped, at least 2 points, and µ follows it); the hill-valley tests of
   repelling restarts stop when the budget runs short.
+* **µ after a restart** (IPOP, BIPOP and the cap at the budget): the default of the new λ, ⌊λ/2⌋
+  (⌊λ/4⌋ with `SA` and `CMSA`), as pycma's `fmin`, which creates every run with the default
+  `CMA_mu` (`popsize // 2`: the positive weights of `RecombinationWeights(popsize)`), as Hansen
+  (2009) (µ = ⌊λ/2⌋) and the framework paper (Algorithm 1 sets µ ← ⌊λ₀/2⌋ at every restart). With
+  a given `mu0`, µ₀λ/λ₀ rounded half up (at least 1): pycma keeps a given `CMA_mu` as the same
+  number in every run, which leaves µ = 3 of λ = 2⁹ λ₀; open decision (#150). Before 2.0 µ kept
+  the ratio µ₀/λ₀ in every case, rounded by IPOP (of the previous run's µ/λ) and truncated by
+  BIPOP: with an odd λ₀ the default µ differed from pycma's (d = 3: λ = 14 had µ = 6, not 7), and
+  the two strategies differed for the same λ (#150).
 * **BIPOP** (Hansen 2009): two regimes, one of large populations (λ doubling, up to 2⁹ λ₀ as
   IPOP) and one of small ones, λ_s = ⌊λ₀ (λ_large/λ₀)^(U²)⌋ with σ = σ₀·10^(−2U′), where λ_large
   is the λ of the latest large run. Each regime counts the evaluations of its runs; a restart uses
   the regime that has used fewer, the large one on a tie, so the first restart is large. As in
   pycma's `fmin`, the first run counts as small (Hansen 2009 disregards it), and a small run takes
   at most half the evaluations of the large regime so far: `restart.BIPOP` sets
-  `max_iter` = ½ (large evaluations)/λ_s generations, which `ExceededMaxIter` enforces (pycma's
-  `maxiter`). λ_s is rounded down, as in the paper and pycma; up to even only with `PAIRWISE`.
+  `max_iter` = ⌊½ (large evaluations)/λ_s⌋ generations, which `ExceededMaxIter` enforces (pycma's
+  `maxiter`; a run has at least one generation). pycma's cap is not rounded and stops at
+  `countiter >= maxiter`, so a small run of pycma can take one generation more, ⌈·⌉; modcma keeps
+  "a maximum number of function evaluations of half of the recent large budget" (Hansen 2009).
+  The small runs start with σ₀·10^(−2U′), and `TolX`, `MaxSigma`, `MaxDSigma` and `MinDSigma`
+  measure σ against it (pycma's `es.sigma0` of each run; before 2.0 `MaxDSigma` and `MinDSigma`
+  used `Settings.sigma0`, #139). λ_s is rounded down, as in the paper and pycma; up to even only
+  with `PAIRWISE`.
   Up to the limit, the population sizes are pycma's (4.6.0, `fmin`,
   `cma/evolution_strategy.py`:5362–5381): λ_s lies between λ₀ and the latest large population,
   because pycma counts the small run (`runs_with_small += 1`) before it computes the multiplier,
@@ -199,11 +214,11 @@ in brackets.
 
 | modcma | pycma | difference |
 |---|---|---|
-| `ExceededMaxIter` (100 + 50(d + 3)²/√λ generations) | `maxiter` 100 + 150(d + 3)²/√λ | a third of pycma's |
+| `ExceededMaxIter` (100 + 50(d + 3)²/√λ generations) | `maxiter` 100 + 150(d + 3)²/√λ | a third of pycma's, as Hansen (2009); with the λ of the run, as Hansen (2009), where pycma's `fmin` keeps the value of the first run (it evaluates its options once). A run takes at most `max_iter` generations, as pycma (`countiter >= maxiter`); before 2.0, `max_iter` + 2 (#139) |
 | `NoImprovement` (range of the generations' best over 10 + ⌈30d/λ⌉ generations ≤ 1e-20) | `tolfunhist` 1e-12 | tolerance; modcma has no `tolfun` (current and recent values, 1e-11) [WP17] |
 | `MaxSigma` (σ max(D) grew by more than 1e4 in the run) | `tolfacupx` (σ√Cᵢᵢ > 1e3 σ₀) | Hansen (2016)'s TolXUp: the largest axis instead of each coordinate; before 2.0, σ > 1e4 |
 | `MinSigma` (σ < 1e-20) | none | |
-| `MaxDSigma` / `MinDSigma` | `tolupsigma` | `MinDSigma` is modcma's |
+| `MaxDSigma` / `MinDSigma` (σ/σ₀ > 1e20 max(D), < 1e-20 min(D)) | `tolupsigma` 1e20 | `MinDSigma` is modcma's. σ₀ is the run's, as pycma's `es.sigma0` and Hansen (2009)'s TolUpSigma; before 2.0, `Settings.sigma0` in every run (#139) |
 | `TolX` (σ√Cᵢᵢ and σ\|p_c,ᵢ\| < 1e-11 σ₀) | `tolx` 1e-11 | relative to the run's σ₀, as Hansen (2016) |
 | `ConditionC` (cond(C) > 1e14) | `tolconditioncov` 1e14 | the same |
 | `NoEffectAxis`, `NoEffectCoord` | `noeffectaxis`, `noeffectcoord` | the same: m + 0.1σDᵢbᵢ == m, mᵢ + 0.2σ√Cᵢᵢ == mᵢ in floating point (before 2.0: the step below 10 ε) |
@@ -226,3 +241,12 @@ Before 2.0 only `COVARIANCE` had the four criteria (and so only with CSA). pycma
 Repelling restarts follow de Nobel et al. (2024) (`COVERAGE`); `ADAPTIVE`, which adapts the
 radius to the rate of rejected samples, is modcma's own. Center placement only places restarts:
 the first run starts at `x0`, or at the center of the bounds.
+
+`ADAPTIVE` grows the radius of a taboo point whose basin a run found again by
+exp(0.15 min(w, 3)), with w the evaluations of that run over their running average: an exponential
+average with α = 0.2 from the start value 1, updated at every restart before the hill-valley
+tests. Every run counts from the previous restart, the first from the start; before 2.0 the first
+counted as one evaluation, and the average stayed 1 after it (#121). The start value still weighs
+on the first runs: with runs of equal length n ≫ 1, w ≈ 1/(1 − 0.8^k) at the k-th restart, 2.8
+at the second (the first that can find a shared basin), 2.0 at the third; before the fix 5
+(capped at 3) and 2.8.
