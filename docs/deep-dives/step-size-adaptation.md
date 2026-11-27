@@ -124,8 +124,10 @@ rate of the path p_σ, which h_σ and MATRIX's rank-one update read, at most 1
   selection.
 * **LPXNES** (lp-xNES, same paper, Sec. 4.4): each point samples its own step size σᵢ (log-normal
   around σ, β = ln 2/(√d ln(max(d, 2))), finite at d = 1 since #72), and σ ← σ·exp(cs·Σ wᵢ
-  log(σᵢ/σ)) over the µ best, with the convex weights and cs = 9µ_eff/(10√d), the paper's values
-  (its Table 3). One step size per point, as in the paper; it was drawn per coordinate (#71).
+  log(σᵢ/σ)) over the µ best, with the convex weights and cs = min(1, 9µ_eff/(10√d)): Krause et
+  al.'s rate (their Table 3), capped at 1 by modcma, since above 1 the update overshoots the
+  weighted geometric mean of the step sizes (1.29 at d = 2 and 1.05 at d = 5 with the default λ).
+  One step size per point, as in the paper; it was drawn per coordinate (#71).
 
 ## SR: success rule
 

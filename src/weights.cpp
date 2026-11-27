@@ -41,8 +41,11 @@ static Float get_default_cs(const Settings &settings, const Float mueff, const F
         // NATURAL_GRADIENT, which gave it xNES's eta_sigma (#72, F3)
         return 1.0;
     case StepSizeAdaptation::LPXNES:
-        // prior-xNES SA: c_sigma = 9 mueff / (10 sqrt(d)) (Krause et al. 2017, Sec. 4.4, Table 3)
-        return (9.0 * mueff) / (10.0 * sqrt(d));
+        // prior-xNES SA: c_sigma = 9 mueff / (10 sqrt(d)) (Krause et al. 2017, Sec. 4.4, Table 3),
+        // capped at 1 (ours, the maintainer's decision on #159): above 1 the update
+        // sigma^(1 - c_sigma) exp(c_sigma sum w_i ln sigma_i) overshoots the weighted geometric
+        // mean of the sampled step sizes (1.29 at d = 2, 1.05 at d = 5 with the default lambda)
+        return std::min(Float{1.0}, (9.0 * mueff) / (10.0 * sqrt(d)));
     case StepSizeAdaptation::PSR:
         // Loshchilov (2014), Alg. 6 (the Python implementation used 0.4, the C++ one 0.9)
         return 0.3;
@@ -89,8 +92,13 @@ get_default_c1(const Settings &settings, const Float d, const Float mueff, const
     if (settings.one_plus_one)
         return 2.0 / (pow(d, 2) + 6.0);
 
-    // SEPARABLE has this c1 too, without the (d + 2) / 3 of its cmu: an open decision of #73 (Ros &
-    // Hansen 2008 or pycma's CMA_diagonal, which has its own rates c1_sep and cmu_sep)
+    // SEPARABLE: pycma 4.6.0's separable rate (CMA_diagonal), with the degrees of freedom df = d of
+    // a diagonal C: c1_sep = 1 / (df + 2 sqrt(df) + mueff / d) (options_parameters.py:988-990,
+    // 1073), without acov. The maintainer's decision on #73 (#159): Ros & Hansen (2008), whose
+    // factor (d + 2) / 3 on the rates modcma used, could not be checked against the paper
+    if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPARABLE)
+        return 1.0 / (d + 2.0 * std::sqrt(d) + mueff / d);
+
     return acov / (pow(d + 1.3, 2) + mueff);
 }
 
@@ -114,14 +122,18 @@ static Float get_default_cmu(const Settings &settings,
                              const Float c1,
                              const Float acov)
 {
+    // SEPARABLE: pycma 4.6.0's separable rate, cmu_sep = (0.25 + mueff + 1 / mueff - 2) / (df + 4
+    // sqrt(df) + mueff / 2) with df = d (options_parameters.py:992-994, 1100; 0.25 is its
+    // rankmu_offset, 1081), without acov (the maintainer's decision on #73, #159). pycma also has
+    // a separable cc (cc_sep, 1053), which modcma does not use. Before, cmu * (d + 2)
+    // / 3, capped before the multiplication, so that cmu exceeded 1 with large populations (IPOP)
+    // and the decay of C became negative (F4)
     Float cmu_default =
-        acov * (mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (acov * mueff / 2));
+        settings.modules.matrix_adaptation == MatrixAdaptationType::SEPARABLE
+            ? (0.25 + mueff + 1.0 / mueff - 2.0) / (d + 4.0 * std::sqrt(d) + mueff / 2.0)
+            : acov * (mueff - 2.0 + (1.0 / mueff)) / (pow(d + 2.0, 2) + (acov * mueff / 2));
 
-    // SEPARABLE: multiplied by (d + 2) / 3 (Ros & Hansen 2008) before the cap c1 + cmu <= 1. Capped
-    // first, cmu exceeded 1 with large populations (IPOP), and the decay of C became negative
-    // (#73, F4). pycma also caps its separable rate last (options_parameters.py:1100)
-    if (settings.modules.matrix_adaptation == MatrixAdaptationType::SEPARABLE)
-        cmu_default *= ((d + 2.0) / 3.0);
+    // The cap c1 + cmu <= 1, after the formula (as pycma)
     cmu_default = std::min(1.0 - c1, cmu_default);
 
     if (settings.lambda0 == 1)

@@ -44,12 +44,15 @@ as `COVARIANCE` on the sphere and a rotated ellipsoid (d = 5 to 20).
 **What modcma does.** Adapts only the diagonal of C (O(dλ) per generation) with the same update
 restricted to the diagonal; the step-size path uses D⁻¹Δm, exact here.
 
-**Compared with Ros & Hansen (2008) and pycma.** Only cµ is scaled by (d + 2)/3, and then capped
-at 1 − c1, so that the decay of C stays non-negative with large populations (IPOP; the cap came
-before the scaling until #73). c1 and cc keep the values of the full update. pycma's separable mode
-uses its own, larger rates (at d = 100: c1 = 8.3·10⁻³ against modcma's 1.95·10⁻⁴), also capped
-last. `cmaes`' `SepCMA` scales the same way as modcma. Which source the rates follow is an open
-decision of #73. With the active update the negative weights are rescaled by d/‖D⁻¹y‖², the
+**Compared with Ros & Hansen (2008) and pycma.** c1 and cµ are pycma 4.6.0's separable rates
+(`CMA_diagonal`, `options_parameters.py:988-994, 1073, 1100`), with the degrees of freedom d of a
+diagonal C: c1 = 1/(d + 2√d + µ_eff/d) and cµ = min(1 − c1, (0.25 + µ_eff + 1/µ_eff − 2)/(d + 4√d +
+µ_eff/2)), the cap last, so that the decay of C stays non-negative with large populations (#73,
+the maintainer's decision). They agree with pycma's c1_sep and cmu_sep to 3e-17. Until #73, c1
+was the full update's and cµ the full update's × (d + 2)/3, with the cap before the factor (at
+d = 100: c1 = 1.95·10⁻⁴, now 8.3·10⁻³). That factor is attributed to Ros & Hansen (2008); it was
+**not checked against the paper**, which could not be retrieved. cc keeps the value of the full
+update (pycma has its own cc_sep). `cmaes`' `SepCMA` scales by (d + 2)/3 as modcma did. With the active update the negative weights are rescaled by d/‖D⁻¹y‖², the
 Mahalanobis length in the diagonal C, as pycma's diagonal sampler (#73).
 
 **Closest configuration:** `matrix_adaptation=SEPARABLE`, `active=False`.

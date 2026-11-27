@@ -499,15 +499,16 @@ void define_parameters(nb::module_ &main)
         .def_rw("c1",
                 &Weights::c1,
                 "The learning rate of the rank-one update of the matrix.\n\n"
-                "Default acov / ((d + 1.3)**2 + mueff), also for SEPARABLE; 2 / (d**2 + 6) for a "
-                "(1+1)-ES (lambda0 = 1).")
+                "Default acov / ((d + 1.3)**2 + mueff); for SEPARABLE pycma's separable rate "
+                "1 / (d + 2 sqrt(d) + mueff / d) (c1_sep of CMA_diagonal, pycma 4.6.0); 2 / (d**2 "
+                "+ 6) for a (1+1)-ES (lambda0 = 1).")
         .def_rw("cmu",
                 &Weights::cmu,
                 "The learning rate of the rank-mu update of the matrix.\n\n"
                 "Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)**2 + acov mueff / "
-                "2)); for SEPARABLE the second term is multiplied by (d + 2) / 3 (Ros & Hansen "
-                "2008) before the minimum, so that c1 + cmu <= 1; 2 / (d**2 + 6) for lambda0 = "
-                "1.")
+                "2)); for SEPARABLE pycma's separable rate min(1 - c1, (0.25 + mueff + 1 / mueff "
+                "- 2) / (d + 4 sqrt(d) + mueff / 2)) (cmu_sep of CMA_diagonal, pycma 4.6.0), so "
+                "that c1 + cmu <= 1; 2 / (d**2 + 6) for lambda0 = 1.")
         .def_rw("cc",
                 &Weights::cc,
                 "The learning rate of the evolution path pc.\n\n"
@@ -522,16 +523,18 @@ void define_parameters(nb::module_ &main)
                 "Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55); pycma uses d + "
                 "mueff + 3 and caps cs at 1/2); SR 2 / (d + 2); XNES mueff / (2 ln(max(2, d)) "
                 "sqrt(d)), or with NATURAL_GRADIENT xNES's eta_sigma = (9 + 3 ln(d)) / (5 d "
-                "sqrt(d)) (Glasmachers et al. 2010); MXNES 1; LPXNES 9 mueff / (10 sqrt(d)); "
-                "otherwise (TPA, MSR, PSR, SA) 0.3. The rates of XNES, MXNES and LPXNES are those "
-                "of Krause, Glasmachers & Igel (2017), Table 3. cs is also the rate of the path "
-                "ps, at most 1 (see `cs_path`).")
+                "sqrt(d)) (Glasmachers et al. 2010); MXNES 1; LPXNES min(1, 9 mueff / (10 "
+                "sqrt(d))); otherwise (TPA, MSR, PSR, SA) 0.3. The rates of XNES, MXNES and LPXNES "
+                "are those of Krause, Glasmachers & Igel (2017), Table 3; the cap of LPXNES's at 1 "
+                "is modcma's (above 1 its update overshoots). cs is also the rate of the path ps, "
+                "at most 1 (see `cs_path`).")
         .def_rw("cs_path",
                 &Weights::cs_path,
                 "The learning rate of the evolution path ps: min(cs, 1).\n\n"
-                "The cs of LPXNES, 9 mueff / (10 sqrt(d)), exceeds 2 when mueff > 2.22 sqrt(d) "
-                "(and that of XNES for large populations); as the rate of ps it made ps NaN. At 1 "
-                "ps is the current step, sqrt(mueff) dz, as with MXNES (cs = 1). ps is read by "
+                "The default cs of XNES, mueff / (2 ln(d) sqrt(d)), exceeds 1 for large "
+                "populations (13.8 at d = 2, lambda = 100), and LPXNES's exceeded 2 before it was "
+                "capped; as the rate of ps a cs above 2 made ps NaN. At 1 ps is the current step, "
+                "sqrt(mueff) dz, as with MXNES (cs = 1). ps is read by "
                 "CSA, by MATRIX (its rank-one update) and by h_sigma of COVARIANCE, "
                 "COVARIANCE_NO_EIGV and SEPARABLE.")
         .def_rw("damps",
@@ -806,7 +809,8 @@ void define_parameters(nb::module_ &main)
             "    The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, sqrt((mueff - "
             "1) / (dim + 1)) - 1) + cs (see Weights.damps).\n"
             "acov : float, optional\n"
-            "    The factor alpha_cov in the defaults of c1 and cmu, positive, default 2.\n"
+            "    The factor alpha_cov in the defaults of c1 and cmu, positive, default 2 (not "
+            "used by SEPARABLE, whose defaults are pycma's separable rates).\n"
             "verbose : bool, default False\n"
             "    Print a message at every restart and when a decomposition of the matrix "
             "fails.\n"
@@ -1034,7 +1038,8 @@ void define_parameters(nb::module_ &main)
             [](const Settings &s) { return s.acov; },
             [](Settings &s, const std::optional<Float> value) { s.set_acov(value); },
             "The factor alpha_cov of the defaults of c1 and cmu, or None for the default 2; "
-            "positive and finite (ValueError).")
+            "positive and finite (ValueError). SEPARABLE does not use it: its defaults are "
+            "pycma's separable rates.")
         .def_prop_rw("verbose",
                      bool_getter(&Settings::verbose),
                      bool_setter(&Settings::verbose),

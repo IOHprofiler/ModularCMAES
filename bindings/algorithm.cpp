@@ -1160,11 +1160,11 @@ void define_matrix_adaptation(nb::module_ &main)
         "SeparableAdaptation",
         "Separable CMA-ES: a diagonal covariance matrix (`MatrixAdaptationType.SEPARABLE`).\n\n"
         "Only the d variances are learned, with the rank-one and rank-mu updates of CMA-ES "
-        "applied per coordinate (the default cmu multiplied by (d + 2) / 3, then capped at 1 - "
-        "c1); samples are y = d * z. With `Modules.active` the negative weights are multiplied "
-        "by d / sum_j (y_ij / d_j)^2, the Mahalanobis length in the diagonal C, as in pycma. "
-        "O(d lambda) per generation: for separable functions, and for high dimension, where a "
-        "full matrix is slow to learn. Ros & Hansen (2008).");
+        "applied per coordinate, with pycma's separable learning rates (c1_sep, cmu_sep: see "
+        "`Weights.c1`, `Weights.cmu`); samples are y = d * z. With `Modules.active` the "
+        "negative weights are multiplied by d / sum_j (y_ij / d_j)^2, the Mahalanobis length in "
+        "the diagonal C, as in pycma. O(d lambda) per generation: for separable functions, and "
+        "for high dimension, where a full matrix is slow to learn. Ros & Hansen (2008).");
     adaptation_init(separable);
     separable
         .def_rw("c",
@@ -1939,10 +1939,12 @@ void define_mutation(nb::module_ &main)
         "Every individual samples its own step size sigma_i (a `SigmaSampler` is always "
         "used, with beta = ln 2 / (sqrt(d) ln(max(d, 2)))); sigma *= exp(cs sum_i w_i "
         "ln(sigma_i / sigma)) over the positive weights (`Weights.positive`, summing to 1; "
-        "ln sigma_i: the mean of the logarithms of the column of `pop.S`), cs = 9 mueff / "
-        "(10 sqrt(d)), which moves sigma towards the step sizes of the better individuals. "
-        "cs exceeds 1 for mueff > 1.11 sqrt(d); the rate of the path ps is then 1 "
-        "(`Weights.cs_path`). lp-xNES of Krause, Glasmachers & Igel (2017), Sec. 4.4, "
+        "ln sigma_i: the mean of the logarithms of the column of `pop.S`), which moves "
+        "sigma towards the step sizes of the better individuals; cs = min(1, 9 mueff / (10 "
+        "sqrt(d))). The rate is that of Krause et al.; the cap is modcma's: above 1 the "
+        "update overshoots the weighted geometric mean of the step sizes (1.29 at d = 2, "
+        "1.05 at d = 5 with the default lambda). lp-xNES of Krause, Glasmachers & Igel "
+        "(2017), Sec. 4.4, "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
     strategy_init(ssa_lpxnes);

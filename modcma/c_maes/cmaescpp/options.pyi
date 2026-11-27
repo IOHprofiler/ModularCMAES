@@ -266,7 +266,7 @@ class MatrixAdaptationType(enum.Enum):
 
     SEPARABLE = 3
     """
-    sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per generation. For separable problems and very high dimension; it cannot learn correlations between variables. Of `Settings.C0` it uses the diagonal.
+    sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per generation, with pycma's separable learning rates c1 and cmu. For separable problems and very high dimension; it cannot learn correlations between variables. Of `Settings.C0` it uses the diagonal.
     """
 
     CHOLESKY = 4

@@ -153,22 +153,37 @@ class TestXNESFamily(unittest.TestCase):
         es.run(lambda x: float(x[0] ** 2))
         self.assertLess(es.p.stats.global_best.y, 1e-8)
 
+    def test_lpxnes_rate_at_most_one(self):
+        # 9 mueff / (10 sqrt(d)) is 1.29 at d = 2 and 1.05 at d = 5 with the default lambda, 2.37
+        # at d = 2, lambda = 12: capped at 1 (ours, #159), the rate of Krause et al. below
+        for d, lam in ((2, None), (5, None), (2, 12), (20, None)):
+            w = modcma.ModularCMAES(
+                modcma.settings_from_dict(d, ssa="LPXNES", lambda0=lam)
+            ).p.weights
+            expected = min(1.0, 9 * w.mueff / (10 * math.sqrt(d)))
+            self.assertAlmostEqual(w.cs, expected, msg=(d, lam))
+        self.assertLess(
+            modcma.ModularCMAES(modcma.settings_from_dict(20, ssa="LPXNES")).p.weights.cs, 1
+        )
+
     def test_the_path_has_a_rate_of_at_most_one(self):
-        # LPXNES's cs = 9 mueff / (10 sqrt(d)) = 2.37 at d = 2, lambda = 12: as the rate of ps it
-        # made sqrt(cs (2 - cs) mueff) NaN. The rate of ps is min(cs, 1) (cs_path)
-        for ma in ("COVARIANCE", "MATRIX", "SEPARABLE"):
-            settings = modcma.settings_from_dict(
-                2, ssa="LPXNES", matrix_adaptation=ma, lambda0=12, budget=2000, seed=1,
-                always_compute_eigv=True,
-            )
-            es = modcma.ModularCMAES(settings)
-            w = es.p.weights
-            self.assertGreater(w.cs, 2)
-            self.assertEqual(w.cs_path, 1.0)
-            self.assertAlmostEqual(w.sqrt_cs_mueff, math.sqrt(w.mueff))
-            for _ in range(10):
-                es.step(sphere)
-                self.assertTrue(np.all(np.isfinite(es.p.adaptation.ps)), ma)
+        # LPXNES's cs was 2.37 at d = 2, lambda = 12, and XNES's is 13.8 at d = 2, lambda = 100: as
+        # the rate of ps it made sqrt(cs (2 - cs) mueff) NaN. The rate of ps is min(cs, 1)
+        for ssa, lam in (("LPXNES", 12), ("XNES", 100)):
+            for ma in ("COVARIANCE", "MATRIX", "SEPARABLE"):
+                settings = modcma.settings_from_dict(
+                    2, ssa=ssa, matrix_adaptation=ma, lambda0=lam, budget=5000, seed=1,
+                    always_compute_eigv=True,
+                )
+                es = modcma.ModularCMAES(settings)
+                w = es.p.weights
+                self.assertEqual(w.cs_path, min(w.cs, 1.0))
+                if ssa == "XNES":
+                    self.assertGreater(w.cs, 2)
+                    self.assertAlmostEqual(w.sqrt_cs_mueff, math.sqrt(w.mueff))
+                for _ in range(10):
+                    es.step(sphere)
+                    self.assertTrue(np.all(np.isfinite(es.p.adaptation.ps)), (ssa, ma))
         for ssa in ("CSA", "TPA", "MSR", "PSR", "SR", "XNES", "MXNES", "LPXNES"):
             w = modcma.ModularCMAES(modcma.settings_from_dict(20, ssa=ssa)).p.weights
             self.assertEqual(w.cs_path, w.cs, ssa)
@@ -254,9 +269,29 @@ class TestDefaultWeightsForMu(unittest.TestCase):
 
 
 class TestSeparableRates(unittest.TestCase):
+    """SEPARABLE's c1 and cmu: pycma 4.6.0's separable rates (CMA_diagonal; options_parameters.py
+    988-994, 1073, 1100), the maintainer's decision on #73. They agree with pycma's c1_sep and
+    cmu_sep to 3e-17 at (d, lambda) = (2, 6), (5, 8), (10, 10), (10, 100), (40, 15), (100, 17),
+    (100, 1000) (checked 2026-11-27)."""
+
+    def test_pycma_rates(self):
+        for d, lam in ((2, 6), (5, 8), (10, 10), (10, 100), (40, 15), (100, 17), (100, 1000)):
+            w = modcma.ModularCMAES(
+                modcma.settings_from_dict(d, matrix_adaptation="SEPARABLE", lambda0=lam)
+            ).p.weights
+            m = w.mueff
+            c1 = 1 / (d + 2 * math.sqrt(d) + m / d)
+            cmu = min(1 - c1, (0.25 + m + 1 / m - 2) / (d + 4 * math.sqrt(d) + m / 2))
+            self.assertAlmostEqual(w.c1, c1, places=15, msg=(d, lam))
+            self.assertAlmostEqual(w.cmu, cmu, places=15, msg=(d, lam))
+        # pycma's values from the issue (#73): d = 10, lambda = 10
+        settings = modcma.settings_from_dict(10, matrix_adaptation="SEPARABLE")
+        w = modcma.ModularCMAES(settings).p.weights
+        self.assertAlmostEqual(w.c1, 0.0601, places=4)
+        self.assertAlmostEqual(w.cmu, 0.0715, places=4)
+
     def test_c1_plus_cmu_at_most_one(self):
-        # cmu * (d + 2) / 3 is capped at 1 - c1 after the multiplication (#73, F4): every lambda
-        # that IPOP reaches (up to 2^9 lambda0)
+        # the cap after the formula (#73, F4): every lambda that IPOP reaches (up to 2^9 lambda0)
         for d in (2, 10, 100):
             lam0 = 4 + int(3 * math.log(d))
             for k in range(10):
@@ -265,16 +300,6 @@ class TestSeparableRates(unittest.TestCase):
                 ).p.weights
                 self.assertLessEqual(w.c1 + w.cmu, 1.0 + 1e-15, (d, k))
                 self.assertGreater(w.cmu, 0)
-
-    def test_small_populations_unchanged(self):
-        # where the cap does not bind, cmu is the full-covariance rate times (d + 2) / 3
-        d = 10
-        full = modcma.ModularCMAES(modcma.Settings(d)).p.weights
-        sep = modcma.ModularCMAES(
-            modcma.settings_from_dict(d, matrix_adaptation="SEPARABLE")
-        ).p.weights
-        self.assertAlmostEqual(sep.cmu, full.cmu * (d + 2) / 3, places=15)
-        self.assertEqual(sep.c1, full.c1)
 
 
 if __name__ == "__main__":

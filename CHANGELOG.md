@@ -193,6 +193,11 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   µ best, and the µ negative weights on the worst ranks (0 between them when λ > 2µ; the last λ − µ
   of them when λ < 2µ). They were ln((λ + 1)/⌊λ/µ⌋) − ln i for all ranks. With pairwise selection
   every negative weight now falls on a loser, so the active update has no effect there.
+* **`SEPARABLE`'s learning rates** are pycma's separable rates (`CMA_diagonal`, pycma 4.6.0): c1 =
+  1/(d + 2√d + µ_eff/d), cµ = min(1 − c1, (0.25 + µ_eff + 1/µ_eff − 2)/(d + 4√d + µ_eff/2)), the
+  cap last (#73). They were the full update's c1 and its cµ × (d + 2)/3, attributed to Ros & Hansen
+  (2008) but not checked against the paper. c1 is 4× to 40× larger at d = 10 to 100; `acov` no
+  longer affects `SEPARABLE`.
 * `get_configspace`: `cs` is inactive with `NATURAL_GRADIENT` for `ssa` `SR` and `SA` (its default
   `cc` no longer reads `cs`, #72).
 * **The end of a run** (#111): every run ends with an evaluation of its center of mass, also when
@@ -395,9 +400,12 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * The stagnation criterion took O(t) per generation (5× slower long BIPOP runs).
 * `LPXNES`: β = ln 2/(√d ln d) was infinite at d = 1 (now ln(max(d, 2))); its cs, 9µ_eff/(10√d),
   is above 2 for µ_eff > 2.22√d (d = 2, λ = 12, or IPOP), and as the rate of p_σ it made p_σ NaN.
-  With `NATURAL_GRADIENT` it had xNES's rate and did not converge (#72).
+  With `NATURAL_GRADIENT` it had xNES's rate and did not converge (#72). Its cs is now capped at 1
+  (ours; above 1 the update overshoots, 1.29 at d = 2 with the default λ), and the rate of p_σ is
+  at most 1 for every rule.
 * `SEPARABLE`: the cap c1 + cµ ≤ 1 was applied before cµ was multiplied by (d + 2)/3, so with large
-  populations (IPOP) cµ exceeded 1 and the decay of C was negative (#73).
+  populations (IPOP) cµ exceeded 1 and the decay of C was negative (#73; now pycma's rates, capped
+  last).
 * The default weights with µ > λ/2 (and some µ < λ/2, such as µ = 4, λ = 10) had positive values
   among the "negative" weights, which the active update applied as positive (#73).
 * `CHOLESKY` with the active update used a factor that a failed rank-one downdate had left partly

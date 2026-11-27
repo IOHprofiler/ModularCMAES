@@ -454,8 +454,9 @@ void define_options(nb::module_ &main)
         .value("SEPARABLE",
                MatrixAdaptationType::SEPARABLE,
                "sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per "
-               "generation. For separable problems and very high dimension; it cannot learn "
-               "correlations between variables. Of `Settings.C0` it uses the diagonal.")
+               "generation, with pycma's separable learning rates c1 and cmu. For separable "
+               "problems and very high dimension; it cannot learn correlations between "
+               "variables. Of `Settings.C0` it uses the diagonal.")
         .value("CHOLESKY",
                MatrixAdaptationType::CHOLESKY,
                "Cholesky-CMA-ES (Krause et al. 2016): adapts the lower triangular Cholesky factor "

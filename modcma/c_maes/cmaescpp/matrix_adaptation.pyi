@@ -465,7 +465,7 @@ class SeparableAdaptation(Adaptation):
     """
     Separable CMA-ES: a diagonal covariance matrix (`MatrixAdaptationType.SEPARABLE`).
 
-    Only the d variances are learned, with the rank-one and rank-mu updates of CMA-ES applied per coordinate (the default cmu multiplied by (d + 2) / 3, then capped at 1 - c1); samples are y = d * z. With `Modules.active` the negative weights are multiplied by d / sum_j (y_ij / d_j)^2, the Mahalanobis length in the diagonal C, as in pycma. O(d lambda) per generation: for separable functions, and for high dimension, where a full matrix is slow to learn. Ros & Hansen (2008).
+    Only the d variances are learned, with the rank-one and rank-mu updates of CMA-ES applied per coordinate, with pycma's separable learning rates (c1_sep, cmu_sep: see `Weights.c1`, `Weights.cmu`); samples are y = d * z. With `Modules.active` the negative weights are multiplied by d / sum_j (y_ij / d_j)^2, the Mahalanobis length in the diagonal C, as in pycma. O(d lambda) per generation: for separable functions, and for high dimension, where a full matrix is slow to learn. Ros & Hansen (2008).
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:

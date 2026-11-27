@@ -31,8 +31,9 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | `matrix_adaptation=NATURAL_GRADIENT` with `active` and the default weights | `weights=UTILITY`: xNES's active form (CMA-ES's negative weights broke it) |
 | `mirrored=PAIRWISE` with `sequential_selection` | the generation stops only after complete pairs, at 2µ points at the earliest |
 | `matrix_adaptation=NATURAL_GRADIENT` | `cc`, the learning rate of A, is xNES's η_B/2; with `ssa=XNES` also `cs` is xNES's η_σ. The other step-size rules keep their own `cs` (#72) |
-| a `cs` above 1 (`LPXNES` with µ_eff > 1.11√d; `XNES` with a large λ) | the path p_σ (h_σ, MATRIX's rank-one update) has the rate 1, the current step (`Weights.cs_path`); with `cs` above 2 it became NaN (#72) |
-| `matrix_adaptation=SEPARABLE` | `cmu` × (d + 2)/3 (Ros & Hansen 2008), then at most 1 − `c1` (#73) |
+| `ssa=LPXNES` | `cs` = min(1, 9µ_eff/(10√d)): Krause et al.'s rate, capped at 1 by modcma (above 1 the update overshoots; 1.29 at d = 2) (#72) |
+| a `cs` above 1 (`XNES` with a large λ: 13.8 at d = 2, λ = 100) | the path p_σ (h_σ, MATRIX's rank-one update) has the rate 1, the current step (`Weights.cs_path`); with `cs` above 2 it became NaN (#72) |
+| `matrix_adaptation=SEPARABLE` | `c1` and `cmu` are pycma's separable rates (`CMA_diagonal`), `cmu` at most 1 − `c1`; `acov` is not used (#73) |
 | a coordinate with one infinite bound | `MIRROR`, `TOROIDAL`, `COTN` and `UNIFORM_RESAMPLE` set a value that crosses its finite bound to that bound, as `SATURATE` (they need the width ub − lb); the coordinates with two finite bounds use the method ([infinite bounds](bound-correction.md#infinite-bounds)) |
 | `UNIFORM`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` with an infinite bound | in that coordinate, the centers are uniform in x0 ± 2σ0, shifted inside a finite bound ([restarts](restarts.md#where-a-restart-begins)) |
 | `C0` with `matrix_adaptation=SEPARABLE` | only the diagonal of `C0` is used (for the `C0` of `warm_start`, the diagonal covariance of the paper's WS-sep-CMA-ES) |
