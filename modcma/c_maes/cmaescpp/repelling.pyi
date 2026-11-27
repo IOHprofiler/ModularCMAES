@@ -255,7 +255,7 @@ class Repelling:
     @property
     def archive(self) -> list[TabooPoint]:
         """
-        The taboo points, a list of TabooPoint (sorted by criticality before each population). Reading returns a copy; assign a list to change it.
+        The taboo points, a list of TabooPoint (sorted by criticality before each population). Reading returns a copy, which stays valid and does not follow the optimizer; writing to its elements does not change the archive. Assign a list to change it.
         """
 
     @archive.setter

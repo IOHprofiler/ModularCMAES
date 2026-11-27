@@ -260,7 +260,12 @@ void define_parameters(nb::module_ &main)
                      "The worst individuals enter the update of the matrix with negative weights "
                      "(Jastrebski and Arnold), rescaled by d / ||A^-1 y||^2 as in Hansen (2016), "
                      "Eq. (46). Settings turns it off for matrix_adaptation NONE and CMSA (which "
-                     "has no active variant) and for a (1+1)-ES.")
+                     "has no active variant) and for a (1+1)-ES.\n\n"
+                     "With StepSizeAdaptation.XNES (and weights other than UTILITY) a generation "
+                     "with h_sigma = 0 has no negative weights (COVARIANCE, COVARIANCE_NO_EIGV, "
+                     "SEPARABLE, CHOLESKY, MATRIX): xNES SA keeps sigma too small, "
+                     "and there the negative weights undid the growth of C towards the optimum "
+                     "(#175; modcma's rule, not the tutorial's or pycma's).")
         .def_prop_rw("orthogonal",
                      bool_getter(&Modules::orthogonal),
                      bool_setter(&Modules::orthogonal),
@@ -424,17 +429,27 @@ void define_parameters(nb::module_ &main)
                 &Stats::current_avg,
                 "The mean objective value of the population after the last selection (+inf "
                 "before the first).")
-        .def_rw("solutions",
-                &Stats::solutions,
-                "list of Solution: the best solution of every finished run, appended when it "
-                "ends, at a restart and when the optimizer stops (a copy of current_best, so with "
-                "RESAMPLE possibly outside the box). Its center of mass, evaluated after it, can "
-                "be better: see centers.")
-        .def_rw("centers",
-                &Stats::centers,
-                "list of Center: the record of every finished run, appended when it ends, at a "
-                "restart and when the optimizer stops: its evaluated center of mass, with sigma, "
-                "the metric and why it ended (a copy). One per run, as solutions.")
+        // Copies (#176): def_rw gave references into the vectors, which the next run's entry
+        // (reallocation) invalidated; a list held across a restart read freed memory
+        .def_prop_rw(
+            "solutions",
+            [](const Stats &s) { return s.solutions; },
+            [](Stats &s, const std::vector<Solution> &solutions) { s.solutions = solutions; },
+            "list of Solution: the best solution of every finished run, appended when it "
+            "ends, at a restart and when the optimizer stops (a copy of current_best, so with "
+            "RESAMPLE possibly outside the box). Its center of mass, evaluated after it, can "
+            "be better: see centers.\n\n"
+            "Reading returns a copy of the list and its elements, which stays valid and does "
+            "not follow the optimizer; assign a list to change it.")
+        .def_prop_rw(
+            "centers",
+            [](const Stats &s) { return s.centers; },
+            [](Stats &s, const std::vector<Center> &centers) { s.centers = centers; },
+            "list of Center: the record of every finished run, appended when it ends, at a "
+            "restart and when the optimizer stops: its evaluated center of mass, with sigma, "
+            "the metric and why it ended. One per run, as solutions.\n\n"
+            "Reading returns a copy of the list and its elements, which stays valid and does "
+            "not follow the optimizer; assign a list to change it.")
         .def_rw("current_best",
                 &Stats::current_best,
                 "The best solution of the current run (since the last restart), of every "
