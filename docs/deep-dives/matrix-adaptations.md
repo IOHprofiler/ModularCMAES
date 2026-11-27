@@ -16,6 +16,19 @@ over the µ best points, or over all λ with the active update (the negative wei
 d/‖C^-1/2 y‖², as in Hansen 2016). C is updated every generation; the eigendecomposition only every
 1/(10 d (c1 + cµ)) generations.
 
+**The active update with elitism** (#161, every matrix adaptation with an active update). With
+`elitist` the population is the λ best of the (µ+λ) pool. The negative weights go to the λ − µ
+worst points of the pool, the points that the selection dropped (`Population.n_pool`); the
+positive ones to the µ best. This is the framework paper's definition ("the weights wᵢ assigned to
+the λ − µ worst individuals are negative"; Jastrebski & Arnold 2006 use "information about
+unsuccessful offspring") and what pycma does with `CMA_elitist`: its weights for a population longer
+than λ have zeros between the positive and the negative ones (`recombination_weights.py`:202–203).
+The tutorial covers comma selection only. Before #161 the negative weights went to ranks µ+1..λ of
+the pool, which are parents and good offspring, and the worst points got none: the negative steps
+pointed along the flat directions (4 to 6 times flatter than a random step on a rotated ellipsoid),
+C learned the wrong shape, and `COVARIANCE` with `elitist` and `active` solved BBOB f10 and f12 at
+d = 10 in 0 of 25 runs (pycma 25).
+
 **Compared with Hansen (2016) and pycma.**
 
 * The active update is off by default (`active=False`); the tutorial's default weights and pycma
@@ -66,6 +79,18 @@ M ← M [I + (c1/2)(s sᵀ − I) + (cµ/2)(Σ wᵢ zᵢ zᵢᵀ − I)],
 computed in O(d²λ), with s the step-size path from the weighted z, updated before M as in Beyer &
 Sendhoff (2017).
 
+**h_σ with a step-size rule other than CSA** (#160). The rank-one term reads s = p_σ. With a rule
+other than `CSA`, the term is skipped in a generation in which h_σ = 0 (‖p_σ‖ long; Hansen 2016,
+after Eq. (45), as `COVARIANCE` stalls p_c). MA-ES has no h_σ (Beyer 2020, (M12)–(M14)): CSA
+updates σ from the same path, so a long path raises σ and shortens itself, and with `CSA` the
+update stays MA-ES's. `XNES` and `SA` keep σ small and leave the path long (‖p_σ‖²/d of 1.5 to 2.4
+with `XNES`, 0.9 with `CSA`): the rank-one term stretched M along the recent mean shifts by about
+1 + (c1/2)(‖p_σ‖² − 1) per generation, the selected z became shorter, `XNES` shrank σ further, and
+the run stalled with cond(M) > 1e12. On the ellipsoid (d = 5 / 10 / 20, 20 runs, budget 10⁴ d)
+`MATRIX` + `XNES` solved 0 / 0 / 0 runs, now 20 / 20 / 20; `MATRIX` + `SA` 0 of 20 at d = 10, now 20.
+Setting det M = 1 after every update, as xNES does with its B, did not help: the shape, not the
+scale, was wrong.
+
 **Differences.** The learning rates are CMA-ES's defaults. MA-ES has no active variant. With the
 active update modcma uses the active CMA-ES update (Hansen 2016, Eq. (47)) written in M to first
 order, as MA-ES derives its own update: (cµ/2)(Σ w°ᵢ zᵢ zᵢᵀ − Σ wᵢ I), with the negative weights
@@ -106,9 +131,12 @@ against 55, 282 and 2306 µs).
 ## CHOLESKY: Cholesky-CMA-ES
 
 **What modcma does.** Updates the triangular Cholesky factor A directly (Krause, Arbonès & Igel
-2016, the variant the framework paper implements): A ← √(1 − c1 − cµ) A, then a rank-one update
-with p_c and µ rank-one updates with the selected y; the step-size path uses A⁻¹Δm. Exact: A Aᵀ
-equals the covariance update to rounding. p_c is not stalled by h_σ.
+2016, the variant the framework paper implements): A ← √(1 + c1 δ(h_σ) − c1 − cµ) A, then a
+rank-one update with p_c and µ rank-one updates with the selected y; the step-size path uses
+A⁻¹Δm. Exact: A Aᵀ equals the covariance update to rounding. With a step-size rule other than
+`CSA`, p_c is stalled by h_σ and its lost variance compensated, as in `COVARIANCE` (#160; Hansen
+2016, after Eq. (45)); with `CSA` it is not, as Krause et al. (2016), and δ(h_σ) = 0. Without it
+`CHOLESKY` + `XNES` solved the ellipsoid (d = 5 / 10 / 20) in 3 / 0 / 0 of 20 runs, now 20 / 20 / 20.
 
 **Differences.** Krause et al. (2016) have no active update. With it, modcma scales A by
 √(1 − c1 − cµ Σ wᵢ) (the negative weights in the sum) and applies the negative weights, rescaled by
@@ -189,8 +217,8 @@ damps; the active update is off. The same as pycma with `CMA_on=False`, but for 
 | `COVARIANCE` | CMA-ES (Hansen 2016, pycma) | `active=True` | pycma's cs (+ 3, capped at 1/2), cµ offset and h_σ form |
 | `COVARIANCE_NO_EIGV` | (none) | with a step-size rule other than CSA, or λ = 1 | rotated step-size path |
 | `SEPARABLE` | sep-CMA-ES (Ros & Hansen 2008) | defaults | c1, cc not scaled |
-| `MATRIX` | MA-ES (Beyer & Sendhoff 2017) | defaults | CMA-ES learning rates |
-| `CHOLESKY` | Cholesky-CMA-ES (Krause et al. 2016) | defaults | no h_σ |
+| `MATRIX` | MA-ES (Beyer & Sendhoff 2017) | defaults | CMA-ES learning rates; h_σ with a rule other than CSA |
+| `CHOLESKY` | Cholesky-CMA-ES (Krause et al. 2016) | defaults | h_σ with a rule other than CSA |
 | `CMSA` | CMSA-ES (Beyer & Sendhoff 2008) | `ssa=SA`, `weights=EQUAL` | σ recombined as a normalized geometric mean (Ahrari et al.) |
 | `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010) | `ssa=XNES`, `weights=UTILITY` | none measurable |
 | `NONE` | CSA-ES | defaults | |

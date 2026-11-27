@@ -18,7 +18,7 @@ class TabooPoint:
     """
     A taboo point: an optimum found by an earlier run, with a radius around it in which samples are rejected.
 
-    The distance of a sample to it is measured in the metric of `Modules.repelling_metric` (EUCLIDEAN; CURRENT: the Mahalanobis distance in the current search distribution; ARCHIVED: `metric`) and divided by the current sigma. A sample is rejected when this distance is less than shrinkage^attempts * radius, with attempts the number of samples rejected so far in the population.
+    The distance of a sample to it is measured in the metric of `Modules.repelling_metric` (CURRENT, the default: the Mahalanobis distance in the current search distribution; EUCLIDEAN; ARCHIVED: `metric`) and divided by the current sigma. A sample is rejected when this distance is less than shrinkage^attempts * radius, with attempts the number of samples rejected so far in the population.
     """
 
     @overload
@@ -281,7 +281,11 @@ class CoverageRepelling(Repelling):
     """
     Repelling with radii from a coverage of the search space (`RepellingType.COVERAGE`).
 
-    A candidate that shares no basin with a taboo point becomes a new one; when it shares a basin, the n_rep of that point grows and the point keeps the better solution. After each update all radii are set to r = (V n_rep / (sigma0 coverage n))^(1/d) Gamma(d/2 + 1)^(1/d) / sqrt(pi d), with V the volume of the box and n the number of runs so far, so that points found more often repel more. de Nobel et al. (2024).
+    A candidate that shares no basin with a taboo point becomes a new one; when it shares a basin, the n_rep of that point grows and the point keeps the better solution. After each update all radii are set to r = (S n_rep / (coverage sigma0^d n))^(1/d) Gamma(d/2 + 1)^(1/d) / sqrt(pi), with S the volume of the box (10^d with an infinite bound), sigma0 the step size of the settings and n the number of runs so far, so that points found more often repel more (de Nobel et al. 2024, Eqs. (10), (11)). The distance to a point is divided by the current sigma (Eq. (8)), so r is in units of sigma, and sigma0^d makes it the volume in sigma0 units: the taboo regions cover 1 / coverage of the box.
+
+    sigma0 is the problem's (`Settings.sigma0`), as Eq. (10) has it, also in BIPOP's small runs, which start at sigma0 10^(-2U). r grows with the box width over sigma0: a large box with a small sigma0 gives a radius of many sigma, which rejects every sample near a taboo point (`restart.TooMuchRepelling` then ends the run). With d, r tends to sqrt(d / (2 pi e)) (box width / sigma0): about 0.24 sqrt(d) times the ratio. Computed in logarithms, so it stays finite at large d.
+
+    Before 2.0 the volume was divided by sigma0 instead of sigma0^d (as the paper's Eq. (10) writes it; the radius then changed when the box and sigma0 were scaled together), and r had an extra factor 1 / sqrt(d) (#158).
     """
 
     def __init__(self) -> None:
@@ -290,6 +294,8 @@ class CoverageRepelling(Repelling):
 class AdaptiveRepelling(Repelling):
     """
     Repelling with adaptive radii (`RepellingType.ADAPTIVE`).
+
+    Experimental: modcma's own work in progress, without a published source. In the experiment of #158 (BBOB f21 and f22, d = 5 to 40, RESTART and IPOP, 240 runs) it solved 99 runs, against 107 without repelling and 144 with COVERAGE.
 
     A new taboo point gets the radius initial_radius_factor / sqrt(d), bounded to [min_radius_factor, max_radius_factor] / sqrt(d). When a run ends in the basin of a point again (the first one in the archive that shares it), its radius grows by exp(grow_eta * min(w, max_waste_ratio)), with w the evaluations of that run divided by their running average (`average_restart_evaluations`: every run counted from the previous restart, the first from the start, also a run without a finite result; the average starts from the first run's length. Before 2.0 the first run counted as one evaluation and the average started at 1, #121). After each population, the radius of a critical point shrinks by shrink_factor when the share of rejected samples of the population exceeds max_rejection_rate and the point's own rejection rate exceeds local_max_rejection_rate (after at least min_checks_before_local_shrink checks).
     """

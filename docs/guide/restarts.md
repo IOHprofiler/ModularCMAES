@@ -126,12 +126,38 @@ This helps to find *different* optima, for example when several good solutions a
 avoids spending restarts on optima that are already known.
 
 * `repelling_type`: `NONE` (default), `COVERAGE` (the size of the taboo regions follows the
-  fraction of the space covered) or `ADAPTIVE` (the size adapts to the rate of rejected samples).
-* `repelling_metric`: the distance to a taboo point: `EUCLIDEAN` (default), `CURRENT` (in the
-  metric of the current covariance matrix) or `ARCHIVED` (in the metric of the run that found the
-  point).
+  fraction of the space covered) or `ADAPTIVE` (the size adapts to the rate of rejected samples;
+  experimental, see below).
+* `repelling_metric`: the distance to a taboo point: `CURRENT` (default: in the metric of the
+  current covariance matrix, the Mahalanobis distance of the paper's Eq. (8)), `EUCLIDEAN` (the
+  default before #158) or `ARCHIVED` (in the metric of the run that found the point).
 
 They change what `ask()` returns: the points of the hill–valley tests are asked one at a time.
+
+**The radius of `COVERAGE`** (de Nobel et al. 2024, Eqs. (10) and (11)). The distance to a taboo
+point is divided by the current σ, so the radius δ is in units of σ. It is set from the volume of
+the box in σ₀ units: δ = (S n_T / (c σ₀^d N))^(1/d) Γ(d/2 + 1)^(1/d) / √π, with S the volume of the
+box (10^d with an infinite bound), c the coverage (`es.p.repelling.coverage`, 2), N the runs so far
+and n_T the runs that ended in the basin of the point, so the taboo regions cover 1/c of the box.
+
+* σ₀ is the problem's (`Settings.sigma0`), also in BIPOP's small runs, which start with
+  σ₀·10^(−2U): Eq. (10) has one σ₀, the input of the algorithm.
+* δ grows with the width of the box over σ₀, and so does the volume of the taboo regions in σ
+  units. A large box with a small σ₀ gives a radius of many σ, which rejects every sample near a
+  taboo point, and `TooMuchRepelling` then ends the run.
+* For large d, δ tends to √(d/(2πe))·(width/σ₀), about 0.24√d times the ratio. With σ₀ = 2 in
+  [−5, 5]^d it is 2.7 at d = 5, 4.0 at d = 10 and 5.6 at d = 20 for a point found in one of two
+  runs, about 1.25√d, while a sample lies about √d σ from the mean (in the Mahalanobis distance of
+  `CURRENT`): while the mean is near a taboo point, most samples are rejected. δ is computed in
+  logarithms and stays finite at large d (S = 10^500 for d = 500).
+* Before #158 the volume was divided by σ₀ instead of σ₀^d, as the paper's Eq. (10) writes it, so
+  δ changed when the box and σ₀ were scaled together, and δ had an extra factor 1/√d. In the
+  experiment of #158 (BBOB f19, f21 and f22, d = 5, 10 and 20) the new radius with `CURRENT`
+  solved 128 of 270 runs, against 109 with the former radius and 101 without repelling.
+
+**`ADAPTIVE` is experimental**: modcma's own work in progress, without a published source. In the
+experiment of #158 (BBOB f21 and f22, d = 5 to 40, `RESTART` and `IPOP`) it solved 99 of 240
+runs, against 107 without repelling and 144 with `COVERAGE` and `CURRENT`.
 
 ## The options
 
@@ -153,6 +179,6 @@ They change what `ask()` returns: the points of the hill–valley tests are aske
 | value | |
 |---|---|
 | `NONE` | No repelling, the default. |
-| `COVERAGE` | Radii from a coverage of the search volume: the radius of a taboo point grows with the number of runs that ended in its basin and shrinks as the total number of runs grows. |
-| `ADAPTIVE` | Radii adapted from the rejection rate of the samples and the evaluations the runs need, between a minimum and a maximum radius. |
+| `COVERAGE` | Radii from a coverage of the search volume (de Nobel et al. 2024): the radius of a taboo point grows with the number of runs that ended in its basin and shrinks as the total number of runs grows; in units of sigma, from the volume of the box in sigma0 units (`repelling.CoverageRepelling`). |
+| `ADAPTIVE` | Experimental (modcma's own, without a published source): radii adapted from the rejection rate of the samples and the evaluations the runs need, between a minimum and a maximum radius. |
 <!-- /options -->

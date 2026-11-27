@@ -18,7 +18,9 @@ average. The modules of this page change which points are selected and how they 
   often speeds up the adaptation (pycma uses it by default); not used with
   `matrix_adaptation=NONE` or `CMSA`, which has no active variant.
 * `elitist=True`: (µ + λ) selection, the parents compete with the offspring, so the best point is
-  never lost. Faster on unimodal problems, but more easily trapped in a local optimum.
+  never lost. Faster on unimodal problems, but more easily trapped in a local optimum. With
+  `active`, the negative weights go to the λ − µ worst points of the µ + λ pool (#161); `XNES` adapts σ
+  from the offspring alone (#172) ([compatibility](compatibility.md#combinations-that-change-the-meaning-of-an-option)).
 * `sequential_selection=True`: evaluate the points one by one and end the generation at the first
   point (from the µ-th on) that improves on the best of the previous generation (Brockhoff et al.
   2010); the updates

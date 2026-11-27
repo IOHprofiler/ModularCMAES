@@ -222,6 +222,17 @@ class Population:
     @n_ranked.setter
     def n_ranked(self, arg: int, /) -> None: ...
 
+    @property
+    def n_pool(self) -> int:
+        """
+        With elitism, the size of the sorted (mu + lambda) pool of which the selection kept the first n (0 or at most n: no point was dropped).
+
+        The columns n..n_pool-1 of the buffers then hold the dropped points, the worst of the pool, in their order (they are not part of the arrays X, Z, Y, f, ...): the active update of the matrix gives them the negative weights (the framework paper's "lambda - mu worst individuals", #161). Set by the selection; `keep_only` and adding populations reset it to 0.
+        """
+
+    @n_pool.setter
+    def n_pool(self, arg: int, /) -> None: ...
+
     def __add__(self, other: Population) -> Population:
         """
         A new population with the active individuals of this one, then those of other.

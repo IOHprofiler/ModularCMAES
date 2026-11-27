@@ -344,7 +344,7 @@ class CovarianceAdaptation(Adaptation):
     """
     The covariance matrix adaptation of CMA-ES (`MatrixAdaptationType.COVARIANCE`, the default).
 
-    C receives a rank-one update from the evolution path pc and a rank-mu update from the selected steps (with `Modules.active`, negative weights for the worst steps), and is decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = 1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the step-size adaptation is not CSA, also for lambda0 = 1, which runs SR (unless `always_compute_eigv`). Hansen & Ostermeier (2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.
+    C receives a rank-one update from the evolution path pc and a rank-mu update from the selected steps (with `Modules.active`, negative weights for the worst steps: with elitism the worst points of the (mu + lambda) pool, #161), and is decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = 1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the step-size adaptation is not CSA, also for lambda0 = 1, which runs SR (unless `always_compute_eigv`). Hansen & Ostermeier (2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -417,7 +417,7 @@ class CovarianceAdaptation(Adaptation):
         """
         Update C with the rank-one (pc) and rank-mu (selected steps) updates.
 
-        With `modules.active` the whole population is used, the negative weights of the worst steps rescaled by d / ||C^-1/2 y_i||^2 (Hansen 2016, eq. 46); otherwise the mu best. Does not decompose C.
+        With `modules.active` the whole population is used, the negative weights of the worst steps rescaled by d / ||C^-1/2 y_i||^2 (Hansen 2016, eq. 46); otherwise the mu best. With elitism (`population.n_pool`) the negative weights go to the points that the selection dropped, the worst of the (mu + lambda) pool (#161). Does not decompose C.
 
         Parameters
         ----------
@@ -516,7 +516,9 @@ class MatrixAdaptation(Adaptation):
 
     Learns the sampling matrix M directly, y = M z, without a covariance matrix, an evolution path pc or a decomposition: M = (1 - c1/2 - cmu/2 sum(w)) M + (c1/2) (M ps) ps^T + (cmu/2) sum_i w_i y_i z_i^T, with sum(w) = 1 for the positive weights. O(d^2 lambda) per generation (BLAS from d = `constants.blas_min_dim`), so it suits high dimension. Beyer & Sendhoff (2017).
 
-    MA-ES has no active update. With `Modules.active` this is the active update of the CMA-ES (Hansen 2016, Eq. (47)) written for M, as MA-ES derives its own update: sum(w) includes the negative weights, and the negative weights are multiplied by d / ||z_i||^2.
+    MA-ES has no active update. With `Modules.active` this is the active update of the CMA-ES (Hansen 2016, Eq. (47)) written for M, as MA-ES derives its own update: sum(w) includes the negative weights, and the negative weights are multiplied by d / ||z_i||^2. With elitism the negative weights go to the worst points of the (mu + lambda) pool, as with every matrix adaptation (#161).
+
+    With a step-size adaptation other than CSA, h_sigma (`hs`) skips the rank-one term in a generation in which ||ps|| is long, as COVARIANCE stalls pc (Hansen 2016, after Eq. (45); #160). MA-ES has no h_sigma: with CSA, which updates sigma from the same path, the update is MA-ES's.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -545,11 +547,20 @@ class MatrixAdaptation(Adaptation):
         """
         The inverse of M, shape (d, d).
 
-        With elitism (lambda > 1) it is updated with M every generation: M <- M F with F = a I + U D U^T (U = [ps, the selected z], D = diag(c1/2, cmu/2 w)), so M_inv <- F^-1 M_inv by the Woodbury identity, O(k d^2); up to d = `inverse_recompute_max_dim` (30) it is computed exactly from M after every `inverse_recompute_interval` (400) generations of a run, which bounds the rounding error that the update accumulates with the active update at small d (the maintainer's choice, #74). When the update cannot be applied (`inverse_fallbacks`), and without elitism, it is computed only when `invert_y` needs it (injected and repaired points; an LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can lag behind M. Before 2.0 the update with elitism was not the inverse of M F, and drifted from the inverse of M.
+        With elitism or TPA_INPLACE (lambda > 1) it is updated with M every generation: M <- M F with F = a I + U D U^T (U = [ps, the selected z], D = diag(c1/2, cmu/2 w)), so M_inv <- F^-1 M_inv by the Woodbury identity, O(k d^2); up to d = `inverse_recompute_max_dim` (30) it is computed exactly from M after every `inverse_recompute_interval` (400) generations of a run, which bounds the rounding error that the update accumulates with the active update at small d (the maintainer's choice, #74). When the update cannot be applied (`inverse_fallbacks`), and without elitism, it is computed only when `invert_y` needs it (injected and repaired points; an LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can lag behind M. Before 2.0 the update with elitism was not the inverse of M F, and drifted from the inverse of M.
         """
 
     @M_inv.setter
     def M_inv(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
+
+    @property
+    def hs(self) -> bool:
+        """
+        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which skips the rank-one term of the generation; always True with CSA and in the (1+1)-ES (#160).
+        """
+
+    @hs.setter
+    def hs(self, arg: bool, /) -> None: ...
 
     @property
     def inverse_fallbacks(self) -> int:
@@ -576,7 +587,9 @@ class CholeskyAdaptation(Adaptation):
 
     The rank-one (pc) and rank-mu updates of C = A A^T are applied to A as rank-one Cholesky updates, one per selected individual, so there is no decomposition: O(d^2 lambda) per generation and O(d^2) memory. Krause et al. (2016).
 
-    With `Modules.active` the negative weights, multiplied by d / ||A^-1 y_i||^2 as in COVARIANCE, are rank-one downdates, and A is scaled by sqrt(1 - c1 - cmu sum(w)) with the negative weights in the sum. A downdate whose result would not be positive definite is skipped (`skipped_downdates`).
+    With `Modules.active` the negative weights, multiplied by d / ||A^-1 y_i||^2 as in COVARIANCE, are rank-one downdates, and A is scaled by sqrt(1 - c1 - cmu sum(w)) with the negative weights in the sum. A downdate whose result would not be positive definite is skipped (`skipped_downdates`). With elitism the negative weights go to the worst points of the (mu + lambda) pool (#161).
+
+    With a step-size adaptation other than CSA, h_sigma (`hs`) stalls the update of pc and A is scaled by sqrt(1 + c1 delta(h_sigma) - c1 - cmu sum(w)), as in COVARIANCE (Hansen 2016, after Eq. (45); #160).
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -608,6 +621,15 @@ class CholeskyAdaptation(Adaptation):
 
     @pc.setter
     def pc(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def hs(self) -> bool:
+        """
+        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which stalls the update of pc; always True with CSA (#160).
+        """
+
+    @hs.setter
+    def hs(self, arg: bool, /) -> None: ...
 
     @property
     def skipped_downdates(self) -> int:
@@ -726,7 +748,7 @@ class NaturalGradientAdaptation(Adaptation):
     @property
     def gradient_weights(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The weights u of the samples, shape (k,) (with `Modules.active`, negative weights for the worst).
+        The weights u of the samples, shape (k,) (with `Modules.active`, negative weights for the worst; with elitism, the worst of the (mu + lambda) pool, #161).
         """
 
     @gradient_weights.setter
@@ -744,7 +766,7 @@ class NaturalGradientAdaptation(Adaptation):
     @property
     def sigma_g(self) -> float:
         """
-        trace(G) / d of the gradient before the shift: its isotropic (step-size) part, removed from G and used by `StepSizeAdaptation.XNES`, sigma *= exp(cs / 2 * sigma_g).
+        trace(G) / d of the gradient before the shift: its isotropic (step-size) part, removed from G and used by `StepSizeAdaptation.XNES`, sigma *= exp(cs / 2 * sigma_g). With elitism XNES computes it from the offspring alone instead (#172).
         """
 
     @sigma_g.setter

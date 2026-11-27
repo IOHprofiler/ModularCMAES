@@ -64,7 +64,13 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   and matrix products, from d = 100 to 120 (`constants.eigen_solver`, `cholesky_solver`, `blas`,
   `lapack_min_dim`, `blas_min_dim`). Apple Accelerate on macOS, scipy's LAPACK and BLAS on Linux and
   Windows. `modcma.build_info()`.
-* `Modules.repelling_metric` (`EUCLIDEAN`, the previous behaviour; `CURRENT`; `ARCHIVED`).
+* `Modules.repelling_metric` (`CURRENT`, the default since #158; `EUCLIDEAN`, the behaviour of
+  1.x; `ARCHIVED`).
+* **`StepSizeAdaptation.TPA_INPLACE`** (#173): two-point step-size adaptation within the
+  population, as pycma 4.6.0's `CMAAdaptSigmaTPA` (after Hansen, Atamna & Auger 2014): offspring 1
+  and 2 are a mirrored pair along the last mean shift, no extra evaluations; its σ trajectory on
+  scripted values is pycma's to rounding. Off by default; appended last to the enum, so the other
+  options keep their values. `mutation.TPAInPlace`.
 * Wheels for Linux aarch64, Windows ARM64 and macOS x86_64 as well; CPython 3.10–3.14 and 3.14t,
   one abi3 wheel for 3.12+.
 * Docstrings for the whole API (`help()`, editors), type stubs (with `py.typed`), and a new
@@ -113,12 +119,16 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `CholeskyAdaptation.skipped_downdates`, the downdates of the active update that were skipped;
   `MatrixAdaptation.inverse_fallbacks`, `inverse_recompute_interval` and
   `inverse_recompute_max_dim`, of the update of M⁻¹ with elitism (#74).
+* Internals: `Population.n_pool`, the size of the (µ+λ) pool of elitist selection, whose dropped
+  points stay after the population (#161); `MatrixAdaptation.hs` and `CholeskyAdaptation.hs` (#160);
+  `TPA.sigma_old` (#167); `mutation.Strategy` hooks for samples of the step-size rule (#173).
 
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
 * `tools/count_variants.py` counts the distinct variants from the code, and the guide documents
-  the counts (Modules, "How many variants"): 19,797,120 for the 14 modules of the framework paper with today's options (2,828,160 for the 13
-  algorithmic modules, without bound correction), 632,156,448 for all 17 fields of `Modules`. The
-  paper counted 14,859,936 (#130).
+  the counts (Modules, "How many variants"): 21,954,240 for the 14 modules of the framework paper
+  with today's options (3,136,320 for the 13 algorithmic modules, without bound correction),
+  708,676,416 for all 17 fields of `Modules` (with `TPA_INPLACE`, #173). The paper counted
+  14,859,936 (#130).
 
 ### Deprecated
 
@@ -272,6 +282,29 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   other rules 1/√(2µ_eff).
 * Internal: `BoundCorrection.correct_point` corrects a point that is not a sample (TPA uses it when the mean is outside the box, #98);
   `SigmaSampler(dimension)` no longer uses the dimension (one step size per individual, #71).
+* **TPA's test points are m ± ½σ⟨y⟩**, half the last step of the mean with the step size that
+  sampled it, as Hansen (2008, Eqs. (8), (9)); they were m ± σ_new⟨y⟩, about one step (#167).
+  Every TPA configuration gives other runs; on BBOB the length changed the evaluations by 2 % or
+  less in the investigation.
+* **`MATRIX` and `CHOLESKY` stall their rank-one update by h_σ** with every step-size rule but
+  `CSA`, as `COVARIANCE` does (Hansen 2016, after Eq. (45); #160): `CHOLESKY` stalls p_c and
+  compensates the lost variance in the decay, `MATRIX` skips its rank-one term, which reads p_σ.
+  With `XNES` and `SA` the path stayed long, the rank-one term stretched the matrix and the runs
+  stalled: on the ellipsoid (d = 5 / 10 / 20) `MATRIX` + `XNES` solved 0 / 0 / 0 of 20 runs,
+  `CHOLESKY` + `XNES` 3 / 0 / 0; now 20 / 20 / 20 each. With `CSA` the results are unchanged
+  (MA-ES with CSA is as published).
+* **`COVERAGE` repelling's radius** (#158): the volume is in σ₀^d units,
+  V = n_T S / (c σ₀^d N), so the radius does not change when the box and σ₀ are scaled together
+  (the framework paper's Eq. (10) divides by σ₀), and the radius has no extra factor 1/√d (its
+  Eq. (11) has none). Computed in logarithms, so it stays finite at large d (the volume of [−5, 5]^d
+  overflowed from d = 309). σ₀ is the problem's in every run, also in BIPOP's small runs, as Eq. (10) has it
+  (documented).
+* **The default `repelling_metric` is `CURRENT`**, the Mahalanobis distance in the current
+  distribution, as the framework paper's Eq. (8) (#158); it was `EUCLIDEAN`. In the experiment of
+  #158 (BBOB f19, f21, f22; d = 5, 10, 20) the new radius with `CURRENT` solved 128 of 270 runs,
+  101 without repelling.
+* `repelling_type=ADAPTIVE` is documented as experimental: modcma's own, without a published
+  source; it solved fewer runs than no repelling in the experiment of #158.
 
 ### Fixed
 
@@ -520,3 +553,21 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   the samples per generation; `selection.Pairwise.sort` and `NoPairwise.sort`, and
   `NoPairwise.__call__` sorts (it did nothing); `Population.n_ranked`; the `Shuffler` draws its
   multiplier.
+* **Elitism with the active update** (#161): the negative weights of every matrix update with an
+  active update went to ranks µ+1..λ of the (µ+λ) pool, which are parents and good offspring, and
+  the worst points got none. They now go to the λ − µ worst points of the pool, as the framework
+  paper defines the active update and pycma does with `CMA_elitist`; selection is unchanged.
+  `COVARIANCE` with `elitist` and `active` solved BBOB f10 and f12 (d = 10) in 0 of 25 runs.
+* **XNES with elitism** (#172): its step-size update (both forms, xNES SA and the σ part of the
+  natural gradient) read the parents among the µ best, whose z are short; σ settled 3 to 14 times
+  too small and the runs stalled on the ellipsoid (d ≥ 10: at most 3 of 20 runs). It now reads the
+  offspring alone, ranked among themselves, as xNES and xNES SA; selection is unchanged.
+* **The best point lies in the box** (#168): with a bound correction, only a point in [lb, ub]
+  becomes `stats.global_best`, what `run()` and `fmin` return, and in the standalone ES classes
+  `OnePlusOneES.x` and `MuCommaLambdaES.x_min`. `RESAMPLE` evaluates a point outside the box after
+  5d rejected tries, and such a point could be returned. The trajectories are unchanged (except
+  `OnePlusOneES`, whose parent is its best point).
+* The reproducibility guide said that the same seed gives the same run on every platform below the
+  LAPACK thresholds. It is the same on the same platform and toolchain; across platforms the last
+  bits differ (FMA contraction, libm), and an ambiguous eigenbasis (C with equal eigenvalues, with
+  the default settings from d = 12) can amplify them from the first generations (#165).

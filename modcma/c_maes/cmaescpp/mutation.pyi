@@ -320,7 +320,7 @@ class TPA(Strategy):
     """
     Two-point step-size adaptation (`StepSizeAdaptation.TPA`).
 
-    With every population (in its first batch) the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma. With a bound correction other than NONE both points move toward m by the same factor until both are in the box, so the test steps stay symmetric about m (Hansen 2008, Sec. 2.2; pycma's boundary handler moves each point on its own); `BoundCorrection.correct_point` corrects them only when m itself is outside the box.
+    With every population (in its first batch) the two points m + 0.5 sigma_old dm and m - 0.5 sigma_old dm are evaluated: half the last step of the mean, sigma_old dm, with the step size that sampled it (Hansen, CMA-ES with Two-Point Step-Size Adaptation, 2008, Eqs. (8), (9), alpha = 0.5). s = (1 - cs) s + cs r, with r = -a_tpa when the point behind is better, a_tpa + b_tpa when the point ahead is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. A tie as in pycma. Before 2.0 the points were m +- sigma dm with the new sigma, about one step of the mean (#167). With a bound correction other than NONE both points move toward m by the same factor until both are in the box, so the test steps stay symmetric about m (Hansen 2008, Sec. 2.2; pycma's boundary handler moves each point on its own); `BoundCorrection.correct_point` corrects them only when m itself is outside the box.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -359,6 +359,15 @@ class TPA(Strategy):
 
     @rank_tpa.setter
     def rank_tpa(self, arg: float, /) -> None: ...
+
+    @property
+    def sigma_old(self) -> float:
+        """
+        The step size that sampled the last generation, before the update changed it: the test steps are 0.5 sigma_old dm (sigma0 at the start of a run).
+        """
+
+    @sigma_old.setter
+    def sigma_old(self, arg: float, /) -> None: ...
 
 class MSR(Strategy):
     """
@@ -427,6 +436,8 @@ class XNES(Strategy):
     The step-size update of xNES (`StepSizeAdaptation.XNES`).
 
     With NATURAL_GRADIENT: sigma *= exp(cs / 2 * sigma_g), sigma_g the trace part of the natural gradient (`NaturalGradientAdaptation.sigma_g`), cs = xNES's eta_sigma = (9 + 3 ln(d)) / (5 d sqrt(d)) (Glasmachers et al. 2010). With the other matrix adaptations, the xNES SA of Krause, Glasmachers & Igel (2017): sigma *= exp(cs / sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the positive weights (`Weights.positive`, summing to 1), cs = mueff / (2 ln(max(2, d)) sqrt(d)).
+
+    With elitism both forms read the offspring alone, ranked among themselves (the losers of pairwise selection last), with the same weights: xNES's gradient and xNES SA are estimates from the samples of the current distribution (Glasmachers et al. 2010, Algorithm 1; Krause et al. 2017, Sec. 4.2). The parents' z, recomputed against the mean they recombined, are short, and as part of the mu best they kept sigma 3 to 14 times too small (#172).
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -538,3 +549,37 @@ class SA(Strategy):
         sigma0 : float
             The initial step size.
         """
+
+class TPAInPlace(Strategy):
+    """
+    Two-point step-size adaptation within the population (`StepSizeAdaptation.TPA_INPLACE`, #173).
+
+    pycma 4.6.0's CMAAdaptSigmaTPA (sigma_adaptation.py, evolution_strategy.py:2251-2254, 2575-2576), after Hansen, Atamna & Auger (2014), How to Assess Step-Size Adaptation Mechanisms in Randomised Search, Eq. (6) and Algorithm 3. From the second generation of a run on, the first two offspring are a mirrored pair along the last mean shift: z_1 = ||n|| A^-1 dm / ||A^-1 dm|| with n an ordinary sample of the sampler, z_2 = -z_1 (both at the mean when it did not move); they are part of the lambda offspring, so TPA_INPLACE needs no extra evaluations. Once the offspring are evaluated, z = (#{f < f_2} - #{f < f_1}) / (n - 1) over the n offspring (the parents of elitism not included), and s = (1 - cs) s + cs sign(z) |z|^0.5, sigma *= exp(s / damps), with cs = 0.3 and damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)) by default.
+
+    Where pycma departs from the paper, and modcma follows pycma: |z|^0.5 instead of z; the damping (the paper: sqrt(d), tuned on the sphere with the default lambda); and the update in the first generation of a run, from the ranks of two ordinary samples (the paper updates from the second generation on). A^-1 dm costs a triangular solve with most matrix adaptations; MATRIX keeps M^-1 up to date for it, as with elitism; NATURAL_GRADIENT inverts A every generation (O(d^3)). With sampled step sizes the second point takes the step size of the first; bound correction and repelling treat the two as a pair, as a mirrored pair.
+    """
+
+    def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
+        """
+        Create the step-size adaptation (the optimizer creates it from `Modules.ssa`).
+
+        Parameters
+        ----------
+        threshold_convergence : ThresholdConvergence
+            The threshold convergence (or `NoThresholdConvergence`).
+        sequential_selection : SequentialSelection
+            The sequential selection (or `NoSequentialSelection`).
+        sigma_sampler : SigmaSampler
+            The sampler of the step sizes (or `NoSigmaSampler`).
+        sigma0 : float
+            The initial step size.
+        """
+
+    @property
+    def rank_difference(self) -> float:
+        """
+        The last normalised rank difference z of the two test points, in [-1, 1] (positive when the point ahead, along the mean shift, is the better one; 0 before the first update).
+        """
+
+    @rank_difference.setter
+    def rank_difference(self, arg: float, /) -> None: ...

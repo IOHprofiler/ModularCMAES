@@ -8,7 +8,7 @@ matrix, or a factor of it). Each module replaces one of those parts:
 | module (`Modules` field) | options (default first) | what it changes | guide |
 |---|---|---|---|
 | `matrix_adaptation` | `COVARIANCE`, `MATRIX`, `SEPARABLE`, `CHOLESKY`, `CMSA`, `COVARIANCE_NO_EIGV`, `NATURAL_GRADIENT`, `NONE` | how the shape of the distribution is learned | [matrix adaptation](matrix-adaptation.md) |
-| `ssa` | `CSA`, `TPA`, `MSR`, `XNES`, `MXNES`, `LPXNES`, `PSR`, `SR`, `SA` | how the step size is adapted | [step-size adaptation](step-size-adaptation.md) |
+| `ssa` | `CSA`, `TPA`, `MSR`, `XNES`, `MXNES`, `LPXNES`, `PSR`, `SR`, `SA`, `TPA_INPLACE` | how the step size is adapted | [step-size adaptation](step-size-adaptation.md) |
 | `active` | off, on | negative weights for the worst points in the covariance update | [selection](selection.md) |
 | `elitist` | off, on | (µ + λ) instead of (µ, λ) selection | [selection](selection.md) |
 | `sequential_selection` | off, on | stop a generation early once it has enough improvements | [selection](selection.md) |
@@ -21,8 +21,8 @@ matrix, or a factor of it). Each module replaces one of those parts:
 | `threshold_convergence` | off, on | a minimum length of the mutations, decreasing over time | [sampling](sampling.md) |
 | `restart_strategy` | `NONE`, `STOP`, `RESTART`, `IPOP`, `BIPOP` | what happens when the search has converged | [restarts](restarts.md) |
 | `center_placement` | `X0`, `ZERO`, `UNIFORM`, `CENTER`, `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` | where a (re)start begins | [restarts](restarts.md) |
-| `repelling_type` | `NONE`, `COVERAGE`, `ADAPTIVE` | keep restarts away from the optima found before | [restarts](restarts.md) |
-| `repelling_metric` | `EUCLIDEAN`, `CURRENT`, `ARCHIVED` | the distance used by repelling restarts | [restarts](restarts.md) |
+| `repelling_type` | `NONE`, `COVERAGE`, `ADAPTIVE` (experimental) | keep restarts away from the optima found before | [restarts](restarts.md) |
+| `repelling_metric` | `CURRENT`, `EUCLIDEAN`, `ARCHIVED` | the distance used by repelling restarts | [restarts](restarts.md) |
 | `bound_correction` | `NONE`, `MIRROR`, `COTN`, `UNIFORM_RESAMPLE`, `SATURATE`, `TOROIDAL`, `RESAMPLE` | what happens to points outside the bounds | [bound correction](bound-correction.md) |
 
 Not every combination is a different algorithm, and not every field of `Modules` is a module of

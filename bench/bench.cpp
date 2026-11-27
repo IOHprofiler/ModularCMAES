@@ -90,6 +90,25 @@ parameters::Modules make_modules(std::string name)
         m.mirrored = parameters::Mirror::MIRRORED;
         m.orthogonal = true;
     }
+    else if (name == "matrix-xnes" || name == "cholesky-xnes")
+    {
+        // h_sigma of the rank-one update with a step-size rule other than CSA (#160)
+        m.matrix_adaptation = name == "matrix-xnes" ? parameters::MatrixAdaptationType::MATRIX
+                                                    : parameters::MatrixAdaptationType::CHOLESKY;
+        m.ssa = parameters::StepSizeAdaptation::XNES;
+    }
+    else if (name == "xnes-elitist")
+    {
+        // XNES's sigma from the offspring alone, ranked among themselves (#172)
+        m.ssa = parameters::StepSizeAdaptation::XNES;
+        m.elitist = true;
+    }
+    else if (name == "elitist-active")
+    {
+        // the negative weights on the worst points of the (mu + lambda) pool (#161)
+        m.elitist = true;
+        m.active = true;
+    }
     else
     {
         std::fprintf(stderr, "unknown configuration: %s\n", name.c_str());

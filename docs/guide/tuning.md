@@ -54,7 +54,7 @@ tuner does not spend evaluations on it.
 | `active` | `matrix_adaptation` is `NONE` or `CMSA` (`Settings` switches it off), or `lambda0` is 1 |
 | `center_placement`, `repelling_type` | `restart_strategy` is `STOP` |
 | `repelling_metric` | `repelling_type` is `NONE` |
-| `cs` | `ssa` is `SR` or `SA` (or `lambda0` is 1, which runs `SR`), and `matrix_adaptation` is `NONE`, `CHOLESKY`, `CMSA` or `NATURAL_GRADIENT` |
+| `cs` | `ssa` is `SR` or `SA` (or `lambda0` is 1, which runs `SR`), and `matrix_adaptation` is `NONE`, `CMSA` or `NATURAL_GRADIENT` (`CHOLESKY` reads the path p_σ for h_σ since #160) |
 | `damps` | `ssa` is `TPA`, `XNES`, `MXNES`, `LPXNES` or `SA`, and `lambda0` is above 1 (a (1+1)-ES runs `SR`) |
 | `cc` | `matrix_adaptation` is `NONE`, `MATRIX` or `CMSA` |
 | `cmu`, `c1` | `matrix_adaptation` is `NONE` or `CMSA`, or `NATURAL_GRADIENT` without `active` |

@@ -299,8 +299,8 @@ void TPA::extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) 
     // box +-4: TOROIDAL, UNIFORM_RESAMPLE, COTN and RESAMPLE lost 5 to 16 of 350 runs; with the
     // shrink they solve as many as with the points outside the box). The method (correct_point)
     // only moves the points when m itself is outside. Then the integer variables are rounded.
-    // The test steps are half the last mean step, alpha sigma <y> with alpha = 0.5 and the step size
-    // that sampled the generation (Hansen, CMA-ES with Two-Point Step-Size Adaptation,
+    // The test steps are half the last mean step, alpha sigma <y> with alpha = 0.5 and the step
+    // size that sampled the generation (Hansen, CMA-ES with Two-Point Step-Size Adaptation,
     // arXiv:0805.0231, 2008, Eqs. (8), (9), (13); Sec. 2.2: a step of the full length "extends the
     // step further" and biases sigma low). They were sigma_new dm, about one mean step (#167)
     const Vector &lb = p.settings.lb, &ub = p.settings.ub;

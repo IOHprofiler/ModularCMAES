@@ -269,7 +269,8 @@ class TestHsigma(unittest.TestCase):
                 self.assertEqual(a.hs, hs)
                 cc = p.weights.cc
                 # pc stalled when h_sigma = 0; the decay compensates the variance it loses
-                expected_pc = (1 - cc) * pc + (p.weights.sqrt_cc_mueff * np.array(a.dm) if hs else 0)
+                step = p.weights.sqrt_cc_mueff * np.array(a.dm) if hs else 0.0
+                expected_pc = (1 - cc) * pc + step
                 np.testing.assert_allclose(a.pc, expected_pc, rtol=1e-12, atol=1e-15)
                 c1, cmu = p.weights.c1, p.weights.cmu
                 dhs = 0.0 if hs else cc * (2 - cc)

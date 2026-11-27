@@ -28,8 +28,9 @@ for bit, with every module.
 
 ## How far identical results go
 
-The same seed gives the same run on the same machine and build. Across machines, results can
-differ in the last bits, and runs then diverge:
+The same seed gives the same run on the same platform and toolchain (operating system, CPU,
+compiler, C library). Across platforms, results can differ in the last bits, and runs then
+diverge; the results are statistically the same. The last bits differ because:
 
 * the compiler and the CPU decide whether fused multiply–add instructions are used (`build_info()`
   shows it);
@@ -43,16 +44,34 @@ The random numbers of the samplers are the same on every platform: they come fro
 permutations by the library's own code, not by the standard library's distributions, whose results
 differ between libc++, libstdc++ and MSVC. Before 2.0 the `HALTON` and `SOBOL` samplers used `std::shuffle` and
 `std::uniform_int_distribution`, so their runs differed between macOS and Linux from the first
-generation (#116). In the golden trajectories (macOS clang 21 against Linux gcc 13, the best f at
-generation 10 within a relative 1e-12), 220 of 225 runs with the default sampler agree, 18 of 19
-with `HALTON` and 15 of 16 with `SOBOL` (before: 0 of 19 and 0 of 16); the rest differ in the last
-bits.
+generation (#116). The libm functions (`exp`, `log`, `cos`) also differ in the last bit between
+the C libraries (Apple's and glibc) for a small share of arguments.
 
-So below the LAPACK thresholds nothing needs to be done beyond fixing the seed for results that
-agree across platforms up to these last bits; in high dimension, set
-`modcma.constants.eigen_solver = 0`, `cholesky_solver = 0` and `blas = 0` to use Eigen only
-([performance](performance.md)). The tests of modcma keep golden trajectories per compiler to
-detect any change.
+**An ambiguous eigenbasis amplifies these last bits** (#165). When C has equal eigenvalues, the
+eigenvectors of that eigenspace are not unique, and the eigensolver's choice depends on the last
+bits of C: two platforms that agree on C to a relative 1e-16 can return eigenvectors rotated by
+tens of degrees against each other. `COVARIANCE` samples y = B D z with them (Hansen 2016,
+Eqs. (38), (39); pycma does the same), so the samples then differ by O(1). Each generation adds µ
+selected steps to C, and the path p_c lies in their span, so at the first decomposition (generation
+2) C − aI has rank at most 2µ: with the default settings C has a repeated eigenvalue from d = 12 on
+(d ≥ 2µ + 2; λ = 11, µ = 5), and runs on two platforms can differ from the third generation on. Below that, and with the samplers that
+use a Cholesky factor (`COVARIANCE_NO_EIGV`, `CHOLESKY`, `CMSA`) or their own matrix (`MATRIX`,
+`NATURAL_GRADIENT`), the last-bit differences grow slowly. The (1+1)-ES with
+`always_compute_eigv=True` has the same amplification (C has a repeated eigenvalue until d − 1
+successes). Measured between macOS (clang 21, arm64) and Linux (gcc 13, x86-64): the default
+configuration differs by more than a relative 1e-3 from generation 3 on the sphere at d = 12 to
+40, and on the ellipsoid at d = 20 and 40.
+
+In the golden trajectories (d ≤ 10; macOS clang 21 against Linux gcc 13, the best f at generation
+10 within a relative 1e-12), 223 of 225 runs with the default sampler agree, 18 of 19 with
+`HALTON` and 13 of 16 with `SOBOL`; the rest differ in the last bits.
+
+So for results that agree across platforms up to these last bits, fix the seed and stay below
+d = 12 with `COVARIANCE` and CSA (or use another matrix adaptation), and below the LAPACK
+thresholds; in high dimension, set `modcma.constants.eigen_solver = 0`, `cholesky_solver = 0` and
+`blas = 0` to use Eigen only ([performance](performance.md)). On the same platform and toolchain
+the run is always the same. The tests of modcma keep golden trajectories per toolchain to detect
+any change.
 
 ## Threads
 

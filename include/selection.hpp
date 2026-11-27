@@ -41,7 +41,8 @@ struct Pairwise
      * (pop.n_ranked after sort()). XNES and TPA_INPLACE rank the offspring alone with it, before
      * elitism adds the parents (#172, #173).
      */
-    virtual size_t rank(Eigen::Ref<const Vector> f, size_t n_offspring, std::vector<size_t> &out) const;
+    virtual size_t
+    rank(Eigen::Ref<const Vector> f, size_t n_offspring, std::vector<size_t> &out) const;
 
     //! sort(p.pop, p.pop.n)
     void operator()(parameters::Parameters &p) const;
@@ -57,7 +58,8 @@ struct NoPairwise : Pairwise
     void sort(Population &pop, size_t n_offspring) const override;
 
     //! The order of f (ties in index order, NaN last, as Population::sort); all are ranked
-    size_t rank(Eigen::Ref<const Vector> f, size_t n_offspring, std::vector<size_t> &out) const override;
+    size_t
+    rank(Eigen::Ref<const Vector> f, size_t n_offspring, std::vector<size_t> &out) const override;
 };
 
 struct Strategy
