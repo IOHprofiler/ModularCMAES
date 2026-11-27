@@ -140,6 +140,8 @@ struct ModularCMAES
     void inject_gradient(Eigen::Ref<const Vector> g);
 
   private:
+    friend struct serialization::Access;
+
     /**
      * The steps of a generation, in order (advance()). A step may queue points; it runs again, or
      * the next step runs, once they all have their values.

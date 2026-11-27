@@ -132,6 +132,16 @@ class Resample(BoundCorrection):
     def __init__(self) -> None:
         """Create the correction."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class NoCorrection(BoundCorrection):
     """
     No bound correction (`CorrectionMethod.NONE`, the default): points outside the bounds are evaluated as they are (and counted in `n_out_of_bounds`).
@@ -139,6 +149,16 @@ class NoCorrection(BoundCorrection):
 
     def __init__(self) -> None:
         """Create the correction."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class COTN(BoundCorrection):
     """
@@ -161,6 +181,16 @@ class COTN(BoundCorrection):
     def sampler(self) -> modcma.c_maes.cmaescpp.sampling.Gaussian:
         """The Gaussian sampler of the offsets n (standard deviation 1/3)."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Mirror(BoundCorrection):
     """
     Reflect a coordinate outside the bounds back into the box at the violated bound (`CorrectionMethod.MIRROR`); a point more than one box width outside is reflected repeatedly.
@@ -168,6 +198,16 @@ class Mirror(BoundCorrection):
 
     def __init__(self) -> None:
         """Create the correction."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class UniformResample(BoundCorrection):
     """
@@ -184,6 +224,16 @@ class UniformResample(BoundCorrection):
             The dimension d.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Saturate(BoundCorrection):
     """
     Set a coordinate outside the bounds to the violated bound, i.e. clip x to [lb, ub] (`CorrectionMethod.SATURATE`).
@@ -192,6 +242,16 @@ class Saturate(BoundCorrection):
     def __init__(self) -> None:
         """Create the correction."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Toroidal(BoundCorrection):
     """
     Wrap a coordinate outside the bounds around to the other side of the box (`CorrectionMethod.TOROIDAL`): periodic boundaries.
@@ -199,3 +259,13 @@ class Toroidal(BoundCorrection):
 
     def __init__(self) -> None:
         """Create the correction."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """

@@ -658,6 +658,7 @@ struct Settings
     }
 
   private:
+    friend struct serialization::Access;
     //! Whether mu0 was given (to the constructor or set_mu0); until then it follows lambda0
     bool mu0_given = false;
 

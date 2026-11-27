@@ -225,6 +225,9 @@ void define_population(nb::module_ &main)
         .def_prop_ro("capacity",
                      &Population::capacity,
                      "The number of columns of the buffers (at least n).");
+
+    // Pickling and copying (#91)
+    def_pickle<Population>();
 }
 
 void define_parameters(nb::module_ &main)
@@ -1249,6 +1252,16 @@ void define_parameters(nb::module_ &main)
         .def_rw("coordinate_mapping",
                 &Parameters::coordinate_mapping,
                 "The rounding of the integer variables (CoordinateMapping).");
+
+    // Pickling and copying (#91)
+    def_pickle<Modules>();
+    def_pickle<Solution>();
+    def_pickle<Center>();
+    def_pickle<Stats>();
+    def_pickle<Weights>();
+    def_pickle<Settings>();
+    def_pickle<mapping::CoordinateMapping>();
+    def_pickle<Parameters>();
 }
 
 namespace
@@ -1629,6 +1642,9 @@ void define_cmaes(nb::module_ &m)
                 &ModularCMAES::p,
                 "The Parameters: the state of the optimizer (settings, modules, population, "
                 "statistics).");
+
+    // Pickling and copying (#91)
+    def_pickle<ModularCMAES>();
 }
 
 void define_es(nb::module_ &main)

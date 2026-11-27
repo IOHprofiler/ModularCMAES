@@ -76,11 +76,31 @@ class ThresholdConvergence:
             The threshold.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class NoThresholdConvergence(ThresholdConvergence):
     """No threshold convergence (the default): samples are not scaled."""
 
     def __init__(self) -> None:
         """Create the no-op threshold convergence."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class SequentialSelection:
     """
@@ -129,6 +149,16 @@ class SequentialSelection:
             True when f < fopt, i >= mu * seq_cutoff_factor and, with pairwise selection, i is odd.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class NoSequentialSelection(SequentialSelection):
     """
     No sequential selection (the default): every individual of a population is evaluated.
@@ -150,6 +180,16 @@ class NoSequentialSelection(SequentialSelection):
     @overload
     def __init__(self, mirror: modcma.c_maes.cmaescpp.options.Mirror, *, seq_cuttoff_factor: float) -> None:
         """Deprecated: the old (misspelled) keyword of 1.x."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class SigmaSampler:
     """
@@ -190,6 +230,16 @@ class SigmaSampler:
             The state of the optimizer; `pop.S` is written.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class NoSigmaSampler(SigmaSampler):
     """
     No sampled step sizes (the default): every individual uses sigma (apart from the lower bounds of integer variables).
@@ -203,6 +253,16 @@ class NoSigmaSampler(SigmaSampler):
         ----------
         dimension : float
             The dimension d.
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """
 
 class Strategy:
@@ -293,6 +353,16 @@ class Strategy:
     @s.setter
     def s(self, arg: float, /) -> None: ...
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class CSA(Strategy):
     """
     Cumulative step-size adaptation (`StepSizeAdaptation.CSA`, the default).
@@ -314,6 +384,16 @@ class CSA(Strategy):
             The sampler of the step sizes (or `NoSigmaSampler`).
         sigma0 : float
             The initial step size.
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """
 
 class TPA(Strategy):
@@ -369,6 +449,16 @@ class TPA(Strategy):
     @sigma_old.setter
     def sigma_old(self, arg: float, /) -> None: ...
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class MSR(Strategy):
     """
     Median success rule (`StepSizeAdaptation.MSR`).
@@ -401,6 +491,16 @@ class MSR(Strategy):
     @quantile.setter
     def quantile(self, arg: float, /) -> None: ...
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class PSR(Strategy):
     """
     Population success rule (`StepSizeAdaptation.PSR`).
@@ -431,6 +531,16 @@ class PSR(Strategy):
     @success_ratio.setter
     def success_ratio(self, arg: float, /) -> None: ...
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class XNES(Strategy):
     """
     The step-size update of xNES (`StepSizeAdaptation.XNES`).
@@ -456,6 +566,16 @@ class XNES(Strategy):
             The initial step size.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class MXNES(Strategy):
     """
     A variant of the xNES step-size update on the mean step (`StepSizeAdaptation.MXNES`).
@@ -479,6 +599,16 @@ class MXNES(Strategy):
             The initial step size.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class LPXNES(Strategy):
     """
     A variant of the xNES step-size update on sampled step sizes (`StepSizeAdaptation.LPXNES`).
@@ -500,6 +630,16 @@ class LPXNES(Strategy):
             The sampler of the step sizes (or `NoSigmaSampler`).
         sigma0 : float
             The initial step size.
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """
 
 class SR(Strategy):
@@ -527,6 +667,16 @@ class SR(Strategy):
             The initial step size.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class SA(Strategy):
     """
     Self-adaptation of the step size (`StepSizeAdaptation.SA`).
@@ -548,6 +698,16 @@ class SA(Strategy):
             The sampler of the step sizes (or `NoSigmaSampler`).
         sigma0 : float
             The initial step size.
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """
 
 class TPAInPlace(Strategy):
@@ -583,3 +743,13 @@ class TPAInPlace(Strategy):
 
     @rank_difference.setter
     def rank_difference(self, arg: float, /) -> None: ...
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """

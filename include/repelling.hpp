@@ -148,6 +148,7 @@ struct Repelling
     }
 
   private:
+    friend struct serialization::Access;
     //! The state of the resumable update: hill-valley test of point j, step k
     struct Query
     {
@@ -201,6 +202,7 @@ struct AdaptiveRepelling : Repelling
     void on_update_end(const Solution &candidate, bool accepted, parameters::Parameters &p) override;
 
   private:
+    friend struct serialization::Access;
     //! The evaluations since the previous restart, set by on_restart
     Float restart_evals = 0.0;
 };

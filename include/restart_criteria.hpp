@@ -98,7 +98,7 @@ struct Criteria
  */
 struct ExceededMaxIter : Criterion
 {
-    size_t max_iter;
+    size_t max_iter = 0;
     ExceededMaxIter() :
         Criterion("ExceededMaxIter")
     {
@@ -109,7 +109,7 @@ struct ExceededMaxIter : Criterion
 
 struct NoImprovement : Criterion
 {
-    size_t n_bin;
+    size_t n_bin = 0;
     std::vector<Float> best_fitnesses;
     static inline Float tolerance = 1e-20;
     NoImprovement() :
@@ -160,8 +160,8 @@ struct UnableToAdapt : Criterion
 
 struct FlatFitness : Criterion
 {
-    size_t max_flat_fitness;
-    size_t flat_fitness_index;
+    size_t max_flat_fitness = 0;
+    size_t flat_fitness_index = 0;
     Eigen::Array<int, Eigen::Dynamic, 1> flat_fitnesses;
 
     FlatFitness() :
@@ -281,6 +281,7 @@ class SplitMedian
     [[nodiscard]] Float tail_median() const { return tail_.median(); }
 
   private:
+    friend struct serialization::Access;
     struct NanLast
     {
         bool operator()(const Float a, const Float b) const
@@ -308,7 +309,7 @@ struct Stagnation : Criterion
 {
     static inline Float tolerance = 0.3;
 
-    size_t n_stagnation;
+    size_t n_stagnation = 0;
     //! The median fitness and the best fitness of every generation since the last reset
     SplitMedian median_fitnesses;
     SplitMedian best_fitnesses;

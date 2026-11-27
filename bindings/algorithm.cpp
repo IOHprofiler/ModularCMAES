@@ -242,6 +242,13 @@ void define_selection(nb::module_ &main)
         },
         nb::arg("name"),
         "The deprecated names of 1.x: `Elitsm` and `NoElitsm` (now `Elitism`, `NoElitism`).");
+
+    // Pickling and copying (#91)
+    def_pickle<Elitsm, Elitsm>();
+    def_pickle<NoElitsm, Elitsm>();
+    def_pickle<Pairwise, Pairwise>();
+    def_pickle<NoPairwise, Pairwise>();
+    def_pickle<Strategy>();
 }
 
 void define_center_placement(nb::module_ &main)
@@ -311,6 +318,14 @@ void define_center_placement(nb::module_ &main)
         "widths of the box); a uniform random point while the archive is empty. For use with "
         "repelling restarts; needs finite bounds.")
         .def(nb::init<>(), "Create the placement.");
+
+    // Pickling and copying (#91)
+    def_pickle<X0, Placement>();
+    def_pickle<Uniform, Placement>();
+    def_pickle<Zero, Placement>();
+    def_pickle<Center, Placement>();
+    def_pickle<MaximinTaboo, Placement>();
+    def_pickle<NoveltyWeighted, Placement>();
 }
 
 void define_repelling(nb::module_ &main)
@@ -765,6 +780,13 @@ void define_repelling(nb::module_ &main)
           "Returns\n"
           "-------\n"
           "numpy.ndarray");
+
+    // Pickling and copying (#91)
+    def_pickle<TabooPoint>();
+    def_pickle<Repelling, Repelling>();
+    def_pickle<CoverageRepelling, Repelling>();
+    def_pickle<AdaptiveRepelling, Repelling>();
+    def_pickle<NoRepelling, Repelling>();
 }
 
 void define_matrix_adaptation(nb::module_ &main)
@@ -1473,6 +1495,17 @@ void define_matrix_adaptation(nb::module_ &main)
         nb::arg("lamb"),
         "Deprecated: the old (misspelled) name of `adapt_evolution_paths_inner`; mu and lamb "
         "are accepted, as in 1.x, and not used.");
+
+    // Pickling and copying (#91)
+    def_pickle<MetricCopy>();
+    def_pickle<None, Adaptation>();
+    def_pickle<CovarianceAdaptation, Adaptation>();
+    def_pickle<SeparableAdaptation, Adaptation>();
+    def_pickle<MatrixAdaptation, Adaptation>();
+    def_pickle<CholeskyAdaptation, Adaptation>();
+    def_pickle<SelfAdaptation, Adaptation>();
+    def_pickle<CovarianceNoEigvAdaptation, Adaptation>();
+    def_pickle<NaturalGradientAdaptation, Adaptation>();
 }
 
 void define_bounds(nb::module_ &main)
@@ -1661,6 +1694,15 @@ void define_bounds(nb::module_ &main)
         "Wrap a coordinate outside the bounds around to the other side of the box "
         "(`CorrectionMethod.TOROIDAL`): periodic boundaries.")
         .def(nb::init<>(), "Create the correction.");
+
+    // Pickling and copying (#91)
+    def_pickle<NoCorrection, BoundCorrection>();
+    def_pickle<Resample, BoundCorrection>();
+    def_pickle<COTN, BoundCorrection>();
+    def_pickle<Mirror, BoundCorrection>();
+    def_pickle<UniformResample, BoundCorrection>();
+    def_pickle<Saturate, BoundCorrection>();
+    def_pickle<Toroidal, BoundCorrection>();
 }
 
 void define_mutation(nb::module_ &main)
@@ -2107,5 +2149,24 @@ void define_mutation(nb::module_ &main)
                 "(positive when the point ahead, along the mean shift, is the better one; 0 "
                 "before the first update).");
     strategy_init(ssa_tpa_inplace);
+
+    // Pickling and copying (#91)
+    def_pickle<ThresholdConvergence, ThresholdConvergence>();
+    def_pickle<NoThresholdConvergence, ThresholdConvergence>();
+    def_pickle<SequentialSelection, SequentialSelection>();
+    def_pickle<NoSequentialSelection, SequentialSelection>();
+    def_pickle<SigmaSampler, SigmaSampler>();
+    def_pickle<NoSigmaSampler, SigmaSampler>();
+    def_pickle<Strategy, Strategy>();
+    def_pickle<CSA, Strategy>();
+    def_pickle<TPA, Strategy>();
+    def_pickle<MSR, Strategy>();
+    def_pickle<PSR, Strategy>();
+    def_pickle<XNES, Strategy>();
+    def_pickle<MXNES, Strategy>();
+    def_pickle<LPXNES, Strategy>();
+    def_pickle<SR, Strategy>();
+    def_pickle<SA, Strategy>();
+    def_pickle<TPAInPlace, Strategy>();
 }
 } // namespace modcma_python

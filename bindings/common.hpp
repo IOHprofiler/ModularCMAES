@@ -13,8 +13,11 @@
 #include <nanobind/stl/string.h>
 #include <nanobind/stl/vector.h>
 
+#include <typeinfo>
+
 #include "c_maes.hpp"
 #include "es.hpp"
+#include "serialization.hpp"
 #include "to_string.hpp"
 
 /**
@@ -136,5 +139,81 @@ template <typename F> std::string repr(const char *name, F &&body)
     body(ss);
     ss << ">";
     return ss.str();
+}
+
+/**
+ * __getstate__ and __setstate__ of the bound class C, for pickle, copy.copy and copy.deepcopy
+ * (#91). The state is the bytes of serialization::save<Saved>, with the instance's __dict__ when it
+ * has attributes (a Python subclass): (bytes, dict). Saved is C, or, for a module (a polymorphic
+ * class), its base class, so that the state records the module's type (and __setstate__ checks
+ * it). A class that derives from a bound class gets its own,
+ * so that __setstate__ creates the right type. Errors: TypeError for an object that cannot be
+ * saved (a sampler defined in Python), ValueError for a state that cannot be loaded
+ * (serialization::Error).
+ */
+template <typename C, typename Saved = C> void def_pickle()
+{
+    const nb::handle cls = nb::type<C>();
+    nb::cpp_function_def(
+        [](nb::handle self) -> nb::object {
+            const C &object = nb::cast<const C &>(self);
+            if constexpr (std::is_polymorphic_v<Saved>)
+                if (typeid(object) != typeid(C))
+                    throw nb::type_error("cannot pickle this object on its own: its C++ type has "
+                                         "no Python class (pickle the optimizer instead)");
+            std::string state;
+            try
+            {
+                state = serialization::save<Saved>(object);
+            }
+            catch (const std::invalid_argument &e)
+            {
+                throw nb::type_error(e.what());
+            }
+            nb::bytes bytes(state.data(), state.size());
+            nb::object dict = nb::getattr(self, "__dict__", nb::none());
+            if (!dict.is_none() && nb::len(dict) != 0)
+                return nb::make_tuple(bytes, dict);
+            return std::move(bytes);
+        },
+        nb::scope(cls),
+        nb::name("__getstate__"),
+        nb::is_method(),
+        "The state for pickle and copy: the bytes of the object's C++ serialization (format "
+        "described in the guide's page on saving and resuming a run), with the attributes of a "
+        "Python subclass.");
+    nb::cpp_function_def(
+        [](C &self, nb::handle state) {
+            nb::object data = nb::borrow(state), dict;
+            if (nb::isinstance<nb::tuple>(state))
+            {
+                if (nb::len(state) != 2)
+                    throw nb::value_error("__setstate__: expected bytes or (bytes, dict)");
+                data = state[0];
+                dict = state[1];
+            }
+            if (!nb::isinstance<nb::bytes>(data))
+                throw nb::type_error("__setstate__: the state must be bytes");
+            const auto bytes = nb::borrow<nb::bytes>(data);
+            const std::string_view view(bytes.c_str(), bytes.size());
+            if constexpr (!std::is_polymorphic_v<Saved>)
+                new (&self) C(serialization::load<C>(view));
+            else
+            {
+                const auto loaded = serialization::load<std::shared_ptr<Saved>>(view);
+                if (typeid(*loaded) != typeid(C))
+                    throw nb::value_error("__setstate__: the state holds a module of another type");
+                new (&self) C(static_cast<const C &>(*loaded));
+            }
+            if (dict.is_valid() && !dict.is_none())
+                nb::find(self).attr("__dict__").attr("update")(dict);
+        },
+        nb::scope(cls),
+        nb::name("__setstate__"),
+        nb::is_method(),
+        nb::arg("state"),
+        "Restore the object from a state of __getstate__ (pickle and copy). ValueError when the "
+        "state cannot be loaded: not a modcma state, written by a newer modcma, truncated or "
+        "corrupted.");
 }
 } // namespace modcma_python

@@ -23,6 +23,13 @@
 #include <Eigen/QR>
 #include <unsupported/Eigen/MatrixFunctions>
 
+namespace serialization
+{
+//! Saves and loads the state of the library's objects (serialization.hpp, #91): a friend of the
+//! classes with private state
+struct Access;
+} // namespace serialization
+
 using Float = double;
 using Matrix = Eigen::Matrix<Float, -1, -1>;
 using Vector = Eigen::Matrix<Float, -1, 1>;
@@ -281,6 +288,7 @@ struct Xoshiro256pp
     double uniform() { return static_cast<double>((*this)() >> 11) * 0x1.0p-53; }
 
   private:
+    friend struct serialization::Access;
     uint64_t s[4];
 
     static uint64_t rotl(const uint64_t x, const int k) { return (x << k) | (x >> (64 - k)); }
@@ -432,6 +440,7 @@ template <typename T = Float> struct normal
     }
 
   private:
+    friend struct serialization::Access;
     // The second number of each Box-Muller pair, kept per distribution object. It used to be a
     // function static, shared by all objects: one object returned the cached number of another
     // (with that one's mu and sigma), and optimizers in one process influenced each other.
