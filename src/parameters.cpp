@@ -84,6 +84,70 @@ void Parameters::inject(const Eigen::Index i, Eigen::Ref<const Vector> x)
         pop.X.col(i) = adaptation->m + pop.S.col(i).cwiseProduct(pop.Y.col(i));
 }
 
+Eigen::Index Parameters::inject_gradient(Eigen::Ref<const Vector> g)
+{
+    const auto dim = static_cast<Eigen::Index>(settings.dim);
+    if (g.size() != dim)
+        throw std::invalid_argument("the gradient has " + std::to_string(g.size()) +
+                                    " entries, the dimension is " + std::to_string(dim));
+    if (!g.allFinite())
+        throw std::invalid_argument("the gradient has an entry that is not finite");
+
+    // The direction in z: u = A^T g, so that y = A z is along C g (Hansen 2011, Eq. 14; libcmaes,
+    // src/cmastrategy.cc). g is scaled by its largest entry first: only its direction is used, and
+    // ||A^T g|| then does not overflow.
+    const Float scale = g.cwiseAbs().maxCoeff();
+    if (scale == 0)
+        return 0;
+    Vector u(dim);
+    adaptation->apply_transpose_into(g / scale, u);
+    const Float norm = u.norm();
+    if (!(norm > 0) || !std::isfinite(norm))
+        return 0;
+
+    // The length of a typical sample, E||z||: Hansen (2011) and libcmaes take sqrt(d) (#90)
+    const Float c = weights.expected_length_z;
+    // With mirrored sampling individuals 0 and 1 are a pair: the gradient point and its mirror
+    const bool mirrored = settings.modules.mirrored != Mirror::NONE;
+    const Eigen::Index k = mirrored && pop.n >= 2 ? 2 : 1;
+
+    Matrix Z(dim, k), Y(dim, k), X(dim, k);
+    std::vector<bool> corrected(static_cast<size_t>(k));
+    for (Eigen::Index j = 0; j < k; ++j)
+    {
+        Z.col(j) = ((j == 0 ? -c : c) / norm) * u;
+        adaptation->compute_y_into(Z.col(j), Y.col(j));
+        const Vector x = adaptation->m + pop.S.col(j).cwiseProduct(Y.col(j));
+        // Into the box as TPA's points: RESAMPLE cannot sample the point again and clips it
+        X.col(j) = bounds->correct_point(x, mutation->sigma, settings);
+        corrected[static_cast<size_t>(j)] = X.col(j) != x;
+    }
+    // A point in a taboo region of the repelling archive is not injected, as a sample there is
+    // rejected; a mirrored pair is rejected as one
+    for (Eigen::Index j = 0; j < k; ++j)
+        if (repelling->is_rejected(X.col(j), *this))
+            return 0;
+
+    for (Eigen::Index j = 0; j < k; ++j)
+    {
+        pop.Z.col(j) = Z.col(j);
+        pop.Y.col(j) = Y.col(j);
+        pop.X.col(j) = X.col(j);
+        coordinate_mapping->transform_into(
+            pop.X.col(j), pop.X_transformed.col(j), settings.lb, settings.ub);
+        // An injected solution (inject): y and z from the corrected x, clipped when far outside
+        // the distribution; X_transformed keeps the evaluated point
+        if (corrected[static_cast<size_t>(j)])
+        {
+            adaptation->invert_x_into(pop.X.col(j), pop.S.col(j), pop.Y.col(j));
+            adaptation->invert_y_into(pop.Y.col(j), pop.Z.col(j));
+        }
+        if (matrix_adaptation::clip_injected_step(pop.Y.col(j), pop.Z.col(j)))
+            pop.X.col(j) = adaptation->m + pop.S.col(j).cwiseProduct(pop.Y.col(j));
+    }
+    return k;
+}
+
 void Parameters::begin_restart(const Float sigma)
 {
     if (settings.verbose)

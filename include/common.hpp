@@ -35,6 +35,10 @@ using Indices = Eigen::ArrayXi;
 //! their own.
 using FunctionType = std::function<Float(Eigen::Ref<const Vector>)>;
 
+//! The gradient of an objective function at a point (gradient injection, #90); an empty function
+//! is no gradient
+using GradientType = std::function<Vector(Eigen::Ref<const Vector>)>;
+
 namespace constants
 {
 extern size_t cache_max_doubles;

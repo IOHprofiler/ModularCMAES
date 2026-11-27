@@ -508,6 +508,8 @@ class ModularCMAES:
     - ask-tell, for an objective that is evaluated outside the optimizer (in parallel, on a cluster): ask() returns the points to evaluate, tell() takes their objective values.
 
     step() and run() are loops over ask() and tell(), so both ways give the same results, bit for bit. The state, including the statistics and the best solution (p.stats.global_best), is in p.
+
+    With the gradient of the objective, run(f, gradient=g) (or, with ask-tell, inject_gradient()) puts a point along the negative gradient into every population (gradient injection).
     """
 
     @overload
@@ -547,7 +549,7 @@ class ModularCMAES:
         m_old = m, then m = m_old + sum_k positive[k] (X[:, k] - m_old) over the first mu columns of the (sorted) population; with the utility weights of NES/xNES, over every individual. The third step of a generation, after select(). Raises RuntimeError while the points of a generation wait for their values (after ask(), or an interrupted mutate() or step()).
         """
 
-    def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float]) -> None:
+    def mutate(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], float], *, gradient: Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.ArrayLike] | None = None) -> None:
         """
         Sample and evaluate a generation: the first step of a generation.
 
@@ -557,6 +559,8 @@ class ModularCMAES:
         ----------
         objective : callable
             The objective function, called with a (d,) array, returns a float.
+        gradient : callable, optional
+            The gradient of the objective, called with a (d,) array, returns d numbers: gradient injection, as for run().
         """
 
     def select(self) -> None:
@@ -573,7 +577,7 @@ class ModularCMAES:
         Updates the evolution paths, the step size, the matrix and the restart criteria, and increments p.stats.t (Parameters.adapt). Raises RuntimeError while the points of a generation wait for their values (after ask(), or an interrupted mutate() or step()).
         """
 
-    def step(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> bool:
+    def step(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False, gradient: Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.ArrayLike] | None = None) -> bool:
         """
         Run one generation (with a restart first, when one is due).
 
@@ -585,6 +589,8 @@ class ModularCMAES:
             The objective function. Called with a (d,) array, it returns a float; with vectorized=True it is called with every batch of points as a (k, d) array and returns k values.
         vectorized : bool, default False
             Whether objective evaluates a batch of points in one call.
+        gradient : callable, optional
+            The gradient of the objective (gradient injection): called once per population with its center of mass, a (d,) array, it returns d numbers. A point along the negative gradient from the mean, at the length of a typical sample, replaces one point of the population (with mirrored sampling, a mirrored pair); see inject_gradient. Also with vectorized=True, gradient gets one point.
 
         Returns
         -------
@@ -592,10 +598,10 @@ class ModularCMAES:
             False when the optimizer has stopped (see break_conditions), True otherwise.
         """
 
-    def __call__(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> None:
+    def __call__(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False, gradient: Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.ArrayLike] | None = None) -> None:
         """Run until a break condition holds: the same as run()."""
 
-    def run(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False) -> None:
+    def run(self, objective: Callable[[numpy.typing.NDArray[numpy.float64]], Any], *, vectorized: bool = False, gradient: Callable[[numpy.typing.NDArray[numpy.float64]], numpy.typing.ArrayLike] | None = None) -> None:
         """
         Run generations while no break condition holds.
 
@@ -607,6 +613,8 @@ class ModularCMAES:
             The objective function. Called with a (d,) array, it returns a float; with vectorized=True it is called with every batch of points as a (k, d) array and returns k values.
         vectorized : bool, default False
             Whether objective evaluates a batch of points in one call.
+        gradient : callable, optional
+            The gradient of the objective (gradient injection): called once per population with its center of mass, a (d,) array, it returns d numbers. A point along the negative gradient from the mean, at the length of a typical sample, replaces one point of the population (with mirrored sampling, a mirrored pair); see inject_gradient. Also with vectorized=True, gradient gets one point.
         """
 
     def ask(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='C')]:
@@ -645,6 +653,39 @@ class ModularCMAES:
     @property
     def has_pending(self) -> bool:
         """Whether ask() has points that wait for tell()."""
+
+    @property
+    def accepts_gradient(self) -> bool:
+        """
+        Whether inject_gradient() can be called now: the points of ask() are the first batch of a new population, and no gradient was injected into it.
+
+        True from the ask() that starts a population until its first tell(); False while ask() returns a center of mass, the points of a hill-valley test, or a later batch of a population (sequential selection).
+        """
+
+    def inject_gradient(self, g: numpy.typing.ArrayLike) -> None:
+        """
+        Inject the gradient at the center of mass (gradient injection, ask-tell).
+
+        Between the ask() that returns a new population (accepts_gradient) and its tell(): individual 0 of the population becomes the point along the negative gradient from the mean m, at the length of a typical sample,
+
+            x = m - sigma * c * C g / sqrt(g^T C g),
+
+        with c = E||N(0, I)|| (the expected length of a sample z of the sampler, Weights.expected_length_z) and sigma**2 C the covariance of the samples (Hansen 2011, Eq. 14, with c for his sqrt(d)). With sampled step sizes or integer variables the point gets the step size of the individual it replaces. With mirrored sampling the next individual becomes its mirror, m + sigma * c * C g / sqrt(g^T C g), so the pair stays a pair. With a bound correction the point is moved into the box, as TPA's points (RESAMPLE clips it), and its integer variables are rounded; it then enters the update as a point given to tell(f, X): clipped when it is far outside the distribution. A point in a taboo region of the repelling archive is not injected. The samples are drawn as without injection, so a bad gradient costs the replaced sample (and its mirror).
+
+        Call ask() again for the points with the gradient point; run(f, gradient=...) and step() do the same.
+
+        Parameters
+        ----------
+        g : array_like
+            (d,) the gradient of the objective at center_of_mass. A zero gradient changes nothing.
+
+        Raises
+        ------
+        RuntimeError
+            accepts_gradient is False: the points of ask() are not a new population, or a gradient was already injected into it.
+        ValueError
+            g does not have d finite entries (a gradient is then still accepted).
+        """
 
     def break_conditions(self) -> bool:
         """

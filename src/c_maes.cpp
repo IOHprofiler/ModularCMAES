@@ -35,7 +35,7 @@ void ModularCMAES::require_no_generation(const char *step) const
                                "values, or evaluate them with mutate(), first");
 }
 
-void ModularCMAES::mutate(FunctionType &objective)
+void ModularCMAES::mutate(FunctionType &objective, const GradientType &gradient)
 {
     // Up to selection: a new generation, or the one that ask() started. The rest is the user's:
     // select(), recombine() and adapt() act on the state, and the next mutate() or ask() starts a
@@ -55,6 +55,7 @@ void ModularCMAES::mutate(FunctionType &objective)
         }
         else
         {
+            offer_gradient(gradient);
             evaluate(objective);
             answer(values.head(n_pending), nullptr);
         }
@@ -62,23 +63,51 @@ void ModularCMAES::mutate(FunctionType &objective)
     next = Step::BEGIN;
 }
 
-bool ModularCMAES::step(FunctionType &objective)
+bool ModularCMAES::step(FunctionType &objective, const GradientType &gradient)
 {
     ask();
     do
+    {
+        offer_gradient(gradient);
         evaluate(objective);
-    while (!tell(values.head(n_pending)));
+    } while (!tell(values.head(n_pending)));
     return !break_conditions();
 }
 
-void ModularCMAES::operator()(FunctionType &objective)
+void ModularCMAES::operator()(FunctionType &objective, const GradientType &gradient)
 {
     // The break conditions are checked before every generation, the first one too: a run never
     // exceeds the budget, and an optimizer that has stopped does not run again (#114)
     if (break_conditions())
         return;
-    while (step(objective))
+    while (step(objective, gradient))
         ;
+}
+
+void ModularCMAES::offer_gradient(const GradientType &gradient)
+{
+    // As in ask-tell: the gradient at the center of mass, once per population, before its first
+    // batch is evaluated
+    if (gradient && gradient_open)
+        inject_gradient(gradient(center_of_mass()));
+}
+
+void ModularCMAES::inject_gradient(Eigen::Ref<const Vector> g)
+{
+    if (!gradient_open)
+        throw std::logic_error(
+            "inject_gradient() while the points of ask() are not a new population: call it "
+            "after the ask() that starts a population, before its tell(), once "
+            "(accepts_gradient)");
+    // Checks g first (std::invalid_argument): a gradient is then still accepted
+    const Eigen::Index k = p->inject_gradient(g);
+    gradient_open = false;
+    // The replaced individuals in the queued batch: the population's first batch is the first
+    // request (SAMPLE). A partner sampled ahead of its batch (sequential selection) is queued from
+    // the population with the next batch.
+    const Request &first = requests.front();
+    const Eigen::Index n = std::min(k, first.size);
+    batch.middleCols(first.begin, n) = p->pop.X_transformed.leftCols(n);
 }
 
 ModularCMAES::StopFlags ModularCMAES::stop_flags() const
@@ -161,6 +190,8 @@ void ModularCMAES::answer(Eigen::Ref<const Vector> f, const Eigen::Ref<const Mat
                                     std::to_string(batch.rows()) + " x " +
                                     std::to_string(n) + " matrix, got " +
                                     std::to_string(X->rows()) + " x " + std::to_string(X->cols()));
+    // The values are given: the population's points are final
+    gradient_open = false;
 
     // Each request's values go to its module, in the order they were queued. Nothing is pending
     // afterwards, also when a module throws (a clear() keeps the capacity: no allocation)
@@ -273,6 +304,8 @@ bool ModularCMAES::advance(const bool stop_before_selection)
             next_individual = 0;
             queue_population_batch();
             queue_extra_points();
+            // Until the first tell(), a gradient point can replace a sample (inject_gradient)
+            gradient_open = true;
             next = Step::POPULATION;
             break;
 

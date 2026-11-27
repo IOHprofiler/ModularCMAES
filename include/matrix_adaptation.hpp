@@ -173,6 +173,13 @@ struct Adaptation
     //! z = A^-1 y for the sampling transformation A, written into z (no allocation)
     virtual void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) = 0;
 
+    /**
+     * out = A^T v for the sampling transformation A, written into out (no allocation), O(d^2) at
+     * most. For a gradient g, A A^T g = C g is the gradient in the metric of the sampled
+     * distribution (gradient injection, Parameters::inject_gradient, #90).
+     */
+    virtual void apply_transpose_into(Eigen::Ref<const Vector> v, Eigen::Ref<Vector> out) = 0;
+
     [[nodiscard]] Vector invert_y(const Vector &y)
     {
         Vector z(y.size());
@@ -304,6 +311,11 @@ struct None final : Adaptation
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
+
+    void apply_transpose_into(Eigen::Ref<const Vector> v, Eigen::Ref<Vector> out) override
+    {
+        out = v;
+    }
 };
 
 struct CovarianceAdaptation : Adaptation
@@ -366,6 +378,11 @@ struct CovarianceAdaptation : Adaptation
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
+
+    void apply_transpose_into(Eigen::Ref<const Vector> v, Eigen::Ref<Vector> out) override
+    {
+        out.noalias() = A.transpose() * v;
+    }
 };
 
 struct SeparableAdaptation : Adaptation
@@ -409,6 +426,11 @@ struct SeparableAdaptation : Adaptation
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
+
+    void apply_transpose_into(Eigen::Ref<const Vector> v, Eigen::Ref<Vector> out) override
+    {
+        out = d.cwiseProduct(v);
+    }
 };
 
 struct MatrixAdaptation final : Adaptation
@@ -447,6 +469,11 @@ struct MatrixAdaptation final : Adaptation
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
+
+    void apply_transpose_into(Eigen::Ref<const Vector> v, Eigen::Ref<Vector> out) override
+    {
+        out.noalias() = M.transpose() * v;
+    }
 
     //! The generations with elitism in which the low-rank (Woodbury) update of M_inv could not be
     //! applied (the decay a <= 0, or a singular or badly conditioned k x k system), since the
@@ -547,6 +574,11 @@ struct CholeskyAdaptation final : Adaptation
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
+
+    void apply_transpose_into(Eigen::Ref<const Vector> v, Eigen::Ref<Vector> out) override
+    {
+        out.noalias() = A.triangularView<Eigen::Lower>().transpose() * v;
+    }
 };
 
 struct SelfAdaptation final : Adaptation
@@ -584,6 +616,11 @@ struct SelfAdaptation final : Adaptation
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
+
+    void apply_transpose_into(Eigen::Ref<const Vector> v, Eigen::Ref<Vector> out) override
+    {
+        out.noalias() = A.triangularView<Eigen::Lower>().transpose() * v;
+    }
 };
 
 struct CovarianceNoEigvAdaptation : CovarianceAdaptation
@@ -607,6 +644,11 @@ struct CovarianceNoEigvAdaptation : CovarianceAdaptation
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
+
+    void apply_transpose_into(Eigen::Ref<const Vector> v, Eigen::Ref<Vector> out) override
+    {
+        out.noalias() = A.triangularView<Eigen::Lower>().transpose() * v;
+    }
 };
 
 struct NaturalGradientAdaptation final : Adaptation
@@ -680,6 +722,11 @@ struct NaturalGradientAdaptation final : Adaptation
     void compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) override;
 
     void invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) override;
+
+    void apply_transpose_into(Eigen::Ref<const Vector> v, Eigen::Ref<Vector> out) override
+    {
+        out.noalias() = A.transpose() * v;
+    }
 
   private:
     bool outdated_A_inv;

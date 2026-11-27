@@ -73,6 +73,24 @@ struct Parameters
     void inject(const Eigen::Index i, Eigen::Ref<const Vector> x);
 
     /**
+     * Gradient injection (#90): individual 0 of the sampled population becomes the point along
+     * the negative gradient g from the mean, at the length of a typical sample:
+     * z = -c A^T g / ||A^T g|| with c = E||z|| (weights.expected_length_z; E||N(0, I)|| for a
+     * Gaussian sampler), y = A z, x = m + s o y with the individual's step size s (sigma, unless
+     * step sizes are sampled or integer variables raise it). With s = sigma this is
+     * x = m - sigma c C g / sqrt(g^T C g), Hansen (2011), Eq. (14), with c for his sqrt(d).
+     * With mirrored sampling individual 1 becomes its mirror (-z), so that the pair stays a pair.
+     * Each point is moved into the box as TPA's points (BoundCorrection::correct_point), its
+     * integer variables are rounded, and it enters the update as an injected solution: y and z
+     * derived from x, clipped (inject). The samples are drawn as without injection.
+     *
+     * Returns the number of individuals replaced: 0 when A^T g is zero, or when the repelling
+     * archive rejects a point (the samples stay). Throws std::invalid_argument when g does not
+     * have d finite entries.
+     */
+    Eigen::Index inject_gradient(Eigen::Ref<const Vector> g);
+
+    /**
      * The center of mass: the mean of the search distribution as a point of the objective
      * (integer variables rounded; clipped to the bounds when a bound correction is used), pycma's
      * xfavorite. Every run ends with its evaluation (#111).
