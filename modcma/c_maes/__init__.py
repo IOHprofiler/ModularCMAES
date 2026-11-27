@@ -1,16 +1,25 @@
 import warnings
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from enum import Enum
 from typing import Any, Optional, Union, cast
 
 import numpy as np
 from ConfigSpace import (
+    AndConjunction,
     ConfigurationSpace,
-    Configuration,
     Categorical,
+    EqualsCondition,
+    ForbiddenAndConjunction,
+    ForbiddenEqualsClause,
     ForbiddenGreaterThanRelation,
-    UniformIntegerHyperparameter,
+    ForbiddenInClause,
+    GreaterThanCondition,
+    InCondition,
+    LessThanCondition,
     NormalFloatHyperparameter,
+    OrConjunction,
+    UniformFloatHyperparameter,
+    UniformIntegerHyperparameter,
 )
 
 from .cmaescpp import (
@@ -121,25 +130,188 @@ def _make_numeric_parameter(
     )
 
 
+#: Options that `get_configspace` leaves out of a module, though `Modules` has them (#81, F22 of
+#: #76: the raw uniform samples have mean 0.5, which fails everywhere; a testing option).
+_EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
+
+#: When a hyperparameter has no effect (#81). Each entry is read from the C++ code: a
+#: hyperparameter is inactive only where the code never reads it. A hyperparameter is active when
+#: any of its parents has an option that is not excluded here. The evidence (src/):
+#:
+#: * `damps`: read only by CSA, MSR, PSR and SR (mutation.cpp:217, 283, 320, 372). TPA reads cs
+#:   (249), XNES, MXNES, LPXNES read cs (333, 340, 351, 363), SA neither (381-415). No other file
+#:   reads it (weights.cpp stores it, and uses cs for its default only).
+#: * `cc`: read by the path pc of COVARIANCE, COVARIANCE_NO_EIGV (matrix_adaptation.cpp:155, 163),
+#:   SEPARABLE (386, 399), CHOLESKY (558) and the (1+1) path (144, 376, 553), and by the step
+#:   of NATURAL_GRADIENT (822). MATRIX (444-452) and CMSA (624-632) and NONE have no pc.
+#: * `cs`: updates the path ps in every adaptation (matrix_adaptation.cpp:107, 134) and is read
+#:   directly by TPA, MSR, PSR and the xNES rules (mutation.cpp:249, 282, 319, 333-363). ps is
+#:   used by CSA (mutation.cpp:217), by MATRIX (matrix_adaptation.cpp:482-485) and, through h_sigma,
+#:   by COVARIANCE and COVARIANCE_NO_EIGV (152-155) and SEPARABLE (383-386). The default of cc
+#:   uses it for NATURAL_GRADIENT (weights.cpp:78). SR (mutation.cpp:372) and SA never read it,
+#:   and neither do NONE, CHOLESKY (546-558) or CMSA (624-632) read ps: with both, cs is unread.
+#: * `c1`, `cmu`: read by COVARIANCE, COVARIANCE_NO_EIGV (matrix_adaptation.cpp:175, 200, 204;
+#:   `lazy_update_interval`, weights.cpp:197, used at 328), SEPARABLE (407, 412), MATRIX (474,
+#:   475) and CHOLESKY (576-594). They also scale the negative weights (weights.cpp:186-189), which
+#:   the update of every adaptation reads with `active` (for_population_into: 166, 402, 465, 592,
+#:   648, 771), so CMSA and NATURAL_GRADIENT read them only with `active`. NONE reads no
+#:   weights (it has no matrix update).
+#: * `active`: read by every adaptation but NONE (matrix_adaptation.cpp:165, 401, 464, 590, 647,
+#:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:150, 158).
+#: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:155).
+#: * `elitist`, `sequential_selection`, `weights`: Settings overrides them for lambda0 = 1, a
+#:   (1+1)-ES (settings.hpp:153-161). `ssa` is overridden too (SR), but not before Settings turns
+#:   COVARIANCE into COVARIANCE_NO_EIGV for an `ssa` other than CSA (settings.hpp:125-130), so it
+#:   stays active. The (1+1)-ES runs SR, which reads `damps` (mutation.cpp:372), so `damps`
+#:   is also active for lambda0 = 1.
+#: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:163-165): forbidden.
+#: * `center_placement`, `repelling_type`: used when a run restarts (parameters.cpp:128,
+#:   `Parameters::begin_restart`, repelling.cpp:174). The restart criteria of every strategy but
+#:   STOP include UnableToAdapt (restart_criteria.cpp:376), so NONE restarts when the adaptation
+#:   fails. With STOP the criteria stop the optimizer instead (c_maes.cpp:101, 225-232). The
+#:   other criteria exist from RESTART on (restart_criteria.cpp:379).
+#: * `repelling_metric`: read by CoverageRepelling and AdaptiveRepelling only (repelling.cpp:28,
+#:   47); `repelling.hpp:235` gives `NoRepelling` for NONE.
+_INACTIVE_FOR = {
+    "damps": {"ssa": ("TPA", "XNES", "MXNES", "LPXNES", "SA")},
+    "cc": {"matrix_adaptation": ("NONE", "MATRIX", "CMSA")},
+    "cs": {"ssa": ("SR", "SA"), "matrix_adaptation": ("NONE", "CHOLESKY", "CMSA")},
+    "center_placement": {"restart_strategy": ("STOP",)},
+    "repelling_type": {"restart_strategy": ("STOP",)},
+    "repelling_metric": {"repelling_type": ("NONE",)},
+}
+#: Modules that Settings overrides for lambda0 = 1
+_ONE_PLUS_ONE_OVERRIDDEN = ("elitist", "sequential_selection", "weights")
+#: `c1` and `cmu` also when `active` with these matrix adaptations (see above)
+_ACTIVE_ONLY_MATRIX = ("CMSA", "NATURAL_GRADIENT")
+_NO_MATRIX_UPDATE_OF_C = ("NONE", "CMSA", "NATURAL_GRADIENT")
+
+
+def _in_condition(child, parent, options: tuple, excluded: tuple = ()):
+    """`child` is active when `parent` has an option that is not in `excluded`."""
+    active = [o for o in options if o not in excluded]
+    return InCondition(child, parent, active)
+
+
+def _any_of(conditions: list):
+    return conditions[0] if len(conditions) == 1 else OrConjunction(*conditions)
+
+
+def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates: bool) -> None:
+    """The conditions of the inactive options, and the forbidden duplicates (#81)."""
+    present = set(cspace.keys())
+    ssa, matrix = cspace["ssa"], cspace["matrix_adaptation"]
+
+    # active: needs a matrix, and a population (lambda0 = 1 switches it off)
+    active: list[Any] = [
+        _in_condition(cspace["active"], matrix, options["matrix_adaptation"], ("NONE",))
+    ]
+    if "lambda0" in present:
+        active.append(GreaterThanCondition(cspace["active"], cspace["lambda0"], 1))
+    cspace.add(active[0] if len(active) == 1 else AndConjunction(*active))
+
+    for child, parents in _INACTIVE_FOR.items():
+        if child not in present:
+            continue
+        conditions: list[Any] = [
+            _in_condition(cspace[child], cspace[parent], options[parent], excluded)
+            for parent, excluded in parents.items()
+        ]
+        if child == "damps" and "lambda0" in present:
+            conditions.append(LessThanCondition(cspace[child], cspace["lambda0"], 2))
+        cspace.add(_any_of(conditions))
+
+    for child in ("c1", "cmu"):
+        if child not in present:
+            continue
+        read_always = _in_condition(
+            cspace[child], matrix, options["matrix_adaptation"], _NO_MATRIX_UPDATE_OF_C
+        )
+        with_active = AndConjunction(
+            InCondition(cspace[child], matrix, list(_ACTIVE_ONLY_MATRIX)),
+            EqualsCondition(cspace[child], cspace["active"], True),
+        )
+        cspace.add(OrConjunction(read_always, with_active))
+
+    if "mu0" in present:
+        cspace.add(GreaterThanCondition(cspace["mu0"], cspace["lambda0"], 1))
+    if "lambda0" in present:
+        for child in _ONE_PLUS_ONE_OVERRIDDEN:
+            cspace.add(GreaterThanCondition(cspace[child], cspace["lambda0"], 1))
+
+    if remove_duplicates and "CSA" in options["ssa"]:
+        # Settings turns COVARIANCE into COVARIANCE_NO_EIGV unless ssa is CSA
+        others = [o for o in options["ssa"] if o != "CSA"]
+        cspace.add(
+            ForbiddenAndConjunction(
+                ForbiddenEqualsClause(matrix, "COVARIANCE"), ForbiddenInClause(ssa, others)
+            )
+        )
+        if "lambda0" in present and "restart_strategy" in options:
+            ipop = [o for o in ("IPOP", "BIPOP") if o in options["restart_strategy"]]
+            cspace.add(
+                ForbiddenAndConjunction(
+                    ForbiddenEqualsClause(cspace["lambda0"], 1),
+                    ForbiddenInClause(cspace["restart_strategy"], ipop),
+                )
+            )
+
+
 def get_configspace(
     dim: Optional[int] = None,
     add_popsize: bool = True,
     add_sigma: bool = True,
     add_learning_rates: bool = True,
+    remove_duplicates: bool = True,
 ) -> ConfigurationSpace:
     """A ConfigSpace configuration space of the modules and the numeric settings, for tuning.
 
     Every module of `Modules` is a categorical hyperparameter with its options from
-    `get_all_module_options` (default: the default of `Modules`). The numeric hyperparameters
-    have the defaults of `Settings(dim)` with the default modules:
+    `get_all_module_options` (default: the default of `Modules`), except that
+    `sample_transformation` has no `NONE` (raw uniform samples, a testing option that fails
+    everywhere). The numeric hyperparameters are:
 
-    - `lambda0` and `mu0`: integers in [1, 50 * dim], log scale, with the condition
-      mu0 <= lambda0;
+    - `lambda0` and `mu0`: integers in [1, 50 * dim], log scale, with the condition mu0 <= lambda0;
     - `sigma0`: a normal distribution around its default, truncated to [1e-15, 1e15];
     - `cs`, `cc`, `cmu`, `c1` in [0, 1] and `damps` in [0, 10]: normal distributions around
-      their defaults (the values of `Weights`).
+      their defaults.
 
-    The normal distributions have standard deviation 0.3 * min(default - lower, upper - default).
+    The defaults are those of `Settings(dim)` with the default modules (CSA with COVARIANCE). The
+    normal distributions have standard deviation 0.3 * min(default - lower, upper - default).
+    `settings_from_config` treats a value equal to its default as "the default of the chosen
+    modules", which differs per step-size rule and matrix adaptation.
+
+    Hyperparameters without an effect are inactive (ConfigSpace conditions, absent from a sampled
+    configuration):
+
+    - `active` needs a `matrix_adaptation` other than `NONE` and `lambda0` above 1;
+    - `center_placement` and `repelling_type` are inactive for `restart_strategy` `STOP` (the
+      criteria stop the run; `NONE` still restarts when the adaptation fails), and
+      `repelling_metric` needs `repelling_type` other than `NONE`;
+    - `cs` is inactive when `ssa` is `SR` or `SA` and `matrix_adaptation` is `NONE`,
+      `CHOLESKY` or `CMSA`; `damps` for `TPA`, `XNES`, `MXNES`, `LPXNES` and `SA`;
+    - `cc` is inactive for `matrix_adaptation` `NONE`, `MATRIX` and `CMSA`;
+    - `cmu` and `c1` are inactive for `NONE`, and for `CMSA` and
+      `NATURAL_GRADIENT` without `active` (with `active` they scale the negative weights);
+    - `mu0`, `elitist`, `sequential_selection` and `weights` need `lambda0` above 1
+      (a (1+1)-ES has mu = 1, is elitist, with equal weights); it runs `SR` whatever `ssa` is, but
+      `ssa` stays, since it decides whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`; `damps`
+      is active for `lambda0` = 1, which runs `SR`.
+
+    A hyperparameter is inactive only where the C++ code never reads it; the evidence, with file
+    and line, is in the comment of `_INACTIVE_FOR` in the source.
+
+    `Settings` replaces `matrix_adaptation=COVARIANCE` by `COVARIANCE_NO_EIGV` for every `ssa` but
+    `CSA`, so the two are one configuration there. With `remove_duplicates`, `COVARIANCE` with
+    another `ssa` than `CSA` is forbidden, and so is `IPOP` or `BIPOP` with `lambda0` = 1
+    (`RESTART` there). Two duplicates stay: `mirrored=PAIRWISE` makes an odd `lambda0` even, so
+    `lambda0` = k and k + 1 (k odd) are one configuration; and with mu = lambda
+    `active` and `sequential_selection` have nothing to act on (there are no negative weights, no
+    unselected offspring). The space does not forbid them.
+
+    The numeric parameters not in this list (`ipop_factor`, the threshold of threshold
+    convergence, ...) are not hyperparameters.
+
     Turn the result into `Settings` with `settings_from_config`.
 
     Parameters
@@ -153,15 +325,22 @@ def get_configspace(
         Add `sigma0`.
     add_learning_rates : bool, default True
         Add `cs`, `cc`, `cmu`, `c1` and `damps`.
+    remove_duplicates : bool, default True
+        Forbid the configurations that `Settings` turns into another one of the space
+        (`COVARIANCE` with an `ssa` other than `CSA`).
 
     Returns
     -------
     ConfigSpace.ConfigurationSpace
         The configuration space.
     """
+    options = {
+        name: tuple(o for o in values if o not in _EXCLUDED_OPTIONS.get(name, ()))
+        for name, values in get_all_module_options().items()
+    }
     cspace = ConfigurationSpace()
-    for name, options in get_all_module_options().items():
-        cspace.add(Categorical(name, options, default=options[0]))
+    for name, values in options.items():
+        cspace.add(Categorical(name, values, default=values[0]))
 
     if dim is None:
         if add_popsize or add_sigma or add_learning_rates:
@@ -180,12 +359,11 @@ def get_configspace(
         cspace.add(_make_numeric_parameter("sigma0", dim, 1e-15, 1e15))
 
     if add_learning_rates:
-        cspace.add(_make_numeric_parameter("cs", dim, 0, 1.0))
-        cspace.add(_make_numeric_parameter("cc", dim, 0, 1.0))
-        cspace.add(_make_numeric_parameter("cmu", dim, 0, 1.0))
-        cspace.add(_make_numeric_parameter("c1", dim, 0, 1.0))
-        cspace.add(_make_numeric_parameter("damps", dim, 0, 10.0))
+        for name in ("cs", "cc", "cmu", "c1", "damps"):
+            ub = 10.0 if name == "damps" else 1.0
+            cspace.add(_make_numeric_parameter(name, dim, 0, ub))
 
+    _add_conditions(cspace, options, remove_duplicates)
     return cspace
 
 
@@ -249,19 +427,25 @@ def settings_from_dict(dim: int, **config: Any) -> Settings:
     return settings
 
 
-def settings_from_config(dim: int, config: Configuration, **kwargs: Any) -> Settings:
+def settings_from_config(dim: int, config: Mapping[str, Any], **kwargs: Any) -> Settings:
     """`Settings` from a configuration of the space of `get_configspace`.
 
-    The module hyperparameters set the modules. A numeric hyperparameter is passed to
-    `Settings` only when it differs from its default in `get_configspace(dim)`; otherwise
-    `Settings` computes the default itself, for the chosen modules.
+    The module hyperparameters set the modules. A numeric hyperparameter is passed to `Settings`
+    only when it differs from its default in `get_configspace(dim)`; a value equal to the default
+    stands for the default of the chosen modules, which `Settings` computes itself (the defaults of
+    the step-size rules, the matrix adaptations and of mu = lambda / 4 differ from those of
+    `CSA` with `COVARIANCE`, which the space has). A different value is passed as it is. `mu0` is
+    the exception: it is passed whenever `lambda0` is passed, and whenever it differs from its
+    default, so a `mu0` equal to the default is kept next to a `lambda0` that differs from its own
+    (the default mu0 is lambda0 // 2 of the default lambda0).
 
     Parameters
     ----------
     dim : int
         The dimension.
-    config : ConfigSpace.Configuration
-        The configuration, e.g. from a tuner or `get_configspace(dim).sample_configuration()`.
+    config : ConfigSpace.Configuration or mapping
+        The configuration, e.g. from a tuner or `get_configspace(dim).sample_configuration()`; or a
+        dict of the same names.
     **kwargs
         Further `Settings` keyword arguments, e.g. `lb`, `ub` or `budget`.
 
@@ -271,13 +455,19 @@ def settings_from_config(dim: int, config: Configuration, **kwargs: Any) -> Sett
         The settings of the configuration.
     """
     via_settings = kwargs
-    default_config = get_configspace(dim).get_default_configuration()
+    default_config = dict(get_configspace(dim).get_default_configuration())
     modules = Modules()
     for name, value in dict(config).items():
         if set_module(modules, name, value):
             continue
-        if default_config[name] != value:
+        if name == "mu0":
+            continue
+        if name not in default_config or default_config[name] != value:
             via_settings[name] = value
+
+    mu0 = dict(config).get("mu0")
+    if mu0 is not None and ("lambda0" in via_settings or default_config.get("mu0") != mu0):
+        via_settings["mu0"] = mu0
 
     settings = Settings(dim, modules, **via_settings)
     return settings

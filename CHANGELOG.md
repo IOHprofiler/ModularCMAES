@@ -105,6 +105,21 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 
 ### Changed
 
+* The configuration space of `get_configspace` and `settings_from_config` (#81). The numeric
+  hyperparameters keep their names, ranges and defaults.
+  * Hyperparameters without an effect are inactive (conditions): `active`, `center_placement`,
+    `repelling_type`, `repelling_metric`, `cs`, `cc`, `cmu`, `c1`, `damps`, `mu0`, and (for
+    lambda0 = 1) `elitist`, `sequential_selection` and `weights`. A sampled configuration no longer
+    contains them; the evidence is in the source. A configuration with a value for an inactive
+    hyperparameter is not valid for `Configuration(space, ...)`; `settings_from_config` still
+    takes it as a dict.
+  * `sample_transformation=NONE` is not in the space (`get_all_module_options` still lists it).
+  * `COVARIANCE` with another `ssa` than `CSA`, and `IPOP` or `BIPOP` with `lambda0 = 1`, are
+    forbidden: `Settings` turns them into another configuration of the space.
+    `get_configspace(remove_duplicates=False)` keeps them.
+  * `settings_from_config` passed `mu0` only when it differed from its default, so a sampled `mu0`
+    equal to the default was dropped and `lambda0 = 20, mu0 = 3` ran with `mu0 = 10`. It passes
+    `mu0` now whenever `lambda0` is passed.
 * Requires Python ≥ 3.10 and numpy ≥ 2.0 (was Python ≥ 3.8).
 * The bindings use nanobind instead of pybind11; the Python API of `modcma.c_maes` is unchanged
   (checked against a dump of the 1.x API).
