@@ -1272,31 +1272,59 @@ bool tell(ModularCMAES &c, nb::handle f, nb::handle X)
     return c.tell(values, points);
 }
 
-//! One generation; a vectorized objective gets every batch of ask() as a (k, d) array
-bool step(ModularCMAES &c, nb::handle objective, const bool vectorized)
+//! A gradient function from Python (or None: no gradient). It is called with a new (d,) array
+//! and may return any array_like of d numbers.
+GradientType to_gradient(nb::handle gradient)
+{
+    if (gradient.is_none())
+        return {};
+    if (!PyCallable_Check(gradient.ptr()))
+        throw nb::type_error("gradient must be a callable (or None)");
+    return [g = nb::borrow<nb::object>(gradient)](Eigen::Ref<const Vector> x) -> Vector {
+        return to_values(g(nb::cast(Vector(x), nb::rv_policy::move)));
+    };
+}
+
+//! One generation with a gradient function; a vectorized objective gets every batch of ask() as a
+//! (k, d) array
+bool step_with(ModularCMAES &c,
+               nb::handle objective,
+               const bool vectorized,
+               const GradientType &gradient)
 {
     if (!vectorized)
     {
         auto f = nb::cast<FunctionType>(objective);
-        return c.step(f);
+        return c.step(f, gradient);
     }
-    while (!c.tell(to_values(objective(nb::cast(ask(c), nb::rv_policy::move)))))
-        ;
+    // As ModularCMAES::step: a new population gets its gradient point before it is evaluated
+    do
+    {
+        c.ask();
+        if (gradient && c.accepts_gradient())
+            c.inject_gradient(gradient(c.center_of_mass()));
+    } while (!c.tell(to_values(objective(nb::cast(ask(c), nb::rv_policy::move)))));
     return !c.break_conditions();
 }
 
-void run(ModularCMAES &c, nb::handle objective, const bool vectorized)
+bool step(ModularCMAES &c, nb::handle objective, const bool vectorized, nb::handle gradient)
 {
+    return step_with(c, objective, vectorized, to_gradient(gradient));
+}
+
+void run(ModularCMAES &c, nb::handle objective, const bool vectorized, nb::handle gradient)
+{
+    const GradientType g = to_gradient(gradient);
     if (!vectorized)
     {
         auto f = nb::cast<FunctionType>(objective);
-        c(f);
+        c(f, g);
         return;
     }
     // As ModularCMAES::operator(): the break conditions are checked before every generation
     if (c.break_conditions())
         return;
-    while (step(c, objective, true))
+    while (step_with(c, objective, true, g))
         ;
 }
 } // namespace
@@ -1316,7 +1344,10 @@ void define_cmaes(nb::module_ &m)
         "values.\n\n"
         "step() and run() are loops over ask() and tell(), so both ways give the same results, "
         "bit for bit. The state, including the statistics and the best solution "
-        "(p.stats.global_best), is in p.")
+        "(p.stats.global_best), is in p.\n\n"
+        "With the gradient of the objective, run(f, gradient=g) (or, with ask-tell, "
+        "inject_gradient()) puts a point along the negative gradient into every population "
+        "(gradient injection).")
         .def(nb::init<std::shared_ptr<parameters::Parameters>>(),
              nb::arg("parameters"),
              "An optimizer that works on the given Parameters (shared, not copied: p is "
@@ -1363,8 +1394,15 @@ void define_cmaes(nb::module_ &m)
              "or an interrupted mutate() or step()).")
         .def(
             "mutate",
-            [](ModularCMAES &c, FunctionType objective) { c.mutate(objective); },
+            [](ModularCMAES &c, FunctionType objective, nb::handle gradient) {
+                c.mutate(objective, to_gradient(gradient));
+            },
+            nb::sig("def mutate(self, objective: collections.abc.Callable[[numpy.typing.NDArray["
+                    "numpy.float64]], float], *, gradient: collections.abc.Callable[[numpy.typing."
+                    "NDArray[numpy.float64]], numpy.typing.ArrayLike] | None = None) -> None"),
             nb::arg("objective"),
+            nb::kw_only(),
+            nb::arg("gradient") = nb::none(),
             "Sample and evaluate a generation: the first step of a generation.\n\n"
             "Restarts first when a restart criterion holds (the run that ends evaluates its "
             "center of mass with objective). Then select(), recombine() and adapt() complete the "
@@ -1377,7 +1415,10 @@ void define_cmaes(nb::module_ &m)
             "Parameters\n"
             "----------\n"
             "objective : callable\n"
-            "    The objective function, called with a (d,) array, returns a float.")
+            "    The objective function, called with a (d,) array, returns a float.\n"
+            "gradient : callable, optional\n"
+            "    The gradient of the objective, called with a (d,) array, returns d numbers: "
+            "gradient injection, as for run().")
         .def("select",
              &ModularCMAES::select,
              "Select the individuals of the evaluated generation: the second step.\n\n"
@@ -1396,10 +1437,13 @@ void define_cmaes(nb::module_ &m)
         .def("step",
              &step,
              nb::sig("def step(self, objective: collections.abc.Callable[[numpy.typing.NDArray["
-                     "numpy.float64]], typing.Any], *, vectorized: bool = False) -> bool"),
+                     "numpy.float64]], typing.Any], *, vectorized: bool = False, gradient: "
+                     "collections.abc.Callable[[numpy.typing.NDArray[numpy.float64]], "
+                     "numpy.typing.ArrayLike] | None = None) -> bool"),
              nb::arg("objective"),
              nb::kw_only(),
              nb::arg("vectorized") = false,
+             nb::arg("gradient") = nb::none(),
              "Run one generation (with a restart first, when one is due).\n\n"
              "When the optimizer stops (stop_conditions()), the call evaluates the final center "
              "of mass instead, one evaluation, and returns False.\n\n"
@@ -1410,7 +1454,13 @@ void define_cmaes(nb::module_ &m)
              "vectorized=True it is called with every batch of points as a (k, d) array and "
              "returns k values.\n"
              "vectorized : bool, default False\n"
-             "    Whether objective evaluates a batch of points in one call.\n\n"
+             "    Whether objective evaluates a batch of points in one call.\n"
+             "gradient : callable, optional\n"
+             "    The gradient of the objective (gradient injection): called once per "
+             "population with its center of mass, a (d,) array, it returns d numbers. A point "
+             "along the negative gradient from the mean, at the length of a typical sample, "
+             "replaces one point of the population (with mirrored sampling, a mirrored pair); "
+             "see inject_gradient. Also with vectorized=True, gradient gets one point.\n\n"
              "Returns\n"
              "-------\n"
              "bool\n"
@@ -1419,18 +1469,24 @@ void define_cmaes(nb::module_ &m)
         .def("__call__",
              &run,
              nb::sig("def __call__(self, objective: collections.abc.Callable[[numpy.typing."
-                     "NDArray[numpy.float64]], typing.Any], *, vectorized: bool = False) -> None"),
+                     "NDArray[numpy.float64]], typing.Any], *, vectorized: bool = False, gradient: "
+                     "collections.abc.Callable[[numpy.typing.NDArray[numpy.float64]], "
+                     "numpy.typing.ArrayLike] | None = None) -> None"),
              nb::arg("objective"),
              nb::kw_only(),
              nb::arg("vectorized") = false,
+             nb::arg("gradient") = nb::none(),
              "Run until a break condition holds: the same as run().")
         .def("run",
              &run,
              nb::sig("def run(self, objective: collections.abc.Callable[[numpy.typing.NDArray["
-                     "numpy.float64]], typing.Any], *, vectorized: bool = False) -> None"),
+                     "numpy.float64]], typing.Any], *, vectorized: bool = False, gradient: "
+                     "collections.abc.Callable[[numpy.typing.NDArray[numpy.float64]], "
+                     "numpy.typing.ArrayLike] | None = None) -> None"),
              nb::arg("objective"),
              nb::kw_only(),
              nb::arg("vectorized") = false,
+             nb::arg("gradient") = nb::none(),
              "Run generations while no break condition holds.\n\n"
              "The break conditions are checked before every generation, the first one too: the "
              "run never exceeds the budget, and an optimizer that has stopped does not run again. "
@@ -1444,7 +1500,13 @@ void define_cmaes(nb::module_ &m)
              "vectorized=True it is called with every batch of points as a (k, d) array and "
              "returns k values.\n"
              "vectorized : bool, default False\n"
-             "    Whether objective evaluates a batch of points in one call.")
+             "    Whether objective evaluates a batch of points in one call.\n"
+             "gradient : callable, optional\n"
+             "    The gradient of the objective (gradient injection): called once per "
+             "population with its center of mass, a (d,) array, it returns d numbers. A point "
+             "along the negative gradient from the mean, at the length of a typical sample, "
+             "replaces one point of the population (with mirrored sampling, a mirrored pair); "
+             "see inject_gradient. Also with vectorized=True, gradient gets one point.")
         .def("ask",
              &ask,
              "The points to evaluate next, a new (k, d) array (row i is point i).\n\n"
@@ -1489,6 +1551,48 @@ void define_cmaes(nb::module_ &m)
         .def_prop_ro("has_pending",
                      &ModularCMAES::has_pending,
                      "Whether ask() has points that wait for tell().")
+        .def_prop_ro("accepts_gradient",
+                     &ModularCMAES::accepts_gradient,
+                     "Whether inject_gradient() can be called now: the points of ask() are the "
+                     "first batch of a new population, and no gradient was injected into it.\n\n"
+                     "True from the ask() that starts a population until its first tell(); False "
+                     "while ask() returns a center of mass, the points of a hill-valley test, or "
+                     "a later batch of a population (sequential selection).")
+        .def(
+            "inject_gradient",
+            [](ModularCMAES &c, nb::handle g) { c.inject_gradient(to_values(g)); },
+            nb::sig("def inject_gradient(self, g: numpy.typing.ArrayLike) -> None"),
+            nb::arg("g"),
+            "Inject the gradient at the center of mass (gradient injection, ask-tell).\n\n"
+            "Between the ask() that returns a new population (accepts_gradient) and its tell(): "
+            "individual 0 of the population becomes the point along the negative gradient from "
+            "the mean m, at the length of a typical sample,\n\n"
+            "    x = m - sigma * c * C g / sqrt(g^T C g),\n\n"
+            "with c = E||N(0, I)|| (the expected length of a sample z of the sampler, "
+            "Weights.expected_length_z) and sigma**2 C the covariance of the samples (Hansen 2011, "
+            "Eq. 14, with c for his sqrt(d)). With sampled step sizes or integer variables the "
+            "point gets the step size of the individual it replaces. With mirrored sampling the "
+            "next individual becomes its mirror, m + sigma * c * C g / sqrt(g^T C g), so the "
+            "pair stays a pair. With a bound correction the point is moved into the box, as "
+            "TPA's points (RESAMPLE clips it), and its integer variables are rounded; it then "
+            "enters the update as a point given to tell(f, X): clipped when it is far outside "
+            "the distribution. A point in a taboo region of the repelling archive is not "
+            "injected. The samples are drawn as without injection, so a bad gradient costs the "
+            "replaced sample (and its mirror).\n\n"
+            "Call ask() again for the points with the gradient point; run(f, gradient=...) and "
+            "step() do the same.\n\n"
+            "Parameters\n"
+            "----------\n"
+            "g : array_like\n"
+            "    (d,) the gradient of the objective at center_of_mass. A zero gradient changes "
+            "nothing.\n\n"
+            "Raises\n"
+            "------\n"
+            "RuntimeError\n"
+            "    accepts_gradient is False: the points of ask() are not a new population, or a "
+            "gradient was already injected into it.\n"
+            "ValueError\n"
+            "    g does not have d finite entries (a gradient is then still accepted).")
         .def("break_conditions",
              &ModularCMAES::break_conditions,
              "Whether the optimizer has stopped; meaningful between generations (after tell() "

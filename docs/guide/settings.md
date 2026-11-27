@@ -31,6 +31,10 @@ length d, NaN in the bounds, a lower bound of +∞ or an upper bound of −∞, 
 smaller than the first generation and the final center of mass, or a `C0` that is not a symmetric
 positive definite (d, d) matrix. With `lambda0=1` (the (1+1)-ES) `mu0` is 1 whatever is given.
 
+The gradient of the objective is not a setting: it is passed with the objective
+(`run(f, gradient=g)`, `fmin(..., gradient=g)`) or, with ask–tell, to `inject_gradient`
+([gradient injection](gradients.md)).
+
 ```python
 import numpy as np
 import modcma

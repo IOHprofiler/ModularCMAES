@@ -23,6 +23,10 @@
  * center of mass, one point (#111): when a restart is due, followed by the hill-valley points of
  * the repelling archive, one at a time; and when the optimizer stops, after which
  * break_conditions() holds.
+ *
+ * Gradient injection (#90): between the ask() that returns a new population and its tell(),
+ * inject_gradient() replaces one of its points by a point along the negative gradient; run(),
+ * step() and mutate() do this with a gradient function.
  */
 struct ModularCMAES
 {
@@ -58,15 +62,17 @@ struct ModularCMAES
     void adapt() const;
 
     //! Sample and evaluate a generation, up to selection (after a restart, when one is due); when
-    //! the optimizer stops, evaluate the final center of mass instead
-    void mutate(FunctionType &objective);
+    //! the optimizer stops, evaluate the final center of mass instead. With a gradient, every new
+    //! population gets a gradient point (inject_gradient), with the gradient at center_of_mass()
+    void mutate(FunctionType &objective, const GradientType &gradient = {});
 
     //! One generation (when the optimizer stops: the evaluation of the final center of mass);
-    //! returns false when a break condition holds
-    bool step(FunctionType &objective);
+    //! returns false when a break condition holds. With a gradient, as mutate()
+    bool step(FunctionType &objective, const GradientType &gradient = {});
 
-    //! Run generations while no break condition holds (checked before each generation)
-    void operator()(FunctionType &objective);
+    //! Run generations while no break condition holds (checked before each generation). With a
+    //! gradient, as mutate()
+    void operator()(FunctionType &objective, const GradientType &gradient = {});
 
     /**
      * Whether the optimizer has stopped: a stop condition holds (stop_conditions()) and the run's
@@ -114,6 +120,24 @@ struct ModularCMAES
 
     //! Whether ask() has points that wait for tell()
     [[nodiscard]] bool has_pending() const { return n_pending != 0; }
+
+    /**
+     * Whether inject_gradient() can be called now: the points of ask() are the first batch of a
+     * new population, and no gradient was injected into it. From the step that samples the
+     * population until its first tell().
+     */
+    [[nodiscard]] bool accepts_gradient() const { return gradient_open; }
+
+    /**
+     * Gradient injection (#90): g, the gradient of the objective at center_of_mass(), replaces
+     * individual 0 of the new population (with mirrored sampling also its partner, the mirror)
+     * by the point along -g from the mean at the length of a typical sample
+     * (Parameters::inject_gradient). The next ask() returns it. Only while accepts_gradient()
+     * (std::logic_error otherwise); once per population. A zero gradient changes nothing.
+     * std::invalid_argument when g does not have d finite entries (then a gradient is still
+     * accepted).
+     */
+    void inject_gradient(Eigen::Ref<const Vector> g);
 
   private:
     /**
@@ -182,6 +206,9 @@ struct ModularCMAES
     bool steps_skipped = false;
     //! Why the run that ends now ends, for its record (queued with its center of mass)
     std::vector<std::string> end_reasons;
+    //! The pending points are the first batch of a new population, without a gradient point yet
+    //! (accepts_gradient)
+    bool gradient_open = false;
 
     //! The stop conditions, each on its own
     struct StopFlags
@@ -221,6 +248,8 @@ struct ModularCMAES
     void queue_extra_points();
     //! The objective values of the queued points
     void evaluate(FunctionType &objective);
+    //! With a gradient, while accepts_gradient(): inject_gradient(gradient(center_of_mass()))
+    void offer_gradient(const GradientType &gradient);
     //! select(), recombine() and adapt() of the 1.x API: not while points wait for their values
     void require_no_generation(const char *step) const;
 };

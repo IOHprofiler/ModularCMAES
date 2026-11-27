@@ -28,7 +28,11 @@ def typical_use() -> float:
     X = es.ask()
     es.tell([sphere(x) for x in X])
     es.run(lambda X: np.sum(X * X, axis=1), vectorized=True)
+    es.run(sphere, gradient=lambda x: 2.0 * x)
+    if es.accepts_gradient:
+        es.inject_gradient(2.0 * es.center_of_mass)
     xopt, fopt, evaluations, es2 = modcma.fmin(sphere, np.ones(d), 0.5, 1000, active=True)
+    modcma.fmin(sphere, np.ones(d), 0.5, 1000, gradient=lambda x: [2.0 * v for v in x])
     other = modcma.settings_from_dict(d, matrix_adaptation="SEPARABLE", budget=1000, x0=np.ones(d))
     space = modcma.get_configspace(d)
     from_config = modcma.settings_from_config(d, space.get_default_configuration(), budget=10)

@@ -263,6 +263,116 @@ static void test_evaluation_queue()
     CHECK(es.p->stats.evaluations == es.p->lambda + 2);
 }
 
+// #90: apply_transpose_into is the transpose of the sampling transformation of compute_y_into,
+// v^T (A z) = (A^T v)^T z, for every matrix adaptation after it has adapted its matrix
+static void test_apply_transpose()
+{
+    using parameters::MatrixAdaptationType;
+    FunctionType f = [](Eigen::Ref<const Vector> x) { return functions::ellipse(x); };
+    for (const auto type : {MatrixAdaptationType::NONE,
+                            MatrixAdaptationType::COVARIANCE,
+                            MatrixAdaptationType::MATRIX,
+                            MatrixAdaptationType::SEPARABLE,
+                            MatrixAdaptationType::CHOLESKY,
+                            MatrixAdaptationType::CMSA,
+                            MatrixAdaptationType::COVARIANCE_NO_EIGV,
+                            MatrixAdaptationType::NATURAL_GRADIENT})
+    {
+        parameters::Modules m;
+        m.matrix_adaptation = type;
+        parameters::Settings settings(5, m);
+        settings.verbose = false;
+        settings.seed = 11;
+        ModularCMAES es(settings);
+        for (int g = 0; g < 30; ++g)
+            es.step(f);
+        std::mt19937 gen(3);
+        std::normal_distribution<Float> normal;
+        Vector z(5), v(5), y(5), u(5);
+        for (int k = 0; k < 5; ++k)
+        {
+            for (Eigen::Index i = 0; i < 5; ++i)
+            {
+                z(i) = normal(gen);
+                v(i) = normal(gen);
+            }
+            es.p->adaptation->compute_y_into(z, y);
+            es.p->adaptation->apply_transpose_into(v, u);
+            const Float scale = y.norm() * v.norm() + u.norm() * z.norm();
+            CHECK(std::abs(v.dot(y) - u.dot(z)) <= 1e-12 * scale);
+        }
+    }
+}
+
+// #90: gradient injection. The gradient point of the first population is m - sigma c g / ||g||
+// (C = I), with c = E||z||; ask-tell with inject_gradient gives the same run as run() with the
+// gradient; inject_gradient is refused outside a new population, and a wrong gradient is refused
+// before anything changes
+static void test_gradient_injection()
+{
+    FunctionType f = [](Eigen::Ref<const Vector> x) { return functions::ellipse(x); };
+    GradientType gradient = [](Eigen::Ref<const Vector> x) {
+        Vector g(x.size());
+        for (Eigen::Index i = 0; i < x.size(); ++i)
+            g(i) = 2.0 * std::pow(1.0e6, static_cast<Float>(i) / (x.size() - 1.0)) * x(i);
+        return g;
+    };
+    parameters::Settings settings(5, {}, std::nullopt, std::nullopt, size_t{3000}, 0.5);
+    settings.verbose = false;
+    settings.seed = 8;
+    settings.x0 = Vector::Ones(5);
+
+    ModularCMAES es(settings);
+    bool threw = false;
+    try
+    {
+        es.inject_gradient(Vector::Ones(5)); // nothing asked yet
+    }
+    catch (const std::logic_error &)
+    {
+        threw = true;
+    }
+    CHECK(threw);
+    const Matrix X = es.ask();
+    CHECK(es.accepts_gradient());
+    threw = false;
+    try
+    {
+        es.inject_gradient(Vector::Ones(3));
+    }
+    catch (const std::invalid_argument &)
+    {
+        threw = true;
+    }
+    CHECK(threw && es.accepts_gradient());
+    const Vector g = gradient(es.center_of_mass());
+    es.inject_gradient(g);
+    CHECK(!es.accepts_gradient());
+    const Matrix X2 = es.ask();
+    const Vector expected =
+        es.p->adaptation->m - 0.5 * es.p->weights.expected_length_z * g / g.norm();
+    CHECK((X2.col(0) - expected).cwiseAbs().maxCoeff() < 1e-14);
+    CHECK(X2.rightCols(X2.cols() - 1) == X.rightCols(X.cols() - 1));
+
+    ModularCMAES a(settings), b(settings);
+    a(f, gradient);
+    while (!b.break_conditions())
+        for (bool done = false; !done;)
+        {
+            b.ask();
+            if (b.accepts_gradient())
+                b.inject_gradient(gradient(b.center_of_mass()));
+            const Matrix Xb = b.ask();
+            Vector fb(Xb.cols());
+            for (Eigen::Index j = 0; j < Xb.cols(); ++j)
+                fb(j) = f(Xb.col(j));
+            done = b.tell(fb);
+        }
+    CHECK(a.p->stats.evaluations == b.p->stats.evaluations);
+    CHECK(a.p->adaptation->m == b.p->adaptation->m);
+    CHECK(a.p->stats.global_best.y == b.p->stats.global_best.y);
+}
+
 // (c) A restart that starts now fits the budget when its next point leaves room for the smallest
 // first generation of the next run, the points every generation reserves (TPA's two) and the
 // evaluation of the next run's center of mass (#111)
@@ -634,6 +744,8 @@ int main()
     test_c0_assigned_directly();
     test_settings_checked_at_creation();
     test_bipop_populations_match_pycma();
+    test_apply_transpose();
+    test_gradient_injection();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

@@ -199,6 +199,31 @@ algorithms.
   ([deep dive](../deep-dives/matrix-adaptations.md#the-initial-matrix-c0)); `TolX`, `ConditionC`
   and the other criteria that read C see it from the first generation on.
 
+## Gradient injection
+
+A gradient (`run(f, gradient=...)`, `inject_gradient`; [the guide](gradients.md)) is not a module:
+it works with every configuration. The population is sampled as without it (the same random
+numbers), then the gradient point replaces individual 0:
+
+| with | the gradient point |
+|---|---|
+| `mirrored` `MIRRORED` or `PAIRWISE` | replaces the pair 0 and 1: the gradient point and its mirror (the opposite step), so no pair is broken. With `PAIRWISE` the better of the two is ranked |
+| `orthogonal` | replaces an orthogonal sample: its block is no longer orthogonal |
+| a bound correction | moved into the box as TPA's points (`RESAMPLE` clips it), then treated as a point given to `tell(f, X)`: its y and z from the corrected point, clipped at the Mahalanobis length √d + 2d/(d + 2) |
+| `integer_variables` | rounded, as the samples |
+| sampled step sizes (`sample_sigma`, `SA`, `LPXNES`) | the step size of individual 0 (σ otherwise; the integer variables' lower bound applies) |
+| `sequential_selection` | in the first batch: always evaluated |
+| `ssa=TPA` | TPA's two points are extra points, not samples: they stay |
+| `elitist` | an offspring: it competes with the parents as the samples do |
+| `threshold_convergence` | not applied: the point has the length E‖z‖ |
+| restarts | every population of every run gets one, at its run's mean; the centers of mass and the hill–valley points do not |
+| `repelling_type` | not injected when it lies in a taboo region (the sample stays), as a sample there is rejected |
+| λ = 1, or λ = 2 with mirroring | the whole population: the run depends on the gradient alone |
+| `sample_transformation=CAUCHY` | its typical length (≈ 1.18 d at large d) exceeds the clipping length from d = 3 on: the point is evaluated at that length and enters the update clipped |
+
+The point's length c is the expected length of a sample z of the sampler (`Weights.expected_length_z`):
+E‖N(0, I)‖ for the Gaussian samplers.
+
 ## Combinations to avoid
 
 Measured on a shifted sphere (d = 5, 2000 evaluations) and confirmed on more functions where
@@ -216,6 +241,7 @@ noted; with the current version. Most are recorded for fixing.
 | `weights=UTILITY` with `bound_correction=TOROIDAL` or `sample_transformation=CAUCHY` | far points (wrapped around, heavy tails) pull the mean through their negative utilities |
 | `lambda0=2` | allowed for experiments, but many modules fail. On a rotated ellipsoid (d = 5, 5 seeds), 0 of 5 runs converge with `elitist`, `MATRIX`, `CMSA`, `MSR`, `PSR`, `SR`, `MXNES`, and with `restart_strategy` `RESTART` or `STOP`, whose criteria end the runs early. The default configuration needs about 6× the evaluations of λ = 4 |
 | `lambda0=3` | close to λ = 4 for most modules (same measurement), except `sample_transformation=CAUCHY` (0 of 5) and `MXNES` (0 of 5 on the ellipsoid); `SR`, `CMSA` and `MSR` need about 2× the evaluations |
+| a gradient (`run(f, gradient=...)`) with `lambda0=1`, or with λ = 2 and mirroring | the gradient point is the whole population: no sample is left, and the matrix learns only the gradient steps. On BBOB f10 with λ = 1 (d = 10 and 40, 15 runs each) no run reaches 1e-8, also with the exact gradient (median best f 1.5e5 and 3.9e5); without a gradient every run does ([gradient injection](gradients.md#what-a-bad-gradient-costs)) |
 
 For tuning, `get_configspace` leaves `sample_transformation=NONE` out and has conditions for the
 parameters without an effect; see [tuning](tuning.md). `Settings` still accepts `NONE`.

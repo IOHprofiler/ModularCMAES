@@ -45,6 +45,9 @@ The repository also builds `modcma_tests` (the C++ unit tests, `ctest`) and
 
 * The objective is a `FunctionType`, `std::function<Float(Eigen::Ref<const Vector>)>`; `Float` is
   `double`.
+* A gradient is a `GradientType`, `std::function<Vector(Eigen::Ref<const Vector>)>`: `es(f, g)`,
+  `es.step(f, g)` and `es.mutate(f, g)` inject it, and with ask–tell `es.inject_gradient(g)` while
+  `es.accepts_gradient()` ([gradient injection](gradients.md)).
 * `rng::set_seed(s)` seeds the global generator; `settings.seed` gives an optimizer its own.
 * `settings.set_C0(C)` sets the initial covariance matrix and checks it (`std::invalid_argument`
   otherwise), as `Settings(C0=...)` in Python; `modcma.warm_start` exists only in Python.

@@ -613,6 +613,7 @@ def fmin(
     sigma0: float,
     budget: int,
     preset: Optional[str] = None,
+    gradient: Optional[Callable[[np.ndarray], Any]] = None,
     **kwargs: Any,
 ) -> tuple[np.ndarray, float, int, ModularCMAES]:
     """Minimize a function with the modular CMA-ES.
@@ -634,6 +635,11 @@ def fmin(
     preset : str, optional
         The name of a published algorithm (see `modcma.preset`), e.g. `"sep-cma"`. The keyword
         arguments below override it.
+    gradient : callable, optional
+        The gradient of `func`, called with a (d,) numpy array; returns d numbers. Every
+        generation, a point along the negative gradient from the mean replaces one sample
+        (gradient injection, `ModularCMAES.inject_gradient`). It costs no evaluations; a bad
+        gradient costs the replaced sample.
     **kwargs
         Module options and `Settings` keyword arguments, as for `settings_from_dict`, e.g.
         `active=True`, `matrix_adaptation="MATRIX"`, `lb=..., ub=...`, `target=1e-8`.
@@ -663,7 +669,7 @@ def fmin(
     else:
         settings = _preset(preset, len(x0), **config)
     es = ModularCMAES(settings)
-    es(func)
+    es(func, gradient=gradient)
 
     return (
         es.p.stats.global_best.x,
