@@ -43,6 +43,13 @@ class TestActiveWithElitism(unittest.TestCase):
         f = np.sort(rng.normal(size=n))
         return Z, f
 
+    @staticmethod
+    def adaptation(cls, d):
+        # m_old is set by the recombination, which these tests skip: the mean did not move
+        a = getattr(c_maes.matrix_adaptation, cls)(d, np.zeros(d))
+        a.m_old = np.zeros(d)
+        return a
+
     def population(self, Z, f, columns):
         Z, f = Z[:, columns], f[columns]
         return Population(Z.copy(), Z.copy(), Z.copy(), f.copy(), np.ones_like(Z))
@@ -71,7 +78,7 @@ class TestActiveWithElitism(unittest.TestCase):
 
                 results = []
                 for pop in (pooled, gathered):
-                    a = getattr(c_maes.matrix_adaptation, cls)(d, np.zeros(d))
+                    a = self.adaptation(cls, d)
                     a.adapt_evolution_paths(pop, p.weights, p.stats, p.settings, mu)
                     self.assertTrue(a.adapt_matrix(p.weights, pop, mu, p.settings, p.stats))
                     results.append(np.array(getattr(a, attribute)))
@@ -79,7 +86,7 @@ class TestActiveWithElitism(unittest.TestCase):
 
                 # without a pool the negative weights go to ranks mu..lambda-1, as before
                 plain = self.population(Z, f, list(range(lam)))
-                a = getattr(c_maes.matrix_adaptation, cls)(d, np.zeros(d))
+                a = self.adaptation(cls, d)
                 a.adapt_evolution_paths(plain, p.weights, p.stats, p.settings, mu)
                 a.adapt_matrix(p.weights, plain, mu, p.settings, p.stats)
                 self.assertGreater(np.abs(np.array(getattr(a, attribute)) - results[0]).max(), 0)
