@@ -691,7 +691,7 @@ void define_parameters(nb::module_ &main)
             "weights, no active update, no sequential selection, mirrored PAIRWISE becomes "
             "NONE, and IPOP or BIPOP become RESTART;\n"
             "- when the box lb..ub is not finite, has_bounds is False, diameter 10, volume "
-            "10**dim and center the zero vector.\n\n"
+            "10**dim; center is computed per coordinate (see `center`).\n\n"
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
             "mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, a "
             "sigma0 that is not positive and finite, x0, lb or ub of a length other "
@@ -849,7 +849,8 @@ void define_parameters(nb::module_ &main)
             [](Settings &s, const Float value) { s.set_sigma0(value); },
             "The initial step size, default 2.0; positive and finite (ValueError). Also "
             "the step size after a restart (smaller for the small-population runs of "
-            "BIPOP).")
+            "BIPOP). Setting it recomputes `center`, which depends on it for a coordinate "
+            "with one infinite bound.")
         .def_prop_rw(
             "mu0",
             [](const Settings &s) { return s.mu0; },
@@ -882,7 +883,7 @@ void define_parameters(nb::module_ &main)
             // array_like, as the constructor
             nb::for_setter(nb::sig("def x0(self, arg: numpy.typing.ArrayLike | None, /) -> None")),
             "(dim,) array: the initial mean of the search distribution, or None (default) for "
-            "`center`, the center of the bounds. A length other than dim, or a value that is not "
+            "`center` (the midpoint of the bounds; see `center` for infinite bounds). A length other than dim, or a value that is not "
             "finite, raises ValueError.")
         .def_prop_rw(
             "lb",
@@ -914,8 +915,11 @@ void define_parameters(nb::module_ &main)
                      derived_vector(&Settings::center),
                      view,
                      nb::name("center"),
-                     "(dim,) array: the center of the box, lb + (ub - lb) / 2; the zero vector "
-                     "when the box is not finite (read-only: derived from lb and ub; x0 sets the "
+                     "(dim,) array: where the first run starts without x0, per coordinate: the "
+                     "midpoint (lb + ub) / 2 for two finite bounds; 0 for two infinite bounds; "
+                     "for one infinite bound, 0 if the half-line holds it, otherwise the finite "
+                     "bound moved inward by sigma0 (lb + sigma0, or ub - sigma0), so the start "
+                     "lies in the box (read-only: derived from lb, ub and sigma0; x0 sets the "
                      "starting point).")
         .def_ro("diameter",
                 &Settings::diameter,

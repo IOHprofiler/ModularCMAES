@@ -237,8 +237,8 @@ void define_center_placement(nb::module_ &main)
 
     nb::class_<X0, Placement>(m,
                               "X0",
-                              "The mean is `Settings.x0`, or the center of the box [lb, ub] (the "
-                              "origin without finite bounds) when x0 is not given "
+                              "The mean is `Settings.x0`, `Settings.center` (the "
+                              "center of the box; see it for infinite bounds) when x0 is not given "
                               "(`CenterPlacement.X0`, the default).")
         .def(nb::init<>(), "Create the placement.");
     nb::class_<Uniform, Placement>(m,
@@ -251,8 +251,9 @@ void define_center_placement(nb::module_ &main)
         .def(nb::init<>(), "Create the placement.");
     nb::class_<Center, Placement>(m,
                                   "Center",
-                                  "The mean is the center of the box, (lb + ub) / 2, or the origin "
-                                  "without finite bounds (`CenterPlacement.CENTER`).")
+                                  "The mean is `Settings.center`: the midpoint (lb + ub) / 2 of a finite "
+                                  "coordinate, with the rule for infinite bounds there "
+                                  "(`CenterPlacement.CENTER`).")
         .def(nb::init<>(), "Create the placement.");
     nb::class_<MaximinTaboo, Placement>(
         m,

@@ -9,7 +9,7 @@ other argument is a keyword argument with a default:
 |---|---|---|
 | `dim` | (required) | the number of variables d |
 | `modules` | `Modules()` | the [modules](modules.md) |
-| `x0` | the center of the bounds | the starting point (with `center_placement=X0`) |
+| `x0` | the center of the bounds ([rule for infinite bounds](bound-correction.md#where-the-search-starts)) | the starting point (with `center_placement=X0`) |
 | `sigma0` | 2.0 | the initial step size σ₀; rule of thumb: 0.3 × the width of the search region |
 | `C0` | the identity | the initial covariance matrix C, (d, d), symmetric positive definite ([warm starting](#the-initial-covariance-matrix-and-warm-starting)) |
 | `lb`, `ub` | −5 and 5 in every coordinate | the bounds, arrays of length d ([bounds](bound-correction.md)) |

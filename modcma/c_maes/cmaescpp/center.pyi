@@ -26,7 +26,7 @@ class Placement:
 
 class X0(Placement):
     """
-    The mean is `Settings.x0`, or the center of the box [lb, ub] (the origin without finite bounds) when x0 is not given (`CenterPlacement.X0`, the default).
+    The mean is `Settings.x0`, `Settings.center` (the center of the box; see it for infinite bounds) when x0 is not given (`CenterPlacement.X0`, the default).
     """
 
     def __init__(self) -> None:
@@ -48,7 +48,7 @@ class Zero(Placement):
 
 class Center(Placement):
     """
-    The mean is the center of the box, (lb + ub) / 2, or the origin without finite bounds (`CenterPlacement.CENTER`).
+    The mean is `Settings.center`: the midpoint (lb + ub) / 2 of a finite coordinate, with the rule for infinite bounds there (`CenterPlacement.CENTER`).
     """
 
     def __init__(self) -> None:

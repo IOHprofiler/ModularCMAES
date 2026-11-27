@@ -649,7 +649,7 @@ class Settings:
         - when ssa is not CSA, matrix_adaptation COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);
         - with matrix_adaptation NONE, active is turned off;
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, mirrored PAIRWISE becomes NONE, and IPOP or BIPOP become RESTART;
-        - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim and center the zero vector.
+        - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim; center is computed per coordinate (see `center`).
 
         Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above ub, an integer variable without an integer value in [lb, ub], a budget smaller than the first generation and the evaluation of the final center of mass, or a C0 that is not a symmetric positive definite (dim, dim) matrix (or with matrix_adaptation NONE).
 
@@ -782,7 +782,7 @@ class Settings:
     @property
     def sigma0(self) -> float:
         """
-        The initial step size, default 2.0; positive and finite (ValueError). Also the step size after a restart (smaller for the small-population runs of BIPOP).
+        The initial step size, default 2.0; positive and finite (ValueError). Also the step size after a restart (smaller for the small-population runs of BIPOP). Setting it recomputes `center`, which depends on it for a coordinate with one infinite bound.
         """
 
     @sigma0.setter
@@ -813,7 +813,7 @@ class Settings:
     @property
     def x0(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')] | None:
         """
-        (dim,) array: the initial mean of the search distribution, or None (default) for `center`, the center of the bounds. A length other than dim, or a value that is not finite, raises ValueError.
+        (dim,) array: the initial mean of the search distribution, or None (default) for `center` (the midpoint of the bounds; see `center` for infinite bounds). A length other than dim, or a value that is not finite, raises ValueError.
         """
 
     @x0.setter
@@ -846,7 +846,7 @@ class Settings:
     @property
     def center(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C', writable=False)]:
         """
-        (dim,) array: the center of the box, lb + (ub - lb) / 2; the zero vector when the box is not finite (read-only: derived from lb and ub; x0 sets the starting point).
+        (dim,) array: where the first run starts without x0, per coordinate: the midpoint (lb + ub) / 2 for two finite bounds; 0 for two infinite bounds; for one infinite bound, 0 if the half-line holds it, otherwise the finite bound moved inward by sigma0 (lb + sigma0, or ub - sigma0), so the start lies in the box (read-only: derived from lb, ub and sigma0; x0 sets the starting point).
         """
 
     @property

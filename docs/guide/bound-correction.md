@@ -85,10 +85,23 @@ es.run(outside)
 print(es.p.stats.global_best.x)  # the corner (0, 1)
 ```
 
-`Settings.has_bounds` is `False` when the box is not finite; then `diameter` is 10, `volume`
-10^d and `center` the zero vector. The bound correction does not depend on it. The center
+`Settings.has_bounds` is `False` when the box is not finite; then `diameter` is 10 and `volume`
+10^d. The bound correction does not depend on it. The center
 placements `UNIFORM`, `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` sample in the box; in a coordinate
 with an infinite bound they sample in x0 ± 2σ0 instead ([restarts](restarts.md#where-a-restart-begins)).
+
+### Where the search starts
+
+Without `x0`, the first mean is `Settings.center`, per coordinate:
+
+| the coordinate has | `center[i]` |
+|---|---|
+| two finite bounds | the midpoint (lb + ub) / 2 |
+| no finite bound | 0 |
+| one finite bound | 0 if the half-line holds 0; otherwise the finite bound moved inward by σ0 (lb + σ0, or ub − σ0) |
+
+The start then lies inside the box. With one infinite bound `center` depends on `sigma0`, and
+follows it when it is set.
 
 ## The options
 
