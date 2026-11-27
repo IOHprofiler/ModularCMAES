@@ -736,7 +736,7 @@ void define_parameters(nb::module_ &main)
             "sigma0 : float, optional\n"
             "    The initial step size, default 2.0, positive and finite; also the step size "
             "after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u "
-            "uniform in [0, 1)).\n"
+            "uniform in (0, 1)).\n"
             "mu0 : int, optional\n"
             "    The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or "
             "matrix_adaptation CMSA); at least 1 and at most lambda0.\n"
@@ -876,7 +876,8 @@ void define_parameters(nb::module_ &main)
             "Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting "
             "lambda0 recomputes it. A mu0 above lambda0 raises ValueError: in the constructor, "
             "and after a setter when the optimizer is created. Parameters.mu is the current "
-            "value, which IPOP and BIPOP restarts change.")
+            "value, which IPOP and BIPOP restarts change: to the default of the new lambda "
+            "(as pycma), or, when mu0 was given, to mu0 / lambda0 of the new lambda.")
         .def_prop_rw(
             "lambda0",
             [](const Settings &s) { return s.lambda0; },
@@ -1119,8 +1120,11 @@ void define_parameters(nb::module_ &main)
         .def_rw("settings", &Parameters::settings, "The Settings of this optimizer.")
         .def_rw("mu",
                 &Parameters::mu,
-                "The current number of parents: settings.mu0 at first, changed by IPOP and "
-                "BIPOP restarts.")
+                "The current number of parents: settings.mu0 at first. A restart that changes "
+                "lamb (IPOP, BIPOP, the cap of the first generation at the budget) sets it to "
+                "the default of the new lambda, lamb // 2 (lamb // 4 with ssa SA or "
+                "matrix_adaptation CMSA), or, when settings.mu0 was given, to mu0 / lambda0 of "
+                "lamb, rounded half up, at least 1.")
         .def_rw("lamb",
                 &Parameters::lambda,
                 "The current number of offspring per generation (lambda): settings.lambda0 at "

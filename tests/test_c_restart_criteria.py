@@ -1,4 +1,5 @@
-"""The restart criteria for every matrix adaptation (F25) and BIPOP's regimes (F26), #80."""
+"""The restart criteria for every matrix adaptation (F25) and BIPOP's regimes (F26), #80; the
+criteria per run (#139) and mu after a restart (#150)."""
 
 import math
 import unittest
@@ -307,7 +308,9 @@ class TestBIPOP(unittest.TestCase):
             else:
                 # between lambda0 and the last large population
                 self.assertTrue(lambda0 <= lam <= lambda0 * 2**n_large, (lam, n_large))
-                self.assertEqual(max_iter, int(cap / lam))
+                # pycma's maxiter is not rounded and a run stops at countiter >= maxiter: after
+                # ceil(maxiter) generations (#139 D3; it was rounded down)
+                self.assertEqual(max_iter, math.ceil(cap / lam))
 
     def test_a_run_longer_than_half_the_budget(self):
         # Before: the rest of the budget after the first run (9000) was split into halves; the
@@ -357,29 +360,241 @@ class TestBIPOP(unittest.TestCase):
     def test_small_runs_are_capped_in_a_run(self):
         # The first and the large runs end after 5 generations, so the small runs on the sphere
         # (which take far longer to converge) reach their cap, half the evaluations of the large
-        # regime. A small run takes at most max_iter + 2 generations: ExceededMaxIter is met after
-        # more than max_iter generations since the restart (it counts from 0), and the run ends at
-        # the start of the next generation.
+        # regime. A small run takes at most max_iter generations (at least one), exactly max_iter
+        # when ExceededMaxIter ends it; it took max_iter + 2 (#139).
         settings = modcma.settings_from_dict(
             5, restart_strategy="BIPOP", budget=50_000, seed=2, sigma0=1e-3
         )
         es = modcma.ModularCMAES(settings)
         es.p.criteria.items.append(EndLargeRuns())
-        runs = []  # (large_run, max_iter, generation of the restart)
+        runs = []  # (large_run, the limit of ExceededMaxIter, generation of the restart)
         used = 0
         while es.step(sphere):
             strategy = es.p.restart_strategy
             if strategy.used_budget != used:  # a restart started this generation
                 used = strategy.used_budget
                 start = es.p.stats.t - es.p.stats.t_run
-                runs.append((strategy.large_run, strategy.max_iter, start))
+                limit = criteria(es)["ExceededMaxIter"].max_iter
+                self.assertLessEqual(limit, strategy.max_iter)
+                runs.append((strategy.large_run, limit, start))
         centers = es.p.stats.centers[1:]
         capped = 0
-        for (large, max_iter, start), center in zip(runs, centers):
+        for (large, limit, start), center in zip(runs, centers):
             if not large:
-                self.assertLessEqual(center.t + 1 - start, max_iter + 2)
-                capped += "ExceededMaxIter" in center.reasons
+                generations = center.t + 1 - start
+                self.assertLessEqual(generations, max(limit, 1))
+                if "ExceededMaxIter" in center.reasons:
+                    self.assertEqual(generations, max(limit, 1))
+                    capped += 1
         self.assertGreater(capped, 0)
+
+    def test_d_sigma_compare_with_the_sigma_of_the_run(self):
+        # #139: MaxDSigma and MinDSigma divide sigma by the step size at the start of the run,
+        # which is smaller than Settings.sigma0 in the small runs (pycma's es.sigma0 of each run)
+        settings = modcma.settings_from_dict(5, restart_strategy="BIPOP", budget=20_000, seed=2)
+        es = modcma.ModularCMAES(settings)
+        recorder = SigmaAtReset()
+        es.p.criteria.items.append(EndLargeRuns())
+        es.p.criteria.items.append(recorder)
+        recorder.reset(es.p)  # the first run (the optimizer reset its criteria when created)
+        items = criteria(es)
+        small_runs = 0
+        while es.step(sphere):
+            for name in ("MaxDSigma", "MinDSigma"):
+                self.assertEqual(items[name].sigma_start, recorder.sigma)
+            strategy = es.p.restart_strategy
+            if strategy.lambda_large and not strategy.large_run:
+                small_runs += 1
+                self.assertLess(recorder.sigma, settings.sigma0)
+        self.assertGreater(small_runs, 0)
+
+
+class RestartEvery(c_maes.restart.Criterion):
+    """Met after n generations of a run."""
+
+    def __init__(self, n):
+        super().__init__("RestartEvery")
+        self.n = n
+
+    def update(self, parameters):
+        self.met = parameters.stats.t + 1 - self.last_restart >= self.n
+
+
+class SigmaAtReset(c_maes.restart.Criterion):
+    """Records the step size at every reset, the start of a run; never met."""
+
+    def __init__(self):
+        super().__init__("SigmaAtReset")
+        self.sigma = None
+
+    def on_reset(self, parameters):
+        self.sigma = parameters.mutation.sigma
+
+    def update(self, parameters):
+        self.met = False
+
+
+class TestRunRelativeCriteria(unittest.TestCase):
+    """#139: ExceededMaxIter, MaxDSigma and MinDSigma measure the current run."""
+
+    def run_lengths(self, max_iter, ask_tell):
+        es = optimizer("COVARIANCE", d=4, budget=600)
+        # ExceededMaxIter takes the smaller of its own limit and the strategy's
+        es.p.restart_strategy.max_iter = max_iter
+        item = criteria(es)["ExceededMaxIter"]
+        es.p.criteria.items = [item]
+        item.reset(es.p)
+        self.assertEqual(item.max_iter, max_iter)
+        if ask_tell:
+            while True:
+                X = es.ask()
+                if es.tell([sphere(x) for x in X]) and es.break_conditions():
+                    break
+        else:
+            es.run(sphere)
+        centers = es.p.stats.centers
+        lengths = np.diff([-1] + [center.t for center in centers])
+        return lengths, [center.reasons for center in centers]
+
+    def test_a_run_takes_max_iter_generations(self):
+        # pycma's maxiter: es.countiter >= opts['maxiter'], checked after each iteration
+        # (cma/evolution_strategy.py:4527-4529); Hansen (2009): "the maximal number of iterations
+        # in each run"
+        for max_iter in (1, 3, 10):
+            for ask_tell in (False, True):
+                with self.subTest(max_iter=max_iter, ask_tell=ask_tell):
+                    lengths, reasons = self.run_lengths(max_iter, ask_tell)
+                    self.assertGreater(len(lengths), 2)
+                    self.assertTrue(all(n == max_iter for n in lengths[:-1]), lengths)
+                    self.assertLessEqual(lengths[-1], max_iter)  # the budget ends the last
+                    self.assertTrue(all(r == ["ExceededMaxIter"] for r in reasons[:-1]), reasons)
+
+    def test_run_and_ask_tell_agree(self):
+        for max_iter in (1, 4):
+            with self.subTest(max_iter=max_iter):
+                np.testing.assert_array_equal(
+                    self.run_lengths(max_iter, False)[0], self.run_lengths(max_iter, True)[0]
+                )
+
+    def test_max_iter_zero_still_runs_a_generation(self):
+        lengths, _ = self.run_lengths(0, False)
+        self.assertTrue(all(n == 1 for n in lengths), lengths)
+
+    def test_d_sigma_relative_to_the_start_of_the_run(self):
+        # A run that started at sigma = 1e-3 with Settings.sigma0 = 1 (as a small run of BIPOP):
+        # sigma / sigma_start against tolerance * D, not sigma / Settings.sigma0
+        es = optimizer("COVARIANCE", sigma0=1.0)
+        items = criteria(es)
+        es.p.mutation.sigma = 1e-3
+        for name in ("MaxDSigma", "MinDSigma"):
+            items[name].reset(es.p)
+            self.assertEqual(items[name].sigma_start, 1e-3)
+        upper = c_maes.restart.MaxDSigma.tolerance
+        lower = c_maes.restart.MinDSigma.tolerance
+        # D = 1 (C = I): met when sigma / 1e-3 is above upper, or below lower
+        for sigma, max_met, min_met in (
+            (1e-3 * upper * 10, True, False),  # sigma / sigma0 = 1e-2 upper: not met before
+            (1e-3 * upper / 10, False, False),
+            (1e-3 * lower * 10, False, False),  # sigma / sigma0 = 1e-2 lower: met before
+            (1e-3 * lower / 10, False, True),
+        ):
+            with self.subTest(sigma=sigma):
+                es.p.mutation.sigma = sigma
+                items["MaxDSigma"].update(es.p)
+                items["MinDSigma"].update(es.p)
+                self.assertEqual(items["MaxDSigma"].met, max_met)
+                self.assertEqual(items["MinDSigma"].met, min_met)
+
+    def test_d_sigma_added_later_takes_the_current_sigma(self):
+        es = optimizer("COVARIANCE", sigma0=1.0)
+        es.step(sphere)
+        for cls in (c_maes.restart.MaxDSigma, c_maes.restart.MinDSigma):
+            item = cls()
+            es.p.criteria.items.append(item)
+            es.step(sphere)
+            self.assertGreater(item.sigma_start, 0)
+            self.assertNotEqual(item.sigma_start, 1.0)  # sigma after the first generations
+
+
+def pycma_mu(popsize):
+    """pycma 4.6.0's default mu of a population: RecombinationWeights(popsize).mu, the number of
+    positive weights ln((popsize + 1) / 2) - ln(i), i = 1..popsize (recombination_weights.py), so
+    popsize // 2. fmin creates every run with the default CMA_mu (evolution_strategy.py:5411-5413)."""
+    return sum(math.log((popsize + 1) / 2) - math.log(i) > 0 for i in range(1, popsize + 1))
+
+
+class TestMuAfterARestart(unittest.TestCase):
+    """#150: mu after an IPOP or BIPOP restart is the default of the new lambda (pycma's
+    popsize // 2), or the ratio of a given mu0, rounded the same way by both strategies. It kept
+    mu0 / lambda0, rounded by IPOP and truncated by BIPOP (d = 3: lambda 14 gave mu 6)."""
+
+    @staticmethod
+    def restarts(strategy, d, n=8, **kwargs):
+        es = optimizer("COVARIANCE", d=d, restart_strategy=strategy, budget=10**9, **kwargs)
+        pairs = []
+        for _ in range(n):
+            es.p.stats.evaluations += 997
+            es.p.restart_strategy.update(es.p)
+            pairs.append((es.p.mu, es.p.lamb))
+        return es, pairs
+
+    def test_the_default_mu_is_pycmas(self):
+        self.assertEqual([pycma_mu(n) for n in range(2, 40)], [n // 2 for n in range(2, 40)])
+        for strategy in ("IPOP", "BIPOP"):
+            for d in (2, 3, 5, 10, 20):  # lambda0 = 7, 9, 13 at d = 3, 10, 20: odd
+                with self.subTest(strategy=strategy, d=d):
+                    _, pairs = self.restarts(strategy, d)
+                    self.assertGreater(len({lam for _, lam in pairs}), 2)
+                    for mu, lam in pairs:
+                        self.assertEqual(mu, pycma_mu(lam), (mu, lam))
+
+    def test_odd_lambda0(self):
+        # The evidence of #150: d = 3, lambda0 = 7, the doubled 14 has mu 7 (pycma), not 6
+        _, pairs = self.restarts("IPOP", 3, n=1)
+        self.assertEqual(pairs, [(7, 14)])
+
+    def test_a_quarter_with_sa_and_cmsa(self):
+        for modules in ({"ssa": "SA"}, {"matrix_adaptation": "CMSA"}):
+            for strategy in ("IPOP", "BIPOP"):
+                with self.subTest(strategy=strategy, **modules):
+                    kwargs = dict(modules)
+                    adaptation = kwargs.pop("matrix_adaptation", "COVARIANCE")
+                    es = optimizer(
+                        adaptation, d=3, restart_strategy=strategy, budget=10**9, **kwargs
+                    )
+                    for _ in range(6):
+                        es.p.stats.evaluations += 997
+                        es.p.restart_strategy.update(es.p)
+                        self.assertEqual(es.p.mu, max(1, es.p.lamb // 4))
+
+    def test_a_given_mu0_keeps_its_ratio(self):
+        # mu0 = 2 of lambda0 = 7 (d = 3): mu0 lambda / lambda0, rounded half up, in both strategies
+        for strategy in ("IPOP", "BIPOP"):
+            with self.subTest(strategy=strategy):
+                _, pairs = self.restarts(strategy, 3, mu0=2)
+                for mu, lam in pairs:
+                    self.assertEqual(mu, max(1, math.floor(2 * lam / 7 + 0.5)), (mu, lam))
+
+    def test_both_strategies_agree(self):
+        # The same lambda gives the same mu in IPOP and BIPOP, with and without mu0
+        for kwargs in ({}, {"mu0": 3}, {"mu0": 5}):
+            with self.subTest(**kwargs):
+                seen = {}
+                for strategy in ("IPOP", "BIPOP"):
+                    for mu, lam in self.restarts(strategy, 3, n=10, **kwargs)[1]:
+                        self.assertEqual(seen.setdefault(lam, mu), mu, (strategy, lam))
+                self.assertGreater(len(seen), 3)
+
+    def test_mu_of_a_restart_capped_at_the_budget(self):
+        # The first generation after a restart near the end of the budget takes the rest of it,
+        # with mu of the capped lambda by the same rule
+        es = optimizer("COVARIANCE", d=10, restart_strategy="IPOP", budget=400)
+        es.p.criteria.items.append(RestartEvery(3))
+        lambdas = set()
+        while es.step(sphere):
+            lambdas.add(es.p.lamb)
+            self.assertEqual(es.p.mu, pycma_mu(es.p.lamb), es.p.lamb)
+        self.assertGreater(len(lambdas), 1)
 
 
 class EndLargeRuns(c_maes.restart.Criterion):

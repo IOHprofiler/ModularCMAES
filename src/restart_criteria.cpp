@@ -162,8 +162,12 @@ void ExceededMaxIter::on_reset(const parameters::Parameters &p)
 void ExceededMaxIter::update(const parameters::Parameters &p)
 {
     reset_if_new(p);
-    const auto time_since_restart = p.stats.t - last_restart;
-    met = max_iter < time_since_restart;
+    // The generations of the run, this one included: the criteria are updated at the end of a
+    // generation, before stats.t counts it (Parameters::adapt). Met after max_iter of them, as
+    // pycma's countiter >= maxiter; it was max_iter < t - last_restart, which ended the run at
+    // max_iter + 2 generations (#139). A run has at least one generation (max_iter 0 acts as 1).
+    const size_t generations = p.stats.t - last_restart + 1;
+    met = generations >= max_iter;
 }
 
 void NoImprovement::on_reset(const parameters::Parameters &p)
@@ -288,18 +292,26 @@ void TolX::on_reset(const parameters::Parameters &p)
     sigma_start = p.mutation->sigma;
 }
 
+void MaxDSigma::on_reset(const parameters::Parameters &p) { sigma_start = p.mutation->sigma; }
+
 void MaxDSigma::update(const parameters::Parameters &p)
 {
+    reset_if_new(p);
     // pycma's tolupsigma: sigma / sigma0 > tolerance max(D), with D the square roots of the
-    // eigenvalues of C (B15: not their fourth roots)
-    const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
+    // eigenvalues of C (B15: not their fourth roots), and sigma0 the step size at the start of
+    // the run: pycma's es.sigma0, which its fmin sets for each run (sigma_factor * sigma0,
+    // smaller in BIPOP's small runs), as Hansen (2009). It was Settings::sigma0 (#139).
+    const Float d_sigma = p.mutation->sigma / sigma_start;
     met = d_sigma > (tolerance * longest_axis(p));
 }
 
+void MinDSigma::on_reset(const parameters::Parameters &p) { sigma_start = p.mutation->sigma; }
+
 void MinDSigma::update(const parameters::Parameters &p)
 {
-    // As MaxDSigma, with min(D)
-    const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
+    reset_if_new(p);
+    // As MaxDSigma, with min(D), relative to the start of the run
+    const Float d_sigma = p.mutation->sigma / sigma_start;
     met = d_sigma < (tolerance * shortest_axis(p));
 }
 

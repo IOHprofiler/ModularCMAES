@@ -75,7 +75,9 @@ class Criterion:
 
 class ExceededMaxIter(Criterion):
     """
-    Met when a run has lasted more than `max_iter` generations since the last restart.
+    Met when the run has lasted `max_iter` generations, so a run takes at most `max_iter` generations (at least one).
+
+    As Hansen (2009), "MaxIter ... the maximal number of iterations in each run", and pycma's maxiter (countiter >= maxiter). `update` counts the generation it is called at: the optimizer updates the criteria at the end of a generation, before `Stats.t` counts it. Before 2.0 a run took max_iter + 2 generations (#139).
     """
 
     def __init__(self) -> None:
@@ -233,26 +235,42 @@ class TolX(Criterion):
 
 class MaxDSigma(Criterion):
     """
-    Met when sigma has grown too much relative to sigma0: sigma / sigma0 > tolerance * max(D), with D the square roots of the eigenvalues of C (pycma's tolupsigma).
+    Met when sigma has grown too much relative to the step size at the start of the run: sigma / sigma_start > tolerance * max(D), with D the square roots of the eigenvalues of C (TolUpSigma of Hansen 2009; pycma's tolupsigma).
+
+    sigma_start is the sigma0 of the run, as in Hansen (2009) and pycma (es.sigma0, which its fmin sets for each run): Settings.sigma0, or the step size of the restart, smaller in the small runs of BIPOP. Before 2.0 it was Settings.sigma0 in every run (#139).
 
     D from `Adaptation.metric()` for COVARIANCE, SEPARABLE and NONE. The others use sqrt(max C_ii) (`Adaptation.coordinate_wise_variances`) instead of max(D): free, and it follows the scale of C. max C_ii is at most the largest eigenvalue, so the criterion fires earlier than with the eigenvalues; no source does this.
     """
 
     def __init__(self) -> None:
-        """The criterion."""
+        """The criterion; `sigma_start` is set by the first reset."""
+
+    @property
+    def sigma_start(self) -> float:
+        """The step size at the start of the run, set at every reset."""
+
+    @sigma_start.setter
+    def sigma_start(self, arg: float, /) -> None: ...
 
     tolerance: ClassVar[float] = ...
     """The factor (default 1e20)."""
 
 class MinDSigma(Criterion):
     """
-    Met when sigma has shrunk too much relative to sigma0: sigma / sigma0 < tolerance * min(D), with D the square roots of the eigenvalues of C.
+    Met when sigma has shrunk too much relative to the step size at the start of the run: sigma / sigma_start < tolerance * min(D), with D the square roots of the eigenvalues of C. modcma's own counterpart of `MaxDSigma`; sigma_start as there (#139).
 
     D from `Adaptation.metric()` for COVARIANCE, SEPARABLE and NONE. The others use sqrt(min C_ii) (`Adaptation.coordinate_wise_variances`) instead of min(D). min C_ii is at least the smallest eigenvalue, so the criterion fires earlier than with the eigenvalues; no source does this.
     """
 
     def __init__(self) -> None:
-        """The criterion."""
+        """The criterion; `sigma_start` is set by the first reset."""
+
+    @property
+    def sigma_start(self) -> float:
+        """The step size at the start of the run, set at every reset."""
+
+    @sigma_start.setter
+    def sigma_start(self, arg: float, /) -> None: ...
 
     tolerance: ClassVar[float] = ...
     """The factor (default 1e-20)."""
@@ -483,7 +501,9 @@ class Strategy:
 
 class IPOP(Strategy):
     """
-    IPOP (Auger & Hansen 2005): every restart multiplies lambda by `ipop_factor` (mu keeps its ratio to lambda), up to `max_lambda_factor` * lambda0 (2^9 lambda0, the framework paper).
+    IPOP (Auger & Hansen 2005): every restart multiplies lambda by `ipop_factor`, up to `max_lambda_factor` * lambda0 (2^9 lambda0, the framework paper).
+
+    mu is the default of the new lambda, lambda // 2 (lambda // 4 with ssa SA or matrix_adaptation CMSA), as pycma's fmin (popsize // 2) and the framework paper (Alg. 1); with a Settings.mu0 that was given, mu0 / lambda0 of the new lambda, rounded half up (at least 1). Before 2.0 mu kept the ratio mu / lambda of the previous run (#150).
     """
 
     @property
@@ -508,7 +528,7 @@ class BIPOP(Strategy):
     """
     BIPOP (Hansen 2009): restarts alternate between a large and a small population regime.
 
-    Each regime counts the evaluations of its runs; the first run counts as small (pycma's fmin; Hansen 2009 disregards it). A restart uses the regime that has used fewer evaluations, the large one on a tie, so the first restart is large. A large run doubles lambda_large, the population of the latest large run (lambda_init before the first), up to `max_lambda_factor` * lambda_init (2^9 lambda_init, as IPOP), and restarts with sigma0. A small run draws lambda_small = floor(lambda_init (lambda_large / lambda_init)^(u^2)) (rounded up to even for PAIRWISE, at least 2), between lambda_init and the latest large population, and restarts with sigma0 * 10^(-2u'), u and u' uniform in [0, 1); it takes at most half the evaluations of the large regime so far (`Strategy.max_iter`, which `ExceededMaxIter` enforces). mu is lambda * mu_factor (at least 1).
+    Each regime counts the evaluations of its runs; the first run counts as small (pycma's fmin; Hansen 2009 disregards it). A restart uses the regime that has used fewer evaluations, the large one on a tie, so the first restart is large. A large run doubles lambda_large, the population of the latest large run (lambda_init before the first), up to `max_lambda_factor` * lambda_init (2^9 lambda_init, as IPOP), and restarts with sigma0. A small run draws lambda_small = floor(lambda_init (lambda_large / lambda_init)^(u^2)) (rounded up to even for PAIRWISE, at least 2), between lambda_init and the latest large population, and restarts with sigma0 * 10^(-2u'), u and u' uniform in (0, 1), drawn from the raw output of the generator (the same on every platform, #164). A small run takes about half the evaluations of the large regime so far: `Strategy.max_iter` = ceil(0.5 * used_large / lambda), which `ExceededMaxIter` enforces, as pycma's fmin (maxiter = min(maxiter0, 0.5 * sum(large_i) / popsize), cma/evolution_strategy.py:5372, not rounded, with the stop countiter >= maxiter; before 2.0 rounded down). mu follows lambda as in `IPOP`: lambda // 2 (pycma's fmin, Hansen 2009), or the ratio of a given mu0 (#150; before 2.0, lambda mu0 / lambda0, truncated).
 
     Up to the limit, the population sizes are those of pycma 4.6.0's `fmin` (cma/evolution_strategy.py:5362-5381) given an integer popsize (its default, 4 + 3 ln d, is not rounded there) and without PAIRWISE. Hansen (2009) writes the same formula with lambda_l / 2 in place of lambda_l, lambda_l the latest large population: half of pycma's range. pycma has no limit on the population, but its `fmin` stops after `restarts` large runs; with 9 (restarts=True), as Hansen (2009), its largest population is 2^9 lambda_def, this limit. modcma keeps restarting at the limit until the budget is used.
     """
@@ -517,13 +537,6 @@ class BIPOP(Strategy):
         """
         Whether the next run is large: the large regime has used no more evaluations than the small one.
         """
-
-    @property
-    def mu_factor(self) -> float:
-        """mu / lambda of the initial population."""
-
-    @mu_factor.setter
-    def mu_factor(self, arg: float, /) -> None: ...
 
     @property
     def lambda_init(self) -> int:

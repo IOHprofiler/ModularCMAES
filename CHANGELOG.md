@@ -20,6 +20,7 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   every matrix adaptation has (#123).
 * `restart.BIPOP.budget`, `budget_small` and `budget_large` (internal): the regimes count the
   evaluations they used, `used_small` and `used_large` (#80).
+* `restart.BIPOP.mu_factor` (internal): µ after a restart follows the new λ, as in IPOP (#150).
 * `Parameters.start` and `Parameters.perform_restart` (internal): only the optimizer evaluates a
   restart (#84). To force one, add a restart criterion that is met: the next generation starts
   with the restart.
@@ -106,7 +107,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   are unchanged.
 * `Adaptation.keeps_metric()`, whether `metric()` costs nothing; `restart.Strategy.max_iter`, the
   generations a restart strategy allows a run; `restart.MaxSigma.start`; `restart.BIPOP.used_small`,
-  `used_large` and `large_run` (#80).
+  `used_large` and `large_run` (#80). `restart.MaxDSigma.sigma_start` and
+  `restart.MinDSigma.sigma_start`, the step size at the start of the run (#139).
 
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
 * `tools/count_variants.py` counts the distinct variants from the code, and the guide documents
@@ -256,6 +258,27 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   limit never applied, and a non-integer `ipop_factor` acted as its integer part.
 * BIPOP's budgets left wrapped around (unsigned) when a run used more than its regime had left:
   one regime then ran for the rest of the budget (Rastrigin, d = 2, budget 20000, seed 0) (#80).
+* µ after an IPOP or BIPOP restart kept the ratio µ₀/λ₀, rounded by IPOP and truncated by BIPOP.
+  It is now the default of the new λ, λ/2 (λ/4 with SA and CMSA), as pycma's `fmin` and Hansen
+  (2009); with a given `mu0`, µ₀λ/λ₀ rounded, the same in both strategies and in the cap of the
+  first generation at the budget. This changes runs with an odd λ₀ (d = 3: λ = 14 had µ = 6, now 7
+  as pycma), with SA or CMSA when λ₀ is not a multiple of 4, and BIPOP with a given `mu0` (#150).
+* `ExceededMaxIter` let a run take `max_iter` + 2 generations; now at most `max_iter`, as pycma's
+  `maxiter` (#139).
+* BIPOP's small runs: their cap of half the large regime's evaluations is pycma's, not rounded
+  (`max_iter` = ⌈½ used_large/λ⌉; it was rounded down). With the fix of `ExceededMaxIter` above, a
+  capped small run is one or two generations shorter than before (#139).
+* `MaxDSigma` and `MinDSigma` compared σ with `Settings.sigma0`, also in BIPOP's small runs, which
+  start smaller; now with the step size of the run's start, as pycma's `tolupsigma` (#139).
+* `AdaptiveRepelling`'s running average of the run lengths, which sets how much a radius grows when
+  a run finds a basin again, counted the first run as one evaluation and started at 1; it now
+  starts from the first run's length (`average_restart_evaluations` is 0 before the first
+  restart). A run that left no finite point was not counted, so the next run counted both (#121).
+* BIPOP's random draws (λ of a small run, its σ) and the random choice of a center when
+  `NOVELTY_WEIGHTED`'s scores are not usable used `std::uniform_real_distribution` and
+  `std::uniform_int_distribution`, whose algorithms depend on the standard library: the same seed
+  gave other runs with libstdc++, libc++ and MSVC. They draw from the generator's raw output now
+  (#164).
 * Orthogonal sampling did not produce orthogonal samples (the norms were read while overwritten),
   and with lambda > d it now orthogonalizes groups of d.
 * With mirrored or orthogonal sampling CSA normalized with sqrt(d) instead of E||N(0, I)||.

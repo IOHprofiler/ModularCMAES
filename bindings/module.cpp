@@ -406,10 +406,11 @@ void define_options(nb::module_ &main)
                "Restart with the same population size whenever a restart criterion is met.")
         .value("IPOP",
                RestartStrategyType::IPOP,
-               "IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies mu and lambda by "
+               "IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies lambda by "
                "`restart.IPOP.ipop_factor` (2), up to 2^9 lambda0 "
-               "(`restart.IPOP.max_lambda_factor`). Larger populations help on multimodal "
-               "functions with a global structure.")
+               "(`restart.IPOP.max_lambda_factor`); mu is the default of the new lambda, or the "
+               "ratio of a given mu0. Larger populations help on multimodal functions with a "
+               "global structure.")
         .value("BIPOP",
                RestartStrategyType::BIPOP,
                "BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles "

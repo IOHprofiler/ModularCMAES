@@ -130,8 +130,9 @@ struct Repelling
     //! Whether begin_update tests the candidate against the archive (false: no archive update)
     [[nodiscard]] virtual bool updates_archive() const { return false; }
 
-    //! Called by begin_update with the candidate, before the hill-valley tests
-    virtual void on_update_begin(const Solution &candidate, parameters::Parameters &p) {}
+    //! Called by begin_update at every restart, before the candidate is chosen (also when the run
+    //! left no finite candidate and the archive is not updated)
+    virtual void on_restart(parameters::Parameters &p) {}
 
     //! The candidate shares the basin of point; returns whether to test the remaining points
     virtual bool on_shared_basin(TabooPoint &point,
@@ -174,7 +175,9 @@ struct AdaptiveRepelling : Repelling
     Float max_rejection_rate = 0.50;
 
     int last_restart_evaluations = 0;
-    Float average_restart_evaluations = 1.0;
+    //! The running average of the evaluations per run: 0 until the first restart, which sets it
+    //! to the first run's length (#121)
+    Float average_restart_evaluations = 0.0;
     Float restart_eval_alpha = 0.20;
     Float grow_eta = 0.15;
     Float max_waste_ratio = 3.0;
@@ -191,14 +194,14 @@ struct AdaptiveRepelling : Repelling
 
   protected:
     bool updates_archive() const override { return true; }
-    void on_update_begin(const Solution &candidate, parameters::Parameters &p) override;
+    void on_restart(parameters::Parameters &p) override;
     bool on_shared_basin(TabooPoint &point,
                          const Solution &candidate,
                          parameters::Parameters &p) override;
     void on_update_end(const Solution &candidate, bool accepted, parameters::Parameters &p) override;
 
   private:
-    //! The evaluations since the previous restart, set by on_update_begin
+    //! The evaluations since the previous restart, set by on_restart
     Float restart_evals = 0.0;
 };
 

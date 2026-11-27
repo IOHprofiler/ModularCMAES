@@ -33,9 +33,7 @@ Parameters::Parameters(const Settings &settings) :
     mutation(mutation::get(
         settings.modules, static_cast<Float>(settings.dim), settings.sigma0, generator)),
     selection(std::make_shared<selection::Strategy>(settings.modules)),
-    restart_strategy(restart::strategy::get(settings.modules,
-                                            static_cast<Float>(settings.mu0),
-                                            static_cast<Float>(settings.lambda0))),
+    restart_strategy(restart::strategy::get(settings.modules, settings.lambda0)),
     bounds(bounds::get(settings.modules.bound_correction, settings.dim, generator)),
     repelling(repelling::get(settings.modules)),
     center_placement(center::get(settings.modules.center_placement)),
@@ -177,10 +175,9 @@ void Parameters::fit_lambda_to_budget()
     size_t capped = std::min(lambda, std::max(min_lambda_after_restart, remaining));
     if (settings.modules.mirrored == parameters::Mirror::PAIRWISE)
         capped -= capped % 2;
-    mu = std::clamp<size_t>(static_cast<size_t>(std::round(static_cast<Float>(mu) *
-                                                           static_cast<Float>(capped) /
-                                                           static_cast<Float>(lambda))),
-                            1, capped);
+    // mu of the capped lambda by the rule of the restart strategies (#150); it was mu scaled by
+    // capped / lambda, rounded
+    mu = settings.mu_for(capped);
     lambda = capped;
 }
 

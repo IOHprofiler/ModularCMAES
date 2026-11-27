@@ -36,7 +36,6 @@ struct IPOP : Strategy
 struct BIPOP : Strategy
 {
     size_t lambda_init;
-    Float mu_factor;
     //! The largest population of the large regime: max_lambda_factor * lambda_init, as IPOP's
     size_t max_lambda_factor = default_max_lambda_factor;
 
@@ -54,10 +53,10 @@ struct BIPOP : Strategy
     //! Whether the current run belongs to the large regime (not the first run)
     bool large_run = false;
 
-    BIPOP(const Float mu, const Float lambda) :
+    //! mu of each run follows its lambda (Settings::mu_for, #150): it is not kept here
+    explicit BIPOP(const size_t lambda) :
         Strategy(),
-        lambda_init(static_cast<size_t>(lambda)),
-        mu_factor(mu / lambda)
+        lambda_init(lambda)
     {
     }
 
@@ -70,8 +69,7 @@ struct BIPOP : Strategy
 
 namespace strategy
 {
-inline std::shared_ptr<Strategy>
-get(const parameters::Modules modules, const Float mu, const Float lambda)
+inline std::shared_ptr<Strategy> get(const parameters::Modules modules, const size_t lambda)
 {
     using namespace parameters;
     switch (modules.restart_strategy)
@@ -79,7 +77,7 @@ get(const parameters::Modules modules, const Float mu, const Float lambda)
     case RestartStrategyType::IPOP:
         return std::make_shared<IPOP>();
     case RestartStrategyType::BIPOP:
-        return std::make_shared<BIPOP>(mu, lambda);
+        return std::make_shared<BIPOP>(lambda);
     default:
     case RestartStrategyType::STOP:
     case RestartStrategyType::NONE:

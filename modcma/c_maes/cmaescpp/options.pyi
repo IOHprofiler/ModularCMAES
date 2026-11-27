@@ -234,7 +234,7 @@ class RestartStrategy(enum.Enum):
 
     IPOP = 3
     """
-    IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies mu and lambda by `restart.IPOP.ipop_factor` (2), up to 2^9 lambda0 (`restart.IPOP.max_lambda_factor`). Larger populations help on multimodal functions with a global structure.
+    IPOP-CMA-ES (Auger & Hansen 2005): every restart multiplies lambda by `restart.IPOP.ipop_factor` (2), up to 2^9 lambda0 (`restart.IPOP.max_lambda_factor`); mu is the default of the new lambda, or the ratio of a given mu0. Larger populations help on multimodal functions with a global structure.
     """
 
     BIPOP = 4

@@ -666,7 +666,7 @@ class Settings:
         budget : int, optional
             The maximum number of evaluations, default 10000 * dim; at least the first generation (lambda0, and TPA's 2 points) and the final center of mass. A generation runs only when it leaves one evaluation: the run stops when the evaluations so far plus lambda (and TPA's 2 points) plus 1 would exceed it, and every run ends with the evaluation of its center of mass (#111).
         sigma0 : float, optional
-            The initial step size, default 2.0, positive and finite; also the step size after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in [0, 1)).
+            The initial step size, default 2.0, positive and finite; also the step size after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in (0, 1)).
         mu0 : int, optional
             The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA); at least 1 and at most lambda0.
         lambda0 : int, optional
@@ -793,7 +793,7 @@ class Settings:
         """
         The initial number of parents, at least 1 (ValueError); default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA).
 
-        Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting lambda0 recomputes it. A mu0 above lambda0 raises ValueError: in the constructor, and after a setter when the optimizer is created. Parameters.mu is the current value, which IPOP and BIPOP restarts change.
+        Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting lambda0 recomputes it. A mu0 above lambda0 raises ValueError: in the constructor, and after a setter when the optimizer is created. Parameters.mu is the current value, which IPOP and BIPOP restarts change: to the default of the new lambda (as pycma), or, when mu0 was given, to mu0 / lambda0 of the new lambda.
         """
 
     @mu0.setter
