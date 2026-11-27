@@ -237,6 +237,11 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 
 ### Fixed
 
+* `Settings.center` with an infinite bound (#134): it was 0 in every coordinate, so the first
+  mean could start outside the box. Per coordinate: the midpoint for two finite bounds, 0 for two infinite
+  bounds, and for one infinite bound 0 if the half-line holds it, else the finite bound moved
+  inward by `sigma0`. `center` now follows `sigma0` too. Finite boxes are unchanged.
+
 Checked against the original sources (Hansen's tutorial, pycma, the papers of each module); most
 change results, compared on BBOB before and after (`tests/statistical.py`):
 

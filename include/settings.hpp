@@ -314,6 +314,7 @@ struct Settings
     {
         require_sigma0(value);
         sigma0 = value;
+        update_bounds(); // center depends on sigma0 in coordinates with one infinite bound
     }
 
     void set_x0(const std::optional<Vector> &value)
@@ -586,20 +587,34 @@ struct Settings
         return std::max<size_t>(1, quarter ? lambda0 / 4 : lambda0 / 2);
     }
 
-    //! Recompute the values derived from lb and ub (after a change of the bounds)
+    //! Recompute the values derived from lb, ub and sigma0 (after a change of one of them).
+    //! center, per coordinate (#134): two finite bounds, their midpoint; two infinite bounds, 0;
+    //! one infinite bound, 0 if the half-line holds it, else the finite bound moved inward by
+    //! sigma0 (so the first mean lies in the box).
     void update_bounds()
     {
         db = ub - lb;
-        center = lb + (db * 0.5);
         diameter = db.norm();
         volume = db.prod();
         has_bounds = true;
+        center.resize(dim);
+        for (Eigen::Index i = 0; i < center.size(); ++i)
+        {
+            const bool lo = std::isfinite(lb(i)), hi = std::isfinite(ub(i));
+            if (lo && hi)
+                center(i) = lb(i) + db(i) * 0.5;
+            else if (lo)
+                center(i) = lb(i) <= 0 ? 0.0 : lb(i) + sigma0;
+            else if (hi)
+                center(i) = ub(i) >= 0 ? 0.0 : ub(i) - sigma0;
+            else
+                center(i) = 0.0;
+        }
         if (!std::isfinite(diameter))
         {
             has_bounds = false;
             diameter = 10;
             volume = pow(diameter, dim);
-            center.setConstant(0);
         }
     }
 
