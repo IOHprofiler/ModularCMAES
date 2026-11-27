@@ -29,7 +29,9 @@ Float IPOP::update(parameters::Parameters &p)
 
 Float BIPOP::update(parameters::Parameters &p)
 {
-    std::uniform_real_distribution<> dist;
+    // The generator's own uniform in (0, 1), as the samplers: std::uniform_real_distribution is
+    // implementation-defined, so the same seed gave other runs with another standard library (#164)
+    rng::uniform<Float> dist;
 
     // The evaluations of the run that ended (with the center of mass and the hill-valley points of
     // the restart before it) go to its regime. The first run, with lambda_init, counts as small, as
@@ -83,12 +85,16 @@ Float BIPOP::update(parameters::Parameters &p)
     // was lambda mu0 / lambda0, truncated
     p.mu = p.settings.mu_for(p.lambda);
 
-    // A small run uses at most half the evaluations of the large regime so far: "a maximum number
-    // of function evaluations of half of the recent large budget is enforced" (Hansen 2009); pycma
-    // sets maxiter = min(maxiter0, 0.5 sum(large_i) / popsize). ExceededMaxIter enforces it.
+    // A small run uses about half the evaluations of the large regime so far: "a maximum number
+    // of function evaluations of half of the recent large budget is enforced" (Hansen 2009). As
+    // pycma 4.6.0's fmin (maintainer, #139 D3): maxiter = min(maxiter0, 0.5 * sum(large_i) /
+    // popsize), not rounded (cma/evolution_strategy.py:5372), and a run stops when countiter >=
+    // maxiter (4527-4529), after ceil(maxiter) generations. ExceededMaxIter stops after max_iter
+    // generations, so max_iter is the rounded-up cap; it was rounded down, a generation shorter
+    // when the cap is not an integer.
     max_iter = large_run ? std::numeric_limits<size_t>::max()
-                         : static_cast<size_t>(0.5 * static_cast<Float>(used_large) /
-                                               static_cast<Float>(p.lambda));
+                         : static_cast<size_t>(std::ceil(0.5 * static_cast<Float>(used_large) /
+                                                         static_cast<Float>(p.lambda)));
 
     return large_run ? p.settings.sigma0
                      : p.settings.sigma0 * std::pow(10, -2 * dist(*p.generator));

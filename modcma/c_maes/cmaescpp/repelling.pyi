@@ -291,7 +291,7 @@ class AdaptiveRepelling(Repelling):
     """
     Repelling with adaptive radii (`RepellingType.ADAPTIVE`).
 
-    A new taboo point gets the radius initial_radius_factor / sqrt(d), bounded to [min_radius_factor, max_radius_factor] / sqrt(d). When a run ends in the basin of a point again (the first one in the archive that shares it), its radius grows by exp(grow_eta * min(w, max_waste_ratio)), with w the evaluations of that run divided by their running average (`average_restart_evaluations`, every run counted from the previous restart, the first from the start; before 2.0 the first counted as one evaluation, #121). After each population, the radius of a critical point shrinks by shrink_factor when the share of rejected samples of the population exceeds max_rejection_rate and the point's own rejection rate exceeds local_max_rejection_rate (after at least min_checks_before_local_shrink checks).
+    A new taboo point gets the radius initial_radius_factor / sqrt(d), bounded to [min_radius_factor, max_radius_factor] / sqrt(d). When a run ends in the basin of a point again (the first one in the archive that shares it), its radius grows by exp(grow_eta * min(w, max_waste_ratio)), with w the evaluations of that run divided by their running average (`average_restart_evaluations`: every run counted from the previous restart, the first from the start, also a run without a finite result; the average starts from the first run's length. Before 2.0 the first run counted as one evaluation and the average started at 1, #121). After each population, the radius of a critical point shrinks by shrink_factor when the share of rejected samples of the population exceeds max_rejection_rate and the point's own rejection rate exceeds local_max_rejection_rate (after at least min_checks_before_local_shrink checks).
     """
 
     def __init__(self) -> None:
@@ -387,7 +387,7 @@ class AdaptiveRepelling(Repelling):
 
     @property
     def last_restart_evaluations(self) -> int:
-        """The evaluation count at the last archive update (0 before the first)."""
+        """The evaluation count at the last restart (0 before the first)."""
 
     @last_restart_evaluations.setter
     def last_restart_evaluations(self, arg: int, /) -> None: ...
@@ -395,7 +395,7 @@ class AdaptiveRepelling(Repelling):
     @property
     def average_restart_evaluations(self) -> float:
         """
-        The running average of the evaluations per run, smoothed with restart_eval_alpha: at every restart, (1 - restart_eval_alpha) * average + restart_eval_alpha * (the evaluations since the last restart, or since the start for the first run). Starts at 1, so after a first run of n evaluations it is 0.8 + 0.2 n with the default alpha.
+        The running average of the evaluations per run, n the evaluations since the last restart (since the start for the first run). 0 before the first restart, which sets it to n; then, at every restart, (1 - restart_eval_alpha) * average + restart_eval_alpha * n. A positive value set before the first restart is kept as the start of the average.
         """
 
     @average_restart_evaluations.setter

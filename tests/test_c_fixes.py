@@ -266,26 +266,30 @@ class TestRestarts(unittest.TestCase):
         tolx.update(es.p)
         self.assertTrue(tolx.met)
 
-    def test_adaptive_repelling_counts_the_first_run(self):
-        # #121: the first run entered the running average of the run lengths as 1 evaluation
-        # (the average stayed 1.0 after it); now with its full length, smoothed from the start
-        # value 1: (1 - alpha) * 1 + alpha * n
+    @staticmethod
+    def adaptive_repelling_after_one_run(objective):
         es = modcma.ModularCMAES(
             modcma.settings_from_dict(
                 3, restart_strategy="RESTART", repelling_type="ADAPTIVE", budget=20_000, seed=1
             )
         )
+        for _ in range(4):
+            es.step(objective)
+        restart_next_generation(es)
+        es.step(objective)  # the restart: the center of mass, then the update of the archive
+        return es
+
+    def test_adaptive_repelling_counts_the_first_run(self):
+        # #121: the first run entered the running average of the run lengths as 1 evaluation
+        # (the average stayed 1.0 after it); now with its full length, which starts the average
+        # (D2: it started at 1)
+        es = self.adaptive_repelling_after_one_run(sphere)
         repelling = es.p.repelling
         alpha = repelling.restart_eval_alpha
-        for _ in range(4):
-            es.step(sphere)
-        self.assertEqual(len(es.p.stats.centers), 0)
-        restart_next_generation(es)
-        es.step(sphere)  # the restart: the center of mass, then the update of the archive
         self.assertEqual(len(es.p.stats.centers), 1)
         n = es.p.stats.centers[0].e  # the evaluations of the first run, with its center
         self.assertEqual(repelling.last_restart_evaluations, n)
-        self.assertAlmostEqual(repelling.average_restart_evaluations, (1 - alpha) + alpha * n)
+        self.assertEqual(repelling.average_restart_evaluations, n)
         # Every later run counts from the previous restart, its hill-valley points included
         average = repelling.average_restart_evaluations
         while len(es.p.stats.centers) < 2:
@@ -295,6 +299,28 @@ class TestRestarts(unittest.TestCase):
         self.assertAlmostEqual(
             repelling.average_restart_evaluations, (1 - alpha) * average + alpha * m
         )
+
+    def test_adaptive_repelling_counts_a_run_without_a_finite_result(self):
+        # #121: a run whose center and best are not finite updates no archive, but its
+        # evaluations count; the update was skipped, and the next run counted both
+        state = {"values": math.inf}
+
+        def objective(x):
+            return state["values"] if state["values"] is not None else sphere(x)
+
+        es = self.adaptive_repelling_after_one_run(objective)
+        repelling = es.p.repelling
+        self.assertEqual(len(es.p.stats.centers), 1)
+        self.assertFalse(math.isfinite(es.p.stats.centers[0].y))
+        self.assertEqual(len(repelling.archive), 0)
+        n = es.p.stats.centers[0].e
+        self.assertEqual(repelling.last_restart_evaluations, n)
+        self.assertEqual(repelling.average_restart_evaluations, n)
+        state["values"] = None
+        while len(es.p.stats.centers) < 2:
+            es.step(objective)
+        self.assertEqual(repelling.last_restart_evaluations, es.p.stats.centers[1].e)
+        self.assertEqual(len(repelling.archive), 1)
 
     def test_first_run_starts_at_the_center_of_the_bounds(self):
         settings = modcma.Settings(3, lb=np.zeros(3), ub=np.full(3, 10.0))

@@ -381,7 +381,7 @@ static void test_bipop_populations_match_pycma()
     const auto bipop = std::dynamic_pointer_cast<restart::BIPOP>(p.restart_strategy);
     CHECK(bipop != nullptr);
     rng::Generator replay = *p.generator;
-    std::uniform_real_distribution<> uniform;
+    rng::uniform<Float> uniform; // BIPOP's draws (#164)
     std::mt19937 lengths(140);
     std::uniform_int_distribution<size_t> generations(1, 100);
 
@@ -397,8 +397,10 @@ static void test_bipop_populations_match_pycma()
     Float maxiter = 1e9; // maxiter0, no cap
     while (n_large < 14 && irun < 5000)
     {
-        // The run ends after its generations and the evaluation of its center of mass
-        const Float g = std::min(static_cast<Float>(generations(lengths)), std::max(1.0, maxiter));
+        // The run ends after its generations and the evaluation of its center of mass; a capped
+        // run stops when countiter >= maxiter (4527-4529), after ceil(maxiter) generations
+        const Float g =
+            std::min(static_cast<Float>(generations(lengths)), std::max(1.0, std::ceil(maxiter)));
         const size_t this_evals = popsize * static_cast<size_t>(g) + 1;
         (small ? sum_small : sum_large) += static_cast<Float>(this_evals); // 5566-5570
         irun++;
@@ -437,9 +439,10 @@ static void test_bipop_populations_match_pycma()
         CHECK(p.lambda == popsize);
         CHECK(p.mu == popsize / 2); // pycma's default mu, popsize // 2 (lambda0 is even here)
         CHECK(std::abs(sigma - settings.sigma0 * sigma_factor) <= 1e-12 * sigma);
-        // ExceededMaxIter takes the smaller of max_iter and its own limit (pycma: maxiter0)
-        CHECK(bipop->max_iter ==
-              (small ? static_cast<size_t>(maxiter) : std::numeric_limits<size_t>::max()));
+        // ExceededMaxIter takes the smaller of max_iter and its own limit (pycma: maxiter0), and
+        // stops after max_iter generations: pycma's ceil(maxiter) (#139 D3)
+        CHECK(bipop->max_iter == (small ? static_cast<size_t>(std::ceil(maxiter))
+                                        : std::numeric_limits<size_t>::max()));
     }
     CHECK(n_large == 14 && n_small > 14);
     CHECK(at_the_limit == 6); // the 9th to the 14th large run

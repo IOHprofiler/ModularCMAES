@@ -177,11 +177,14 @@ void Repelling::begin_update(parameters::Parameters &p)
     if (!updates_archive())
         return;
 
+    // At every restart, also when the run left no finite candidate: AdaptiveRepelling counts the
+    // run's evaluations (it skipped them, and the next run counted two, #121)
+    on_restart(p);
+
     query.candidate = get_candidate(p);
     if (!query.candidate.has_value())
         return;
 
-    on_update_begin(*query.candidate, p);
     query.active = true;
     next_query(p);
 }
@@ -330,11 +333,11 @@ void AdaptiveRepelling::adapt_radii_after_sampling(parameters::Parameters &p)
     }
 }
 
-void AdaptiveRepelling::on_update_begin(const Solution &, parameters::Parameters &p)
+void AdaptiveRepelling::on_restart(parameters::Parameters &p)
 {
     const int current_evaluations = static_cast<int>(p.stats.evaluations);
 
-    // The evaluations of the run that ended, since the previous update (0 before the first): the
+    // The evaluations of the run that ended, since the previous restart (0 before the first): the
     // first run counts its full length. It counted as 1 evaluation (#121): the average stayed at
     // its start value 1 after the first run, and the waste ratio of the next runs was too high.
     // ADAPTIVE is modcma's own (no published source); the intent is the docstring's, "the
@@ -343,8 +346,14 @@ void AdaptiveRepelling::on_update_begin(const Solution &, parameters::Parameters
         std::max<Float>(1.0, static_cast<Float>(current_evaluations - last_restart_evaluations));
     last_restart_evaluations = current_evaluations;
 
-    average_restart_evaluations = (1.0 - restart_eval_alpha) * average_restart_evaluations +
-                                  restart_eval_alpha * restart_evals;
+    // The average starts from the first run's length (maintainer, #121 D2): from the start value 1
+    // the waste ratio of runs of equal length was 1 / (1 - 0.8^k) at the k-th restart, 2.8 at the
+    // second; now 1. No average yet: 0 (a positive value set before the first restart is kept)
+    if (average_restart_evaluations <= 0.0)
+        average_restart_evaluations = restart_evals;
+    else
+        average_restart_evaluations = (1.0 - restart_eval_alpha) * average_restart_evaluations +
+                                      restart_eval_alpha * restart_evals;
 }
 
 bool AdaptiveRepelling::on_shared_basin(TabooPoint &point,

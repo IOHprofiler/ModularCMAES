@@ -736,7 +736,7 @@ void define_parameters(nb::module_ &main)
             "sigma0 : float, optional\n"
             "    The initial step size, default 2.0, positive and finite; also the step size "
             "after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u "
-            "uniform in [0, 1)).\n"
+            "uniform in (0, 1)).\n"
             "mu0 : int, optional\n"
             "    The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or "
             "matrix_adaptation CMSA); at least 1 and at most lambda0.\n"

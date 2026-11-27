@@ -595,8 +595,8 @@ struct Settings
      * the cap of the first generation at the budget; #150): default_mu(lambda), as pycma's fmin,
      * whose every run takes the default CMA_mu, popsize // 2 (Hansen 2009: mu = floor(lambda / 2)).
      * When mu0 was given (to the constructor or set_mu0), its ratio to lambda0 instead:
-     * mu0 lambda / lambda0, rounded half up, between 1 and lambda (the recommendation of #150;
-     * pycma keeps a given CMA_mu as the same number in every run).
+     * mu0 lambda / lambda0, rounded half up, between 1 and lambda (the maintainer's decision on
+     * #150; pycma keeps a given CMA_mu as the same number in every run).
      */
     [[nodiscard]] size_t mu_for(const size_t lambda) const
     {

@@ -308,7 +308,9 @@ class TestBIPOP(unittest.TestCase):
             else:
                 # between lambda0 and the last large population
                 self.assertTrue(lambda0 <= lam <= lambda0 * 2**n_large, (lam, n_large))
-                self.assertEqual(max_iter, int(cap / lam))
+                # pycma's maxiter is not rounded and a run stops at countiter >= maxiter: after
+                # ceil(maxiter) generations (#139 D3; it was rounded down)
+                self.assertEqual(max_iter, math.ceil(cap / lam))
 
     def test_a_run_longer_than_half_the_budget(self):
         # Before: the rest of the budget after the first run (9000) was split into halves; the

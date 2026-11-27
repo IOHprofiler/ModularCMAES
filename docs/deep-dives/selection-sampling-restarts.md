@@ -166,9 +166,9 @@ same behaviour as now) but stretched every sample on larger boxes.
   (⌊λ/4⌋ with `SA` and `CMSA`), as pycma's `fmin`, which creates every run with the default
   `CMA_mu` (`popsize // 2`: the positive weights of `RecombinationWeights(popsize)`), as Hansen
   (2009) (µ = ⌊λ/2⌋) and the framework paper (Algorithm 1 sets µ ← ⌊λ₀/2⌋ at every restart). With
-  a given `mu0`, µ₀λ/λ₀ rounded half up (at least 1): pycma keeps a given `CMA_mu` as the same
-  number in every run, which leaves µ = 3 of λ = 2⁹ λ₀; open decision (#150). Before 2.0 µ kept
-  the ratio µ₀/λ₀ in every case, rounded by IPOP (of the previous run's µ/λ) and truncated by
+  a given `mu0`, µ₀λ/λ₀ rounded half up (at least 1), the maintainer's choice (#150): pycma keeps a
+  given `CMA_mu` as the same number in every run, which leaves µ = 3 of λ = 2⁹ λ₀. Before 2.0 µ
+  kept the ratio µ₀/λ₀ in every case, rounded by IPOP (of the previous run's µ/λ) and truncated by
   BIPOP: with an odd λ₀ the default µ differed from pycma's (d = 3: λ = 14 had µ = 6, not 7), and
   the two strategies differed for the same λ (#150).
 * **BIPOP** (Hansen 2009): two regimes, one of large populations (λ doubling, up to 2⁹ λ₀ as
@@ -176,11 +176,15 @@ same behaviour as now) but stretched every sample on larger boxes.
   is the λ of the latest large run. Each regime counts the evaluations of its runs; a restart uses
   the regime that has used fewer, the large one on a tie, so the first restart is large. As in
   pycma's `fmin`, the first run counts as small (Hansen 2009 disregards it), and a small run takes
-  at most half the evaluations of the large regime so far: `restart.BIPOP` sets
-  `max_iter` = ⌊½ (large evaluations)/λ_s⌋ generations, which `ExceededMaxIter` enforces (pycma's
-  `maxiter`; a run has at least one generation). pycma's cap is not rounded and stops at
-  `countiter >= maxiter`, so a small run of pycma can take one generation more, ⌈·⌉; modcma keeps
-  "a maximum number of function evaluations of half of the recent large budget" (Hansen 2009).
+  about half the evaluations of the large regime so far: `restart.BIPOP` sets
+  `max_iter` = ⌈½ (large evaluations)/λ_s⌉ generations, which `ExceededMaxIter` enforces. This is
+  pycma's cap, `maxiter = min(maxiter0, 0.5 * sum(large_i) / popsize)`, which it does not round
+  (`cma/evolution_strategy.py`:5372), with its stop `countiter >= maxiter` (4527–4529): a run of
+  ⌈·⌉ generations, one more than Hansen (2009)'s "maximum number of function evaluations of half
+  of the recent large budget" when the ratio is not an integer. modcma follows pycma, as for the
+  populations (maintainer, #139); before 2.0 the cap was rounded down. U and U′ are drawn from
+  the generator's raw output (`rng::uniform`), the same on every platform; they were drawn with
+  `std::uniform_real_distribution`, whose algorithm depends on the standard library (#164).
   The small runs start with σ₀·10^(−2U′), and `TolX`, `MaxSigma`, `MaxDSigma` and `MinDSigma`
   measure σ against it (pycma's `es.sigma0` of each run; before 2.0 `MaxDSigma` and `MinDSigma`
   used `Settings.sigma0`, #139). λ_s is rounded down, as in the paper and pycma; up to even only
@@ -243,10 +247,11 @@ radius to the rate of rejected samples, is modcma's own. Center placement only p
 the first run starts at `x0`, or at the center of the bounds.
 
 `ADAPTIVE` grows the radius of a taboo point whose basin a run found again by
-exp(0.15 min(w, 3)), with w the evaluations of that run over their running average: an exponential
-average with α = 0.2 from the start value 1, updated at every restart before the hill-valley
-tests. Every run counts from the previous restart, the first from the start; before 2.0 the first
-counted as one evaluation, and the average stayed 1 after it (#121). The start value still weighs
-on the first runs: with runs of equal length n ≫ 1, w ≈ 1/(1 − 0.8^k) at the k-th restart, 2.8
-at the second (the first that can find a shared basin), 2.0 at the third; before the fix 5
-(capped at 3) and 2.8.
+exp(0.15 min(w, 3)), with w the evaluations of that run over their running average: the first
+run's length, then an exponential average with α = 0.2, updated at every restart before the
+hill-valley tests. Every run counts from the previous restart, the first from the start, also a
+run that left no finite point (it updates no archive). For runs of equal length w = 1, a growth by
+e^0.15. Before 2.0 (#121) the first run counted as one evaluation, the average started at 1, and a
+run without a finite point was not counted (the next counted both): with runs of equal length
+n ≫ 1, w was 5 (capped at 3) at the second restart (the first that can find a shared basin) and
+2.8 at the third.

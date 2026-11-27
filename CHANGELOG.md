@@ -253,12 +253,21 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   first generation at the budget. This changes runs with an odd λ₀ (d = 3: λ = 14 had µ = 6, now 7
   as pycma), with SA or CMSA when λ₀ is not a multiple of 4, and BIPOP with a given `mu0` (#150).
 * `ExceededMaxIter` let a run take `max_iter` + 2 generations; now at most `max_iter`, as pycma's
-  `maxiter`. BIPOP's small runs, which it caps, are two generations shorter (#139).
+  `maxiter` (#139).
+* BIPOP's small runs: their cap of half the large regime's evaluations is pycma's, not rounded
+  (`max_iter` = ⌈½ used_large/λ⌉; it was rounded down). With the fix of `ExceededMaxIter` above, a
+  capped small run is one or two generations shorter than before (#139).
 * `MaxDSigma` and `MinDSigma` compared σ with `Settings.sigma0`, also in BIPOP's small runs, which
   start smaller; now with the step size of the run's start, as pycma's `tolupsigma` (#139).
-* `AdaptiveRepelling` counted the first run as one evaluation in its running average of the run
-  lengths, which sets how much a radius grows when a run finds a basin again; the first run now
-  counts its evaluations (#121).
+* `AdaptiveRepelling`'s running average of the run lengths, which sets how much a radius grows when
+  a run finds a basin again, counted the first run as one evaluation and started at 1; it now
+  starts from the first run's length (`average_restart_evaluations` is 0 before the first
+  restart). A run that left no finite point was not counted, so the next run counted both (#121).
+* BIPOP's random draws (λ of a small run, its σ) and the random choice of a center when
+  `NOVELTY_WEIGHTED`'s scores are not usable used `std::uniform_real_distribution` and
+  `std::uniform_int_distribution`, whose algorithms depend on the standard library: the same seed
+  gave other runs with libstdc++, libc++ and MSVC. They draw from the generator's raw output now
+  (#164).
 * Orthogonal sampling did not produce orthogonal samples (the norms were read while overwritten),
   and with lambda > d it now orthogonalizes groups of d.
 * With mirrored or orthogonal sampling CSA normalized with sqrt(d) instead of E||N(0, I)||.
