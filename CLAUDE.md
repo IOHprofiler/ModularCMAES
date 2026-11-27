@@ -43,6 +43,12 @@ organized and the habits that keep results reproducible.
 1. **Branch and PR:** one branch and one PR per issue, from `master`. The PR body says
    `Closes #N`. Do not stack PRs on other PRs: merged into their base branch instead of master,
    they never reached master.
+   * **The PR body starts with a TL;DR**, before any other section, in at most three short lines:
+     * what the PR changes;
+     * whether results change (golden fixtures bit-identical, or regenerated and why);
+     * the decisions it needs from the maintainer, or "no decisions".
+
+     The details follow it.
 2. **Commits and merges:**
    * Commit and push your branch, and open the PR.
    * Never push to `master`.
