@@ -95,20 +95,47 @@ for name, options in modcma.get_all_module_options().items():
 
 ## Well-known algorithms
 
-Many published CMA-ES variants are a combination of modules:
+Many published CMA-ES variants are a combination of modules. `modcma.preset(name, dim, ...)`
+(also `Settings.preset(name, dim, ...)`, and `fmin(..., preset=name)`) gives the `Settings` of each
+by name:
+
+| preset | algorithm | modules |
+|---|---|---|
+| `cma-es` | CMA-ES (Hansen & Ostermeier 2001; Hansen 2016) | the defaults |
+| `active-cma-es` | active CMA-ES (Jastrebski & Arnold 2006) | `active=True` |
+| `sep-cma` | sep-CMA-ES (Ros & Hansen 2008) | `matrix_adaptation=SEPARABLE` |
+| `ma-es` | MA-ES (Beyer & Sendhoff 2017) | `matrix_adaptation=MATRIX` |
+| `cholesky-cma` | Cholesky-CMA-ES (Krause, Arbonès & Igel 2016) | `matrix_adaptation=CHOLESKY` |
+| `cmsa-es` | CMSA-ES (Beyer & Sendhoff 2008) | `matrix_adaptation=CMSA`, `ssa=SA` |
+| `xnes` | xNES (Glasmachers et al. 2010) | `matrix_adaptation=NATURAL_GRADIENT`, `ssa=XNES`, `weights=UTILITY` |
+| `ipop` | IPOP-CMA-ES (Auger & Hansen 2005) | `restart_strategy=IPOP` |
+| `bipop` | BIPOP-CMA-ES (Hansen 2009) | `restart_strategy=BIPOP` |
+| `(1+1)-cma-es` | (1+1)-CMA-ES (Igel, Suttorp & Hansen 2006) | `lambda0=1` (elitist, `ssa=SR`, see below) |
+
+```python
+import numpy as np
+import modcma
+
+settings = modcma.Settings.preset("sep-cma", 20, budget=20_000)
+print(settings.modules.matrix_adaptation)
+
+xopt, fopt, evals, es = modcma.fmin(lambda x: float(np.sum(x**2)), np.ones(10), 0.5, 5_000, preset="ma-es")
+```
+
+A preset is a selection of modules; the learning rates and the population size are those that
+`Settings` computes for them. Keyword arguments after the name override the preset: module options
+(`preset("sep-cma", 10, active=True)`) as well as other settings (`budget`, `lambda0`, `seed`, ...).
+An unknown name raises a `ValueError` that lists the valid ones (`modcma.preset_names()`).
+
+The `(1+1)-cma-es` is the elitist (1+1) strategy that `lambda0=1` gives, built from the modules of
+modcma; it is not a reimplementation of the published algorithm.
+
+Two more combinations that have no preset:
 
 | algorithm | modules |
 |---|---|
-| CMA-ES (Hansen & Ostermeier 2001) | the defaults |
-| active CMA-ES (Jastrebski & Arnold 2006) | `active=True` |
-| IPOP-CMA-ES (Auger & Hansen 2005) | `restart_strategy=IPOP` |
-| BIPOP-CMA-ES (Hansen 2009) | `restart_strategy=BIPOP` |
-| sep-CMA-ES (Ros & Hansen 2008) | `matrix_adaptation=SEPARABLE` |
-| MA-ES (Beyer & Sendhoff 2017) | `matrix_adaptation=MATRIX` |
-| CMSA-ES (Beyer & Sendhoff 2008) | `matrix_adaptation=CMSA`, `ssa=SA` |
 | (1+1)-ES with the 1/5th success rule | `lambda0=1` (sets elitism and `ssa=SR`, see below) |
 | mirrored sampling with sequential selection (Brockhoff et al. 2010) | `mirrored=MIRRORED`, `sequential_selection=True` |
-| xNES (Glasmachers et al. 2010) | `matrix_adaptation=NATURAL_GRADIENT`, `ssa=XNES`, `weights=UTILITY` |
 
 ## Combinations that are adjusted
 

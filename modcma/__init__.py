@@ -35,6 +35,8 @@ from .c_maes import (
     sampling,
     selection,
     settings_from_config,
+    preset,
+    preset_names,
     settings_from_dict,
     set_seed,
     build_info,
@@ -102,5 +104,7 @@ __all__ = (
     "get_configspace",
     "get_all_module_options",
     "settings_from_config",
+    "preset",
+    "preset_names",
     "settings_from_dict",
 )
