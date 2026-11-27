@@ -217,7 +217,9 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
     ssa, matrix = cspace["ssa"], cspace["matrix_adaptation"]
 
     # active: needs a matrix, and a population (lambda0 = 1 switches it off)
-    active = [_in_condition(cspace["active"], matrix, options["matrix_adaptation"], ("NONE",))]
+    active: list[Any] = [
+        _in_condition(cspace["active"], matrix, options["matrix_adaptation"], ("NONE",))
+    ]
     if "lambda0" in present:
         active.append(GreaterThanCondition(cspace["active"], cspace["lambda0"], 1))
     cspace.add(active[0] if len(active) == 1 else AndConjunction(*active))
@@ -225,7 +227,7 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
     for child, parents in _INACTIVE_FOR.items():
         if child not in present:
             continue
-        conditions = [
+        conditions: list[Any] = [
             _in_condition(cspace[child], cspace[parent], options[parent], excluded)
             for parent, excluded in parents.items()
         ]
