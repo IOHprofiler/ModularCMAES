@@ -274,15 +274,16 @@ class TestRestarts(unittest.TestCase):
 
 class TestSampling(unittest.TestCase):
     def test_orthogonal_samples_are_orthogonal(self):
+        # n samples per generation, in blocks of at most d from the start of each (#76, F11)
         for d, n in ((10, 10), (5, 3), (4, 10)):
             sampler = c_maes.sampling.Orthogonal(c_maes.sampling.Gaussian(d), n)
-            block = max(d, n)
-            Z = np.array([sampler() for _ in range(block)]).T
-            for start in range(0, block, d):
-                B = Z[:, start : start + d]
-                G = B.T @ B
-                off = G - np.diag(np.diag(G))
-                self.assertLess(np.abs(off).max(), 1e-10 * np.abs(G).max(), (d, n))
+            for _ in range(3):
+                Z = np.array([sampler() for _ in range(n)]).T
+                for start in range(0, n, d):
+                    B = Z[:, start : start + d]
+                    G = B.T @ B
+                    off = G - np.diag(np.diag(G))
+                    self.assertLess(np.abs(off).max(), 1e-10 * np.abs(G).max(), (d, n))
 
     def test_wrappers_pass_on_the_expected_length(self):
         gaussian = c_maes.sampling.GaussianTransformer(c_maes.sampling.Uniform(10))

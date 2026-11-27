@@ -29,9 +29,10 @@ recombined from the µ positive weights.
 | `NATURAL_GRADIENT` | all λ, the utilities (`active` selects `UTILITY`) | no (unscaled, as xNES) | (trace-free) | xNES |
 | `NONE` | switched off | | | |
 
-With pairwise selection the losers (f = +inf) receive the negative weights in index order, and a
-loser's step is the winner's mirrored, so its negative update cancels the winner's positive one on
-the same direction; pycma never gives mirrored points negative weights.
+With pairwise selection the losers of the mirrored pairs get no negative weights, as in pycma
+(which never gives injected or mirrored points negative weights): a loser's step is the winner's
+mirrored, so a negative update would cancel the winner's positive one on the same direction. With
+the default µ = λ/2 the active update then has no effect.
 
 ## Elitism
 
@@ -60,17 +61,55 @@ triggered.
 
 ## Mirrored and pairwise selection
 
-Mirrored sampling is unconditional: z, −z, z', −z', … (Brockhoff et al. 2010); pycma's default is
-selective mirroring (only the worst points are mirrored, in the next generation). With `PAIRWISE`
-only the better point of each pair is used (Auger et al. 2011): the worse one gets f = +inf.
-*Known issue* [F10]: the pairs fall out of step after a rejected sample or with an odd λ.
+Mirrored sampling is unconditional: individuals 2i and 2i + 1 of each generation are z and −z
+(Brockhoff et al. 2010), so a generation has ⌈λ/2⌉ independent samples, as the framework paper
+describes. pycma's default is selective mirroring (only the worst points are mirrored, in the next
+generation).
+
+* **Pairs per generation** (#75). Every generation starts with a new pair. With an odd λ the last
+  individual is unpaired, and with λ = 1 mirroring has no effect. Brockhoff et al. (2010, Sec. 2)
+  and Wang et al. (2019, Alg. 1) instead carry the mirror of an odd generation's last sample over to
+  the next generation, which makes their (1+1ₘ)-ES mirror every second generation; pycma mirrors
+  within a generation.
+* **Rejected samples.** A pair that bound correction (`RESAMPLE`) or repelling rejects is sampled
+  again as a pair.
+* **Sequential selection** evaluates the pair members one by one (Brockhoff et al. 2010 evaluate
+  x + N, x − N, x + N′, …), but samples the partner of a batch's last individual with it, so that a
+  rejection still replaces the whole pair. A stop after the first of a pair discards the partner.
+* Before 2.0 the mirror state carried over between generations and through rejected samples, so the
+  pairs fell out of step with `RESAMPLE`, repelling, an odd λ or sequential selection.
+
+With `PAIRWISE` only the better point of each pair is ranked (Auger et al. 2011, Alg. 1). The
+winners, the unpaired points and the parents of elitism are sorted by f; the losers follow, sorted
+by f, with their real values (`Population.n_ranked`).
+
+* The losers get no negative weights (above).
+* `MSR` and `PSR` compare the ranked points only: Auger et al. adapt σ from the ranked offspring.
+  pycma's `CMAAdaptSigmaMedianImprovement` reads all values, but pycma has no pairwise selection
+  of its own (its selective mirrors are injected).
+* The statistics (`stats.current_avg`) and the restart criteria (`Stagnation`) read every value.
+
+Before 2.0 the losers got f = +inf: `MSR` counted against the winners only and σ shrank every
+generation, and the mean value and `Stagnation`'s medians were infinite.
 
 ## Orthogonal sampling
 
-The samples are orthonormalized in blocks of at most d by a Householder QR decomposition and keep
-the lengths of the samples they came from (Wang et al. 2014 use Gram–Schmidt; the result is the
-same). *Known issue* [F11]: when λ (λ/2 with mirroring) is below d, a block spans several
-generations, so the samples of one generation are not all orthogonal.
+The independent samples of a generation, λ (⌈λ/2⌉ with mirroring), are orthonormalized in blocks
+that start with the generation: the first min(λ, d), then blocks of at most d. Each keeps the length
+of the sample it came from (Wang, Emmerich and Bäck 2019, Sec. 3.2).
+
+* The orthonormalization is a Householder QR decomposition with the signs of Q chosen so that
+  diag(R) > 0: the result of the Gram–Schmidt process that Wang et al. use (the first sample keeps
+  its direction).
+* Wang et al. (Alg. 4) draw the samples beyond the first d at random; here they form further
+  orthogonal blocks.
+* Samples drawn to replace rejected ones (`RESAMPLE`, repelling) count towards the generation, so a
+  generation with rejections is not completely orthogonal.
+
+Before 2.0 a block held max(λ, d) samples (λ/2 with mirroring, minus 2 with TPA), so with λ < d a
+block spanned several generations; and the signs were not corrected, so sample j of every block
+was biased towards −eⱼ (d = 5, 5000 blocks: E[zⱼ[j]] = −0.80 … −0.70, with σ growing without
+selection).
 
 ## Threshold convergence
 
@@ -92,12 +131,24 @@ same behaviour as now) but stretched every sample on larger boxes.
 
 ## Samplers and transformations
 
-* `SOBOL`: a fixed set of N Sobol points (N·d ≈ 2·10⁶, at least 128) drawn in a random order; the
-  set repeats after N samples (d = 1000: after about 85 generations) [F29]. `HALTON`: a scrambled
-  Halton sequence, which does not repeat.
+* `SOBOL`: a fixed set of N Sobol points (N = max(128, the largest power of 2 ≤ 2·10⁶/d)) drawn in
+  a random order. The set, and the order, repeat after N samples: at d = 1000, N = 1024, after 42
+  generations of the default λ = 24 (85 with mirroring). The order is a linear congruential
+  generator with a random multiplier ≡ 5 (mod 8); before 2.0 the multiplier was 1 modulo N, so the
+  order was a constant stride through the points. `HALTON`: a scrambled Halton sequence, which does
+  not repeat.
 * The transformations other than Gaussian have unit variance (Cauchy: unit scale) and are mapped
   from the uniform samples through their inverse CDF (de Nobel et al. 2025). Step-size rules that
   assume a finite variance fail with Cauchy samples ([compatibility](../guide/compatibility.md#combinations-to-avoid)).
+* **Expected lengths.** CSA (with the h_σ test of the path p_c) and threshold convergence compare
+  lengths with E‖z‖ of the transformation (`es.p.sampler.expected_length()`): for `GAUSSIAN` Hansen's
+  approximation √d (1 − 1/(4d) + 1/(21d²)); for `SCALED_UNIFORM`, `LAPLACE` and `LOGISTIC` E‖z‖ of
+  their distribution, computed numerically when the sampler is created; for `DOUBLE_WEIBULL`
+  Γ(d + ½)/Γ(d) exactly; for `CAUCHY`, which has no E‖z‖, an approximation of the median length,
+  d (1 + 0.18 tanh(d/4.07)). Before 2.0 the four unit-variance transformations used √d, which is
+  (E‖z‖²)^½: too long by 23 % (`LAPLACE`), 17 % (`LOGISTIC`), 7 % (`SCALED_UNIFORM`) and 6 %
+  (`DOUBLE_WEIBULL`) at d = 2, by 0.1–0.6 % at d = 100. de Nobel et al. (2025, Sec. 5) use √d for
+  all but Cauchy.
 * `fast_sampling` replaces mt19937 and the inverse normal CDF by xoshiro256++ and a ziggurat, only
   for `UNIFORM` + `GAUSSIAN`.
 

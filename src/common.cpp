@@ -80,10 +80,24 @@ std::shared_ptr<Generator> fork()
     return generator;
 }
 
+uint32_t below(const uint32_t n, Generator &gen)
+{
+    // The outputs at or above 2^32 mod n are n * floor(2^32 / n) equally likely numbers, so their
+    // remainders modulo n are uniform
+    const auto threshold = static_cast<uint32_t>((uint64_t{1} << 32) % n);
+    for (;;)
+    {
+        const auto r = static_cast<uint32_t>(gen());
+        if (r >= threshold)
+            return r % n;
+    }
+}
+
 int random_integer(const int l, const int h, Generator &gen)
 {
-    std::uniform_int_distribution<> distrib(l, std::max(l, h - 1));
-    return distrib(gen);
+    if (h <= l + 1)
+        return l;
+    return l + static_cast<int>(below(static_cast<uint32_t>(h - l), gen));
 }
 
 Xoshiro256pp::Xoshiro256pp(uint64_t seed)

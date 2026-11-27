@@ -82,13 +82,13 @@ class Shuffler:
     """
     A random permutation of the integers in [start, stop), generated one at a time.
 
-    A linear congruential generator, x <- (multiplier x + offset) mod modulus, with a random seed and offset; values >= n are skipped. The first n values of `next` are a permutation of the range, after which it repeats. Used to draw cached samples (Sobol) in a random order.
+    A linear congruential generator, x <- (multiplier x + offset) mod modulus, with a random seed, offset and multiplier; values >= n are skipped. The first n values of `next` are a permutation of the range, after which it repeats. Used to draw cached samples (Sobol) in a random order.
     """
 
     @overload
     def __init__(self, start: int, stop: int) -> None:
         """
-        A permutation of [start, stop); seed and offset are drawn from the global generator.
+        A permutation of [start, stop); seed, offset and multiplier are drawn from the global generator.
         """
 
     @overload
@@ -137,7 +137,9 @@ class Shuffler:
 
     @property
     def multiplier(self) -> int:
-        """The multiplier of the generator, 4 floor(n / 4) + 1."""
+        """
+        The multiplier of the generator, drawn at random with multiplier = 5 (mod 8) (1 when modulus <= 4): the full period, and not a constant stride.
+        """
 
     @multiplier.setter
     def multiplier(self, arg: int, /) -> None: ...

@@ -86,6 +86,21 @@ CONFIGS = {
     "ipop_natural_gradient": {"restart_strategy": "IPOP", "matrix_adaptation": "NATURAL_GRADIENT"},
     "ipop_none": {"restart_strategy": "IPOP", "matrix_adaptation": "NONE"},
     "bipop_pairwise": {"restart_strategy": "BIPOP", "mirrored": "PAIRWISE"},
+    # #75, #76, #116: mirrored pairs per generation, pairwise values, orthogonal blocks per
+    # generation and without the sign bias, the expected lengths, portable HALTON and SOBOL (run
+    # the pairwise and mirrored ones at d = 3 too: an odd default lambda)
+    "mirrored": {"mirrored": "MIRRORED"},
+    "mirrored_resample": {"mirrored": "MIRRORED", "bound_correction": "RESAMPLE"},
+    "pairwise_msr": {"mirrored": "PAIRWISE", "ssa": "MSR"},
+    "pairwise_psr": {"mirrored": "PAIRWISE", "ssa": "PSR"},
+    "orthogonal_mirrored": {"orthogonal": True, "mirrored": "MIRRORED"},
+    "orthogonal_pairwise": {"orthogonal": True, "mirrored": "PAIRWISE"},
+    "halton": {"sampler": "HALTON"},
+    "sobol": {"sampler": "SOBOL"},
+    "scaled_uniform": {"sample_transformation": "SCALED_UNIFORM"},
+    "laplace": {"sample_transformation": "LAPLACE"},
+    "logistic": {"sample_transformation": "LOGISTIC"},
+    "double_weibull": {"sample_transformation": "DOUBLE_WEIBULL"},
 }
 
 

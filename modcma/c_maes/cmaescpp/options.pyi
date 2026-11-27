@@ -48,7 +48,7 @@ class BaseSampler(enum.Enum):
 
     SOBOL = 1
     """
-    Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order.
+    Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order, which repeats after all of them: N = max(128, the largest power of 2 <= 2e6 / d) points; at d = 1000, N = 1024: after 42 generations of the default lambda = 24.
     """
 
     HALTON = 2
@@ -65,7 +65,7 @@ class SampleTranformerType(enum.Enum):
 
     NONE = 0
     """
-    No transformation: the uniform numbers of the base sampler, in (0, 1) with mean 0.5 (not centred at 0; SCALED_UNIFORM is the centred uniform distribution).
+    No transformation: the raw base sampler, for testing. The uniform numbers of the base sampler, in (0, 1) with mean 0.5, are not centred at 0, so they fail as mutations (SCALED_UNIFORM is the centred uniform distribution). `get_configspace` leaves it out.
     """
 
     GAUSSIAN = 1
@@ -100,7 +100,7 @@ class Mirror(enum.Enum):
     """
     Mirrored sampling (`Modules.mirrored`; default NONE).
 
-    With mirroring, every second mutation vector is the negation of the one before it, which spreads the samples more evenly around the mean.
+    With mirroring, individuals 2i and 2i + 1 of every generation are a pair z, -z, which spreads the samples more evenly around the mean: ceil(lambda / 2) independent samples per generation. With an odd lambda the last individual is unpaired, so with lambda = 1 mirroring has no effect. A pair that bound correction (RESAMPLE) or repelling rejects is sampled again as a pair.
     """
 
     NONE = 0
@@ -108,12 +108,12 @@ class Mirror(enum.Enum):
 
     MIRRORED = 1
     """
-    Mirrored sampling (Brockhoff et al. 2010): the samples come in pairs z, -z.
+    Mirrored sampling (Brockhoff et al. 2010): the samples come in pairs z, -z. All the points take part in the selection.
     """
 
     PAIRWISE = 2
     """
-    Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored pair only the better one can be selected, so that the two do not cancel out in the recombination. Makes lambda even; with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE.
+    Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored pair only the better one can be selected, so that the two do not cancel out in the recombination. Makes lambda even (the default mu is half the even lambda); with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE.
     """
 
 class StepSizeAdaptation(enum.Enum):

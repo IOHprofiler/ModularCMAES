@@ -16,8 +16,17 @@ void Population::reserve(const size_t columns)
 
 void Population::sort()
 {
+    utils::sort_order(f.head(static_cast<Eigen::Index>(n)), order);
+    reorder(order);
+    n_ranked = std::numeric_limits<size_t>::max();
+}
+
+void Population::reorder(const std::vector<size_t> &idx)
+{
     const Eigen::Index k = static_cast<Eigen::Index>(n);
-    utils::sort_order(f.head(k), order);
+    if (idx.size() != n)
+        throw std::invalid_argument("Population.reorder: " + std::to_string(idx.size()) +
+                                    " indices for " + std::to_string(n) + " individuals");
 
     // Gather each array into the scratch buffer, then copy it back
     if (scratch.rows() != X.rows() || scratch.cols() < k)
@@ -25,17 +34,17 @@ void Population::sort()
     if (scratch_vector.size() < k)
         scratch_vector.resize(static_cast<Eigen::Index>(capacity()));
 
-    // Column by column: an Eigen index view would copy the order vector (an allocation)
+    // Column by column: an Eigen index view would copy the index vector (an allocation)
     for (Matrix *m : {&X, &X_transformed, &Z, &Y, &S})
     {
         for (Eigen::Index j = 0; j < k; ++j)
-            scratch.col(j) = m->col(static_cast<Eigen::Index>(order[j]));
+            scratch.col(j) = m->col(static_cast<Eigen::Index>(idx[j]));
         m->leftCols(k) = scratch.leftCols(k);
     }
     for (Vector *v : {&f, &t})
     {
         for (Eigen::Index j = 0; j < k; ++j)
-            scratch_vector(j) = (*v)(static_cast<Eigen::Index>(order[j]));
+            scratch_vector(j) = (*v)(static_cast<Eigen::Index>(idx[j]));
         v->head(k) = scratch_vector.head(k);
     }
 }
@@ -53,6 +62,7 @@ Population &Population::operator+=(const Population &other)
     f.segment(k, m) = other.f.head(m);
     t.segment(k, m) = other.t.head(m);
     n += other.n;
+    n_ranked = std::numeric_limits<size_t>::max();
     return *this;
 }
 
@@ -77,6 +87,7 @@ void Population::keep_only(const std::vector<size_t> &idx)
     f = f(idx).eval();
     t = t(idx).eval();
     n = idx.size();
+    n_ranked = std::numeric_limits<size_t>::max();
 }
 
 size_t Population::n_finite() const

@@ -13,16 +13,18 @@ distribution of z, by default the standard normal.
   and `HALTON`, which cover the space more evenly (quasi-random sampling).
 * `sample_transformation`: `GAUSSIAN` (the default), or heavier- or lighter-tailed
   distributions: `CAUCHY`, `LAPLACE`, `LOGISTIC`, `DOUBLE_WEIBULL`, `SCALED_UNIFORM`; see the
-  [study of these distributions](https://dl.acm.org/doi/10.1145/3712256.3726479).
+  [study of these distributions](https://dl.acm.org/doi/10.1145/3712256.3726479). `NONE` passes
+  the raw base samples on, for testing: their mean is 0.5, so they fail as mutations.
 
 ## Mirrored and orthogonal sampling
 
-* `mirrored=MIRRORED`: half of the z are the negatives of the other half, which removes a bias in
-  the recombination (Brockhoff et al. 2010). `PAIRWISE` also selects only the better point of each
-  pair (Auger et al. 2011), so mirrored points do not cancel each other; it makes λ even.
-* `orthogonal=True`: the samples are orthonormalized in groups of at most d (a Householder QR
-  decomposition) and given the lengths of the original samples (Wang et al. 2014); with λ < d a
-  group spans generations ([deep dive](../deep-dives/selection-sampling-restarts.md#orthogonal-sampling)).
+* `mirrored=MIRRORED`: the individuals of a generation come in pairs z, −z (Brockhoff et al.
+  2010); with an odd λ the last one is unpaired. `PAIRWISE` also ranks only the better point of
+  each pair (Auger et al. 2011), so mirrored points do not cancel each other in the recombination;
+  it makes λ even.
+* `orthogonal=True`: the samples of a generation are orthonormalized in blocks of at most d and
+  given the lengths of the original samples (Wang et al. 2019); with mirroring, the first of each
+  pair ([deep dive](../deep-dives/selection-sampling-restarts.md#orthogonal-sampling)).
 
 ## Step sizes per point and threshold convergence
 
@@ -68,16 +70,16 @@ for name, modules in configs.items():
 | value | |
 |---|---|
 | `UNIFORM` | Pseudo-random uniform numbers (mt19937, the optimizer's own generator), the default. With the GAUSSIAN transformation: ordinary random normal samples, which `Settings.fast_sampling` replaces by a faster generator. |
-| `SOBOL` | Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order. |
+| `SOBOL` | Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order, which repeats after all of them: N = max(128, the largest power of 2 <= 2e6 / d) points; at d = 1000, N = 1024: after 42 generations of the default lambda = 24. |
 | `HALTON` | Points of the Halton sequence (Halton 1960), scrambled with random digit permutations. |
 <!-- /options -->
 
 <!-- options: Mirror -->
-**`modcma.options.Mirror`**: Mirrored sampling (`Modules.mirrored`; default NONE). With mirroring, every second mutation vector is the negation of the one before it, which spreads the samples more evenly around the mean.
+**`modcma.options.Mirror`**: Mirrored sampling (`Modules.mirrored`; default NONE). With mirroring, individuals 2i and 2i + 1 of every generation are a pair z, -z, which spreads the samples more evenly around the mean: ceil(lambda / 2) independent samples per generation. With an odd lambda the last individual is unpaired, so with lambda = 1 mirroring has no effect. A pair that bound correction (RESAMPLE) or repelling rejects is sampled again as a pair.
 
 | value | |
 |---|---|
 | `NONE` | Independent samples, the default. |
-| `MIRRORED` | Mirrored sampling (Brockhoff et al. 2010): the samples come in pairs z, -z. |
-| `PAIRWISE` | Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored pair only the better one can be selected, so that the two do not cancel out in the recombination. Makes lambda even; with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE. |
+| `MIRRORED` | Mirrored sampling (Brockhoff et al. 2010): the samples come in pairs z, -z. All the points take part in the selection. |
+| `PAIRWISE` | Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored pair only the better one can be selected, so that the two do not cancel out in the recombination. Makes lambda even (the default mu is half the even lambda); with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE. |
 <!-- /options -->

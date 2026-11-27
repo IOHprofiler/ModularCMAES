@@ -38,10 +38,21 @@ differ in the last bits, and runs then diverge:
 * `fast_sampling=True` uses a different random stream (xoshiro256++ and a ziggurat instead of
   mt19937 and the inverse normal CDF).
 
-For results that must be identical across platforms below the LAPACK thresholds, nothing needs to
-be done beyond fixing the seed; in high dimension, set `modcma.constants.eigen_solver = 0`,
-`cholesky_solver = 0` and `blas = 0` to use Eigen only ([performance](performance.md)). The tests
-of modcma keep golden trajectories per compiler to detect any change.
+The random numbers of the samplers are the same on every platform: they come from mt19937
+(xoshiro256++ with `fast_sampling`), turned into uniform and normal numbers, bounded integers and
+permutations by the library's own code, not by the standard library's distributions, whose results
+differ between libc++, libstdc++ and MSVC. Before 2.0 the `HALTON` and `SOBOL` samplers used `std::shuffle` and
+`std::uniform_int_distribution`, so their runs differed between macOS and Linux from the first
+generation (#116). In the golden trajectories (macOS clang 21 against Linux gcc 13, the best f at
+generation 10 within a relative 1e-12), 220 of 225 runs with the default sampler agree, 18 of 19
+with `HALTON` and 15 of 16 with `SOBOL` (before: 0 of 19 and 0 of 16); the rest differ in the last
+bits.
+
+So below the LAPACK thresholds nothing needs to be done beyond fixing the seed for results that
+agree across platforms up to these last bits; in high dimension, set
+`modcma.constants.eigen_solver = 0`, `cholesky_solver = 0` and `blas = 0` to use Eigen only
+([performance](performance.md)). The tests of modcma keep golden trajectories per compiler to
+detect any change.
 
 ## Threads
 

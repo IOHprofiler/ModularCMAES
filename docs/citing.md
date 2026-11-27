@@ -102,3 +102,5 @@ ones:
   modifications of CMA-ES to handle mixed-integer problems. *PPSN XVIII*.
 * H. Wang, M. Emmerich and T. Bäck (2014). Mirrored orthogonal sampling with pairwise selection in
   evolution strategies. *ACM SAC*.
+* H. Wang, M. Emmerich and T. Bäck (2019). Mirrored orthogonal sampling for covariance matrix
+  adaptation evolution strategies. *Evolutionary Computation* 27(4).

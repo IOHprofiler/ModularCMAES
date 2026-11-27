@@ -359,3 +359,44 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   (lb_i > ub_i, lb_i = +inf, ub_i = -inf, so also lb_i = ub_i = ±inf, or a NaN bound) raises
   `ValueError`, from `Settings` and when the optimizer is created; the setters of `lb` and `ub`
   check only their own field (see Changed). Results of boxes with positive widths are unchanged.
+* **Mirrored and pairwise sampling** (#75).
+  * The mirrored pairs are formed per generation: individuals 2i and 2i + 1 are z and -z, and a
+    pair that `RESAMPLE` or repelling rejects is sampled again as a pair. With sequential
+    selection the partner of a batch's last individual is sampled with it. Before, the mirror
+    state carried over between generations and through rejections, so the pairs fell out of step
+    with `RESAMPLE`, repelling, an odd λ or sequential selection (0 of 5 pairs mirrored with
+    `RESAMPLE`). With an odd λ the last individual is unpaired; with λ = 1, `MIRRORED` has no
+    effect (it mirrored the sample of every second generation, around the new mean).
+  * `PAIRWISE`: the losers of the pairs keep their objective values (they got f = +inf). The
+    selection sorts the winners, the unpaired points and the parents of elitism, then the losers
+    (`Population.n_ranked`). `MSR` had shrunk σ in every generation, and `stats.current_avg` and
+    the medians of `Stagnation` were infinite. `MSR` and `PSR` compare the ranked points; the
+    losers still get no negative weights.
+  * `PAIRWISE` with an odd default λ0: the default µ0 is half of the even λ0 (it was half of the
+    odd one: 3 of 8 at d = 3). A given `mu0` is kept.
+* **Orthogonal sampling** (#76). The blocks start with every generation: the first min(n, d)
+  samples, then blocks of at most d (n = λ, or ⌈λ/2⌉ with mirroring); with λ < d a block spanned
+  several generations. The "- 2 for TPA" in the block size is gone (TPA's points are extra). The
+  orthonormal vectors are now those of Gram-Schmidt (diag(R) > 0): sample j of every block was
+  biased towards -e_j (d = 5: E[z_j[j]] = -0.80 ... -0.70), which made σ grow without selection.
+  `orthogonal` now converges with `lambda0 = 2` (rotated ellipsoid, d = 5: 0 → 5 of 5 runs) and
+  with `EQUAL` weights and `TPA`, `MSR` or `PSR` (shifted sphere, d = 5: 0 → 10 of 10 runs each).
+  `functions::random_rotation_matrix` (the C++ examples) had the same bias: its rotations are now
+  uniformly distributed.
+* **The expected length E‖z‖** of the `SCALED_UNIFORM`, `LAPLACE`, `LOGISTIC` and
+  `DOUBLE_WEIBULL` transformations (and `NONE`) is that of their distribution, computed when the
+  sampler is created (`DOUBLE_WEIBULL`: Γ(d + 1/2)/Γ(d)); it was √d, up to 23 % too long at
+  d = 2, which biased CSA and threshold convergence (#76).
+* **HALTON and SOBOL runs agree across platforms**, as with the default sampler (#116). The digit
+  permutations of `HALTON` used `std::shuffle`, and the order of the `SOBOL` points
+  `std::uniform_int_distribution`, whose results depend on the standard library: on macOS and Linux
+  the same seed gave different runs. Both now draw bounded integers from the raw mt19937 output
+  (`rng::below`, a Fisher-Yates shuffle). In the golden set (macOS clang 21 against Linux gcc 13,
+  the best f at generation 10 within 1e-12) 18 of 19 `HALTON` and 15 of 16 `SOBOL` runs agree (0
+  and 0 before; 220 of 225 with the default sampler); the rest differ in the last bits. The order of the Sobol points was a constant stride through them (the multiplier of
+  its generator was 1 modulo the number of points); the multiplier is now random, = 5 (mod 8).
+* Internals: `sampling.get` no longer wraps a `Mirrored` sampler (the optimizer mirrors the
+  pairs; `sampling.Mirrored` remains, standalone); `Sampler.begin_generation`; `Orthogonal` takes
+  the samples per generation; `selection.Pairwise.sort` and `NoPairwise.sort`, and
+  `NoPairwise.__call__` sorts (it did nothing); `Population.n_ranked`; the `Shuffler` draws its
+  multiplier.

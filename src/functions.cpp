@@ -41,16 +41,24 @@ Float rosenbrock(Eigen::Ref<const Vector> x)
 
 Matrix random_rotation_matrix(const int n, const int seed)
 {
+    // The library's normal numbers (Box-Muller from mt19937): the same matrix on every platform,
+    // unlike std::normal_distribution (#116)
     std::mt19937 gen(static_cast<std::mt19937::result_type>(seed));
-    std::normal_distribution<Float> d(0, 1);
+    rng::normal<Float> d;
 
     Matrix A(n, n);
     for (int i = 0; i < n; ++i)
         for (int j = 0; j < n; ++j)
             A(i, j) = d(gen);
 
+    // Q diag(sign(diag(R))) is uniformly (Haar) distributed on O(n) (Mezzadri 2007, "How to
+    // generate random matrices from the classical compact groups"); the Householder Q alone is
+    // not (#76, F30). A column sign flip then makes it a rotation.
     const Eigen::HouseholderQR<Matrix> qr(A);
     Matrix Q = qr.householderQ();
+    for (int j = 0; j < n; ++j)
+        if (qr.matrixQR()(j, j) < 0)
+            Q.col(j) *= -1;
     if (Q.determinant() < 0)
         Q.col(0) *= -1;
     return Q;

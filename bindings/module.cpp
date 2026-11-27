@@ -212,7 +212,9 @@ void define_options(nb::module_ &main)
                BaseSampler::SOBOL,
                "Points of the Sobol sequence (Sobol' 1967). A cache of points (see "
                "`constants.cache_max_doubles`) is computed when the sampler is created and drawn "
-               "in a random order.")
+               "in a random order, which repeats after all of them: N = max(128, the largest "
+               "power of 2 <= 2e6 / d) points; at d = 1000, N = 1024: after 42 generations of the "
+               "default lambda = 24.")
         .value("HALTON",
                BaseSampler::HALTON,
                "Points of the Halton sequence (Halton 1960), scrambled with random digit "
@@ -229,8 +231,10 @@ void define_options(nb::module_ &main)
         "require Gaussianity\" (doi:10.1145/3712256.3726479).")
         .value("NONE",
                SampleTranformerType::NONE,
-               "No transformation: the uniform numbers of the base sampler, in (0, 1) with mean "
-               "0.5 (not centred at 0; SCALED_UNIFORM is the centred uniform distribution).")
+               "No transformation: the raw base sampler, for testing. The uniform numbers of the "
+               "base sampler, in (0, 1) with mean 0.5, are not centred at 0, so they fail as "
+               "mutations (SCALED_UNIFORM is the centred uniform distribution). "
+               "`get_configspace` leaves it out.")
         .value("GAUSSIAN",
                SampleTranformerType::GAUSSIAN,
                "Standard normal samples (the inverse normal CDF, or Box-Muller with "
@@ -258,18 +262,23 @@ void define_options(nb::module_ &main)
     nb::enum_<Mirror>(m,
                       "Mirror",
                       "Mirrored sampling (`Modules.mirrored`; default NONE).\n\n"
-                      "With mirroring, every second mutation vector is the negation of the one "
-                      "before it, which spreads the samples more evenly around the mean.")
+                      "With mirroring, individuals 2i and 2i + 1 of every generation are a "
+                      "pair z, -z, which spreads the samples more evenly around the mean: "
+                      "ceil(lambda / 2) independent samples per generation. With an odd lambda "
+                      "the last individual is unpaired, so with lambda = 1 mirroring has no "
+                      "effect. A pair that bound correction (RESAMPLE) or repelling rejects is "
+                      "sampled again as a pair.")
         .value("NONE", Mirror::NONE, "Independent samples, the default.")
         .value("MIRRORED",
                Mirror::MIRRORED,
-               "Mirrored sampling (Brockhoff et al. 2010): the samples come in pairs z, -z.")
+               "Mirrored sampling (Brockhoff et al. 2010): the samples come in pairs z, -z. All "
+               "the points take part in the selection.")
         .value("PAIRWISE",
                Mirror::PAIRWISE,
                "Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored "
                "pair only the better one can be selected, so that the two do not cancel out in "
-               "the recombination. Makes lambda even; with lambda0 = 1 (the (1+1)-ES) Settings "
-               "turn it into NONE.");
+               "the recombination. Makes lambda even (the default mu is half the even lambda); "
+               "with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE.");
 
     nb::enum_<StepSizeAdaptation>(
         m,
@@ -732,14 +741,14 @@ void define_utils(nb::module_ &main)
         "Shuffler",
         "A random permutation of the integers in [start, stop), generated one at a time.\n\n"
         "A linear congruential generator, x <- (multiplier x + offset) mod modulus, with a "
-        "random seed and offset; values >= n are skipped. The first n values of `next` are a "
-        "permutation of the range, after which it repeats. Used to draw cached samples (Sobol) "
-        "in a random order.")
+        "random seed, offset and multiplier; values >= n are skipped. The first n values of "
+        "`next` are a permutation of the range, after which it repeats. Used to draw cached "
+        "samples (Sobol) in a random order.")
         .def(nb::init<size_t, size_t>(),
              nb::arg("start"),
              nb::arg("stop"),
-             "A permutation of [start, stop); seed and offset are drawn from the global "
-             "generator.")
+             "A permutation of [start, stop); seed, offset and multiplier are drawn from the "
+             "global generator.")
         .def(nb::init<size_t>(), nb::arg("stop"), "A permutation of [0, stop).")
         .def("next", &rng::Shuffler::next, "The next integer of the permutation.")
         .def_rw("start", &rng::Shuffler::start, "The first integer of the range.")
@@ -752,7 +761,8 @@ void define_utils(nb::module_ &main)
         .def_rw("offset", &rng::Shuffler::offset, "The increment of the generator (odd).")
         .def_rw("multiplier",
                 &rng::Shuffler::multiplier,
-                "The multiplier of the generator, 4 floor(n / 4) + 1.")
+                "The multiplier of the generator, drawn at random with multiplier = 5 (mod 8) "
+                "(1 when modulus <= 4): the full period, and not a constant stride.")
         .def_rw("modulus",
                 &rng::Shuffler::modulus,
                 "The modulus of the generator, the smallest power of 2 >= n.")

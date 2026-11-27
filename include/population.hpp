@@ -17,6 +17,15 @@ struct Population
     //! can hold more (capacity()), e.g. after sequential selection stopped a generation early;
     //! the columns from n on hold no population data and must not be read.
     size_t n;
+    /**
+     * The individuals 0..n_ranked-1 are ranked by f; the rest are the losers of pairwise selection
+     * (Mirror::PAIRWISE), in the order of their f, which get no negative weights (#75, F9). Set by
+     * the selection; every n individuals are ranked when it is n or more (the default, and after
+     * sort(), keep_only() and +=). ranked() is the number.
+     */
+    size_t n_ranked = std::numeric_limits<size_t>::max();
+
+    [[nodiscard]] size_t ranked() const { return std::min(n_ranked, n); }
 
     [[nodiscard]] size_t capacity() const { return static_cast<size_t>(X.cols()); }
 
@@ -60,6 +69,10 @@ struct Population
 
     //! Sort the active columns by f (ties in index order, NaN last), without allocating
     void sort();
+
+    //! Put the active columns in the given order (a permutation of 0..n-1), without allocating
+    //! once the buffers have the capacity; n_ranked is left to the caller
+    void reorder(const std::vector<size_t> &order);
 
     Population &operator+=(const Population &other);
 

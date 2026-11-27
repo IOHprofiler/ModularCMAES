@@ -10,16 +10,17 @@ When the rule is not CSA and the matrix adaptation is `COVARIANCE`, the Settings
 **What modcma does.** σ ← σ·exp(clip((cs/damps)(‖p_σ‖/E‖z‖ − 1), −1, 1)), with
 p_σ ← (1 − cs) p_σ + √(cs(2 − cs)µ_eff)·v, where v = C^-1/2 Δm/σ for `COVARIANCE` and the weighted
 sum of the selected z for every other matrix adaptation (the same vector when the points are m + σAz).
-E‖z‖ is the expected length of the sampler: the χ_d approximation for Gaussian samples, an empirical
-median for Cauchy.
+E‖z‖ is the expected length of the sampler: the χ_d approximation for Gaussian samples, E‖z‖ of
+the distribution for the other unit-variance transformations, an empirical median for Cauchy.
 
 **Compared with Hansen (2016) and pycma.** cs = (µ_eff + 2)/(d + µ_eff + 5) and
 damps = 1 + 2 max(0, √((µ_eff − 1)/(d + 1)) − 1) + cs are the tutorial's (Table 1, Eq. (55); the
 same in its 2023 revision, arXiv:1604.00772v2) and those of `cmaes`. With very large populations cs
 tends to 1. pycma 4.6 has d + µ_eff + 3 in the denominator of cs and caps it at 0.5 (modcma 1.1 and
 1.2 had + 3 without the cap), and adds terms to damps for mirrored sampling and large µ_eff. The
-clip at ±1 is pycma's. The expected length of the uniform, Laplace, logistic and double-Weibull
-transformations is taken as √d instead of their own (*known issue* [F29]).
+clip at ±1 is pycma's. E‖z‖ is that of the sample transformation: for the uniform, Laplace,
+logistic and double-Weibull transformations their own, not √d as before 2.0
+([samplers](selection-sampling-restarts.md#samplers-and-transformations)).
 
 ## TPA: two-point adaptation
 
@@ -51,13 +52,16 @@ centers it at (λ + 1)/2. On BBOB at d = 20 that version solved Rosenbrock (f8) 
 (f12) in 15 of 25 runs each. With pycma's centering, modcma solves them in 22 and 20 of 25 (pycma
 itself: 22 and 25), and its median evaluations on the sphere equal pycma's (3120).
 
-*Known issue* [F9]: with pairwise selection the losers' values are infinite, so K counts against
-the winners only.
+With pairwise selection K counts the ranked points of the generation (the winners of the mirrored
+pairs), against the j-th best ranked point of the previous one, and is centered at half their
+number: Auger et al. (2011, Alg. 1) adapt σ from the ranked offspring. Before 2.0 the losers had
+f = +inf, so K counted the winners against λ/2 and σ shrank every generation.
 
 ## PSR: population success rule
 
 **What modcma does.** Ranks the current and the previous generation together (the best n of each,
-n the number of finite values) and compares their ranks:
+n the number of finite values; with pairwise selection of the ranked points, as `MSR`) and
+compares their ranks:
 
 * z = Σ(r_old − r_new)/n² − z*, with the target z* = 0.25;
 * s ← (1 − c)s + c·z, with c = 0.3;
@@ -122,7 +126,7 @@ per point.
 |---|---|---|---|
 | `CSA` (default) | the path p_σ | every matrix adaptation | `COVARIANCE` uses C^-1/2 Δm, the others the weighted z |
 | `TPA` | two extra evaluations | every | |
-| `MSR`, `PSR` | the f-values of two generations | every | not `MSR` with pairwise selection [F9] |
+| `MSR`, `PSR` | the f-values of two generations | every | with pairwise selection the ranked points only |
 | `XNES` | the natural gradient, or the lengths of z | `NATURAL_GRADIENT` (xNES's rule; with `weights=UTILITY` all of xNES) | slow elsewhere [F27] |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
 | `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | per coordinate [F1] |

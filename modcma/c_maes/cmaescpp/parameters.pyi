@@ -53,7 +53,7 @@ class Modules:
         """
         bool, default False: orthogonal sampling.
 
-        The samples of a generation are made orthogonal to each other (by a QR decomposition), keeping their lengths (Wang et al.).
+        The samples of a generation are made orthogonal to each other (by a QR decomposition), keeping their lengths (Wang et al.): in blocks of at most d, the first block starting with the generation. With mirrored sampling the first sample of each pair. See `sampling.Orthogonal`.
         """
 
     @orthogonal.setter
@@ -119,7 +119,7 @@ class Modules:
         """
         options.Mirror, default NONE: mirrored sampling.
 
-        Every second sample is the mirror image of the one before; PAIRWISE also selects only the better point of each pair. See modcma.c_maes.options.Mirror.
+        Individuals 2i and 2i + 1 of a generation are mirror images, z and -z (an odd last individual is unpaired); PAIRWISE also ranks only the better point of each pair. See modcma.c_maes.options.Mirror.
         """
 
     @mirrored.setter
@@ -454,7 +454,7 @@ class Weights:
     @property
     def pairwise(self) -> bool:
         """
-        Whether the selection is pairwise (`Mirror.PAIRWISE`): the losers of the mirrored pairs (f = +inf, sorted last) then get no negative weights in the active update, as in pycma.
+        Whether the selection is pairwise (`Mirror.PAIRWISE`): the losers of the mirrored pairs (the individuals after `Population.n_ranked`) then get no negative weights in the active update, as in pycma.
         """
 
     @pairwise.setter
