@@ -31,7 +31,7 @@ def warm_start(
       the origin (solutions at 1e6 with a spread of 1e-3: C off by 4e-2).
     - The determinant comes from the Cholesky factor of Sigma, as a logarithm; the
       ``numpy.linalg.det`` of ``cmaes`` underflows in high dimension (for Sigma close to
-      alpha^2 I with alpha = 0.1 it is subnormal from d = 155 on and 0 from d = 162 on, and
+      alpha^2 I with alpha = 0.1 it is subnormal from d = 154 on and 0 from d = 162 on, and
       ``cmaes`` then divides by zero).
 
     Parameters
