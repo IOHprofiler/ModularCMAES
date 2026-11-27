@@ -75,8 +75,9 @@ class TestTuning(unittest.TestCase):
         cspace = c_maes.get_configspace(dim)
         for name in ("lambda0", "mu0", "sigma0") + NUMERIC:
             self.assertIn(name, cspace)
-        self.assertEqual((cspace["cs"].lower, cspace["cs"].upper), (0, 1))
-        self.assertEqual((cspace["damps"].lower, cspace["damps"].upper), (0, 10))
+        # the lower bounds of cs and damps moved from 0 to 1e-6 (#169)
+        self.assertEqual((cspace["cs"].lower, cspace["cs"].upper), (1e-6, 1))
+        self.assertEqual((cspace["damps"].lower, cspace["damps"].upper), (1e-6, 10))
         self.assertEqual((cspace["lambda0"].lower, cspace["lambda0"].upper), (1, 50 * dim))
         defaults = dict(cspace.get_default_configuration())
         rng = random.Random(3)
@@ -164,10 +165,46 @@ class TestTuning(unittest.TestCase):
         cspace.seed(7)
         for config in cspace.sample_configuration(60):
             with self.subTest(config=dict(config)):
-                settings = c_maes.settings_from_config(dim, config, budget=300, seed=1)
+                try:
+                    settings = c_maes.settings_from_config(dim, config, budget=300, seed=1)
+                except ValueError as error:
+                    # the only rejection left in the space (#169)
+                    self.assertIn("c1 + cmu", str(error))
+                    self.assertGreater(config["c1"] + config["cmu"], 1)
+                    continue
                 es = c_maes.ModularCMAES(settings)
                 es.run(sphere)
                 self.assertGreater(es.p.stats.evaluations, 0)
+
+    def test_the_lower_bounds_of_cs_cc_damps_are_positive(self):
+        # #169: Settings rejects cs, cc and damps <= 0, so no sample may be there. The defaults
+        # stay, and c1 and cmu keep the lower bound 0.
+        for dim in (2, 10):
+            cspace = c_maes.get_configspace(dim)
+            for name in ("cs", "cc", "damps"):
+                self.assertGreater(cspace[name].lower, 0)
+            for name in ("c1", "cmu"):
+                self.assertEqual(cspace[name].lower, 0)
+        cspace = c_maes.get_configspace(4)
+        cspace.seed(3)
+        for config in cspace.sample_configuration(300):
+            for name in ("cs", "cc", "damps"):
+                if name in config:
+                    self.assertGreater(config[name], 0)
+                    # Settings accepts the value
+                    c_maes.settings_from_config(4, {name: config[name]})
+        # the values at the lower bound are accepted, a value of 0 is not
+        for name in ("cs", "cc", "damps"):
+            c_maes.settings_from_config(4, {name: cspace[name].lower})
+            with self.assertRaises(ValueError):
+                c_maes.settings_from_config(4, {name: 0.0})
+
+    def test_c1_plus_cmu_above_one_is_rejected(self):
+        # #169: the ranges of c1 and cmu are kept; the sum is checked by Settings, which
+        # settings_from_config builds, so the error is raised there
+        with self.assertRaisesRegex(ValueError, r"c1 \+ cmu.*c1 = 0\.7.*cmu = 0\.6"):
+            c_maes.settings_from_config(5, {"c1": 0.7, "cmu": 0.6})
+        c_maes.settings_from_config(5, {"c1": 0.4, "cmu": 0.6})
 
     def test_the_inactive_parameters_have_no_effect(self):
         """Where the space has no hyperparameter, changing the parameter changes nothing: every

@@ -131,6 +131,13 @@ def _make_numeric_parameter(
     )
 
 
+#: The lower bound of `cs`, `cc` and `damps` (#169). The ranges are [0, 1] (`damps`: [0, 10]) with
+#: a normal distribution of standard deviation 0.3 * min(default - lb, ub - default) around the
+#: default (0.37, 0.45, 1.37 at dim 5), so a draw within 1e-6 of 0 is a 3-sigma event at least
+#: a million times over, and a lower bound of 1e-6 moves that deviation by at most 3e-7 (relative
+#: 1e-6). It is the same kind of bound as the 1e-15 of `sigma0`. The defaults are unchanged.
+_MIN_POSITIVE_RATE = 1e-6
+
 #: Options that `get_configspace` leaves out of a module, though `Modules` has them (#81, F22 of
 #: #76: the raw uniform samples have mean 0.5, which fails everywhere; a testing option).
 _EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
@@ -284,7 +291,13 @@ def get_configspace(
     - `lambda0` and `mu0`: integers in [1, 50 * dim], log scale, with the condition mu0 <= lambda0;
     - `sigma0`: a normal distribution around its default, truncated to [1e-15, 1e15];
     - `cs`, `cc`, `cmu`, `c1` in [0, 1] and `damps` in [0, 10]: normal distributions around
-      their defaults.
+      their defaults. The lower bound of `cs`, `cc` and `damps` is 1e-6, because `Settings`
+      rejects a value of 0 or less; `cmu` and `c1` may be 0.
+
+    The ranges of `c1` and `cmu` are independent, so a configuration can have c1 + cmu > 1. `Settings`
+    rejects it (C would lose positive definiteness, Hansen 2016): `settings_from_config` raises
+    `ValueError` when it builds the `Settings`, not later when the optimizer is created. A tuner
+    should record such a configuration as a crashed run. Every other draw of the space is valid.
 
     The defaults are those of `Settings(dim)` with the default modules (CSA with COVARIANCE). The
     normal distributions have standard deviation 0.3 * min(default - lower, upper - default).
@@ -373,7 +386,10 @@ def get_configspace(
     if add_learning_rates:
         for name in ("cs", "cc", "cmu", "c1", "damps"):
             ub = 10.0 if name == "damps" else 1.0
-            cspace.add(_make_numeric_parameter(name, dim, 0, ub))
+            # `Settings` rejects cs, cc and damps <= 0 (#147), so their range starts above 0 (#169).
+            # c1 and cmu may be 0 (no rank-one or rank-mu update), so theirs starts at 0.
+            lb = _MIN_POSITIVE_RATE if name in ("cs", "cc", "damps") else 0.0
+            cspace.add(_make_numeric_parameter(name, dim, lb, ub))
 
     _add_conditions(cspace, options, remove_duplicates)
     return cspace
