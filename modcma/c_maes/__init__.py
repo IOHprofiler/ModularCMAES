@@ -331,8 +331,8 @@ def preset(name: str, dim: int, **config: Any) -> Settings:
     ================  ==========================================  ==============================
 
     The preset is the selection of modules; the learning rates and the population size keep the
-    defaults that `Settings` computes for those modules (for `sep-cma`, `cmu` is scaled as in Ros &
-    Hansen 2008). The `(1+1)-cma-es` is the elitist (1+1) strategy that `lambda0=1` gives: mu = 1,
+    defaults that `Settings` computes for those modules. The `(1+1)-cma-es` is the elitist (1+1)
+    strategy that `lambda0=1` gives: mu = 1,
     plus selection, the 1/5th-type success rule for sigma (target success rate 2/11) and a
     covariance update from a success-based evolution path. It is built from the modules of modcma,
     and is not a reimplementation of the published algorithm, whose update differs in details.
