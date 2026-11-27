@@ -155,6 +155,30 @@ damps; the active update is off. The same as pycma with `CMA_on=False`.
 | `NATURAL_GRADIENT` | xNES (Glasmachers et al. 2010) | `ssa=XNES`, `weights=UTILITY` | none measurable |
 | `NONE` | CSA-ES | defaults | |
 
+## The initial matrix: `C0`
+
+Every adaptation starts from C = I, or from `Settings.C0` (warm starting, see
+[settings](../guide/settings.md#the-initial-covariance-matrix-and-warm-starting)). It then starts
+its sampling factor F from a factor of `C0`, F Fᵀ = `C0`, the one its own update keeps:
+
+| matrix adaptation | starts from |
+|---|---|
+| `COVARIANCE` | C = `C0`, with its eigendecomposition: F = B D |
+| `COVARIANCE_NO_EIGV`, `CMSA` | C = `C0`, with its lower Cholesky factor |
+| `CHOLESKY` | the lower Cholesky factor of `C0` (it adapts a triangular factor) |
+| `MATRIX`, `NATURAL_GRADIENT` | the symmetric square root `C0`^1/2 = B D Bᵀ (and its inverse) |
+| `SEPARABLE` | the diagonal of `C0` |
+| `NONE` | rejects `C0` |
+
+Two factors of `C0` differ by a rotation Q of z (F' = F Q), so the first generation is
+N(m, σ² `C0`) with either. The updates of MA-ES and xNES act on z from the right (M ← M (I + …),
+A ← A expm(η G)), so with F' = F Q every later factor is the one of F times Q: with Gaussian z
+(the default sampler; not Sobol or Halton points) the runs are the same in distribution, and only
+which z gives which point differs. The symmetric root is the one
+factor that does not depend on the signs and the order of the eigenvectors that the eigensolver
+returns. For `metric()` at generation 0 every adaptation reports `C0` (`SEPARABLE` its diagonal),
+and `coordinate_wise_variances` is the diagonal of `C0`.
+
 ## The metric of each adaptation
 
 `es.p.adaptation.metric()` gives the shape of the distribution that is sampled, without σ: the

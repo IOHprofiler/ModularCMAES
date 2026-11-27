@@ -48,7 +48,9 @@ scaling and runs out of budget. After a rotation of the problem, `SEPARABLE` wou
 
 The adaptation is `es.p.adaptation`: the mean `m`, the evolution paths `pc` and `ps`, and the
 matrix (`C` and its eigendecomposition `B`, `d` for `COVARIANCE`; `M` for `MATRIX`; `A` for
-`CHOLESKY` and `NATURAL_GRADIENT`). See the [reference](../reference/matrix_adaptation.md).
+`CHOLESKY` and `NATURAL_GRADIENT`). See the [reference](../reference/matrix_adaptation.md). The
+matrix starts as the identity, or as `Settings.C0`
+([warm starting](settings.md#the-initial-covariance-matrix-and-warm-starting)).
 
 ### The shape of the distribution: `metric()`
 
@@ -90,14 +92,14 @@ adaptations that learn a full matrix.
 ## The options
 
 <!-- options: MatrixAdaptationType -->
-**`modcma.options.MatrixAdaptationType`**: The adaptation of the shape of the search distribution (`Modules.matrix_adaptation`; default COVARIANCE). The mutations are y = A z, with z from the sampler and A a factor of the covariance matrix, C = A A^T. The options differ in how A is adapted and in their cost per generation (docs/performance.md, "ModularCMAES matrix adaptations").
+**`modcma.options.MatrixAdaptationType`**: The adaptation of the shape of the search distribution (`Modules.matrix_adaptation`; default COVARIANCE). The mutations are y = A z, with z from the sampler and A a factor of the covariance matrix, C = A A^T. The options differ in how A is adapted and in their cost per generation (docs/performance.md, "ModularCMAES matrix adaptations"). C starts as the identity, or as `Settings.C0` (warm starting).
 
 | value | |
 |---|---|
 | `COVARIANCE` | The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with rank-one and rank-mu update, the default. C is eigendecomposed every few generations (O(d^3), with LAPACK from `constants.lapack_min_dim` on). The only option for which the restart criteria TolX, ConditionC, NoEffectAxis and NoEffectCoord are used. |
-| `NONE` | No matrix adaptation (C = I): only the step size is adapted. Disables `Modules.active`. O(d lambda) per generation. |
+| `NONE` | No matrix adaptation (C = I): only the step size is adapted. Disables `Modules.active`, rejects `Settings.C0`. O(d lambda) per generation. |
 | `MATRIX` | MA-ES (Beyer & Sendhoff 2017): adapts a matrix M with C = M M^T directly, without the evolution path p_c and without eigendecomposition; O(d^2 lambda) per generation, about 4x faster than COVARIANCE at d = 1000. |
-| `SEPARABLE` | sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per generation. For separable problems and very high dimension; it cannot learn correlations between variables. |
+| `SEPARABLE` | sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per generation. For separable problems and very high dimension; it cannot learn correlations between variables. Of `Settings.C0` it uses the diagonal. |
 | `CHOLESKY` | Cholesky-CMA-ES (Krause et al. 2016): adapts the lower triangular Cholesky factor of C with rank-one updates of the factor, without decomposing C; O(d^2 lambda) per generation. |
 | `CMSA` | CMSA-ES (Beyer & Sendhoff 2008), covariance matrix self-adaptation: C is an exponential average of the selected y y^T with time constant 1 + d (d + 1) / (2 mueff), factorized with a Cholesky decomposition every generation. Meant for StepSizeAdaptation.SA; makes the default mu lambda / 4. |
 | `COVARIANCE_NO_EIGV` | The covariance update of COVARIANCE, with C factorized by a Cholesky decomposition instead of an eigendecomposition (cheaper). The path p_sigma uses the inverse Cholesky factor instead of C^-1/2 (the same up to a rotation), which worked as well as COVARIANCE with CSA in tests. Chosen automatically when COVARIANCE is combined with a step-size adaptation other than CSA. |

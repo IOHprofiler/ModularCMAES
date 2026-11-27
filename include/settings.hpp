@@ -1,5 +1,6 @@
 #pragma once
 
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -50,6 +51,47 @@ struct Settings
     //! of mt19937 and the inverse normal CDF, for the default UNIFORM + GAUSSIAN sampler. Faster,
     //! but a different random stream than the default.
     bool fast_sampling = false;
+
+    /**
+     * The initial covariance matrix C of the search distribution (warm starting, #89): the first
+     * generation samples N(m, sigma0^2 C0). None (the default): C = I. Set with set_C0, which
+     * checks it. Each matrix adaptation starts its sampling factor from it
+     * (matrix_adaptation::Adaptation::start_from); SEPARABLE takes its diagonal, NONE rejects it.
+     * A restart starts from it again (Parameters::finish_restart).
+     */
+    std::optional<Matrix> C0 = std::nullopt;
+
+    /**
+     * Set C0, or remove it (nullopt). std::invalid_argument unless C0 is a (dim, dim) finite
+     * matrix, symmetric up to rounding (||C0 - C0^T||_F <= 1e-10 ||C0||_F; its symmetric part
+     * (C0 + C0^T) / 2 is kept) and positive definite, or when matrix_adaptation is NONE.
+     */
+    void set_C0(std::optional<Matrix> c0)
+    {
+        if (c0)
+        {
+            require(modules.matrix_adaptation != MatrixAdaptationType::NONE,
+                    "C0 cannot be used with matrix_adaptation NONE, which keeps C = I");
+            const auto rows = static_cast<size_t>(c0->rows());
+            const auto cols = static_cast<size_t>(c0->cols());
+            require(rows == dim && cols == dim,
+                    "C0 must be a (dim, dim) = (" + std::to_string(dim) + ", " +
+                        std::to_string(dim) + ") matrix, got (" + std::to_string(c0->rows()) +
+                        ", " + std::to_string(c0->cols()) + ")");
+            require(c0->allFinite(), "C0 must be finite");
+            require((*c0 - c0->transpose()).norm() <= 1e-10 * c0->norm(), "C0 must be symmetric");
+            Matrix symmetric = (*c0 + c0->transpose()) * 0.5;
+            const Eigen::SelfAdjointEigenSolver<Matrix> eigen(symmetric, Eigen::EigenvaluesOnly);
+            require(eigen.info() == Eigen::Success, "C0: the eigenvalue solver failed");
+            std::ostringstream smallest;
+            smallest << eigen.eigenvalues().minCoeff();
+            require(eigen.eigenvalues().minCoeff() > 0.0 &&
+                        Eigen::LLT<Matrix>(symmetric).info() == Eigen::Success,
+                    "C0 must be positive definite, its smallest eigenvalue is " + smallest.str());
+            c0 = std::move(symmetric);
+        }
+        C0 = std::move(c0);
+    }
 
     Settings(size_t dim,
              std::optional<Modules> mod = std::nullopt,

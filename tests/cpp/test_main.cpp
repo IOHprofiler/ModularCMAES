@@ -360,6 +360,54 @@ static void test_lapack_fallback()
     constants::cholesky_solver = cholesky_solver;
 }
 
+// #89: C++ code can assign Settings::C0 without set_C0; the optimizer checks it again, so a matrix
+// of the wrong shape, an asymmetric one or one with NONE is std::invalid_argument, not a crash
+static void test_c0_assigned_directly()
+{
+    const auto rejected = [](parameters::Settings settings) {
+        try
+        {
+            parameters::Parameters p(settings);
+        }
+        catch (const std::invalid_argument &)
+        {
+            return true;
+        }
+        return false;
+    };
+    parameters::Settings settings(3);
+    settings.C0 = Matrix::Identity(2, 2);
+    CHECK(rejected(settings));
+    Matrix asymmetric = Matrix::Identity(3, 3);
+    asymmetric(0, 1) = 0.5;
+    settings.C0 = asymmetric;
+    CHECK(rejected(settings));
+    settings.C0 = Matrix::Identity(3, 3);
+    settings.modules.matrix_adaptation = parameters::MatrixAdaptationType::NONE;
+    CHECK(rejected(settings));
+
+    // A valid C0: the sampling factor of every adaptation reproduces it
+    Matrix c0(3, 3);
+    c0 << 4, 1, 0.5, 1, 2, 0.25, 0.5, 0.25, 1;
+    for (const auto type : {parameters::MatrixAdaptationType::COVARIANCE,
+                            parameters::MatrixAdaptationType::COVARIANCE_NO_EIGV,
+                            parameters::MatrixAdaptationType::MATRIX,
+                            parameters::MatrixAdaptationType::CHOLESKY,
+                            parameters::MatrixAdaptationType::CMSA,
+                            parameters::MatrixAdaptationType::NATURAL_GRADIENT})
+    {
+        parameters::Modules m;
+        m.matrix_adaptation = type;
+        parameters::Settings s(3, m);
+        s.C0 = c0;
+        parameters::Parameters p(s);
+        Matrix f(3, 3);
+        for (Eigen::Index i = 0; i < 3; ++i)
+            f.col(i) = p.adaptation->compute_y(Vector::Unit(3, i));
+        CHECK((f * f.transpose() - c0).cwiseAbs().maxCoeff() < 1e-12);
+    }
+}
+
 int main()
 {
     test_uniform_is_open_interval();
@@ -372,6 +420,7 @@ int main()
     test_lapack_fallback();
     test_natural_gradient_low_rank_update();
     test_functions();
+    test_c0_assigned_directly();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else

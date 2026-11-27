@@ -44,6 +44,7 @@ from .cmaescpp import (
     _internal,  # pyright: ignore[reportMissingModuleSource]
 )
 from . import utils  # deprecated: set_seed, build_info and compute_ert are in this namespace
+from ._warm_start import warm_start
 
 from .cmaescpp.parameters import (  # pyright: ignore[reportMissingModuleSource]
     Settings,
@@ -628,6 +629,7 @@ def fmin(
 
 __all__ = (
     "fmin",
+    "warm_start",
     "settings_from_dict",
     "settings_from_config",
     "preset",

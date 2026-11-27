@@ -47,6 +47,7 @@ nav = [
     { "Benchmarking on BBOB" = "examples/bbob.md" },
     { "Tuning a configuration" = "examples/tuning.md" },
     { "Mixed-integer problems" = "examples/mixed-integer.md" },
+    { "Warm starting" = "examples/warm-start.md" },
     { "Coming from pycma" = "examples/from-pycma.md" },
   ] },
   { "Reference" = [

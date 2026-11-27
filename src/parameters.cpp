@@ -29,6 +29,14 @@ Parameters::Parameters(const Settings &settings) :
     center_placement(center::get(settings.modules.center_placement)),
     coordinate_mapping(mapping::get(settings.integer_variables, settings.dim))
 {
+    // Warm starting (#89): the matrix starts from Settings::C0, before the criteria read it. C0 is
+    // checked again: C++ code can assign the field directly, and the modules can change after
+    // set_C0 (to NONE)
+    if (this->settings.C0)
+    {
+        this->settings.set_C0(this->settings.C0);
+        adaptation->start_from(*this->settings.C0, this->settings);
+    }
     criteria.reset(*this);
 }
 
@@ -128,6 +136,10 @@ void Parameters::finish_restart()
     mutation =
         mutation::get(settings.modules, static_cast<Float>(settings.dim), restart_sigma, generator);
     adaptation->restart(settings);
+    // Every run starts from C0, as from sigma0 and (center_placement X0) x0: the initial
+    // distribution of the settings (#89; open decision: or C = I after a restart)
+    if (settings.C0)
+        adaptation->start_from(*settings.C0, settings);
     (*center_placement)(*this);
     stats.current_best = {};
     stats.t_run = 0;

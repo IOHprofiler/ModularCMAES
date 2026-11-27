@@ -25,7 +25,8 @@ or any combination in between.
 * **Ask–tell for every module**, with the same results as `run()`, bit for bit; vectorized
   objectives; parallel threads on free-threaded Python.
 * **Ready for experiments**: reproducible seeds per optimizer, restarts and stopping criteria you can
-  inspect and replace, integer variables, and a ConfigSpace for algorithm configuration.
+  inspect and replace, integer variables, warm starts from the solutions of a related task, and a
+  ConfigSpace for algorithm configuration.
 
 ## Installation
 

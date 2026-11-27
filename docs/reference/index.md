@@ -6,7 +6,7 @@ same objects as in `modcma.c_maes`, which stays available under that name).
 
 | page | contents |
 |---|---|
-| [modcma](modcma.md) | `fmin` and the helpers for configurations (`settings_from_dict`, `get_configspace`, ...) |
+| [modcma](modcma.md) | `fmin`, `warm_start` and the helpers for configurations (`settings_from_dict`, `get_configspace`, ...) |
 | [options](options.md) | the enums that select a module: `MatrixAdaptationType`, `StepSizeAdaptation`, ... |
 | [parameters](parameters.md) | `Settings`, `Modules`, `Parameters`, `Stats`, `Weights`, `Solution` |
 | [ModularCMAES](modularcmaes.md) | the optimizer: `run`, `step`, `ask`, `tell`; and `Population` |

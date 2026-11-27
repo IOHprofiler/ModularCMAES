@@ -38,6 +38,19 @@ std::optional<Indices> to_indices(const std::optional<std::vector<int>> &idx)
         return std::nullopt;
     return Eigen::Map<const Indices>(idx->data(), static_cast<Eigen::Index>(idx->size()));
 }
+
+//! A matrix from Python (a 2-d numpy array, a list of lists, ...) for Settings.C0; None stays None
+std::optional<Matrix> to_matrix(nb::handle value)
+{
+    if (value.is_none())
+        return std::nullopt;
+    using RowMatrix = Eigen::Matrix<Float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
+    const nb::object a = asarray(value, nb::arg("dtype") = "float64");
+    if (nb::cast<size_t>(a.attr("ndim")) != 2)
+        throw nb::value_error("Settings: C0 must be a 2-d (dim, dim) matrix");
+    return Matrix(nb::cast<RowMatrix>(a));
+}
 } // namespace
 
 void define_population(nb::module_ &main)
@@ -580,7 +593,8 @@ void define_parameters(nb::module_ &main)
                bool verbose,
                bool always_compute_eigv,
                std::optional<int> seed,
-               bool fast_sampling) {
+               bool fast_sampling,
+               nb::handle C0) {
                 new (self) Settings(dim,
                                     modules,
                                     target,
@@ -603,6 +617,7 @@ void define_parameters(nb::module_ &main)
                                     always_compute_eigv);
                 self->seed = seed;
                 self->fast_sampling = fast_sampling;
+                self->set_C0(to_matrix(C0));
             },
             // array_like for the vectors (numpy arrays, lists, ...), as accepted at run time
             nb::sig("def __init__(self, dim: int, modules: Modules | None = None, *, "
@@ -617,7 +632,8 @@ void define_parameters(nb::module_ &main)
                     "c1: float | None = None, damps: float | None = None, "
                     "acov: float | None = None, verbose: bool = False, "
                     "always_compute_eigv: bool = False, seed: int | None = None, "
-                    "fast_sampling: bool = False) -> None"),
+                    "fast_sampling: bool = False, "
+                    "C0: numpy.typing.ArrayLike | None = None) -> None"),
             nb::arg("dim"),
             nb::arg("modules") = nb::none(),
             nb::kw_only(),
@@ -641,6 +657,7 @@ void define_parameters(nb::module_ &main)
             nb::arg("always_compute_eigv") = false,
             nb::arg("seed") = nb::none(),
             nb::arg("fast_sampling") = false,
+            nb::arg("C0") = nb::none(),
             "Settings for a problem of dimension dim.\n\n"
             "dim and modules are positional, every other argument is keyword-only. None means "
             "a default computed from the dimension and the modules.\n\n"
@@ -660,8 +677,9 @@ void define_parameters(nb::module_ &main)
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
             "sigma0 that is not positive and finite, x0, lb or ub of a length other "
             "than dim, a non-finite x0, lb above ub, an integer variable without an integer "
-            "value in [lb, ub], or a budget smaller than the first generation and the "
-            "evaluation of the final center of mass.\n\n"
+            "value in [lb, ub], a budget smaller than the first generation and the evaluation "
+            "of the final center of mass, or a C0 that is not a symmetric positive definite "
+            "(dim, dim) matrix (or with matrix_adaptation NONE).\n\n"
             "Parameters\n"
             "----------\n"
             "dim : int\n"
@@ -731,7 +749,12 @@ void define_parameters(nb::module_ &main)
             "fast_sampling : bool, default False\n"
             "    Sample with xoshiro256++ and a ziggurat instead of mt19937 and the inverse "
             "normal CDF (the default UNIFORM + GAUSSIAN sampler only): faster, but a different "
-            "random stream.")
+            "random stream.\n"
+            "C0 : array_like, optional\n"
+            "    (dim, dim) the initial covariance matrix C, symmetric positive definite: the "
+            "first generation samples N(x0, sigma0**2 C0). Default None: the identity. See the "
+            "attribute C0; modcma.warm_start estimates x0, sigma0 and C0 from the solutions of "
+            "a related task.")
         .def_ro("dim", &Settings::dim, "The dimension of the search space (read-only).")
         .def_rw("seed",
                 &Settings::seed,
@@ -744,6 +767,25 @@ void define_parameters(nb::module_ &main)
                 "Instead of mt19937 and the inverse normal CDF (the default UNIFORM + GAUSSIAN "
                 "sampler only). Faster, but a different random stream. Set it before the "
                 "optimizer is created.")
+        .def_prop_rw(
+            "C0",
+            [](const Settings &s) { return s.C0; },
+            [](Settings &s, nb::handle C0) { s.set_C0(to_matrix(C0)); },
+            nb::for_setter(nb::sig("def C0(self, arg: numpy.typing.ArrayLike | None, /) -> None")),
+            nb::for_setter(nb::arg("value").none()),
+            "(dim, dim) array: the initial covariance matrix C, or None (default) for the "
+            "identity.\n\n"
+            "The first generation samples N(x0, sigma0**2 C0) (warm starting, Nomura et al. "
+            "2021; see modcma.warm_start). Each matrix adaptation starts its matrix from a factor "
+            "F of C0, F F^T = C0: COVARIANCE from the eigendecomposition, COVARIANCE_NO_EIGV, "
+            "CHOLESKY and CMSA from the lower Cholesky factor, MATRIX and NATURAL_GRADIENT from "
+            "the symmetric square root. SEPARABLE uses only the diagonal of C0; "
+            "matrix_adaptation NONE rejects C0 (ValueError). Every restart starts from C0 "
+            "again, as from sigma0 and x0.\n\n"
+            "Setting it checks it: a (dim, dim) finite matrix, symmetric up to rounding (a "
+            "relative difference ||C0 - C0^T|| <= 1e-10 ||C0||, Frobenius norm; its symmetric "
+            "part (C0 + C0^T) / 2 is stored) and positive definite, otherwise ValueError. Set it "
+            "before the optimizer is created; the getter returns a copy.")
         .def_ro("modules",
                 &Settings::modules,
                 "The module configuration, after the adjustments of the constructor.\n\n"
@@ -873,6 +915,8 @@ void define_parameters(nb::module_ &main)
                 ss << " cs: " << to_string(s.cs) << " cc: " << to_string(s.cc);
                 ss << " cmu: " << to_string(s.cmu) << " c1: " << to_string(s.c1);
                 ss << " verbose: " << s.verbose;
+                const auto dim = std::to_string(s.dim);
+                ss << " C0: " << (s.C0 ? "(" + dim + ", " + dim + ") array" : "None");
             });
         },
         "The settings as text.");

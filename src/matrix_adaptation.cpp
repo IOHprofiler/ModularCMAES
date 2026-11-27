@@ -122,6 +122,12 @@ void None::compute_y_batch(Eigen::Ref<const Matrix> Z, Eigen::Ref<Matrix> Y) { Y
 
 void None::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vector> z) { z = y; }
 
+void None::start_from(const Matrix &, const parameters::Settings &)
+{
+    throw std::invalid_argument(
+        "Settings: C0 cannot be used with matrix_adaptation NONE, which keeps C = I");
+}
+
 void CovarianceAdaptation::adapt_ps(const Weights &w)
 {
     // Eigen evaluates dst = a + A x as dst = a; dst += A x (the product accumulates into a);
@@ -292,6 +298,34 @@ void decompose_sampled_covariance(const Matrix &s, Vector &axes, Matrix &vectors
     axes = axes.cwiseMax(Float{0}).cwiseSqrt();
 }
 
+/**
+ * The symmetric square root of C0 and its inverse (start_from of MATRIX and NATURAL_GRADIENT,
+ * #89): C0^1/2 = B diag(l)^1/2 B^T and C0^-1/2 = B diag(l)^-1/2 B^T for C0 = B diag(l) B^T. It is
+ * the one factor of C0 that is symmetric, so it does not depend on the signs and the order of the
+ * eigenvectors that the eigensolver returns.
+ */
+static void symmetric_root(const Matrix &C0, Matrix &root, Matrix &inverse_root)
+{
+    Eigen::SelfAdjointEigenSolver<Matrix> eigen_solver;
+    lapack::Workspace lapack_workspace;
+    Vector values;
+    Matrix vectors;
+    if (!symmetric_eigen(C0, values, vectors, eigen_solver, lapack_workspace, false) ||
+        !values.allFinite() || values.minCoeff() <= 0.0)
+        throw std::invalid_argument("Settings: C0 must be positive definite");
+    const Vector axes = values.cwiseSqrt();
+    root.noalias() = vectors * axes.asDiagonal() * vectors.transpose();
+    inverse_root.noalias() = vectors * axes.cwiseInverse().asDiagonal() * vectors.transpose();
+}
+
+//! The lower Cholesky factor of C0, its strictly upper part zero (start_from of the adaptations
+//! that sample with it, #89): the factorization their updates use
+static void cholesky_of(const Matrix &C0, Matrix &L)
+{
+    if (!lapack::cholesky_factor(C0, L))
+        throw std::invalid_argument("Settings: C0 must be positive definite");
+}
+
 bool CovarianceAdaptation::perform_eigendecomposition(const Settings &settings)
 {
     ++factor_version;
@@ -348,6 +382,16 @@ void CovarianceAdaptation::restart(const Settings &settings)
     A = Matrix::Identity(settings.dim, settings.dim);
     d.setOnes();
     pc.setZero();
+}
+
+void CovarianceAdaptation::start_from(const Matrix &C0, const Settings &settings)
+{
+    Adaptation::start_from(C0, settings);
+    C = C0;
+    // The decomposition of the update: the eigendecomposition (A = B D) for COVARIANCE, the
+    // Cholesky factor for COVARIANCE_NO_EIGV
+    if (!perform_eigendecomposition(settings))
+        throw std::invalid_argument("Settings: C0 must be positive definite");
 }
 
 void CovarianceAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
@@ -424,6 +468,16 @@ void SeparableAdaptation::restart(const parameters::Settings &settings)
     c.setOnes();
     d.setOnes();
     pc.setZero();
+}
+
+void SeparableAdaptation::start_from(const Matrix &C0, const parameters::Settings &settings)
+{
+    // Only the diagonal: the variances of C0 (open decision of #89: or reject a C0 that is not
+    // diagonal). For the C0 of warm_start, sigma0^2 diag(C0) is the diagonal covariance of the
+    // paper's WS-sep-CMA-ES (Nomura et al. 2021, Eq. 6).
+    Adaptation::start_from(C0, settings);
+    c = C0.diagonal();
+    d = c.cwiseSqrt();
 }
 
 void SeparableAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
@@ -521,6 +575,13 @@ void MatrixAdaptation::restart(const Settings &settings)
     outdated_M_inv = false;
 }
 
+void MatrixAdaptation::start_from(const Matrix &C0, const Settings &settings)
+{
+    Adaptation::start_from(C0, settings);
+    symmetric_root(C0, M, M_inv);
+    outdated_M_inv = false;
+}
+
 void MatrixAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
 {
     y.noalias() = M * z;
@@ -605,6 +666,12 @@ void CholeskyAdaptation::restart(const parameters::Settings &settings)
     pc.setZero();
 }
 
+void CholeskyAdaptation::start_from(const Matrix &C0, const parameters::Settings &settings)
+{
+    Adaptation::start_from(C0, settings);
+    cholesky_of(C0, A);
+}
+
 void CholeskyAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
 {
     y.noalias() = A.triangularView<Eigen::Lower>() * z;
@@ -679,6 +746,13 @@ void SelfAdaptation::restart(const parameters::Settings &settings)
     Adaptation::restart(settings);
     A = Matrix::Identity(settings.dim, settings.dim);
     C = Matrix::Identity(settings.dim, settings.dim);
+}
+
+void SelfAdaptation::start_from(const Matrix &C0, const parameters::Settings &settings)
+{
+    Adaptation::start_from(C0, settings);
+    C = C0;
+    cholesky_of(C0, A);
 }
 
 void SelfAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
@@ -879,6 +953,13 @@ void NaturalGradientAdaptation::restart(const parameters::Settings &settings)
     gradient_matrix = Matrix::Zero(settings.dim, settings.dim);
     outdated_A_inv = false;
     sigma_g = 0.;
+}
+
+void NaturalGradientAdaptation::start_from(const Matrix &C0, const parameters::Settings &settings)
+{
+    Adaptation::start_from(C0, settings);
+    symmetric_root(C0, A, A_inv);
+    outdated_A_inv = false;
 }
 
 void NaturalGradientAdaptation::compute_y_into(Eigen::Ref<const Vector> z, Eigen::Ref<Vector> y)
