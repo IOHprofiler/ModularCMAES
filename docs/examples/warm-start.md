@@ -5,7 +5,8 @@ When a related problem has been solved before, its solutions can start the new r
 (WS-CMA-ES, Nomura et al. 2021), and `Settings(..., **warm_start(solutions))` starts the run from
 that distribution ([settings](../guide/settings.md#the-initial-covariance-matrix-and-warm-starting)).
 The tasks below are the paper's synthetic pair, a rotated ellipsoid whose optimum moves, in
-d = 10; the cold start is the paper's N(0.5, 0.2²) in every coordinate.
+d = 10; the cold start is the paper's N(0.5, 0.2²) in every coordinate. The
+[second part](#the-papers-synthetic-experiment) repeats the paper's own experiment, in d = 2.
 
 ```python
 --8<-- "examples/warm_start.py"
@@ -38,3 +39,44 @@ CMA-ES run       0.02, rotated     3451  3436         3431
 * **Related tasks only.** When the target has another rotation, the shape of the source is wrong
   for it and the warm start needs 2% more evaluations than the cold start. The paper measures the
   similarity of two tasks (its γ-similarity); the warm start helps when it is positive.
+
+## The paper's synthetic experiment
+
+The paper measures the warm start on two 2-D problems (Nomura et al. 2021, Section 4.1, Appendices
+A and B, Table 1): the sphere (x₁ − b)² + (x₂ − b)², and the rotated ellipsoid f_ell(R x) with
+f_ell(y) = (y₁ − b)² + 25 (y₂ − b)² and R the rotation by π/6. The target task has b = 0.6, the
+source tasks b = 0.4 to 0.8. λ = 8, α = γ = 0.1, the cold start N(0.5, 0.2²), and the measure is
+the best value of the first 50 evaluations, over 20 runs. The paper does not say how many source
+solutions it used here; the script assumes a random search of 100 points in [0, 1]², the number of
+its hyperparameter experiments.
+
+```python
+--8<-- "examples/warm_start_paper.py"
+```
+
+Output (run i = 0, ..., 19 uses the seed 1000 + i for the source points and i + 1 for the
+optimizer):
+
+```text
+Best f of the first 50 evaluations, mean ± standard error of 20 runs
+                               cold      b = 0.4      b = 0.5      b = 0.6      b = 0.7      b = 0.8
+sphere (x 1e3)
+  modcma                0.82 ± 0.33   1.7 ± 0.37 0.38 ± 0.086 0.12 ± 0.069  0.39 ± 0.11  0.95 ± 0.25
+  paper, Table 1         0.43 ± 0.1    1.3 ± 0.3  0.26 ± 0.06 0.073 ± 0.02  0.27 ± 0.07   0.82 ± 0.2
+rotated ellipsoid (x 1e2)
+  modcma                 1.8 ± 0.49  0.89 ± 0.18  0.42 ± 0.11 0.15 ± 0.044 0.15 ± 0.032  0.52 ± 0.13
+  paper, Table 1         0.25 ± 0.1  0.26 ± 0.06  0.21 ± 0.06  0.14 ± 0.05  0.15 ± 0.06   0.38 ± 0.2
+```
+
+* **The pattern of the paper holds.** The warm start is best when the source task is the target
+  (b = 0.6: 0.12 against the paper's 0.073 on the sphere, 0.15 against 0.14 on the ellipsoid), and
+  gets worse as b moves away from 0.6. On the sphere, the source b = 0.4 is worse than the cold
+  start, as in the paper.
+* **The cold start on the ellipsoid does not match the paper**: 1.8 ± 0.49 against 0.25 ± 0.1. The
+  cold start does not use `warm_start`, and `cmaes` 0.13.1 with the same protocol gives
+  1.78 ± 0.55 as well, so the difference most likely comes from a detail of the protocol that the
+  paper does not state.
+* **On the sphere modcma's values are higher than the paper's** in every column, and higher than
+  those of `cmaes` 0.13.1 with the same protocol, source points and seeds (cold start
+  0.46 ± 0.09, b = 0.6 0.084 ± 0.018), which are close to the paper's. Why modcma does worse than
+  `cmaes` in the first 50 evaluations of these 2-D problems is under investigation.
