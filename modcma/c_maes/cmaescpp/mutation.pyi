@@ -320,7 +320,7 @@ class TPA(Strategy):
     """
     Two-point step-size adaptation (`StepSizeAdaptation.TPA`).
 
-    With every population (in its first batch) the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma. With a bound correction other than NONE the two points are moved into the box like the samples (`correct_point`; with RESAMPLE both move toward m by the same factor until both are in the box, so they stay symmetric about m), as pycma passes them through its boundary handler.
+    With every population (in its first batch) the two points m + sigma dm and m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. Hansen (2008); a tie as in pycma. With a bound correction other than NONE both points move toward m by the same factor until both are in the box, so the test steps stay symmetric about m (Hansen 2008, Sec. 2.2; pycma's boundary handler moves each point on its own); `BoundCorrection.correct_point` corrects them only when m itself is outside the box.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:

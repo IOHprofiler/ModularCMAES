@@ -66,9 +66,11 @@ class BoundCorrection:
 
     def correct_point(self, xi: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], sigma: float, settings: modcma.c_maes.cmaescpp.parameters.Settings) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        A point that is not sampled from the search distribution (TPA's two points) moved into [lb, ub].
+        A point that is not sampled from the search distribution moved into [lb, ub].
 
-        As `correct_x` for the coordinates outside the bounds, without counting it in `n_out_of_bounds`. RESAMPLE cannot sample such a point again: it sets the coordinates outside on the bound they crossed, as SATURATE does (TPA first moves its two points toward the mean, symmetrically). With NONE the point is returned as it is.
+        TPA moves its two points toward the mean first, both by the same factor, until both are in the box; it uses this only when the mean itself is outside.
+
+        As `correct_x` for the coordinates outside the bounds, without counting it in `n_out_of_bounds`. RESAMPLE cannot sample such a point again: it sets the coordinates outside on the bound they crossed, as SATURATE does. With NONE the point is returned as it is.
 
         Parameters
         ----------

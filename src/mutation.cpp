@@ -284,18 +284,20 @@ symmetric_fraction(const Vector &m, const Vector &step, const Vector &lb, const 
 
 void TPA::extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) const
 {
-    // The bound correction moves the two points into the box, as the population's samples, then
-    // the integer variables are rounded (#98; they were only rounded, so TPA evaluated points
-    // outside the box and could report one as the best). pycma passes them through its boundary
-    // handler like every solution of ask() (evolution_strategy.py, ask: gp.pheno with
-    // into_bounds=boundary_handler.repair); Hansen (2008) has no bounds. RESAMPLE cannot draw the
-    // points again: both are moved toward m until both are in the box, so the test steps stay
-    // symmetric about m (Hansen 2008, Sec. 2.2); clipped (correct_point) only when m is outside.
-    // Clipping them instead solved BBOB f2 (d = 20, box +-4) in 10 to 15 of 25 runs, 25 with this.
+    // With a bound correction the two points stay in the box (#98: they were only rounded, so TPA
+    // evaluated points outside the box and could report one as the best). Both move toward m by
+    // the same factor until both are in the box: the test steps stay symmetric about m, as Hansen
+    // (2008, Sec. 2.2) chooses them. pycma passes them through its boundary handler like every
+    // solution of ask() (evolution_strategy.py, ask: gp.pheno with
+    // into_bounds=boundary_handler.repair), which moves each point on its own; so did the method
+    // of the samples here, and TPA then compared two points at different distances from m (BBOB,
+    // box +-4: TOROIDAL, UNIFORM_RESAMPLE, COTN and RESAMPLE lost 5 to 16 of 350 runs; with the
+    // shrink they solve as many as with the points outside the box). The method (correct_point)
+    // only moves the points when m itself is outside. Then the integer variables are rounded.
     const Vector &lb = p.settings.lb, &ub = p.settings.ub;
     const Float sigma = p.mutation->sigma;
     Vector step = sigma * p.adaptation->dm;
-    if (p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE)
+    if (p.settings.modules.bound_correction != parameters::CorrectionMethod::NONE)
         step *= symmetric_fraction(p.adaptation->m, step, lb, ub);
     for (const Eigen::Index k : {Eigen::Index{0}, Eigen::Index{1}})
     {

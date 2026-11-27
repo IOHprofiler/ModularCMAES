@@ -335,7 +335,7 @@ class TestIntegerVariablesInTheBox(unittest.TestCase):
 
 
 class TestTpaPointsInTheBox(unittest.TestCase):
-    """#98: TPA's two points are corrected into the box, as the population"""
+    """#98: TPA's two points stay in the box, symmetric about the mean"""
 
     lb, ub = -np.ones(3), np.ones(3)
 
@@ -379,27 +379,33 @@ class TestTpaPointsInTheBox(unittest.TestCase):
         _, X = self.tpa_points()
         self.assertFalse(np.all(inside(X, self.lb, self.ub)))
 
-    def test_resample_keeps_the_tpa_points_symmetric(self):
-        # The TPA points cannot be sampled again: with RESAMPLE both move toward m by the same
-        # factor, so they stay symmetric about m (Hansen 2008)
+    def test_tpa_points_stay_symmetric(self):
+        # Whatever the method, both points move toward m by the same factor until both are in
+        # the box, so they stay symmetric about m (Hansen 2008)
         target = np.array([0.95, -0.95, 0.95])  # inside the box, near a corner
-        es = make(3, ssa="TPA", bound_correction="RESAMPLE", lb=self.lb, ub=self.ub, budget=1500)
-        shortened = symmetric = 0
-        while True:
-            X = es.ask()
-            m = es.p.adaptation.m.copy()
-            # m itself can leave the box (a sample kept after 5 d tries): then they are clipped
-            if len(X) > 2 and np.all(inside(m[None], self.lb, self.ub)):
-                self.assertTrue(np.all(inside(X[-2:], self.lb, self.ub)))
-                np.testing.assert_allclose((X[-2] + X[-1]) / 2, m, atol=1e-12)
-                step = es.p.mutation.sigma * es.p.adaptation.dm
-                shortened += not np.allclose(X[-2] - m, step)
-                symmetric += 1
-            if es.tell([float(np.sum((x - target) ** 2)) for x in X]) and es.break_conditions():
-                break
-        self.assertGreater(symmetric, 100)
-        self.assertGreater(shortened, 0)
-        # correct_point, for a single point, clips (TPA's fallback when m is outside the box)
+        for name in CORRECTIONS + ("RESAMPLE",):
+            with self.subTest(method=name):
+                es = make(
+                    3, ssa="TPA", bound_correction=name, lb=self.lb, ub=self.ub, budget=1500
+                )
+                shortened = symmetric = 0
+                while True:
+                    X = es.ask()
+                    m = es.p.adaptation.m.copy()
+                    # m can leave the box only with RESAMPLE (a sample kept after 5 d tries):
+                    # then the method corrects the points
+                    if len(X) > 2 and np.all(inside(m[None], self.lb, self.ub)):
+                        self.assertTrue(np.all(inside(X[-2:], self.lb, self.ub)))
+                        np.testing.assert_allclose((X[-2] + X[-1]) / 2, m, atol=1e-12)
+                        step = es.p.mutation.sigma * es.p.adaptation.dm
+                        shortened += not np.allclose(X[-2] - m, step)
+                        symmetric += 1
+                    f = [float(np.sum((x - target) ** 2)) for x in X]
+                    if es.tell(f) and es.break_conditions():
+                        break
+                self.assertGreater(symmetric, 100)
+                self.assertGreater(shortened, 0)
+        # correct_point (TPA's fallback when m is outside the box): RESAMPLE clips
         es = make(3, ssa="TPA", bound_correction="RESAMPLE", lb=self.lb, ub=self.ub)
         x = np.array([2.0, -0.5, -3.0])
         np.testing.assert_array_equal(

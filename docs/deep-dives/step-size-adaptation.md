@@ -52,15 +52,16 @@ and damps the update by 0.7 + 2 ln d + …; modcma follows the Python implementa
 the rank difference in pycma. Before 2.0 a tie counted as a success: σ grew by 16 % after every
 restart, and diverged with elitism.
 
-**Bounds.** With a bound correction the two points are corrected as the samples are, then their
-integer coordinates are rounded. pycma passes them through its boundary handler like every other
-solution; Hansen (2008) has no bounds. `RESAMPLE` cannot draw a point again: both points move
-toward m by the same factor until both are in the box, so the test steps stay symmetric about m,
-as Hansen (2008) argues for (Sec. 2.2); clipping them instead solved f2 (d = 20, box ±4) in 10 to
-15 of 25 runs, this in 25. The other methods can move a point off the line through m; on BBOB
-(box ±4) `TOROIDAL` and `UNIFORM_RESAMPLE` reached 1e-8 in 16 and 13 fewer of 350 runs than with
-the points left outside the box. The points were only rounded before, so TPA evaluated points
-outside the box, and one could be reported as the best (#98).
+**Bounds.** With a bound correction other than `NONE`, both points move toward m by the same
+factor until both are in the box, then their integer coordinates are rounded. The test steps stay
+symmetric about m, as Hansen (2008, Sec. 2.2) chooses them; Hansen (2008) has no bounds. pycma
+passes them through its boundary handler like every other solution, which moves each point on
+its own. Corrected one by one with the method of the samples, TPA compared two points at
+different distances from m and lost runs on BBOB (box ±4): `TOROIDAL` and `UNIFORM_RESAMPLE`
+reached 1e-8 in 16 and 13 fewer of 350 runs than with the points left outside the box, and
+clipped points (for `RESAMPLE`) solved f2 (d = 20) in 10 to 15 of 25 runs instead of 25. The
+method moves the points only when m itself is outside the box. The points were only rounded
+before, so TPA evaluated points outside the box, and one could be reported as the best (#98).
 
 ## MSR: median success rule
 

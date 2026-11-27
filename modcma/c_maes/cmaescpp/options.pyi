@@ -130,7 +130,7 @@ class StepSizeAdaptation(enum.Enum):
 
     TPA = 1
     """
-    Two-point step-size adaptation (Hansen 2008): two extra points m +- sigma * dm along the last step dm of the mean are evaluated every generation (two more evaluations); sigma grows when the point ahead is the better one. The bound correction moves the two points into the box (RESAMPLE moves both toward m, symmetrically).
+    Two-point step-size adaptation (Hansen 2008): two extra points m +- sigma * dm along the last step dm of the mean are evaluated every generation (two more evaluations); sigma grows when the point ahead is the better one. With a bound correction both points move toward m, symmetrically, until both are in the box.
     """
 
     MSR = 2

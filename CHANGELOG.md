@@ -240,7 +240,7 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   Sendhoff 2008; Spettel, Beyer & Hellwig 2018, Table I), for the one step size per point (#71);
   it was 1/√(2µ_eff). `LPXNES` keeps ln 2/(√d ln d) (Krause et al. 2017), `sample_sigma` with the
   other rules 1/√(2µ_eff).
-* Internal: `BoundCorrection.correct_point` corrects a point that is not a sample (TPA's, #98);
+* Internal: `BoundCorrection.correct_point` corrects a point that is not a sample (TPA uses it when the mean is outside the box, #98);
   `SigmaSampler(dimension)` no longer uses the dimension (one step size per individual, #71).
 
 ### Fixed
@@ -336,9 +336,9 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   mixed-integer ellipsoid (d = 10, 5 integer variables) the median evaluations fell from 6351 to
   2461 (25 runs) (#71, F14).
 * TPA's two points were not bound-corrected: TPA evaluated points outside the box, and one could
-  be reported as the best. They are corrected by the bound correction now, as pycma passes them
-  through its boundary handler; with `RESAMPLE` both move toward the mean by the same factor
-  until both are in the box (#98).
+  be reported as the best. With a bound correction both now move toward the mean by the same
+  factor until both are in the box, so the test steps stay symmetric (Hansen 2008); corrected one
+  by one by the method (as pycma's boundary handler does), TPA lost runs (#98).
 * PSR ranked equal values in the order of the previous generation's ranking, so the same values
   gave a different step size depending on the history (with elitism the parents are in both
   generations). Equal values now share their mean rank (mid-ranks), so a tie counts for neither

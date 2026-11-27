@@ -79,13 +79,12 @@ algorithms.
   recomputed in the current distribution with the generation's σ. `MSR`, `PSR` and `TPA` then
   compare against the elite. With `PSR` the parents are in both generations it ranks; equal
   values share their mean rank, so a parent counts for neither generation (#120).
-* **TPA with a bound correction.** Its two points m ± σΔm are corrected as the samples are (#98);
-  `RESAMPLE`, which cannot draw them again, moves both toward m by the same factor until both
-  are in the box, so they stay symmetric about m. `MIRROR`, `TOROIDAL`, `COTN`
-  and `UNIFORM_RESAMPLE` can move a point off the line through m, and TPA then compares two points
-  at different distances from m: on BBOB in a box of ±4 (7 functions, d = 5 and 20), `TOROIDAL`
-  and `UNIFORM_RESAMPLE` reached 1e-8 in 16 and 13 fewer of 350 runs than with the points left
-  outside the box.
+* **TPA with a bound correction.** Its two points m ± σΔm are not corrected by the method:
+  whatever the method, both move toward m by the same factor until both are in the box, so TPA
+  still compares two points at the same distance from m (#98). The method corrects them only
+  when m itself is outside the box. Corrected one by one, as the samples, they lost runs: on BBOB
+  in a box of ±4 (7 functions, d = 5 and 20), `TOROIDAL` and `UNIFORM_RESAMPLE` reached 1e-8 in
+  16 and 13 fewer of 350 runs than with the points left outside the box.
 * **Sequential selection** stops a generation at the first point better than the best of the
   previous generation. With elitism that is the best of the run so far.
 * **Orthogonal sampling** orthogonalizes the n independent samples of each generation (n = λ,
@@ -126,8 +125,7 @@ algorithms.
 
     With `ssa` other than `CSA`, and with λ = 1, `COVARIANCE` becomes `COVARIANCE_NO_EIGV`, and so
     loses `ConditionC` and `NoEffectAxis` (unless `always_compute_eigv=True`).
-* **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is. TPA's two points,
-  which are not drawn, move toward the mean instead (both by the same factor).
+* **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is.
 * **`C0`** is the matrix of the first generation of every run, the first and each restart. Every
   matrix adaptation but `NONE` starts from a factor of it
   ([deep dive](../deep-dives/matrix-adaptations.md#the-initial-matrix-c0)); `TolX`, `ConditionC`

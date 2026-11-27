@@ -42,7 +42,7 @@ coordinate inside `[lb, ub]` is rounded to the nearest integer in [⌈lb⌉, ⌊
 the box also when a bound is not an integer: with lb = 0.3, the value 0.4 becomes 1, not 0. A
 coordinate outside the box (only with `bound_correction="NONE"`, or after the last try of
 `RESAMPLE`) is rounded to the nearest integer. With integer bounds this is plain rounding. The two
-test points of TPA are corrected and rounded as the samples are.
+test points of TPA are moved into the box (toward the mean) and then rounded.
 
 An integer variable needs an integer in `[lb, ub]`: `Settings` raise a `ValueError` when
 [⌈lb⌉, ⌊ub⌋] is empty, as for lb = 0.6, ub = 0.9. For bounds set after construction, the

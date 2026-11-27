@@ -46,7 +46,7 @@ The current step size is `es.p.mutation.sigma`; the method's state and parameter
 | value | |
 |---|---|
 | `CSA` | Cumulative step-size adaptation (Hansen & Ostermeier 2001), the default: sigma grows when the evolution path p_sigma is longer than expected under random selection and shrinks when it is shorter. |
-| `TPA` | Two-point step-size adaptation (Hansen 2008): two extra points m +- sigma * dm along the last step dm of the mean are evaluated every generation (two more evaluations); sigma grows when the point ahead is the better one. The bound correction moves the two points into the box (RESAMPLE moves both toward m, symmetrically). |
+| `TPA` | Two-point step-size adaptation (Hansen 2008): two extra points m +- sigma * dm along the last step dm of the mean are evaluated every generation (two more evaluations); sigma grows when the point ahead is the better one. With a bound correction both points move toward m, symmetrically, until both are in the box. |
 | `MSR` | Median success rule (Ait ElHara et al. 2013): counts the individuals that are better than the 0.3 lambda-th best of the previous generation; sigma grows when more than half are. |
 | `XNES` | The step-size update of xNES (Glasmachers et al. 2010), from the weighted squared lengths of the samples; with NATURAL_GRADIENT, from its natural gradient. |
 | `MXNES` | A variant of the xNES update from the length of the weighted mean of the selected samples, mueff \|\|sum w_i z_i\|\|^2 - d, instead of their individual lengths (m-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules"). |

@@ -1431,12 +1431,14 @@ void define_bounds(nb::module_ &main)
              nb::arg("xi"),
              nb::arg("sigma"),
              nb::arg("settings"),
-             "A point that is not sampled from the search distribution (TPA's two points) moved "
-             "into [lb, ub].\n\n"
+             "A point that is not sampled from the search distribution moved into "
+             "[lb, ub].\n\n"
+             "TPA moves its two points toward the mean first, both by the same factor, until "
+             "both are in the box; it uses this only when the mean itself is outside.\n\n"
              "As `correct_x` for the coordinates outside the bounds, without counting it in "
              "`n_out_of_bounds`. RESAMPLE cannot sample such a point again: it sets the "
-             "coordinates outside on the bound they crossed, as SATURATE does (TPA first moves "
-             "its two points toward the mean, symmetrically). With NONE the point is returned "
+             "coordinates outside on the bound they crossed, as SATURATE does. With NONE the "
+             "point is returned "
              "as it is.\n\n"
              "Parameters\n"
              "----------\n"
@@ -1848,9 +1850,10 @@ void define_mutation(nb::module_ &main)
         "with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as "
         "after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per "
         "generation. Hansen (2008); a tie as in pycma. With a bound correction other than "
-        "NONE the two points are moved into the box like the samples (`correct_point`; "
-        "with RESAMPLE both move toward m by the same factor until both are in the box, so "
-        "they stay symmetric about m), as pycma passes them through its boundary handler.")
+        "NONE both points move toward m by the same factor until both are in the box, so the "
+        "test steps stay symmetric about m (Hansen 2008, Sec. 2.2; pycma's boundary handler "
+        "moves each point on its own); `BoundCorrection.correct_point` corrects them only "
+        "when m itself is outside the box.")
         .def_rw("a_tpa", &TPA::a_tpa, "The magnitude of r (default 0.5).")
         .def_rw("b_tpa",
                 &TPA::b_tpa,
