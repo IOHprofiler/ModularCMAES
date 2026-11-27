@@ -279,8 +279,8 @@ def pycma_regimes(run_lengths):
 class TestBIPOP(unittest.TestCase):
     RUNS = [800, 3000, 400, 900, 2500, 10, 60_000, 7000, 7000, 7000, 7000, 30_000, 1, 1]
 
-    def scripted(self, run_lengths, **kwargs):
-        es = optimizer("COVARIANCE", d=5, restart_strategy="BIPOP", budget=10**9, **kwargs)
+    def scripted(self, run_lengths, budget=10**9, **kwargs):
+        es = optimizer("COVARIANCE", d=5, restart_strategy="BIPOP", budget=budget, **kwargs)
         strategy = es.p.restart_strategy
         lambda0 = es.p.settings.lambda0
         regimes, lambdas, max_iters = [], [], []
@@ -308,6 +308,16 @@ class TestBIPOP(unittest.TestCase):
                 # between lambda0 and the last large population
                 self.assertTrue(lambda0 <= lam <= lambda0 * 2**n_large, (lam, n_large))
                 self.assertEqual(max_iter, int(cap / lam))
+
+    def test_a_run_longer_than_half_the_budget(self):
+        # Before: the rest of the budget after the first run (9000) was split into halves; the
+        # large run of 8000 left its half at 4500 - 8000, which wrapped around to about 2^64
+        runs = [1000, 8000, 3000, 500, 4000]
+        es, _, regimes, _, _ = self.scripted(runs, budget=10_000)
+        self.assertEqual(regimes, pycma_regimes(runs)[0])
+        strategy = es.p.restart_strategy
+        self.assertEqual(strategy.used_large, 8000)
+        self.assertEqual(strategy.used_small, 1000 + 3000 + 500 + 4000)
 
     def test_the_counters_never_wrap(self):
         # A run that uses more than half the remaining budget wrapped the regime's budget left
