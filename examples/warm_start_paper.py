@@ -12,6 +12,9 @@ coordinate. The target task has b = 0.6, the source tasks b = 0.4, ..., 0.8:
 The source solutions are a random search of 100 points, uniform in [0, 1]^2: an assumption, since
 the paper gives the number of source points only for its hyperparameter experiments (100). Seeds:
 run i (0..19) uses seed 1000 + i for the source points and seed i + 1 for the optimizer.
+
+Every run, cold and warm, uses the active update: the paper's CMA-ES is pycma with its default
+options (Appendix A), which include the active update (CMA_active=True); modcma's default does not.
 """
 
 import numpy as np
@@ -53,8 +56,9 @@ def best_of_first_evaluations(f, seed, x0, sigma0, C0=None):
         values.append(f(x))
         return values[-1]
 
-    settings = modcma.Settings(
-        D, x0=x0, sigma0=sigma0, C0=C0, lambda0=LAMBDA, budget=2 * EVALUATIONS, seed=seed
+    settings = modcma.settings_from_dict(
+        D, active=True, x0=x0, sigma0=sigma0, C0=C0, lambda0=LAMBDA, budget=2 * EVALUATIONS,
+        seed=seed,
     )
     modcma.ModularCMAES(settings).run(recorded)
     return min(values[:EVALUATIONS])
@@ -68,7 +72,7 @@ def mean_and_error(values, scale):
 def main():
     print(f"Best f of the first {EVALUATIONS} evaluations, mean ± standard error of {RUNS} runs")
     sources = (0.4, 0.5, 0.6, 0.7, 0.8)
-    print(f"{'':22s}{'cold':>13s}" + "".join(f"{f'b = {b}':>13s}" for b in sources))
+    print(f"{'':22s}{'cold':>14s}" + "".join(f"{f'b = {b}':>14s}" for b in sources))
     problems = [("sphere", sphere, 3), ("rotated ellipsoid", rotated_ellipsoid, 2)]
     for name, problem, exponent in problems:
         scale = 10.0**exponent
@@ -84,8 +88,8 @@ def main():
                 warm.append(best_of_first_evaluations(target, i + 1, **ws))
             row.append(mean_and_error(warm, scale))
         print(f"{name} (x 1e{exponent})")
-        print(f"  {'modcma':20s}" + "".join(f"{v:>13s}" for v in row))
-        print(f"  {'paper, Table 1':20s}" + "".join(f"{v:>13s}" for v in PAPER[name]))
+        print(f"  {'modcma':20s}" + "".join(f"{v:>14s}" for v in row))
+        print(f"  {'paper, Table 1':20s}" + "".join(f"{v:>14s}" for v in PAPER[name]))
 
 
 if __name__ == "__main__":
