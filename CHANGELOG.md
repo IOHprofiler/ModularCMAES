@@ -156,6 +156,13 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   * **IPOP:** the population size is limited to 2⁹ λ₀ (was (d λ₀)²).
   * **Pairwise selection with the active update:** the losers of the mirrored pairs get no negative
     weights, as in pycma.
+* **CSA's learning rate** is cs = (µ_eff + 2)/(d + µ_eff + 5), as in Hansen's tutorial
+  (arXiv:1604.00772v2, Table 1, Eq. (55)), `cmaes` and modcma 1.0. modcma 1.1 and 1.2 had pycma's
+  d + µ_eff + 3, without pycma's cap of cs at 1/2 (#138). The rate of the step-size update,
+  cs/damps, is 15 %, 12 % and 6 % smaller at d = 2, 5 and 20 with the default λ. Every
+  configuration with CSA changes; on BBOB (d = 2, 5, 20) the median number of evaluations changes
+  by +1 % (geometric mean), threshold convergence needs 9–52 % fewer evaluations on the unimodal
+  functions at d = 2 and 5, and the other step-size rules are unchanged.
 * **The end of a run** (#111): every run ends with an evaluation of its center of mass, also when
   the optimizer stops (it was evaluated only at a restart). The budget always keeps that
   evaluation: a generation runs only when it leaves one, `Settings` rejects a budget smaller than

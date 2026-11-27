@@ -2,8 +2,8 @@
 
 All learning rates below are modcma's defaults (`es.p.weights`): c1 = 2/((d+1.3)² + µ_eff),
 cµ = min(1 − c1, 2(µ_eff − 2 + 1/µ_eff)/((d+2)² + µ_eff)), cc = (4 + µ_eff/d)/(d + 4 + 2µ_eff/d),
-cs = (µ_eff + 2)/(d + µ_eff + 3) (pycma's value; the tutorial has + 5 in the denominator), and
-damps = 1 + 2 max(0, √((µ_eff − 1)/(d + 1)) − 1) + cs.
+cs = (µ_eff + 2)/(d + µ_eff + 5) and damps = 1 + 2 max(0, √((µ_eff − 1)/(d + 1)) − 1) + cs
+(Hansen 2016, Table 1, Eq. (55), as in its 2023 revision, arXiv:1604.00772v2).
 
 ## COVARIANCE: CMA-ES
 
@@ -20,7 +20,8 @@ d/‖C^-1/2 y‖², as in Hansen 2016). C is updated every generation; the eigen
 
 * The active update is off by default (`active=False`); the tutorial's default weights and pycma
   (`CMA_active=True`) include it.
-* cs uses + 3 (pycma) instead of the tutorial's + 5.
+* cs is the tutorial's; pycma has d + µ_eff + 3 in the denominator and caps cs at 1/2 (modcma 1.1
+  and 1.2 had pycma's formula without the cap).
 * pycma adds an offset to cµ (0.0236 against modcma's 0.0202 at d = 10), scales c1 for small λ, and
   tests h_σ with the squared path length.
 * h_σ's bias correction, 1 − (1 − cs)^(2(g+1)), counts the generations g of the current run, as
@@ -140,13 +141,13 @@ The step-size path of CSA is still computed with `ssa=XNES` (unused).
 ## NONE: CSA-ES
 
 No matrix adaptation (C = I): only the step size is adapted, with the CMA-ES defaults of cs and
-damps; the active update is off. The same as pycma with `CMA_on=False`.
+damps; the active update is off. The same as pycma with `CMA_on=False`, but for pycma's cs.
 
 ## Summary
 
 | matrix adaptation | named after | closest configuration | main remaining differences |
 |---|---|---|---|
-| `COVARIANCE` | CMA-ES (Hansen 2016, pycma) | `active=True` | cs + 3; pycma's cµ offset and h_σ form |
+| `COVARIANCE` | CMA-ES (Hansen 2016, pycma) | `active=True` | pycma's cs (+ 3, capped at 1/2), cµ offset and h_σ form |
 | `COVARIANCE_NO_EIGV` | (none) | with a step-size rule other than CSA | rotated step-size path |
 | `SEPARABLE` | sep-CMA-ES (Ros & Hansen 2008) | defaults | c1, cc not scaled |
 | `MATRIX` | MA-ES (Beyer & Sendhoff 2017) | defaults | CMA-ES learning rates |

@@ -11,5 +11,5 @@ evaluation, and their step size has a lower bound so the search keeps moving bet
 Output:
 
 ```text
-best x = [ 7.         12.          0.40540541 -1.25      ], f = 0.141892, after 4992 evaluations
+best x = [ 7.         12.          0.40540541 -1.25      ], f = 0.141892, after 4993 evaluations
 ```

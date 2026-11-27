@@ -33,8 +33,11 @@ static Float get_default_cs(const Settings &settings, const Float mueff, const F
     case StepSizeAdaptation::SR:
         return 2.0 / (d + 2.0);
     case StepSizeAdaptation::CSA:
-        // pycma's value; the tutorial (Hansen 2016) has d + mueff + 5
-        return (mueff + 2) / (d + (mueff + 3.0));
+        // c_sigma = (mueff + 2) / (n + mueff + 5), without a cap: Hansen, The CMA Evolution
+        // Strategy: A Tutorial, arXiv:1604.00772v2 (2023), Table 1, Eq. (55), and its MATLAB code
+        // (line 30); `cmaes` 0.13 has the same. pycma 4.6 uses n + mueff + 3 and caps cs at 1/2
+        // (sigma_adaptation.py:235, 422); modcma follows the tutorial (#138)
+        return (mueff + 2.0) / (d + mueff + 5.0);
     default:
         return 0.3;
     }
@@ -54,6 +57,8 @@ get_default_damps(const Settings &settings, const Float mueff, const Float d, co
         // d_sigma = 1 (Loshchilov 2014, Alg. 6)
         return 1.0;
     case StepSizeAdaptation::CSA: {
+        // d_sigma = 1 + 2 max(0, sqrt((mueff - 1) / (n + 1)) - 1) + c_sigma (Hansen,
+        // arXiv:1604.00772v2, Table 1, Eq. (55))
         const Float rhs = std::sqrt((mueff - Float(1.0)) / (d + 1)) - 1;
         return 1.0 + (2.0 * std::max(Float(0.0), rhs) + cs);
     }

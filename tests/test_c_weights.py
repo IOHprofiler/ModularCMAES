@@ -87,5 +87,53 @@ class TestUtilityWeights(unittest.TestCase):
             self.assertLessEqual(es.p.stats.global_best.y, 1e-8, option)
 
 
+class TestCSALearningRates(unittest.TestCase):
+    """cs and damps of CSA: Hansen, The CMA Evolution Strategy: A Tutorial, arXiv:1604.00772v2,
+    Table 1, Eq. (55), without pycma's cap of cs at 1/2 (#138)."""
+
+    @staticmethod
+    def tutorial(d, lam):
+        mu = lam // 2
+        w = math.log((lam + 1) / 2) - np.log(np.arange(1, mu + 1))
+        mueff = w.sum() ** 2 / (w**2).sum()
+        cs = (mueff + 2) / (d + mueff + 5)
+        damps = 1 + 2 * max(0.0, math.sqrt((mueff - 1) / (d + 1)) - 1) + cs
+        return cs, damps
+
+    def test_defaults_follow_the_tutorial(self):
+        # d = 2, lambda = 8: cs = 0.4792 (pycma 0.5, its cap; modcma 1.1 and 1.2 0.6053);
+        # d = 5, lambda = 512: cs = 0.94, above pycma's cap
+        for d, lam in ((2, 8), (2, 6), (5, 8), (10, 10), (20, 12), (5, 512), (2, 100)):
+            w = modcma.ModularCMAES(modcma.Settings(d, lambda0=lam)).p.weights
+            cs, damps = self.tutorial(d, lam)
+            self.assertAlmostEqual(w.cs, cs, places=14, msg=(d, lam))
+            self.assertAlmostEqual(w.damps, damps, places=14, msg=(d, lam))
+        self.assertAlmostEqual(self.tutorial(2, 8)[0], 0.4792, places=4)
+        self.assertGreater(self.tutorial(5, 512)[0], 0.94)
+
+    def test_ipop_recomputes_them_for_the_larger_population(self):
+        def rastrigin(x):
+            return float(10 * len(x) + np.sum(x**2 - 10 * np.cos(2 * np.pi * x)))
+
+        settings = modcma.settings_from_dict(5, restart_strategy="IPOP", budget=20_000, seed=1)
+        es = modcma.ModularCMAES(settings)
+        es.run(rastrigin)
+        self.assertGreater(es.p.lamb, 8)
+        cs, damps = self.tutorial(5, es.p.lamb)
+        self.assertAlmostEqual(es.p.weights.cs, cs, places=14)
+        self.assertAlmostEqual(es.p.weights.damps, damps, places=14)
+
+    def test_other_rules_keep_their_cs(self):
+        d = 10
+        for ssa, cs in (("SR", 2 / (d + 2)), ("XNES", 0.01), ("MXNES", 1.0), ("TPA", 0.3)):
+            w = modcma.ModularCMAES(modcma.settings_from_dict(d, ssa=ssa)).p.weights
+            self.assertAlmostEqual(w.cs, cs, msg=ssa)
+
+    def test_an_explicit_cs_is_kept(self):
+        w = modcma.ModularCMAES(modcma.Settings(5, cs=0.7)).p.weights
+        self.assertEqual(w.cs, 0.7)
+        self.assertAlmostEqual(w.damps, 1.7)
+
+
 if __name__ == "__main__":
     unittest.main()

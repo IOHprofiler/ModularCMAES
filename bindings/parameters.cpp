@@ -484,14 +484,17 @@ void define_parameters(nb::module_ &main)
         .def_rw("cs",
                 &Weights::cs,
                 "The learning rate of the step-size adaptation.\n\n"
-                "Default by ssa: CSA (mueff + 2) / (d + mueff + 3); SR 2 / (d + 2); XNES 0.01; "
-                "MXNES 1; LPXNES 9 mueff / (10 sqrt(d)); otherwise (TPA, MSR, PSR, SA) 0.3. With "
-                "matrix_adaptation NATURAL_GRADIENT (any ssa): (9 + 3 ln(d)) / (5 d sqrt(d)).")
+                "Default by ssa: CSA (mueff + 2) / (d + mueff + 5) (Hansen, The CMA Evolution "
+                "Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55); pycma uses d + "
+                "mueff + 3 and caps cs at 1/2); SR 2 / (d + 2); XNES 0.01; MXNES 1; LPXNES 9 mueff "
+                "/ (10 sqrt(d)); otherwise (TPA, MSR, PSR, SA) 0.3. With matrix_adaptation "
+                "NATURAL_GRADIENT (any ssa): (9 + 3 ln(d)) / (5 d sqrt(d)).")
         .def_rw("damps",
                 &Weights::damps,
                 "The damping of the step-size update.\n\n"
-                "Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs; for SR "
-                "1 + d / 2; for MSR max(1, 2 - 2 / d); otherwise (PSR among them) 1.")
+                "Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs (Hansen, "
+                "arXiv:1604.00772v2, Table 1, Eq. (55)); for SR 1 + d / 2; for MSR max(1, 2 - 2 / "
+                "d); otherwise (PSR among them) 1.")
         .def_rw("sqrt_cc_mueff",
                 &Weights::sqrt_cc_mueff,
                 "sqrt(cc (2 - cc) mueff_mean): the normalisation of the update of the path pc "
@@ -722,7 +725,8 @@ void define_parameters(nb::module_ &main)
             "size has a lower bound. Each needs an integer value in [lb, ub]. Default: none.\n"
             "cs : float, optional\n"
             "    The learning rate of the step-size adaptation. Default depends on ssa (see "
-            "Weights.cs); for CSA (mueff + 2) / (dim + mueff + 3).\n"
+            "Weights.cs); for CSA (mueff + 2) / (dim + mueff + 5) (Hansen, The CMA Evolution "
+            "Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55)).\n"
             "cc : float, optional\n"
             "    The learning rate of the evolution path pc. Default (4 + mueff / dim) / (dim + "
             "4 + 2 mueff / dim) (see Weights.cc).\n"

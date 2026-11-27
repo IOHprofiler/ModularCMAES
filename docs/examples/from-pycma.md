@@ -11,9 +11,11 @@ almost one to one:
 
 Differences to keep in mind:
 
-* **Defaults.** pycma uses the active covariance update by default; modcma does not
-  (`active=True`). pycma's default bounds are none; modcma's default box is [−5, 5]^d, which matters
-  only with a `bound_correction` other than `NONE`, or for `center_placement` other than `X0`.
+* **Defaults.** pycma (`CMA_active=True`) and `cmaes` use the active covariance update by default;
+  modcma does not, since its default is the baseline of the framework paper. To compare modcma with
+  pycma or `cmaes`, set `active=True`. pycma's default bounds are none; modcma's default box is
+  [−5, 5]^d, which matters only with a `bound_correction` other than `NONE`, or for
+  `center_placement` other than `X0`.
 * **Shapes.** `ask()` returns a `(k, d)` numpy array (pycma: a list of arrays), and `tell` takes only
   the values (`tell(f)`), or the values and the points when they differ from the asked ones
   (`tell(f, X)`; pycma: `tell(X, f)`).
