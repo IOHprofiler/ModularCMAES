@@ -88,7 +88,7 @@ class TestTuning(unittest.TestCase):
             numeric = {}
             for name in NUMERIC + ("sigma0",):
                 if rng.random() < 0.5:
-                    numeric[name] = rng.uniform(0.01, 0.9)
+                    numeric[name] = rng.uniform(0.01, 0.45)  # c1 + cmu <= 1 (#147)
                 else:
                     numeric[name] = defaults[name]  # the default of the modules
             settings = c_maes.settings_from_config(dim, {**modules, **numeric})

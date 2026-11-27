@@ -148,6 +148,13 @@ class TestSettingsSetters(unittest.TestCase):
         "target": [float("nan")],
         "sigma0": [0.0, -1.0, float("nan"), float("inf")],
         "budget": [0, 1],
+        "max_generations": [0],
+        "cs": [0.0, -0.5, 1.5, 3.0, float("nan"), float("inf")],
+        "cc": [0.0, -0.5, 1.5, float("nan")],
+        "c1": [-0.1, 1.5, 2.0, float("nan"), float("inf")],
+        "cmu": [-0.1, 1.5, float("nan"), float("inf")],
+        "damps": [0.0, -1.0, float("nan")],
+        "acov": [0.0, -2.0, float("nan"), float("inf")],
         "x0": [np.zeros(2), np.array([0.0, np.nan, 0.0]), np.array([np.inf, 0.0, 0.0])],
         "lb": [np.zeros(2), np.array([0.0, np.nan, 0.0]), np.array([np.inf, 0.0, 0.0])],
         "ub": [np.zeros(4), np.array([np.nan, 0.0, 0.0]), np.array([0.0, -np.inf, 0.0])],
@@ -289,6 +296,49 @@ class TestSettingsSetters(unittest.TestCase):
                     self.assertEqual(a.stats.evaluations, b.stats.evaluations)
                     self.assertEqual(a.stats.global_best.y, b.stats.global_best.y)
                     np.testing.assert_array_equal(a.adaptation.m, b.adaptation.m)
+
+
+class TestLearningRates(unittest.TestCase):
+    """#147: the learning rates, the damping and max_generations; the bounds are Hansen (2016)"""
+
+    VALID = {
+        "max_generations": [1, 10],
+        "cs": [None, 1e-6, 0.5, 1.0],
+        "cc": [None, 1e-6, 1.0],
+        "c1": [None, 0.0, 0.3, 1.0],
+        "cmu": [None, 0.0, 0.3, 1.0],
+        "damps": [None, 1e-3, 1.0, 100.0, float("inf")],
+        "acov": [None, 1e-3, 2.0, 100.0],
+    }
+
+    def test_boundary_values_are_accepted_and_run(self):
+        for name, values in self.VALID.items():
+            for value in values:
+                with self.subTest(name=name, value=value):
+                    settings = Settings(3, budget=300, **{name: value})
+                    other = Settings(3, budget=300)
+                    setattr(other, name, value)
+                    self.assertEqual(getattr(settings, name), getattr(other, name))
+                    ModularCMAES(other).run(lambda x: float(np.sum(x**2)))
+
+    def test_the_sum_c1_cmu_is_checked_at_creation(self):
+        with self.assertRaisesRegex(ValueError, "c1 \\+ cmu"):
+            Settings(3, c1=0.6, cmu=0.6)
+        settings = Settings(3, c1=0.6)
+        settings.cmu = 0.6  # the setter checks its own field only
+        with self.assertRaisesRegex(ValueError, "c1 \\+ cmu"):
+            ModularCMAES(settings)
+        settings.cmu = 0.4
+        ModularCMAES(settings)
+        Settings(3, c1=0.5, cmu=0.5)
+
+    def test_a_failed_setter_changes_nothing(self):
+        settings = Settings(3, cs=0.5)
+        with self.assertRaisesRegex(ValueError, "cs"):
+            settings.cs = 2.0
+        self.assertEqual(settings.cs, 0.5)
+        settings.cs = None
+        self.assertIsNone(settings.cs)
 
 
 class TestBudget(unittest.TestCase):

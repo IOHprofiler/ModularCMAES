@@ -15,10 +15,10 @@ other argument is a keyword argument with a default:
 | `lb`, `ub` | −5 and 5 in every coordinate | the bounds, arrays of length d ([bounds](bound-correction.md)) |
 | `budget` | 10 000 × d | the maximum number of evaluations; at least the first generation (λ, and TPA's two points) and the evaluation of the final center of mass |
 | `target` | none | stop when the best value is at or below the target (not NaN) |
-| `max_generations` | none | stop after this many generations |
+| `max_generations` | none | stop after this many generations, at least 1 |
 | `lambda0` | 4 + ⌊3 ln d⌋ | the population size λ, at least 1 (1 is the (1+1)-ES; 2 and 3 work poorly with many modules, see [compatibility](compatibility.md)) |
 | `mu0` | λ / 2 (λ / 4 with `ssa=SA` or CMSA) | the number of parents µ, at least 1 and at most λ |
-| `cs`, `cc`, `cmu`, `c1`, `damps`, `acov` | from d, λ and µ (Hansen 2016) | learning rates and damping of the step-size and covariance updates |
+| `cs`, `cc`, `cmu`, `c1`, `damps`, `acov` | from d, λ and µ (Hansen 2016) | learning rates and damping of the step-size and covariance updates: `cs`, `cc` in (0, 1], `c1`, `cmu` in [0, 1] with `c1 + cmu` ≤ 1, `damps`, `acov` > 0 (ValueError otherwise; Hansen 2016). Other values work, some poorly: they are not rejected |
 | `integer_variables` | none | indices of integer variables ([integer variables](integer-variables.md)) |
 | `seed` | none (copy the global generator) | the seed of the optimizer's random generator ([reproducibility](reproducibility.md)) |
 | `fast_sampling` | `False` | a faster random generator and normal sampler, with a different random stream ([performance](performance.md)) |
@@ -53,8 +53,10 @@ print(es.p.lamb, es.p.mu, es.p.weights.mueff)
 
 The fields can also be set after construction. A setter checks only its own field: a wrong
 length, NaN, a lower bound of +∞ or an upper bound of −∞, a non-finite `x0`, a NaN `target`, a
-non-positive `sigma0`, `lambda0` or `mu0` of 0, a budget below 2. The checks between fields (`lb` ≤ `ub`, the
-integer variables in the box, `mu0` ≤ `lambda0`, the budget against the first generation) run in
+non-positive `sigma0`, `lambda0` or `mu0` of 0, a budget below 2, `max_generations` of 0, `cs` or `cc`
+outside (0, 1], `c1` or `cmu` outside [0, 1], a non-positive `damps` or `acov`. The checks between
+fields (`lb` ≤ `ub`, the integer variables in the box, `mu0` ≤ `lambda0`, the budget against the
+first generation, `c1 + cmu` ≤ 1 when both are given) run in
 the constructor and again when an optimizer is created from the settings (`ModularCMAES(settings)`
 or `Parameters(settings)`), so the fields can be set in any order:
 
@@ -73,6 +75,10 @@ Setting a field recomputes what is derived from it: `lb` and `ub` recompute `db`
 of the constructor. The optimizer rejects what they would have changed: an odd `lambda0` with
 mirrored `PAIRWISE`, and a change of `lambda0` to or from 1 (the (1+1)-ES is set up by the
 constructor). Changes of `settings.modules` in place are not adjusted either.
+
+`es.p.settings` is the optimizer's own copy and can be assigned (`es.p.settings.cs = 3`): that
+assignment is not checked and does not recompute anything. Set the fields before the optimizer is
+created.
 
 The values actually used (after defaults and [adjustments](modules.md#combinations-that-are-adjusted))
 are on the optimizer: `es.p.settings` for the settings and modules, `es.p.lamb` and `es.p.mu` for the
