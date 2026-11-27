@@ -50,10 +50,10 @@ tuner does not spend evaluations on it.
 | `center_placement`, `repelling_type` | `restart_strategy` is `STOP` |
 | `repelling_metric` | `repelling_type` is `NONE` |
 | `cs_factor` | `ssa` is `SR` or `SA`, and `matrix_adaptation` is `NONE`, `CHOLESKY` or `CMSA` |
-| `damps_factor` | `ssa` is `TPA`, `XNES`, `MXNES`, `LPXNES` or `SA` |
+| `damps_factor` | `ssa` is `TPA`, `XNES`, `MXNES`, `LPXNES` or `SA`, and `lambda0` is above 1 (a (1+1)-ES runs `SR`) |
 | `cc_factor` | `matrix_adaptation` is `NONE`, `MATRIX` or `CMSA` |
 | `cmu_factor`, `c1_factor` | `matrix_adaptation` is `NONE`, or `CMSA` or `NATURAL_GRADIENT` without `active` |
-| `mu0_factor` | `lambda0` is 1 |
+| `mu0_factor`, `elitist`, `sequential_selection`, `weights` | `lambda0` is 1 (a (1+1)-ES: mu = 1, elitist, equal weights; `Settings` overrides them) |
 
 A hyperparameter is inactive only where the C++ code never reads the parameter; the file and line
 of each reason are in the comment of `_INACTIVE_FOR` in `modcma/c_maes/__init__.py`. Where it is read
@@ -73,8 +73,15 @@ are not hyperparameters.
 * `Settings` replaces `matrix_adaptation=COVARIANCE` by `COVARIANCE_NO_EIGV` for every `ssa` other
   than `CSA`, so the two are the same configuration there. The space forbids `COVARIANCE` with
   those; `get_configspace(remove_duplicates=False)` keeps it.
-* Other configurations that behave alike are not removed, for example every `active` and
-  `elitist` combination where one makes the other void.
+* `IPOP` and `BIPOP` with `lambda0` = 1 are forbidden: `Settings` runs `RESTART` there.
+* Not removed, so the space holds the same algorithm more than once:
+  * `mirrored=PAIRWISE` makes an odd `lambda0` even, so `lambda0` = k and k + 1 (k odd) are one
+    configuration. Forbidding every odd value would add a clause per value.
+  * With µ = λ (`mu0_factor` at its largest for the default µ = λ/2) there are no negative weights
+    and no unselected offspring, so `active` and `sequential_selection` have nothing to act on. µ is
+    a factor, so this is not a condition on a hyperparameter.
+  * `ssa` stays a hyperparameter for `lambda0` = 1, although `Settings` runs `SR` there: it decides
+    whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`.
 
 The modules are now more than in the framework paper, so its count of variants (14,859,936)
 does not describe this space: with the conditions above the module options alone give 736,985,088

@@ -120,9 +120,14 @@ class TestTuning(unittest.TestCase):
             )
             self.assertEqual("active" in names, ma != "NONE" and config["lambda0"] > 1)
             self.assertEqual("mu0_factor" in names, config["lambda0"] > 1)
+            one = config["lambda0"] == 1
+            for name in ("elitist", "sequential_selection", "weights"):
+                self.assertEqual(name in names, not one, name)
             self.assertEqual(
-                "damps_factor" in names, ssa in ("CSA", "MSR", "PSR", "SR")
+                "damps_factor" in names, one or ssa in ("CSA", "MSR", "PSR", "SR")
             )
+            if one:
+                self.assertNotIn(config["restart_strategy"], ("IPOP", "BIPOP"))
             self.assertEqual("cc_factor" in names, ma not in ("NONE", "MATRIX", "CMSA"))
             self.assertEqual(
                 "cs_factor" in names,
@@ -181,6 +186,27 @@ class TestTuning(unittest.TestCase):
                             self.assertEqual(self._run(changed), base, (modules, name))
                             checked += 1
         self.assertGreater(checked, 500)
+
+    def test_lambda_1_overrides_have_no_effect(self):
+        """lambda0 = 1 is a (1+1)-ES: the modules that the space leaves out change nothing."""
+        runs = set()
+        for elitist in (False, True):
+            for sequential in (False, True):
+                for weights in ("DEFAULT", "EQUAL", "UTILITY"):
+                    for ssa in ("CSA",):
+                        settings = c_maes.settings_from_dict(
+                            4, lambda0=1, elitist=elitist, sequential_selection=sequential,
+                            weights=weights, ssa=ssa, budget=300, seed=2,
+                        )
+                        runs.add(self._run(settings))
+        self.assertEqual(len(runs), 1)
+        runs = {
+            self._run(
+                c_maes.settings_from_dict(4, lambda0=1, restart_strategy=r, budget=300, seed=2)
+            )
+            for r in ("RESTART", "IPOP", "BIPOP")
+        }
+        self.assertEqual(len(runs), 1)
 
     @staticmethod
     def _run(settings):

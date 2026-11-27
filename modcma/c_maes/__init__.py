@@ -14,6 +14,7 @@ from ConfigSpace import (
     ForbiddenInClause,
     GreaterThanCondition,
     InCondition,
+    LessThanCondition,
     NormalFloatHyperparameter,
     OrConjunction,
     UniformFloatHyperparameter,
@@ -167,6 +168,12 @@ _FACTOR_RANGES = {
 #: * `active`: read by every adaptation but NONE (matrix_adaptation.cpp:165, 401, 464, 590, 647,
 #:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:150, 158).
 #: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:155).
+#: * `elitist`, `sequential_selection`, `weights`: Settings overrides them for lambda0 = 1, a
+#:   (1+1)-ES (settings.hpp:153-161). `ssa` is overridden too (SR), but not before Settings turns
+#:   COVARIANCE into COVARIANCE_NO_EIGV for an `ssa` other than CSA (settings.hpp:125-130), so it
+#:   stays active. The (1+1)-ES runs SR, which reads `damps` (mutation.cpp:372), so `damps_factor`
+#:   is also active for lambda0 = 1.
+#: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:163-165): forbidden.
 #: * `center_placement`, `repelling_type`: used when a run restarts (parameters.cpp:128,
 #:   `Parameters::begin_restart`, repelling.cpp:174). The restart criteria of every strategy but
 #:   STOP include UnableToAdapt (restart_criteria.cpp:376), so NONE restarts when the adaptation
@@ -182,6 +189,8 @@ _INACTIVE_FOR = {
     "repelling_type": {"restart_strategy": ("STOP",)},
     "repelling_metric": {"repelling_type": ("NONE",)},
 }
+#: Modules that Settings overrides for lambda0 = 1
+_ONE_PLUS_ONE_OVERRIDDEN = ("elitist", "sequential_selection", "weights")
 #: `c1` and `cmu` also when `active` with these matrix adaptations (see above)
 _ACTIVE_ONLY_MATRIX = ("CMSA", "NATURAL_GRADIENT")
 _NO_MATRIX_UPDATE_OF_C = ("NONE", "CMSA", "NATURAL_GRADIENT")
@@ -220,6 +229,8 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
             _in_condition(cspace[child], cspace[parent], options[parent], excluded)
             for parent, excluded in parents.items()
         ]
+        if child == "damps_factor" and "lambda0" in present:
+            conditions.append(LessThanCondition(cspace[child], cspace["lambda0"], 2))
         cspace.add(_any_of(conditions))
 
     for child in ("c1_factor", "cmu_factor"):
@@ -236,6 +247,9 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
 
     if "mu0_factor" in present:
         cspace.add(GreaterThanCondition(cspace["mu0_factor"], cspace["lambda0"], 1))
+    if "lambda0" in present:
+        for child in _ONE_PLUS_ONE_OVERRIDDEN:
+            cspace.add(GreaterThanCondition(cspace[child], cspace["lambda0"], 1))
 
     if remove_duplicates and "CSA" in options["ssa"]:
         # Settings turns COVARIANCE into COVARIANCE_NO_EIGV unless ssa is CSA
@@ -245,6 +259,14 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
                 ForbiddenEqualsClause(matrix, "COVARIANCE"), ForbiddenInClause(ssa, others)
             )
         )
+        if "lambda0" in present and "restart_strategy" in options:
+            ipop = [o for o in ("IPOP", "BIPOP") if o in options["restart_strategy"]]
+            cspace.add(
+                ForbiddenAndConjunction(
+                    ForbiddenEqualsClause(cspace["lambda0"], 1),
+                    ForbiddenInClause(cspace["restart_strategy"], ipop),
+                )
+            )
 
 
 def get_configspace(
@@ -284,14 +306,21 @@ def get_configspace(
     - `cc_factor` is inactive for `matrix_adaptation` `NONE`, `MATRIX` and `CMSA`;
     - `cmu_factor` and `c1_factor` are inactive for `NONE`, and for `CMSA` and
       `NATURAL_GRADIENT` without `active` (with `active` they scale the negative weights);
-    - `mu0_factor` needs `lambda0` above 1 (a (1+1)-ES has mu = 1).
+    - `mu0_factor`, `elitist`, `sequential_selection` and `weights` need `lambda0` above 1
+      (a (1+1)-ES has mu = 1, is elitist, with equal weights); it runs `SR` whatever `ssa` is, but
+      `ssa` stays, since it decides whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`; `damps_factor`
+      is active for `lambda0` = 1, which runs `SR`.
 
     A hyperparameter is inactive only where the C++ code never reads it; the evidence, with file
     and line, is in the comment of `_INACTIVE_FOR` in the source.
 
     `Settings` replaces `matrix_adaptation=COVARIANCE` by `COVARIANCE_NO_EIGV` for every `ssa` but
     `CSA`, so the two are one configuration there. With `remove_duplicates`, `COVARIANCE` with
-    another `ssa` than `CSA` is forbidden.
+    another `ssa` than `CSA` is forbidden, and so is `IPOP` or `BIPOP` with `lambda0` = 1
+    (`RESTART` there). Two duplicates stay: `mirrored=PAIRWISE` makes an odd `lambda0` even, so
+    `lambda0` = k and k + 1 (k odd) are one configuration; and with mu = lambda (`mu0_factor` at
+    its largest) `active` and `sequential_selection` have nothing to act on (there are no
+    negative weights, no unselected offspring). The space does not forbid them.
 
     The numeric parameters not in this list (`ipop_factor`, the threshold of threshold
     convergence, ...) are not hyperparameters.
