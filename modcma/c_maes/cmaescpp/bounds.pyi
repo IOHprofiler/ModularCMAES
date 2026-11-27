@@ -1,7 +1,7 @@
 """
 Bound correction: what happens to samples outside the box [lb, ub].
 
-The optimizer holds one as `es.p.bounds`, selected by `Modules.bound_correction` (`options.CorrectionMethod`). Nothing is corrected when a bound is infinite. The methods are described in de Nobel et al. (2021).
+The optimizer holds one as `es.p.bounds`, selected by `Modules.bound_correction` (`options.CorrectionMethod`). Each coordinate and each side is corrected separately: an infinite bound is never crossed, and a coordinate with one infinite bound is set to its finite bound when it crosses it (the methods other than SATURATE need the width ub - lb). The methods are described in de Nobel et al. (2021).
 """
 
 from typing import Annotated
@@ -44,6 +44,8 @@ class BoundCorrection:
     def correct_x(self, xi: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], oob: Annotated[NDArray[numpy.bool_], dict(shape=(None,), order='C')], sigma: float, settings: modcma.c_maes.cmaescpp.parameters.Settings) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
         The corrected point: the coordinates of xi where oob is True moved into [lb, ub], the others unchanged.
+
+        Coordinates with two finite bounds are corrected by the method; a coordinate with one infinite bound is set to the finite bound it crossed, as SATURATE does.
 
         Parameters
         ----------

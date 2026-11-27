@@ -25,10 +25,22 @@ struct BoundCorrection
 
     void correct(const Eigen::Index i, parameters::Parameters &p);
 
+    //! xi with the coordinates in oob moved into [lb, ub], per coordinate and per side (#79 F20).
+    //! The method (correct_finite) corrects the coordinates with two finite bounds. A coordinate
+    //! with one infinite bound is set to the finite bound it crossed, as SATURATE does: every
+    //! method but SATURATE needs the width ub - lb (MIRROR's period, TOROIDAL's wrap, COTN's
+    //! distance, UNIFORM_RESAMPLE's interval).
     virtual Vector correct_x(const Vector &xi,
                              const Mask &oob,
                              const Float sigma,
-                             const parameters::Settings &settings) = 0;
+                             const parameters::Settings &settings);
+
+    //! The method itself: xi with the coordinates in oob moved into [lb, ub]; every coordinate in
+    //! oob has two finite bounds
+    virtual Vector correct_finite(const Vector &xi,
+                                  const Mask &oob,
+                                  const Float sigma,
+                                  const parameters::Settings &settings) = 0;
 
     [[nodiscard]] Mask is_out_of_bounds(const Vector &xi,
                                         const parameters::Settings &settings) const;
@@ -42,10 +54,19 @@ struct NoCorrection : BoundCorrection
 {
     using BoundCorrection::BoundCorrection;
 
+    //! Nothing is moved, on either side (NONE; RESAMPLE samples again instead)
     Vector correct_x(const Vector &xi,
                      const Mask &oob,
                      const Float sigma,
                      const parameters::Settings &settings) override
+    {
+        return xi;
+    }
+
+    Vector correct_finite(const Vector &xi,
+                          const Mask &oob,
+                          const Float sigma,
+                          const parameters::Settings &settings) override
     {
         return xi;
     }
@@ -66,20 +87,20 @@ struct COTN final : BoundCorrection
     {
     }
 
-    Vector correct_x(const Vector &xi,
-                     const Mask &oob,
-                     const Float sigma,
-                     const parameters::Settings &settings) override;
+    Vector correct_finite(const Vector &xi,
+                          const Mask &oob,
+                          const Float sigma,
+                          const parameters::Settings &settings) override;
 };
 
 struct Mirror final : BoundCorrection
 {
     using BoundCorrection::BoundCorrection;
 
-    Vector correct_x(const Vector &xi,
-                     const Mask &oob,
-                     const Float sigma,
-                     const parameters::Settings &settings) override;
+    Vector correct_finite(const Vector &xi,
+                          const Mask &oob,
+                          const Float sigma,
+                          const parameters::Settings &settings) override;
 };
 
 struct UniformResample final : BoundCorrection
@@ -93,30 +114,30 @@ struct UniformResample final : BoundCorrection
     {
     }
 
-    Vector correct_x(const Vector &xi,
-                     const Mask &oob,
-                     const Float sigma,
-                     const parameters::Settings &settings) override;
+    Vector correct_finite(const Vector &xi,
+                          const Mask &oob,
+                          const Float sigma,
+                          const parameters::Settings &settings) override;
 };
 
 struct Saturate final : BoundCorrection
 {
     using BoundCorrection::BoundCorrection;
 
-    Vector correct_x(const Vector &xi,
-                     const Mask &oob,
-                     const Float sigma,
-                     const parameters::Settings &settings) override;
+    Vector correct_finite(const Vector &xi,
+                          const Mask &oob,
+                          const Float sigma,
+                          const parameters::Settings &settings) override;
 };
 
 struct Toroidal final : BoundCorrection
 {
     using BoundCorrection::BoundCorrection;
 
-    Vector correct_x(const Vector &xi,
-                     const Mask &oob,
-                     const Float sigma,
-                     const parameters::Settings &settings) override;
+    Vector correct_finite(const Vector &xi,
+                          const Mask &oob,
+                          const Float sigma,
+                          const parameters::Settings &settings) override;
 };
 
 //! The bound correction; COTN and UNIFORM_RESAMPLE draw from generator

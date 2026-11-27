@@ -159,7 +159,8 @@ void Strategy::sample_batch(const Eigen::Index begin,
             tc->apply(p.pop.Z.col(i), p.pop.Y.col(i), generation_threshold);
             finish_sample(i, p);
         }
-        p.coordinate_mapping->transform_into(p.pop.X.col(i), p.pop.X_transformed.col(i));
+        p.coordinate_mapping->transform_into(
+            p.pop.X.col(i), p.pop.X_transformed.col(i), p.settings.lb, p.settings.ub);
     }
 }
 
@@ -222,10 +223,11 @@ void CSA::adapt(const parameters::Weights &w,
 
 void TPA::extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) const
 {
-    out.col(0) =
-        p.coordinate_mapping->transform(p.adaptation->m + (p.mutation->sigma * p.adaptation->dm));
-    out.col(1) =
-        p.coordinate_mapping->transform(p.adaptation->m + (p.mutation->sigma * -p.adaptation->dm));
+    const Vector &lb = p.settings.lb, &ub = p.settings.ub;
+    out.col(0) = p.coordinate_mapping->transform(
+        p.adaptation->m + (p.mutation->sigma * p.adaptation->dm), lb, ub);
+    out.col(1) = p.coordinate_mapping->transform(
+        p.adaptation->m + (p.mutation->sigma * -p.adaptation->dm), lb, ub);
 }
 
 void TPA::tell_extra_points(Eigen::Ref<const Vector> f,

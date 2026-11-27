@@ -173,6 +173,8 @@ class CorrectionMethod(enum.Enum):
     What happens to a sample outside the box bounds (`Modules.bound_correction`; default NONE).
 
     The bounds are `Settings.lb` and `Settings.ub` (default [-5, 5] in every coordinate). The methods other than RESAMPLE move each coordinate that is out of bounds into [lb, ub]; the mutation vector of the sample is then recomputed from the corrected point, so the adaptation learns from the point that was evaluated. The methods are those of Caraffini, Kononova & Corne (2019), "Infeasibility and structural bias in differential evolution".
+
+    Bounds may be infinite; each coordinate and each side is corrected separately, and an infinite bound is never crossed. MIRROR, COTN, UNIFORM_RESAMPLE and TOROIDAL need the width ub - lb: in a coordinate with one infinite bound they set a coordinate that crosses the finite bound to that bound, as SATURATE does.
     """
 
     NONE = 0
@@ -302,7 +304,7 @@ class CenterPlacement(enum.Enum):
 
     UNIFORM = 2
     """
-    At a uniform random point in the bounds: every restart starts elsewhere.
+    At a uniform random point in the bounds: every restart starts elsewhere. In a coordinate with an infinite bound, uniform in x0 +- 2 sigma0 (moved inside a finite bound; x0 is `Settings.x0` or the center).
     """
 
     CENTER = 3
@@ -310,12 +312,12 @@ class CenterPlacement(enum.Enum):
 
     NOVELTY_WEIGHTED = 4
     """
-    At one of 512 uniform random candidates in the bounds, drawn with a probability proportional to its squared distance to the nearest point of the repelling archive (distances relative to the domain width). Uniform while the archive is empty; the archive needs `Modules.repelling_type`.
+    At one of 512 uniform random candidates in the bounds, drawn with a probability proportional to its squared distance to the nearest point of the repelling archive (distances relative to the domain width). Uniform while the archive is empty; the archive needs `Modules.repelling_type`. With an infinite bound, as UNIFORM.
     """
 
     MAXIMIN_TABOO = 5
     """
-    At the one of 512 uniform random candidates in the bounds that is farthest from its nearest point of the repelling archive (maximin). Uniform while the archive is empty; the archive needs `Modules.repelling_type`.
+    At the one of 512 uniform random candidates in the bounds that is farthest from its nearest point of the repelling archive (maximin). Uniform while the archive is empty; the archive needs `Modules.repelling_type`. With an infinite bound, as UNIFORM.
     """
 
 class RepellingType(enum.Enum):

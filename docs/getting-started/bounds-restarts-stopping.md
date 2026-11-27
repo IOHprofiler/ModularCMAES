@@ -37,7 +37,8 @@ print(np.round(xopt, 4))  # all 1.0
 | `RESAMPLE` | resampled from the search distribution until it is inside (at most 5 × d tries) |
 
 For an unbounded problem, pass infinite bounds (`lb=np.full(d, -np.inf)`, `ub=np.full(d, np.inf)`).
-More in [bound correction](../guide/bound-correction.md).
+A single bound can be infinite too, as `lb=0`, `ub=np.inf` for a positive variable: the finite
+bounds are still corrected. More in [bound correction](../guide/bound-correction.md#infinite-bounds).
 
 ## Restarts
 

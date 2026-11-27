@@ -81,10 +81,13 @@ void Parameters::begin_restart(const Float sigma)
 
 Vector Parameters::center_of_mass() const
 {
-    Vector x = coordinate_mapping->transform(adaptation->m);
-    if (settings.has_bounds && settings.modules.bound_correction != CorrectionMethod::NONE)
+    // Clipped per coordinate and per side (an infinite bound clips nothing, #79 F20), then
+    // rounded: the integer variables stay in the box (#79 F21). With integral bounds the order
+    // does not matter.
+    Vector x = adaptation->m;
+    if (settings.modules.bound_correction != CorrectionMethod::NONE)
         x = x.cwiseMax(settings.lb).cwiseMin(settings.ub);
-    return x;
+    return coordinate_mapping->transform(x, settings.lb, settings.ub);
 }
 
 void Parameters::end_run() { stats.solutions.push_back(stats.current_best); }

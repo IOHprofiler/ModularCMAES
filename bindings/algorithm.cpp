@@ -217,7 +217,12 @@ void define_center_placement(nb::module_ &main)
         "The optimizer holds one as `es.p.center_placement`, selected by "
         "`Modules.center_placement` (`options.CenterPlacement`). It is applied at every restart; "
         "the first run starts at `Settings.x0`, or at the center of the bounds when x0 is not "
-        "given.");
+        "given.\n\n"
+        "UNIFORM, NOVELTY_WEIGHTED and MAXIMIN_TABOO sample in the box [lb, ub]. In a coordinate "
+        "with an infinite bound they sample uniformly in [x0 - 2 sigma0, x0 + 2 sigma0], with x0 "
+        "`Settings.x0` or `Settings.center`; the interval is shifted to start at a finite lb, or "
+        "to end at a finite ub, when it would cross it. NOVELTY_WEIGHTED and MAXIMIN_TABOO then "
+        "divide the distances in that coordinate by the width of the interval, 4 sigma0.");
     using namespace center;
     nb::class_<Placement>(
         m, "Placement", "Base class of the center placements: sets the mean `es.p.adaptation.m`.")
@@ -239,7 +244,8 @@ void define_center_placement(nb::module_ &main)
     nb::class_<Uniform, Placement>(m,
                                    "Uniform",
                                    "The mean is a uniform random point in the box [lb, ub] "
-                                   "(`CenterPlacement.UNIFORM`); needs finite bounds.")
+                                   "(`CenterPlacement.UNIFORM`); in a coordinate with an "
+                                   "infinite bound, in x0 +- 2 sigma0 (see the module).")
         .def(nb::init<>(), "Create the placement.");
     nb::class_<Zero, Placement>(m, "Zero", "The mean is the origin (`CenterPlacement.ZERO`).")
         .def(nb::init<>(), "Create the placement.");
@@ -256,7 +262,8 @@ void define_center_placement(nb::module_ &main)
         "Of 512 uniform random points in the box, the one whose nearest taboo point of "
         "`es.p.repelling.archive` is farthest away (in coordinates divided by the widths of the "
         "box); a uniform random point while the archive is empty. For use with repelling "
-        "restarts; needs finite bounds.")
+        "restarts. In a coordinate with an infinite bound, the candidates are drawn in x0 +- 2 "
+        "sigma0 and the distances divided by 4 sigma0 (see the module).")
         .def(nb::init<>(), "Create the placement.");
     nb::class_<NoveltyWeighted, Placement>(
         m,
@@ -1306,8 +1313,10 @@ void define_bounds(nb::module_ &main)
         "bounds",
         "Bound correction: what happens to samples outside the box [lb, ub].\n\n"
         "The optimizer holds one as `es.p.bounds`, selected by `Modules.bound_correction` "
-        "(`options.CorrectionMethod`). Nothing is corrected when a bound is infinite. The "
-        "methods are described in de Nobel et al. (2021).");
+        "(`options.CorrectionMethod`). Each coordinate and each side is corrected "
+        "separately: an infinite bound is never crossed, and a coordinate with one infinite "
+        "bound is set to its finite bound when it crosses it (the methods other than SATURATE "
+        "need the width ub - lb). The methods are described in de Nobel et al. (2021).");
     using namespace bounds;
 
     nb::class_<BoundCorrection>(
@@ -1344,6 +1353,8 @@ void define_bounds(nb::module_ &main)
              nb::arg("settings"),
              "The corrected point: the coordinates of xi where oob is True moved into "
              "[lb, ub], the others unchanged.\n\n"
+             "Coordinates with two finite bounds are corrected by the method; a coordinate with "
+             "one infinite bound is set to the finite bound it crossed, as SATURATE does.\n\n"
              "Parameters\n"
              "----------\n"
              "xi : numpy.ndarray\n"

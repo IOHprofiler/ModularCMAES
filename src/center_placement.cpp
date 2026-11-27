@@ -18,6 +18,25 @@ Vector uniform_vector(const size_t d, rng::Generator &gen)
 }
 } // namespace
 
+Region::Region(const parameters::Settings &settings) : lower(settings.lb), width(settings.db)
+{
+    const Float h = infinite_box_half_width * settings.sigma0;
+    const Vector &x0 = settings.x0 ? *settings.x0 : settings.center;
+    for (Eigen::Index j = 0; j < lower.size(); ++j)
+    {
+        if (std::isfinite(width(j)))
+            continue;
+        const Float lb = settings.lb(j), ub = settings.ub(j);
+        if (std::isfinite(lb))
+            lower(j) = std::max(x0(j) - h, lb);
+        else if (std::isfinite(ub))
+            lower(j) = std::min(x0(j) + h, ub) - 2 * h;
+        else
+            lower(j) = x0(j) - h;
+        width(j) = 2 * h;
+    }
+}
+
 void X0::operator()(parameters::Parameters &p)
 {
     p.adaptation->m = p.settings.x0.value_or(p.settings.center);
@@ -27,7 +46,7 @@ void Uniform::operator()(parameters::Parameters &p)
 {
     const Vector u = uniform_vector(p.settings.dim, *p.generator);
 
-    p.adaptation->m = p.settings.lb + u.cwiseProduct(p.settings.db);
+    p.adaptation->m = Region(p.settings).point(u);
 }
 
 void Zero::operator()(parameters::Parameters &p) { p.adaptation->m.setZero(); }
@@ -38,12 +57,13 @@ void MaximinTaboo::operator()(parameters::Parameters &p)
 {
     const int dim = p.settings.dim;
     const int n_candidates = 512;
+    const Region region(p.settings);
 
     if (p.repelling->archive.empty())
     {
         const Vector u = uniform_vector(dim, *p.generator);
 
-        p.adaptation->m = p.settings.lb + u.cwiseProduct(p.settings.db);
+        p.adaptation->m = region.point(u);
 
         return;
     }
@@ -55,13 +75,13 @@ void MaximinTaboo::operator()(parameters::Parameters &p)
     {
         const Vector u = uniform_vector(dim, *p.generator);
 
-        const Vector x = p.settings.lb + u.cwiseProduct(p.settings.db);
+        const Vector x = region.point(u);
 
         Float nearest = std::numeric_limits<Float>::infinity();
 
         for (const auto &point : p.repelling->archive)
         {
-            const Vector diff = (x - point.solution.x).cwiseQuotient(p.settings.db);
+            const Vector diff = (x - point.solution.x).cwiseQuotient(region.width);
 
             const Float d = diff.norm();
 
@@ -83,12 +103,13 @@ void NoveltyWeighted::operator()(parameters::Parameters &p)
     const int dim = p.settings.dim;
     const int n_candidates = 512;
     const Float temperature = 2.0;
+    const Region region(p.settings);
 
     if (p.repelling->archive.empty())
     {
         const Vector u = uniform_vector(dim, *p.generator);
 
-        p.adaptation->m = p.settings.lb + u.cwiseProduct(p.settings.db);
+        p.adaptation->m = region.point(u);
 
         return;
     }
@@ -103,13 +124,13 @@ void NoveltyWeighted::operator()(parameters::Parameters &p)
     {
         const Vector u = uniform_vector(dim, *p.generator);
 
-        const Vector x = p.settings.lb + u.cwiseProduct(p.settings.db);
+        const Vector x = region.point(u);
 
         Float nearest = std::numeric_limits<Float>::infinity();
 
         for (const auto &point : p.repelling->archive)
         {
-            const Vector diff = (x - point.solution.x).cwiseQuotient(p.settings.db);
+            const Vector diff = (x - point.solution.x).cwiseQuotient(region.width);
 
             const Float d = diff.norm();
 

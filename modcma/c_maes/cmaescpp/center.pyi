@@ -2,6 +2,8 @@
 Center placement: where the mean of the search distribution is placed at a restart.
 
 The optimizer holds one as `es.p.center_placement`, selected by `Modules.center_placement` (`options.CenterPlacement`). It is applied at every restart; the first run starts at `Settings.x0`, or at the center of the bounds when x0 is not given.
+
+UNIFORM, NOVELTY_WEIGHTED and MAXIMIN_TABOO sample in the box [lb, ub]. In a coordinate with an infinite bound they sample uniformly in [x0 - 2 sigma0, x0 + 2 sigma0], with x0 `Settings.x0` or `Settings.center`; the interval is shifted to start at a finite lb, or to end at a finite ub, when it would cross it. NOVELTY_WEIGHTED and MAXIMIN_TABOO then divide the distances in that coordinate by the width of the interval, 4 sigma0.
 """
 
 import modcma.c_maes.cmaescpp
@@ -32,7 +34,7 @@ class X0(Placement):
 
 class Uniform(Placement):
     """
-    The mean is a uniform random point in the box [lb, ub] (`CenterPlacement.UNIFORM`); needs finite bounds.
+    The mean is a uniform random point in the box [lb, ub] (`CenterPlacement.UNIFORM`); in a coordinate with an infinite bound, in x0 +- 2 sigma0 (see the module).
     """
 
     def __init__(self) -> None:
@@ -56,7 +58,7 @@ class MaximinTaboo(Placement):
     """
     The mean is placed as far as possible from the taboo points of repelling (`CenterPlacement.MAXIMIN_TABOO`).
 
-    Of 512 uniform random points in the box, the one whose nearest taboo point of `es.p.repelling.archive` is farthest away (in coordinates divided by the widths of the box); a uniform random point while the archive is empty. For use with repelling restarts; needs finite bounds.
+    Of 512 uniform random points in the box, the one whose nearest taboo point of `es.p.repelling.archive` is farthest away (in coordinates divided by the widths of the box); a uniform random point while the archive is empty. For use with repelling restarts. In a coordinate with an infinite bound, the candidates are drawn in x0 +- 2 sigma0 and the distances divided by 4 sigma0 (see the module).
     """
 
     def __init__(self) -> None:

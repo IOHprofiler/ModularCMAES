@@ -31,10 +31,9 @@ Vector BoundCorrection::delta_out_of_bounds(const Vector &xi,
 
 void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters &p)
 {
-    if (!p.settings.has_bounds)
-        return;
-
-    // The common case, inside the bounds, needs no mask
+    // Per coordinate and per side (#79 F20): an infinite bound is never crossed, the finite
+    // bounds of a box that is not finite are corrected. The common case, inside the bounds, needs
+    // no mask.
     if (!bounds::any_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub))
         return;
 
@@ -49,10 +48,28 @@ void BoundCorrection::correct(const Eigen::Index i, parameters::Parameters &p)
     p.adaptation->invert_y_into(p.pop.Y.col(i), p.pop.Z.col(i));
 }
 
-Vector COTN::correct_x(const Vector &xi,
-                       const Mask &oob,
-                       const Float sigma,
-                       const parameters::Settings &settings)
+Vector BoundCorrection::correct_x(const Vector &xi,
+                                  const Mask &oob,
+                                  const Float sigma,
+                                  const parameters::Settings &settings)
+{
+    if (settings.db.allFinite())
+        return correct_finite(xi, oob, sigma, settings);
+
+    // A coordinate with an infinite bound has no width: SATURATE on its finite side (#79 F20).
+    // The method draws its random numbers (COTN, UNIFORM_RESAMPLE) for every coordinate, as with
+    // a finite box.
+    const Mask finite = settings.db.array().isFinite();
+    const Mask by_method = oob && finite;
+    const Mask saturated = oob && !finite;
+    const Vector x = correct_finite(xi, by_method, sigma, settings);
+    return saturated.select(xi.cwiseMax(settings.lb).cwiseMin(settings.ub), x);
+}
+
+Vector COTN::correct_finite(const Vector &xi,
+                            const Mask &oob,
+                            const Float sigma,
+                            const parameters::Settings &settings)
 {
     // The distance from the violated bound, in units of the domain width: sigma |n| with n normal
     // (standard deviation 1/3), redrawn where it would leave the box on the other side (Caraffini
@@ -71,10 +88,10 @@ Vector COTN::correct_x(const Vector &xi,
         y);
 }
 
-Vector Mirror::correct_x(const Vector &xi,
-                         const Mask &oob,
-                         const Float sigma,
-                         const parameters::Settings &settings)
+Vector Mirror::correct_finite(const Vector &xi,
+                              const Mask &oob,
+                              const Float sigma,
+                              const parameters::Settings &settings)
 {
     const Vector y = delta_out_of_bounds(xi, oob, settings);
     return (oob).select(
@@ -84,28 +101,28 @@ Vector Mirror::correct_x(const Vector &xi,
         y);
 }
 
-Vector UniformResample::correct_x(const Vector &xi,
-                                  const Mask &oob,
-                                  const Float sigma,
-                                  const parameters::Settings &settings)
+Vector UniformResample::correct_finite(const Vector &xi,
+                                       const Mask &oob,
+                                       const Float sigma,
+                                       const parameters::Settings &settings)
 {
     return (oob).select(settings.lb + sampler().cwiseProduct(settings.db), xi);
 }
 
-Vector Saturate::correct_x(const Vector &xi,
-                           const Mask &oob,
-                           const Float sigma,
-                           const parameters::Settings &settings)
+Vector Saturate::correct_finite(const Vector &xi,
+                                const Mask &oob,
+                                const Float sigma,
+                                const parameters::Settings &settings)
 {
     const Vector y = delta_out_of_bounds(xi, oob, settings);
     return (oob).select(settings.lb.array() + settings.db.array() * (y.array() > 0).cast<Float>(),
                         y);
 }
 
-Vector Toroidal::correct_x(const Vector &xi,
-                           const Mask &oob,
-                           const Float sigma,
-                           const parameters::Settings &settings)
+Vector Toroidal::correct_finite(const Vector &xi,
+                                const Mask &oob,
+                                const Float sigma,
+                                const parameters::Settings &settings)
 {
     const Vector y = delta_out_of_bounds(xi, oob, settings);
     return (oob).select(

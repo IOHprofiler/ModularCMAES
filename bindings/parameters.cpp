@@ -659,8 +659,9 @@ void define_parameters(nb::module_ &main)
             "10**dim and center the zero vector.\n\n"
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
             "sigma0 that is not positive and finite, x0, lb or ub of a length other "
-            "than dim, a non-finite x0, lb above ub, or a budget smaller than the first "
-            "generation and the evaluation of the final center of mass.\n\n"
+            "than dim, a non-finite x0, lb above ub, an integer variable without an integer "
+            "value in [lb, ub], or a budget smaller than the first generation and the "
+            "evaluation of the final center of mass.\n\n"
             "Parameters\n"
             "----------\n"
             "dim : int\n"
@@ -699,7 +700,8 @@ void define_parameters(nb::module_ &main)
             "    (dim,) the upper bounds, default 5 in every coordinate.\n"
             "integer_variables : sequence of int, optional\n"
             "    The indices of the variables that take integer values: they are rounded before "
-            "evaluation and their step size has a lower bound. Default: none.\n"
+            "evaluation (a value in [lb, ub] to the nearest integer in [lb, ub]) and their step "
+            "size has a lower bound. Each needs an integer value in [lb, ub]. Default: none.\n"
             "cs : float, optional\n"
             "    The learning rate of the step-size adaptation. Default depends on ssa (see "
             "Weights.cs); for CSA (mueff + 2) / (dim + mueff + 3).\n"
@@ -787,21 +789,25 @@ void define_parameters(nb::module_ &main)
             [](const Settings &s) { return s.lb; },
             [](Settings &s, const Vector &lb) {
                 s.require_length("lb", lb);
+                s.require_integer_values(lb, s.ub);
                 s.lb = lb;
                 s.update_bounds();
             },
-            "(dim,) array: the lower bounds, default -5. Setting it updates `db`, `center`, "
-            "`diameter`, `volume` and `has_bounds`.")
+            "(dim,) array: the lower bounds, default -5; -inf for none. Setting it updates "
+            "`db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when an integer "
+            "variable has no integer value in [lb, ub].")
         .def_prop_rw(
             "ub",
             [](const Settings &s) { return s.ub; },
             [](Settings &s, const Vector &ub) {
                 s.require_length("ub", ub);
+                s.require_integer_values(s.lb, ub);
                 s.ub = ub;
                 s.update_bounds();
             },
-            "(dim,) array: the upper bounds, default 5. Setting it updates `db`, `center`, "
-            "`diameter`, `volume` and `has_bounds`.")
+            "(dim,) array: the upper bounds, default 5; inf for none. Setting it updates "
+            "`db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when an integer "
+            "variable has no integer value in [lb, ub].")
         .def_rw("db", &Settings::db, "(dim,) array: the widths of the box, ub - lb.")
         .def_rw("center",
                 &Settings::center,
@@ -817,7 +823,8 @@ void define_parameters(nb::module_ &main)
         .def_prop_rw("has_bounds",
                      bool_getter(&Settings::has_bounds),
                      bool_setter(&Settings::has_bounds),
-                     "Whether the box lb..ub is finite; bound correction only acts when it is.")
+                     "Whether the box lb..ub is finite (`diameter`, `volume` and `center` depend on "
+                     "it). Bound correction does not: it corrects every finite bound.")
         .def_ro("integer_variables",
                 &Settings::integer_variables,
                 "(k,) int array: the indices of the integer variables (read-only).")
@@ -874,7 +881,9 @@ void define_parameters(nb::module_ &main)
         m,
         "CoordinateMapping",
         "Maps a sample to the point that is evaluated: the integer variables are rounded.\n\n"
-        "Rounding is to the nearest integer, halfway cases away from zero.")
+        "Rounding is to the nearest integer, halfway cases away from zero. A coordinate inside "
+        "the bounds [lb, ub] is rounded to the nearest integer in [ceil(lb), floor(ub)], so it "
+        "stays inside; a coordinate outside them is rounded to the nearest integer (#79).")
         .def(
             "__init__",
             [](mapping::CoordinateMapping *self, std::vector<int> idx, size_t d) {
@@ -889,10 +898,33 @@ void define_parameters(nb::module_ &main)
             "    The indices of the integer variables, each in 0..d-1 (otherwise ValueError).\n"
             "d : int\n"
             "    The dimension.")
-        .def("transform",
-             &mapping::CoordinateMapping::transform,
-             nb::arg("x"),
-             "A copy of the point x, (d,), with the integer variables rounded.");
+        .def(
+            "transform",
+            [](const mapping::CoordinateMapping &self,
+               const Vector &x,
+               const std::optional<Vector> &lb,
+               const std::optional<Vector> &ub) {
+                const auto n = x.size();
+                return self.transform(
+                    x,
+                    lb.value_or(Vector::Constant(n, -std::numeric_limits<Float>::infinity())),
+                    ub.value_or(Vector::Constant(n, std::numeric_limits<Float>::infinity())));
+            },
+            nb::arg("x"),
+            nb::arg("lb") = nb::none(),
+            nb::arg("ub") = nb::none(),
+            "A copy of the point x with the integer variables rounded.\n\n"
+            "Parameters\n"
+            "----------\n"
+            "x : numpy.ndarray\n"
+            "    The point, shape (d,).\n"
+            "lb, ub : numpy.ndarray, optional\n"
+            "    The bounds, shape (d,); an integer variable of x inside them is rounded to the "
+            "nearest integer inside them. Default None: no bound.\n\n"
+            "Returns\n"
+            "-------\n"
+            "numpy.ndarray\n"
+            "    The rounded point, shape (d,).");
 
     nb::class_<Parameters>(
         main,
