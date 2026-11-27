@@ -130,6 +130,43 @@ static bool short_path(const Vector &ps, const Weights &w, const Stats &stats)
 }
 
 /**
+ * With StepSizeAdaptation XNES and CMA-ES's weights (DEFAULT, EQUAL, EXPONENTIAL), h_sigma = 0
+ * also stalls the negative weights of the active update (#175, the maintainer's decision): the
+ * matrix update of that generation takes the first n_positive (non-negative) weights of w, copied
+ * into positive (a buffer of their own: resizing w allocated in every such generation), and is the
+ * update without `active`. Returns whether; not without `active`, when h_sigma = 1, or with
+ * UTILITY.
+ *
+ * h_sigma = 0 marks "a linear surrounding, i.e. when the step-size is far too small" (Hansen, The
+ * CMA Evolution Strategy: A Tutorial, 2016, after Eq. (45)). There the ranking reflects the sign
+ * of a step along the gradient, not the curvature: the worst steps are as long along the gradient
+ * as the best ones, and the negative weights (heaviest on the worst ranks; their sum is
+ * -(1 + c1 / cmu), -1.76 at d = 10, against +1) took back most of the growth of C towards the
+ * optimum that the positive ones gave, while h_sigma = 0 stalled the rank-one term as well.
+ * xNES SA keeps sigma too small (Krause, Glasmachers & Igel, FOGA 2017, Sec. 6): h_sigma was 0 in
+ * 89-99 % of the generations at d >= 10, and COVARIANCE + XNES + active solved the ellipsoid
+ * (d = 5, 10, 20) in 20, 1 and 0 of 20 runs; with this rule in 20 of 20 at each, in fewer
+ * evaluations than without `active`. UTILITY's negative weights are flat (-1 / lambda) and weigh
+ * as much as its positive ones (Glasmachers et al. 2010): it solved the ellipsoid without the
+ * rule, and with it needed 15-20 % more evaluations (11 of 20 at d = 20). This is our design, not
+ * a published rule: the tutorial and pycma 4.6.0 keep the negative weights for every h_sigma, and
+ * so does this code with the other step-size rules, which keep sigma near its optimum and h_sigma
+ * at 1 most of the time.
+ */
+static bool stall_negative_weights(const Vector &w,
+                                   const Eigen::Index n_positive,
+                                   const Modules &m,
+                                   const bool hs,
+                                   Vector &positive)
+{
+    if (hs || m.ssa != StepSizeAdaptation::XNES || m.weights == RecombinationWeights::UTILITY ||
+        n_positive >= w.size())
+        return false;
+    positive = w.head(n_positive);
+    return true;
+}
+
+/**
  * The active update's rescaling: the weights from n_positive on (the negative ones) are multiplied
  * by d / ||A^-1 y_i||^2, the squared Mahalanobis length of the step in the distribution it was
  * sampled from (Hansen, The CMA Evolution Strategy: A Tutorial, 2016, Eq. (46); pycma's sampler
@@ -259,11 +296,14 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
 
     update_weights(w, pop, m.active, weights_scratch);
-    Vector &rank_mu_w = weights_scratch;
     // The negative weights follow the non-negative ones (the weights decrease with the rank): mu
-    // for the usual weights, fewer for UTILITY, whose last parents can have negative utilities
-    const Eigen::Index n_positive = count_non_negative(rank_mu_w);
-    const auto n = static_cast<Eigen::Index>(m.active ? pop.n : mu);
+    // for the usual weights, fewer for UTILITY, whose last parents can have negative utilities.
+    // With XNES none in a generation with h_sigma = 0 (#175)
+    const Eigen::Index n_positive = count_non_negative(weights_scratch);
+    const bool stalled =
+        stall_negative_weights(weights_scratch, n_positive, m, hs, positive_scratch);
+    Vector &rank_mu_w = stalled ? positive_scratch : weights_scratch;
+    const auto n = stalled ? n_positive : static_cast<Eigen::Index>(m.active ? pop.n : mu);
     const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
                                               ? Eigen::Ref<const Matrix>(steps_scratch)
                                               : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
@@ -524,9 +564,13 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
 
     update_weights(w, pop, settings.modules.active, weights_scratch);
-    Vector &weights = weights_scratch;
-    const Eigen::Index n_positive = count_non_negative(weights);
-    const auto n = static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
+    // With XNES no negative weights in a generation with h_sigma = 0, as COVARIANCE (#175)
+    const Eigen::Index n_positive = count_non_negative(weights_scratch);
+    const bool stalled =
+        stall_negative_weights(weights_scratch, n_positive, settings.modules, hs, positive_scratch);
+    Vector &weights = stalled ? positive_scratch : weights_scratch;
+    const auto n =
+        stalled ? n_positive : static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
     const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
                                               ? Eigen::Ref<const Matrix>(steps_scratch)
                                               : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
@@ -618,9 +662,13 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     stats.n_updates++;
 
     update_weights(w, pop, settings.modules.active, weights_scratch);
-    Vector &weights = weights_scratch;
-    const Eigen::Index n_positive = count_non_negative(weights);
-    const auto n = static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
+    // With XNES no negative weights in a generation with h_sigma = 0, as COVARIANCE (#175)
+    const Eigen::Index n_positive = count_non_negative(weights_scratch);
+    const bool stalled =
+        stall_negative_weights(weights_scratch, n_positive, settings.modules, hs, positive_scratch);
+    Vector &weights = stalled ? positive_scratch : weights_scratch;
+    const auto n =
+        stalled ? n_positive : static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
     const bool pool = active_steps(pop.Z, pop, n, n_positive, steps_scratch);
     if (pool)
         active_steps(pop.Y, pop, n, n_positive, steps_scratch2);
@@ -879,10 +927,13 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 
     // The weights: of all evaluated points with `active` (UTILITY sets it; its utilities sum to
     // zero), of the mu best otherwise; with elitism the negative ones weigh the worst points of the
-    // pool (#161)
+    // pool (#161); with XNES none in a generation with h_sigma = 0, as COVARIANCE (#175)
     update_weights(w, pop, settings.modules.active, weights_scratch);
-    Vector &weights = weights_scratch;
-    const Eigen::Index n_positive = count_non_negative(weights);
+    const Eigen::Index n_positive = count_non_negative(weights_scratch);
+    Vector &weights =
+        stall_negative_weights(weights_scratch, n_positive, settings.modules, hs, positive_scratch)
+            ? positive_scratch
+            : weights_scratch;
     const auto n = static_cast<Eigen::Index>(weights.size());
     const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
                                               ? Eigen::Ref<const Matrix>(steps_scratch)

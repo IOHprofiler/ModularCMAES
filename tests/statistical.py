@@ -189,6 +189,13 @@ CONFIGS = {
     # #158: COVERAGE repelling's radius in sigma0 units, the Mahalanobis distance by default
     "restart_coverage": {"restart_strategy": "RESTART", "repelling_type": "COVERAGE"},
     "ipop_coverage": {"restart_strategy": "IPOP", "repelling_type": "COVERAGE"},
+    # #175: with XNES the active update's negative weights only when h_sigma = 1 (not UTILITY)
+    "xnes_active": {"ssa": "XNES", "active": True},  # COVARIANCE_NO_EIGV
+    "xnes_active_exponential": {"ssa": "XNES", "active": True, "weights": "EXPONENTIAL"},
+    "xnes_elitist_active": {"ssa": "XNES", "elitist": True, "active": True},
+    "separable_xnes_active": {"matrix_adaptation": "SEPARABLE", "ssa": "XNES", "active": True},
+    "cholesky_xnes_active": {"matrix_adaptation": "CHOLESKY", "ssa": "XNES", "active": True},
+    "matrix_xnes_active": {"matrix_adaptation": "MATRIX", "ssa": "XNES", "active": True},
 }
 
 #: Settings arguments next to the module options
