@@ -114,6 +114,5 @@ noted; with the current version. Most are recorded for fixing.
 | `lambda0=2` | allowed for experiments, but many modules fail. On a rotated ellipsoid (d = 5, 5 seeds), 0 of 5 runs converge with `elitist`, `MATRIX`, `CMSA`, `orthogonal`, `MSR`, `PSR`, `SR`, `MXNES`, and with `restart_strategy` `RESTART` or `STOP`, whose criteria end the runs early. The default configuration needs about 6× the evaluations of λ = 4 |
 | `lambda0=3` | close to λ = 4 for most modules (same measurement), except `sample_transformation=CAUCHY` (0 of 5) and `MXNES` (0 of 5 on the ellipsoid); `SR`, `CMSA` and `MSR` need about 2× the evaluations |
 
-For tuning, `get_configspace` currently has no conditions for inactive options and passes the
-numeric defaults of CSA with COVARIANCE explicitly, which overrides the module-specific defaults
-(*known issue* [F23]); restrict the space accordingly.
+For tuning, `get_configspace` leaves `sample_transformation=NONE` out and has conditions for the
+parameters without an effect; see [tuning](tuning.md). `Settings` still accepts `NONE`.
