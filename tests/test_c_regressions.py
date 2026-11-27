@@ -352,9 +352,9 @@ class TestCriteriaWithoutEigendecomposition(unittest.TestCase):
     """B14: COVARIANCE_NO_EIGV is a CovarianceAdaptation, but it factorizes C with a Cholesky
     decomposition and does not keep B and d up to date (they are filled only by metric(), #123).
     The criteria that read the eigendecomposition used their initial values (identity, ones); they
-    now treat it like any adaptation without one.
-    Criteria.get only adds ConditionC and NoEffectAxis for COVARIANCE, so this matters when they
-    are added by hand."""
+    now read metric(), which computes them from the factor (#80).
+    Criteria.get adds ConditionC and NoEffectAxis only for the adaptations that keep their metric
+    (COVARIANCE, SEPARABLE, NONE), so this matters when they are added by hand."""
 
     NEEDS_EIGENDECOMPOSITION = ("ConditionC", "NoEffectAxis")
 
@@ -427,7 +427,9 @@ class TestCriteriaUseSquareRootOfEigenvalues(unittest.TestCase):
         t = p.stats.t % 4
         p.adaptation.B[:] = np.eye(4)
         p.mutation.sigma = 1.0
-        # 0.1 * D_t = 1e-16 has no effect (< 10 eps); 0.1 * sqrt(D_t) = 1e-9 would have
+        # 0.1 * D_t = 1e-16 has no effect on m = 1 (below half an ulp, 1.1e-16, #80);
+        # 0.1 * sqrt(D_t) = 3e-9 would have
+        p.adaptation.m[:] = 1.0
         p.adaptation.d[t] = 1e-15
         items["NoEffectAxis"].update(p)
         self.assertTrue(items["NoEffectAxis"].met)

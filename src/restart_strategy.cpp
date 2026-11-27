@@ -28,39 +28,55 @@ Float BIPOP::update(parameters::Parameters &p)
 {
     std::uniform_real_distribution<> dist;
 
-    const auto last_used_budget = p.stats.evaluations - used_budget;
-    used_budget += last_used_budget;
-    const auto remaining_budget = budget - used_budget;
-
-    if (!lambda_large)
+    // The evaluations of the run that ended (with the center of mass and the hill-valley points of
+    // the restart before it) go to its regime
+    const size_t last_used_budget =
+        p.stats.evaluations > used_budget ? p.stats.evaluations - used_budget : 0;
+    used_budget = p.stats.evaluations;
+    if (lambda_large == 0)
     {
+        // The first run, with lambda_init, counts as small, as in pycma's fmin ("the first run is
+        // accounted on the small budget"); Hansen (2009) disregards it. Either way the first
+        // restart is large.
+        used_small += last_used_budget;
         lambda_large = lambda_init * 2;
-        budget_small = remaining_budget / 2;
-        budget_large = remaining_budget - budget_small;
     }
-    else if (large())
+    else if (large_run)
     {
-        budget_large -= last_used_budget;
+        used_large += last_used_budget;
         lambda_large *= 2;
     }
     else
-    {
-        budget_small -= last_used_budget;
-    }
+        used_small += last_used_budget;
+
+    // The regime that has used fewer evaluations runs next, the large one on a tie: a small run "if
+    // and only if its recent budget is smaller than the one for the first regime" (Hansen 2009;
+    // pycma: sum(small_i) < max(1, sum(large_i)))
+    large_run = large();
 
     // lambda_small = floor(lambda_init (lambda_large / (2 lambda_init))^(U^2)): between lambda_init
-    // and half the current large population (Hansen 2009; pycma)
+    // and half the next large population, that is the last one (Hansen 2009; pycma)
     const Float u = dist(*p.generator);
     lambda_small = static_cast<size_t>(std::floor(
         static_cast<Float>(lambda_init) *
         std::pow(0.5 * static_cast<Float>(lambda_large) / static_cast<Float>(lambda_init), u * u)));
 
-    if (lambda_small % 2 != 0)
+    // Rounded down, as Hansen (2009) and pycma; up to even only for PAIRWISE, whose selection
+    // compares pairs (as Settings does with lambda0)
+    if (p.settings.modules.mirrored == parameters::Mirror::PAIRWISE && lambda_small % 2 != 0)
         lambda_small++;
 
-    p.lambda = std::max(size_t{2}, large() ? lambda_large : lambda_small);
+    p.lambda = std::max(size_t{2}, large_run ? lambda_large : lambda_small);
     p.mu = std::max(Float{1.0}, p.lambda * mu_factor);
-    return large() ? p.settings.sigma0
-                   : p.settings.sigma0 * std::pow(10, -2 * dist(*p.generator));
+
+    // A small run uses at most half the evaluations of the large regime so far: "a maximum number
+    // of function evaluations of half of the recent large budget is enforced" (Hansen 2009); pycma
+    // sets maxiter = min(maxiter0, 0.5 sum(large_i) / popsize). ExceededMaxIter enforces it.
+    max_iter = large_run ? std::numeric_limits<size_t>::max()
+                         : static_cast<size_t>(0.5 * static_cast<Float>(used_large) /
+                                               static_cast<Float>(p.lambda));
+
+    return large_run ? p.settings.sigma0
+                     : p.settings.sigma0 * std::pow(10, -2 * dist(*p.generator));
 }
 } // namespace restart

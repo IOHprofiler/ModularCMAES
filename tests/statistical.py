@@ -76,6 +76,16 @@ CONFIGS = {
     "tpa_ipop": {"ssa": "TPA", "restart_strategy": "IPOP"},
     "threshold": {"threshold_convergence": True},
     "threshold_bipop": {"threshold_convergence": True, "restart_strategy": "BIPOP"},
+    # #80: the restart criteria for every matrix adaptation, BIPOP's regimes
+    "restart": {"restart_strategy": "RESTART"},
+    "ipop_msr": {"restart_strategy": "IPOP", "ssa": "MSR"},  # COVARIANCE_NO_EIGV
+    "ipop_matrix": {"restart_strategy": "IPOP", "matrix_adaptation": "MATRIX"},
+    "ipop_separable": {"restart_strategy": "IPOP", "matrix_adaptation": "SEPARABLE"},
+    "ipop_cholesky": {"restart_strategy": "IPOP", "matrix_adaptation": "CHOLESKY"},
+    "ipop_cmsa": {"restart_strategy": "IPOP", "matrix_adaptation": "CMSA"},
+    "ipop_natural_gradient": {"restart_strategy": "IPOP", "matrix_adaptation": "NATURAL_GRADIENT"},
+    "ipop_none": {"restart_strategy": "IPOP", "matrix_adaptation": "NONE"},
+    "bipop_pairwise": {"restart_strategy": "BIPOP", "mirrored": "PAIRWISE"},
 }
 
 

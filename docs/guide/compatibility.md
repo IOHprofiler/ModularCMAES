@@ -47,7 +47,6 @@ used.
 | `weights`, `elitist`, `ssa`, IPOP/BIPOP | with λ = 1 (overridden) |
 | `fast_sampling` | with a sampler other than `UNIFORM` + `GAUSSIAN` |
 | `COVARIANCE` vs `COVARIANCE_NO_EIGV` | identical when `ssa` is not `CSA` (converted) |
-| restart criteria `TolX`, `ConditionC`, `NoEffectAxis`, `NoEffectCoord` | with any matrix adaptation but `COVARIANCE` (so also when `ssa` is not `CSA`) [F25] |
 | all restart criteria but `UnableToAdapt` | with `restart_strategy=NONE` |
 | `bound_correction` | in the coordinates with two infinite bounds |
 | `threshold_convergence` | late in a run: its threshold decays to 0 with the budget |
@@ -92,6 +91,19 @@ algorithms.
   so far. SR is designed for elitist selection; without elitism the best of the run takes the
   parent's role. `MSR` is the success rule meant for non-elitist selection.
 * **`restart_strategy=NONE`** still restarts when the matrix cannot be adapted (`UnableToAdapt`).
+* **The restart criteria per matrix adaptation** (#80). `TolX`, `NoEffectCoord` and the σ criteria
+  are used with every matrix adaptation; the criteria that need the eigenvalues of C read the
+  metric (`es.p.adaptation.metric()`), which only `COVARIANCE`, `SEPARABLE` and `NONE` keep up to
+  date (`es.p.adaptation.keeps_metric()`):
+
+    | criterion | `COVARIANCE`, `SEPARABLE`, `NONE` | `COVARIANCE_NO_EIGV`, `MATRIX`, `CHOLESKY`, `CMSA`, `NATURAL_GRADIENT` |
+    |---|---|---|
+    | `TolX`, `NoEffectCoord` | the diagonal of C (and p_c where there is one) | the same |
+    | `MaxSigma`, `MaxDSigma`, `MinDSigma` | max(D), min(D): the eigenvalues of C | √max Cᵢᵢ, √min Cᵢᵢ: the diagonal of C. It bounds the eigenvalues, so `MaxDSigma` and `MinDSigma` fire earlier and `MaxSigma` later than with the eigenvalues. For `MaxDSigma` and `MinDSigma` no source does this; `MaxSigma` becomes pycma's `tolfacupx` (with 1e4 instead of 1e3) |
+    | `ConditionC`, `NoEffectAxis` | used | not created: the metric would cost an O(d³) decomposition per update of the matrix. Added from Python (`es.p.criteria.items.append(modcma.restart.ConditionC())`), they work and pay that cost |
+
+    With `ssa` other than `CSA`, `COVARIANCE` becomes `COVARIANCE_NO_EIGV`, and so loses
+    `ConditionC` and `NoEffectAxis` (unless `always_compute_eigv=True`).
 * **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is.
 * **`C0`** is the matrix of the first generation of every run, the first and each restart. Every
   matrix adaptation but `NONE` starts from a factor of it

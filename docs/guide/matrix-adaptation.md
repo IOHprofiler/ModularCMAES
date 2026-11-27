@@ -96,7 +96,7 @@ adaptations that learn a full matrix.
 
 | value | |
 |---|---|
-| `COVARIANCE` | The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with rank-one and rank-mu update, the default. C is eigendecomposed every few generations (O(d^3), with LAPACK from `constants.lapack_min_dim` on). The only option for which the restart criteria TolX, ConditionC, NoEffectAxis and NoEffectCoord are used. |
+| `COVARIANCE` | The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with rank-one and rank-mu update, the default. C is eigendecomposed every few generations (O(d^3), with LAPACK from `constants.lapack_min_dim` on). Keeps its metric (`Adaptation.metric()`), so the restart criteria ConditionC and NoEffectAxis are used, as with SEPARABLE and NONE. |
 | `NONE` | No matrix adaptation (C = I): only the step size is adapted. Disables `Modules.active`, rejects `Settings.C0`. O(d lambda) per generation. |
 | `MATRIX` | MA-ES (Beyer & Sendhoff 2017): adapts a matrix M with C = M M^T directly, without the evolution path p_c and without eigendecomposition; O(d^2 lambda) per generation, about 4x faster than COVARIANCE at d = 1000. |
 | `SEPARABLE` | sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per generation. For separable problems and very high dimension; it cannot learn correlations between variables. Of `Settings.C0` it uses the diagonal. |

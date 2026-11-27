@@ -154,6 +154,9 @@ void ExceededMaxIter::on_reset(const parameters::Parameters &p)
     max_iter =
         static_cast<size_t>(100 + 50 * std::pow((static_cast<Float>(p.settings.dim) + 3), 2.0) /
                                       std::sqrt(static_cast<Float>(p.lambda)));
+    // The restart strategy may limit the run further: BIPOP's small runs (#80)
+    if (p.restart_strategy)
+        max_iter = std::min(max_iter, p.restart_strategy->max_iter);
 }
 
 void ExceededMaxIter::update(const parameters::Parameters &p)
@@ -187,8 +190,6 @@ void NoImprovement::update(const parameters::Parameters &p)
         met = recent_improvement <= tolerance;
     }
 }
-
-void MaxSigma::update(const parameters::Parameters &p) { met = p.mutation->sigma > tolerance; }
 
 void MinSigma::update(const parameters::Parameters &p) { met = p.mutation->sigma < tolerance; }
 
@@ -225,95 +226,120 @@ void FlatFitness::on_reset(const parameters::Parameters &p)
 
 namespace
 {
-/**
- * The covariance adaptation, when B and d hold the eigendecomposition of C; null otherwise. B14:
- * COVARIANCE_NO_EIGV is a CovarianceAdaptation, but its B and d are not kept up to date (they are
- * the identity and ones, or the last metric() asked, #123), so the criteria must not read them.
+/*
+ * The longest and the shortest axis of the sampled distribution, without sigma: max(D) and min(D),
+ * the square roots of the extreme eigenvalues of C, from metric() where it costs nothing
+ * (COVARIANCE, SEPARABLE, NONE). The others would decompose their factor every generation, O(d^3);
+ * they use sqrt(max C_ii) and sqrt(min C_ii), the diagonal of C (coordinate_wise_variances) that
+ * every adaptation keeps (decided by the maintainer for MaxDSigma and MinDSigma, #80). The diagonal
+ * bounds the eigenvalues, max C_ii <= lambda_max and min C_ii >= lambda_min, so the criteria fire
+ * earlier (MaxDSigma, MinDSigma: no source does this) or later (MaxSigma, which becomes pycma's
+ * tolfacupx, sigma sqrt(C_ii) > tol sigma0 for some i) than with the eigenvalues. For SEPARABLE
+ * and NONE the two agree: C is diagonal.
  */
-const matrix_adaptation::CovarianceAdaptation *eigendecomposition(const parameters::Parameters &p)
+Float longest_axis(const parameters::Parameters &p)
 {
-    const auto *covariance =
-        dynamic_cast<const matrix_adaptation::CovarianceAdaptation *>(p.adaptation.get());
-    return covariance != nullptr && covariance->has_eigendecomposition() ? covariance : nullptr;
+    if (p.adaptation->keeps_metric())
+        return p.adaptation->metric().d.maxCoeff();
+    return std::sqrt(p.adaptation->coordinate_wise_variances.maxCoeff());
+}
+
+Float shortest_axis(const parameters::Parameters &p)
+{
+    if (p.adaptation->keeps_metric())
+        return p.adaptation->metric().d.minCoeff();
+    return std::sqrt(p.adaptation->coordinate_wise_variances.minCoeff());
 }
 } // namespace
+
+void MaxSigma::on_reset(const parameters::Parameters &p)
+{
+    start = p.mutation->sigma * longest_axis(p);
+}
+
+void MaxSigma::update(const parameters::Parameters &p)
+{
+    reset_if_new(p);
+    // TolXUp: "stop if sigma x max(diag(D)) increased by more than 10^4" (Hansen 2016, App. B.3),
+    // since the start of the run. It compared sigma with 1e4, whatever sigma0 and C (#80).
+    met = p.mutation->sigma * longest_axis(p) > tolerance * start;
+}
 
 void TolX::update(const parameters::Parameters &p)
 {
     reset_if_new(p);
     // Met when sigma sqrt(C_ii) < tol sigma_0 and sigma |pc_i| < tol sigma_0 for every i, with
-    // sigma_0 the step size at the start of the run (Hansen 2016, Appendix B; pycma's tolx)
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
-    {
-        const Float sigma = p.mutation->sigma;
-        const Float tolx_condition = tolerance * sigma_start;
-        tolx_vector.head(p.settings.dim) = dynamic->C.diagonal().cwiseSqrt() * sigma;
-        tolx_vector.tail(p.settings.dim) = dynamic->pc.cwiseAbs() * sigma;
-        met = (tolx_vector.array() < tolx_condition).all();
-    }
+    // sigma_0 the step size at the start of the run (Hansen 2016, App. B.3: "TolX to 10^-12 times
+    // the initial sigma"; pycma's tolx). For every adaptation: C_ii from coordinate_wise_variances,
+    // and pc where the adaptation has one (#80)
+    const Float sigma = p.mutation->sigma;
+    const Float tolx_condition = tolerance * sigma_start;
+    const auto d = static_cast<Eigen::Index>(p.settings.dim);
+    tolx_vector.head(d) = p.adaptation->coordinate_wise_variances.cwiseSqrt() * sigma;
+    if (const Vector *pc = p.adaptation->rank_one_path(); pc && tolx_vector.size() == 2 * d)
+        tolx_vector.tail(d) = pc->cwiseAbs() * sigma;
+    met = (tolx_vector.array() < tolx_condition).all();
 }
 
 void TolX::on_reset(const parameters::Parameters &p)
 {
-    tolx_vector = Vector::Ones(p.settings.dim * 2);
+    const auto d = static_cast<Eigen::Index>(p.settings.dim);
+    tolx_vector = Vector::Ones(p.adaptation->rank_one_path() != nullptr ? 2 * d : d);
     sigma_start = p.mutation->sigma;
 }
 
 void MaxDSigma::update(const parameters::Parameters &p)
 {
+    // pycma's tolupsigma: sigma / sigma0 > tolerance max(D), with D the square roots of the
+    // eigenvalues of C (B15: not their fourth roots)
     const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
-    // B15: d holds the square roots of the eigenvalues of C (pycma's D): tolupsigma compares with
-    // max(D) itself, not its square root
-    Float root_max_d = 1.0;
-    if (const auto *dynamic = eigendecomposition(p))
-    {
-        root_max_d = dynamic->d.maxCoeff();
-    }
-    met = d_sigma > (tolerance * root_max_d);
+    met = d_sigma > (tolerance * longest_axis(p));
 }
 
 void MinDSigma::update(const parameters::Parameters &p)
 {
+    // As MaxDSigma, with min(D)
     const Float d_sigma = p.mutation->sigma / p.settings.sigma0;
-
-    // B15: as MaxDSigma, with min(D)
-    Float root_min_d = 1.0;
-    if (const auto *dynamic = eigendecomposition(p))
-    {
-        root_min_d = dynamic->d.minCoeff();
-    }
-    met = d_sigma < (tolerance * root_min_d);
+    met = d_sigma < (tolerance * shortest_axis(p));
 }
 
 void ConditionC::update(const parameters::Parameters &p)
 {
-    if (const auto *dynamic = eigendecomposition(p))
-    {
-        const Float condition_c = pow(dynamic->d.maxCoeff(), 2.0) / pow(dynamic->d.minCoeff(), 2);
-        met = condition_c > tolerance;
-    }
+    // pycma's tolconditioncov: the condition of C, max(D)^2 / min(D)^2, above 1e14. From metric():
+    // created by default only where it costs nothing (#80)
+    const auto metric = p.adaptation->metric();
+    const Float condition_c = pow(metric.d.maxCoeff(), 2.0) / pow(metric.d.minCoeff(), 2);
+    met = condition_c > tolerance;
 }
 
 void NoEffectAxis::update(const parameters::Parameters &p)
 {
-    if (const auto *dynamic = eigendecomposition(p))
+    // pycma's noeffectaxis: all(m == m + 0.1 sigma D_i B[:, i]), i = t mod d, in floating point
+    // (B15: D_i the square root of the eigenvalue). It compared the step with 10 epsilon (#80).
+    const auto metric = p.adaptation->metric();
+    const Vector &m = p.adaptation->m;
+    const auto i = static_cast<Eigen::Index>(p.stats.t % p.settings.dim);
+    const Float step = tolerance * p.mutation->sigma * metric.d(i);
+    if (metric.is_diagonal())
     {
-        const Eigen::Index t = p.stats.t % p.settings.dim;
-        // B15: as pycma, 0.1 sigma D_t b_t with D_t = d(t) the square root of the eigenvalue
-        const auto effect_axis = 0.1 * p.mutation->sigma * dynamic->d(t) * dynamic->B.col(t);
-        met = (effect_axis.array().abs() < tolerance).all();
+        met = m(i) + step == m(i);
+        return;
     }
+    met = true;
+    for (Eigen::Index j = 0; j < m.size() && met; ++j)
+        met = m(j) + step * (*metric.B)(j, i) == m(j);
 }
 
 void NoEffectCoord::update(const parameters::Parameters &p)
 {
-    if (const auto dynamic =
-            std::dynamic_pointer_cast<matrix_adaptation::CovarianceAdaptation>(p.adaptation))
-    {
-        const auto effect_coord = 0.2 * p.mutation->sigma * dynamic->C.diagonal().cwiseSqrt();
-        met = (effect_coord.array().abs() < tolerance).any();
-    }
+    // pycma's noeffectcoord: any(m == m + 0.2 sigma sqrt(C_ii)), in floating point, from the
+    // diagonal of C that every adaptation keeps. It compared the step with 10 epsilon (#80).
+    const Vector &m = p.adaptation->m;
+    const Vector &variances = p.adaptation->coordinate_wise_variances;
+    const Float sigma = p.mutation->sigma;
+    met = false;
+    for (Eigen::Index j = 0; j < m.size() && !met; ++j)
+        met = m(j) + tolerance * (sigma * std::sqrt(variances(j))) == m(j);
 }
 
 void Stagnation::update(const parameters::Parameters &p)
@@ -389,14 +415,20 @@ Criteria Criteria::get(const parameters::Modules modules, const int lambda)
         if (lambda > 1)
             criteria.push_back(std::make_shared<restart::FlatFitness>());
 
-        //! TODO: make these compatible with other MA
-        if (modules.matrix_adaptation == parameters::MatrixAdaptationType::COVARIANCE)
+        // TolX and NoEffectCoord read the diagonal of C, which every adaptation keeps; ConditionC
+        // and NoEffectAxis read metric(), by default only where it costs nothing (#80; the
+        // others would decompose their factor every generation, O(d^3))
+        using parameters::MatrixAdaptationType;
+        const bool keeps_metric = modules.matrix_adaptation == MatrixAdaptationType::COVARIANCE ||
+                                  modules.matrix_adaptation == MatrixAdaptationType::SEPARABLE ||
+                                  modules.matrix_adaptation == MatrixAdaptationType::NONE;
+        criteria.push_back(std::make_shared<restart::TolX>());
+        if (keeps_metric)
         {
-            criteria.push_back(std::make_shared<restart::TolX>());
             criteria.push_back(std::make_shared<restart::ConditionC>());
             criteria.push_back(std::make_shared<restart::NoEffectAxis>());
-            criteria.push_back(std::make_shared<restart::NoEffectCoord>());
         }
+        criteria.push_back(std::make_shared<restart::NoEffectCoord>());
         if (modules.repelling_type != parameters::RepellingType::NONE)
         {
             criteria.push_back(std::make_shared<restart::TooMuchRepelling>());

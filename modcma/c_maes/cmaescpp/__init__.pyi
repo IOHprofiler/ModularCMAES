@@ -56,7 +56,7 @@ class constants:
     """
     Whether the step size is clipped after every adaptation (default False).
 
-    When True, sigma is kept in [restart.MinSigma.tolerance, restart.MaxSigma.tolerance] (default [1e-20, 1e4]).
+    When True, sigma is kept in [restart.MinSigma.tolerance, restart.MaxSigma.tolerance] (default [1e-20, 1e4]), as step sizes (the criterion MaxSigma reads its tolerance as a growth factor).
     """
 
     use_box_muller: ClassVar[bool] = ...

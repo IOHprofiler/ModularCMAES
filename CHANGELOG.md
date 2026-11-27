@@ -18,6 +18,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `mutation.Strategy.mutate`.
 * `CovarianceAdaptation.inv_root_C` (internal): use `es.p.adaptation.metric().inv_root_C()`, which
   every matrix adaptation has (#123).
+* `restart.BIPOP.budget`, `budget_small` and `budget_large` (internal): the regimes count the
+  evaluations they used, `used_small` and `used_large` (#80).
 * `Parameters.start` and `Parameters.perform_restart` (internal): only the optimizer evaluates a
   restart (#84). To force one, add a restart criterion that is met: the next generation starts
   with the restart.
@@ -102,6 +104,9 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `sigma0` and `C0` from the solutions of a related task, as WS-CMA-ES (Nomura et al. 2021) and
   `cmaes`' `get_warm_start_mgd`, and returns them as `Settings` arguments. Results without `C0`
   are unchanged.
+* `Adaptation.keeps_metric()`, whether `metric()` costs nothing; `restart.Strategy.max_iter`, the
+  generations a restart strategy allows a run; `restart.MaxSigma.start`; `restart.BIPOP.used_small`,
+  `used_large` and `large_run` (#80).
 
 ### Deprecated
 
@@ -160,6 +165,24 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   after it the 1.x steps `select()`, `recombine()` and `adapt()` do nothing. `stats.solutions`, like
   `stats.centers`, has one entry per run, the last one too. Trajectories are unchanged until the
   last generations of a run (all 260 golden configurations).
+* **The restart criteria for every matrix adaptation** (#80; Hansen 2016, App. B.3; pycma):
+  * `TolX` and `NoEffectCoord` are used with every matrix adaptation, from the diagonal of C (and
+    p_c where there is one); `ConditionC` and `NoEffectAxis`, which read `Adaptation.metric()`,
+    with `COVARIANCE`, `SEPARABLE` and `NONE`. Before, the four were used only with `COVARIANCE`,
+    so not when a step-size adaptation other than CSA turned it into `COVARIANCE_NO_EIGV`.
+  * `NoEffectAxis` and `NoEffectCoord` test, as pycma, whether m + 0.1σDᵢbᵢ equals m, and
+    mᵢ + 0.2σ√Cᵢᵢ equals mᵢ, in floating point; they compared the step with 10 ε. Their
+    `tolerance` is now the step in standard deviations (0.1, 0.2).
+  * `MaxSigma` is Hansen's TolXUp: σ max(D) grew by more than 1e4 since the start of the run. It
+    compared σ with 1e4, whatever σ₀ and C. `constants.clip_sigma` still keeps σ below 1e4.
+  * `MaxSigma`, `MaxDSigma` and `MinDSigma` read max(D) and min(D) from the metric for
+    `COVARIANCE`, `SEPARABLE` and `NONE`, and √max Cᵢᵢ and √min Cᵢᵢ for the other matrix
+    adaptations (they used D = 1 for every type but `COVARIANCE`).
+* **BIPOP** (#80; Hansen 2009, pycma's `fmin`): each regime counts the evaluations of its runs, the
+  first run as small (pycma), and a restart uses the regime that has used fewer. A small run takes
+  at most half the evaluations of the large regime so far (`ExceededMaxIter`, from
+  `Strategy.max_iter`). λ of a small run is rounded down, as in the paper; up to even only with
+  `PAIRWISE` (it was always even).
 
 ### Fixed
 
@@ -174,6 +197,8 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   (9 + 3 + ln d) / (5 d sqrt d) instead of xNES's (9 + 3 ln d) / (5 d sqrt d).
 * BIPOP's small populations were at most the initial lambda (Hansen 2009: up to half of the large
   one); IPOP's growth limit never applied, and a non-integer `ipop_factor` acted as its integer part.
+* BIPOP's budgets left wrapped around (unsigned) when a run used more than its regime had left:
+  one regime then ran for the rest of the budget (Rastrigin, d = 2, budget 20000, seed 0) (#80).
 * Orthogonal sampling did not produce orthogonal samples (the norms were read while overwritten),
   and with lambda > d it now orthogonalizes groups of d.
 * With mirrored or orthogonal sampling CSA normalized with sqrt(d) instead of E||N(0, I)||.

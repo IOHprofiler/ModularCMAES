@@ -13,6 +13,10 @@ namespace restart
 {
 struct Strategy
 {
+    //! The most generations of the current run: `ExceededMaxIter` uses the smaller of this and its
+    //! own limit. No limit, except in BIPOP's small runs
+    size_t max_iter = std::numeric_limits<size_t>::max();
+
     virtual Float update(parameters::Parameters &p);
 };
 
@@ -28,31 +32,36 @@ struct BIPOP : Strategy
 {
     size_t lambda_init;
     Float mu_factor;
-    size_t budget;
 
     size_t lambda_large = 0;
     size_t lambda_small = 0;
-    size_t budget_small = 0;
-    size_t budget_large = 0;
+    //! The evaluations used by the runs of each regime. They only grow (the budgets left, which
+    //! every run decreased, wrapped around, #80). The first run counts as small (pycma)
+    size_t used_small = 0;
+    size_t used_large = 0;
+    //! The evaluations up to the last restart
     size_t used_budget = 0;
+    //! Whether the current run belongs to the large regime (not the first run)
+    bool large_run = false;
 
-    BIPOP(const Float mu, const Float lambda, const size_t budget) :
+    BIPOP(const Float mu, const Float lambda) :
         Strategy(),
         lambda_init(static_cast<size_t>(lambda)),
-        mu_factor(mu / lambda),
-        budget(budget)
+        mu_factor(mu / lambda)
     {
     }
 
     Float update(parameters::Parameters &) override;
 
-    bool large() const { return budget_large >= budget_small and budget_large > 0; }
+    //! Whether the next run is large: the large regime has used no more evaluations than the
+    //! small one (Hansen 2009; pycma's fmin)
+    bool large() const { return used_large <= used_small; }
 };
 
 namespace strategy
 {
 inline std::shared_ptr<Strategy>
-get(const parameters::Modules modules, const Float mu, const Float lambda, const size_t budget)
+get(const parameters::Modules modules, const Float mu, const Float lambda)
 {
     using namespace parameters;
     switch (modules.restart_strategy)
@@ -60,7 +69,7 @@ get(const parameters::Modules modules, const Float mu, const Float lambda, const
     case RestartStrategyType::IPOP:
         return std::make_shared<IPOP>();
     case RestartStrategyType::BIPOP:
-        return std::make_shared<BIPOP>(mu, lambda, budget);
+        return std::make_shared<BIPOP>(mu, lambda);
     default:
     case RestartStrategyType::STOP:
     case RestartStrategyType::NONE:

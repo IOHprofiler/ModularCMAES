@@ -32,6 +32,10 @@ ACCEPTED = {
         "nanobind's bind_vector names the argument index (pop(i=...) by keyword is not supported)",
     "missing: cmaescpp.matrix_adaptation.CovarianceAdaptation.inv_root_C":
         "internal: moved to Adaptation.metric().inv_root_C(), for every matrix adaptation (#123)",
+    # Internals (#80): BIPOP's regimes count the evaluations they used (the budgets left wrapped)
+    "missing: cmaescpp.restart.BIPOP.budget": "internal: the regimes no longer split the budget",
+    "missing: cmaescpp.restart.BIPOP.budget_large": "internal: now BIPOP.used_large",
+    "missing: cmaescpp.restart.BIPOP.budget_small": "internal: now BIPOP.used_small",
     "became read-only: cmaescpp.matrix_adaptation.NaturalGradientAdaptation.G":
         "WP4: the xNES update uses the low-rank factor of G (gradient_samples, gradient_weights, "
         "gradient_shift); the property computes G from it",

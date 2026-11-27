@@ -166,11 +166,11 @@ _EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
 #:   stays active. The (1+1)-ES runs SR, which reads `damps` (mutation.cpp:372), so `damps`
 #:   is also active for lambda0 = 1.
 #: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:163-165): forbidden.
-#: * `center_placement`, `repelling_type`: used when a run restarts (parameters.cpp:128,
+#: * `center_placement`, `repelling_type`: used when a run restarts (parameters.cpp:127,
 #:   `Parameters::begin_restart`, repelling.cpp:174). The restart criteria of every strategy but
-#:   STOP include UnableToAdapt (restart_criteria.cpp:376), so NONE restarts when the adaptation
+#:   STOP include UnableToAdapt (restart_criteria.cpp:403), so NONE restarts when the adaptation
 #:   fails. With STOP the criteria stop the optimizer instead (c_maes.cpp:101, 225-232). The
-#:   other criteria exist from RESTART on (restart_criteria.cpp:379).
+#:   other criteria exist from RESTART on (restart_criteria.cpp:405).
 #: * `repelling_metric`: read by CoverageRepelling and AdaptiveRepelling only (repelling.cpp:28,
 #:   47); `repelling.hpp:235` gives `NoRepelling` for NONE.
 _INACTIVE_FOR = {
