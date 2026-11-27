@@ -107,32 +107,34 @@ class TestTuning(unittest.TestCase):
 
     def test_conditions(self):
         cspace = c_maes.get_configspace(4)
-        for _ in range(300):
+        for _ in range(400):
             config = dict(cspace.sample_configuration())
             names = set(config)
-            restarts = config["restart_strategy"] in ("RESTART", "IPOP", "BIPOP")
+            ma, ssa = config["matrix_adaptation"], config["ssa"]
+            restarts = config["restart_strategy"] != "STOP"
             self.assertEqual("center_placement" in names, restarts)
             self.assertEqual("repelling_type" in names, restarts)
             self.assertEqual(
                 "repelling_metric" in names,
                 restarts and config["repelling_type"] != "NONE",
             )
-            self.assertEqual("active" in names, config["matrix_adaptation"] != "NONE")
+            self.assertEqual("active" in names, ma != "NONE" and config["lambda0"] > 1)
             self.assertEqual("mu0_factor" in names, config["lambda0"] > 1)
             self.assertEqual(
-                "damps_factor" in names, config["ssa"] in ("CSA", "MSR", "PSR", "SR")
+                "damps_factor" in names, ssa in ("CSA", "MSR", "PSR", "SR")
             )
-            ma, ssa = config["matrix_adaptation"], config["ssa"]
             self.assertEqual("cc_factor" in names, ma not in ("NONE", "MATRIX", "CMSA"))
-            self.assertEqual("c1_factor" in names, ma not in ("NONE", "CMSA", "NATURAL_GRADIENT"))
-            self.assertEqual("cmu_factor" in names, "c1_factor" in names)
             self.assertEqual(
                 "cs_factor" in names,
-                ssa not in ("SR", "SA") or ma in ("MATRIX", "NATURAL_GRADIENT"),
+                ssa not in ("SR", "SA") or ma not in ("NONE", "CHOLESKY", "CMSA"),
             )
+            c1_active = ma in ("COVARIANCE", "COVARIANCE_NO_EIGV", "SEPARABLE", "MATRIX", "CHOLESKY")
+            c1_active |= ma in ("CMSA", "NATURAL_GRADIENT") and bool(config.get("active"))
+            self.assertEqual("c1_factor" in names, bool(c1_active))
+            self.assertEqual("cmu_factor" in names, "c1_factor" in names)
             self.assertNotEqual(config["sample_transformation"], "NONE")
-            if config["matrix_adaptation"] == "COVARIANCE":
-                self.assertEqual(config["ssa"], "CSA")
+            if ma == "COVARIANCE":
+                self.assertEqual(ssa, "CSA")
 
     def test_sampled_configurations_run(self):
         dim = 3
@@ -146,20 +148,57 @@ class TestTuning(unittest.TestCase):
                 self.assertGreater(es.p.stats.evaluations, 0)
 
     def test_the_inactive_parameters_have_no_effect(self):
-        """A parameter that the conditions leave out does not change the run."""
-        for modules, name, value in [
-            (dict(ssa="TPA"), "damps", 2.0),
-            (dict(matrix_adaptation="NONE"), "cc", 0.1),
-            (dict(matrix_adaptation="CMSA"), "c1", 0.1),
-            (dict(ssa="SR", matrix_adaptation="CHOLESKY"), "cs", 0.9),
-        ]:
-            runs = []
-            for extra in ({}, {name: value}):
-                s = c_maes.settings_from_dict(4, **modules, **extra, budget=600, seed=2)
-                es = c_maes.ModularCMAES(s)
-                es.run(sphere)
-                runs.append((es.p.stats.global_best.y, es.p.stats.evaluations))
-            self.assertEqual(runs[0], runs[1], (modules, name))
+        """Where the space has no hyperparameter, changing the parameter changes nothing: every
+        step-size rule with every matrix adaptation, with and without `active`, for the weights
+        `DEFAULT`, `EQUAL` and `UTILITY` (the conditions are derived from the code, see the
+        comment of `_INACTIVE_FOR`; this is the probe that checks them)."""
+        options = c_maes.get_all_module_options()
+        cspace = c_maes.get_configspace(4)
+        probes = {"cs": 0.5, "cc": 0.5, "cmu": 0.5, "c1": 0.5, "damps": 2.0}
+        checked = 0
+        for ssa in options["ssa"]:
+            for ma in options["matrix_adaptation"]:
+                for active in (False, True):
+                    for weights in ("DEFAULT", "EQUAL", "UTILITY"):
+                        modules = dict(
+                            ssa=ssa, matrix_adaptation=ma, active=active, weights=weights
+                        )
+                        plain = c_maes.settings_from_dict(4, **modules, budget=500, seed=2)
+                        # the modules as Settings resolves them: what the conditions are about
+                        resolved = {
+                            "ssa": ssa,
+                            "matrix_adaptation": ma,
+                            "active": plain.modules.active,
+                        }
+                        base = self._run(plain)
+                        for name, value in probes.items():
+                            if self._has_hyperparameter(cspace, name, resolved):
+                                continue
+                            default = getattr(c_maes.Parameters(plain).weights, name)
+                            changed = c_maes.settings_from_dict(
+                                4, **modules, budget=500, seed=2, **{name: default * value}
+                            )
+                            self.assertEqual(self._run(changed), base, (modules, name))
+                            checked += 1
+        self.assertGreater(checked, 500)
+
+    @staticmethod
+    def _run(settings):
+        es = c_maes.ModularCMAES(settings)
+        es.run(sphere)
+        return (es.p.stats.global_best.y, es.p.stats.evaluations, es.p.mutation.sigma)
+
+    @staticmethod
+    def _has_hyperparameter(cspace, name, modules):
+        """Whether `<name>_factor` is active for the modules, by the conditions of the space."""
+        child = f"{name}_factor"
+        for condition in cspace.conditions:
+            children = {c.child.name for c in getattr(condition, "components", [condition])}
+            if child in children:
+                return condition.satisfied_by_value(
+                    {"lambda0": 8, **modules}
+                )
+        return True
 
     def test_from_dict(self):
         settings = c_maes.settings_from_dict(2, active=True, cc=1)

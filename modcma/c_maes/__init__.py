@@ -5,8 +5,10 @@ from typing import Any, Optional, Union, cast
 
 import numpy as np
 from ConfigSpace import (
+    AndConjunction,
     ConfigurationSpace,
     Categorical,
+    EqualsCondition,
     ForbiddenAndConjunction,
     ForbiddenEqualsClause,
     ForbiddenInClause,
@@ -140,22 +142,49 @@ _FACTOR_RANGES = {
     "damps": (0.1, 10.0),
 }
 
-#: The options of a module for which a hyperparameter has no effect (found by running every
-#: combination of step-size rule and matrix adaptation with and without the parameter changed,
-#: #81). The hyperparameter is active when the module has any other option.
-#: cs is also used by the path of MATRIX and NATURAL_GRADIENT, whatever the step-size rule.
+#: When a hyperparameter has no effect (#81). Each entry is read from the C++ code: a
+#: hyperparameter is inactive only where the code never reads it. A hyperparameter is active when
+#: any of its parents has an option that is not excluded here. The evidence (src/):
+#:
+#: * `damps`: read only by CSA, MSR, PSR and SR (mutation.cpp:217, 283, 320, 372). TPA reads cs
+#:   (249), XNES, MXNES, LPXNES read cs (333, 340, 351, 363), SA neither (381-415). No other file
+#:   reads it (weights.cpp stores it, and uses cs for its default only).
+#: * `cc`: read by the path pc of COVARIANCE, COVARIANCE_NO_EIGV (matrix_adaptation.cpp:155, 163),
+#:   SEPARABLE (386, 399), CHOLESKY (558) and the (1+1) path (144, 376, 553), and by the step
+#:   of NATURAL_GRADIENT (822). MATRIX (444-452) and CMSA (624-632) and NONE have no pc.
+#: * `cs`: updates the path ps in every adaptation (matrix_adaptation.cpp:107, 134) and is read
+#:   directly by TPA, MSR, PSR and the xNES rules (mutation.cpp:249, 282, 319, 333-363). ps is
+#:   used by CSA (mutation.cpp:217), by MATRIX (matrix_adaptation.cpp:482-485) and, through h_sigma,
+#:   by COVARIANCE and COVARIANCE_NO_EIGV (152-155) and SEPARABLE (383-386). The default of cc
+#:   uses it for NATURAL_GRADIENT (weights.cpp:78). SR (mutation.cpp:372) and SA never read it,
+#:   and neither do NONE, CHOLESKY (546-558) or CMSA (624-632) read ps: with both, cs is unread.
+#: * `c1`, `cmu`: read by COVARIANCE, COVARIANCE_NO_EIGV (matrix_adaptation.cpp:175, 200, 204;
+#:   `lazy_update_interval`, weights.cpp:197, used at 328), SEPARABLE (407, 412), MATRIX (474,
+#:   475) and CHOLESKY (576-594). They also scale the negative weights (weights.cpp:186-189), which
+#:   the update of every adaptation reads with `active` (for_population_into: 166, 402, 465, 592,
+#:   648, 771), so CMSA and NATURAL_GRADIENT read them only with `active`. NONE reads no
+#:   weights (it has no matrix update).
+#: * `active`: read by every adaptation but NONE (matrix_adaptation.cpp:165, 401, 464, 590, 647,
+#:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:150, 158).
+#: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:155).
+#: * `center_placement`, `repelling_type`: used when a run restarts (parameters.cpp:128,
+#:   `Parameters::begin_restart`, repelling.cpp:174). The restart criteria of every strategy but
+#:   STOP include UnableToAdapt (restart_criteria.cpp:376), so NONE restarts when the adaptation
+#:   fails. With STOP the criteria stop the optimizer instead (c_maes.cpp:101, 225-232). The
+#:   other criteria exist from RESTART on (restart_criteria.cpp:379).
+#: * `repelling_metric`: read by CoverageRepelling and AdaptiveRepelling only (repelling.cpp:28,
+#:   47); `repelling.hpp:235` gives `NoRepelling` for NONE.
 _INACTIVE_FOR = {
-    "damps": {"ssa": ("TPA", "XNES", "MXNES", "LPXNES", "SA")},
-    "cc": {"matrix_adaptation": ("NONE", "MATRIX", "CMSA")},
-    "cmu": {"matrix_adaptation": ("NONE", "CMSA", "NATURAL_GRADIENT")},
-    "c1": {"matrix_adaptation": ("NONE", "CMSA", "NATURAL_GRADIENT")},
+    "damps_factor": {"ssa": ("TPA", "XNES", "MXNES", "LPXNES", "SA")},
+    "cc_factor": {"matrix_adaptation": ("NONE", "MATRIX", "CMSA")},
+    "cs_factor": {"ssa": ("SR", "SA"), "matrix_adaptation": ("NONE", "CHOLESKY", "CMSA")},
+    "center_placement": {"restart_strategy": ("STOP",)},
+    "repelling_type": {"restart_strategy": ("STOP",)},
+    "repelling_metric": {"repelling_type": ("NONE",)},
 }
-_CS_INACTIVE_SSA = ("SR", "SA")
-_CS_ACTIVE_MATRIX = ("MATRIX", "NATURAL_GRADIENT")
-
-#: The restart strategies that do not restart: the center placement and repelling (the archive of
-#: the restarts) have no effect with them.
-_NO_RESTARTS = ("NONE", "STOP")
+#: `c1` and `cmu` also when `active` with these matrix adaptations (see above)
+_ACTIVE_ONLY_MATRIX = ("CMSA", "NATURAL_GRADIENT")
+_NO_MATRIX_UPDATE_OF_C = ("NONE", "CMSA", "NATURAL_GRADIENT")
 
 
 def _in_condition(child, parent, options: tuple, excluded: tuple = ()):
@@ -169,34 +198,42 @@ def _factor_parameter(name: str) -> UniformFloatHyperparameter:
     return UniformFloatHyperparameter(f"{name}_factor", lower, upper, default_value=1.0, log=True)
 
 
+def _any_of(conditions: list):
+    return conditions[0] if len(conditions) == 1 else OrConjunction(*conditions)
+
+
 def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates: bool) -> None:
     """The conditions of the inactive options, and the forbidden duplicates (#81)."""
     present = set(cspace.keys())
     ssa, matrix = cspace["ssa"], cspace["matrix_adaptation"]
 
-    def condition(child: str, parent: str, excluded: tuple):
-        if child in present:
-            cspace.add(_in_condition(cspace[child], cspace[parent], options[parent], excluded))
+    # active: needs a matrix, and a population (lambda0 = 1 switches it off)
+    active = [_in_condition(cspace["active"], matrix, options["matrix_adaptation"], ("NONE",))]
+    if "lambda0" in present:
+        active.append(GreaterThanCondition(cspace["active"], cspace["lambda0"], 1))
+    cspace.add(active[0] if len(active) == 1 else AndConjunction(*active))
 
-    # no matrix, no active update
-    condition("active", "matrix_adaptation", ("NONE",))
-    # restarts: the center placement of the new run, the repelling archive of the finished runs
-    condition("center_placement", "restart_strategy", _NO_RESTARTS)
-    condition("repelling_type", "restart_strategy", _NO_RESTARTS)
-    condition("repelling_metric", "repelling_type", ("NONE",))
     for child, parents in _INACTIVE_FOR.items():
-        for parent, excluded in parents.items():
-            if f"{child}_factor" in present:
-                cspace.add(
-                    _in_condition(cspace[f"{child}_factor"], cspace[parent], options[parent], excluded)
-                )
-    if "cs_factor" in present:
-        cspace.add(
-            OrConjunction(
-                _in_condition(cspace["cs_factor"], ssa, options["ssa"], _CS_INACTIVE_SSA),
-                InCondition(cspace["cs_factor"], matrix, list(_CS_ACTIVE_MATRIX)),
-            )
+        if child not in present:
+            continue
+        conditions = [
+            _in_condition(cspace[child], cspace[parent], options[parent], excluded)
+            for parent, excluded in parents.items()
+        ]
+        cspace.add(_any_of(conditions))
+
+    for child in ("c1_factor", "cmu_factor"):
+        if child not in present:
+            continue
+        read_always = _in_condition(
+            cspace[child], matrix, options["matrix_adaptation"], _NO_MATRIX_UPDATE_OF_C
         )
+        with_active = AndConjunction(
+            InCondition(cspace[child], matrix, list(_ACTIVE_ONLY_MATRIX)),
+            EqualsCondition(cspace[child], cspace["active"], True),
+        )
+        cspace.add(OrConjunction(read_always, with_active))
+
     if "mu0_factor" in present:
         cspace.add(GreaterThanCondition(cspace["mu0_factor"], cspace["lambda0"], 1))
 
@@ -238,19 +275,19 @@ def get_configspace(
     Hyperparameters without an effect are inactive (ConfigSpace conditions, absent from a sampled
     configuration):
 
-    - `active` needs a `matrix_adaptation` other than `NONE`;
-    - `center_placement` and `repelling_type` need a `restart_strategy` that restarts
-      (`RESTART`, `IPOP` or `BIPOP`), and `repelling_metric` needs `repelling_type` other than
-      `NONE`;
-    - `cs_factor` is without effect for `ssa` `SR` and `SA`, unless `matrix_adaptation` is `MATRIX`
-      or `NATURAL_GRADIENT`; `damps_factor` for `TPA`, `XNES`, `MXNES`, `LPXNES` and `SA`;
-    - `cc_factor` is without effect for `matrix_adaptation` `NONE`, `MATRIX` and `CMSA`;
-      `cmu_factor` and `c1_factor` for `NONE`, `CMSA` and `NATURAL_GRADIENT`;
+    - `active` needs a `matrix_adaptation` other than `NONE` and `lambda0` above 1;
+    - `center_placement` and `repelling_type` are inactive for `restart_strategy` `STOP` (the
+      criteria stop the run; `NONE` still restarts when the adaptation fails), and
+      `repelling_metric` needs `repelling_type` other than `NONE`;
+    - `cs_factor` is inactive when `ssa` is `SR` or `SA` and `matrix_adaptation` is `NONE`,
+      `CHOLESKY` or `CMSA`; `damps_factor` for `TPA`, `XNES`, `MXNES`, `LPXNES` and `SA`;
+    - `cc_factor` is inactive for `matrix_adaptation` `NONE`, `MATRIX` and `CMSA`;
+    - `cmu_factor` and `c1_factor` are inactive for `NONE`, and for `CMSA` and
+      `NATURAL_GRADIENT` without `active` (with `active` they scale the negative weights);
     - `mu0_factor` needs `lambda0` above 1 (a (1+1)-ES has mu = 1).
 
-    The effects were found by running each combination with the parameter changed; a parameter
-    can matter in a rare combination that this table marks inactive (`active` with `EQUAL`
-    weights, which scale the negative weights by c1 and cmu).
+    A hyperparameter is inactive only where the C++ code never reads it; the evidence, with file
+    and line, is in the comment of `_INACTIVE_FOR` in the source.
 
     `Settings` replaces `matrix_adaptation=COVARIANCE` by `COVARIANCE_NO_EIGV` for every `ssa` but
     `CSA`, so the two are one configuration there. With `remove_duplicates`, `COVARIANCE` with

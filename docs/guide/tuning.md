@@ -44,24 +44,26 @@ they are passed as they are.
 A hyperparameter without an effect is inactive: it is absent from a sampled configuration, so a
 tuner does not spend evaluations on it.
 
-| Hyperparameter | Active when |
+| Hyperparameter | Inactive when (otherwise active) |
 |---|---|
-| `active` | `matrix_adaptation` is not `NONE` |
-| `center_placement`, `repelling_type` | `restart_strategy` is `RESTART`, `IPOP` or `BIPOP` |
-| `repelling_metric` | `repelling_type` is not `NONE` |
-| `cs_factor` | `ssa` is not `SR` or `SA`, or `matrix_adaptation` is `MATRIX` or `NATURAL_GRADIENT` |
-| `damps_factor` | `ssa` is `CSA`, `MSR`, `PSR` or `SR` |
-| `cc_factor` | `matrix_adaptation` is not `NONE`, `MATRIX` or `CMSA` |
-| `cmu_factor`, `c1_factor` | `matrix_adaptation` is not `NONE`, `CMSA` or `NATURAL_GRADIENT` |
-| `mu0_factor` | `lambda0` is above 1 |
+| `active` | `matrix_adaptation` is `NONE`, or `lambda0` is 1 |
+| `center_placement`, `repelling_type` | `restart_strategy` is `STOP` |
+| `repelling_metric` | `repelling_type` is `NONE` |
+| `cs_factor` | `ssa` is `SR` or `SA`, and `matrix_adaptation` is `NONE`, `CHOLESKY` or `CMSA` |
+| `damps_factor` | `ssa` is `TPA`, `XNES`, `MXNES`, `LPXNES` or `SA` |
+| `cc_factor` | `matrix_adaptation` is `NONE`, `MATRIX` or `CMSA` |
+| `cmu_factor`, `c1_factor` | `matrix_adaptation` is `NONE`, or `CMSA` or `NATURAL_GRADIENT` without `active` |
+| `mu0_factor` | `lambda0` is 1 |
 
-The effects of the learning rates were found by running every pair of step-size rule and matrix
-adaptation with the parameter changed (d = 5, one seed, the weights `DEFAULT`, `EQUAL` and
-`UTILITY`, with and without `active`). A parameter can matter in a rare combination that the table
-leaves out: `cmu` and `c1` with `CMSA` or `NATURAL_GRADIENT` when `active` is combined with
-`EQUAL` weights, and `cs` with `SA` and `COVARIANCE` with `UTILITY` weights. The thresholds of
-threshold convergence, `ipop_factor` and the other numeric parameters of modules are not
-hyperparameters.
+A hyperparameter is inactive only where the C++ code never reads the parameter; the file and line
+of each reason are in the comment of `_INACTIVE_FOR` in `modcma/c_maes/__init__.py`. Where it is read
+in some combinations only, it stays active, which costs a tuner some budget but hides no
+dimension. For example, `restart_strategy=NONE` still restarts when the adaptation fails, so
+`center_placement` stays active; `cmu` and `c1` scale the negative weights, so they matter for
+`CMSA` and `NATURAL_GRADIENT` with `active`. `tests/test_c_tuning.py` checks that changing an
+inactive parameter leaves a run unchanged, for every pair of step-size rule and matrix adaptation.
+The thresholds of threshold convergence, `ipop_factor` and the other numeric parameters of modules
+are not hyperparameters.
 
 ## Configurations left out
 
@@ -82,6 +84,3 @@ A complete example, a random search for the best configuration on a few function
 [tuning a configuration](../examples/tuning.md). The study of de Nobel et al. (2021) used SMAC on
 the BBOB functions with this configuration space; the scripts are in
 [`scripts/tuning`](https://github.com/IOHprofiler/ModularCMAES/tree/master/scripts/tuning).
-
-The scripts in `scripts/tuning` build on the space of modcma 1.x (the absolute names `cs`, `mu0`,
-...); with 2.0 they need the names above.
