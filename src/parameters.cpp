@@ -127,7 +127,9 @@ void Parameters::tell_center_of_mass(const Float y,
                                mutation->sigma,
                                adaptation->metric().copy(),
                                std::move(reasons));
-    stats.update_best(stats.centers.back().x, stats.centers.back().y);
+    stats.update_best(stats.centers.back().x,
+                      stats.centers.back().y,
+                      settings.in_domain(stats.centers.back().x));
     stats.has_improved = false;
     if (restarting)
         repelling->begin_update(*this);

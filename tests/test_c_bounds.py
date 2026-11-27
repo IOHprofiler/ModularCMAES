@@ -502,5 +502,65 @@ class TestDegenerateBox(unittest.TestCase):
         modcma.ModularCMAES(settings)
 
 
+class TestBestInTheBox(unittest.TestCase):
+    """#168: RESAMPLE evaluates a point outside the box after 5 d rejected tries; only points in
+    the box become global_best (what run() and fmin return)."""
+
+    lb, ub = np.full(5, -1.0), np.full(5, 0.5)
+
+    @staticmethod
+    def sphere(x):
+        return float(np.sum((np.asarray(x) - 2.0) ** 2))  # optimum outside the box
+
+    def test_resample(self):
+        outside_selected = 0
+        for seed in range(5):
+            es = modcma.ModularCMAES(modcma.settings_from_dict(
+                5, bound_correction="RESAMPLE", lb=self.lb, ub=self.ub, sigma0=2.0, seed=seed,
+                budget=2000,
+            ))
+            while es.step(self.sphere):
+                best = es.p.stats.current_best.x
+                outside_selected += not np.all(inside(best[None, :], self.lb, self.ub))
+                global_best = es.p.stats.global_best
+                if np.isfinite(global_best.y):  # none while every evaluated point is outside
+                    self.assertTrue(np.all(inside(global_best.x[None, :], self.lb, self.ub)))
+            # the final center of mass is clipped into the box
+            self.assertTrue(np.isfinite(es.p.stats.global_best.y))
+            self.assertTrue(np.all(inside(es.p.stats.global_best.x[None, :], self.lb, self.ub)))
+        self.assertGreater(outside_selected, 0)  # the case occurred
+
+    def test_fmin(self):
+        xopt, fopt, _, _ = modcma.fmin(
+            self.sphere, np.zeros(5), 2.0, 2000, bound_correction="RESAMPLE", lb=self.lb,
+            ub=self.ub, seed=1,
+        )
+        self.assertTrue(np.all(inside(xopt[None, :], self.lb, self.ub)))
+        self.assertEqual(fopt, self.sphere(xopt))
+
+    def test_without_a_correction_every_point_counts(self):
+        es = modcma.ModularCMAES(modcma.settings_from_dict(
+            5, lb=self.lb, ub=self.ub, sigma0=2.0, seed=1, budget=2000,
+        ))
+        es.run(self.sphere)
+        self.assertFalse(np.all(inside(es.p.stats.global_best.x[None, :], self.lb, self.ub)))
+
+    def test_es_classes(self):
+        modules = c_maes.Modules()
+        modules.bound_correction = options.CorrectionMethod.RESAMPLE
+        shifted = lambda x: float(np.sum((np.asarray(x) - 4.9) ** 2))  # noqa: E731
+        for seed in range(3):
+            c_maes.set_seed(seed)
+            one = c_maes.es.OnePlusOneES(5, np.zeros(5), shifted(np.zeros(5)), 30.0, 500, 1e-8,
+                                         modules)
+            one(shifted)
+            self.assertTrue(np.all(np.abs(one.x) <= 5.0))
+            c_maes.set_seed(seed)
+            many = c_maes.es.MuCommaLambdaES(5, np.zeros(5), 30.0, 2000, 1e-8, modules)
+            many(shifted)
+            self.assertTrue(np.all(np.abs(many.x_min) <= 5.0))
+            self.assertTrue(np.isfinite(many.f_min))
+
+
 if __name__ == "__main__":
     unittest.main()

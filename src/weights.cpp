@@ -62,11 +62,17 @@ static Float get_default_cs(const Settings &settings, const Float mueff, const F
     }
 }
 
-static Float
-get_default_damps(const Settings &settings, const Float mueff, const Float d, const Float cs)
+static Float get_default_damps(
+    const Settings &settings, const Float mueff, const Float d, const Float cs, const Float lambda)
 {
     switch (settings.modules.ssa)
     {
+    case StepSizeAdaptation::TPA_INPLACE:
+        // pycma 4.6.0, CMAAdaptSigmaTPA.initialize_settings (sigma_adaptation.py:772-773):
+        // 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)), the second term for large populations (pycma
+        // issue 231). Hansen, Atamna & Auger (2014) tuned sqrt(d) on the sphere with the default
+        // lambda; the two are close for d = 2 to 9 (#173)
+        return 0.7 + 2.0 * std::log(d) + 2.0 * std::log(std::max(Float{1.0}, lambda - d));
     case StepSizeAdaptation::SR:
         return 1.0 + (d / 2.0);
     case StepSizeAdaptation::MSR:
@@ -222,7 +228,8 @@ void Weights::init_weights(const Settings &settings)
     cs = settings.cs.value_or(get_default_cs(settings, mueff, d));
     cc = settings.cc.value_or(get_default_cc(settings, d, mueff));
 
-    damps = settings.damps.value_or(get_default_damps(settings, mueff, d, cs));
+    damps = settings.damps.value_or(
+        get_default_damps(settings, mueff, d, cs, static_cast<Float>(weights.size())));
 
     // The rate of the path p_sigma: cs, at most 1. The cs of LPXNES, 9 mueff / (10 sqrt(d)),
     // exceeds 2 for mueff > 2.22 sqrt(d) (and XNES's for large populations): as the rate of the

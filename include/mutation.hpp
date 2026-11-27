@@ -216,8 +216,22 @@ struct Strategy
                        const parameters::Stats &stats) {};
 
   protected:
+    //! Called by begin_population, after the step sizes are sampled
+    virtual void on_population_begin(parameters::Parameters &p) {}
+
     //! Called by end_population
     virtual void on_population_complete(parameters::Parameters &p) {}
+
+    /**
+     * Whether individual i gets a sample of the step-size adaptation instead of an ordinary one
+     * (TPA_INPLACE's two test points): it then writes its z and returns true. Called again when
+     * bound correction (RESAMPLE) or repelling rejects the point.
+     */
+    virtual bool sample_special(Eigen::Index i, parameters::Parameters &p) { return false; }
+
+    //! Whether individuals i and i + 1 are such a pair, sampled and rejected together, as a
+    //! mirrored pair is
+    [[nodiscard]] virtual bool special_pair(Eigen::Index i) const { return false; }
 
   private:
     //! x of individual i from its y and sigma, with bound correction
@@ -253,8 +267,11 @@ struct TPA : Strategy
     Float a_tpa = 0.5;
     Float b_tpa = 0.0;
     Float rank_tpa = 0.0;
+    //! The step size that sampled the last generation, before adapt() changed it: the length of
+    //! the test steps (#167)
+    Float sigma_old = sigma;
 
-    //! The two points m +- sigma * dm
+    //! The two points m +- 0.5 sigma_old dm, half the last mean step (Hansen 2008, Eqs. 8, 9)
     size_t n_extra_points() const override { return 2; }
     void extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) const override;
     void tell_extra_points(Eigen::Ref<const Vector> f,
@@ -311,6 +328,58 @@ struct XNES : Strategy
                Population &pop,
                const Population &old_pop,
                const parameters::Stats &stats) override;
+
+  protected:
+    /**
+     * With elitism: the statistic of the sigma update from the offspring alone, ranked among
+     * themselves, before the parents join them in the selection (#172)
+     */
+    void on_population_complete(parameters::Parameters &p) override;
+
+  private:
+    //! The statistic of the offspring, for the next adapt() (set with elitism only)
+    std::optional<Float> offspring_statistic;
+    std::vector<size_t> order;
+    Vector weights;
+};
+
+/**
+ * Two-point step-size adaptation within the population (StepSizeAdaptation::TPA_INPLACE, #173):
+ * pycma 4.6.0's CMAAdaptSigmaTPA, after Hansen, Atamna & Auger (2014), Eq. (6) and Algorithm 3.
+ * The first two offspring of a generation (after the first of a run) are mirrored along the last
+ * mean shift, z_1 = ||N(0, I)|| A^-1 dm / ||A^-1 dm||, z_2 = -z_1; their ranks among the offspring
+ * give z = (rank(x_2) - rank(x_1)) / (n - 1), and s <- (1 - cs) s + cs sign(z) |z|^0.5,
+ * sigma <- sigma exp(s / damps).
+ */
+struct TPAInPlace : Strategy
+{
+    using Strategy::Strategy;
+
+    //! The last normalised rank difference z, in [-1, 1] (0 before the first update)
+    Float rank_difference = 0.0;
+
+    void adapt(const parameters::Weights &w,
+               std::shared_ptr<matrix_adaptation::Adaptation> adaptation,
+               Population &pop,
+               const Population &old_pop,
+               const parameters::Stats &stats) override;
+
+  protected:
+    void on_population_begin(parameters::Parameters &p) override;
+
+    bool sample_special(Eigen::Index i, parameters::Parameters &p) override;
+
+    [[nodiscard]] bool special_pair(Eigen::Index i) const override { return i == 0 && test_points; }
+
+    void on_population_complete(parameters::Parameters &p) override;
+
+  private:
+    //! Whether individuals 0 and 1 of the current population are the test points
+    bool test_points = false;
+    //! A^-1 dm / ||A^-1 dm||: the direction of the test points in z (0 when the mean did not move)
+    Vector direction;
+    //! Whether rank_difference is new, for the next adapt()
+    bool pending = false;
 };
 
 struct MXNES : Strategy

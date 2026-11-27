@@ -95,6 +95,8 @@ inline std::string to_string(StepSizeAdaptation s)
         return "SR";
     case StepSizeAdaptation::SA:
         return "SA";
+    case StepSizeAdaptation::TPA_INPLACE:
+        return "TPA_INPLACE";
     }
     return "unknown";
 }

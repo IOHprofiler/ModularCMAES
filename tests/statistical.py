@@ -155,6 +155,39 @@ CONFIGS = {
     # #131: lambda0 = 1 runs SR whatever ssa is (one_plus_one above is the default, CSA)
     "one_plus_one_tpa": {"lambda0": 1, "ssa": "TPA"},
     "one_plus_one_sa": {"lambda0": 1, "ssa": "SA"},
+    # #161: with elitism and active, the negative weights on the worst points of the (mu + lambda)
+    # pool, for every matrix adaptation with an active update (matrix_elitist_active above)
+    "elitist_active": {"elitist": True, "active": True},
+    "no_eigv_elitist_active": {
+        "matrix_adaptation": "COVARIANCE_NO_EIGV",
+        "elitist": True,
+        "active": True,
+    },
+    "cholesky_elitist_active": {"matrix_adaptation": "CHOLESKY", "elitist": True, "active": True},
+    "separable_elitist_active": {"matrix_adaptation": "SEPARABLE", "elitist": True, "active": True},
+    "natural_gradient_elitist_active": {
+        "matrix_adaptation": "NATURAL_GRADIENT",
+        "elitist": True,
+        "active": True,
+    },
+    # #172: XNES's sigma from the offspring alone, with elitism
+    "xnes_elitist": {"ssa": "XNES", "elitist": True},
+    "natural_gradient_xnes_elitist": {
+        "matrix_adaptation": "NATURAL_GRADIENT",
+        "ssa": "XNES",
+        "elitist": True,
+    },
+    # #160: h_sigma in the rank-one update of MATRIX and CHOLESKY, with a step-size rule other than
+    # CSA (matrix and cholesky above, with CSA, are unchanged)
+    "matrix_xnes": {"matrix_adaptation": "MATRIX", "ssa": "XNES"},
+    "cholesky_xnes": {"matrix_adaptation": "CHOLESKY", "ssa": "XNES"},
+    "matrix_sa": {"matrix_adaptation": "MATRIX", "ssa": "SA"},
+    "cholesky_sa": {"matrix_adaptation": "CHOLESKY", "ssa": "SA"},
+    # #173: TPA within the population (compare with tpa and default)
+    "tpa_inplace": {"ssa": "TPA_INPLACE"},
+    # #158: COVERAGE repelling's radius in sigma0 units, the Mahalanobis distance by default
+    "restart_coverage": {"restart_strategy": "RESTART", "repelling_type": "COVERAGE"},
+    "ipop_coverage": {"restart_strategy": "IPOP", "repelling_type": "COVERAGE"},
 }
 
 #: Settings arguments next to the module options

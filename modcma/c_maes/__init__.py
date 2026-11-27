@@ -146,18 +146,20 @@ _EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
 #: hyperparameter is inactive only where the code never reads it. A hyperparameter is active when
 #: any of its parents has an option that is not excluded here. The evidence (src/):
 #:
-#: * `damps`: read only by CSA, MSR, PSR and SR (mutation.cpp:217, 283, 320, 372). TPA reads cs
-#:   (249), XNES, MXNES, LPXNES read cs (333, 340, 351, 363), SA neither (381-415). No other file
-#:   reads it (weights.cpp stores it, and uses cs for its default only).
+#: * `damps`: read only by CSA, MSR, PSR, SR and TPA_INPLACE (mutation.cpp, their `adapt`). TPA
+#:   reads cs, XNES, MXNES, LPXNES read cs, SA neither. No other file reads it (weights.cpp stores
+#:   it, and uses cs for its default only).
 #: * `cc`: read by the path pc of COVARIANCE, COVARIANCE_NO_EIGV (matrix_adaptation.cpp:155, 163),
 #:   SEPARABLE (386, 399), CHOLESKY (558) and the (1+1) path (144, 376, 553), and by the step
 #:   of NATURAL_GRADIENT (822). MATRIX (444-452) and CMSA (624-632) and NONE have no pc.
 #: * `cs`: is read directly by TPA, MSR, PSR and the xNES rules (mutation.cpp, their `adapt`), and
 #:   is the rate of the path ps, at most 1 (`Weights.cs_path`, Adaptation::adapt_ps), for every
-#:   step-size rule. ps is used by CSA (CSA::adapt), by MATRIX (its rank-one update) and, through
-#:   h_sigma, by COVARIANCE, COVARIANCE_NO_EIGV and SEPARABLE. SR and SA
-#:   never read cs, and neither do NONE, CHOLESKY, CMSA or NATURAL_GRADIENT read ps: with both, cs
-#:   is unread. (Before #72 the default cc of NATURAL_GRADIENT was cs / 2.)
+#:   step-size rule. ps is used by CSA (CSA::adapt), by MATRIX (its rank-one update and h_sigma)
+#:   and, through h_sigma, by COVARIANCE, COVARIANCE_NO_EIGV, SEPARABLE and, with a rule other
+#:   than CSA, CHOLESKY (#160). SR and SA never read cs, and neither do NONE, CMSA or
+#:   NATURAL_GRADIENT read ps: with both, cs is unread. (Before #72 the default cc of
+#:   NATURAL_GRADIENT was cs / 2. CHOLESKY in a (1+1)-ES does not read ps; cs stays active
+#:   there.)
 #: * `c1`, `cmu`: read by COVARIANCE, COVARIANCE_NO_EIGV (also through `lazy_update_interval`),
 #:   SEPARABLE, MATRIX and CHOLESKY. They also scale the negative weights (Weights::init_weights),
 #:   which the update of every adaptation reads with `active` (for_population_into), so
@@ -184,7 +186,7 @@ _INACTIVE_FOR = {
     "cc": {"matrix_adaptation": ("NONE", "MATRIX", "CMSA")},
     "cs": {
         "ssa": ("SR", "SA"),
-        "matrix_adaptation": ("NONE", "CHOLESKY", "CMSA", "NATURAL_GRADIENT"),
+        "matrix_adaptation": ("NONE", "CMSA", "NATURAL_GRADIENT"),
     },
     "center_placement": {"restart_strategy": ("STOP",)},
     "repelling_type": {"restart_strategy": ("STOP",)},
@@ -326,8 +328,8 @@ def get_configspace(
     - `center_placement` and `repelling_type` are inactive for `restart_strategy` `STOP` (the
       criteria stop the run; `NONE` still restarts when the adaptation fails), and
       `repelling_metric` needs `repelling_type` other than `NONE`;
-    - `cs` is inactive when `ssa` is `SR` or `SA` and `matrix_adaptation` is `NONE`,
-      `CHOLESKY` or `CMSA`; `damps` for `TPA`, `XNES`, `MXNES`, `LPXNES` and `SA`;
+    - `cs` is inactive when `ssa` is `SR` or `SA` and `matrix_adaptation` is `NONE`, `CMSA`
+      or `NATURAL_GRADIENT`; `damps` for `TPA`, `XNES`, `MXNES`, `LPXNES` and `SA`;
     - `cc` is inactive for `matrix_adaptation` `NONE`, `MATRIX` and `CMSA`;
     - `cmu` and `c1` are inactive for `NONE`, and for `CMSA` and
       `NATURAL_GRADIENT` without `active` (with `active` they scale the negative weights);
@@ -639,7 +641,8 @@ def fmin(
     Returns
     -------
     xopt : numpy.ndarray
-        (d,) the best point found (a copy: it does not change if the run continues).
+        (d,) the best feasible point found, `es.p.stats.global_best` (a copy: it does not change
+        if the run continues). With a bound correction it lies in [lb, ub] (#168).
     fopt : float
         The objective value of xopt.
     evals : int

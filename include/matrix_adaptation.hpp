@@ -89,6 +89,9 @@ struct Adaptation
     Matrix square_scratch;
     Matrix batch_scratch;  // d x n
     Matrix batch_scratch2; // n x d
+    //! The steps of the active update with elitism, gathered from the population and the points
+    //! the selection dropped (#161)
+    Matrix steps_scratch, steps_scratch2;
 
     Adaptation(const size_t dim, const Vector &x0) :
         m(x0),
@@ -415,6 +418,9 @@ struct MatrixAdaptation final : Adaptation
 {
     Matrix M;
     Matrix M_inv;
+    //! h_sigma: false when ||ps|| is long, which skips the rank-one term of the generation; always
+    //! true with CSA and for the (1+1)-ES (#160)
+    bool hs = true;
 
     MatrixAdaptation(const size_t dim, const Vector &x0) :
         Adaptation(dim, x0),
@@ -505,6 +511,9 @@ struct CholeskyAdaptation final : Adaptation
 {
     Matrix A;
     Vector pc;
+    //! h_sigma: false when ||ps|| is long, which stalls the update of pc; always true with CSA
+    //! (#160)
+    bool hs = true;
     /*
     Only a triangular matrix is stored, so the storage complexity is optimal (Krause et al. 2016).
     The diagonal of A gives det C = prod(A_ii)^2, but not the eigenvalues of C: they are the

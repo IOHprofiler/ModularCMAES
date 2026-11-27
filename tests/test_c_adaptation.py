@@ -223,5 +223,73 @@ class TestFactorUpdates(unittest.TestCase):
         self.assertLess(worst, 1e-8)
 
 
+class TestHsigma(unittest.TestCase):
+    """#160: MATRIX and CHOLESKY stall the rank-one update by h_sigma (Hansen 2016, after
+    Eq. (45)), as COVARIANCE does, with every step-size rule but CSA."""
+
+    @staticmethod
+    def before_the_update(matrix, ssa, long_path):
+        settings = modcma.settings_from_dict(5, matrix_adaptation=matrix, ssa=ssa, seed=2)
+        es = ModularCMAES(settings)
+        for _ in range(3):
+            es.step(ellipsoid)
+        es.mutate(ellipsoid)
+        es.select()
+        es.recombine()
+        if long_path:
+            es.p.adaptation.ps = np.full(5, 10.0)
+        return es
+
+    def test_matrix(self):
+        for ssa, long_path, hs in (("XNES", True, False), ("XNES", False, True),
+                                   ("SA", True, False), ("CSA", True, True)):
+            with self.subTest(ssa=ssa, long_path=long_path):
+                es = self.before_the_update("MATRIX", ssa, long_path)
+                p, a = es.p, es.p.adaptation
+                M = np.array(a.M)
+                a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
+                self.assertEqual(a.hs, hs)
+                ps, w = np.array(a.ps), np.array(p.weights.positive)
+                Z, Y = np.array(p.pop.Z)[:, : p.mu], np.array(p.pop.Y)[:, : p.mu]
+                tau_1 = p.weights.c1 / 2 if hs else 0.0  # no rank-one term when h_sigma = 0
+                tau_m = p.weights.cmu / 2
+                expected = (1 - tau_1 - tau_m) * M + tau_1 * np.outer(M @ ps, ps)
+                expected += (Y * (tau_m * w)) @ Z.T
+                a.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
+                np.testing.assert_allclose(a.M, expected, rtol=1e-12, atol=1e-14)
+
+    def test_cholesky(self):
+        for ssa, long_path, hs in (("XNES", True, False), ("SA", True, False),
+                                   ("SA", False, True), ("CSA", True, True)):
+            with self.subTest(ssa=ssa, long_path=long_path):
+                es = self.before_the_update("CHOLESKY", ssa, long_path)
+                p, a = es.p, es.p.adaptation
+                pc, A = np.array(a.pc), np.tril(a.A)
+                a.adapt_evolution_paths(p.pop, p.weights, p.stats, p.settings, p.mu)
+                self.assertEqual(a.hs, hs)
+                cc = p.weights.cc
+                # pc stalled when h_sigma = 0; the decay compensates the variance it loses
+                expected_pc = (1 - cc) * pc + (p.weights.sqrt_cc_mueff * np.array(a.dm) if hs else 0)
+                np.testing.assert_allclose(a.pc, expected_pc, rtol=1e-12, atol=1e-15)
+                c1, cmu = p.weights.c1, p.weights.cmu
+                dhs = 0.0 if hs else cc * (2 - cc)
+                w, Y = np.array(p.weights.positive), np.array(p.pop.Y)[:, : p.mu]
+                expected = (1 + c1 * dhs - c1 - cmu) * A @ A.T + c1 * np.outer(a.pc, a.pc)
+                expected += cmu * (Y * w) @ Y.T
+                a.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
+                L = np.tril(a.A)
+                np.testing.assert_allclose(L @ L.T, expected, rtol=1e-10, atol=1e-14)
+
+    def test_matrix_with_xnes_solves_the_ellipsoid(self):
+        # 0 of 20 runs at d = 10 before #160
+        settings = modcma.settings_from_dict(
+            10, matrix_adaptation="MATRIX", ssa="XNES", seed=1, budget=100_000, target=1e-8,
+            x0=np.full(10, 2.0),
+        )
+        es = ModularCMAES(settings)
+        es.run(ellipsoid)
+        self.assertLessEqual(es.p.stats.global_best.y, 1e-8)
+
+
 if __name__ == "__main__":
     unittest.main()

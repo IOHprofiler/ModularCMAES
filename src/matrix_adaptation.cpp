@@ -69,6 +69,67 @@ static Eigen::Index count_non_negative(const Vector &w)
 }
 
 /**
+ * The weights of the matrix update, into out: with `active` those of all n points of the
+ * population (Weights::for_population_into), otherwise the mu positive ones. With pairwise
+ * selection the losers get no negative weight. With elitism the negative weights go to the points
+ * that the selection dropped (active_steps, #161): the weight of rank i weighs column i + dropped
+ * of the sorted pool, so the losers there are the columns from the pool's n_ranked on.
+ */
+static void update_weights(const Weights &w, const Population &pop, const bool active, Vector &out)
+{
+    if (!active)
+    {
+        out = w.positive;
+        return;
+    }
+    const size_t dropped = pop.n_dropped();
+    const size_t ranked = std::min(pop.n_ranked, pop.n + dropped);
+    w.for_population_into(pop.n, out, ranked > dropped ? ranked - dropped : 0);
+}
+
+/**
+ * The steps that the n weights of the matrix update weigh (#161), from steps (pop.Y or pop.Z):
+ * the first n columns, except with elitism, where the population is the n best of the sorted
+ * (mu + lambda) pool. Then the negative weights, from rank n_positive on, go to the worst points of
+ * the pool, which the selection dropped (columns pool - (n - n_positive)..pool - 1): the framework
+ * paper (de Nobel et al., Sec. "Active Update") gives them to "the lambda - mu worst individuals",
+ * as Jastrebski & Arnold (2006) use "information about unsuccessful offspring", and pycma with
+ * CMA_elitist gives a population longer than lambda zeros between the positive and the negative
+ * weights (recombination_weights.py:202-203), so the negative ones stay on the worst offspring.
+ * Ranks mu+1..lambda of the pool are parents and good offspring: their negative weights removed
+ * variance along the flat directions (COVARIANCE with elitism and active solved BBOB f10 and f12
+ * at d = 10 in 0 of 25 runs). The steps are gathered into scratch only then; returns whether.
+ */
+static bool active_steps(const Matrix &steps,
+                         const Population &pop,
+                         const Eigen::Index n,
+                         const Eigen::Index n_positive,
+                         Matrix &scratch)
+{
+    const auto dropped = static_cast<Eigen::Index>(pop.n_dropped());
+    if (dropped == 0 || n_positive >= n)
+        return false;
+    scratch.resize(steps.rows(), n);
+    scratch.leftCols(n_positive) = steps.leftCols(n_positive);
+    scratch.rightCols(n - n_positive) = steps.middleCols(n_positive + dropped, n - n_positive);
+    return true;
+}
+
+/**
+ * h_sigma (Hansen, The CMA Evolution Strategy: A Tutorial, 2016, after Eq. (45)): whether ||ps||,
+ * corrected for the generations of the run, is below (1.4 + 2 / (d + 1)) E||N(0, I)||. When it is
+ * not, the rank-one update is stalled: this "prevents a too fast increase of axes of C in a linear
+ * surrounding, i.e. when the step-size is far too small". The correction counts the generations of
+ * the current run, g + 1 in generation g (pycma's countiter).
+ */
+static bool short_path(const Vector &ps, const Weights &w, const Stats &stats)
+{
+    const Float actual_ps_length =
+        ps.norm() / sqrt(1.0 - pow(1.0 - w.cs_path, 2.0 * static_cast<Float>(stats.t_run + 1)));
+    return actual_ps_length < w.expected_length_ps;
+}
+
+/**
  * The active update's rescaling: the weights from n_positive on (the negative ones) are multiplied
  * by d / ||A^-1 y_i||^2, the squared Mahalanobis length of the step in the distribution it was
  * sampled from (Hansen, The CMA Evolution Strategy: A Tutorial, 2016, Eq. (46); pycma's sampler
@@ -184,12 +245,9 @@ void CovarianceAdaptation::adapt_evolution_paths_inner(const Population &pop,
     }
 
     adapt_ps(w);
-    // The bias correction of h_sigma counts the generations of the current run, g + 1 in
-    // generation g (Hansen 2016, pycma's countiter); it counted evaluations / lambda over all runs
-    const Float actual_ps_length =
-        ps.norm() / sqrt(1.0 - pow(1.0 - w.cs_path, 2.0 * static_cast<Float>(stats.t_run + 1)));
-
-    hs = actual_ps_length < w.expected_length_ps;
+    // The bias correction of h_sigma counts the generations of the current run; it counted
+    // evaluations / lambda over all runs
+    hs = short_path(ps, w, stats);
     pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
 }
 
@@ -200,12 +258,15 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
 {
     const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
 
-    if (m.active)
-        w.for_population_into(pop.n, weights_scratch, pop.ranked());
-    else
-        weights_scratch = w.positive;
+    update_weights(w, pop, m.active, weights_scratch);
     Vector &rank_mu_w = weights_scratch;
-    const auto popY = pop.Y.leftCols(m.active ? pop.n : mu);
+    // The negative weights follow the non-negative ones (the weights decrease with the rank): mu
+    // for the usual weights, fewer for UTILITY, whose last parents can have negative utilities
+    const Eigen::Index n_positive = count_non_negative(rank_mu_w);
+    const auto n = static_cast<Eigen::Index>(m.active ? pop.n : mu);
+    const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
+                                              ? Eigen::Ref<const Matrix>(steps_scratch)
+                                              : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
 
     // 1 + c1 delta(h_sigma) - c1 - cmu sum(w): when h_sigma = 0 (the update of pc was stalled), the
     // variance lost by pc is compensated (Hansen, The CMA Evolution Strategy: A Tutorial, 2016;
@@ -218,9 +279,6 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     // the eigendecomposition (A = B D) and the Cholesky variant (COVARIANCE_NO_EIGV, which has no
     // C^-1/2: no eigendecomposition is kept up to date).
     scratch_vector.resize(popY.rows()); // invert_y_into writes through a Ref: it cannot resize
-    // The negative weights follow the non-negative ones (the weights decrease with the rank): mu
-    // for the usual weights, fewer for UTILITY, whose last parents can have negative utilities
-    const Eigen::Index n_positive = count_non_negative(rank_mu_w);
     rescale_negative_weights(rank_mu_w, n_positive, dd, [&](const Eigen::Index i) {
         invert_y_into(popY.col(i), scratch_vector);
         return scratch_vector.squaredNorm();
@@ -449,11 +507,7 @@ void SeparableAdaptation::adapt_evolution_paths_inner(const Population &pop,
     }
 
     adapt_ps(w);
-
-    const Float actual_ps_length =
-        ps.norm() / sqrt(1.0 - pow(1.0 - w.cs_path, 2.0 * static_cast<Float>(stats.t_run + 1)));
-
-    hs = actual_ps_length < w.expected_length_ps;
+    hs = short_path(ps, w, stats);
     pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
 }
 
@@ -469,12 +523,13 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 
     const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
 
-    if (settings.modules.active)
-        w.for_population_into(pop.n, weights_scratch, pop.ranked());
-    else
-        weights_scratch = w.positive;
+    update_weights(w, pop, settings.modules.active, weights_scratch);
     Vector &weights = weights_scratch;
-    const auto popY = pop.Y.leftCols(settings.modules.active ? pop.n : mu);
+    const Eigen::Index n_positive = count_non_negative(weights);
+    const auto n = static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
+    const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
+                                              ? Eigen::Ref<const Matrix>(steps_scratch)
+                                              : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
     // The decay with the sum of the weights before the rescaling, negative ones included (Hansen
     // 2016, Eq. (47); pycma's GaussDiagonalSampler.update)
     const auto decay_c = (1 + (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
@@ -483,7 +538,7 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     // C (as COVARIANCE; pycma's GaussDiagonalSampler.update, sampler.py:770-778). They were used
     // as they are (#73, F7)
     if (settings.modules.active)
-        rescale_negative_weights(weights, count_non_negative(weights), dd, [&](Eigen::Index i) {
+        rescale_negative_weights(weights, n_positive, dd, [&](Eigen::Index i) {
             return (popY.col(i).array() / d.array()).square().sum();
         });
 
@@ -540,6 +595,16 @@ void MatrixAdaptation::adapt_evolution_paths_inner(const Population &pop,
     if (settings.one_plus_one && !stats.has_improved)
         return;
     adapt_ps(w);
+    // h_sigma stalls the rank-one term, which reads ps, as in COVARIANCE (#160), with every
+    // step-size rule but CSA. MA-ES (Beyer & Sendhoff 2017; Beyer 2020, (M12)-(M14)) has no
+    // h_sigma: CSA updates sigma from the same path, so a long path raises sigma and shortens
+    // itself, and MA-ES with CSA stays as published. A rule that keeps sigma too small (XNES, SA)
+    // leaves the path long: the rank-one term then stretched M along the recent mean shifts, the
+    // selected z became shorter and XNES shrank sigma further (MATRIX + XNES solved the ellipsoid
+    // in 0 of 20 runs at d = 5, 10, 20; with h_sigma 17, 20, 20). Not for the (1+1)-ES, whose path
+    // moves only on a success (CSA's h_sigma is not defined for it either)
+    hs = settings.one_plus_one || settings.modules.ssa == StepSizeAdaptation::CSA ||
+         short_path(ps, w, stats);
 }
 
 bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
@@ -552,13 +617,17 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     stats.last_update = stats.t;
     stats.n_updates++;
 
-    if (settings.modules.active)
-        w.for_population_into(pop.n, weights_scratch, pop.ranked());
-    else
-        weights_scratch = w.positive;
+    update_weights(w, pop, settings.modules.active, weights_scratch);
     Vector &weights = weights_scratch;
-    const auto popZ = pop.Z.leftCols(settings.modules.active ? pop.n : mu);
-    const auto popY = pop.Y.leftCols(settings.modules.active ? pop.n : mu);
+    const Eigen::Index n_positive = count_non_negative(weights);
+    const auto n = static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
+    const bool pool = active_steps(pop.Z, pop, n, n_positive, steps_scratch);
+    if (pool)
+        active_steps(pop.Y, pop, n, n_positive, steps_scratch2);
+    const Eigen::Ref<const Matrix> popZ = pool ? Eigen::Ref<const Matrix>(steps_scratch)
+                                               : Eigen::Ref<const Matrix>(pop.Z.leftCols(n));
+    const Eigen::Ref<const Matrix> popY = pool ? Eigen::Ref<const Matrix>(steps_scratch2)
+                                               : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
 
     // MA-ES (Beyer & Sendhoff, Simplify Your Covariance Matrix Adaptation Evolution Strategy, IEEE
     // TEVC 2017; Beyer, Design Principles for MA-ES, tutorial 2020, (M13): M <- M [I + 1/tau_1
@@ -570,7 +639,8 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     // M <- M (I + c1/2 (ps ps^T - I) + cmu/2 (sum w°_i z_i z_i^T - sum(w) I)), with w° the weights
     // with the negative ones rescaled by d / ||z_i||^2, and sum(w) over the unscaled ones. Before
     // #73 (F7) the decay assumed sum(w) = 1 and the negative weights were not rescaled.
-    const Float tau_1 = w.c1 / 2.0;
+    // h_sigma = 0 (a step-size rule other than CSA, #160): no rank-one term in this generation
+    const Float tau_1 = hs ? w.c1 / 2.0 : 0.0;
     const Float tau_m = w.cmu / 2.0;
     // sum(w) = 1 for the positive weights alone
     const Float decay_m =
@@ -578,7 +648,7 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     // ||M^-1 y_i|| = ||z_i||: z is the sample of y = M z (the elites' and the injected points' z are
     // recomputed with invert_y)
     if (settings.modules.active)
-        rescale_negative_weights(weights, count_non_negative(weights), dd, [&](Eigen::Index i) {
+        rescale_negative_weights(weights, n_positive, dd, [&](Eigen::Index i) {
             return popZ.col(i).squaredNorm();
         });
 
@@ -600,9 +670,12 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     // rounding errors with the active update at small d (above 1e-6 after 1500 generations at
     // d = 10), so up to d = inverse_recompute_max_dim M_inv is computed exactly from M after every
     // inverse_recompute_interval generations of the run (the maintainer's choice, #159; the
-    // measurements are in the header). Otherwise, and when the update cannot be applied, the
-    // inverse is computed when invert_y needs it (injected and repaired points).
-    if (settings.modules.elitist && !settings.one_plus_one)
+    // measurements are in the header). TPA_INPLACE needs M^-1 dm every generation as well (#173).
+    // Otherwise, and when the update cannot be applied, the inverse is computed when invert_y needs
+    // it (injected and repaired points).
+    const bool keep_inverse = settings.modules.elitist ||
+                              settings.modules.ssa == StepSizeAdaptation::TPA_INPLACE;
+    if (keep_inverse && !settings.one_plus_one)
     {
         if (static_cast<size_t>(M.rows()) <= inverse_recompute_max_dim &&
             (stats.t_run + 1) % inverse_recompute_interval == 0)
@@ -786,7 +859,12 @@ void CholeskyAdaptation::adapt_evolution_paths_inner(const Population &pop,
     }
 
     adapt_ps(w);
-    pc = (1.0 - w.cc) * pc + (w.sqrt_cc_mueff * dm);
+    // h_sigma stalls the update of pc, as in COVARIANCE (#160), with every step-size rule but CSA
+    // (Hansen 2016, after Eq. (45); Krause et al. 2016 adapt sigma by CSA). With XNES the path
+    // stayed long, the rank-one term stretched A, and CHOLESKY + XNES solved the ellipsoid in 3, 0
+    // and 0 of 20 runs at d = 5, 10, 20 (with h_sigma 20 of 20 at each)
+    hs = settings.modules.ssa == StepSizeAdaptation::CSA || short_path(ps, w, stats);
+    pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
 }
 
 bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
@@ -800,13 +878,15 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     stats.n_updates++;
 
     // The weights: of all evaluated points with `active` (UTILITY sets it; its utilities sum to
-    // zero), of the mu best otherwise
-    if (settings.modules.active)
-        w.for_population_into(pop.n, weights_scratch, pop.ranked());
-    else
-        weights_scratch = w.positive;
+    // zero), of the mu best otherwise; with elitism the negative ones weigh the worst points of the
+    // pool (#161)
+    update_weights(w, pop, settings.modules.active, weights_scratch);
     Vector &weights = weights_scratch;
     const Eigen::Index n_positive = count_non_negative(weights);
+    const auto n = static_cast<Eigen::Index>(weights.size());
+    const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
+                                              ? Eigen::Ref<const Matrix>(steps_scratch)
+                                              : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
 
     // C <- (1 - c1 - cmu sum(w)) C + c1 pc pc^T + cmu sum_i w°_i y_i y_i^T (Hansen 2016, Eq. (47))
     // on the factor, as the Cholesky-CMA-ES (Krause, Arbonès & Igel, CMA-ES with Optimal
@@ -821,16 +901,19 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     {
         scratch_vector.resize(A.rows()); // invert_y_into writes through a Ref: it cannot resize
         rescale_negative_weights(weights, n_positive, dd, [&](const Eigen::Index i) {
-            invert_y_into(pop.Y.col(i), scratch_vector);
+            invert_y_into(popY.col(i), scratch_vector);
             return scratch_vector.squaredNorm();
         });
     }
 
-    A *= std::sqrt(1 - w.c1 - w.cmu * sum_w);
+    // 1 + c1 delta(h_sigma) - c1 - cmu sum(w): the variance that a stalled pc loses is compensated,
+    // as in COVARIANCE (#160)
+    const Float dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
+    A *= std::sqrt(1 + (w.c1 * dhs) - w.c1 - w.cmu * sum_w);
     Eigen::internal::llt_rank_update_lower(A, pc, w.c1);
     for (Eigen::Index i = 0; i < n_positive; i++)
         if (weights(i) > 0.0)
-            Eigen::internal::llt_rank_update_lower(A, pop.Y.col(i), w.cmu * weights(i));
+            Eigen::internal::llt_rank_update_lower(A, popY.col(i), w.cmu * weights(i));
 
     // The negative terms, as rank-one downdates. A downdate fails when its result would not be
     // positive definite; Eigen's llt_rank_update_lower then returns the column where it stopped and
@@ -846,7 +929,7 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
             Eigen::Index failed = -1;
             for (Eigen::Index i = n_positive; i < weights.size() && failed < 0; i++)
                 if (weights(i) != 0.0 && Eigen::internal::llt_rank_update_lower(
-                                             A, pop.Y.col(i), w.cmu * weights(i)) >= 0)
+                                             A, popY.col(i), w.cmu * weights(i)) >= 0)
                     failed = i;
             if (failed < 0)
                 break;
@@ -912,11 +995,12 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     const Float tc = 1.0 + (dd * (dd + 1)) / (2.0 * w.mueff);
     const Float tc_inv = 1.0 / tc;
 
-    if (settings.modules.active)
-        w.for_population_into(pop.n, weights_scratch, pop.ranked());
-    else
-        weights_scratch = w.positive;
-    const auto popY = pop.Y.leftCols(settings.modules.active ? pop.n : mu);
+    update_weights(w, pop, settings.modules.active, weights_scratch);
+    const Eigen::Index n_positive = count_non_negative(weights_scratch);
+    const auto n = static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
+    const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
+                                              ? Eigen::Ref<const Matrix>(steps_scratch)
+                                              : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
 
     // C = (1 - 1/tc) C + (1/tc) Y diag(w) Y^T, as symmetric rank updates
     symmetric_rank_update(C,
@@ -925,7 +1009,7 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
                           0.0,
                           popY,
                           weights_scratch,
-                          count_non_negative(weights_scratch),
+                          n_positive,
                           tc_inv,
                           batch_scratch);
     coordinate_wise_variances.noalias() = C.diagonal();
@@ -1042,15 +1126,14 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
                                                   const parameters::Weights &w,
                                                   const parameters::Settings &settings)
 {
-    if (settings.modules.active)
-        w.for_population_into(pop.n, weights_scratch, pop.ranked());
-    else
-        weights_scratch = w.positive;
+    update_weights(w, pop, settings.modules.active, weights_scratch);
     const Vector &weights = weights_scratch;
     const auto n = weights.rows();
 
-    // G = sum_i w_i (z_i z_i^T - I) = Z diag(w) Z^T - (sum_i w_i) I, kept as its factor
-    gradient_samples = pop.Z.leftCols(n);
+    // G = sum_i w_i (z_i z_i^T - I) = Z diag(w) Z^T - (sum_i w_i) I, kept as its factor; with
+    // elitism the negatively weighted samples are the worst points of the pool (#161)
+    if (!active_steps(pop.Z, pop, n, count_non_negative(weights), gradient_samples))
+        gradient_samples = pop.Z.leftCols(n);
     gradient_weights = weights;
 
     if (dense_update(n))

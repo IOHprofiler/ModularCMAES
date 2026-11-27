@@ -8,7 +8,8 @@ its expected length under random selection, and increases σ when the steps add 
 | option | idea | notes |
 |---|---|---|
 | `CSA` | cumulative step-size adaptation (Hansen & Ostermeier 2001) | the default |
-| `TPA` | two-point adaptation: evaluate the mean moved forward and backward along its last step (Hansen 2008) | evaluates 2 extra points per generation (`ask()` returns λ + 2) |
+| `TPA` | two-point adaptation: evaluate the mean moved forward and backward by half its last step (Hansen 2008) | evaluates 2 extra points per generation (`ask()` returns λ + 2) |
+| `TPA_INPLACE` | two-point adaptation within the population: offspring 1 and 2 along the last mean step, compared by their ranks (pycma; Hansen, Atamna & Auger 2014) | no extra points |
 | `MSR` | median success rule: does the median point beat the 0.3λ-th best of the previous generation? (Ait ElHara et al. 2013) | |
 | `PSR` | population success rule: rank the current and the previous generation together (Loshchilov 2014) | |
 | `XNES`, `MXNES`, `LPXNES` | natural-gradient step-size updates in the style of xNES (Glasmachers et al. 2010) and variants | |
@@ -26,7 +27,7 @@ import modcma
 def sphere(X):
     return np.sum(X**2, axis=1)
 
-for ssa in ["CSA", "TPA", "MSR", "PSR", "XNES"]:
+for ssa in ["CSA", "TPA", "TPA_INPLACE", "MSR", "PSR", "XNES"]:
     es = modcma.ModularCMAES(modcma.settings_from_dict(
         10, ssa=ssa, x0=np.full(10, 3.0), budget=10_000, target=1e-8, seed=1
     ))

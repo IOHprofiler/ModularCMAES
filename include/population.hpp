@@ -15,8 +15,20 @@ struct Population
     size_t d;
     //! The number of active columns: individuals 0..n-1 belong to the population. The buffers
     //! can hold more (capacity()), e.g. after sequential selection stopped a generation early;
-    //! the columns from n on hold no population data and must not be read.
+    //! the columns from n on hold no population data and must not be read, except the dropped
+    //! points of an elitist selection (n_pool).
     size_t n;
+    /**
+     * With elitism, the size of the sorted (mu + lambda) pool of which the selection kept the
+     * first n (selection::Strategy::select). Columns n..n_pool-1 then hold the points it dropped,
+     * the worst of the pool, in their order: the active update of the matrix gives them the
+     * negative weights (#161). 0, or at most n, when no point was dropped; reset by every change of
+     * the population other than resize_cols.
+     */
+    size_t n_pool = 0;
+
+    //! The number of points that the elitist selection dropped (columns n..n + n_dropped() - 1)
+    [[nodiscard]] size_t n_dropped() const { return n_pool > n ? n_pool - n : 0; }
     /**
      * The individuals 0..n_ranked-1 are ranked by f; the rest are the losers of pairwise selection
      * (Mirror::PAIRWISE), in the order of their f, which get no negative weights (#75, F9). Set by

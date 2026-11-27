@@ -331,8 +331,9 @@ void define_repelling(nb::module_ &main)
         "A taboo point: an optimum found by an earlier run, with a radius around it in which "
         "samples are rejected.\n\n"
         "The distance of a sample to it is measured in the metric of "
-        "`Modules.repelling_metric` (EUCLIDEAN; CURRENT: the Mahalanobis distance in the current "
-        "search distribution; ARCHIVED: `metric`) and divided by the current sigma. A sample is "
+        "`Modules.repelling_metric` (CURRENT, the default: the Mahalanobis distance in the "
+        "current search distribution; EUCLIDEAN; ARCHIVED: `metric`) and divided by the current "
+        "sigma. A sample is "
         "rejected when this distance is less than shrinkage^attempts * radius, with attempts "
         "the number of samples rejected so far in the population.")
         .def(nb::init<const Solution &, Float, const Matrix &>(),
@@ -532,16 +533,31 @@ void define_repelling(nb::module_ &main)
         "Repelling with radii from a coverage of the search space (`RepellingType.COVERAGE`).\n\n"
         "A candidate that shares no basin with a taboo point becomes a new one; when it shares "
         "a basin, the n_rep of that point grows and the point keeps the better solution. After "
-        "each update all radii are set to r = (V n_rep / (sigma0 coverage n))^(1/d) "
-        "Gamma(d/2 + 1)^(1/d) / sqrt(pi d), with V the volume of the box and n the number of "
-        "runs so far, so that points found more often repel more. "
-        "de Nobel et al. (2024).")
+        "each update all radii are set to r = (S n_rep / (coverage sigma0^d n))^(1/d) "
+        "Gamma(d/2 + 1)^(1/d) / sqrt(pi), with S the volume of the box (10^d with an infinite "
+        "bound), sigma0 the step size of the settings and n the number of runs so far, so that "
+        "points found more often repel more (de Nobel et al. 2024, Eqs. (10), (11)). The "
+        "distance to a point is divided by the current sigma (Eq. (8)), so r is in units of "
+        "sigma, and sigma0^d makes it the volume in sigma0 units: the taboo regions cover "
+        "1 / coverage of the box.\n\n"
+        "sigma0 is the problem's (`Settings.sigma0`), as Eq. (10) has it, also in BIPOP's small "
+        "runs, which start at sigma0 10^(-2U). r grows with the box width over sigma0: a large "
+        "box with a small sigma0 gives a radius of many sigma, which rejects every sample near "
+        "a taboo point (`restart.TooMuchRepelling` then ends the run). With d, r tends to "
+        "sqrt(d / (2 pi e)) (box width / sigma0): about 0.24 sqrt(d) times the ratio. Computed "
+        "in logarithms, so it stays finite at large d.\n\n"
+        "Before 2.0 the volume was divided by sigma0 instead of sigma0^d (as the paper's "
+        "Eq. (10) writes it; the radius then changed when the box and sigma0 were scaled "
+        "together), and r had an extra factor 1 / sqrt(d) (#158).")
         .def(nb::init<>(), "Create a coverage repelling with an empty archive.");
 
     nb::class_<AdaptiveRepelling, Repelling>(
         m,
         "AdaptiveRepelling",
         "Repelling with adaptive radii (`RepellingType.ADAPTIVE`).\n\n"
+        "Experimental: modcma's own work in progress, without a published source. In the "
+        "experiment of #158 (BBOB f21 and f22, d = 5 to 40, RESTART and IPOP, 240 runs) it "
+        "solved 99 runs, against 107 without repelling and 144 with COVERAGE.\n\n"
         "A new taboo point gets the radius initial_radius_factor / sqrt(d), bounded to "
         "[min_radius_factor, max_radius_factor] / sqrt(d). When a run ends in the basin of a "
         "point again (the first one in the archive that shares it), its radius grows by "
@@ -1061,7 +1077,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "The covariance matrix adaptation of CMA-ES (`MatrixAdaptationType.COVARIANCE`, the "
         "default).\n\n"
         "C receives a rank-one update from the evolution path pc and a rank-mu update from the "
-        "selected steps (with `Modules.active`, negative weights for the worst steps), and is "
+        "selected steps (with `Modules.active`, negative weights for the worst steps: with "
+        "elitism the worst points of the (mu + lambda) pool, #161), and is "
         "decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every "
         "generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = "
         "1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The "
@@ -1107,7 +1124,9 @@ void define_matrix_adaptation(nb::module_ &main)
              "Update C with the rank-one (pc) and rank-mu (selected steps) updates.\n\n"
              "With `modules.active` the whole population is used, the negative weights of the "
              "worst steps rescaled by d / ||C^-1/2 y_i||^2 (Hansen 2016, eq. 46); otherwise "
-             "the mu best. Does not decompose C.\n\n"
+             "the mu best. With elitism (`population.n_pool`) the negative weights go to the "
+             "points that the selection dropped, the worst of the (mu + lambda) pool (#161). "
+             "Does not decompose C.\n\n"
              "Parameters\n"
              "----------\n"
              "weights : Weights\n"
@@ -1201,7 +1220,12 @@ void define_matrix_adaptation(nb::module_ &main)
         "MA-ES has no active update. With `Modules.active` this is the active update of the "
         "CMA-ES (Hansen 2016, Eq. (47)) written for M, as MA-ES derives its own update: sum(w) "
         "includes the negative weights, and the negative weights are multiplied by d / "
-        "||z_i||^2.");
+        "||z_i||^2. With elitism the negative weights go to the worst points of the (mu + "
+        "lambda) pool, as with every matrix adaptation (#161).\n\n"
+        "With a step-size adaptation other than CSA, h_sigma (`hs`) skips the rank-one term "
+        "in a generation in which ||ps|| is long, as COVARIANCE stalls pc (Hansen 2016, after "
+        "Eq. (45); #160). MA-ES has no h_sigma: with CSA, which updates sigma from the same "
+        "path, the update is MA-ES's.");
     adaptation_init(matrix);
     matrix
         .def_rw("M",
@@ -1210,7 +1234,8 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("M_inv",
                 &MatrixAdaptation::M_inv,
                 "The inverse of M, shape (d, d).\n\n"
-                "With elitism (lambda > 1) it is updated with M every generation: M <- M F with "
+                "With elitism or TPA_INPLACE (lambda > 1) it is updated with M every "
+                "generation: M <- M F with "
                 "F = a I + U D U^T (U = [ps, the selected z], D = diag(c1/2, cmu/2 w)), so M_inv "
                 "<- F^-1 M_inv by the Woodbury identity, O(k d^2); up to d = "
                 "`inverse_recompute_max_dim` (30) it is computed exactly from M after every "
@@ -1222,6 +1247,11 @@ void define_matrix_adaptation(nb::module_ &main)
                 "inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can "
                 "lag behind M. Before 2.0 the update with elitism was not the inverse of M F, and "
                 "drifted from the inverse of M.")
+        .def_rw("hs",
+                &MatrixAdaptation::hs,
+                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
+                "which skips the rank-one term of the generation; always True with CSA and in "
+                "the (1+1)-ES (#160).")
         .def_ro("inverse_fallbacks",
                 &MatrixAdaptation::inverse_fallbacks,
                 nb::name("inverse_fallbacks"),
@@ -1266,7 +1296,11 @@ void define_matrix_adaptation(nb::module_ &main)
         "With `Modules.active` the negative weights, multiplied by d / ||A^-1 y_i||^2 as in "
         "COVARIANCE, are rank-one downdates, and A is scaled by sqrt(1 - c1 - cmu sum(w)) with "
         "the negative weights in the sum. A downdate whose result would not be positive "
-        "definite is skipped (`skipped_downdates`).");
+        "definite is skipped (`skipped_downdates`). With elitism the negative weights go to "
+        "the worst points of the (mu + lambda) pool (#161).\n\n"
+        "With a step-size adaptation other than CSA, h_sigma (`hs`) stalls the update of pc "
+        "and A is scaled by sqrt(1 + c1 delta(h_sigma) - c1 - cmu sum(w)), as in COVARIANCE "
+        "(Hansen 2016, after Eq. (45); #160).");
     adaptation_init(cholesky);
     cholesky
         .def_rw("A",
@@ -1276,6 +1310,10 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("pc",
                 &CholeskyAdaptation::pc,
                 "The evolution path of the rank-one update, shape (d,) (zeros at the start).")
+        .def_rw("hs",
+                &CholeskyAdaptation::hs,
+                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
+                "which stalls the update of pc; always True with CSA (#160).")
         .def_ro("skipped_downdates",
                 &CholeskyAdaptation::skipped_downdates,
                 nb::name("skipped_downdates"),
@@ -1362,7 +1400,8 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("gradient_weights",
                 &NaturalGradientAdaptation::gradient_weights,
                 "The weights u of the samples, shape (k,) (with `Modules.active`, negative "
-                "weights for the worst).")
+                "weights for the worst; with elitism, the worst of the (mu + lambda) pool, "
+                "#161).")
         .def_rw("gradient_shift",
                 &NaturalGradientAdaptation::gradient_shift,
                 "The shift alpha of G: the sum of the weights plus `sigma_g`, which makes G "
@@ -1371,7 +1410,8 @@ void define_matrix_adaptation(nb::module_ &main)
                 &NaturalGradientAdaptation::sigma_g,
                 "trace(G) / d of the gradient before the shift: its isotropic (step-size) part, "
                 "removed from G and used by `StepSizeAdaptation.XNES`, "
-                "sigma *= exp(cs / 2 * sigma_g).")
+                "sigma *= exp(cs / 2 * sigma_g). With elitism XNES computes it from the "
+                "offspring alone instead (#172).")
         .def("compute_gradients",
              &NaturalGradientAdaptation::compute_gradients,
              nb::arg("pop"),
@@ -1898,11 +1938,15 @@ void define_mutation(nb::module_ &main)
         m,
         "TPA",
         "Two-point step-size adaptation (`StepSizeAdaptation.TPA`).\n\n"
-        "With every population (in its first batch) the two points m + sigma dm and "
-        "m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, "
-        "with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as "
-        "after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per "
-        "generation. Hansen (2008); a tie as in pycma. With a bound correction other than "
+        "With every population (in its first batch) the two points m + 0.5 sigma_old dm and "
+        "m - 0.5 sigma_old dm are evaluated: half the last step of the mean, sigma_old dm, "
+        "with the step size that sampled it (Hansen, CMA-ES with Two-Point Step-Size "
+        "Adaptation, 2008, Eqs. (8), (9), alpha = 0.5). s = (1 - cs) s + cs r, with r = "
+        "-a_tpa when the point behind is better, a_tpa + b_tpa when the point ahead is better "
+        "and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two "
+        "evaluations per generation. A tie as in pycma. Before 2.0 the points were "
+        "m +- sigma dm with the new sigma, about one step of the mean (#167). With a bound "
+        "correction other than "
         "NONE both points move toward m by the same factor until both are in the box, so the "
         "test steps stay symmetric about m (Hansen 2008, Sec. 2.2; pycma's boundary handler "
         "moves each point on its own); `BoundCorrection.correct_point` corrects them only "
@@ -1911,7 +1955,11 @@ void define_mutation(nb::module_ &main)
         .def_rw("b_tpa",
                 &TPA::b_tpa,
                 "The offset added to r when the forward point is better (default 0).")
-        .def_rw("rank_tpa", &TPA::rank_tpa, "The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0).");
+        .def_rw("rank_tpa", &TPA::rank_tpa, "The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0).")
+        .def_rw("sigma_old",
+                &TPA::sigma_old,
+                "The step size that sampled the last generation, before the update changed "
+                "it: the test steps are 0.5 sigma_old dm (sigma0 at the start of a run).");
     strategy_init(ssa_tpa);
     auto ssa_msr = nb::class_<MSR, Strategy>(
         m,
@@ -1949,7 +1997,13 @@ void define_mutation(nb::module_ &main)
         "3 ln(d)) / (5 d sqrt(d)) (Glasmachers et al. 2010). With the other matrix "
         "adaptations, the xNES SA of Krause, Glasmachers & Igel (2017): sigma *= exp(cs / "
         "sqrt(d) * sum_i w_i (||z_i||^2 - d)) over the positive weights (`Weights.positive`, "
-        "summing to 1), cs = mueff / (2 ln(max(2, d)) sqrt(d)).");
+        "summing to 1), cs = mueff / (2 ln(max(2, d)) sqrt(d)).\n\n"
+        "With elitism both forms read the offspring alone, ranked among themselves (the "
+        "losers of pairwise selection last), with the same weights: xNES's gradient and xNES "
+        "SA are estimates from the samples of the current distribution (Glasmachers et al. "
+        "2010, Algorithm 1; Krause et al. 2017, Sec. 4.2). The parents' z, recomputed against "
+        "the mean they recombined, are short, and as part of the mu best they kept sigma 3 to "
+        "14 times too small (#172).");
     strategy_init(ssa_xnes);
     auto ssa_mxnes = nb::class_<MXNES, Strategy>(
         m,
@@ -2005,5 +2059,34 @@ void define_mutation(nb::module_ &main)
         "correction of Ahrari et al. 2017). The step size of an individual is the geometric "
         "mean of its column of `pop.S`. With SA the default mu is lambda / 4.");
     strategy_init(ssa_sa);
+    auto ssa_tpa_inplace = nb::class_<TPAInPlace, Strategy>(
+        m,
+        "TPAInPlace",
+        "Two-point step-size adaptation within the population "
+        "(`StepSizeAdaptation.TPA_INPLACE`, #173).\n\n"
+        "pycma 4.6.0's CMAAdaptSigmaTPA (sigma_adaptation.py, evolution_strategy.py:2251-2254, "
+        "2575-2576), after Hansen, Atamna & Auger (2014), How to Assess Step-Size Adaptation "
+        "Mechanisms in Randomised Search, Eq. (6) and Algorithm 3. From the second generation "
+        "of a run on, the first two offspring are a mirrored pair along the last mean shift: "
+        "z_1 = ||n|| A^-1 dm / ||A^-1 dm|| with n an ordinary sample of the sampler, z_2 = -z_1 "
+        "(both at the mean when it did not move); they are part of the lambda offspring, so "
+        "TPA_INPLACE needs no extra evaluations. Once the offspring are evaluated, z = "
+        "(#{f < f_2} - #{f < f_1}) / (n - 1) over the n offspring (the parents of elitism not "
+        "included), and s = (1 - cs) s + cs sign(z) |z|^0.5, sigma *= exp(s / damps), with cs "
+        "= 0.3 and damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)) by default.\n\n"
+        "Where pycma departs from the paper, and modcma follows pycma: |z|^0.5 instead of z; "
+        "the damping (the paper: sqrt(d), tuned on the sphere with the default lambda); and "
+        "the update in the first generation of a run, from the ranks of two ordinary samples "
+        "(the paper updates from the second generation on). A^-1 dm costs a triangular solve "
+        "with most matrix adaptations; MATRIX keeps M^-1 up to date for it, as with elitism; "
+        "NATURAL_GRADIENT inverts A every generation (O(d^3)). With sampled step sizes the "
+        "second point takes the step size of the first; bound correction and repelling treat "
+        "the two as a pair, as a mirrored pair.")
+        .def_rw("rank_difference",
+                &TPAInPlace::rank_difference,
+                "The last normalised rank difference z of the two test points, in [-1, 1] "
+                "(positive when the point ahead, along the mean shift, is the better one; 0 "
+                "before the first update).");
+    strategy_init(ssa_tpa_inplace);
 }
 } // namespace modcma_python

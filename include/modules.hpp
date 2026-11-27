@@ -47,6 +47,9 @@ enum class StepSizeAdaptation
     PSR,
     SR,
     SA,
+    //! Two-point step-size adaptation within the population (#173); appended last, so that the
+    //! other options keep their values
+    TPA_INPLACE,
 };
 
 enum class CorrectionMethod
@@ -101,9 +104,10 @@ enum class RepellingType
 //! The distance between a sample and a taboo point of repelling, divided by the current sigma
 enum class RepellingMetric
 {
-    //! ||x - x_t||: the behaviour since July 2026 (78ddafe)
+    //! ||x - x_t||: the default from July 2026 (78ddafe) until #158
     EUCLIDEAN,
-    //! ||A^-1 (x - x_t)||, with A of the current run (Mahalanobis in the current search distribution)
+    //! ||A^-1 (x - x_t)||, with A of the current run (Mahalanobis in the current search
+    //! distribution, the framework paper's Eq. (8)): the default (#158)
     CURRENT,
     //! ||A_t^-1 (x - x_t)||, with A_t of the run that found x_t, scaled to unit determinant
     ARCHIVED,
@@ -127,6 +131,7 @@ struct Modules
     CenterPlacement center_placement = CenterPlacement::X0;
     SampleTranformerType sample_transformation = SampleTranformerType::GAUSSIAN;
     RepellingType repelling_type = RepellingType::NONE;
-    RepellingMetric repelling_metric = RepellingMetric::EUCLIDEAN;
+    //! The paper's Mahalanobis distance by default (the maintainer's decision on #158)
+    RepellingMetric repelling_metric = RepellingMetric::CURRENT;
 };
 } // namespace parameters
