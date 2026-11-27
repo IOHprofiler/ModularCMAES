@@ -119,6 +119,17 @@ same behaviour as now) but stretched every sample on larger boxes.
   at most half the evaluations of the large regime so far: `restart.BIPOP` sets
   `max_iter` = ½ (large evaluations)/λ_s generations, which `ExceededMaxIter` enforces (pycma's
   `maxiter`). λ_s is rounded down, as in the paper and pycma; up to even only with `PAIRWISE`.
+  The population sizes are pycma's (4.6.0, `fmin`, `cma/evolution_strategy.py`:5362–5381): λ_s
+  lies between λ₀ and the last large population, because pycma counts the small run
+  (`runs_with_small += 1`) before it computes the multiplier, which is then the last large run's.
+  Hansen (2009) writes the same formula with λ_ℓ "the latest population size from the first
+  regime", and the range [λ_def, λ_ℓ/2], half of pycma's; modcma follows pycma (#140). The large
+  population has no upper limit. pycma's `fmin` has none either, but stops after `restarts` large
+  runs (9 with `restarts=True`), and Hansen (2009) after nine (λ up to 2⁹ λ_def); modcma restarts
+  until the budget is used, and only IPOP stops growing, at 2⁹ λ₀. With its default popsize,
+  pycma multiplies the unrounded 4 + 3 ln d (17, 35, 70, … at d = 5), modcma and the paper the
+  integer λ₀. A C++ test (`tests/cpp/test_main.cpp`) compares λ, µ, σ and the cap of every run
+  with a transcription of pycma's rule, for a fixed random stream.
   Before 2.0, the budget left after the first run was split into halves that each run decreased
   (unsigned: a run longer than its regime's rest wrapped it around, and BIPOP became IPOP), λ_s
   was always even, and small runs had no cap (#80).

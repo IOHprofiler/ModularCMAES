@@ -33,7 +33,10 @@ struct BIPOP : Strategy
     size_t lambda_init;
     Float mu_factor;
 
+    //! The population of the next large run: 0 before the first restart, then 2 lambda_init,
+    //! doubled after each large run, without an upper limit (as pycma's fmin; see update)
     size_t lambda_large = 0;
+    //! The last draw of the small regime, in [lambda_init, lambda_large / 2] (pycma's fmin)
     size_t lambda_small = 0;
     //! The evaluations used by the runs of each regime. They only grow (the budgets left, which
     //! every run decreased, wrapped around, #80). The first run counts as small (pycma)

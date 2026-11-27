@@ -21,6 +21,11 @@ Differences to keep in mind:
   criteria (`tolx`, `tolfun`, ...) are modcma's restart criteria, which stop the run with
   `restart_strategy="STOP"` and restart it with `RESTART`, `IPOP` or `BIPOP`
   ([restarts](../guide/restarts.md)).
+* **Restarts.** `fmin(..., restarts=n)` stops after n restarts with a larger population; modcma
+  restarts until the budget or the target is reached. IPOP's population stops growing at 2⁹ λ₀;
+  BIPOP's large population keeps doubling, and its population sizes are those of
+  `fmin(..., bipop=True)` with an integer `popsize`. (pycma's default popsize, 4 + 3 ln d, is not
+  rounded there: at d = 5 its large runs have 17, 35, 70, … points, modcma's 16, 32, 64, ….)
 * **Results.** The best solution is `es.p.stats.global_best` (`.x`, `.y`), the center of mass (the
   mean, pycma's `xfavorite`) is `es.center_of_mass`; the state is in `es.p`. As with pycma's default
   `eval_final_mean=True`, every run ends with an evaluation of its mean; modcma keeps one

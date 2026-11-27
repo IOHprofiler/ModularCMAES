@@ -508,7 +508,9 @@ class BIPOP(Strategy):
     """
     BIPOP (Hansen 2009): restarts alternate between a large and a small population regime.
 
-    Each regime counts the evaluations of its runs; the first run counts as small (pycma's fmin; Hansen 2009 disregards it). A restart uses the regime that has used fewer evaluations, the large one on a tie, so the first restart is large. The large regime doubles lambda_large each time and restarts with sigma0. The small regime draws lambda_small = floor(lambda_init (lambda_large / (2 lambda_init))^(u^2)) (rounded up to even for PAIRWISE, at least 2) and restarts with sigma0 * 10^(-2u'), u and u' uniform in [0, 1); a small run takes at most half the evaluations of the large regime so far (`Strategy.max_iter`, which `ExceededMaxIter` enforces). mu is lambda * mu_factor (at least 1).
+    Each regime counts the evaluations of its runs; the first run counts as small (pycma's fmin; Hansen 2009 disregards it). A restart uses the regime that has used fewer evaluations, the large one on a tie, so the first restart is large. The large regime doubles lambda_large each time, without an upper limit, and restarts with sigma0. The small regime draws lambda_small = floor(lambda_init (lambda_large / (2 lambda_init))^(u^2)) (rounded up to even for PAIRWISE, at least 2), between lambda_init and the last large population, and restarts with sigma0 * 10^(-2u'), u and u' uniform in [0, 1); a small run takes at most half the evaluations of the large regime so far (`Strategy.max_iter`, which `ExceededMaxIter` enforces). mu is lambda * mu_factor (at least 1).
+
+    The population sizes are those of pycma 4.6.0's `fmin` (cma/evolution_strategy.py:5362-5381) given an integer popsize (its default, 4 + 3 ln d, is not rounded there) and without PAIRWISE. Hansen (2009) writes the same formula but states the range [lambda_def, lambda_l / 2], with lambda_l the last large population: half of pycma's. Neither pycma nor Hansen (2009) caps the large population; both stop the optimization after a number of large runs (pycma: its `restarts`, 9 with restarts=True; Hansen: nine, so at most 2^9 lambda_def), while modcma restarts until the budget is used. IPOP, unlike BIPOP, stops growing at `IPOP.max_lambda_factor`.
     """
 
     def large(self) -> bool:
@@ -533,7 +535,7 @@ class BIPOP(Strategy):
     @property
     def lambda_large(self) -> int:
         """
-        lambda of the next large run (0 before the first restart, then 2 lambda_init, doubled after each large run).
+        lambda of the next large run (0 before the first restart, then 2 lambda_init, doubled after each large run, without an upper limit).
         """
 
     @lambda_large.setter
@@ -541,7 +543,9 @@ class BIPOP(Strategy):
 
     @property
     def lambda_small(self) -> int:
-        """lambda of the last small-regime draw."""
+        """
+        lambda of the last small-regime draw (one at every restart), in [lambda_init, lambda_large / 2]: up to the last large population.
+        """
 
     @lambda_small.setter
     def lambda_small(self, arg: int, /) -> None: ...

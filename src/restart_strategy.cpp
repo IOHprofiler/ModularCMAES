@@ -43,6 +43,16 @@ Float BIPOP::update(parameters::Parameters &p)
     }
     else if (large_run)
     {
+        // lambda_large is the population of the next large run, doubled as soon as a large run
+        // ends: the k-th large run has 2^k lambda_init, as pycma's popsize0 * incpopsize^(irun -
+        // runs_with_small) (pycma 4.6.0, cma/evolution_strategy.py:5380-5381; its popsize0 is the
+        // option as evaluated in the first run, with the default popsize the unrounded
+        // 4 + 3 ln d, which gives 17, 35, 70, ... at d = 5). No upper limit, as in pycma: its fmin
+        // has none on the population, but stops altogether after `restarts` large runs
+        // (evolution_strategy.py:5591; 9 with restarts=True, options_parameters.py:39); Hansen
+        // (2009) stops after nine ("the largest population size is lambda = 2^9 lambda_def").
+        // modcma runs until its budget, so lambda_large keeps doubling; IPOP stops growing at
+        // max_lambda_factor lambda0 (#140).
         used_large += last_used_budget;
         lambda_large *= 2;
     }
@@ -55,7 +65,13 @@ Float BIPOP::update(parameters::Parameters &p)
     large_run = large();
 
     // lambda_small = floor(lambda_init (lambda_large / (2 lambda_init))^(U^2)): between lambda_init
-    // and half the next large population, that is the last one (Hansen 2009; pycma)
+    // and half the next large population, that is the last large population, as pycma 4.6.0's
+    // fmin: int(popsize0 * popsize_multiplier**(U**2)) with the multiplier of the last large run,
+    // incpopsize^(irun - runs_with_small) after runs_with_small += 1 (evolution_strategy.py:5367,
+    // 5370-5371). Hansen (2009) gives the same formula, floor(lambda_def (lambda_l / (2
+    // lambda_def))^(U^2)) with lambda_l "the latest population size from the first regime", and
+    // the range [lambda_def, lambda_l / 2]: half the last large population, a factor 2 less than
+    // pycma. modcma follows pycma (maintainer, #140).
     const Float u = dist(*p.generator);
     lambda_small = static_cast<size_t>(std::floor(
         static_cast<Float>(lambda_init) *

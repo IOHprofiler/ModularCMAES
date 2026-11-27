@@ -219,8 +219,10 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * The negative weights of the active update were scaled with 1 + c1 / mu instead of 1 + c1 / cmu.
 * `NATURAL_GRADIENT` ignored `sigma0` (A started at I / sigma) and its learning rate was
   (9 + 3 + ln d) / (5 d sqrt d) instead of xNES's (9 + 3 ln d) / (5 d sqrt d).
-* BIPOP's small populations were at most the initial lambda (Hansen 2009: up to half of the large
-  one); IPOP's growth limit never applied, and a non-integer `ipop_factor` acted as its integer part.
+* BIPOP's small populations were at most the initial lambda; now they are between it and the last
+  large population, as pycma's `fmin` (Hansen 2009's text: half of it; #140). BIPOP's large
+  population has no upper limit, as in pycma. IPOP's growth limit never applied, and a non-integer
+  `ipop_factor` acted as its integer part.
 * BIPOP's budgets left wrapped around (unsigned) when a run used more than its regime had left:
   one regime then ran for the rest of the budget (Rastrigin, d = 2, budget 20000, seed 0) (#80).
 * Orthogonal sampling did not produce orthogonal samples (the norms were read while overwritten),

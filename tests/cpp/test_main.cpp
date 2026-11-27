@@ -362,6 +362,79 @@ static void test_lapack_fallback()
     constants::cholesky_solver = cholesky_solver;
 }
 
+// #140: BIPOP's population sizes over the restarts are those of pycma 4.6.0's fmin with
+// bipop=True and an integer popsize, transcribed below with pycma's names
+// (cma/evolution_strategy.py:5355-5381, 5566-5570). The random stream is fixed: a copy of the
+// optimizer's generator replays the numbers BIPOP::update draws, u for lambda_small at every
+// restart, then u' for sigma at a small one (pycma draws its two in the other order). The runs
+// last a scripted number of generations; they include twelve large runs, past 2^9 lambda0: the
+// large population has no upper limit, as in pycma.
+static void test_bipop_populations_match_pycma()
+{
+    parameters::Modules m;
+    m.restart_strategy = parameters::RestartStrategyType::BIPOP;
+    parameters::Settings settings(5, m);
+    settings.verbose = false;
+    parameters::Parameters p(settings);
+    const auto bipop = std::dynamic_pointer_cast<restart::BIPOP>(p.restart_strategy);
+    CHECK(bipop != nullptr);
+    rng::Generator replay = *p.generator;
+    std::uniform_real_distribution<> uniform;
+    std::mt19937 lengths(140);
+    std::uniform_int_distribution<size_t> generations(1, 100);
+
+    const size_t popsize0 = settings.lambda0; // 8
+    size_t irun = 0, runs_with_small = 0, n_large = 0, n_small = 0, largest = 0;
+    Float sum_small = 0, sum_large = 0;
+    bool small = true; // the first run: poptype = 'small' (5355-5360)
+    size_t popsize = popsize0;
+    Float maxiter = 1e9; // maxiter0, no cap
+    while (n_large < 12 && irun < 5000)
+    {
+        // The run ends after its generations and the evaluation of its center of mass
+        const Float g = std::min(static_cast<Float>(generations(lengths)), std::max(1.0, maxiter));
+        const size_t this_evals = popsize * static_cast<size_t>(g) + 1;
+        (small ? sum_small : sum_large) += static_cast<Float>(this_evals); // 5566-5570
+        irun++;
+
+        p.stats.evaluations += this_evals;
+        const Float sigma = bipop->update(p);
+
+        const Float u = uniform(replay);
+        Float sigma_factor = 1.0;
+        small = sum_small < std::max<Float>(1.0, sum_large); // 5362, bipop = 1
+        if (small)
+        {
+            runs_with_small++; // 5367: before the multiplier, which is then the last large run's
+            sigma_factor = std::pow(0.01, uniform(replay));                          // 5369
+            const size_t popsize_multiplier = size_t{1} << (irun - runs_with_small); // 5370
+            // 5371: int(popsize0 * popsize_multiplier**(np.random.uniform()**2)), u * u for u**2
+            popsize = static_cast<size_t>(static_cast<Float>(popsize0) *
+                                          std::pow(static_cast<Float>(popsize_multiplier), u * u));
+            maxiter = 0.5 * sum_large / static_cast<Float>(popsize); // 5372
+            n_small++;
+        }
+        else
+        {
+            const size_t popsize_multiplier = size_t{1} << (irun - runs_with_small); // 5380
+            popsize = popsize0 * popsize_multiplier;                                 // 5381
+            maxiter = 1e9;
+            n_large++;
+        }
+        largest = std::max(largest, popsize);
+
+        CHECK(bipop->large_run == !small);
+        CHECK(p.lambda == popsize);
+        CHECK(p.mu == popsize / 2); // pycma's default mu, popsize // 2 (lambda0 is even here)
+        CHECK(std::abs(sigma - settings.sigma0 * sigma_factor) <= 1e-12 * sigma);
+        // ExceededMaxIter takes the smaller of max_iter and its own limit (pycma: maxiter0)
+        CHECK(bipop->max_iter ==
+              (small ? static_cast<size_t>(maxiter) : std::numeric_limits<size_t>::max()));
+    }
+    CHECK(n_large == 12 && n_small > 12);
+    CHECK(largest == popsize0 << 12);
+}
+
 // #89: C++ code can assign Settings::C0 without set_C0; the optimizer checks it again, so a matrix
 // of the wrong shape, an asymmetric one or one with NONE is std::invalid_argument, not a crash
 static void test_c0_assigned_directly()
@@ -477,6 +550,7 @@ int main()
     test_functions();
     test_c0_assigned_directly();
     test_settings_checked_at_creation();
+    test_bipop_populations_match_pycma();
     if (failures)
         std::fprintf(stderr, "%d check(s) failed\n", failures);
     else
