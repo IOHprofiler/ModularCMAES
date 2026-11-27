@@ -96,6 +96,10 @@ void Strategy::begin_population(const size_t n_offspring, parameters::Parameters
 {
     p.pop.reserve(n_offspring);
     p.pop.n = n_offspring;
+    p.pop.n_ranked = std::numeric_limits<size_t>::max();
+    // A new generation: a new block of orthogonal samples, no pair sampled ahead (#75, #76)
+    p.sampler->begin_generation();
+    partner_sampled = false;
     ss->sample(sigma, p);
     generation_threshold =
         tc->threshold(p.sampler->expected_length(), p.settings.budget, p.stats.evaluations);
@@ -137,30 +141,57 @@ void Strategy::sample_batch(const Eigen::Index begin,
                             const Eigen::Index k,
                             parameters::Parameters &p)
 {
-    // Every step writes into the columns of the population: no allocation per sample
-    for (Eigen::Index j = 0; j < k; ++j)
-    {
-        const Eigen::Index i = begin + j;
-        p.pop.t(i) = p.stats.t;
-        p.sampler->sample(p.pop.Z.col(i));
-    }
-    p.adaptation->compute_y_batch(p.pop.Z.middleCols(begin, k), p.pop.Y.middleCols(begin, k));
+    // Mirrored sampling (Brockhoff et al. 2010): individuals 2i and 2i + 1 of a generation are a
+    // pair, z and -z; an odd last individual is unpaired. A pair is sampled, and rejected (bound
+    // correction RESAMPLE, repelling), as one (#75, F10). The partner of the last individual of
+    // a batch (sequential selection) is sampled with it, and queued with the next batch.
+    const bool mirrored = p.settings.modules.mirrored != parameters::Mirror::NONE;
+    const auto n = static_cast<Eigen::Index>(p.pop.n);
+    const Eigen::Index first = partner_sampled ? begin + 1 : begin;
+    Eigen::Index end = begin + k;
+    partner_sampled = mirrored && end % 2 == 1 && end < n;
+    if (partner_sampled)
+        ++end;
+    if (first >= end)
+        return;
 
-    for (Eigen::Index j = 0; j < k; ++j)
+    // Every step writes into the columns of the population: no allocation per sample
+    for (Eigen::Index i = first; i < end; ++i)
     {
-        const Eigen::Index i = begin + j;
-        tc->apply(p.pop.Z.col(i), p.pop.Y.col(i), generation_threshold);
-        finish_sample(i, p);
+        p.pop.t(i) = p.stats.t;
+        if (mirrored && i % 2 == 1)
+            p.pop.Z.col(i) = -p.pop.Z.col(i - 1);
+        else
+            p.sampler->sample(p.pop.Z.col(i));
+    }
+    p.adaptation->compute_y_batch(p.pop.Z.middleCols(first, end - first),
+                                  p.pop.Y.middleCols(first, end - first));
+
+    for (Eigen::Index i = first; i < end;)
+    {
+        const Eigen::Index size = mirrored && i + 1 < n ? 2 : 1;
+        for (Eigen::Index j = i; j < i + size; ++j)
+        {
+            tc->apply(p.pop.Z.col(j), p.pop.Y.col(j), generation_threshold);
+            finish_sample(j, p);
+        }
         size_t n_rejections = 0;
-        while (rejected(i, n_rejections, p))
+        while (rejected(i, size, n_rejections, p))
         {
             p.sampler->sample(p.pop.Z.col(i));
-            p.adaptation->compute_y_into(p.pop.Z.col(i), p.pop.Y.col(i));
-            tc->apply(p.pop.Z.col(i), p.pop.Y.col(i), generation_threshold);
-            finish_sample(i, p);
+            if (size == 2)
+                p.pop.Z.col(i + 1) = -p.pop.Z.col(i);
+            for (Eigen::Index j = i; j < i + size; ++j)
+            {
+                p.adaptation->compute_y_into(p.pop.Z.col(j), p.pop.Y.col(j));
+                tc->apply(p.pop.Z.col(j), p.pop.Y.col(j), generation_threshold);
+                finish_sample(j, p);
+            }
         }
-        p.coordinate_mapping->transform_into(
-            p.pop.X.col(i), p.pop.X_transformed.col(i), p.settings.lb, p.settings.ub);
+        for (Eigen::Index j = i; j < i + size; ++j)
+            p.coordinate_mapping->transform_into(
+                p.pop.X.col(j), p.pop.X_transformed.col(j), p.settings.lb, p.settings.ub);
+        i += size;
     }
 }
 
@@ -171,12 +202,24 @@ void Strategy::finish_sample(const Eigen::Index i, parameters::Parameters &p)
     p.bounds->correct(i, p);
 }
 
-bool Strategy::rejected(const Eigen::Index i, size_t &n_rejections, parameters::Parameters &p)
+bool Strategy::rejected(const Eigen::Index i,
+                        const Eigen::Index size,
+                        size_t &n_rejections,
+                        parameters::Parameters &p)
 {
-    return (p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
-            n_rejections++ < 5 * p.settings.dim &&
-            bounds::any_out_of_bounds(p.pop.X.col(i), p.settings.lb, p.settings.ub)) ||
-           p.repelling->is_rejected(p.pop.X.col(i), p);
+    const auto out_of_bounds = [&p, i, size]() {
+        for (Eigen::Index j = i; j < i + size; ++j)
+            if (bounds::any_out_of_bounds(p.pop.X.col(j), p.settings.lb, p.settings.ub))
+                return true;
+        return false;
+    };
+    if (p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE &&
+        n_rejections++ < 5 * p.settings.dim && out_of_bounds())
+        return true;
+    for (Eigen::Index j = i; j < i + size; ++j)
+        if (p.repelling->is_rejected(p.pop.X.col(j), p))
+            return true;
+    return false;
 }
 
 size_t Strategy::first_stop(const size_t i, const parameters::Parameters &p) const
@@ -265,14 +308,17 @@ void MSR::adapt(const parameters::Weights &w,
         // of the previous generation, with j = 0.3 lambda. As pycma
         // (CMAAdaptSigmaMedianImprovement), j is a fractional 0-based index into the sorted values
         // of the previous generation, and K is interpolated between its two neighbours.
-        // The individuals of this generation: fewer than lambda after a sequential selection stop
-        const Float lambda = static_cast<Float>(pop.n);
-        const auto f = pop.f.head(pop.n).array();
-        const Float j = quantile * static_cast<Float>(old_pop.n);
+        // The individuals of this generation: fewer than lambda after a sequential selection stop.
+        // With pairwise selection the ranked ones, the winners of the mirrored pairs: Auger et al.
+        // (2011, Alg. 1) adapt sigma from the ranked offspring only (#75, F9)
+        const size_t n_cur = pop.ranked(), n_old = old_pop.ranked();
+        const Float lambda = static_cast<Float>(n_cur);
+        const auto f = pop.f.head(static_cast<Eigen::Index>(n_cur)).array();
+        const Float j = quantile * static_cast<Float>(n_old);
         const auto j0 = std::min<Eigen::Index>(static_cast<Eigen::Index>(j),
-                                               static_cast<Eigen::Index>(old_pop.n) - 1);
+                                               static_cast<Eigen::Index>(n_old) - 1);
         const auto j1 = std::min<Eigen::Index>(static_cast<Eigen::Index>(std::ceil(j)),
-                                               static_cast<Eigen::Index>(old_pop.n) - 1);
+                                               static_cast<Eigen::Index>(n_old) - 1);
         const Float frac = j - std::floor(j);
         const Float k = (1.0 - frac) * (f < old_pop.f(j0)).cast<Float>().sum() +
                         frac * (f <= old_pop.f(j1)).cast<Float>().sum();
@@ -292,7 +338,9 @@ void PSR::adapt(const parameters::Weights &w,
                 const Population &old_pop,
                 const parameters::Stats &stats)
 {
-    const auto n = std::min(pop.n_finite(), old_pop.n_finite());
+    // With pairwise selection only the ranked individuals, the winners of the mirrored pairs, as
+    // MSR (#75, F9)
+    const auto n = std::min({pop.n_finite(), old_pop.n_finite(), pop.ranked(), old_pop.ranked()});
     if (n != 0)
     {
         combined.conservativeResize(n + n);

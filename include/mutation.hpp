@@ -169,7 +169,9 @@ struct Strategy
 
     /**
      * Sample individuals begin..begin+k-1. Their y are one matrix product, Y = A Z; an individual
-     * that bound correction (RESAMPLE) or repelling rejects is sampled again on its own.
+     * that bound correction (RESAMPLE) or repelling rejects is sampled again on its own, a
+     * mirrored pair together. With mirrored sampling, the partner of the last individual is
+     * sampled with it when that one is the first of a pair (partner_sampled).
      */
     void sample_batch(const Eigen::Index begin, const Eigen::Index k, parameters::Parameters &p);
 
@@ -212,8 +214,16 @@ struct Strategy
     //! x of individual i from its y and sigma, with bound correction
     void finish_sample(const Eigen::Index i, parameters::Parameters &p);
 
-    //! Whether individual i must be sampled again (attempt n_rejections so far)
-    bool rejected(const Eigen::Index i, size_t &n_rejections, parameters::Parameters &p);
+    //! Whether individuals i..i+size-1 (one, or a mirrored pair) must be sampled again (attempt
+    //! n_rejections so far)
+    bool rejected(const Eigen::Index i,
+                  const Eigen::Index size,
+                  size_t &n_rejections,
+                  parameters::Parameters &p);
+
+    //! The last sample_batch sampled the first individual of the next batch, the mirrored partner
+    //! of its last one
+    bool partner_sampled = false;
 };
 
 struct CSA : Strategy

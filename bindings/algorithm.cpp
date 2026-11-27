@@ -117,42 +117,76 @@ void define_selection(nb::module_ &main)
 
     nb::class_<Pairwise>(m,
                          "Pairwise",
-                         "Pairwise selection for mirrored sampling: of each mirrored pair only "
-                         "the better point can be selected.\n\n"
+                         "Pairwise selection for mirrored sampling (Auger, Brockhoff and Hansen "
+                         "2011): of each mirrored pair only the better point is ranked.\n\n"
                          "Selected by `Modules.mirrored = Mirror.PAIRWISE`; `NoPairwise` "
-                         "otherwise. The worse point of each pair (individuals 2i and 2i + 1) "
-                         "gets the objective value inf, so the two mirrored steps do not cancel "
-                         "each other in the recombination. Needs an even population size "
-                         "(Settings makes lambda even with PAIRWISE).")
+                         "otherwise. The better point of each pair (offspring 2i and 2i + 1) is "
+                         "ranked with the unpaired points and the parents of elitism; the losers "
+                         "follow them, sorted by f, with their real values "
+                         "(`Population.n_ranked`). So the two mirrored steps do not cancel each "
+                         "other in the recombination, and the losers get no negative weights in "
+                         "the active update. Settings makes lambda even with PAIRWISE. Before "
+                         "2.0 the losers got f = +inf (#75).")
         .def(nb::init<>(), "Create the pairwise selection.")
+        .def("sort",
+             &Pairwise::sort,
+             nb::arg("population"),
+             nb::arg("n_offspring"),
+             "Sort the population: the ranked individuals by f, then the losers by f.\n\n"
+             "Sets population.n_ranked.\n\n"
+             "Parameters\n"
+             "----------\n"
+             "population : Population\n"
+             "    Changed in place.\n"
+             "n_offspring : int\n"
+             "    The first n_offspring individuals are the offspring, in their pairs (2i, "
+             "2i + 1); an odd last one is unpaired. The individuals after them (the parents of "
+             "elitism) are ranked.")
         .def("__call__",
              &Pairwise::operator(),
              nb::arg("parameters"),
-             "Set the objective value of the worse point of every pair to inf.\n\n"
+             "sort(parameters.pop, parameters.pop.n): every individual is an offspring.\n\n"
              "Parameters\n"
              "----------\n"
              "parameters : Parameters\n"
-             "    The state of the optimizer (`es.p`); `pop.f` is changed in place.");
+             "    The state of the optimizer (`es.p`); `pop` is changed in place.");
 
     nb::class_<NoPairwise, Pairwise>(
-        m, "NoPairwise", "No pairwise selection (the default unless `Mirror.PAIRWISE`).")
-        .def(nb::init<>(), "Create the no-op pairwise selection.")
+        m,
+        "NoPairwise",
+        "No pairwise selection (the default unless `Mirror.PAIRWISE`): `sort` sorts the "
+        "population by f.")
+        .def(nb::init<>(), "Create the selection without pairs.")
+        .def("sort",
+             &NoPairwise::sort,
+             nb::arg("population"),
+             nb::arg("n_offspring"),
+             "Sort the population by f (`Population.sort`); every individual is ranked.\n\n"
+             "Parameters\n"
+             "----------\n"
+             "population : Population\n"
+             "    Changed in place.\n"
+             "n_offspring : int\n"
+             "    Not used.")
         .def("__call__",
              &NoPairwise::operator(),
              nb::arg("parameters"),
-             "Do nothing.\n\n"
+             "Sort parameters.pop by f. Before 2.0 this did nothing: the selection sorted "
+             "afterwards.\n\n"
              "Parameters\n"
              "----------\n"
              "parameters : Parameters\n"
-             "    The state of the optimizer (`es.p`), unchanged.");
+             "    The state of the optimizer (`es.p`); `pop` is changed in place.");
 
     nb::class_<Strategy>(m,
                          "Strategy",
-                         "The selection of a generation: pairwise selection, elitism, then "
-                         "sorting.\n\n"
-                         "`select` applies `pairwise` and `elitsm`, sorts the population by "
-                         "objective value, keeps the lambda best and updates `es.p.stats` (the "
-                         "best solution and the mean objective value).")
+                         "The selection of a generation: elitism, then sorting (with pairwise "
+                         "selection).\n\n"
+                         "`select` applies `elitism` (the parents join the offspring), sorts "
+                         "the population with `pairwise` (by objective value; with "
+                         "`Mirror.PAIRWISE` the losers of the mirrored pairs last), keeps the "
+                         "first lambda and updates `es.p.stats` (the best solution and the mean "
+                         "objective value).")
         .def(nb::init<parameters::Modules>(),
              nb::arg("modules"),
              "Create the selection that the modules ask for.\n\n"
@@ -167,8 +201,9 @@ void define_selection(nb::module_ &main)
              "Parameters\n"
              "----------\n"
              "parameters : Parameters\n"
-             "    The state of the optimizer (`es.p`); `pop` is sorted (best first) and cut to "
-             "lambda individuals, `stats` is updated.")
+             "    The state of the optimizer (`es.p`); `pop` is sorted (best first; with "
+             "PAIRWISE the losers of the pairs last) and cut to lambda individuals, `stats` is "
+             "updated.")
         .def_rw("pairwise",
                 &Strategy::pairwise,
                 "The pairwise selection: `Pairwise` with `Mirror.PAIRWISE`, `NoPairwise` "

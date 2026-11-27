@@ -8,9 +8,10 @@ checkpoint (``pop.X``, ``pop.f``, ``m``, ``sigma``, evaluations) plus a few read
 mismatch shows where a trajectory starts to differ.
 
 Trajectories are compared bitwise, so a fixture is only valid for the toolchain that produced it
-(OS, CPU, compiler version, C library): ``std::shuffle``/``std::uniform_*_distribution`` differ
-between libc++, libstdc++ and MSVC, and libm, FMA contraction and SIMD reductions change the last
-bits (a newer gcc or glibc on the same OS is enough). Fixtures are stored as
+(OS, CPU, compiler version, C library): libm, FMA contraction and SIMD reductions change the last
+bits (a newer gcc or glibc on the same OS is enough). (The samplers no longer use ``std::shuffle``
+and ``std::uniform_int_distribution``, whose results differ between libc++, libstdc++ and MSVC,
+#116.) Fixtures are stored as
 ``tests/data/golden/<os>-<cpu>-<compiler>-<libc>.json`` (``platform_name()``); a toolchain without
 one is skipped. CI runners update their toolchain, so CI only checks when a fixture for exactly its
 toolchain is committed.

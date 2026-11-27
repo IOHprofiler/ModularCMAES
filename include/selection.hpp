@@ -1,6 +1,7 @@
 #pragma once
 
 #include "common.hpp"
+#include "population.hpp"
 
 namespace parameters
 {
@@ -20,14 +21,32 @@ struct NoElitsm : Elitsm
     void operator()(parameters::Parameters &p) const override {}
 };
 
+/**
+ * Pairwise selection (Auger, Brockhoff and Hansen 2011, Alg. 1): of each mirrored pair (offspring
+ * 2i and 2i + 1) only the better one is ranked. sort() orders the population: the winners of the
+ * pairs, the unpaired individuals and the parents of elitism by f, then the losers by f, and sets
+ * pop.n_ranked. The losers keep their real f (#75, F9: an f of +inf made MSR, Stagnation and the
+ * mean f infinite); they get no negative weights in the active update (Weights.pairwise).
+ */
 struct Pairwise
 {
-    virtual void operator()(parameters::Parameters &p) const;
+    virtual ~Pairwise() = default;
+
+    //! Sort pop; its first n_offspring individuals are the offspring, in their pairs
+    virtual void sort(Population &pop, size_t n_offspring) const;
+
+    //! sort(p.pop, p.pop.n)
+    void operator()(parameters::Parameters &p) const;
+
+  private:
+    mutable std::vector<size_t> order;
+    mutable std::vector<char> loser;
 };
 
+//! No pairwise selection: sort() sorts the population by f
 struct NoPairwise : Pairwise
 {
-    void operator()(parameters::Parameters &p) const override {}
+    void sort(Population &pop, size_t n_offspring) const override;
 };
 
 struct Strategy

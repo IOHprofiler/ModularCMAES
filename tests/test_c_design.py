@@ -120,9 +120,10 @@ class TestPairwiseActive(unittest.TestCase):
         self.assertTrue(w.pairwise)
         full = w.for_population(10)
         self.assertTrue(np.all(full[3:] < 0))
-        # In the update only the 5 winners are ranked: the losers (f = +inf, sorted last) get 0
+        # In the update only the 5 winners are ranked: the losers (after n_ranked) get 0
         pop = Population(4, 10)
-        pop.f = np.array([0, 1, 2, 3, 4] + [np.inf] * 5, dtype=float)
+        pop.f = np.arange(10, dtype=float)
+        pop.n_ranked = 5
         p.pop = pop
         c_before = p.adaptation.C.copy()
         p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
@@ -136,7 +137,8 @@ class TestPairwiseActive(unittest.TestCase):
             p = make(lambda0=10, active=active, mirrored="PAIRWISE")
             p.pop = Population(4, 10)
             p.pop.Y = rng.standard_normal((4, 10)) if not results else results[0][1]
-            p.pop.f = np.array([0, 1, 2, 3, 4] + [np.inf] * 5, dtype=float)
+            p.pop.f = np.arange(10, dtype=float)
+            p.pop.n_ranked = 5
             p.adaptation.adapt_matrix(p.weights, p.pop, p.mu, p.settings, p.stats)
             results.append((p.adaptation.C.copy(), p.pop.Y.copy()))
         np.testing.assert_allclose(results[0][0], results[1][0])

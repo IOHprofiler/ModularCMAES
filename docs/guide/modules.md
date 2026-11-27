@@ -148,7 +148,7 @@ the [deep dives](../deep-dives/index.md). The main adjustments:
   eigendecomposition (unless `always_compute_eigv=True`).
 * `ssa=SA` or `matrix_adaptation=CMSA`: µ defaults to λ/4 instead of λ/2.
 * `matrix_adaptation=NONE`: `active` is switched off (there is no matrix to update).
-* `mirrored=PAIRWISE`: λ is made even (for λ above 1).
+* `mirrored=PAIRWISE`: λ is made even (for λ above 1), and the default µ is half the even λ.
 * `lambda0=1`: a (1+1)-ES: µ = 1, elitist, equal weights, the 1/5th success rule (`ssa=SR`), no
   active update or sequential selection; IPOP and BIPOP become `RESTART`, `mirrored=PAIRWISE`
   becomes `NONE`.

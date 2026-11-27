@@ -221,7 +221,15 @@ void set_seed(int seed);
 [[nodiscard]] std::shared_ptr<Generator> fork();
 
 /**
- * @brief random integer in the half open interval [l, h)
+ * A uniform random integer in [0, n), n >= 1, from the 32-bit outputs of gen: an output below
+ * 2^32 mod n is rejected, then the output modulo n is returned (the method of OpenBSD's
+ * arc4random_uniform). The same numbers on every platform, unlike std::uniform_int_distribution,
+ * whose algorithm is implementation-defined (#116).
+ */
+uint32_t below(uint32_t n, Generator &gen);
+
+/**
+ * @brief random integer in the half open interval [l, h) (l when h <= l), drawn with below()
  *
  * @param l lower bound
  * @param h upper bound
@@ -229,6 +237,15 @@ void set_seed(int seed);
  * @return int a random integer
  */
 int random_integer(const int l, const int h, Generator &gen = GENERATOR);
+
+//! A uniformly random permutation of values, in place: the Fisher-Yates shuffle (Durstenfeld's
+//! version, Knuth TAOCP vol. 2, Sec. 3.4.2, Algorithm P) with below(). The same permutation on
+//! every platform, unlike std::shuffle (#116).
+template <typename T> void shuffle(std::vector<T> &values, Generator &gen)
+{
+    for (size_t i = values.size(); i > 1; --i)
+        std::swap(values[i - 1], values[below(static_cast<uint32_t>(i), gen)]);
+}
 
 /**
  * xoshiro256++ (Blackman and Vigna, 2019): a small, fast 64-bit generator, for the opt-in fast
@@ -274,6 +291,14 @@ double ziggurat_normal(Xoshiro256pp &gen);
 /**
  * @brief a shuffler that generates a random permutation of a
  * sequence of integers from start to stop using an lcg.
+ *
+ * x <- (multiplier x + offset) mod modulus, with modulus the smallest power of 2 >= n; values >= n
+ * are skipped. With an odd offset and multiplier = 1 (mod 4) the generator has the full period
+ * modulus (the Hull-Dobell theorem; Knuth, TAOCP vol. 2, Sec. 3.2.1.2), so the first n values are
+ * a permutation of [0, n). The multiplier is drawn at random with multiplier = 5 (mod 8), as Knuth
+ * recommends for a power-of-2 modulus (Sec. 3.2.1.3): it is then not 1 modulo the modulus. The
+ * multiplier 4 floor(n / 4) + 1 used before was n + 1 = 1 (mod n) for the powers of 2 of the Sobol
+ * cache: a constant stride (#116). For modulus <= 4, 1 is the only multiplier with the full period.
  */
 struct Shuffler
 {
@@ -293,10 +318,13 @@ struct Shuffler
         seed(static_cast<size_t>(random_integer(0, static_cast<int>(stop - start), gen))),
         offset(
             static_cast<size_t>(random_integer(0, static_cast<int>(stop - start), gen) * 2 + 1)),
-        multiplier(4 * ((stop - start) / 4) + 1),
+        multiplier(1),
         modulus(static_cast<size_t>(pow(2, std::ceil(std::log2(stop - start))))),
         found(0)
     {
+        if (modulus >= 8)
+            multiplier =
+                8 * static_cast<size_t>(random_integer(0, static_cast<int>(modulus / 8), gen)) + 5;
     }
 
     Shuffler(const size_t stop, Generator &gen = GENERATOR) :

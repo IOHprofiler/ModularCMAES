@@ -547,8 +547,77 @@ static void test_settings_checked_at_creation()
     }
 }
 
+// The bounded integers and the shuffle (#116) use only the raw mt19937 output, which the C++
+// standard fixes: the values are the same on every platform (CI runs this test on Linux and
+// Windows too)
+static void test_portable_random_integers()
+{
+    // The expected values were computed independently from numpy's MT19937 (legacy seeding, the
+    // same state as std::mt19937(seed)) with the same rejection rule
+    std::mt19937 gen(42);
+    std::vector<uint32_t> drawn;
+    for (int i = 0; i < 8; ++i)
+        drawn.push_back(rng::below(10, gen));
+    CHECK((drawn == std::vector<uint32_t>{2, 7, 6, 4, 6, 5, 0, 4}));
+
+    std::mt19937 gen2(7);
+    std::vector<int> order(10);
+    std::iota(order.begin(), order.end(), 0);
+    rng::shuffle(order, gen2);
+    CHECK((order == std::vector<int>{9, 0, 8, 3, 2, 6, 7, 1, 4, 5}));
+
+    // below(n) is uniform: counts of 60000 draws in 6 cells are within 5 standard deviations
+    std::mt19937 gen3(1);
+    std::vector<int> counts(6, 0);
+    for (int i = 0; i < 60000; ++i)
+        counts[rng::below(6, gen3)]++;
+    for (const int c : counts)
+        CHECK(std::abs(c - 10000) < 5 * 91);
+    // A range of 1 needs no draw; a power of 2 never rejects
+    std::mt19937 gen4(3), gen5(3);
+    CHECK(rng::below(1, gen4) == 0);
+    gen5.discard(1);
+    CHECK(rng::below(8, gen4) == static_cast<uint32_t>(gen5() % 8));
+    CHECK(rng::random_integer(5, 5, gen4) == 5);
+}
+
+// sampling::expected_norm against the closed forms: E||z|| of a standard normal vector,
+// sqrt(2) Gamma((d + 1) / 2) / Gamma(d / 2), and of z_i^2 exponential, Gamma(d + 1/2) / Gamma(d)
+static void test_expected_norm()
+{
+    for (const size_t d : {size_t{1}, size_t{2}, size_t{3}, size_t{10}, size_t{100}, size_t{1000}})
+    {
+        const Float dd = static_cast<Float>(d);
+        const Float normal =
+            std::sqrt(2.0) * std::exp(std::lgamma((dd + 1) / 2) - std::lgamma(dd / 2));
+        const Float gauss =
+            sampling::expected_norm(d,
+                                    sampling::phi_psi_from_density([](const Float z) {
+                                        return 2.0 * std::exp(-z * z / 2) / std::sqrt(2 * M_PI);
+                                    }),
+                                    1.0);
+        CHECK(std::abs(gauss / normal - 1) < 1e-5);
+
+        const Float gamma = std::exp(std::lgamma(dd + 0.5) - std::lgamma(dd));
+        const Float exponential = sampling::expected_norm(
+            d,
+            sampling::phi_psi_from_density([](const Float z) { return 2 * z * std::exp(-z * z); }),
+            1.0);
+        CHECK(std::abs(exponential / gamma - 1) < 1e-8);
+
+        // A uniform coordinate in (-a, a): the closed form of phi
+        const Float uniform = sampling::expected_norm(
+            d, [](const Float t) { return sampling::phi_psi_uniform(std::sqrt(3.0), t); }, 1.0);
+        if (d == 1)
+            CHECK(std::abs(uniform - std::sqrt(3.0) / 2) < 1e-10);
+        CHECK(uniform < std::sqrt(dd));
+    }
+}
+
 int main()
 {
+    test_portable_random_integers();
+    test_expected_norm();
     test_uniform_is_open_interval();
     test_uniform_values_unchanged();
     test_evaluation_queue();

@@ -105,7 +105,8 @@ void define_population(nb::module_ &main)
         .def("sort",
              &Population::sort,
              "Sort the active individuals by f, ascending, in every array.\n\n"
-             "Ties keep their order and NaN values go last.")
+             "Ties keep their order and NaN values go last. Every individual is then ranked "
+             "(n_ranked = n).")
         .def("resize_cols",
              &Population::resize_cols,
              nb::arg("size"),
@@ -124,8 +125,20 @@ void define_population(nb::module_ &main)
         .def_prop_ro("n_finite",
                      &Population::n_finite,
                      "The number of active individuals whose f is not +inf.\n\n"
-                     "Unevaluated individuals, and the worse individual of each pair under "
-                     "pairwise selection, have f = +inf.")
+                     "Unevaluated individuals have f = +inf. (Before 2.0, so had the worse "
+                     "individual of each pair under pairwise selection; it keeps its value now, "
+                     "see n_ranked.)")
+        .def_prop_rw(
+            "n_ranked",
+            [](const Population &p) { return p.ranked(); },
+            [](Population &p, const size_t value) { p.n_ranked = value; },
+            "The number of ranked individuals, the first ones; at most n.\n\n"
+            "n, except after pairwise selection (`Mirror.PAIRWISE`): the winners of the mirrored "
+            "pairs (and the parents, with elitism) come first, sorted by f, then the losers, "
+            "sorted by f, with their real values. The losers get no negative weights in the "
+            "active update, and MSR and PSR compare the ranked individuals only. Set by the "
+            "selection; `sort`, `keep_only` and adding populations make every individual "
+            "ranked again.")
         .def(
             "__add__",
             [](const Population &self, const Population &other) {
@@ -243,7 +256,9 @@ void define_parameters(nb::module_ &main)
                      bool_setter(&Modules::orthogonal),
                      "bool, default False: orthogonal sampling.\n\n"
                      "The samples of a generation are made orthogonal to each other (by a QR "
-                     "decomposition), keeping their lengths (Wang et al.).")
+                     "decomposition), keeping their lengths (Wang et al.): in blocks of at most "
+                     "d, the first block starting with the generation. With mirrored sampling "
+                     "the first sample of each pair. See `sampling.Orthogonal`.")
         .def_prop_rw("sequential_selection",
                      bool_getter(&Modules::sequential_selection),
                      bool_setter(&Modules::sequential_selection),
@@ -279,8 +294,9 @@ void define_parameters(nb::module_ &main)
         .def_rw("mirrored",
                 &Modules::mirrored,
                 "options.Mirror, default NONE: mirrored sampling.\n\n"
-                "Every second sample is the mirror image of the one before; PAIRWISE also "
-                "selects only the better point of each pair. See modcma.c_maes.options.Mirror.")
+                "Individuals 2i and 2i + 1 of a generation are mirror images, z and -z (an "
+                "odd last individual is unpaired); PAIRWISE also ranks only the better point of "
+                "each pair. See modcma.c_maes.options.Mirror.")
         .def_rw("ssa",
                 &Modules::ssa,
                 "options.StepSizeAdaptation, default CSA: the step-size adaptation.\n\n"
@@ -470,8 +486,8 @@ void define_parameters(nb::module_ &main)
         .def_rw("pairwise",
                 &Weights::pairwise,
                 "Whether the selection is pairwise (`Mirror.PAIRWISE`): the losers of the mirrored "
-                "pairs (f = +inf, sorted last) then get no negative weights in the active update, "
-                "as in pycma.")
+                "pairs (the individuals after `Population.n_ranked`) then get no negative "
+                "weights in the active update, as in pycma.")
         .def_rw("mueff_neg",
                 &Weights::mueff_neg,
                 "The variance effective selection mass of the negative weights, "

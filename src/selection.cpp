@@ -12,11 +12,10 @@ Strategy::Strategy(const parameters::Modules &modules) :
 
 void Strategy::select(parameters::Parameters &p) const
 {
-    (*pairwise)(p);
-
+    // Elitism appends the parents after the offspring; the pairs are the offspring's
+    const size_t n_offspring = p.pop.n;
     (*elitsm)(p);
-
-    p.pop.sort();
+    pairwise->sort(p.pop, n_offspring);
     p.pop.resize_cols(p.lambda);
 
     p.stats.current_avg = p.pop.f.head(p.pop.n).array().mean();
@@ -29,15 +28,43 @@ void Strategy::select(parameters::Parameters &p) const
     p.stats.update_success(success);
 }
 
-void Pairwise::operator()(parameters::Parameters &p) const
+void Pairwise::operator()(parameters::Parameters &p) const { sort(p.pop, p.pop.n); }
+
+void Pairwise::sort(Population &pop, const size_t n_offspring) const
 {
-    assert(p.pop.n % 2 == 0);
-    for (size_t i = 0; i + 1 < p.pop.n; i += 2)
+    const size_t n = pop.n;
+    const auto f = [&pop](const size_t i) { return pop.f(static_cast<Eigen::Index>(i)); };
+
+    // The loser of each pair: the second when the first is better (a NaN value is worse than any
+    // number), the first otherwise (on a tie, as before #75). An odd last offspring is unpaired.
+    loser.assign(n, 0);
+    size_t n_losers = 0;
+    for (size_t i = 0; i + 1 < std::min(n_offspring, n); i += 2, ++n_losers)
     {
-        Eigen::Index idx = i + (1 * (p.pop.f(i) < p.pop.f(i + 1)));
-        p.pop.f(idx) = std::numeric_limits<Float>::infinity();
+        const bool first_better = f(i) < f(i + 1) || (std::isnan(f(i + 1)) && !std::isnan(f(i)));
+        loser[first_better ? i + 1 : i] = 1;
     }
+
+    // The ranked individuals by f, then the losers by f; within each, ties in index order and NaN
+    // last, as Population::sort
+    order.resize(n);
+    std::iota(order.begin(), order.end(), size_t{0});
+    std::sort(order.begin(), order.end(), [&](const size_t a, const size_t b) {
+        if (loser[a] != loser[b])
+            return loser[a] < loser[b];
+        const Float fa = f(a), fb = f(b);
+        const bool nan_a = std::isnan(fa), nan_b = std::isnan(fb);
+        if (nan_a != nan_b)
+            return nan_b;
+        if (!nan_a && fa != fb)
+            return fa < fb;
+        return a < b;
+    });
+    pop.reorder(order);
+    pop.n_ranked = n - n_losers;
 }
+
+void NoPairwise::sort(Population &pop, const size_t /*n_offspring*/) const { pop.sort(); }
 
 void Elitsm::operator()(parameters::Parameters &p) const
 {
@@ -49,7 +76,9 @@ void Elitsm::operator()(parameters::Parameters &p) const
     // individuals of the previous generation (the first columns of old_pop, which is sorted),
     // compete with the offspring. old_pop keeps all its columns: MSR and PSR compare with it.
     const size_t n_old = p.old_pop.n;
-    const auto k = static_cast<Eigen::Index>(std::min(p.mu, p.old_pop.n_finite()));
+    // Not the losers of pairwise selection, which follow the ranked individuals
+    const auto k =
+        static_cast<Eigen::Index>(std::min({p.mu, p.old_pop.n_finite(), p.old_pop.ranked()}));
 
     if (!p.settings.one_plus_one)
     {

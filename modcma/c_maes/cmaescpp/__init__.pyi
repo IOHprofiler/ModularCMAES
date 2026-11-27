@@ -181,7 +181,7 @@ class Population:
         """
         Sort the active individuals by f, ascending, in every array.
 
-        Ties keep their order and NaN values go last.
+        Ties keep their order and NaN values go last. Every individual is then ranked (n_ranked = n).
         """
 
     def resize_cols(self, size: int) -> None:
@@ -208,8 +208,19 @@ class Population:
         """
         The number of active individuals whose f is not +inf.
 
-        Unevaluated individuals, and the worse individual of each pair under pairwise selection, have f = +inf.
+        Unevaluated individuals have f = +inf. (Before 2.0, so had the worse individual of each pair under pairwise selection; it keeps its value now, see n_ranked.)
         """
+
+    @property
+    def n_ranked(self) -> int:
+        """
+        The number of ranked individuals, the first ones; at most n.
+
+        n, except after pairwise selection (`Mirror.PAIRWISE`): the winners of the mirrored pairs (and the parents, with elitism) come first, sorted by f, then the losers, sorted by f, with their real values. The losers get no negative weights in the active update, and MSR and PSR compare the ranked individuals only. Set by the selection; `sort`, `keep_only` and adding populations make every individual ranked again.
+        """
+
+    @n_ranked.setter
+    def n_ranked(self, arg: int, /) -> None: ...
 
     def __add__(self, other: Population) -> Population:
         """

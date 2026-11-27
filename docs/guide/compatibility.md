@@ -23,8 +23,8 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | `ssa` other than `CSA` with `matrix_adaptation=COVARIANCE` | `COVARIANCE_NO_EIGV` (unless `always_compute_eigv=True`): the same covariance update, sampled through a Cholesky factor |
 | `ssa=SA` or `matrix_adaptation=CMSA` | µ defaults to λ/4 (an explicit `mu0` wins) |
 | `matrix_adaptation=NONE` | `active` off |
-| `mirrored=PAIRWISE` and an odd λ above 1 | λ + 1 |
-| `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART`; `mirrored=PAIRWISE` becomes `NONE` (it has no pairs to select from; `MIRRORED` stays) |
+| `mirrored=PAIRWISE` and an odd λ above 1 | λ + 1; the default µ is half the new λ (a given `mu0` is kept) |
+| `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART`; `mirrored=PAIRWISE` becomes `NONE` (it has no pairs to select from; `MIRRORED` stays, without effect) |
 | `ssa=SA` or `LPXNES` | sampled step sizes (`sample_sigma`) are always on |
 | `weights=UTILITY` | `active` on (the utilities of the worse half are negative; every matrix update uses all of them) |
 | `matrix_adaptation=NATURAL_GRADIENT` with `active` and the default weights | `weights=UTILITY`: xNES's active form (CMA-ES's negative weights broke it) |
@@ -47,6 +47,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | `sample_sigma=False` | with `ssa=SA` or `LPXNES` (forced on) |
 | `sequential_selection` | with `PAIRWISE` and the default µ = λ/2 (the earliest stop, 2µ = λ, is the whole generation); with λ = 1 |
 | `weights`, `elitist`, `ssa`, IPOP/BIPOP, `mirrored=PAIRWISE` | with λ = 1 (overridden) |
+| `mirrored=MIRRORED` | with λ = 1: the pairs are formed within a generation, and its one individual is unpaired |
 | `fast_sampling` | with a sampler other than `UNIFORM` + `GAUSSIAN` |
 | `COVARIANCE` vs `COVARIANCE_NO_EIGV` | identical when `ssa` is not `CSA` (converted) |
 | all restart criteria but `UnableToAdapt` | with `restart_strategy=NONE` |
@@ -63,11 +64,11 @@ algorithms.
   matrix adaptation the weighted sum of the selected z ([deep dive](../deep-dives/step-size-adaptation.md#csa)).
   They differ wherever the evaluated points are not m + σAz: sampled step sizes, elitism, injected
   or repaired points, the step-size floor of integer variables.
-* **Pairwise selection.** The worse point of each mirrored pair gets f = +inf before the update.
-  The losers get no negative weights in the active update (as pycma: mirrored points never get
-  negative weights). With the default µ = λ/2 the active update therefore has no effect with
-  pairwise selection; `MSR` compares with an infinite median (*known issue*: σ only shrinks [F9]); `PSR` uses
-  only the finite values.
+* **Pairwise selection.** Only the better point of each mirrored pair is ranked; the losers follow
+  the ranked points, with their real values (`Population.n_ranked`). The losers get no negative
+  weights in the active update (as pycma: mirrored points never get negative weights), so with the
+  default µ = λ/2 the active update has no effect with pairwise selection. `MSR` and `PSR` compare
+  the ranked points only; the statistics and the restart criteria read every value.
 * **`weights=UTILITY`** recombines the mean from all λ points: the worse points move the mean too
   (away from themselves), so outliers matter, unlike with the other weights, where only the µ best
   do. The evolution paths are normalized with the utilities' selection mass (`mueff_mean`).
@@ -76,12 +77,14 @@ algorithms.
   compare against the elite.
 * **Sequential selection** stops a generation at the first point better than the best of the
   previous generation. With elitism that is the best of the run so far.
-* **Orthogonal sampling** orthogonalizes blocks of max(d, n) samples, with n = λ, λ/2 with
-  mirroring, minus 2 with TPA; when n < d a block spans several generations (*known issue* [F11]).
-  Rejected samples (RESAMPLE, repelling) consume block samples.
-* **Mirrored sampling** keeps its state between generations and through rejected samples: with
-  RESAMPLE, repelling, an odd λ or sequential selection the pairs fall out of step (*known issue*
-  [F10]).
+* **Orthogonal sampling** orthogonalizes the n independent samples of each generation (n = λ,
+  ⌈λ/2⌉ with mirroring) in blocks of at most d that start with the generation. Samples that
+  replace rejected ones (RESAMPLE, repelling) count towards the generation, so a generation with
+  rejections is not completely orthogonal.
+* **Mirrored sampling** pairs individuals 2i and 2i + 1 of each generation; with an odd λ the last
+  one is unpaired. A pair that RESAMPLE or repelling rejects is sampled again as a pair. With
+  sequential selection the partner of a batch's last individual is sampled with it, and discarded
+  if the generation stops before it.
 * **Threshold convergence** applies its threshold to z (E‖z‖ at the start of a run, decaying with
   the budget); it lengthens the samples that length-based step-size rules (`XNES`, `MXNES`)
   measure.
@@ -119,20 +122,18 @@ noted; with the current version. Most are recorded for fixing.
 
 | combination | what happens |
 |---|---|
-| `sample_transformation=NONE` | uniform samples with mean 0.5: fails everywhere [F22] |
+| `sample_transformation=NONE` | the raw base sampler, for testing: uniform samples with mean 0.5, which fail everywhere |
 | `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `MSR`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | σ diverges or collapses: the step-size rules assume finite variance |
 | `active` with `CMSA` | C becomes indefinite: restarts every few generations [F6] |
 | `sample_sigma`, `SA` or `LPXNES` on rotated, ill-conditioned problems | one sampled step size per coordinate breaks rotation invariance: CMSA with `SA` fails on a rotated ellipsoid [F1] |
-| `MSR` with `PAIRWISE` | σ shrinks every generation [F9] |
 | `MATRIX` with `elitist` | the inverse of M drifts, the elites' steps are wrong [F18] |
 | `mu0` above λ/2 with the active update | some "negative" weights are positive [F8] |
 | `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |
-| `orthogonal` with `EQUAL` weights and a step-size rule other than `CSA` | C shrinks while σ grows |
 | `active` + `elitist` with a step-size rule other than `CSA` | poor convergence; with `CHOLESKY` or `SEPARABLE` and `XNES`/`MXNES`, σ diverges |
 | `ssa=XNES` without `NATURAL_GRADIENT`, or with `matrix_adaptation=NONE` | slow (a small default learning rate) [F27] |
 | `weights=UTILITY` with `elitist` | the mean drifts away: the utilities contrast the better and worse halves around the population's center, which with elitism is not the distribution's |
 | `weights=UTILITY` with `bound_correction=TOROIDAL` or `sample_transformation=CAUCHY` | far points (wrapped around, heavy tails) pull the mean through their negative utilities |
-| `lambda0=2` | allowed for experiments, but many modules fail. On a rotated ellipsoid (d = 5, 5 seeds), 0 of 5 runs converge with `elitist`, `MATRIX`, `CMSA`, `orthogonal`, `MSR`, `PSR`, `SR`, `MXNES`, and with `restart_strategy` `RESTART` or `STOP`, whose criteria end the runs early. The default configuration needs about 6× the evaluations of λ = 4 |
+| `lambda0=2` | allowed for experiments, but many modules fail. On a rotated ellipsoid (d = 5, 5 seeds), 0 of 5 runs converge with `elitist`, `MATRIX`, `CMSA`, `MSR`, `PSR`, `SR`, `MXNES`, and with `restart_strategy` `RESTART` or `STOP`, whose criteria end the runs early. The default configuration needs about 6× the evaluations of λ = 4 |
 | `lambda0=3` | close to λ = 4 for most modules (same measurement), except `sample_transformation=CAUCHY` (0 of 5) and `MXNES` (0 of 5 on the ellipsoid); `SR`, `CMSA` and `MSR` need about 2× the evaluations |
 
 For tuning, `get_configspace` leaves `sample_transformation=NONE` out and has conditions for the

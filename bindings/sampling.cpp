@@ -49,10 +49,12 @@ void define_samplers(nb::module_ &main)
         "The optimizer builds its sampler from the modules: a base sampler of uniform numbers "
         "in (0, 1)^d (`Uniform`, `Sobol` or `Halton`; `options.BaseSampler`), a transformer to "
         "the distribution of the mutations (`GaussianTransformer` and the others; "
-        "`options.SampleTranformerType`), then optionally `Orthogonal`, `Mirrored` and "
-        "`CachedSampler` around it. Calling a sampler returns one sample, a vector of length "
-        "d. The samplers created here draw from the global generator (`set_seed`); the "
-        "ones of an optimizer draw from its own.");
+        "`options.SampleTranformerType`), then optionally `Orthogonal` and `CachedSampler` "
+        "around it. Mirrored sampling (`Modules.mirrored`) is not a sampler of the optimizer: "
+        "it samples the first of each pair and negates it for the second (`Mirrored` is a "
+        "standalone version). Calling a sampler returns one sample, a vector of length d. The "
+        "samplers created here draw from the global generator (`set_seed`); the ones of an "
+        "optimizer draw from its own.");
 
     nb::class_<Sampler>(m,
                         "Sampler",
@@ -63,8 +65,13 @@ void define_samplers(nb::module_ &main)
              nb::arg("modules"),
              nb::arg("lamb"),
              "Prepare for populations of lamb individuals with these modules; called at the "
-             "start and at every restart. `Orthogonal` adapts its block size and `Mirrored` "
-             "starts a new pair; most samplers do nothing.")
+             "start and at every restart. `Orthogonal` adapts its number of samples per "
+             "generation and `Mirrored` starts a new pair; most samplers do nothing.")
+        .def("begin_generation",
+             &Sampler::begin_generation,
+             "A new generation starts; the optimizer calls it before it samples a population.\n\n"
+             "`Orthogonal` starts a new block and `Mirrored` a new pair; most samplers do "
+             "nothing.")
         .def("expected_length",
              &Sampler::expected_length,
              "The expected length of a sample, used to normalize the step-size adaptation; "
@@ -130,8 +137,11 @@ void define_samplers(nb::module_ &main)
     nb::class_<Mirrored, Sampler>(
         m,
         "Mirrored",
-        "Mirrored samples (Modules.mirrored): a sample of the wrapped sampler, then its "
-        "negation, alternately.")
+        "Mirrored samples: a sample of the wrapped sampler, then its negation, alternately; "
+        "`reset` and `begin_generation` start a new pair.\n\n"
+        "A standalone sampler: the optimizer does not use it. With `Modules.mirrored` the "
+        "optimizer samples the pairs of each generation itself (offspring 2i and 2i + 1 are z "
+        "and -z, and a rejected pair is sampled again as a pair).")
         .def(nb::init<const std::shared_ptr<Sampler>>(),
              nb::arg("sampler"),
              "Mirror the samples of sampler.")
@@ -172,16 +182,22 @@ void define_samplers(nb::module_ &main)
     nb::class_<Orthogonal, Sampler>(
         m,
         "Orthogonal",
-        "Orthogonalized samples (Modules.orthogonal).\n\n"
-        "Draws n = max(d, n_samples) samples of the wrapped sampler, orthonormalizes them in "
-        "groups of (at most) d with a Householder QR decomposition (more than d vectors cannot "
-        "be orthogonal), gives each the length of the sample it came from, and returns them one "
-        "by one before drawing the next n (Wang et al. 2014).")
+        "Orthogonalized samples (Modules.orthogonal; Wang, Emmerich and Baeck 2019).\n\n"
+        "The n_samples samples of a generation are orthogonalized in blocks: the first "
+        "min(n_samples, d), then blocks of at most d (more than d vectors cannot be "
+        "orthogonal). A block is drawn from the wrapped sampler when it is needed, "
+        "orthonormalized as by the Gram-Schmidt process (a Householder QR decomposition with "
+        "the signs corrected so that diag(R) > 0: the first sample keeps its direction), and "
+        "each vector gets the length of the sample it came from. `begin_generation` starts a "
+        "new generation; without it, every n_samples consecutive samples are one. Samples "
+        "that replace rejected ones count towards the generation. Wang et al. draw the "
+        "samples beyond the first d at random; here they are orthogonalized in further "
+        "blocks.")
         .def(nb::init<const std::shared_ptr<Sampler>, size_t>(),
              nb::arg("sampler"),
              nb::arg("n_samples"),
-             "Orthogonalize the samples of sampler, max(d, n_samples) at a time. The "
-             "optimizer uses n_samples = lambda (lambda / 2 with mirroring), minus 2 with TPA.")
+             "Orthogonalize the samples of sampler, n_samples per generation. The optimizer "
+             "uses n_samples = lambda, or ceil(lambda / 2) with mirrored sampling.")
         .def("__call__", &Orthogonal::operator(), "One sample: the next of the block.");
 
     nb::class_<SampleTransformer, Sampler>(
@@ -198,7 +214,8 @@ void define_samplers(nb::module_ &main)
         m,
         "IdentityTransformer",
         "No transformation: the uniform numbers of the base sampler as they are "
-        "(SampleTranformerType.NONE).");
+        "(SampleTranformerType.NONE), the raw base sampler, for testing.\n\n"
+        "Its expected length is E||u|| of u uniform in (0, 1)^d.");
     transformer_members<IdentityTransformer>(identity);
     auto gaussian = nb::class_<GaussianTransformer, SampleTransformer>(
         m,
@@ -213,19 +230,25 @@ void define_samplers(nb::module_ &main)
         m,
         "UniformScaler",
         "Uniform numbers in (-sqrt(3), sqrt(3)), unit variance: -sqrt(3) + 2 sqrt(3) u "
-        "(SampleTranformerType.SCALED_UNIFORM).");
+        "(SampleTranformerType.SCALED_UNIFORM).\n\n"
+        "Its expected length is E||z|| of this distribution in d dimensions, computed "
+        "numerically (it was sqrt(d) before 2.0).");
     transformer_members<UniformScaler>(uniform);
     auto laplace = nb::class_<LaplaceTransformer, SampleTransformer>(
         m,
         "LaplaceTransformer",
         "Laplace numbers with scale b = 1/sqrt(2), unit variance: b ln(2u) for u < 0.5, "
-        "-b ln(2 (1 - u)) otherwise (SampleTranformerType.LAPLACE).");
+        "-b ln(2 (1 - u)) otherwise (SampleTranformerType.LAPLACE).\n\n"
+        "Its expected length is E||z|| of this distribution in d dimensions, computed "
+        "numerically (it was sqrt(d) before 2.0).");
     transformer_members<LaplaceTransformer>(laplace);
     auto logistic = nb::class_<LogisticTransformer, SampleTransformer>(
         m,
         "LogisticTransformer",
         "Logistic numbers with scale s = sqrt(3)/pi, unit variance: s ln(u / (1 - u)) "
-        "(SampleTranformerType.LOGISTIC).");
+        "(SampleTranformerType.LOGISTIC).\n\n"
+        "Its expected length is E||z|| of this distribution in d dimensions, computed "
+        "numerically (it was sqrt(d) before 2.0).");
     transformer_members<LogisticTransformer>(logistic);
     auto cauchy = nb::class_<CauchyTransformer, SampleTransformer>(
         m,
@@ -238,7 +261,9 @@ void define_samplers(nb::module_ &main)
         m,
         "DoubleWeibullTransformer",
         "Double Weibull numbers with shape 2 and scale 1, unit variance: -sqrt(-ln(2u)) for "
-        "u < 0.5, sqrt(-ln(2 (1 - u))) otherwise (SampleTranformerType.DOUBLE_WEIBULL).");
+        "u < 0.5, sqrt(-ln(2 (1 - u))) otherwise (SampleTranformerType.DOUBLE_WEIBULL).\n\n"
+        "Its expected length is Gamma(d + 1/2) / Gamma(d), exactly: each z_i^2 is exponential "
+        "with mean 1, so ||z||^2 is Gamma(d, 1)-distributed (it was sqrt(d) before 2.0).");
     transformer_members<DoubleWeibullTransformer>(weibull);
 }
 } // namespace modcma_python

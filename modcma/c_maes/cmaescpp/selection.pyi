@@ -48,45 +48,73 @@ class NoElitism(Elitism):
 
 class Pairwise:
     """
-    Pairwise selection for mirrored sampling: of each mirrored pair only the better point can be selected.
+    Pairwise selection for mirrored sampling (Auger, Brockhoff and Hansen 2011): of each mirrored pair only the better point is ranked.
 
-    Selected by `Modules.mirrored = Mirror.PAIRWISE`; `NoPairwise` otherwise. The worse point of each pair (individuals 2i and 2i + 1) gets the objective value inf, so the two mirrored steps do not cancel each other in the recombination. Needs an even population size (Settings makes lambda even with PAIRWISE).
+    Selected by `Modules.mirrored = Mirror.PAIRWISE`; `NoPairwise` otherwise. The better point of each pair (offspring 2i and 2i + 1) is ranked with the unpaired points and the parents of elitism; the losers follow them, sorted by f, with their real values (`Population.n_ranked`). So the two mirrored steps do not cancel each other in the recombination, and the losers get no negative weights in the active update. Settings makes lambda even with PAIRWISE. Before 2.0 the losers got f = +inf (#75).
     """
 
     def __init__(self) -> None:
         """Create the pairwise selection."""
 
+    def sort(self, population: modcma.c_maes.cmaescpp.Population, n_offspring: int) -> None:
+        """
+        Sort the population: the ranked individuals by f, then the losers by f.
+
+        Sets population.n_ranked.
+
+        Parameters
+        ----------
+        population : Population
+            Changed in place.
+        n_offspring : int
+            The first n_offspring individuals are the offspring, in their pairs (2i, 2i + 1); an odd last one is unpaired. The individuals after them (the parents of elitism) are ranked.
+        """
+
     def __call__(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
         """
-        Set the objective value of the worse point of every pair to inf.
+        sort(parameters.pop, parameters.pop.n): every individual is an offspring.
 
         Parameters
         ----------
         parameters : Parameters
-            The state of the optimizer (`es.p`); `pop.f` is changed in place.
+            The state of the optimizer (`es.p`); `pop` is changed in place.
         """
 
 class NoPairwise(Pairwise):
-    """No pairwise selection (the default unless `Mirror.PAIRWISE`)."""
+    """
+    No pairwise selection (the default unless `Mirror.PAIRWISE`): `sort` sorts the population by f.
+    """
 
     def __init__(self) -> None:
-        """Create the no-op pairwise selection."""
+        """Create the selection without pairs."""
+
+    def sort(self, population: modcma.c_maes.cmaescpp.Population, n_offspring: int) -> None:
+        """
+        Sort the population by f (`Population.sort`); every individual is ranked.
+
+        Parameters
+        ----------
+        population : Population
+            Changed in place.
+        n_offspring : int
+            Not used.
+        """
 
     def __call__(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
         """
-        Do nothing.
+        Sort parameters.pop by f. Before 2.0 this did nothing: the selection sorted afterwards.
 
         Parameters
         ----------
         parameters : Parameters
-            The state of the optimizer (`es.p`), unchanged.
+            The state of the optimizer (`es.p`); `pop` is changed in place.
         """
 
 class Strategy:
     """
-    The selection of a generation: pairwise selection, elitism, then sorting.
+    The selection of a generation: elitism, then sorting (with pairwise selection).
 
-    `select` applies `pairwise` and `elitsm`, sorts the population by objective value, keeps the lambda best and updates `es.p.stats` (the best solution and the mean objective value).
+    `select` applies `elitism` (the parents join the offspring), sorts the population with `pairwise` (by objective value; with `Mirror.PAIRWISE` the losers of the mirrored pairs last), keeps the first lambda and updates `es.p.stats` (the best solution and the mean objective value).
     """
 
     def __init__(self, modules: modcma.c_maes.cmaescpp.parameters.Modules) -> None:
@@ -106,7 +134,7 @@ class Strategy:
         Parameters
         ----------
         parameters : Parameters
-            The state of the optimizer (`es.p`); `pop` is sorted (best first) and cut to lambda individuals, `stats` is updated.
+            The state of the optimizer (`es.p`); `pop` is sorted (best first; with PAIRWISE the losers of the pairs last) and cut to lambda individuals, `stats` is updated.
         """
 
     @property

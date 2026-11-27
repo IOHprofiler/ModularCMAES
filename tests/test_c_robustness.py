@@ -111,7 +111,7 @@ class TestSettingsValidation(unittest.TestCase):
             self.assertTrue(np.isfinite(es.p.weights.mueff))
             runs.append((es.p.stats.global_best.y, es.p.stats.evaluations))
         self.assertEqual(runs[0], runs[1])
-        # MIRRORED stays (#75)
+        # MIRRORED stays, without effect: the pairs are formed within a generation (#75)
         modules = c_maes.Modules()
         modules.mirrored = c_maes.options.Mirror.MIRRORED
         settings = Settings(3, modules, lambda0=1)

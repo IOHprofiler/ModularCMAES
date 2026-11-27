@@ -165,12 +165,18 @@ struct Settings
         // The (1+1)-ES has no mirrored pairs to select from: PAIRWISE becomes NONE (the
         // maintainer's decision on #136, F17 of #75). It made lambda0 = 1 even, 2, with
         // mu0 = 1 / 2 = 0 and NaN weights. Before the rule below, which would make lambda0 even;
-        // the other adjustments of the (1+1)-ES are at the end. MIRRORED stays (#75).
+        // the other adjustments of the (1+1)-ES are at the end. MIRRORED stays, without effect: the
+        // pairs are formed within a generation (#75).
         if (lambda0 == 1 and modules.mirrored == Mirror::PAIRWISE)
             modules.mirrored = Mirror::NONE;
 
+        // The default mu0 follows the even lambda0 (#75: it was half the odd one, 3 of 8 at d = 3);
+        // a given mu0 is kept, and checked against lambda0 (require_consistent)
         if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
+        {
             lambda0++;
+            mu0 = mu.value_or(default_mu0());
+        }
 
         if (modules.ssa == StepSizeAdaptation::SA ||
             modules.matrix_adaptation == MatrixAdaptationType::CMSA)
