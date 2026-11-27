@@ -14,17 +14,17 @@ recorded for fixing (TASKS.md, WP23; the identifier in brackets).
 
 The `Settings` change some choices when they are created; `es.p.settings.modules` shows what is
 used. Only the constructor adjusts: setting `lambda0` or `mu0` later, or changing
-`settings.modules` in place, does not, and the optimizer rejects an odd λ with PAIRWISE, µ > λ
-and a change of λ to or from 1 when it is created ([settings](settings.md#changing-the-settings)).
+`settings.modules` in place, does not, and the optimizer rejects an odd λ with PAIRWISE and a
+change of λ to or from 1 when it is created ([settings](settings.md#changing-the-settings)). A
+`mu0` above `lambda0` is not adjusted: it raises `ValueError` (before 2.0 it became λ/2).
 
 | when | then |
 |---|---|
 | `ssa` other than `CSA` with `matrix_adaptation=COVARIANCE` | `COVARIANCE_NO_EIGV` (unless `always_compute_eigv=True`): the same covariance update, sampled through a Cholesky factor |
 | `ssa=SA` or `matrix_adaptation=CMSA` | µ defaults to λ/4 (an explicit `mu0` wins) |
-| `mu0 > lambda0` | µ = λ/2 |
 | `matrix_adaptation=NONE` | `active` off |
-| `mirrored=PAIRWISE` and an odd λ | λ + 1 |
-| `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART`. With `mirrored=PAIRWISE`, λ becomes 2 instead (above) and µ = 1 |
+| `mirrored=PAIRWISE` and an odd λ above 1 | λ + 1 |
+| `lambda0=1` | the (1+1)-ES: µ = 1, elitist, equal weights, `ssa=SR`, no active update or sequential selection; IPOP and BIPOP become `RESTART`; `mirrored=PAIRWISE` becomes `NONE` (it has no pairs to select from; `MIRRORED` stays) |
 | `ssa=SA` or `LPXNES` | sampled step sizes (`sample_sigma`) are always on |
 | `weights=UTILITY` | `active` on (the utilities of the worse half are negative; every matrix update uses all of them) |
 | `matrix_adaptation=NATURAL_GRADIENT` with `active` and the default weights | `weights=UTILITY`: xNES's active form (CMA-ES's negative weights broke it) |
@@ -46,7 +46,7 @@ and a change of λ to or from 1 when it is created ([settings](settings.md#chang
 | `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` | without repelling restarts (empty archive): they are `UNIFORM` |
 | `sample_sigma=False` | with `ssa=SA` or `LPXNES` (forced on) |
 | `sequential_selection` | with `PAIRWISE` and the default µ = λ/2 (the earliest stop, 2µ = λ, is the whole generation); with λ = 1 |
-| `weights`, `elitist`, `ssa`, IPOP/BIPOP | with λ = 1 (overridden) |
+| `weights`, `elitist`, `ssa`, IPOP/BIPOP, `mirrored=PAIRWISE` | with λ = 1 (overridden) |
 | `fast_sampling` | with a sampler other than `UNIFORM` + `GAUSSIAN` |
 | `COVARIANCE` vs `COVARIANCE_NO_EIGV` | identical when `ssa` is not `CSA` (converted) |
 | all restart criteria but `UnableToAdapt` | with `restart_strategy=NONE` |

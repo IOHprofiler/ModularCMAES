@@ -133,10 +133,7 @@ struct Settings
         budget(budget.value_or(dim * 1e4)),
         sigma0(sigma.value_or(2.0)),
         lambda0(lambda.value_or(4 + std::floor(3 * std::log(dim)))),
-        // modules and lambda0 are initialized by now. At least 1: lambda0 = 1 with PAIRWISE
-        // becomes lambda0 = 2 below and gave mu0 = 0, NaN weights (#136). With SA or CMSA mu0 is
-        // computed again below, after PAIRWISE has made lambda0 even.
-        mu0(mu.value_or(default_mu0())),
+        mu0(mu.value_or(lambda0 / 2)),
         x0(x0),
         lb(lb.value_or(Vector::Ones(dim) * -5)),
         ub(ub.value_or(Vector::Ones(dim) * 5)),
@@ -159,8 +156,16 @@ struct Settings
         require_budget(this->budget);
         require_lb(this->lb);
         require_ub(this->ub);
+        require_target(this->target);
         require_x0(this->x0);
         mu0_given = mu.has_value();
+
+        // The (1+1)-ES has no mirrored pairs to select from: PAIRWISE becomes NONE (the
+        // maintainer's decision on #136, F17 of #75). It made lambda0 = 1 even, 2, with
+        // mu0 = 1 / 2 = 0 and NaN weights. Before the rule below, which would make lambda0 even;
+        // the other adjustments of the (1+1)-ES are at the end. MIRRORED stays (#75).
+        if (lambda0 == 1 and modules.mirrored == Mirror::PAIRWISE)
+            modules.mirrored = Mirror::NONE;
 
         if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
             lambda0++;
@@ -169,11 +174,6 @@ struct Settings
             modules.matrix_adaptation == MatrixAdaptationType::CMSA)
         {
             mu0 = mu.value_or(default_mu0());
-        }
-
-        if (mu0 > lambda0)
-        {
-            mu0 = lambda0 / 2;
         }
 
         if (modules.ssa != StepSizeAdaptation::CSA and
@@ -204,6 +204,7 @@ struct Settings
             modules.active = false;
         }
 
+        // The (1+1)-ES (PAIRWISE is NONE already, above)
         if (lambda0 == 1)
         {
             mu0 = 1;
@@ -247,6 +248,13 @@ struct Settings
         mu0_given = true;
     }
 
+    //! target: None (no target) or a number, not NaN
+    void set_target(const std::optional<Float> &value)
+    {
+        require_target(value);
+        target = value;
+    }
+
     void set_budget(const size_t value)
     {
         require_budget(value);
@@ -283,6 +291,13 @@ struct Settings
 
     // The checks of one field, shared by the constructor, the setters and require_valid;
     // std::invalid_argument naming the field otherwise
+
+    //! NaN never stops a run (a comparison with NaN is false): rejected (the maintainer's
+    //! decision on #136). None means no target; +-inf are allowed.
+    static void require_target(const std::optional<Float> &value)
+    {
+        require(!value || !std::isnan(*value), "target must not be NaN (None: no target)");
+    }
 
     static void require_lambda0(const size_t value)
     {
@@ -368,9 +383,10 @@ struct Settings
      * The checks between fields (#133, #136), on fields that passed their own checks: the box
      * (require_nonempty_box), the integer variables in it, mu0 <= lambda0, the budget against the
      * first generation, and lambda0 against one_plus_one and PAIRWISE. Each message names the
-     * fields and their conflicting values. The constructor makes mu0, lambda0, the modules and
-     * one_plus_one consistent; only setters (and changes of the modules in place) can break the
-     * last four checks.
+     * fields and their conflicting values. mu0 > lambda0 is rejected, not adjusted (the
+     * maintainer's decision on #136; a (1+1)-ES still sets mu0 = 1). The constructor makes lambda0,
+     * the modules and one_plus_one consistent; only setters (and changes of the modules in place)
+     * can break the checks of lambda0 against one_plus_one and PAIRWISE.
      */
     void require_consistent() const
     {
@@ -423,6 +439,7 @@ struct Settings
         require_budget(budget);
         require_lb(lb);
         require_ub(ub);
+        require_target(target);
         require_x0(x0);
         require_consistent();
     }

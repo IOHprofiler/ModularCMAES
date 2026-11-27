@@ -679,19 +679,18 @@ void define_parameters(nb::module_ &main)
             "dim and modules are positional, every other argument is keyword-only. None means "
             "a default computed from the dimension and the modules.\n\n"
             "The constructor makes the configuration consistent:\n\n"
-            "- with mirrored PAIRWISE, an odd lambda0 is increased by one;\n"
-            "- a mu0 larger than lambda0 becomes lambda0 // 2;\n"
-            "- with ssa SA or matrix_adaptation CMSA, mu0 is the given value or lambda0 // 4 "
-            "(this replaces the previous rule);\n"
+            "- with mirrored PAIRWISE, an odd lambda0 above 1 is increased by one;\n"
+            "- with ssa SA or matrix_adaptation CMSA, the default mu0 is lambda0 // 4;\n"
             "- when ssa is not CSA, matrix_adaptation COVARIANCE becomes COVARIANCE_NO_EIGV "
             "(unless always_compute_eigv);\n"
             "- with matrix_adaptation NONE, active is turned off;\n"
             "- lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL "
-            "weights, no active update, no sequential selection, and IPOP or BIPOP become "
-            "RESTART;\n"
+            "weights, no active update, no sequential selection, mirrored PAIRWISE becomes "
+            "NONE, and IPOP or BIPOP become RESTART;\n"
             "- when the box lb..ub is not finite, has_bounds is False, diameter 10, volume "
             "10**dim and center the zero vector.\n\n"
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
+            "mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, a "
             "sigma0 that is not positive and finite, x0, lb or ub of a length other "
             "than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above "
             "ub, an integer variable without an integer value in [lb, ub], a budget smaller "
@@ -705,8 +704,8 @@ void define_parameters(nb::module_ &main)
             "modules : Modules, optional\n"
             "    The module configuration (copied). Default Modules(): CMA-ES with CSA.\n"
             "target : float, optional\n"
-            "    Stop when the best objective value is at most target. Default None: no "
-            "target.\n"
+            "    Stop when the best objective value is at most target; not NaN. Default None: "
+            "no target.\n"
             "max_generations : int, optional\n"
             "    Stop after this many generations. Default None: no limit.\n"
             "budget : int, optional\n"
@@ -721,7 +720,7 @@ void define_parameters(nb::module_ &main)
             "uniform in [0, 1)).\n"
             "mu0 : int, optional\n"
             "    The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or "
-            "matrix_adaptation CMSA); at least 1.\n"
+            "matrix_adaptation CMSA); at least 1 and at most lambda0.\n"
             "lambda0 : int, optional\n"
             "    The number of offspring per generation, default 4 + floor(3 ln(dim)); at least 1 "
             "(1 is the (1+1)-ES). Many modules work poorly with 2 or 3 (see the compatibility "
@@ -773,7 +772,12 @@ void define_parameters(nb::module_ &main)
             "first generation samples N(x0, sigma0**2 C0). Default None: the identity. See the "
             "attribute C0; modcma.warm_start estimates x0, sigma0 and C0 from the solutions of "
             "a related task.")
-        .def_ro("dim", &Settings::dim, "The dimension of the search space (read-only).")
+        // The read-only properties name their getter: Python's "property 'db' of 'Settings'
+        // object has no setter" then names the field (nanobind leaves the name empty)
+        .def_ro("dim",
+                &Settings::dim,
+                nb::name("dim"),
+                "The dimension of the search space (read-only).")
         .def_rw("seed",
                 &Settings::seed,
                 "The seed of the optimizer's own random generator, or None.\n\n"
@@ -806,14 +810,17 @@ void define_parameters(nb::module_ &main)
             "before the optimizer is created; the getter returns a copy.")
         .def_ro("modules",
                 &Settings::modules,
+                nb::name("modules"),
                 "The module configuration, after the adjustments of the constructor.\n\n"
                 "The attribute is read-only. Its fields can still be changed in place, but the "
                 "adjustments of the constructor are not applied again, and an optimizer that "
                 "exists keeps the modules it was created with.")
-        .def_rw("target",
-                &Settings::target,
-                "Stop when the best objective value is at most target; None (default): no "
-                "target.")
+        .def_prop_rw(
+            "target",
+            [](const Settings &s) { return s.target; },
+            [](Settings &s, const std::optional<Float> value) { s.set_target(value); },
+            "Stop when the best objective value is at most target; None (default): no "
+            "target. NaN raises ValueError: it would never stop the run.")
         .def_rw("max_generations",
                 &Settings::max_generations,
                 "Stop after this many generations; None (default): no limit.")
@@ -843,9 +850,9 @@ void define_parameters(nb::module_ &main)
             "The initial number of parents, at least 1 (ValueError); default lambda0 // 2 "
             "(lambda0 // 4 with ssa SA or matrix_adaptation CMSA).\n\n"
             "Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting "
-            "lambda0 recomputes it. It must not exceed lambda0: the constructor replaces a larger "
-            "value by lambda0 // 2; after a setter, the optimizer raises ValueError when it is "
-            "created. Parameters.mu is the current value, which IPOP and BIPOP restarts change.")
+            "lambda0 recomputes it. A mu0 above lambda0 raises ValueError: in the constructor, "
+            "and after a setter when the optimizer is created. Parameters.mu is the current "
+            "value, which IPOP and BIPOP restarts change.")
         .def_prop_rw(
             "lambda0",
             [](const Settings &s) { return s.lambda0; },
@@ -893,30 +900,36 @@ void define_parameters(nb::module_ &main)
         .def_prop_ro("db",
                      derived_vector(&Settings::db),
                      view,
+                     nb::name("db"),
                      "(dim,) array: the widths of the box, ub - lb (read-only: derived from lb "
                      "and ub).")
         .def_prop_ro("center",
                      derived_vector(&Settings::center),
                      view,
+                     nb::name("center"),
                      "(dim,) array: the center of the box, lb + (ub - lb) / 2; the zero vector "
                      "when the box is not finite (read-only: derived from lb and ub; x0 sets the "
                      "starting point).")
         .def_ro("diameter",
                 &Settings::diameter,
+                nb::name("diameter"),
                 "The length of the diagonal of the box, ||ub - lb||; 10 when the box is not "
                 "finite (then volume is 10^dim). Read-only: derived from lb and ub.")
         .def_ro("volume",
                 &Settings::volume,
+                nb::name("volume"),
                 "The volume of the box, prod(ub - lb); 10**dim when the box is not finite. "
                 "Read-only: derived from lb and ub.")
         .def_prop_ro(
             "has_bounds",
             bool_getter(&Settings::has_bounds),
+            nb::name("has_bounds"),
             "Whether the box lb..ub is finite (`diameter`, `volume` and `center` depend on "
             "it); read-only, derived from lb and ub. Bound correction does not depend on "
             "it: it corrects every finite bound.")
         .def_ro("integer_variables",
                 &Settings::integer_variables,
+                nb::name("integer_variables"),
                 "(k,) int array: the indices of the integer variables (read-only).")
         .def_rw("cs",
                 &Settings::cs,
@@ -949,6 +962,7 @@ void define_parameters(nb::module_ &main)
                      "fails.")
         .def_ro("one_plus_one",
                 &Settings::one_plus_one,
+                nb::name("one_plus_one"),
                 "Whether lambda0 is 1: a (1+1)-ES (read-only; see the constructor).")
         .def("__repr__", [](Settings &s) {
             return repr("Settings", [&](std::stringstream &ss) {

@@ -12,7 +12,8 @@ the same names are now also available as `modcma.ModularCMAES`, `modcma.Settings
 additive: [ask–tell](getting-started/ask-tell.md), vectorized objectives, `Settings(seed=...)`,
 `fast_sampling`, LAPACK in high dimension; see the [changelog](changelog.md).
 
-The exceptions are `c_maes.utils`, a few misspelled names and the derived fields of `Settings`:
+The exceptions are `c_maes.utils`, a few misspelled names, the derived fields of `Settings` and a
+few values that `Settings` now rejects:
 
 | 1.x | 2.0 |
 |---|---|
@@ -25,6 +26,8 @@ The exceptions are `c_maes.utils`, a few misspelled names and the derived fields
 | `Adaptation.adapt_evolution_paths_innner` | `Adaptation.adapt_evolution_paths_inner` (likewise) |
 | `SequentialSelection(mirror, seq_cuttoff_factor=...)` | `seq_cutoff_factor=` (likewise) |
 | `AdaptiveRepelling.target_rejection_rate`, `local_target_rejection_rate` | deprecated: they never had an effect |
+| `Settings(mu0=m, lambda0=l)` with m > l: µ = l // 2 | `ValueError` naming both (a (1+1)-ES, `lambda0=1`, still uses µ = 1) |
+| `Settings(target=nan)`: never stops | `ValueError` |
 | setting `Settings.db`, `center`, `diameter` or `has_bounds` | read-only: they are derived from `lb` and `ub`, which recompute them; set those (and `x0` for the starting point) |
 
 A removed name raises an `AttributeError` that says what to use instead. (Imported with

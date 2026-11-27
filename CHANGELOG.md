@@ -130,8 +130,9 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
     hyperparameter is not valid for `Configuration(space, ...)`; `settings_from_config` still
     takes it as a dict.
   * `sample_transformation=NONE` is not in the space (`get_all_module_options` still lists it).
-  * `COVARIANCE` with another `ssa` than `CSA`, and `IPOP` or `BIPOP` with `lambda0 = 1`, are
-    forbidden: `Settings` turns them into another configuration of the space.
+  * `COVARIANCE` with another `ssa` than `CSA`, and `IPOP`, `BIPOP` or `mirrored=PAIRWISE` with
+    `lambda0 = 1` (#136), are forbidden: `Settings` turns them into another configuration of the
+    space.
     `get_configspace(remove_duplicates=False)` keeps them.
   * `settings_from_config` passed `mu0` only when it differed from its default, so a sampled `mu0`
     equal to the default was dropped and `lambda0 = 20, mu0 = 3` ran with `mu0 = 10`. It passes
@@ -197,8 +198,15 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   set in any order; this replaces the integer check that the setters of `lb` and `ub` made (#79).
   Setting `lambda0` recomputes `mu0`, unless `mu0` was given. `db`, `center`, `diameter` and
   `has_bounds` are read-only: they are derived from `lb` and `ub` (`db` and `center` are read-only
-  views); set `lb`, `ub` or `x0` instead. The setters of `x0`, `lb` and `ub` take array_like, as
-  the constructor (they took only numpy arrays).
+  views); set `lb`, `ub` or `x0` instead. Setting one raises Python's "property 'db' of 'Settings'
+  object has no setter". The setters of `x0`, `lb` and `ub` take array_like, as the constructor
+  (they took only numpy arrays).
+* **`Settings` rejects `mu0` above `lambda0`** (#136) with a `ValueError` that names both; 1.x
+  replaced it by `lambda0 // 2` (but not with SA or CMSA). A (1+1)-ES (`lambda0 = 1`) still uses
+  µ = 1 whatever `mu0` is. **A NaN `target`** raises `ValueError` too: it never stopped a run.
+  `None` is no target.
+* **`lambda0 = 1` with `mirrored=PAIRWISE`** (#136, F17 of #75): the (1+1)-ES turns `PAIRWISE`
+  into `NONE`. Before, `PAIRWISE` made λ = 2 with µ = 0 and NaN weights. `MIRRORED` stays.
 
 ### Fixed
 
@@ -240,8 +248,9 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * COTN could place a coordinate outside the bounds for a large sigma.
 * `OnePlusOneES` checked the bounds of the parent, not of the candidate; `MuCommaLambdaES` shared a
   sampler between instances.
-* `Settings`: `mu0 > lambda0` was not corrected with SA or CMSA; the C++ default `verbose = true`
-  made `ModularCMAES(d)` print at every restart; changing `lb`/`ub` left `center`, `db`, ... stale.
+* `Settings`: `mu0 > lambda0` was not caught with SA or CMSA (it is now rejected, #136); the C++
+  default `verbose = true` made `ModularCMAES(d)` print at every restart; changing `lb`/`ub` left
+  `center`, `db`, ... stale.
 * `set_module` did not accept enum members; `Population.__add__` changed its left operand;
   `utils.random_normal` could return a number from before `set_seed`; out-of-range indices in
   `CachedShuffleSequence` and an empty `CachedSampler` were not checked.
@@ -291,8 +300,7 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * The setters of `Settings` accepted what the constructor rejects (#133, #136): `lambda0 = 0`, or
   `mu0` above `lambda0`, crashed the process when the optimizer was created or run; a NaN `x0`,
   `lb`, `ub` or `sigma0`, a `budget` of 0 and `lb` above `ub` were accepted. They now raise
-  `ValueError` (see Changed). With `lambda0 = 1` and `mirrored=PAIRWISE`, which makes λ = 2, the
-  default µ was 0 and the weights NaN [F17]; it is 1 now.
+  `ValueError` (see Changed).
 * `run()` and `fmin` ran a generation before they checked the budget, and a finished optimizer
   ran again at every `run()` (#114). The break conditions are now checked before every
   generation. Past the budget, the first generation after a restart no longer turns a (1+1)-ES

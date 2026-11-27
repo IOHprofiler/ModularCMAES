@@ -39,6 +39,33 @@ class TestSettingsValidation(unittest.TestCase):
         for lambda0 in (1, 2, 3, 4):  # 1: the (1+1)-ES
             Settings(3, lambda0=lambda0)
 
+    def test_mu0_above_lambda0_is_rejected(self):
+        # The maintainer's decision on #136: rejected, not replaced by lambda0 // 2
+        sa = c_maes.Modules()
+        sa.ssa = c_maes.options.StepSizeAdaptation.SA
+        for modules in (None, sa):
+            with self.assertRaisesRegex(ValueError, "mu0 = 20 exceeds lambda0 = 10"):
+                Settings(3, modules, mu0=20, lambda0=10)
+            self.assertEqual(Settings(3, modules, mu0=10, lambda0=10).mu0, 10)
+        # The (1+1)-ES still sets mu0 = 1: a module adjustment, not this rule
+        settings = Settings(3, mu0=5, lambda0=1)
+        self.assertEqual((settings.mu0, settings.one_plus_one), (1, True))
+
+    def test_target(self):
+        # The maintainer's decision on #136: NaN would never stop a run; None is no target
+        self.assert_rejected("target must not be NaN", target=float("nan"))
+        settings = Settings(3, target=None)
+        self.assertIsNone(settings.target)
+        settings.target = 1e-8
+        with self.assertRaisesRegex(ValueError, "target must not be NaN"):
+            settings.target = float("nan")
+        self.assertEqual(settings.target, 1e-8)
+        settings.target = None
+        self.assertIsNone(settings.target)
+        for target in (float("-inf"), float("inf")):
+            settings.target = target
+            ModularCMAES(settings)
+
     def test_step_size_and_vectors(self):
         for sigma0 in (0.0, -1.0, float("nan"), float("inf")):
             self.assert_rejected("sigma0", sigma0=sigma0)
@@ -68,16 +95,26 @@ class TestSettingsValidation(unittest.TestCase):
         settings.x0 = None
         settings.lb = np.zeros(3)
 
-    def test_lambda0_one_with_pairwise_has_a_parent(self):
-        # PAIRWISE makes lambda0 = 1 into 2; the default mu0 was lambda0 // 2 = 0 (NaN weights)
+    def test_lambda0_one_turns_pairwise_off(self):
+        # F17 (#75), the maintainer's decision on #136: PAIRWISE made lambda0 = 1 into 2, with
+        # mu0 = 0 and NaN weights; the (1+1)-ES now runs without it, as with NONE
+        runs = []
+        for mirrored in ("PAIRWISE", "NONE"):
+            modules = c_maes.Modules()
+            modules.mirrored = getattr(c_maes.options.Mirror, mirrored)
+            settings = Settings(3, modules, lambda0=1, budget=200, seed=1)
+            self.assertEqual((settings.lambda0, settings.mu0, settings.one_plus_one), (1, 1, True))
+            self.assertEqual(settings.modules.mirrored, c_maes.options.Mirror.NONE)
+            es = ModularCMAES(settings)
+            es.run(sphere)
+            self.assertTrue(np.isfinite(es.p.weights.mueff))
+            runs.append((es.p.stats.global_best.y, es.p.stats.evaluations))
+        self.assertEqual(runs[0], runs[1])
+        # MIRRORED stays (#75)
         modules = c_maes.Modules()
-        modules.mirrored = c_maes.options.Mirror.PAIRWISE
-        settings = Settings(3, modules, lambda0=1, budget=200, seed=1)
-        self.assertEqual((settings.lambda0, settings.mu0, settings.one_plus_one), (2, 1, False))
-        es = ModularCMAES(settings)
-        es.run(sphere)
-        self.assertTrue(np.isfinite(es.p.weights.mueff))
-        self.assertLess(es.p.stats.global_best.y, 1.0)
+        modules.mirrored = c_maes.options.Mirror.MIRRORED
+        settings = Settings(3, modules, lambda0=1)
+        self.assertEqual(settings.modules.mirrored, c_maes.options.Mirror.MIRRORED)
 
     def test_internal_shapes(self):
         internal = c_maes.cmaescpp._internal
@@ -107,6 +144,7 @@ class TestSettingsSetters(unittest.TestCase):
     INVALID = {
         "lambda0": [0],
         "mu0": [0],
+        "target": [float("nan")],
         "sigma0": [0.0, -1.0, float("nan"), float("inf")],
         "budget": [0, 1],
         "x0": [np.zeros(2), np.array([0.0, np.nan, 0.0]), np.array([np.inf, 0.0, 0.0])],
@@ -213,7 +251,8 @@ class TestSettingsSetters(unittest.TestCase):
             np.testing.assert_array_equal(getattr(settings, name), getattr(expected, name))
         np.testing.assert_array_equal(db, ub - lb)
         for name in ("db", "center", "diameter", "volume", "has_bounds"):
-            with self.assertRaises(AttributeError):
+            # The error names the field (the getter is named, the maintainer's decision on #136)
+            with self.assertRaisesRegex(AttributeError, f"property '{name}' .* has no setter"):
                 setattr(settings, name, getattr(settings, name))
         with self.assertRaisesRegex(ValueError, "read-only"):
             settings.center[0] = 1.0

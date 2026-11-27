@@ -644,15 +644,14 @@ class Settings:
 
         The constructor makes the configuration consistent:
 
-        - with mirrored PAIRWISE, an odd lambda0 is increased by one;
-        - a mu0 larger than lambda0 becomes lambda0 // 2;
-        - with ssa SA or matrix_adaptation CMSA, mu0 is the given value or lambda0 // 4 (this replaces the previous rule);
+        - with mirrored PAIRWISE, an odd lambda0 above 1 is increased by one;
+        - with ssa SA or matrix_adaptation CMSA, the default mu0 is lambda0 // 4;
         - when ssa is not CSA, matrix_adaptation COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);
         - with matrix_adaptation NONE, active is turned off;
-        - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, and IPOP or BIPOP become RESTART;
+        - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, mirrored PAIRWISE becomes NONE, and IPOP or BIPOP become RESTART;
         - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim and center the zero vector.
 
-        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above ub, an integer variable without an integer value in [lb, ub], a budget smaller than the first generation and the evaluation of the final center of mass, or a C0 that is not a symmetric positive definite (dim, dim) matrix (or with matrix_adaptation NONE).
+        Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above ub, an integer variable without an integer value in [lb, ub], a budget smaller than the first generation and the evaluation of the final center of mass, or a C0 that is not a symmetric positive definite (dim, dim) matrix (or with matrix_adaptation NONE).
 
         Parameters
         ----------
@@ -661,7 +660,7 @@ class Settings:
         modules : Modules, optional
             The module configuration (copied). Default Modules(): CMA-ES with CSA.
         target : float, optional
-            Stop when the best objective value is at most target. Default None: no target.
+            Stop when the best objective value is at most target; not NaN. Default None: no target.
         max_generations : int, optional
             Stop after this many generations. Default None: no limit.
         budget : int, optional
@@ -669,7 +668,7 @@ class Settings:
         sigma0 : float, optional
             The initial step size, default 2.0, positive and finite; also the step size after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in [0, 1)).
         mu0 : int, optional
-            The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA); at least 1.
+            The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA); at least 1 and at most lambda0.
         lambda0 : int, optional
             The number of offspring per generation, default 4 + floor(3 ln(dim)); at least 1 (1 is the (1+1)-ES). Many modules work poorly with 2 or 3 (see the compatibility page).
         x0 : array_like, optional
@@ -754,7 +753,7 @@ class Settings:
     @property
     def target(self) -> float | None:
         """
-        Stop when the best objective value is at most target; None (default): no target.
+        Stop when the best objective value is at most target; None (default): no target. NaN raises ValueError: it would never stop the run.
         """
 
     @target.setter
@@ -792,7 +791,7 @@ class Settings:
         """
         The initial number of parents, at least 1 (ValueError); default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA).
 
-        Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting lambda0 recomputes it. It must not exceed lambda0: the constructor replaces a larger value by lambda0 // 2; after a setter, the optimizer raises ValueError when it is created. Parameters.mu is the current value, which IPOP and BIPOP restarts change.
+        Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting lambda0 recomputes it. A mu0 above lambda0 raises ValueError: in the constructor, and after a setter when the optimizer is created. Parameters.mu is the current value, which IPOP and BIPOP restarts change.
         """
 
     @mu0.setter

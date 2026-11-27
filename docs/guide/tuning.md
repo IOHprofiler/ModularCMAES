@@ -69,10 +69,11 @@ are not hyperparameters.
 * `Settings` replaces `matrix_adaptation=COVARIANCE` by `COVARIANCE_NO_EIGV` for every `ssa` other
   than `CSA`, so the two are the same configuration there. The space forbids `COVARIANCE` with
   those; `get_configspace(remove_duplicates=False)` keeps it.
-* `IPOP` and `BIPOP` with `lambda0` = 1 are forbidden: `Settings` runs `RESTART` there.
+* `IPOP` and `BIPOP` with `lambda0` = 1 are forbidden: `Settings` runs `RESTART` there; so is
+  `mirrored=PAIRWISE` with `lambda0` = 1, which `Settings` turns into `NONE`.
 * Not removed, so the space holds the same algorithm more than once:
-  * `mirrored=PAIRWISE` makes an odd `lambda0` even, so `lambda0` = k and k + 1 (k odd) are one
-    configuration. Forbidding every odd value would add a clause per value.
+  * `mirrored=PAIRWISE` makes an odd `lambda0` above 1 even, so `lambda0` = k and k + 1 (k odd,
+    k > 1) are one configuration. Forbidding every odd value would add a clause per value.
   * With µ = λ there are no negative weights and no unselected offspring, so `active` and
     `sequential_selection` have nothing to act on. This is a relation of two hyperparameters, not
     a condition.

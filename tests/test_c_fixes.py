@@ -312,8 +312,10 @@ class TestSampling(unittest.TestCase):
 
 class TestSettingsAndHelpers(unittest.TestCase):
     def test_mu_not_larger_than_lambda_with_self_adaptation(self):
-        settings = modcma.settings_from_dict(5, ssa="SA", lambda0=6, mu0=10)
-        self.assertLessEqual(settings.mu0, settings.lambda0)
+        # mu0 > lambda0 was replaced by lambda0 // 2 (not with SA, before 2.0); now it raises
+        # ValueError (#136)
+        with self.assertRaisesRegex(ValueError, "mu0 = 10 exceeds lambda0 = 6"):
+            modcma.settings_from_dict(5, ssa="SA", lambda0=6, mu0=10)
         self.assertGreaterEqual(modcma.settings_from_dict(5, ssa="SA", lambda0=3).mu0, 1)
 
     def test_cpp_defaults_are_quiet(self):
