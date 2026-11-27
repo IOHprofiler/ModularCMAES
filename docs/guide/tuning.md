@@ -69,19 +69,20 @@ are not hyperparameters.
 * `Settings` replaces `matrix_adaptation=COVARIANCE` by `COVARIANCE_NO_EIGV` for every `ssa` other
   than `CSA`, so the two are the same configuration there. The space forbids `COVARIANCE` with
   those; `get_configspace(remove_duplicates=False)` keeps it.
-* `IPOP` and `BIPOP` with `lambda0` = 1 are forbidden: `Settings` runs `RESTART` there.
+* `IPOP` and `BIPOP` with `lambda0` = 1 are forbidden: `Settings` runs `RESTART` there; so is
+  `mirrored=PAIRWISE` with `lambda0` = 1, which `Settings` turns into `NONE`.
 * Not removed, so the space holds the same algorithm more than once:
-  * `mirrored=PAIRWISE` makes an odd `lambda0` even, so `lambda0` = k and k + 1 (k odd) are one
-    configuration. Forbidding every odd value would add a clause per value.
+  * `mirrored=PAIRWISE` makes an odd `lambda0` above 1 even, so `lambda0` = k and k + 1 (k odd,
+    k > 1) are one configuration. Forbidding every odd value would add a clause per value.
   * With µ = λ there are no negative weights and no unselected offspring, so `active` and
     `sequential_selection` have nothing to act on. This is a relation of two hyperparameters, not
     a condition.
   * `ssa` stays a hyperparameter for `lambda0` = 1, although `Settings` runs `SR` there: it decides
     whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`.
 
-The modules are now more than in the framework paper, so its count of variants (14,859,936)
-does not describe this space: with the conditions above the module options alone give 736,985,088
-configurations (without `sample_transformation=NONE`, with `COVARIANCE` only for `CSA`).
+The module part of this space is not a count of distinct variants (see
+[how many variants](modules.md#how-many-variants)): it leaves out `sample_transformation=NONE`,
+and its conditions and forbidden clauses remove only part of the combinations that coincide.
 
 A complete example, a random search for the best configuration on a few functions, is
 [tuning a configuration](../examples/tuning.md). The study of de Nobel et al. (2021) used SMAC on

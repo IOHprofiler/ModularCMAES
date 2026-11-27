@@ -158,14 +158,15 @@ _EXCLUDED_OPTIONS = {"sample_transformation": ("NONE",)}
 #:   648, 771), so CMSA and NATURAL_GRADIENT read them only with `active`. NONE reads no
 #:   weights (it has no matrix update).
 #: * `active`: read by every adaptation but NONE (matrix_adaptation.cpp:165, 401, 464, 590, 647,
-#:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:150, 158).
-#: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:155).
+#:   770); Settings switches it off for NONE and for lambda0 = 1 (settings.hpp:204, 213).
+#: * `mu0`: Settings sets mu = 1 for lambda0 = 1 (settings.hpp:210).
 #: * `elitist`, `sequential_selection`, `weights`: Settings overrides them for lambda0 = 1, a
-#:   (1+1)-ES (settings.hpp:153-161). `ssa` is overridden too (SR), but not before Settings turns
-#:   COVARIANCE into COVARIANCE_NO_EIGV for an `ssa` other than CSA (settings.hpp:125-130), so it
+#:   (1+1)-ES (settings.hpp:208-216). `ssa` is overridden too (SR), but not before Settings turns
+#:   COVARIANCE into COVARIANCE_NO_EIGV for an `ssa` other than CSA (settings.hpp:179-184), so it
 #:   stays active. The (1+1)-ES runs SR, which reads `damps` (mutation.cpp:372), so `damps`
 #:   is also active for lambda0 = 1.
-#: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:163-165): forbidden.
+#: * IPOP and BIPOP become RESTART for lambda0 = 1 (settings.hpp:218-220): forbidden.
+#: * `mirrored` PAIRWISE becomes NONE for lambda0 = 1 (settings.hpp:167-168, #136): forbidden.
 #: * `center_placement`, `repelling_type`: used when a run restarts (parameters.cpp:127,
 #:   `Parameters::begin_restart`, repelling.cpp:174). The restart criteria of every strategy but
 #:   STOP include UnableToAdapt (restart_criteria.cpp:403), so NONE restarts when the adaptation
@@ -256,6 +257,14 @@ def _add_conditions(cspace: ConfigurationSpace, options: dict, remove_duplicates
                     ForbiddenInClause(cspace["restart_strategy"], ipop),
                 )
             )
+        # Settings turns PAIRWISE into NONE for lambda0 = 1 (#136)
+        if "lambda0" in present and "PAIRWISE" in options.get("mirrored", ()):
+            cspace.add(
+                ForbiddenAndConjunction(
+                    ForbiddenEqualsClause(cspace["lambda0"], 1),
+                    ForbiddenEqualsClause(cspace["mirrored"], "PAIRWISE"),
+                )
+            )
 
 
 def get_configspace(
@@ -304,9 +313,10 @@ def get_configspace(
 
     `Settings` replaces `matrix_adaptation=COVARIANCE` by `COVARIANCE_NO_EIGV` for every `ssa` but
     `CSA`, so the two are one configuration there. With `remove_duplicates`, `COVARIANCE` with
-    another `ssa` than `CSA` is forbidden, and so is `IPOP` or `BIPOP` with `lambda0` = 1
-    (`RESTART` there). Two duplicates stay: `mirrored=PAIRWISE` makes an odd `lambda0` even, so
-    `lambda0` = k and k + 1 (k odd) are one configuration; and with mu = lambda
+    another `ssa` than `CSA` is forbidden, and so are `IPOP` or `BIPOP` (`RESTART` there) and
+    `mirrored=PAIRWISE` (`NONE` there) with `lambda0` = 1. Two duplicates stay:
+    `mirrored=PAIRWISE` makes an odd `lambda0` above 1 even, so `lambda0` = k and k + 1 (k odd,
+    k > 1) are one configuration; and with mu = lambda
     `active` and `sequential_selection` have nothing to act on (there are no negative weights, no
     unselected offspring). The space does not forbid them.
 
@@ -328,7 +338,8 @@ def get_configspace(
         Add `cs`, `cc`, `cmu`, `c1` and `damps`.
     remove_duplicates : bool, default True
         Forbid the configurations that `Settings` turns into another one of the space
-        (`COVARIANCE` with an `ssa` other than `CSA`).
+        (`COVARIANCE` with an `ssa` other than `CSA`; `IPOP`, `BIPOP` or `mirrored=PAIRWISE` with
+        `lambda0` = 1).
 
     Returns
     -------
@@ -438,7 +449,8 @@ def settings_from_config(dim: int, config: Mapping[str, Any], **kwargs: Any) -> 
     `CSA` with `COVARIANCE`, which the space has). A different value is passed as it is. `mu0` is
     the exception: it is passed whenever `lambda0` is passed, and whenever it differs from its
     default, so a `mu0` equal to the default is kept next to a `lambda0` that differs from its own
-    (the default mu0 is lambda0 // 2 of the default lambda0).
+    (the default mu0 is lambda0 // 2 of the default lambda0). A `mu0` above `lambda0` raises
+    `ValueError` (`Settings` rejects it; the space forbids it).
 
     Parameters
     ----------

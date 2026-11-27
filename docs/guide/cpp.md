@@ -48,5 +48,9 @@ The repository also builds `modcma_tests` (the C++ unit tests, `ctest`) and
 * `rng::set_seed(s)` seeds the global generator; `settings.seed` gives an optimizer its own.
 * `settings.set_C0(C)` sets the initial covariance matrix and checks it (`std::invalid_argument`
   otherwise), as `Settings(C0=...)` in Python; `modcma.warm_start` exists only in Python.
+* The fields of `Settings` are public. Its `set_lambda0`, `set_mu0`, `set_budget`, `set_sigma0`,
+  `set_x0`, `set_lb` and `set_ub` check the value and recompute what depends on it, as the Python
+  setters; a field assigned directly is not checked until an optimizer is created from the
+  settings (`Settings::require_valid`, `std::invalid_argument`).
 * The library is not header-only; link `modcma_core`.
 * The C++ API is not yet versioned separately from the Python package: pin a tag.

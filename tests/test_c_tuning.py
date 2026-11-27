@@ -144,6 +144,7 @@ class TestTuning(unittest.TestCase):
             )
             if one:
                 self.assertNotIn(config["restart_strategy"], ("IPOP", "BIPOP"))
+                self.assertNotEqual(config["mirrored"], "PAIRWISE")
             self.assertEqual("cc" in names, ma not in ("NONE", "MATRIX", "CMSA"))
             self.assertEqual(
                 "cs" in names,
@@ -223,6 +224,23 @@ class TestTuning(unittest.TestCase):
             for r in ("RESTART", "IPOP", "BIPOP")
         }
         self.assertEqual(len(runs), 1)
+        # PAIRWISE becomes NONE (#136): forbidden in the space
+        runs = {
+            self._run(
+                c_maes.settings_from_dict(4, lambda0=1, mirrored=m, budget=300, seed=2)
+            )
+            for m in ("NONE", "PAIRWISE")
+        }
+        self.assertEqual(len(runs), 1)
+        for remove_duplicates in (True, False):
+            cspace = c_maes.get_configspace(4, remove_duplicates=remove_duplicates)
+            config = dict(cspace.get_default_configuration())
+            for name in ("mu0", "active", "elitist", "sequential_selection", "weights"):
+                config.pop(name, None)  # inactive for lambda0 = 1
+            for mirrored in ("NONE", "MIRRORED", "PAIRWISE"):
+                config.update(lambda0=1, mirrored=mirrored)
+                forbidden = any(f.is_forbidden_value(config) for f in cspace.forbidden_clauses)
+                self.assertEqual(forbidden, remove_duplicates and mirrored == "PAIRWISE")
 
     @staticmethod
     def _run(settings):
