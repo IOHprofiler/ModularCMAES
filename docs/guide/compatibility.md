@@ -136,6 +136,26 @@ algorithms.
   from the same path, so a long path raises σ and shortens itself). Without it, `XNES` and `SA`,
   which keep σ small, left the path long, and the rank-one term stretched the matrix until the
   run stalled.
+* **`ssa=XNES` with `active`** (#175): in a generation with h_σ = 0 the matrix update has no
+  negative weights; it is the update without `active`. This holds for `COVARIANCE`,
+  `COVARIANCE_NO_EIGV`, `SEPARABLE`, `CHOLESKY` and `MATRIX`, with the `DEFAULT`, `EQUAL` and
+  `EXPONENTIAL` weights, but not with `UTILITY`.
+  * **Why.** xNES SA keeps σ too small (Krause, Glasmachers & Igel 2017, Sec. 6), and h_σ was 0 in
+    89–99 % of the generations at d ≥ 10. The samples then see a nearly linear function, and the
+    ranking says nothing about the curvature. The negative weights (Σ|w⁻| = 1 + c1/cµ, 1.76 at
+    d = 10, against 1 for the positive ones) took back most of the growth of C towards the optimum.
+  * **Before #175**, on the ellipsoid (x0 uniform in [−3, 3]^d, σ₀ = 2, 10⁴·d evaluations, no
+    restarts, 20 runs at d = 5, 10 and 20):
+    * `COVARIANCE` + `XNES` + `active` solved 20, 1 and 0 runs, now 20, 20 and 20;
+    * `CHOLESKY` solved 20, 1 and 0, now 20, 20 and 20;
+    * `MATRIX` solved 20, 20 and 11, now 20, 20 and 20;
+    * without `active`, all three solve 20 of 20 at each d.
+  * **`UTILITY`** keeps its negative weights. They are flat (−1/λ) and only as heavy as the
+    positive ones; it solved the ellipsoid before #175 (20, 20 and 20 runs), and without them it
+    needed 15–20 % more evaluations.
+  * **The source.** This is modcma's own rule, not a published one: the tutorial (Hansen 2016)
+    and pycma keep the negative weights for every h_σ. The other step-size rules do the same here;
+    they keep σ near its optimum and h_σ at 1 most of the time.
 * **Sequential selection** stops a generation at the first point better than the best of the
   previous generation. With elitism that is the best of the run so far.
 * **Orthogonal sampling** orthogonalizes the n independent samples of each generation (n = λ,
@@ -235,6 +255,7 @@ noted; with the current version. Most are recorded for fixing.
 | `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `MSR`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | σ diverges or collapses: the step-size rules assume finite variance |
 | `ssa=SA` with the default λ on ill-conditioned functions, d = 20 | σ shrinks before the matrix adapts: BBOB f2 and f8 (d = 20) reach 1e-8 in 0 of 25 runs each within 3000·d evaluations (`CSA`: 25 and 22); λ = 40 or 80 did not help within 60,000 evaluations (4 runs each). The step sizes per coordinate before #71 hid this on separable functions (25 of 25 on f2), at the cost of rotation invariance (0 of 25 on f10 and f12) |
 | `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |
+| `ssa=XNES` with `weights=EQUAL` | the runs fail, with or without `active` (#180). Ellipsoid with `COVARIANCE` (x0 uniform in [−3, 3]^d, σ₀ = 2, 10⁴·d evaluations, 20 runs): 0 runs reach 1e-8 at d = 5, 10 and 20, with 68–207 restarts per 20 runs. Sphere at d = 10: 1 of 5 runs. `MXNES` and `CSA` with `EQUAL` solve all of these. Measured on master 091c577 by the investigation of #175. The cause has not been measured; the investigation's explanation: with equal weights over the µ = λ/2 best, xNES SA's signal Σ wᵢ(‖zᵢ‖² − d) has no drift on a linear function, since the better and the worse half have the same distribution of ‖z‖². Nothing raises σ then, and the curvature lowers it |
 | `ssa=TPA` with `elitist` | σ collapses in some runs: on the sphere (d = 5, x0 uniform in [−3, 3]^d, σ₀ = 2, 10,000 evaluations, 20 seeds) 13 of 20 runs reach 1e-8 (without `elitist` 20), 10 with `active` as well; before #167 11 and 2 (2026-11-27). Not investigated |
 | `repelling_type=ADAPTIVE` | experimental: modcma's own work in progress, without a published source. In the experiment of #158 (BBOB f21 and f22, d = 5 to 40, `RESTART` and `IPOP`) it solved 99 of 240 runs, against 107 without repelling and 144 with `COVERAGE` |
 | `matrix_adaptation=NATURAL_GRADIENT` with `ssa=LPXNES` at small d | LPXNES keeps its own rate (cs = 1 at d = 5; before #72 NATURAL_GRADIENT gave it xNES's 0.25): BBOB at d = 5 (7 functions, 25 runs each) solves 66 of 175 runs, 118 on master 20bdf27; at d = 20 79 of 175, 0 on master |

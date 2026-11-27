@@ -580,3 +580,20 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   LAPACK thresholds. It is the same on the same platform and toolchain; across platforms the last
   bits differ (FMA contraction, libm), and an ambiguous eigenbasis (C with equal eigenvalues, with
   the default settings from d = 12) can amplify them from the first generations (#165).
+* **XNES with the active update** (#175): `COVARIANCE` + `XNES` + `active` solved the ellipsoid
+  (d = 10 and 20, 20 runs) in 1 and 0 runs, `CHOLESKY` in 1 and 0, `MATRIX` in 20 and 11; without
+  `active` all three solve 20 of 20. xNES SA keeps σ too small and h_σ at 0 in most generations
+  (89–99 % at d ≥ 10). In that nearly linear surrounding the negative weights undid the growth of
+  C towards the optimum. With `ssa=XNES` a generation with h_σ = 0 now has no negative weights
+  (`COVARIANCE`, `COVARIANCE_NO_EIGV`, `SEPARABLE`, `CHOLESKY`, `MATRIX`): 20 of 20 at each d.
+  Not with `weights=UTILITY`, whose flat negative utilities did not fail and were 15–20 % slower
+  without them. This is modcma's rule; Hansen (2016) and pycma keep the negative weights for
+  every h_σ, as modcma does with the other step-size rules. BBOB (7 functions, d = 5 and 20, 25
+  runs): `XNES` + `active` solves 150 of 350 runs (144 before), with no cell worse.
+* `repelling.archive`, `stats.solutions` and `stats.centers` returned references into the C++
+  vectors, although the docstrings said copies (#176). A new entry reallocates a vector (and the
+  archive is sorted before each population), so a list held across `step()` read freed memory and
+  could segfault, and a write to an element changed the optimizer. Reading now returns a copy.
+  `SeparableAdaptation.hs` is bound, as in the other adaptations with h_σ.
+* The compatibility page lists `ssa=XNES` with `weights=EQUAL` as a combination to avoid (#180):
+  0 of 20 runs solve the ellipsoid at d = 5, 10 and 20, with or without `active`.
