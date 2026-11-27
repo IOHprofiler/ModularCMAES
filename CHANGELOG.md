@@ -127,14 +127,14 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   hyperparameters keep their names, ranges and defaults.
   * Hyperparameters without an effect are inactive (conditions): `active`, `center_placement`,
     `repelling_type`, `repelling_metric`, `cs`, `cc`, `cmu`, `c1`, `damps`, `mu0`, and (for
-    lambda0 = 1) `elitist`, `sequential_selection` and `weights`. A sampled configuration no longer
+    lambda0 = 1) `elitist`, `sequential_selection`, `weights` and `ssa` (#131). A sampled configuration no longer
     contains them; the evidence is in the source. A configuration with a value for an inactive
     hyperparameter is not valid for `Configuration(space, ...)`; `settings_from_config` still
     takes it as a dict.
   * `sample_transformation=NONE` is not in the space (`get_all_module_options` still lists it).
-  * `COVARIANCE` with another `ssa` than `CSA`, and `IPOP`, `BIPOP` or `mirrored=PAIRWISE` with
-    `lambda0 = 1` (#136), are forbidden: `Settings` turns them into another configuration of the
-    space.
+  * `COVARIANCE` with another `ssa` than `CSA`, and `COVARIANCE` (#131), `IPOP`, `BIPOP` or
+    `mirrored=PAIRWISE` (#136) with `lambda0 = 1`, are forbidden: `Settings` turns them into
+    another configuration of the space.
     `get_configspace(remove_duplicates=False)` keeps them.
   * `settings_from_config` passed `mu0` only when it differed from its default, so a sampled `mu0`
     equal to the default was dropped and `lambda0 = 20, mu0 = 3` ran with `mu0 = 10`. It passes
@@ -236,6 +236,12 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `None` is no target.
 * **`lambda0 = 1` with `mirrored=PAIRWISE`** (#136, F17 of #75): the (1+1)-ES turns `PAIRWISE`
   into `NONE`. Before, `PAIRWISE` made λ = 2 with µ = 0 and NaN weights. `MIRRORED` stays.
+* **`ssa=SA`: the learning rate of the sampled step sizes** is CMSA's τ = 1/√(2d) (Beyer &
+  Sendhoff 2008; Spettel, Beyer & Hellwig 2018, Table I), for the one step size per point (#71);
+  it was 1/√(2µ_eff). `LPXNES` keeps ln 2/(√d ln d) (Krause et al. 2017), `sample_sigma` with the
+  other rules 1/√(2µ_eff).
+* Internal: `BoundCorrection.correct_point` corrects a point that is not a sample (TPA's, #98);
+  `SigmaSampler(dimension)` no longer uses the dimension (one step size per individual, #71).
 
 ### Fixed
 
@@ -318,6 +324,29 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * TPA counted a tie of its two points (as after every restart, when the mean has not moved) as a
   success, so σ grew by 16 % after each restart and diverged with elitism; a tie now gives no
   signal, as in pycma (#78).
+* Sampled step sizes (`sample_sigma`, `SA`, `LPXNES`) were drawn per coordinate: a point m + S∘y
+  was not along y (no rotation invariance), and the signal of SA was averaged over d draws. Each
+  point now has one step size, as in CMSA-ES and lp-xNES; CMSA with SA solves a rotated ellipsoid
+  (d = 10) in 10 of 10 runs, before in 0 of 5 (#71, F1).
+* The mean shift Δm of the evolution paths (and of TPA's points) was the step of the mean divided
+  by the mean of all step sizes of the population. It is now divided, per coordinate, by the step
+  size recombined from the selected points (Hansen 2016, Eq. (24)): by σ when every selected point
+  has the step size σ, by σ raised by the lower bound of integer variables (as Marty et al. 2024,
+  Eqs. (5), (7)), and by the recombined sampled step size (as CMSA recombines its σ). On a
+  mixed-integer ellipsoid (d = 10, 5 integer variables) the median evaluations fell from 6351 to
+  2461 (25 runs) (#71, F14).
+* TPA's two points were not bound-corrected: TPA evaluated points outside the box, and one could
+  be reported as the best. They are corrected by the bound correction now, as pycma passes them
+  through its boundary handler; with `RESAMPLE` both move toward the mean by the same factor
+  until both are in the box (#98).
+* PSR ranked equal values in the order of the previous generation's ranking, so the same values
+  gave a different step size depending on the history (with elitism the parents are in both
+  generations). Equal values now share their mean rank (mid-ranks), so a tie counts for neither
+  generation (#120).
+* With `lambda0 = 1` (the (1+1)-ES, which runs SR) `COVARIANCE` was kept or converted to
+  `COVARIANCE_NO_EIGV` according to the `ssa` given: the default `CSA` kept the eigendecomposition
+  that SR does not use, and `ssa` changed the run. The conversion now follows the rule that runs:
+  every `ssa` gives the same run, with `COVARIANCE_NO_EIGV` (#131).
 * Threshold convergence used a threshold in units of x (a tenth of the box diameter) on z, so on
   boxes larger than the default [−5, 5]^d it stretched every sample. The threshold is now a
   multiple of E‖z‖ (`init_threshold` = 1, the same as before on the default box), computed once per

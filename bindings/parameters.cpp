@@ -188,8 +188,8 @@ void define_population(nb::module_ &main)
                      view,
                      "(d, n) array: the step size of every individual and coordinate.\n\n"
                      "Every entry is sigma, unless sample_sigma is on (each individual draws its "
-                     "own step sizes around sigma) or the lower bound of an integer variable "
-                     "raises it.")
+                     "own step size around sigma, the same in its whole column) or the lower "
+                     "bound of an integer variable raises it.")
         .def_prop_rw("f",
                      active_entries(&Population::f),
                      assign_buffer(&Population::f),
@@ -277,9 +277,10 @@ void define_parameters(nb::module_ &main)
         .def_prop_rw("sample_sigma",
                      bool_getter(&Modules::sample_sigma),
                      bool_setter(&Modules::sample_sigma),
-                     "bool, default False: every individual samples its own step sizes.\n\n"
-                     "The step sizes are drawn from a log-normal distribution around sigma, "
-                     "with learning rate Weights.beta (self-adaptation).")
+                     "bool, default False: every individual samples its own step size.\n\n"
+                     "One step size per individual, the same in every coordinate, drawn from a "
+                     "log-normal distribution around sigma, sigma exp(beta n), with learning "
+                     "rate Weights.beta (self-adaptation). Always on with ssa SA and LPXNES.")
         .def_rw("weights",
                 &Modules::weights,
                 "options.RecombinationWeights, default DEFAULT: the recombination weights.\n\n"
@@ -326,8 +327,9 @@ void define_parameters(nb::module_ &main)
                 &Modules::matrix_adaptation,
                 "options.MatrixAdaptationType, default COVARIANCE: the adaptation of the shape "
                 "of the search distribution.\n\n"
-                "Settings replaces COVARIANCE by COVARIANCE_NO_EIGV when ssa is not CSA (unless "
-                "always_compute_eigv). See modcma.c_maes.options.MatrixAdaptationType.")
+                "Settings replaces COVARIANCE by COVARIANCE_NO_EIGV when ssa is not CSA, also "
+                "for lambda0 = 1, which runs SR (unless always_compute_eigv). See "
+                "modcma.c_maes.options.MatrixAdaptationType.")
         .def_rw("center_placement",
                 &Modules::center_placement,
                 "options.CenterPlacement, default X0: where the mean of the search distribution "
@@ -544,8 +546,11 @@ void define_parameters(nb::module_ &main)
                 "which the update of the path pc stalls (h_sigma).")
         .def_rw("beta",
                 &Weights::beta,
-                "The learning rate of the sampled step sizes (sample_sigma).\n\n"
-                "1 / sqrt(2 mueff); log(2) / (sqrt(d) log(d)) with LPXNES.")
+                "The learning rate of the sampled step sizes (sample_sigma): the standard "
+                "deviation of the logarithm of an individual's step size.\n\n"
+                "1 / sqrt(2 d) with SA (CMSA's tau, Beyer & Sendhoff 2008); log(2) / (sqrt(d) "
+                "log(d)) with LPXNES (Krause et al. 2017, Table 3); 1 / sqrt(2 mueff) "
+                "otherwise.")
         .def_rw("weights",
                 &Weights::weights,
                 "(lambda,) array: all weights by rank, positive followed by negative.")
@@ -700,12 +705,12 @@ void define_parameters(nb::module_ &main)
             "The constructor makes the configuration consistent:\n\n"
             "- with mirrored PAIRWISE, an odd lambda0 above 1 is increased by one;\n"
             "- with ssa SA or matrix_adaptation CMSA, the default mu0 is lambda0 // 4;\n"
-            "- when ssa is not CSA, matrix_adaptation COVARIANCE becomes COVARIANCE_NO_EIGV "
-            "(unless always_compute_eigv);\n"
             "- with matrix_adaptation NONE, active is turned off;\n"
             "- lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL "
             "weights, no active update, no sequential selection, mirrored PAIRWISE becomes "
             "NONE, and IPOP or BIPOP become RESTART;\n"
+            "- then, when ssa is not CSA (so also for lambda0 = 1), matrix_adaptation "
+            "COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);\n"
             "- when the box lb..ub is not finite, has_bounds is False, diameter 10, volume "
             "10**dim; center is computed per coordinate (see `center`).\n\n"
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "

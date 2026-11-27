@@ -20,7 +20,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 
 | when | then |
 |---|---|
-| `ssa` other than `CSA` with `matrix_adaptation=COVARIANCE` | `COVARIANCE_NO_EIGV` (unless `always_compute_eigv=True`): the same covariance update, sampled through a Cholesky factor |
+| `ssa` other than `CSA` with `matrix_adaptation=COVARIANCE`, also with `lambda0=1` (which runs `SR`) | `COVARIANCE_NO_EIGV` (unless `always_compute_eigv=True`): the same covariance update, sampled through a Cholesky factor |
 | `ssa=SA` or `matrix_adaptation=CMSA` | µ defaults to λ/4 (an explicit `mu0` wins), also for the new λ of an IPOP or BIPOP restart |
 | `matrix_adaptation=NONE` | `active` off |
 | `mirrored=PAIRWISE` and an odd λ above 1 | λ + 1; the default µ is half the new λ (a given `mu0` is kept) |
@@ -49,7 +49,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | `weights`, `elitist`, `ssa`, IPOP/BIPOP, `mirrored=PAIRWISE` | with λ = 1 (overridden) |
 | `mirrored=MIRRORED` | with λ = 1: the pairs are formed within a generation, and its one individual is unpaired |
 | `fast_sampling` | with a sampler other than `UNIFORM` + `GAUSSIAN` |
-| `COVARIANCE` vs `COVARIANCE_NO_EIGV` | identical when `ssa` is not `CSA` (converted) |
+| `COVARIANCE` vs `COVARIANCE_NO_EIGV` | identical when `ssa` is not `CSA`, and with λ = 1 (converted) |
 | all restart criteria but `UnableToAdapt` | with `restart_strategy=NONE` |
 | `bound_correction` | in the coordinates with two infinite bounds |
 | `threshold_convergence` | late in a run: its threshold decays to 0 with the budget |
@@ -60,10 +60,13 @@ algorithms.
 
 ## Combinations that change the meaning of an option
 
-* **The path of CSA.** With `COVARIANCE` the path of the step size uses C^-1/2 Δm; with every other
-  matrix adaptation the weighted sum of the selected z ([deep dive](../deep-dives/step-size-adaptation.md#csa)).
-  They differ wherever the evaluated points are not m + σAz: sampled step sizes, elitism, injected
-  or repaired points, the step-size floor of integer variables.
+* **The path of CSA.** With `COVARIANCE` the path of the step size uses C^-1/2 Δm, with Δm the
+  step of the mean divided, per coordinate, by the step size recombined from the selected points;
+  every other matrix adaptation uses Σ wᵢ zᵢ ([deep dive](../deep-dives/step-size-adaptation.md#csa)).
+  When the selected points share their step sizes (σ, raised in the coordinates of integer
+  variables; with elitism and repaired points too) the two are the same up to a rotation; with
+  sampled step sizes they differ. (Δm was divided by the mean of all step sizes of the
+  population, which differed also with integer variables; #71.)
 * **Pairwise selection.** Only the better point of each mirrored pair is ranked; the losers follow
   the ranked points, with their real values (`Population.n_ranked`). The losers get no negative
   weights in the active update (as pycma: mirrored points never get negative weights), so with the
@@ -74,7 +77,15 @@ algorithms.
   do. The evolution paths are normalized with the utilities' selection mass (`mueff_mean`).
 * **Elitism** is (µ+λ) selection: the µ parents compete with the offspring. Their steps are
   recomputed in the current distribution with the generation's σ. `MSR`, `PSR` and `TPA` then
-  compare against the elite.
+  compare against the elite. With `PSR` the parents are in both generations it ranks; equal
+  values share their mean rank, so a parent counts for neither generation (#120).
+* **TPA with a bound correction.** Its two points m ± σΔm are corrected as the samples are (#98);
+  `RESAMPLE`, which cannot draw them again, moves both toward m by the same factor until both
+  are in the box, so they stay symmetric about m. `MIRROR`, `TOROIDAL`, `COTN`
+  and `UNIFORM_RESAMPLE` can move a point off the line through m, and TPA then compares two points
+  at different distances from m: on BBOB in a box of ±4 (7 functions, d = 5 and 20), `TOROIDAL`
+  and `UNIFORM_RESAMPLE` reached 1e-8 in 16 and 13 fewer of 350 runs than with the points left
+  outside the box.
 * **Sequential selection** stops a generation at the first point better than the best of the
   previous generation. With elitism that is the best of the run so far.
 * **Orthogonal sampling** orthogonalizes the n independent samples of each generation (n = λ,
@@ -91,7 +102,10 @@ algorithms.
 * **Integer variables** are rounded after the bound correction, to the nearest integer in
   [⌈lb⌉, ⌊ub⌋], so a value in the box stays in it; `Settings` reject an integer variable without
   an integer in `[lb, ub]` ([integer variables](integer-variables.md#integer-variables-and-bounds)).
-  Their step-size floor biases the step-size rules that read sampled step sizes (`SA`, `LPXNES`).
+  Their step-size floor biases the step-size rules that read sampled step sizes (`SA`, `LPXNES`):
+  the step size of a point is the geometric mean of its column of S, the floor included. The
+  evolution paths do not see the floor: Δm is divided by the raised step size of each coordinate
+  (as Marty et al. 2024).
 * **`SR` with λ > 1** counts one success per generation, when its best beats the best of the run
   so far. SR is designed for elitist selection; without elitism the best of the run takes the
   parent's role. `MSR` is the success rule meant for non-elitist selection.
@@ -110,9 +124,10 @@ algorithms.
     | `MaxSigma`, `MaxDSigma`, `MinDSigma` | max(D), min(D): the eigenvalues of C | √max Cᵢᵢ, √min Cᵢᵢ: the diagonal of C. It bounds the eigenvalues, so `MaxDSigma` and `MinDSigma` fire earlier and `MaxSigma` later than with the eigenvalues. For `MaxDSigma` and `MinDSigma` no source does this; `MaxSigma` becomes pycma's `tolfacupx` (with 1e4 instead of 1e3) |
     | `ConditionC`, `NoEffectAxis` | used | not created: the metric would cost an O(d³) decomposition per update of the matrix. Added from Python (`es.p.criteria.items.append(modcma.restart.ConditionC())`), they work and pay that cost |
 
-    With `ssa` other than `CSA`, `COVARIANCE` becomes `COVARIANCE_NO_EIGV`, and so loses
-    `ConditionC` and `NoEffectAxis` (unless `always_compute_eigv=True`).
-* **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is.
+    With `ssa` other than `CSA`, and with λ = 1, `COVARIANCE` becomes `COVARIANCE_NO_EIGV`, and so
+    loses `ConditionC` and `NoEffectAxis` (unless `always_compute_eigv=True`).
+* **`RESAMPLE`** redraws at most 5d times, then evaluates the point as it is. TPA's two points,
+  which are not drawn, move toward the mean instead (both by the same factor).
 * **`C0`** is the matrix of the first generation of every run, the first and each restart. Every
   matrix adaptation but `NONE` starts from a factor of it
   ([deep dive](../deep-dives/matrix-adaptations.md#the-initial-matrix-c0)); `TolX`, `ConditionC`
@@ -128,7 +143,8 @@ noted; with the current version. Most are recorded for fixing.
 | `sample_transformation=NONE` | the raw base sampler, for testing: uniform samples with mean 0.5, which fail everywhere |
 | `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `MSR`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | σ diverges or collapses: the step-size rules assume finite variance |
 | `active` with `CMSA` | C becomes indefinite: restarts every few generations [F6] |
-| `sample_sigma`, `SA` or `LPXNES` on rotated, ill-conditioned problems | one sampled step size per coordinate breaks rotation invariance: CMSA with `SA` fails on a rotated ellipsoid [F1] |
+| `ssa=SA` with the default λ on ill-conditioned functions, d = 20 | σ shrinks before the matrix adapts: BBOB f2 and f8 (d = 20) reach 1e-8 in 0 of 25 runs each within 3000·d evaluations (`CSA`: 25 and 22); λ = 40 or 80 did not help within 60,000 evaluations (4 runs each). The step sizes per coordinate before #71 hid this on separable functions (25 of 25 on f2), at the cost of rotation invariance (0 of 25 on f10 and f12) |
+| `ssa=LPXNES` for d ≤ 5 | its learning rate cs = 9µ_eff/(10√d) (Krause et al. 2017) is above 1 (1.05 at d = 5, 1.29 at d = 2): the update overshoots the selected step sizes; f2 (d = 5) reaches 1e-8 in 11 of 25 runs |
 | `MATRIX` with `elitist` | the inverse of M drifts, the elites' steps are wrong [F18] |
 | `mu0` above λ/2 with the active update | some "negative" weights are positive [F8] |
 | `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |

@@ -851,8 +851,12 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("m_old", &Adaptation::m_old, "The mean of the previous generation, shape (d,).")
         .def_rw("dm",
                 &Adaptation::dm,
-                "The last step of the mean divided by the step size, (m - m_old) / sigma, "
-                "shape (d,), with sigma the mean step size of the population.")
+                "The last step of the mean in units of the step size, (m - m_old) / s, shape "
+                "(d,), with s per coordinate the step size recombined from the mu selected "
+                "individuals, sum_i w_i S_i (Hansen 2016, Eq. (24)): sigma when they all have "
+                "the step size sigma; sigma raised by the lower bound of an integer variable "
+                "(then dm = sum_i w_i y_i, as Marty et al. 2024); the recombined sampled step "
+                "size with sample_sigma, SA and LPXNES.")
         .def_rw("ps",
                 &Adaptation::ps,
                 "The evolution path of the step size (conjugate evolution path), shape (d,), "
@@ -904,7 +908,8 @@ void define_matrix_adaptation(nb::module_ &main)
              nb::arg("settings"),
              nb::arg("mu"),
              "Update dm, dz and the evolution paths after selection.\n\n"
-             "Computes dm = (m - m_old) / sigma, dz = sum_i w_i z_i over the mu "
+             "Computes dm = (m - m_old) / sum_i w_i S_i (per coordinate, over the mu best) and "
+             "dz = sum_i w_i z_i over the mu "
              "best (every point, with the utilities of `RecombinationWeights.UTILITY`), then "
              "the update of the subclass (ps, and pc where there is one). Called by "
              "`es.adapt()` before the step-size and matrix updates.\n\n"
@@ -1062,7 +1067,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The "
         "eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the "
         "rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the "
-        "step-size adaptation is not CSA (unless `always_compute_eigv`). Hansen & Ostermeier "
+        "step-size adaptation is not CSA, also for lambda0 = 1, which runs SR (unless "
+        "`always_compute_eigv`). Hansen & Ostermeier "
         "(2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.");
     adaptation_init(covariance);
     covariance
@@ -1420,6 +1426,31 @@ void define_bounds(nb::module_ &main)
              "-------\n"
              "numpy.ndarray\n"
              "    The corrected point, shape (d,).")
+        .def("correct_point",
+             &BoundCorrection::correct_point,
+             nb::arg("xi"),
+             nb::arg("sigma"),
+             nb::arg("settings"),
+             "A point that is not sampled from the search distribution (TPA's two points) moved "
+             "into [lb, ub].\n\n"
+             "As `correct_x` for the coordinates outside the bounds, without counting it in "
+             "`n_out_of_bounds`. RESAMPLE cannot sample such a point again: it sets the "
+             "coordinates outside on the bound they crossed, as SATURATE does (TPA first moves "
+             "its two points toward the mean, symmetrically). With NONE the point is returned "
+             "as it is.\n\n"
+             "Parameters\n"
+             "----------\n"
+             "xi : numpy.ndarray\n"
+             "    The point, shape (d,).\n"
+             "sigma : float\n"
+             "    The step size (used by COTN).\n"
+             "settings : Settings\n"
+             "    The settings with the bounds lb and ub and the method "
+             "(`modules.bound_correction`).\n\n"
+             "Returns\n"
+             "-------\n"
+             "numpy.ndarray\n"
+             "    The point inside the box (unless the method is NONE), shape (d,).")
         .def("delta_out_of_bounds",
              &BoundCorrection::delta_out_of_bounds,
              nb::arg("xi"),
@@ -1680,18 +1711,22 @@ void define_mutation(nb::module_ &main)
     nb::class_<SigmaSampler>(
         m,
         "SigmaSampler",
-        "Sampled step sizes: each individual gets its own step size per coordinate, "
-        "sigma * exp(beta n) with n standard normal (`Modules.sample_sigma`; always used by "
-        "the step-size adaptations LPXNES and SA).\n\n"
-        "beta = `es.p.weights.beta` = 1 / sqrt(2 mueff) (ln 2 / (sqrt(d) ln d) with LPXNES). "
-        "The step sizes are the columns of `es.p.pop.S`.")
+        "Sampled step sizes: each individual gets its own step size, sigma_i = "
+        "sigma * exp(beta n_i) with n_i standard normal, the same in every coordinate, so the "
+        "point m + sigma_i y_i lies along y_i (`Modules.sample_sigma`; always used by the "
+        "step-size adaptations LPXNES and SA). One step size per individual, as in CMSA-ES "
+        "(Beyer & Sendhoff 2008) and lp-xNES (Krause, Glasmachers & Igel 2017, Sec. 4.4).\n\n"
+        "beta = `es.p.weights.beta`: 1 / sqrt(2 d) with SA (CMSA's tau; Spettel, Beyer & "
+        "Hellwig 2018, Table I), ln 2 / (sqrt(d) ln d) with LPXNES (Krause et al. 2017, "
+        "Table 3), 1 / sqrt(2 mueff) otherwise. The step sizes are the columns of "
+        "`es.p.pop.S`; the lower bound of an integer variable can raise single coordinates.")
         .def(nb::init<Float>(),
              nb::arg("dimension"),
              "Create the sampler.\n\n"
              "Parameters\n"
              "----------\n"
              "dimension : float\n"
-             "    The dimension d.")
+             "    The dimension d (not used: the step size is one number per individual).")
         .def("apply_integer_bounds",
              nb::overload_cast<parameters::Parameters &>(&SigmaSampler::apply_integer_bounds),
              nb::arg("parameters"),
@@ -1706,8 +1741,9 @@ void define_mutation(nb::module_ &main)
              &SigmaSampler::sample,
              nb::arg("sigma"),
              nb::arg("parameters"),
-             "Set the step sizes `pop.S` of the population from sigma, then apply the lower "
-             "bounds of the integer variables.\n\n"
+             "Set the step sizes `pop.S` of the population from sigma (one per individual, "
+             "constant in its column), then apply the lower bounds of the integer "
+             "variables.\n\n"
              "Parameters\n"
              "----------\n"
              "sigma : float\n"
@@ -1811,7 +1847,10 @@ void define_mutation(nb::module_ &main)
         "m - sigma dm (along the last step of the mean) are evaluated; s = (1 - cs) s + cs r, "
         "with r = -a_tpa when m - sigma dm is better, a_tpa + b_tpa when m + sigma dm is better and 0 for a tie (as "
         "after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per "
-        "generation. Hansen (2008); a tie as in pycma.")
+        "generation. Hansen (2008); a tie as in pycma. With a bound correction other than "
+        "NONE the two points are moved into the box like the samples (`correct_point`; "
+        "with RESAMPLE both move toward m by the same factor until both are in the box, so "
+        "they stay symmetric about m), as pycma passes them through its boundary handler.")
         .def_rw("a_tpa", &TPA::a_tpa, "The magnitude of r (default 0.5).")
         .def_rw("b_tpa",
                 &TPA::b_tpa,
@@ -1840,7 +1879,9 @@ void define_mutation(nb::module_ &main)
         "The current and the previous population are ranked together; with z the difference "
         "of their summed ranks (previous minus current) divided by n^2, minus success_ratio: "
         "s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by "
-        "default (Loshchilov 2014, Alg. 6).")
+        "default (Loshchilov 2014, Alg. 6). Equal values share their mean rank (mid-ranks; "
+        "the paper does not say), so a tie counts for neither population; with elitism the "
+        "parents are in both.")
         .def_rw("success_ratio", &PSR::success_ratio, "The target success ratio (default 0.25).");
     strategy_init(ssa_psr);
     auto ssa_xnes = nb::class_<XNES, Strategy>(
@@ -1868,10 +1909,11 @@ void define_mutation(nb::module_ &main)
         "LPXNES",
         "A variant of the xNES step-size update on sampled step sizes "
         "(`StepSizeAdaptation.LPXNES`).\n\n"
-        "Every individual samples its own step sizes (a `SigmaSampler` is always used, with "
-        "beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i mean_j ln(S_ij / sigma)) "
-        "over the positive weights, which moves sigma towards the step sizes of the better "
-        "individuals. lp-xNES of Krause, Glasmachers & Igel (2017), "
+        "Every individual samples its own step size sigma_i (a `SigmaSampler` is always "
+        "used, with beta = ln 2 / (sqrt(d) ln d)); sigma *= exp(cs sum_i w_i ln(sigma_i / "
+        "sigma)) over the positive weights (ln sigma_i: the mean of the logarithms of the "
+        "column of `pop.S`), which moves sigma towards the step sizes of the better "
+        "individuals. lp-xNES of Krause, Glasmachers & Igel (2017), Sec. 4.4, "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
     strategy_init(ssa_lpxnes);
@@ -1894,11 +1936,12 @@ void define_mutation(nb::module_ &main)
         m,
         "SA",
         "Self-adaptation of the step size (`StepSizeAdaptation.SA`).\n\n"
-        "Every individual samples its own step sizes (a `SigmaSampler` is always used); "
-        "sigma is multiplied by the weighted geometric mean of the step sizes of the mu "
-        "selected individuals divided by the geometric mean over the whole population (Beyer & "
-        "Sendhoff 2008, with the correction of Ahrari et al. 2017). With SA the default mu is "
-        "lambda / 4.");
+        "Every individual samples its own step size sigma_i = sigma exp(n_i / sqrt(2 d)) (a "
+        "`SigmaSampler` is always used; CMSA's tau = 1 / sqrt(2 d)); sigma is multiplied by "
+        "the weighted geometric mean of the step sizes of the mu selected individuals divided "
+        "by the geometric mean over the whole population (Beyer & Sendhoff 2008, with the "
+        "correction of Ahrari et al. 2017). The step size of an individual is the geometric "
+        "mean of its column of `pop.S`. With SA the default mu is lambda / 4.");
     strategy_init(ssa_sa);
 }
 } // namespace modcma_python

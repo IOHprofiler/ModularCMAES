@@ -89,13 +89,22 @@ struct NoSequentialSelection : SequentialSelection
     }
 };
 
+/**
+ * Sampled step sizes: one step size per individual, sigma_i = sigma exp(beta n_i) with n_i
+ * standard normal, the same in every coordinate (#71, F1): the point m + sigma_i y_i lies along
+ * y_i, as in CMSA-ES (Beyer & Sendhoff 2008; Spettel, Beyer & Hellwig 2018, Alg. 3, line 16) and
+ * lp-xNES (Krause, Glasmachers & Igel 2017, Sec. 4.4). pop.S stays a d x lambda matrix: the lower
+ * bound of the integer variables raises single coordinates of a column.
+ */
 struct SigmaSampler
 {
+    //! A one-dimensional standard normal sampler: one number per individual
     sampling::GaussianTransformer sampler;
 
-    SigmaSampler(const Float d,
-                 const std::shared_ptr<rng::Generator> &generator = rng::global()) :
-        sampler{std::make_shared<sampling::Uniform>(static_cast<size_t>(d), generator)}
+    //! d is not used (the step size is one number per individual); kept for the constructor's
+    //! signature
+    SigmaSampler(const Float d, const std::shared_ptr<rng::Generator> &generator = rng::global()) :
+        sampler{std::make_shared<sampling::Uniform>(1, generator)}
     {
     }
 
@@ -281,7 +290,8 @@ struct PSR : Strategy
     Vector combined;
 
     std::vector<size_t> idx;
-    std::vector<size_t> oidx;
+    //! The rank of each value of combined; equal values share their mean rank
+    std::vector<Float> ranks;
 
     using Strategy::Strategy;
 

@@ -25,6 +25,16 @@ struct BoundCorrection
 
     void correct(const Eigen::Index i, parameters::Parameters &p);
 
+    /**
+     * A point that is not sampled from the search distribution (TPA's two points, #98), moved into
+     * [lb, ub] as correct() moves an individual: by the method, per coordinate and per side.
+     * RESAMPLE cannot sample such a point again: it sets the coordinates outside the box on the
+     * bound they crossed (as SATURATE). NONE leaves the point as it is. Not counted in
+     * n_out_of_bounds (which counts the population).
+     */
+    [[nodiscard]] Vector
+    correct_point(const Vector &xi, const Float sigma, const parameters::Settings &settings);
+
     //! xi with the coordinates in oob moved into [lb, ub], per coordinate and per side (#79 F20).
     //! The method (correct_finite) corrects the coordinates with two finite bounds. A coordinate
     //! with one infinite bound is set to the finite bound it crossed, as SATURATE does: every

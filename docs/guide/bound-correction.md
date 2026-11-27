@@ -15,7 +15,9 @@ corrected point replaces the sample in the update, as if it had been sampled the
 | `RESAMPLE` | the whole point is resampled from the search distribution, at most 5 × d times |
 
 The number of points of the current population that were outside the box is
-`es.p.bounds.n_out_of_bounds`.
+`es.p.bounds.n_out_of_bounds`. The two test points of the step-size rule `TPA` are corrected by the
+same method (they are not counted); with `RESAMPLE`, which cannot draw them again, both move
+toward the mean by the same factor until both are in the box.
 
 ```python
 import numpy as np

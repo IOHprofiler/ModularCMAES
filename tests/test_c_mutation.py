@@ -26,7 +26,11 @@ class TestMutation(unittest.TestCase):
         noss = mutation.NoSigmaSampler(2)
 
         ss.sample(2.0, self.par)
-        self.assertFalse(np.all(self.par.pop.S == 2.0))
+        S = self.par.pop.S
+        self.assertFalse(np.all(S == 2.0))
+        # One step size per individual, the same in every coordinate (#71, F1)
+        np.testing.assert_array_equal(S, np.broadcast_to(S[0], S.shape))
+        self.assertNotEqual(S[0, 0], S[0, 1])
         noss.sample(2.0, self.par)
         self.assertTrue(np.all(self.par.pop.S == 2.0))
 
@@ -120,6 +124,42 @@ class TestMutation(unittest.TestCase):
                 for _ in range(10):
                     es.step(lambda x: float(x[0]))
                 self.assertGreater(es.p.mutation.sigma, 2 * es.p.settings.sigma0)
+
+    def test_psr_ties_do_not_depend_on_the_previous_generation(self):
+        # #120: the ranking started from the previous call's order, so tied values were ordered
+        # by history. Now equal values share their mean rank (mid-ranks).
+        es = ModularCMAES(parameters.Settings(2, lambda0=4, mu0=2))
+        p = es.p
+
+        def population(f):
+            pop = Population(2, 4)
+            pop.f = np.array(f, dtype=float)
+            return pop
+
+        def s_after(psr, new, old):
+            psr.s, psr.sigma = 0.0, 1.0
+            psr.adapt(p.weights, p.adaptation, population(new), population(old), p.stats)
+            return psr.s
+
+        def make():
+            return mutation.PSR(
+                mutation.NoThresholdConvergence(),
+                mutation.NoSequentialSelection(options.Mirror.NONE),
+                mutation.NoSigmaSampler(2),
+                1.0,
+            )
+
+        tied = ([1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0])
+        fresh = s_after(make(), *tied)
+        used = make()
+        s_after(used, [1.0, 3.0, 5.0, 7.0], [0.0, 2.0, 4.0, 6.0])  # interleaved ranks
+        self.assertEqual(s_after(used, *tied), fresh)
+        # all eight values tie: every rank is 3.5, the difference of the rank sums is 0
+        cs = p.weights.cs
+        self.assertAlmostEqual(fresh, cs * (0 - 0.25))
+        # the tied parents (1 and 2, in both populations) count for neither: ranks 0.5, 2.5, 4, 5
+        # against 0.5, 2.5, 6, 7, a difference of 4, and z = 4 / 16 - 0.25 = 0
+        self.assertAlmostEqual(s_after(make(), [1.0, 2.0, 3.0, 4.0], [1.0, 2.0, 5.0, 6.0]), 0.0)
 
     def test_adapt_xnes(self):
         cma = self.get_cma(options.StepSizeAdaptation.XNES)

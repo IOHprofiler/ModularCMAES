@@ -127,7 +127,7 @@ class TestTuning(unittest.TestCase):
         for _ in range(400):
             config = dict(cspace.sample_configuration())
             names = set(config)
-            ma, ssa = config["matrix_adaptation"], config["ssa"]
+            ma = config["matrix_adaptation"]
             restarts = config["restart_strategy"] != "STOP"
             self.assertEqual("center_placement" in names, restarts)
             self.assertEqual("repelling_type" in names, restarts)
@@ -138,14 +138,16 @@ class TestTuning(unittest.TestCase):
             self.assertEqual("active" in names, ma != "NONE" and config["lambda0"] > 1)
             self.assertEqual("mu0" in names, config["lambda0"] > 1)
             one = config["lambda0"] == 1
-            for name in ("elitist", "sequential_selection", "weights"):
+            for name in ("elitist", "sequential_selection", "weights", "ssa"):
                 self.assertEqual(name in names, not one, name)
+            ssa = "SR" if one else config["ssa"]  # a (1+1)-ES runs SR (#131)
             self.assertEqual(
                 "damps" in names, one or ssa in ("CSA", "MSR", "PSR", "SR")
             )
             if one:
                 self.assertNotIn(config["restart_strategy"], ("IPOP", "BIPOP"))
                 self.assertNotEqual(config["mirrored"], "PAIRWISE")
+                self.assertNotEqual(ma, "COVARIANCE")
             self.assertEqual("cc" in names, ma not in ("NONE", "MATRIX", "CMSA"))
             self.assertEqual(
                 "cs" in names,
@@ -247,12 +249,23 @@ class TestTuning(unittest.TestCase):
         for elitist in (False, True):
             for sequential in (False, True):
                 for weights in ("DEFAULT", "EQUAL", "UTILITY"):
-                    for ssa in ("CSA",):
+                    for ssa in ("CSA", "TPA", "SA"):
                         settings = c_maes.settings_from_dict(
                             4, lambda0=1, elitist=elitist, sequential_selection=sequential,
                             weights=weights, ssa=ssa, budget=300, seed=2,
                         )
                         runs.add(self._run(settings))
+        self.assertEqual(len(runs), 1)
+        # Every ssa runs SR, and COVARIANCE is COVARIANCE_NO_EIGV whatever ssa is (#131)
+        runs = {
+            self._run(
+                c_maes.settings_from_dict(
+                    4, lambda0=1, ssa=ssa, matrix_adaptation=ma, budget=300, seed=2
+                )
+            )
+            for ssa in c_maes.get_all_module_options()["ssa"]
+            for ma in ("COVARIANCE", "COVARIANCE_NO_EIGV")
+        }
         self.assertEqual(len(runs), 1)
         runs = {
             self._run(
@@ -272,12 +285,18 @@ class TestTuning(unittest.TestCase):
         for remove_duplicates in (True, False):
             cspace = c_maes.get_configspace(4, remove_duplicates=remove_duplicates)
             config = dict(cspace.get_default_configuration())
-            for name in ("mu0", "active", "elitist", "sequential_selection", "weights"):
+            for name in ("mu0", "active", "elitist", "sequential_selection", "weights", "ssa"):
                 config.pop(name, None)  # inactive for lambda0 = 1
             for mirrored in ("NONE", "MIRRORED", "PAIRWISE"):
-                config.update(lambda0=1, mirrored=mirrored)
-                forbidden = any(f.is_forbidden_value(config) for f in cspace.forbidden_clauses)
-                self.assertEqual(forbidden, remove_duplicates and mirrored == "PAIRWISE")
+                for ma in ("COVARIANCE", "COVARIANCE_NO_EIGV"):
+                    config.update(lambda0=1, mirrored=mirrored, matrix_adaptation=ma)
+                    forbidden = any(
+                        f.is_forbidden_value(config) for f in cspace.forbidden_clauses
+                    )
+                    self.assertEqual(
+                        forbidden,
+                        remove_duplicates and (mirrored == "PAIRWISE" or ma == "COVARIANCE"),
+                    )
 
     @staticmethod
     def _run(settings):

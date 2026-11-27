@@ -184,13 +184,6 @@ struct Settings
             mu0 = mu.value_or(default_mu0());
         }
 
-        if (modules.ssa != StepSizeAdaptation::CSA and
-            modules.matrix_adaptation == MatrixAdaptationType::COVARIANCE and
-            not always_compute_eigv)
-        {
-            modules.matrix_adaptation = MatrixAdaptationType::COVARIANCE_NO_EIGV;
-        }
-
         // xNES's active form is its utilities (summing to zero) over all lambda points; CMA-ES's
         // negative weights, scaled for CMA-ES, made the natural gradient shrink sigma even on a
         // linear function (dev/overhaul-2.0.md F2). So NATURAL_GRADIENT with active uses the utilities.
@@ -226,6 +219,16 @@ struct Settings
             if (modules.restart_strategy == RestartStrategyType::BIPOP ||
                 modules.restart_strategy == RestartStrategyType::IPOP)
                 modules.restart_strategy = RestartStrategyType::RESTART;
+        }
+
+        // Only CSA needs C^-1/2, from the eigendecomposition. After the (1+1)-ES's adjustments, so
+        // that the step-size rule that runs decides (#131: with lambda0 = 1 every ssa runs SR, but
+        // the default CSA kept the eigendecomposition)
+        if (modules.ssa != StepSizeAdaptation::CSA and
+            modules.matrix_adaptation == MatrixAdaptationType::COVARIANCE and
+            not always_compute_eigv)
+        {
+            modules.matrix_adaptation = MatrixAdaptationType::COVARIANCE_NO_EIGV;
         }
 
         // Then the checks between fields, on the adjusted values

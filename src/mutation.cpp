@@ -78,10 +78,13 @@ void SigmaSampler::apply_integer_bounds(const parameters::Parameters &p,
 
 void SigmaSampler::sample(const Float sigma, parameters::Parameters &p)
 {
-    for (size_t i = 0; i < p.pop.n; i++)
+    // One step size per individual, the same in every coordinate (#71, F1; it was drawn per
+    // coordinate, so m + S o y was not along y and SA's signal was averaged over d draws)
+    Vector n(1);
+    for (Eigen::Index i = 0; i < static_cast<Eigen::Index>(p.pop.n); i++)
     {
-        const auto z = sampler();
-        p.pop.S.col(i) = (sigma * (p.weights.beta * z.array()).exp()).matrix();
+        sampler.sample(n);
+        p.pop.S.col(i).setConstant(sigma * std::exp(p.weights.beta * n(0)));
     }
     apply_integer_bounds(p);
 }
@@ -264,13 +267,42 @@ void CSA::adapt(const parameters::Weights &w,
     sigma *= std::exp(l);
 }
 
+//! The largest a in [0, 1] for which m + a step and m - a step both lie in [lb, ub]: 0 when m is
+//! outside the box; an infinite bound does not limit it
+static Float
+symmetric_fraction(const Vector &m, const Vector &step, const Vector &lb, const Vector &ub)
+{
+    Float a = 1.0;
+    for (Eigen::Index j = 0; j < m.size(); ++j)
+    {
+        const Float length = std::abs(step(j));
+        if (length > 0)
+            a = std::min(a, std::max(Float(0.0), std::min(ub(j) - m(j), m(j) - lb(j))) / length);
+    }
+    return a;
+}
+
 void TPA::extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) const
 {
+    // The bound correction moves the two points into the box, as the population's samples, then
+    // the integer variables are rounded (#98; they were only rounded, so TPA evaluated points
+    // outside the box and could report one as the best). pycma passes them through its boundary
+    // handler like every solution of ask() (evolution_strategy.py, ask: gp.pheno with
+    // into_bounds=boundary_handler.repair); Hansen (2008) has no bounds. RESAMPLE cannot draw the
+    // points again: both are moved toward m until both are in the box, so the test steps stay
+    // symmetric about m (Hansen 2008, Sec. 2.2); clipped (correct_point) only when m is outside.
+    // Clipping them instead solved BBOB f2 (d = 20, box +-4) in 10 to 15 of 25 runs, 25 with this.
     const Vector &lb = p.settings.lb, &ub = p.settings.ub;
-    out.col(0) = p.coordinate_mapping->transform(
-        p.adaptation->m + (p.mutation->sigma * p.adaptation->dm), lb, ub);
-    out.col(1) = p.coordinate_mapping->transform(
-        p.adaptation->m + (p.mutation->sigma * -p.adaptation->dm), lb, ub);
+    const Float sigma = p.mutation->sigma;
+    Vector step = sigma * p.adaptation->dm;
+    if (p.settings.modules.bound_correction == parameters::CorrectionMethod::RESAMPLE)
+        step *= symmetric_fraction(p.adaptation->m, step, lb, ub);
+    for (const Eigen::Index k : {Eigen::Index{0}, Eigen::Index{1}})
+    {
+        const Vector x = k == 0 ? Vector(p.adaptation->m + step) : Vector(p.adaptation->m - step);
+        out.col(k) =
+            p.coordinate_mapping->transform(p.bounds->correct_point(x, sigma, p.settings), lb, ub);
+    }
 }
 
 void TPA::tell_extra_points(Eigen::Ref<const Vector> f,
@@ -347,23 +379,31 @@ void PSR::adapt(const parameters::Weights &w,
         combined.head(n) = pop.f.head(n);
         combined.tail(n) = old_pop.f.head(n);
 
-        if (idx.size() != 2 * n)
-        {
-            idx.resize(2 * n);
-            oidx.resize(2 * n);
-            std::iota(idx.begin(), idx.end(), 0);
-        }
+        // The ranks of the union of both populations (Loshchilov 2014, Alg. 6, line 15). The
+        // paper does not say how equal values are ranked: they get the mean of their ranks
+        // (mid-ranks, as in rank tests), so a tie counts for neither population. With elitism
+        // the parents are in both. The order of the previous generation's ranking decided (idx
+        // was reset only when its size changed, #120); index order, the current population first,
+        // would count each tied parent as a success (BBOB, PSR with elitism: 7 to 24 % more
+        // evaluations than mid-ranks on f1, f2 and f10)
+        idx.resize(2 * n);
+        ranks.resize(2 * n);
+        std::iota(idx.begin(), idx.end(), 0);
         utils::sort_index_inplace(combined, idx);
-        for (size_t rank = 0; rank < 2 * n; ++rank)
-            oidx[idx[rank]] = rank;
+        for (size_t first = 0; first < 2 * n;)
+        {
+            size_t last = first;
+            while (last + 1 < 2 * n && combined(idx[last + 1]) == combined(idx[first]))
+                ++last;
+            const Float mid = 0.5 * static_cast<Float>(first + last);
+            for (size_t k = first; k <= last; ++k)
+                ranks[idx[k]] = mid;
+            first = last + 1;
+        }
 
         Float delta_r = 0.0;
         for (size_t i = 0; i < n; i++)
-        {
-            Float r = oidx[i];
-            Float r_old = oidx[n + i];
-            delta_r += (r_old - r);
-        }
+            delta_r += ranks[n + i] - ranks[i];
 
         const auto z = delta_r / std::pow(n, 2) - success_ratio;
         s = (1.0 - w.cs) * s + (w.cs * z);
