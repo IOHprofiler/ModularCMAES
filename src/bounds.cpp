@@ -53,13 +53,17 @@ Vector BoundCorrection::correct_x(const Vector &xi,
                                   const Float sigma,
                                   const parameters::Settings &settings)
 {
-    if (settings.db.allFinite())
+    // A coordinate with a finite, positive width is corrected by the method. A zero-width
+    // coordinate (lb_i == ub_i, a fixed variable) would divide by its width (#133).
+    const Mask usable = settings.db.array().isFinite() && settings.db.array() > 0;
+    if (usable.all())
         return correct_finite(xi, oob, sigma, settings);
 
     // A coordinate with an infinite bound has no width: SATURATE on its finite side (#79 F20).
+    // A fixed coordinate has none either: SATURATE puts it at lb_i = ub_i (#133).
     // The method draws its random numbers (COTN, UNIFORM_RESAMPLE) for every coordinate, as with
     // a finite box.
-    const Mask finite = settings.db.array().isFinite();
+    const Mask finite = usable;
     const Mask by_method = oob && finite;
     const Mask saturated = oob && !finite;
     const Vector x = correct_finite(xi, by_method, sigma, settings);

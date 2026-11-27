@@ -57,6 +57,17 @@ is infinite with one infinite bound. `RESAMPLE` samples the point again, as with
 With a correction other than `NONE`, the center of mass evaluated at the end of a run is clipped
 to every finite bound.
 
+## Fixed variables and empty boxes
+
+A coordinate with `lb[i] == ub[i]` (finite) is a fixed variable: it holds a parameter constant
+while the others are tuned. Every correction puts a value that leaves the box at `lb[i]`, without
+dividing by the width, which is zero (as for a coordinate with an infinite bound, the method is
+replaced by `SATURATE`).
+
+An empty coordinate is rejected with a `ValueError`, by `Settings` and by the `lb` and `ub`
+setters: `lb[i] > ub[i]`, `lb[i] = +inf`, `ub[i] = -inf` (so also `lb[i] = ub[i] = ±inf`, whose
+width is NaN), or a NaN bound.
+
 ```python
 lb = np.array([0.0, -np.inf])  # x[0] >= 0
 ub = np.array([np.inf, 1.0])   # x[1] <= 1

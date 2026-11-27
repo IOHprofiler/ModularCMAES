@@ -1,6 +1,7 @@
 #pragma once
 
 #include <sstream>
+#include <limits>
 #include <stdexcept>
 #include <string>
 
@@ -142,8 +143,7 @@ struct Settings
                 "sigma0 must be positive and finite, got " + std::to_string(sigma0));
         require_length("lb", this->lb);
         require_length("ub", this->ub);
-        require((this->lb.array() <= this->ub.array()).all(),
-                "lb must not exceed ub (and neither may be NaN)");
+        require_nonempty_box(this->lb, this->ub);
         if (this->x0)
         {
             require_length("x0", *this->x0);
@@ -227,6 +227,20 @@ struct Settings
         require(static_cast<size_t>(v.size()) == dim,
                 std::string(name) + " must have length dim = " + std::to_string(dim) + ", got " +
                     std::to_string(v.size()));
+    }
+
+    //! No coordinate of the box is empty (#133); std::invalid_argument otherwise. A coordinate with
+    //! lb_i == ub_i, finite, is a fixed variable and is accepted. Empty: lb_i > ub_i, a NaN bound,
+    //! lb_i = +inf, ub_i = -inf (this includes lb_i = ub_i = +inf or -inf, whose width is NaN).
+    static void require_nonempty_box(const Vector &lb, const Vector &ub)
+    {
+        require((lb.array() <= ub.array()).all(), "lb must not exceed ub (and neither may be NaN)");
+        for (Eigen::Index i = 0; i < lb.size(); ++i)
+            require(lb(i) < std::numeric_limits<Float>::infinity() &&
+                        ub(i) > -std::numeric_limits<Float>::infinity(),
+                    "the box is empty in coordinate " + std::to_string(i) + ": lb = " +
+                        std::to_string(lb(i)) + ", ub = " + std::to_string(ub(i)) +
+                        " (a bound of +inf for lb, or -inf for ub, leaves no value)");
     }
 
     //! Every integer variable has an integer value in [lb, ub]: [ceil(lb), floor(ub)] is not empty

@@ -831,25 +831,29 @@ void define_parameters(nb::module_ &main)
             [](const Settings &s) { return s.lb; },
             [](Settings &s, const Vector &lb) {
                 s.require_length("lb", lb);
+                Settings::require_nonempty_box(lb, s.ub);
                 s.require_integer_values(lb, s.ub);
                 s.lb = lb;
                 s.update_bounds();
             },
             "(dim,) array: the lower bounds, default -5; -inf for none. Setting it updates "
-            "`db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when an integer "
-            "variable has no integer value in [lb, ub].")
+            "`db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when a coordinate "
+            "is empty (lb_i > ub_i, lb_i = +inf, ub_i = -inf, NaN) or an integer variable has no "
+            "integer value in [lb, ub]. lb_i == ub_i, finite, fixes the variable.")
         .def_prop_rw(
             "ub",
             [](const Settings &s) { return s.ub; },
             [](Settings &s, const Vector &ub) {
                 s.require_length("ub", ub);
+                Settings::require_nonempty_box(s.lb, ub);
                 s.require_integer_values(s.lb, ub);
                 s.ub = ub;
                 s.update_bounds();
             },
             "(dim,) array: the upper bounds, default 5; inf for none. Setting it updates "
-            "`db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when an integer "
-            "variable has no integer value in [lb, ub].")
+            "`db`, `center`, `diameter`, `volume` and `has_bounds`; ValueError when a coordinate "
+            "is empty (lb_i > ub_i, lb_i = +inf, ub_i = -inf, NaN) or an integer variable has no "
+            "integer value in [lb, ub]. lb_i == ub_i, finite, fixes the variable.")
         .def_rw("db", &Settings::db, "(dim,) array: the widths of the box, ub - lb.")
         .def_rw("center",
                 &Settings::center,

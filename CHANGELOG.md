@@ -310,3 +310,8 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
     (lb = 0.6, ub = 0.9), also when `lb` or `ub` is set later.
   * Internals: `CoordinateMapping.transform(x, lb=None, ub=None)` takes the bounds; the
     `correct_x` of every bound correction applies the rule for infinite bounds.
+* Degenerate boxes (#133). A fixed coordinate (lb_i == ub_i) made `MIRROR` and `TOROIDAL` evaluate
+  NaN points (division by the width 0); every correction now keeps it at lb_i. `Settings` and the
+  `lb`/`ub` setters reject an empty coordinate (lb_i = +inf, ub_i = -inf, so also
+  lb_i = ub_i = ±inf) with a ValueError; the setters also reject lb_i > ub_i and NaN, as the
+  constructor did. Results of boxes with positive widths are unchanged.
