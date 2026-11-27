@@ -49,6 +49,10 @@ The repository also builds `modcma_tests` (the C++ unit tests, `ctest`) and
   `es.step(f, g)` and `es.mutate(f, g)` inject it, and with ask–tell `es.inject_gradient(g)` while
   `es.accepts_gradient()` ([gradient injection](gradients.md)).
 * `rng::set_seed(s)` seeds the global generator; `settings.seed` gives an optimizer its own.
+* `serialization::save(es)` returns the state of an optimizer as bytes, and
+  `serialization::load<ModularCMAES>(bytes)` an optimizer that continues where it was, bit for bit
+  (`include/serialization.hpp`; the format of Python's `pickle`, [saving and resuming a
+  run](checkpointing.md#in-c)).
 * `settings.set_C0(C)` sets the initial covariance matrix and checks it (`std::invalid_argument`
   otherwise), as `Settings(C0=...)` in Python; `modcma.warm_start` exists only in Python.
 * The fields of `Settings` are public. Its `set_lambda0`, `set_mu0`, `set_budget`, `set_sigma0`,

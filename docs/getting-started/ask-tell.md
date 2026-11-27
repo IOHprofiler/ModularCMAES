@@ -66,7 +66,9 @@ Usually `k` is the population size λ. Some modules ask for other batches:
 | repelling restarts | the points of the hill–valley tests, one at a time |
 
 So do not assume `k == λ`: always evaluate the rows of what `ask()` returned. `ask()` returns the
-same points until `tell()` is called, so asking twice is harmless.
+same points until `tell()` is called, so asking twice is harmless. The optimizer can be pickled
+between `ask()` and `tell()` too: after loading, `ask()` returns the same points
+([saving and resuming a run](../guide/checkpointing.md)).
 
 Behind this, the optimizer runs the fixed steps of a generation and, at each, queues the points its
 modules need; the generation waits for `tell()` until they are evaluated. `es.has_pending` tells

@@ -99,6 +99,8 @@ adaptations in [the benchmarks](docs/performance.md).
 
 With the gradient of the objective, `run(f, gradient=g)` injects a point along the negative
 gradient into every generation ([gradient injection](https://modularcmaes.readthedocs.io/en/latest/guide/gradients/)).
+An optimizer can be pickled at any point and continues bit for bit after loading
+([saving and resuming a run](https://modularcmaes.readthedocs.io/en/latest/guide/checkpointing/)).
 
 What each does and when to use it: [the user guide](https://modularcmaes.readthedocs.io/en/latest/guide/modules/).
 
@@ -106,8 +108,8 @@ What each does and when to use it: [the user guide](https://modularcmaes.readthe
 
 [modularcmaes.readthedocs.io](https://modularcmaes.readthedocs.io): getting started, the user
 guide for every module, examples (multimodal problems, parallel evaluation, BBOB benchmarks, tuning,
-mixed-integer problems, coming from pycma), the API reference, and the C++ library. `help()` works
-on every class and function.
+mixed-integer problems, coming from pycma, checkpointing), the API reference, and the C++ library.
+`help()` works on every class and function.
 
 Upgrading from 1.x: version 2.0 removed the pure-Python implementation (`AskTellCMAES`,
 `evaluate_bbob`, `ModularCMAES(func, d)`); see the
