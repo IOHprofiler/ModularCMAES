@@ -88,9 +88,16 @@ bool symmetric_eigen(
 bool cholesky(const Matrix &C, Matrix &L);
 
 /**
- * The Cholesky factor with LAPACK or Eigen, as constants::cholesky_solver chooses (automatic:
- * LAPACK from constants::lapack_min_dim on, when available). Returns false when C is not positive
- * definite.
+ * The solver of a decomposition of dimension n that the choice (constants::eigen_solver or
+ * constants::cholesky_solver) gives: 0 (Eigen) when LAPACK is not available, also when it was asked
+ * for (#117); the choice when it is not negative; otherwise (automatic) 1 (LAPACK) from
+ * constants::lapack_min_dim on, 0 below.
+ */
+int solver(int choice, Eigen::Index n);
+
+/**
+ * The Cholesky factor with LAPACK or Eigen, as constants::cholesky_solver chooses (solver).
+ * Returns false when C is not positive definite.
  */
 bool cholesky_factor(const Matrix &C, Matrix &L);
 

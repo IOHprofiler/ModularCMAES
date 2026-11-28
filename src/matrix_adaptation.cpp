@@ -386,9 +386,8 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
 
 /**
  * The eigendecomposition of the symmetric S: the eigenvalues (ascending) into values, the
- * eigenvectors as columns into vectors. LAPACK when asked for (constants::eigen_solver 1 or 2) and
- * available, or automatically from lapack_min_dim on; Eigen otherwise (also when LAPACK is asked
- * for but missing, #117). Returns false when the solver fails.
+ * eigenvectors as columns into vectors. LAPACK or Eigen, as constants::eigen_solver chooses
+ * (lapack::solver: 1 dsyevd, 2 dsyevr). Returns false when the solver fails.
  */
 static bool symmetric_eigen(const Matrix &s,
                             Vector &values,
@@ -397,15 +396,9 @@ static bool symmetric_eigen(const Matrix &s,
                             lapack::Workspace &lapack_workspace,
                             const bool verbose)
 {
-    const int solver =
-        !lapack::available()
-            ? 0
-            : (constants::eigen_solver >= 0
-                   ? constants::eigen_solver
-                   : (static_cast<size_t>(s.rows()) >= constants::lapack_min_dim ? 1 : 0));
+    const int solver = lapack::solver(constants::eigen_solver, s.rows());
     if (solver != 0)
     {
-        // LAPACK (constants::eigen_solver: 1 dsyevd, 2 dsyevr)
         const auto method = solver == 2 ? lapack::Method::SYEVR : lapack::Method::SYEVD;
         if (!lapack::symmetric_eigen(s, values, vectors, method, lapack_workspace))
         {
