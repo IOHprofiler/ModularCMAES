@@ -1406,16 +1406,16 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("A",
                 &CholeskyAdaptation::A,
                 "The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity "
-                "at the start).")
+                "at the start without `Settings.C0`).")
         .def_rw("pc",
                 &CholeskyAdaptation::pc,
                 "The evolution path of the rank-one update, shape (d,) (zeros at the start).")
         .def_rw("hs",
                 &CholeskyAdaptation::hs,
                 "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
-                "which stalls the update of pc; always True with CSA (#160). With "
-                "`StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False "
-                "also drops the negative weights of the generation's update (#175).")
+                "which stalls the update of pc; always True with CSA and in the (1+1)-ES (#160). "
+                "With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), "
+                "False also drops the negative weights of the generation's update (#175).")
         .def_ro("skipped_downdates",
                 &CholeskyAdaptation::skipped_downdates,
                 nb::name("skipped_downdates"),
@@ -1433,17 +1433,19 @@ void define_matrix_adaptation(nb::module_ &main)
         "C = (1 - 1/tc) C + (1/tc) sum_i w_i y_i y_i^T with tc = 1 + d (d + 1) / (2 mueff), "
         "without an evolution path, then a Cholesky factorization C = A A^T every generation "
         "(O(d^3); LAPACK from d = `constants.lapack_min_dim`). With CMSA the default mu is "
-        "lambda / 4. The CMSA-ES of the paper adapts the step size by self-adaptation "
-        "(`StepSizeAdaptation.SA`). Beyer & Sendhoff (2008).");
+        "lambda / 4. CMSA has no active update: Settings switches `Modules.active` off (#73), "
+        "and with UTILITY weights the positive utilities are used. The CMSA-ES of the paper "
+        "adapts the step size by self-adaptation (`StepSizeAdaptation.SA`). Beyer & Sendhoff "
+        "(2008).");
     adaptation_init(self);
     self.def_rw("A",
                 &SelfAdaptation::A,
                 "The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity "
-                "at the start).")
+                "at the start without `Settings.C0`).")
         .def_rw("C",
                 &SelfAdaptation::C,
                 "The covariance matrix (without sigma^2), shape (d, d) (the identity at the "
-                "start).");
+                "start, or `Settings.C0`).");
 
     auto no_eigv = nb::class_<CovarianceNoEigvAdaptation, CovarianceAdaptation>(
         m,
@@ -1451,12 +1453,13 @@ void define_matrix_adaptation(nb::module_ &main)
         "CMA-ES with a Cholesky factorization instead of an eigendecomposition "
         "(`MatrixAdaptationType.COVARIANCE_NO_EIGV`).\n\n"
         "C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower "
-        "triangular (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see "
+        "triangular, every `es.p.weights.lazy_update_interval` generations as COVARIANCE "
+        "decomposes it (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see "
         "`constants.cholesky_solver`), which is several times cheaper than an "
-        "eigendecomposition. B and d are filled only by `metric()`, from A A^T, the C of the last "
-        "factorization. ps is updated with dz instead "
-        "of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of "
-        "COVARIANCE for the other step-size adaptations.");
+        "eigendecomposition (docs/performance.md). B and d are filled only by `metric()`, from "
+        "A A^T, the C of the last factorization. ps is updated with dz instead of C^-1/2 dm, "
+        "which only CSA needs: Settings selects this adaptation in place of COVARIANCE for the "
+        "other step-size adaptations.");
     adaptation_init(no_eigv);
 
     nb::class_<NaturalGradientAdaptation, Adaptation>(
@@ -1466,11 +1469,14 @@ void define_matrix_adaptation(nb::module_ &main)
         "(`MatrixAdaptationType.NATURAL_GRADIENT`).\n\n"
         "The sampling matrix is updated multiplicatively, A = A expm(cc G), with the natural "
         "gradient G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace part, `sigma_g`, "
-        "goes to the step size with `StepSizeAdaptation.XNES`) and cc = "
-        "`es.p.weights.cc`, xNES's eta_B / 2 by default. For lambda < d and d >= 16 the matrix "
-        "exponential is computed "
-        "exactly from a thin QR of the samples, O(d^2 lambda); otherwise as a dense d x d "
-        "exponential. Glasmachers et al. (2010).")
+        "goes to the step size with `StepSizeAdaptation.XNES`) and cc = `es.p.weights.cc`, "
+        "xNES's eta_B / 2 by default (1 / (4 d^1.5) in the (1+1)-ES). With fewer samples k in "
+        "the gradient than d (mu, or every point with `Modules.active`) and d >= 16 the matrix "
+        "exponential is computed exactly from a thin QR of the samples, O(d^2 k); otherwise as "
+        "a dense d x d exponential. Glasmachers et al. (2010).\n\n"
+        "With `Modules.active` and DEFAULT weights Settings uses the utilities of xNES "
+        "(`RecombinationWeights.UTILITY`, which sum to zero) instead of the negative weights of "
+        "CMA-ES; with `StepSizeAdaptation.XNES` and UTILITY this is xNES.")
         .def(nb::init<size_t, Vector>(),
              nb::arg("dimension"),
              nb::arg("x0"),
@@ -1483,12 +1489,13 @@ void define_matrix_adaptation(nb::module_ &main)
              "    The initial mean m, shape (d,).")
         .def_rw("A",
                 &NaturalGradientAdaptation::A,
-                "The sampling matrix, y = A z, shape (d, d) (I at the start).")
+                "The sampling matrix, y = A z, shape (d, d) (the identity at the start without "
+                "`Settings.C0`).")
         .def_rw("A_inv",
                 &NaturalGradientAdaptation::A_inv,
                 "The inverse of A, shape (d, d). Recomputed only when `invert_y` needs it (an "
                 "LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it "
-                "can lag behind A (the identity at the start).")
+                "can lag behind A (the identity at the start without `Settings.C0`).")
         .def_prop_ro("G",
                      &NaturalGradientAdaptation::G,
                      "The natural gradient G = Z diag(u) Z^T - alpha I as a dense (d, d) "
@@ -1498,12 +1505,13 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("gradient_samples",
                 &NaturalGradientAdaptation::gradient_samples,
                 "The samples Z of the last gradient, the z of the population as columns, "
-                "shape (d, k) with k <= lambda.")
+                "shape (d, k): the mu best, or with `Modules.active` every point (with elitism, "
+                "the mu best and the worst of the (mu + lambda) pool, #161).")
         .def_rw("gradient_weights",
                 &NaturalGradientAdaptation::gradient_weights,
-                "The weights u of the samples, shape (k,) (with `Modules.active`, negative "
-                "weights for the worst; with elitism, the worst of the (mu + lambda) pool, "
-                "#161).")
+                "The weights u of the samples, shape (k,), not rescaled (with `Modules.active`, "
+                "negative weights for the worst; with elitism, the worst of the (mu + lambda) "
+                "pool, #161).")
         .def_rw("gradient_shift",
                 &NaturalGradientAdaptation::gradient_shift,
                 "The shift alpha of G: the sum of the weights plus `sigma_g`, which makes G "
@@ -1512,8 +1520,9 @@ void define_matrix_adaptation(nb::module_ &main)
                 &NaturalGradientAdaptation::sigma_g,
                 "trace(G) / d of the gradient before the shift: its isotropic (step-size) part, "
                 "removed from G and used by `StepSizeAdaptation.XNES`, "
-                "sigma *= exp(cs / 2 * sigma_g). With elitism XNES computes it from the "
-                "offspring alone instead (#172).")
+                "sigma *= exp(cs / 2 * sigma_g), with cs xNES's eta_sigma by default (see "
+                "`Weights.cs`). With elitism XNES computes it from the offspring alone instead "
+                "(#172). 0 in the (1+1)-ES.")
         .def("compute_gradients",
              &NaturalGradientAdaptation::compute_gradients,
              nb::arg("pop"),
