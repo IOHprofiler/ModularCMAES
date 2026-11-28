@@ -490,6 +490,14 @@ static void symmetric_root(const Matrix &C0, Matrix &root, Matrix &inverse_root)
     inverse_root.noalias() = vectors * axes.cwiseInverse().asDiagonal() * vectors.transpose();
 }
 
+//! inverse = F^-1 for the dense factor F of MATRIX and NATURAL_GRADIENT: an LU inverse (LAPACK)
+//! from blas_min_dim on, the pseudo-inverse below or when F is singular
+static void invert_factor(const Matrix &F, Matrix &inverse)
+{
+    if (!(lapack::use_blas(F.rows()) && lapack::inverse(F, inverse)))
+        inverse = F.completeOrthogonalDecomposition().pseudoInverse();
+}
+
 //! The lower Cholesky factor of C0, its strictly upper part zero (start_from of the adaptations
 //! that sample with it, #89): the factorization their updates use
 static void cholesky_of(const Matrix &C0, Matrix &L)
@@ -915,9 +923,7 @@ void MatrixAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen::Ref<Vect
 
 void MatrixAdaptation::recompute_inverse()
 {
-    // LU (LAPACK) from blas_min_dim on, the pseudo-inverse below or when M is singular
-    if (!(lapack::use_blas(M.rows()) && lapack::inverse(M, M_inv)))
-        M_inv = M.completeOrthogonalDecomposition().pseudoInverse();
+    invert_factor(M, M_inv);
     outdated_M_inv = false;
 }
 
@@ -1323,9 +1329,7 @@ void NaturalGradientAdaptation::invert_y_into(Eigen::Ref<const Vector> y, Eigen:
 {
     if (outdated_A_inv)
     {
-        // LU (LAPACK) from blas_min_dim on, the pseudo-inverse below or when A is singular
-        if (!(lapack::use_blas(A.rows()) && lapack::inverse(A, A_inv)))
-            A_inv = A.completeOrthogonalDecomposition().pseudoInverse();
+        invert_factor(A, A_inv);
         outdated_A_inv = false;
     }
     z.noalias() = A_inv * y;
