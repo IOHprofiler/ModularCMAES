@@ -5,6 +5,18 @@ independently. Each generation it samples λ points around a mean, evaluates the
 µ, and updates the mean, the step size σ and the shape of the search distribution (a covariance
 matrix, or a factor of it). Each module replaces one of those parts:
 
+```mermaid
+flowchart TD
+    sample["<b>sample</b> λ points around the mean<br>sampler, sample_transformation, mirrored,<br>orthogonal, sample_sigma, threshold_convergence,<br>bound_correction; repelling_type, repelling_metric:<br>reject samples near the optima found before"]
+    evaluate["<b>evaluate</b> them<br>sequential_selection: stop early"]
+    select["<b>select</b> µ<br>elitist, mirrored = PAIRWISE"]
+    adapt["<b>update</b> the mean, σ and the shape<br>weights, ssa, matrix_adaptation, active"]
+    restart{"<b>restart?</b><br>restart_strategy, center_placement;<br>repelling_type: update the archive<br>(hill–valley tests)"}
+    sample --> evaluate --> select --> adapt --> restart
+    restart -- "no: next generation" --> sample
+    restart -- "yes: a new run" --> sample
+```
+
 | module (`Modules` field) | options (default first) | what it changes | guide |
 |---|---|---|---|
 | `matrix_adaptation` | `COVARIANCE`, `MATRIX`, `SEPARABLE`, `CHOLESKY`, `CMSA`, `COVARIANCE_NO_EIGV`, `NATURAL_GRADIENT`, `NONE` | how the shape of the distribution is learned | [matrix adaptation](matrix-adaptation.md) |
@@ -132,7 +144,7 @@ Two more combinations that have no preset:
 
 | algorithm | modules |
 |---|---|
-| (1+1)-ES with the 1/5th success rule | `lambda0=1` (sets elitism and `ssa=SR`, see below) |
+| (1+1)-ES with a success rule (target rate 2/11, close to the 1/5th rule), without a covariance matrix | `lambda0=1`, `matrix_adaptation=NONE` (`lambda0=1` sets elitism and `ssa=SR`, see below) |
 | mirrored sampling with sequential selection (Brockhoff et al. 2010) | `mirrored=MIRRORED`, `sequential_selection=True` |
 
 ## Combinations that are adjusted
@@ -148,9 +160,12 @@ the [deep dives](../deep-dives/index.md). The main adjustments:
   eigendecomposition (unless `always_compute_eigv=True`). The same for `lambda0=1`, which runs
   `SR` whatever `ssa` is.
 * `ssa=SA` or `matrix_adaptation=CMSA`: µ defaults to λ/4 instead of λ/2.
-* `matrix_adaptation=NONE`: `active` is switched off (there is no matrix to update).
+* `matrix_adaptation=NONE` or `CMSA`: `active` is switched off (`NONE` has no matrix to update,
+  CMSA no active variant).
+* `weights=UTILITY` switches `active` on (the utilities of the worse half are negative), and
+  `NATURAL_GRADIENT` with `active` and the default weights uses `UTILITY` (xNES's active form).
 * `mirrored=PAIRWISE`: λ is made even (for λ above 1), and the default µ is half the even λ.
-* `lambda0=1`: a (1+1)-ES: µ = 1, elitist, equal weights, the 1/5th success rule (`ssa=SR`), no
+* `lambda0=1`: a (1+1)-ES: µ = 1, elitist, equal weights, the success rule `SR`, no
   active update or sequential selection; IPOP and BIPOP become `RESTART`, `mirrored=PAIRWISE`
   becomes `NONE`.
 
@@ -196,7 +211,8 @@ strategy); the code counts more:
   2,438,553,600 combinations;
 * the options without effect of the [compatibility](compatibility.md) page, each checked in the
   code: `sample_sigma` is forced on for `SA` and `LPXNES`; sequential selection with `PAIRWISE`
-  and the default µ = λ/2 has no effect (its earliest stop is the whole generation); with
+  and the default µ = λ/2 has no effect (its earliest stop, after 2µ + 2 points, is past the
+  whole generation); with
   `restart_strategy=STOP` center placement and repelling have no effect; `repelling_metric` acts
   only with repelling, and `CURRENT` and `ARCHIVED` equal `EUCLIDEAN` without a matrix;
   `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` equal `UNIFORM` without repelling.

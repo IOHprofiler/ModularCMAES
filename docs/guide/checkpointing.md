@@ -4,7 +4,7 @@ An optimizer can be saved with `pickle` at any point of a run and loaded later, 
 or another one. The loaded optimizer continues with the same numbers as the run that was not
 interrupted, bit for bit: the same points, the same step sizes, the same restarts.
 `copy.deepcopy` (and `copy.copy`) give an independent optimizer the same way. Pickle protocol 2 or
-higher is needed (the default is 5).
+higher is needed (the default is 4, and 5 from Python 3.14).
 
 ```python
 import copy

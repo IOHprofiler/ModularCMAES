@@ -6,7 +6,7 @@ z are drawn.
 
 ## Base sampler and sample transformation
 
-The base sampler produces points in [0, 1)^d; the sample transformation maps them to the
+The base sampler produces points in (0, 1)^d; the sample transformation maps them to the
 distribution of z, by default the standard normal.
 
 * `sampler`: `UNIFORM` (pseudo-random, the default), or the low-discrepancy sequences `SOBOL`
@@ -32,8 +32,12 @@ distribution of z, by default the standard normal.
   (log-normal around σ), the same in every coordinate, so the point stays along its y; always on
   with the step-size adaptations `SA` (β = 1/√(2d)) and `LPXNES` (β = ln 2/(√d ln d)); otherwise
   β = 1/√(2µ_eff).
-* `threshold_convergence=True`: the mutations must be at least a minimum length, which decreases
-  over the run; it prolongs the exploration of the beginning (Piad-Morffis et al. 2015).
+* `threshold_convergence=True`: a sample z shorter than a threshold is lengthened to beyond it
+  (reflected across the threshold radius); it prolongs the exploration of the beginning
+  (Piad-Morffis et al. 2015). The threshold is a length of z, E‖z‖ in the first generation, and
+  decays to 0 as the budget is used up: E‖z‖ × (remaining budget / budget)^0.995, computed once
+  per generation. The framework paper puts the threshold on ‖x − m‖; on z it does not depend on
+  the size of the box (#78).
 
 ## The random generator
 

@@ -91,7 +91,7 @@ adaptations in [the benchmarks](docs/performance.md).
 | module | options |
 |---|---|
 | matrix adaptation | full covariance (default), MA-ES, separable, Cholesky, CMSA, natural gradient, none |
-| step-size adaptation | CSA (default), TPA (with extra points, or within the population), MSR, PSR, xNES variants, 1/5th success rule, self-adaptation |
+| step-size adaptation | CSA (default), TPA (with extra points, or within the population), MSR, PSR, xNES variants, the success rule of the (1+1)-ES, self-adaptation |
 | restarts | none, stop, restart, IPOP, BIPOP; repelling restarts; where to restart |
 | selection | active update, elitism, sequential selection, recombination weights |
 | sampling | mirrored, pairwise, orthogonal; Sobol and Halton sequences; Gaussian, Cauchy, Laplace, ... mutations; sampled step sizes; threshold convergence |
@@ -107,9 +107,9 @@ What each does and when to use it: [the user guide](https://modularcmaes.readthe
 ## Documentation
 
 [modularcmaes.readthedocs.io](https://modularcmaes.readthedocs.io): getting started, the user
-guide for every module, examples (multimodal problems, parallel evaluation, BBOB benchmarks, tuning,
-mixed-integer problems, coming from pycma, checkpointing), the API reference, and the C++ library.
-`help()` works on every class and function.
+guide for every module (with saving and resuming a run, and the C++ library), examples (multimodal
+problems, parallel evaluation, BBOB benchmarks, tuning, mixed-integer problems, warm starting,
+coming from pycma), and the API reference. `help()` works on every class and function.
 
 Upgrading from 1.x: version 2.0 removed the pure-Python implementation (`AskTellCMAES`,
 `evaluate_bbob`, `ModularCMAES(func, d)`); see the

@@ -87,14 +87,14 @@ are not hyperparameters.
   * With µ = λ there are no negative weights and no unselected offspring, so `active` and
     `sequential_selection` have nothing to act on. This is a relation of two hyperparameters, not
     a condition.
-  * `ssa` stays a hyperparameter for `lambda0` = 1, although `Settings` runs `SR` there: it decides
-    whether `COVARIANCE` becomes `COVARIANCE_NO_EIGV`.
 
 The module part of this space is not a count of distinct variants (see
 [how many variants](modules.md#how-many-variants)): it leaves out `sample_transformation=NONE`,
 and its conditions and forbidden clauses remove only part of the combinations that coincide.
 
 A complete example, a random search for the best configuration on a few functions, is
-[tuning a configuration](../examples/tuning.md). The study of de Nobel et al. (2021) used SMAC on
-the BBOB functions with this configuration space; the scripts are in
-[`scripts/tuning`](https://github.com/IOHprofiler/ModularCMAES/tree/master/scripts/tuning).
+[tuning a configuration](../examples/tuning.md). The framework paper tuned modcma with SMAC on
+the BBOB functions (d = 5). Its scripts, in
+[`scripts/tuning`](https://github.com/IOHprofiler/ModularCMAES/tree/master/scripts/tuning), build
+their own space from `get_configspace`, with fewer modules and options and their own conditions
+and forbidden clauses ([reproducing the paper](../reproducibility.md#smac-configuration-experiment)).

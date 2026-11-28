@@ -2,10 +2,12 @@
 
 Some coordinates can be integers: list their indices in `Settings(integer_variables=...)`. The search
 itself stays continuous; the integer coordinates are rounded to the nearest integer before the
-point is evaluated, and their sampled step size has a lower bound, so the search does not get stuck
-on one integer value (inspired by
-[Marty et al. 2024](http://www.cmap.polytechnique.fr/~nikolaus.hansen/marty2024lb+ic-cma.pdf)):
-per coordinate the step σ·sᵢ is at least min(0.2, µ_eff / d) / √Cᵢᵢ.
+point is evaluated, and their step size has a lower bound, so the search does not get stuck on one
+integer value (inspired by
+[Marty et al. 2024](http://www.cmap.polytechnique.fr/~nikolaus.hansen/marty2024lb+ic-cma.pdf)): in
+an integer coordinate i the step size of a point (σ, or its sampled step size) is raised to at
+least min(0.2, µ_eff / d) / √Cᵢᵢ, so the standard deviation of the coordinate, the step size
+times √Cᵢᵢ, is at least min(0.2, µ_eff / d).
 
 ```python
 import numpy as np

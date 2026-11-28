@@ -136,9 +136,12 @@ With it, a CMSA generation at d = 1000 took 2.4 ms instead of 9.1 ms, and `COVAR
 products: sampling a batch (`Y = A·Z`, also for the triangular factors) and the updates of MA-ES
 and xNES. From d = 100 on they use BLAS `dgemm` (also for the triangular factors: OpenBLAS's `dtrmm`
 is slower than Eigen up to d ≈ 200). MA-ES and xNES also need the inverse of M (A) after
-an update whenever `invert_y` is used (bound correction, elitism, repelling): it was a
-pseudo-inverse (complete orthogonal decomposition), now an LU inverse (`dgetrf`, `dgetri`), with the
-pseudo-inverse as the fallback when M is singular. One operation, one thread, d = 1000 (λ = 24):
+an update whenever `invert_y` is used (bound correction, injected points, elitism, repelling): it
+was a pseudo-inverse (complete orthogonal decomposition), now an LU inverse (`dgetrf`, `dgetri`)
+from `blas_min_dim` on, with the pseudo-inverse below and as the fallback when M is singular. With
+elitism (and `TPA_INPLACE`), which need M⁻¹ in every generation, MA-ES updates M⁻¹ with M by the
+Woodbury identity instead, O(k d²), and computes it again only to bound the rounding errors (#74).
+One operation, one thread, d = 1000 (λ = 24):
 
 | | Eigen | Accelerate | OpenBLAS |
 |---|---|---|---|

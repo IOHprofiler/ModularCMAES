@@ -37,21 +37,23 @@ print(np.round(xopt, 4))  # all 1.0
 | `RESAMPLE` | resampled from the search distribution until it is inside (at most 5 × d tries) |
 
 For an unbounded problem, pass infinite bounds (`lb=np.full(d, -np.inf)`, `ub=np.full(d, np.inf)`).
-A single bound can be infinite too, as `lb=0`, `ub=np.inf` for a positive variable: the finite
-bounds are still corrected. More in [bound correction](../guide/bound-correction.md#infinite-bounds).
+A single bound can be infinite too, as `lb[i] = 0`, `ub[i] = np.inf` for a positive variable: the
+finite bounds are still corrected. More in
+[bound correction](../guide/bound-correction.md#infinite-bounds).
 
 ## Restarts
 
-On multimodal problems a single run converges to a local optimum. A restart strategy starts again
-(from a new point, with a fresh step size and covariance matrix) when the search has converged or
-stagnated, and keeps going until the budget is used:
+On multimodal problems a single run converges to a local optimum. A restart strategy starts a new
+run when the search has converged or stagnated, and keeps going until the budget is used. The new
+run starts with σ₀ (smaller in the small runs of BIPOP) and the initial covariance matrix again,
+by default from `x0` again (`center_placement` chooses another point, below):
 
 | `restart_strategy` | when a restart criterion holds ... |
 |---|---|
-| `NONE` | nothing: keep going (default) |
+| `NONE` | nothing: keep going (default); only a failed update of the matrix (`UnableToAdapt`) restarts the run |
 | `STOP` | stop the run |
 | `RESTART` | restart with the same population size |
-| `IPOP` | restart with a population twice as large (Auger & Hansen 2005) |
+| `IPOP` | restart with a population twice as large, up to 2⁹ λ₀ (Auger & Hansen 2005) |
 | `BIPOP` | alternate between a growing large population and a varying small one (Hansen 2009) |
 
 ```python
@@ -83,8 +85,8 @@ generation):
 | a restart criterion holds, with `restart_strategy=STOP` | the restart criteria |
 
 Every run then ends with one evaluation of its center of mass, `es.center_of_mass` (the mean of the
-distribution, clipped to the bounds), as pycma's `eval_final_mean`: the budget always keeps that
-evaluation. After it `es.break_conditions()` holds.
+distribution; clipped to the bounds when a bound correction is used), as pycma's `eval_final_mean`:
+the budget always keeps that evaluation. After it `es.break_conditions()` holds.
 
 The result is in `es.p.stats`: `global_best` (`.x`, `.y`), `evaluations`, `t` (generations), the
 best solution of the current run, `current_best`, and a record of every run in `centers`: its

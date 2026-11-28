@@ -10,10 +10,13 @@ The user-facing API of `modcma.c_maes` (`Settings`, `ModularCMAES`, `fmin`, the 
 `Modules`, the top-level functions) is the same (it is checked against a dump of the 1.x API), and
 the same names are now also available as `modcma.ModularCMAES`, `modcma.Settings`, ... What is new is
 additive: [ask–tell](getting-started/ask-tell.md), vectorized objectives, `Settings(seed=...)`,
-`fast_sampling`, LAPACK in high dimension; see the [changelog](changelog.md).
+`fast_sampling`, LAPACK in high dimension, presets (`modcma.preset`), warm starting
+(`Settings(C0=...)`, `modcma.warm_start`), [gradient injection](guide/gradients.md),
+[saving and resuming a run](guide/checkpointing.md) with `pickle`, and the record of every run in
+`es.p.stats.centers`; see the [changelog](changelog.md).
 
-The exceptions are `c_maes.utils`, a few misspelled names, the derived fields of `Settings` and a
-few values that `Settings` now rejects:
+The exceptions are `c_maes.utils`, a few misspelled names, the derived fields of `Settings`, the
+values that `Settings` now rejects, and the `x0` of `fmin`:
 
 | 1.x | 2.0 |
 |---|---|
@@ -28,6 +31,8 @@ few values that `Settings` now rejects:
 | `AdaptiveRepelling.target_rejection_rate`, `local_target_rejection_rate` | deprecated: they never had an effect |
 | `Settings(mu0=m, lambda0=l)` with m > l: µ = l // 2 | `ValueError` naming both (a (1+1)-ES, `lambda0=1`, still uses µ = 1) |
 | `Settings(target=nan)`: never stops | `ValueError` |
+| other invalid values were accepted, or crashed the process later: `lambda0=0`, `mu0=0`, `sigma0` ≤ 0, `x0`, `lb` or `ub` of the wrong length, `lb` above `ub`, a NaN bound, a budget below one generation, `max_generations=0`, learning rates out of range (`cs=3`, `damps=-1`, `c1=0.6` with `cmu=0.6`) | `ValueError` naming the field, from the constructor. A setter checks its own field; the checks between fields (`lb` above `ub`, the budget against the first generation, `c1 + cmu`) run in the constructor and when an optimizer is created ([settings](guide/settings.md#changing-the-settings)) |
+| `fmin(func, x0, ...)` used only the length of `x0` and started at the origin | starts at `x0` |
 | setting `Settings.db`, `center`, `diameter` or `has_bounds` | read-only: they are derived from `lb` and `ub`, which recompute them; set those (and `x0` for the starting point) |
 
 A removed name raises an `AttributeError` that says what to use instead. (Imported with
@@ -39,17 +44,20 @@ they work; the [changelog](changelog.md) lists them. For example, `Parameters.pe
 gone: to force a restart, append a restart criterion that is met to `es.p.criteria.items`, and the
 next generation starts with the restart.
 
-Results are not bit-identical to 1.x: the linear algebra is batched, high dimensions use LAPACK,
-and several bugs were fixed that changed results (integer variables, the active update, restart
-criteria, ...). The differences are statistically indistinguishable on the BBOB functions except
-where a bug was fixed. Pin `modcma<2` to reproduce old results exactly.
+Results are not bit-identical to 1.x: the linear algebra is batched and high dimensions use
+LAPACK, which changes the last bits; these differences are statistically indistinguishable on the
+BBOB functions. Results also change where a bug was fixed (integer variables, the active update,
+restart criteria, ...) and where a module now follows its source (elitism is (µ + λ) selection;
+MSR, PSR, SR, TPA's test points, CSA's learning rate, the xNES rates, BIPOP's population sizes,
+...; the [changelog](changelog.md) lists each with its effect). Pin `modcma<2` to reproduce old
+results exactly.
 
 ## From the pure-Python version
 
 | modcma 1.x (Python) | modcma 2.0 |
 |---|---|
 | `ModularCMAES(func, d, budget=..., active=True, ...)` then `.run()` | `es = modcma.ModularCMAES(modcma.settings_from_dict(d, budget=..., active=True, ...))` then `es.run(func)` |
-| `fmin(func, x0, sigma0, budget, **kwargs)` | `modcma.fmin(func, x0, sigma0, budget, **kwargs)` (also returns the optimizer) |
+| `fmin(func, x0, budget=None, **kwargs)`, returns `xopt, fopt, evaluations` | `modcma.fmin(func, x0, sigma0, budget, **kwargs)`: `sigma0` and `budget` are required, and the optimizer is returned as a fourth value |
 | `AskTellCMAES(d, ...)`, `ask()` one point, `tell(x, f)` | `es.ask()` returns a `(k, d)` array, `es.tell(f)` takes its values ([ask–tell](getting-started/ask-tell.md)) |
 | `evaluate_bbob(fid, d, ...)` | `ioh.get_problem(...)` and `es.run(problem)` ([BBOB example](examples/bbob.md)) |
 | `BIPOPParameters`, `local_restart="BIPOP"` | `restart_strategy="BIPOP"` |

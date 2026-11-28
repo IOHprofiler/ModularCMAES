@@ -1,15 +1,34 @@
 # Restarts
 
 A CMA-ES run converges to one optimum. On multimodal problems, restarting from elsewhere, often with
-a larger population, is the most effective way to find a better one. Four modules work together:
-the restart strategy (what to do), the restart criteria (when), the center placement (where to
-restart) and repelling restarts (where *not* to).
+a larger population, is the most effective way to find a better one. Four parts work together: the
+restart criteria (when a run ends), the restart strategy (what happens then, and with which
+population size), the center placement (where the next run starts) and repelling restarts (where
+it should not go). At the start of every generation:
+
+```mermaid
+flowchart TD
+    stopq{"stop_conditions()?<br>budget (also: no room for a new run), target,<br>max_generations; with STOP, a restart criterion"}
+    criteria{"a restart criterion met?<br>(es.p.criteria)"}
+    next["next generation"]
+    stop["evaluate the final center of mass;<br>the optimizer stops"]
+    strategy["restart strategy: λ and σ of the new run"]
+    com["evaluate the run's center of mass;<br>record the run in es.p.stats.centers"]
+    hv["repelling restarts: hill–valley tests;<br>the run's result joins the archive,<br>or the basin of a point already there"]
+    place["new run: C reset to the identity (or C0),<br>the mean from center_placement"]
+    stopq -- "yes" --> stop
+    stopq -- "no" --> criteria
+    criteria -- "no" --> next
+    criteria -- "yes" --> strategy --> com --> place
+    com -- "repelling_type" --> hv --> place
+    place --> next
+```
 
 ## Restart strategies
 
 | `restart_strategy` | when a criterion holds |
 |---|---|
-| `NONE` | nothing happens; the run continues until the budget is used (default) |
+| `NONE` | nothing happens; the run continues until the budget is used (default). Only `UnableToAdapt`, a matrix that cannot be updated, restarts it, with the same λ |
 | `STOP` | the run ends, and the optimizer stops (`stop_conditions()`, then `break_conditions()`) |
 | `RESTART` | restart with the same λ |
 | `IPOP` | restart with λ doubled, up to 2⁹ λ₀ (Auger & Hansen 2005) |
@@ -18,7 +37,7 @@ restart) and repelling restarts (where *not* to).
 IPOP and BIPOP are the strongest choices on multimodal functions with a global structure (such as
 Rastrigin); see the [multimodal example](../examples/multimodal.md).
 
-When a restart changes λ, µ is the default of the new λ: λ/2, or λ/4 with `ssa=SA` and
+When a restart changes λ, µ is the default of the new λ: λ/2, or λ/4 with `ssa=SA` or
 `matrix_adaptation=CMSA`, rounded down, as in pycma's `fmin` (`popsize // 2`). When `mu0` was
 given, µ keeps its ratio to λ instead: µ₀λ/λ₀, rounded. Before 2.0 µ kept the ratio µ₀/λ₀ in every
 case, rounded by IPOP and truncated by BIPOP: with an odd λ₀ (d = 3: λ₀ = 7) the doubled λ = 14
@@ -87,11 +106,12 @@ es.run(rastrigin, vectorized=True)
 print("runs:", len(es.p.stats.centers))
 ```
 
-Every run ends with an evaluation of its center of mass (the mean, clipped to the bounds), at a
-restart and when the optimizer stops, as pycma's `eval_final_mean`. `es.p.stats.centers` holds a
-record of every run (`Center`): the evaluated point (`x`, `y`), the step size `sigma` and the shape
-`metric` the run ended with, the `reasons` it ended, and `std`, σ times the longest axis of the
-shape, which tells how far the run converged:
+Every run ends with an evaluation of its center of mass (the mean; clipped to the bounds when a
+bound correction is used, with the integer variables rounded), at a restart and when the optimizer
+stops, as pycma's `eval_final_mean`. `es.p.stats.centers` holds a record of every run (`Center`):
+the evaluated point (`x`, `y`), the step size `sigma` and the shape `metric` the run ended with,
+the `reasons` it ended, and `std`, σ times the longest axis of the shape, which tells how far the
+run converged:
 
 ```python
 for center in es.p.stats.centers:
@@ -104,10 +124,10 @@ for center in es.p.stats.centers:
 
 ## Where a restart begins
 
-`center_placement` chooses the mean of each new run: `X0` (the starting point, default),
-`ZERO`, `UNIFORM` (a uniform random point in the bounds), `CENTER` (the center of the bounds),
-or, with repelling restarts, `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO`, which favour points far from
-the optima found so far.
+`center_placement` chooses the mean of each new run: `X0` (the starting point, default), `ZERO`
+(the origin), `UNIFORM` (a uniform random point in the bounds), `CENTER` (the center of the
+bounds), or, with repelling restarts, `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO`, which favour points
+far from the optima found so far.
 
 `UNIFORM`, `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` sample their points in the box `[lb, ub]`. In a
 coordinate with an infinite bound there is no uniform distribution; they sample uniformly in
@@ -121,7 +141,9 @@ the others by ub − lb.
 
 Repelling restarts keep each new run away from the optima found before (de Nobel et al. 2024): the
 centers of mass of earlier runs (or their best points, when better) become *taboo points*, with a
-region around each, and samples in a taboo region are rejected unless a hill–valley test shows that they are in a different basin of attraction.
+region around each, and samples in a taboo region are rejected. Hill–valley tests run when a run
+ends with a restart: they decide whether its result is a new taboo point or lies in the basin of
+one already in the archive.
 This helps to find *different* optima, for example when several good solutions are wanted, and
 avoids spending restarts on optima that are already known.
 
@@ -129,8 +151,9 @@ avoids spending restarts on optima that are already known.
   fraction of the space covered) or `ADAPTIVE` (the size adapts to the rate of rejected samples;
   experimental, see below).
 * `repelling_metric`: the distance to a taboo point: `CURRENT` (default: in the metric of the
-  current covariance matrix, the Mahalanobis distance of the paper's Eq. (8)), `EUCLIDEAN` (the
-  default before #158) or `ARCHIVED` (in the metric of the run that found the point).
+  current covariance matrix, the Mahalanobis distance of the paper's Eq. (8), as in the releases
+  1.0.8 to 1.2), `EUCLIDEAN` (the default of the development branch from July 2026 to #158, in no
+  release) or `ARCHIVED` (in the metric of the run that found the point).
 
 They change what `ask()` returns: the points of the hill–valley tests are asked one at a time.
 
