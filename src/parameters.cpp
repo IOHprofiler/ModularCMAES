@@ -128,7 +128,8 @@ Eigen::Index Parameters::inject_gradient(Eigen::Ref<const Vector> g)
         Z.col(j) = ((j == 0 ? -c : c) / norm) * u;
         adaptation->compute_y_into(Z.col(j), Y.col(j));
         const Vector x = adaptation->m + pop.S.col(j).cwiseProduct(Y.col(j));
-        // Into the box as TPA's points: RESAMPLE cannot sample the point again and clips it
+        // Into the box by correct_point alone (not TPA's symmetric shrink toward m first): RESAMPLE
+        // cannot sample the point again and clips it
         X.col(j) = bounds->correct_point(x, mutation->sigma, settings);
         corrected[static_cast<size_t>(j)] = X.col(j) != x;
     }
