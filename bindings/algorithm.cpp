@@ -1587,7 +1587,11 @@ void define_bounds(nb::module_ &main)
         "(`options.CorrectionMethod`). Each coordinate and each side is corrected "
         "separately: an infinite bound is never crossed, and a coordinate with one infinite "
         "bound is set to its finite bound when it crosses it (the methods other than SATURATE "
-        "need the width ub - lb). The methods are described in de Nobel et al. (2021).");
+        "need the width ub - lb). A fixed coordinate, lb_i = ub_i, is set to lb_i (#144).\n\n"
+        "The samples are corrected by `BoundCorrection.correct`; TPA's two points and the "
+        "point of gradient injection by `BoundCorrection.correct_point`. The methods follow "
+        "Caraffini et al. (2019); they are described in de Nobel et al. (2021) and in the "
+        "framework paper (de Nobel et al. 2026, Sec. \"Boundary Correction\").");
     using namespace bounds;
 
     nb::class_<BoundCorrection>(
@@ -1597,7 +1601,8 @@ void define_bounds(nb::module_ &main)
         "After a sample x = m + sigma y is formed, `correct` counts it when it lies outside "
         "[lb, ub] and, unless the method is NONE, moves the coordinates outside into the box "
         "(`correct_x`) and recomputes y and z of the individual from the corrected x, so the "
-        "updates learn from the point that is evaluated.")
+        "updates learn from the point that is evaluated. RESAMPLE moves nothing: the "
+        "optimizer samples the individual again (`Resample`).")
         .def_ro("n_out_of_bounds",
                 &BoundCorrection::n_out_of_bounds,
                 "The number of samples of the current population that were outside the bounds "
@@ -1608,8 +1613,10 @@ void define_bounds(nb::module_ &main)
              nb::arg("index"),
              nb::arg("parameters"),
              "Correct individual `index` of the population in place.\n\n"
-             "Counts it in `n_out_of_bounds` when it is outside the bounds and applies "
-             "`correct_x`; X, X_transformed, Y and Z of the individual are updated.\n\n"
+             "Counts it in `n_out_of_bounds` when it is outside the bounds and, unless the "
+             "method is NONE, applies `correct_x`; X, X_transformed, Y and Z of the individual "
+             "are then updated, y = (x - m) / s with the individual's step sizes s and "
+             "z = A^-1 y.\n\n"
              "Parameters\n"
              "----------\n"
              "index : int\n"
@@ -1625,7 +1632,9 @@ void define_bounds(nb::module_ &main)
              "The corrected point: the coordinates of xi where oob is True moved into "
              "[lb, ub], the others unchanged.\n\n"
              "Coordinates with two finite bounds are corrected by the method; a coordinate with "
-             "one infinite bound is set to the finite bound it crossed, as SATURATE does.\n\n"
+             "one infinite bound is set to the finite bound it crossed, as SATURATE does, and a "
+             "fixed coordinate (lb_i = ub_i) to lb_i (#144). NONE and RESAMPLE return xi "
+             "unchanged.\n\n"
              "Parameters\n"
              "----------\n"
              "xi : numpy.ndarray\n"
@@ -1646,15 +1655,15 @@ void define_bounds(nb::module_ &main)
              nb::arg("xi"),
              nb::arg("sigma"),
              nb::arg("settings"),
-             "A point that is not sampled from the search distribution moved into "
-             "[lb, ub].\n\n"
-             "TPA moves its two points toward the mean first, both by the same factor, until "
-             "both are in the box; it uses this only when the mean itself is outside.\n\n"
+             "A point that is not sampled from the search distribution, moved into [lb, ub]: "
+             "TPA's two points (#98) and the point of gradient injection (#90).\n\n"
              "As `correct_x` for the coordinates outside the bounds, without counting it in "
              "`n_out_of_bounds`. RESAMPLE cannot sample such a point again: it sets the "
              "coordinates outside on the bound they crossed, as SATURATE does. With NONE the "
-             "point is returned "
-             "as it is.\n\n"
+             "point is returned as it is.\n\n"
+             "TPA first moves its two points toward the mean, both by the same factor, until "
+             "both are in the box, so that they stay symmetric about the mean; this method then "
+             "changes them only when the mean itself is outside.\n\n"
              "Parameters\n"
              "----------\n"
              "xi : numpy.ndarray\n"
@@ -1674,7 +1683,9 @@ void define_bounds(nb::module_ &main)
              nb::arg("oob"),
              nb::arg("settings"),
              "The coordinates of xi where oob is True normalized to the box, "
-             "(x - lb) / (ub - lb) (in [0, 1] inside it); the others unchanged.\n\n"
+             "(x - lb) / (ub - lb) (in [0, 1] inside it); the others unchanged. Meaningful only "
+             "for a finite, positive width ub - lb: `correct_x` gives the methods no other "
+             "coordinates.\n\n"
              "Parameters\n"
              "----------\n"
              "xi : numpy.ndarray\n"
@@ -1685,7 +1696,8 @@ void define_bounds(nb::module_ &main)
              "    The settings with the bounds lb and ub.\n\n"
              "Returns\n"
              "-------\n"
-             "numpy.ndarray")
+             "numpy.ndarray\n"
+             "    Shape (d,).")
         .def("is_out_of_bounds",
              &BoundCorrection::is_out_of_bounds,
              nb::arg("xi"),
@@ -1706,8 +1718,12 @@ void define_bounds(nb::module_ &main)
         m,
         "Resample",
         "Sample again (`CorrectionMethod.RESAMPLE`): an individual outside the bounds is "
-        "drawn again, up to 5 d times, and kept as it is after that.\n\n"
-        "Keeps the distribution undistorted inside the box; costs samples, not evaluations.")
+        "drawn again, up to 5 d times (a mirrored pair as one), and kept as it is after that. "
+        "Every rejected sample counts in `n_out_of_bounds`.\n\n"
+        "Keeps the shape of the distribution inside the box; costs samples, not evaluations. "
+        "A point still outside after the last try is evaluated, and can be selected, but never "
+        "becomes `es.p.stats.global_best`, the solution that `run()` and `fmin` return "
+        "(#168).")
         .def(nb::init<>(), "Create the correction.");
     nb::class_<NoCorrection, BoundCorrection>(
         m,
@@ -1721,11 +1737,14 @@ void define_bounds(nb::module_ &main)
         "Complete one-tailed normal correction (`CorrectionMethod.COTN`; Caraffini et al. "
         "2019): a coordinate outside the bounds is moved inside, at a random distance from the "
         "violated bound.\n\n"
-        "In coordinates normalized to [0, 1], the new value is |b - sigma |n||, with b the "
-        "violated bound (0 or 1) and n normal with mean 0 and standard deviation 1/3.")
+        "In coordinates normalized to [0, 1], the new value is |b - r| with r = sigma |n|, b "
+        "the violated bound (0 or 1), sigma the step size and n normal with mean 0 and "
+        "standard deviation 1/3. Where r > 1, r is drawn again (up to 10 times), then capped "
+        "at 1, so the new value stays in the box.")
         .def(nb::init<size_t>(),
              nb::arg("dim"),
-             "Create the correction.\n\n"
+             "Create the correction. It draws from the global random generator "
+             "(`modcma.set_seed`); the optimizer creates its own from its generator.\n\n"
              "Parameters\n"
              "----------\n"
              "dim : int\n"
@@ -1747,7 +1766,8 @@ void define_bounds(nb::module_ &main)
         "(`CorrectionMethod.UNIFORM_RESAMPLE`).")
         .def(nb::init<size_t>(),
              nb::arg("dim"),
-             "Create the correction.\n\n"
+             "Create the correction. It draws from the global random generator "
+             "(`modcma.set_seed`); the optimizer creates its own from its generator.\n\n"
              "Parameters\n"
              "----------\n"
              "dim : int\n"
