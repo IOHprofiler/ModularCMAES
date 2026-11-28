@@ -404,7 +404,6 @@ static Float U[] = {
     2.26290000613890934246E4,
     4.92673942608635921086E4};
 
-#define UTHRESH 37.519379347
 #define MAXLOG 7.09782712893383996843E2
 
 static Float ndtri_erf(Float x);

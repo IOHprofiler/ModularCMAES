@@ -89,8 +89,7 @@ struct Adaptation
     //! The non-negative weights of a generation whose negative ones are stalled (XNES, #175)
     Vector positive_scratch;
     Matrix square_scratch;
-    Matrix batch_scratch;  // d x n
-    Matrix batch_scratch2; // n x d
+    Matrix batch_scratch; // d x n
     //! The steps of the active update with elitism, gathered from the population and the points
     //! the selection dropped (#161)
     Matrix steps_scratch, steps_scratch2;

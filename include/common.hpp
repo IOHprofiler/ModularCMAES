@@ -128,8 +128,6 @@ struct Solution
     {
     }
 
-    [[nodiscard]] size_t n() const { return x.size(); }
-
     bool operator<(const Solution &other) const { return y < other.y; }
 
     bool operator>(const Solution &other) const { return y > other.y; }

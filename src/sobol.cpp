@@ -1,11 +1,5 @@
-#define _USE_MATH_DEFINES
 #include "common.hpp"
-#include <cmath>
 #include <cstdlib>
-#include <cstring>
-#include <ctime>
-#include <fstream>
-#include <iomanip>
 #include <iostream>
 
 using namespace std;
