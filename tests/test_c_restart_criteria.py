@@ -76,6 +76,16 @@ class TestCriteriaPerAdaptation(unittest.TestCase):
         es = optimizer("MATRIX", restart_strategy="NONE")
         self.assertEqual(list(criteria(es)), ["UnableToAdapt"])
 
+    def test_every_strategy_but_none_has_the_criteria(self):
+        # Also STOP, which stops the optimizer when one is met (#192: it was a test of the order of
+        # the enum, restart_strategy >= RESTART)
+        expected = list(criteria(optimizer("COVARIANCE", restart_strategy="RESTART")))
+        self.assertGreater(len(expected), 10)
+        for strategy in c_maes.options.RestartStrategy.__members__:
+            with self.subTest(strategy):
+                names = list(criteria(optimizer("COVARIANCE", restart_strategy=strategy)))
+                self.assertEqual(names, ["UnableToAdapt"] if strategy == "NONE" else expected)
+
     def test_the_default_criteria_compute_no_metric(self):
         # COVARIANCE_NO_EIGV computes its metric into its d and B only when asked (#123): with the
         # default criteria they keep their initial values during a run

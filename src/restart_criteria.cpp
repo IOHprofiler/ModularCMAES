@@ -414,7 +414,9 @@ Criteria Criteria::get(const parameters::Modules modules, const int lambda)
 {
     vCriteria criteria{std::make_shared<restart::UnableToAdapt>()};
 
-    if (modules.restart_strategy >= parameters::RestartStrategyType::RESTART)
+    // Every restart strategy but NONE: RESTART, IPOP and BIPOP restart when one is met, STOP stops
+    // the optimizer
+    if (modules.restart_strategy != parameters::RestartStrategyType::NONE)
     {
         criteria.push_back(std::make_shared<restart::MinSigma>());
         criteria.push_back(std::make_shared<restart::MaxSigma>());
