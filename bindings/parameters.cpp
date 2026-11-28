@@ -409,8 +409,10 @@ void define_parameters(nb::module_ &main)
         "Every run ends with an evaluation of its center of mass (`ModularCMAES.center_of_mass`), "
         "at a restart and when the optimizer stops: x and y are that point and its value, t the "
         "last generation of the run and e the evaluations after it. The run ended with the "
-        "distribution N(x, sigma^2 C), C = B diag(d)^2 B^T, with d and B in `metric`. Every run "
-        "is recorded, converged or not: `std` and `reasons` tell how it ended.")
+        "distribution N(m, sigma^2 C), C = B diag(d)^2 B^T, with d and B in `metric`; x is its "
+        "mean m, clipped to the box when a bound correction is used and with the integer "
+        "variables rounded. Every run is recorded, converged or not: `std` and `reasons` tell "
+        "how it ended.")
         .def(nb::init<>(), "An empty record: x is empty, y is +inf, no metric, no reasons.")
         .def_ro("sigma", &Center::sigma, "The step size at the end of the run.")
         .def_ro("metric",
@@ -436,7 +438,10 @@ void define_parameters(nb::module_ &main)
             },
             "x, y and std as text.");
 
-    nb::class_<Stats>(m, "Stats", "The progress of a run: counters and the best solutions.")
+    nb::class_<Stats>(m,
+                      "Stats",
+                      "The progress of an optimizer: counters, the best solutions and the records "
+                      "of the finished runs.")
         .def(nb::init<>(), "Empty statistics: no generation, no evaluation, no solution.")
         .def_rw("t",
                 &Stats::t,
@@ -480,7 +485,10 @@ void define_parameters(nb::module_ &main)
                 &Stats::current_best,
                 "The best solution of the current run (since the last restart), of every "
                 "evaluated point; the success rules and the restarts read it. With RESAMPLE it "
-                "can lie outside the box (see global_best).")
+                "can lie outside the box (see global_best).\n\n"
+                "Reading returns the optimizer's own record, not a copy: an object held across "
+                "a generation follows the optimizer (its x is a copy when read). copy.copy() "
+                "keeps its values.")
         .def_rw("global_best",
                 &Stats::global_best,
                 "The best feasible solution found so far, over all runs: what `run()` and `fmin` "
@@ -489,7 +497,9 @@ void define_parameters(nb::module_ &main)
                 "global_best: RESAMPLE evaluates a point outside the box after 5 d rejected tries, "
                 "and such a point is not returned (#168). Without a bound correction the box does "
                 "not constrain the points, and every point counts. Before 2.0 it could lie "
-                "outside the box.")
+                "outside the box.\n\n"
+                "Reading returns the optimizer's own record, as current_best: copy.copy() keeps "
+                "its values.")
         .def_rw("has_improved",
                 &Stats::has_improved,
                 "Whether the last selection improved current_best.")
@@ -503,10 +513,15 @@ void define_parameters(nb::module_ &main)
                 "in the (1+1) configuration (lambda0 = 1).")
         .def_rw("last_update",
                 &Stats::last_update,
-                "The generation of the last update of the matrix of the matrix adaptation.")
+                "The generation of the last update of the sampling factor of the matrix "
+                "adaptation.\n\n"
+                "For COVARIANCE and COVARIANCE_NO_EIGV the last decomposition of C (every "
+                "Weights.lazy_update_interval generations; C itself is updated every "
+                "generation); for SEPARABLE, MATRIX, CHOLESKY, CMSA and NATURAL_GRADIENT the "
+                "last update of the matrix; NONE does not set it.")
         .def_rw("n_updates",
                 &Stats::n_updates,
-                "The number of updates of the matrix of the matrix adaptation so far.")
+                "The number of updates of the sampling factor so far, counted as last_update.")
         .def("__repr__", [](Stats &stats) {
             return repr("Stats", [&](std::stringstream &ss) {
                 ss << " t: " << stats.t << " e: " << stats.evaluations;
@@ -519,9 +534,9 @@ void define_parameters(nb::module_ &main)
         m,
         "Weights",
         "The recombination weights and the learning rates of a run.\n\n"
-        "Computed when the Parameters are created, and again at every restart with the current "
-        "mu and lambda. A learning rate given in the Settings is used as is; the defaults below "
-        "use d for the dimension.")
+        "Computed when the Parameters are created, and again with the current mu and lambda at "
+        "every restart and by Parameters.resize_population. A learning rate given in the "
+        "Settings is used as is; the defaults below use d for the dimension.")
         .def(nb::init<Settings, Float>(),
              nb::arg("Settings"),
              nb::arg("expected_length_z"),
@@ -553,25 +568,29 @@ void define_parameters(nb::module_ &main)
         .def_rw("mueff_neg",
                 &Weights::mueff_neg,
                 "The variance effective selection mass of the negative weights, "
-                "sum(negative)**2 / sum(negative**2) (of the mu negative weights of a population "
-                "of 2 mu when mu > lambda / 2, see `negative`).")
+                "sum(negative)**2 / sum(negative**2) (for DEFAULT with mu > lambda / 2: of the mu "
+                "negative weights of a population of 2 mu, see `negative`).")
         .def_rw("c1",
                 &Weights::c1,
                 "The learning rate of the rank-one update of the matrix.\n\n"
-                "Default acov / ((d + 1.3)**2 + mueff); for SEPARABLE pycma's separable rate "
+                "Default acov / ((d + 1.3)**2 + mueff) (Hansen, arXiv:1604.00772v2, Table 1, "
+                "Eq. (57)); for SEPARABLE pycma's separable rate "
                 "1 / (d + 2 sqrt(d) + mueff / d) (c1_sep of CMA_diagonal, pycma 4.6.0); 2 / (d**2 "
                 "+ 6) for a (1+1)-ES (lambda0 = 1).")
         .def_rw("cmu",
                 &Weights::cmu,
                 "The learning rate of the rank-mu update of the matrix.\n\n"
                 "Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)**2 + acov mueff / "
-                "2)); for SEPARABLE pycma's separable rate min(1 - c1, (0.25 + mueff + 1 / mueff "
-                "- 2) / (d + 4 sqrt(d) + mueff / 2)) (cmu_sep of CMA_diagonal, pycma 4.6.0), so "
-                "that c1 + cmu <= 1; 2 / (d**2 + 6) for lambda0 = 1.")
+                "2)), as `cmaes` 0.13 (Hansen, arXiv:1604.00772v2, Table 1, Eq. (58), and pycma "
+                "add 1/4 to mueff - 2 + 1 / mueff); for SEPARABLE pycma's separable rate min(1 - "
+                "c1, (0.25 + mueff + 1 / mueff - 2) / (d + 4 sqrt(d) + mueff / 2)) (cmu_sep of "
+                "CMA_diagonal, pycma 4.6.0), so that c1 + cmu <= 1; 2 / (d**2 + 6) for lambda0 = "
+                "1.")
         .def_rw("cc",
                 &Weights::cc,
                 "The learning rate of the evolution path pc.\n\n"
-                "Default (4 + mueff / d) / (d + 4 + 2 mueff / d); 2 / (d + 2) for a (1+1)-ES. "
+                "Default (4 + mueff / d) / (d + 4 + 2 mueff / d) (Hansen, arXiv:1604.00772v2, "
+                "Table 1, Eq. (56)); 2 / (d + 2) for a (1+1)-ES. "
                 "With NATURAL_GRADIENT the learning rate of A <- A expm(cc G): xNES's eta_B / 2 = "
                 "(9 + 3 ln(d)) / (10 d sqrt(d)) (Glasmachers et al. 2010) with every ssa, or 1 / "
                 "(4 d**1.5) for a (1+1)-ES.")
@@ -583,25 +602,29 @@ void define_parameters(nb::module_ &main)
                 "mueff + 3 and caps cs at 1/2); SR 2 / (d + 2); XNES mueff / (2 ln(max(2, d)) "
                 "sqrt(d)), or with NATURAL_GRADIENT xNES's eta_sigma = (9 + 3 ln(d)) / (5 d "
                 "sqrt(d)) (Glasmachers et al. 2010); MXNES 1; LPXNES min(1, 9 mueff / (10 "
-                "sqrt(d))); otherwise (TPA, MSR, PSR, SA) 0.3. The rates of XNES, MXNES and LPXNES "
-                "are those of Krause, Glasmachers & Igel (2017), Table 3; the cap of LPXNES's at 1 "
-                "is modcma's (above 1 its update overshoots). cs is also the rate of the path ps, "
-                "at most 1 (see `cs_path`).")
+                "sqrt(d))); otherwise (TPA, TPA_INPLACE, MSR, PSR, SA) 0.3. The rates of XNES, "
+                "MXNES and LPXNES are those of Krause, Glasmachers & Igel (2017), Table 3; the cap "
+                "of LPXNES's at 1 is modcma's (above 1 its update overshoots). cs is also the rate "
+                "of the path ps, at most 1 (see `cs_path`). SR and SA do not use cs in their "
+                "update of sigma: for them it is only the rate of ps.")
         .def_rw("cs_path",
                 &Weights::cs_path,
                 "The learning rate of the evolution path ps: min(cs, 1).\n\n"
                 "The default cs of XNES, mueff / (2 ln(d) sqrt(d)), exceeds 1 for large "
                 "populations (13.8 at d = 2, lambda = 100), and LPXNES's exceeded 2 before it was "
                 "capped; as the rate of ps a cs above 2 made ps NaN. At 1 ps is the current step, "
-                "sqrt(mueff) dz, as with MXNES (cs = 1). ps is read by "
-                "CSA, by MATRIX (its rank-one update) and by h_sigma of COVARIANCE, "
-                "COVARIANCE_NO_EIGV and SEPARABLE.")
+                "sqrt(mueff_mean) dz, as with MXNES (cs = 1). ps is read by CSA, by MATRIX (its "
+                "rank-one update), and by h_sigma of COVARIANCE, COVARIANCE_NO_EIGV and "
+                "SEPARABLE, and of MATRIX and CHOLESKY with a step-size rule other than CSA "
+                "(#160).")
         .def_rw("damps",
                 &Weights::damps,
                 "The damping of the step-size update.\n\n"
                 "Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs (Hansen, "
                 "arXiv:1604.00772v2, Table 1, Eq. (55)); for SR 1 + d / 2; for MSR max(1, 2 - 2 / "
-                "d); otherwise (PSR among them) 1.")
+                "d); for TPA_INPLACE 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)) (pycma 4.6.0, "
+                "CMAAdaptSigmaTPA); otherwise (PSR among them) 1. Used by CSA, MSR, PSR, SR and "
+                "TPA_INPLACE; the other step-size rules have no damping.")
         .def_rw("sqrt_cc_mueff",
                 &Weights::sqrt_cc_mueff,
                 "sqrt(cc (2 - cc) mueff_mean): the normalisation of the update of the path pc "
@@ -612,17 +635,20 @@ void define_parameters(nb::module_ &main)
                 "path ps (mueff_mean = mueff, or 1 / sum u_i^2 for the utilities of UTILITY).")
         .def_rw("lazy_update_interval",
                 &Weights::lazy_update_interval,
-                "The number of generations between two eigendecompositions of the covariance "
-                "matrix (COVARIANCE), 1 / (c1 + cmu) / d / 10; the matrix itself is updated "
-                "every generation.\n\n"
+                "The number of generations between two decompositions of the covariance matrix, "
+                "1 / (c1 + cmu) / d / 10: the eigendecomposition of COVARIANCE, the Cholesky "
+                "factorization of COVARIANCE_NO_EIGV. The matrix itself is updated every "
+                "generation.\n\n"
                 "Below 1, the matrix is decomposed every generation.")
         .def_rw("expected_length_z",
                 &Weights::expected_length_z,
                 "The expected length of a sample of the sampler, E||z||.")
         .def_rw("expected_length_ps",
                 &Weights::expected_length_ps,
-                "(1.4 + 2 / (d + 1)) expected_length_z: the threshold on the length of ps above "
-                "which the update of the path pc stalls (h_sigma).")
+                "(1.4 + 2 / (d + 1)) expected_length_z: the threshold of h_sigma (Hansen 2016, "
+                "after Eq. (45)). When the length of ps, corrected for the generations of the "
+                "run, is not below it, the rank-one update stalls (the update of the path pc; "
+                "MATRIX's rank-one term).")
         .def_rw("beta",
                 &Weights::beta,
                 "The learning rate of the sampled step sizes (sample_sigma): the standard "
@@ -632,7 +658,8 @@ void define_parameters(nb::module_ &main)
                 "for d = 1); 1 / sqrt(2 mueff) otherwise.")
         .def_rw("weights",
                 &Weights::weights,
-                "(lambda,) array: all weights by rank, positive followed by negative.")
+                "(lambda,) array: all weights by rank, positive followed by negative (with "
+                "UTILITY the utilities, which sum to zero).")
         .def_rw("positive",
                 &Weights::positive,
                 "(mu,) array: the weights of the mu best individuals, normalised to sum 1.\n\n"
@@ -646,7 +673,7 @@ void define_parameters(nb::module_ &main)
                 "(lambda - mu,) array: the weights of the other individuals, for the active "
                 "update.\n\n"
                 "Scaled so that their absolute values sum to max(0, min(1 + c1 / cmu, 1 + 2 "
-                "mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu))) (Hansen 2016, Eq. (51) to "
+                "mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu))) (Hansen 2016, Eq. (50) to "
                 "(53)). DEFAULT with the default mu: ln((lambda + 1) / 2) - ln(i), i = mu + "
                 "1..lambda. DEFAULT with another mu, as pycma with CMA_mu: the mu negative "
                 "weights ln(mu + 1/2) - ln(i), i = mu + 1..2 mu, of a population of 2 mu go to "
@@ -661,7 +688,8 @@ void define_parameters(nb::module_ &main)
              "After sequential selection stopped a generation early (mu < n < lambda), the "
              "positive weights are unchanged and the negative weights of ranks mu..n-1 are scaled "
              "so that their sum equals the sum of all lambda - mu negative weights. For n >= "
-             "lambda, these are the weights themselves.\n\n"
+             "lambda, these are the weights themselves; for n <= mu, the first n positive "
+             "weights. With UTILITY, the utilities of min(n, lambda) points.\n\n"
              "Parameters\n"
              "----------\n"
              "n : int\n"
