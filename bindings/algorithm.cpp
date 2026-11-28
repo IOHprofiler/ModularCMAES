@@ -1731,7 +1731,7 @@ void define_mutation(nb::module_ &main)
         "holds the threshold convergence (`Modules.threshold_convergence`), the sequential "
         "selection (`Modules.sequential_selection`) and the sampler of the step sizes "
         "(`Modules.sample_sigma`). The step-size adaptations are described in de Nobel et al. "
-        "(2021).");
+        "(2021); `TPAInPlace` (TPA_INPLACE, new in 2.0) in its own docstring.");
     using namespace mutation;
 
     nb::class_<ThresholdConvergence>(
@@ -1815,7 +1815,9 @@ void define_mutation(nb::module_ &main)
              "    The mirrored sampling option; with `Mirror.PAIRWISE` the cutoff factor is at "
              "least 2.\n"
              "seq_cutoff_factor : float\n"
-             "    The minimum number of evaluated individuals as a multiple of mu (default 1).")
+             "    The population can stop after individual i >= floor(mu * seq_cutoff_factor) "
+             "(0-based), so at least floor(mu * seq_cutoff_factor) + 1 individuals are "
+             "evaluated (default 1).")
         .def(
             "__init__",
             [](SequentialSelection *self, parameters::Mirror mirror, Float seq_cuttoff_factor) {
@@ -1894,7 +1896,8 @@ void define_mutation(nb::module_ &main)
         "`es.p.pop.S`; the lower bound of an integer variable can raise single coordinates.")
         .def(nb::init<Float>(),
              nb::arg("dimension"),
-             "Create the sampler.\n\n"
+             "Create the sampler. It draws from the global generator (`set_seed`); the "
+             "sampler of an optimizer draws from the optimizer's own.\n\n"
              "Parameters\n"
              "----------\n"
              "dimension : float\n"
@@ -1934,7 +1937,7 @@ void define_mutation(nb::module_ &main)
              "Parameters\n"
              "----------\n"
              "dimension : float\n"
-             "    The dimension d.");
+             "    The dimension d (not used).");
 
     nb::class_<Strategy>(
         m,
@@ -2000,8 +2003,8 @@ void define_mutation(nb::module_ &main)
                 "its start (`ThresholdConvergence.threshold`; also set without the module).")
         .def_rw("s",
                 &Strategy::s,
-                "The smoothed success measure of TPA, MSR and PSR, whose exponential scales "
-                "sigma (default 0).");
+                "The smoothed success measure of TPA, TPA_INPLACE, MSR and PSR (default 0): "
+                "TPA multiplies sigma by exp(s), the others by exp(s / damps).");
 
     auto ssa_csa = nb::class_<CSA, Strategy>(
         m,
