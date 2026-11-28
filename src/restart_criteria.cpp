@@ -11,10 +11,7 @@ Float ptp_tail(const std::vector<Float> &v, const size_t n)
 {
     const auto na = std::min(v.size(), n);
 
-    if (na == 0)
-        return 0.0;
-
-    if (na == 1)
+    if (na < 2)
         return 0.0;
 
     const Float min = *std::min_element(v.end() - na, v.end());
@@ -23,11 +20,13 @@ Float ptp_tail(const std::vector<Float> &v, const size_t n)
     return max - min;
 }
 
-Float median_sorted_copy(std::vector<Float> values)
+//! The median of x (of an even count, the mean of the two middle values; NaN for none)
+Float median(Eigen::Ref<const Vector> x)
 {
-    if (values.empty())
+    if (x.size() == 0)
         return std::numeric_limits<Float>::quiet_NaN();
 
+    std::vector<Float> values(x.begin(), x.end());
     const size_t n = values.size();
     const size_t mid = n / 2;
 
@@ -120,24 +119,6 @@ void SplitMedian::set_split(const size_t split)
     }
 }
 } // namespace restart
-
-namespace
-{
-Float median_vector(Vector x)
-{
-    if (x.size() == 0)
-        return std::numeric_limits<Float>::quiet_NaN();
-
-    std::vector<Float> values;
-    values.reserve(static_cast<size_t>(x.size()));
-
-    for (Eigen::Index i = 0; i < x.size(); ++i)
-        values.push_back(x(i));
-
-    return median_sorted_copy(std::move(values));
-}
-
-} // namespace
 
 namespace restart
 {
@@ -359,7 +340,7 @@ void Stagnation::update(const parameters::Parameters &p)
     reset_if_new(p);
     const size_t time_since_restart = p.stats.t - last_restart;
 
-    median_fitnesses.push_back(median_vector(p.pop.f.head(p.pop.n)));
+    median_fitnesses.push_back(median(p.pop.f.head(p.pop.n)));
     best_fitnesses.push_back(p.pop.f(0));
 
     met = false;
