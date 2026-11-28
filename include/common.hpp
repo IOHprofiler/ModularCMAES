@@ -128,13 +128,7 @@ struct Solution
     {
     }
 
-    bool operator<(const Solution &other) const { return y < other.y; }
-
     bool operator>(const Solution &other) const { return y > other.y; }
-
-    bool operator<=(const Solution &other) const { return y <= other.y; }
-
-    bool operator>=(const Solution &other) const { return y >= other.y; }
 
     std::string repr() const
     {

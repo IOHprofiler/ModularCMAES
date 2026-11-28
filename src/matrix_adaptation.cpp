@@ -287,7 +287,7 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
     if (w.utility)
     {
         // The z of the mean shift: all evaluated points with their utilities
-        w.mean_weights_into(pop.n, weights_scratch);
+        Weights::utilities_into(pop.n, weights_scratch);
         dz.noalias() = pop.Z.leftCols(weights_scratch.size()) * weights_scratch;
     }
     else

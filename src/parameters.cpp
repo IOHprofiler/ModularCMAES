@@ -275,7 +275,7 @@ void Parameters::recombine()
     {
         // UTILITY (NES/xNES): every evaluated point, with the utilities (which sum to zero)
         Vector u;
-        weights.mean_weights_into(pop.n, u);
+        Weights::utilities_into(pop.n, u);
         for (Eigen::Index k = 0; k < u.size(); ++k)
             a.m.noalias() += u(k) * (pop.X.col(k) - a.m_old);
         return;

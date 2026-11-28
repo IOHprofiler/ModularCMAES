@@ -204,14 +204,6 @@ void Weights::utilities_into(const size_t n, Vector &out)
     out.array() -= 1.0 / static_cast<Float>(n);
 }
 
-void Weights::mean_weights_into(const size_t n, Vector &out) const
-{
-    if (utility)
-        utilities_into(n, out);
-    else
-        out = positive;
-}
-
 void Weights::init_weights(const Settings &settings)
 {
     const Float d = static_cast<Float>(settings.dim);

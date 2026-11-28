@@ -50,10 +50,6 @@ struct Weights
      */
     static void utilities_into(const size_t n, Vector &out);
 
-    //! The weights the mean is recombined with for n evaluated points: the mu positive weights, or
-    //! with UTILITY the utilities of all n points
-    void mean_weights_into(const size_t n, Vector &out) const;
-
     /**
      * @brief The weights for a population of n evaluated individuals, mu < n <= lambda (when
      * sequential selection stopped a generation early). The positive weights are unchanged;
