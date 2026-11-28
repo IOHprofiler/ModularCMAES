@@ -543,8 +543,9 @@ void define_options(nb::module_ &main)
                MatrixAdaptationType::MATRIX,
                "MA-ES (Beyer & Sendhoff 2017): adapts a matrix M with C = M M^T directly, "
                "without the evolution path p_c (its rank-one term reads p_sigma) and without "
-               "eigendecomposition; O(d^2 lambda) per generation, about 6 times faster than "
-               "COVARIANCE at d = 1000 (docs/performance.md). With a step-size rule other than "
+               "eigendecomposition; O(d^2 lambda) per generation: at d = 1000, 956 us against "
+               "6.0 ms per generation for COVARIANCE (docs/performance.md, about 6 times "
+               "faster). With a step-size rule other than "
                "CSA the rank-one term is skipped in a generation with h_sigma = 0 (#160). With "
                "`Modules.active` it uses the active update of COVARIANCE, written in M (MA-ES has "
                "none; #73).")
