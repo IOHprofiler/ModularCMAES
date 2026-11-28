@@ -9,10 +9,13 @@ evaluations used (to the target 1e-8, or the budget) and on the final precision.
 Pre-registered criterion: no cell differs after a Bonferroni correction over all tests
 (p < 0.05 / number of tests), and at most 10 % of the tests have a raw p < 0.05.
 
-    python -m tests.statistical run --output new.json        # in the environment of each build
-    python -m tests.statistical compare old.json new.json
+    python -I tests/statistical.py run --output new.json     # in the environment of each build
+    python -I tests/statistical.py compare old.json new.json
 
-Needs ioh and scipy (not dependencies of modcma).
+`-I` keeps the checkout off sys.path, so the environment of the other build (master installed
+non-editable in its own venv) imports its installed modcma, not the one of the checkout.
+
+Needs ioh (not a dependency of modcma).
 """
 
 import argparse
