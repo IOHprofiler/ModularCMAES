@@ -84,7 +84,8 @@ struct Parameters
      * With mirrored sampling individual 1 becomes its mirror (-z), so that the pair stays a pair.
      * Each point is moved into the box by BoundCorrection::correct_point (RESAMPLE clips it; unlike
      * TPA's points it is not first shrunk toward m), its integer variables are rounded, and it
-     * enters the update as an injected solution: y and z derived from x, clipped (inject). The samples are drawn as without injection.
+     * enters the update as an injected solution: y and z derived from x, clipped (inject). The
+     * samples are drawn as without injection.
      *
      * Returns the number of individuals replaced: 0 when A^T g is zero, or when the repelling
      * archive rejects a point (the samples stay). Throws std::invalid_argument when g does not

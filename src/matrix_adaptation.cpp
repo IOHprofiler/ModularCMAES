@@ -297,7 +297,8 @@ void Adaptation::adapt_evolution_paths(const Population &pop,
 
 void Adaptation::adapt_ps(const parameters::Weights &w)
 {
-    // The rate cs_path = min(cs, 1): XNES's default cs exceeds 1 at d = 2 and for large mueff (#72)
+    // The rate cs_path = min(cs, 1): the default cs of XNES without NATURAL_GRADIENT exceeds 1 at
+    // d = 2 and for large mueff (Weights::init_weights, #72)
     ps = (1.0 - w.cs_path) * ps + (w.sqrt_cs_mueff * dz);
 }
 

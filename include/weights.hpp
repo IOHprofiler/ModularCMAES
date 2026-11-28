@@ -24,8 +24,9 @@ struct Weights
     //! Mirror::PAIRWISE: the losers of the mirrored pairs get no negative weights
     bool pairwise = false;
     Float c1, cmu, cc, cs;
-    //! The learning rate of the path p_sigma: min(cs, 1). XNES's default cs exceeds 1 at d = 2 and
-    //! for large mueff (as LPXNES's did before #159), and as the rate of the path made it NaN (#72)
+    //! The learning rate of the path p_sigma: min(cs, 1). The default cs of XNES without
+    //! NATURAL_GRADIENT exceeds 1 at d = 2 and for large mueff (as LPXNES's did before #159): as
+    //! the rate of the path it made (1 - cs) negative and, above 2, sqrt(cs (2 - cs)) NaN (#72)
     Float cs_path;
     Float damps, acov;
     Float sqrt_cc_mueff, sqrt_cs_mueff;
