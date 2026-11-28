@@ -9,16 +9,14 @@
  *   - heap allocations per evaluation in the steady state (where the platform allows counting).
  *
  * Usage: modcma_bench [--dims 2,10,40,100] [--generations 2000] [--repetitions 5]
- *                     [--configs default,matrix,separable] [--csv]
+ *                     [--configs default,matrix,separable] [--eigen-solver 0|1|2] [--csv]
  *
  * A configuration name with the suffix "-restart" (before "-fast") uses RestartStrategy.RESTART:
  * the restart criteria are updated every generation, and the sphere restarts the run whenever
- * one fires.
+ * one fires. The suffix "-fast" uses Settings.fast_sampling.
  */
 #include <chrono>
 #include <cstdio>
-#include <cstring>
-#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -42,13 +40,7 @@ struct Result
 
 Float sphere(Eigen::Ref<const Vector> x) { return x.squaredNorm(); }
 
-//! A configuration name with the suffix "-fast" uses Settings.fast_sampling
-bool is_fast(const std::string &name)
-{
-    return name.size() > 5 && name.compare(name.size() - 5, 5, "-fast") == 0;
-}
-
-//! A configuration name with the suffix "-restart" (before "-fast") uses RestartStrategy.RESTART
+//! Whether name ends with suffix (and has more before it)
 bool has_suffix(const std::string &name, const std::string &suffix)
 {
     return name.size() > suffix.size() &&
@@ -57,7 +49,7 @@ bool has_suffix(const std::string &name, const std::string &suffix)
 
 parameters::Modules make_modules(std::string name)
 {
-    if (is_fast(name))
+    if (has_suffix(name, "-fast"))
         name.resize(name.size() - 5);
     parameters::Modules m;
     if (has_suffix(name, "-restart"))
@@ -137,7 +129,7 @@ Result run_once(const std::string &config, const int dim, const size_t generatio
     parameters::Settings settings(dim, make_modules(config), std::nullopt, generations,
                                   std::numeric_limits<size_t>::max() / 2, 2.0);
     settings.verbose = false;
-    settings.fast_sampling = is_fast(config);
+    settings.fast_sampling = has_suffix(config, "-fast");
     auto p = std::make_shared<parameters::Parameters>(settings);
     ModularCMAES cma(p);
     FunctionType objective = sphere;
