@@ -823,9 +823,10 @@ void define_matrix_adaptation(nb::module_ &main)
         "Metric",
         "The metric of a search distribution: its shape without the step size, from "
         "`Adaptation.metric()`.\n\n"
-        "A sample is x = m + sigma * B (d * z), z ~ N(0, I), so the samples have the covariance "
-        "sigma^2 C with C = B diag(d)^2 B^T: the one-sigma ellipsoid around m has the semi-axes "
-        "sigma * d_i along the columns B_i.\n\n"
+        "The samples are distributed as x = m + sigma * B (d * z), z ~ N(0, I), whatever factor "
+        "of C the adaptation samples with, so they have the covariance sigma^2 C with "
+        "C = B diag(d)^2 B^T: the one-sigma ellipsoid around m has the semi-axes sigma * d_i "
+        "along the columns B_i.\n\n"
         "It describes the distribution that is sampled. `CovarianceAdaptation` and "
         "`CovarianceNoEigvAdaptation` update C every generation but decompose it only every "
         "`es.p.weights.lazy_update_interval` generations, and sample with the last decomposition, "
@@ -839,8 +840,8 @@ void define_matrix_adaptation(nb::module_ &main)
             "d",
             [](const MetricCopy &metric) { return metric.d; },
             "The axis lengths, the square roots of the eigenvalues of C (pycma's D), shape (d,), "
-            "in the order of the columns of `B`. For the diagonal adaptations (SEPARABLE, NONE) in "
-            "the order of the coordinates.")
+            "in the order of the columns of `B`: ascending, the order of the eigensolver. For the "
+            "diagonal adaptations (SEPARABLE, NONE) in the order of the coordinates.")
         .def_prop_ro(
             "B",
             [](const MetricCopy &metric) { return metric.B; },
@@ -870,8 +871,9 @@ void define_matrix_adaptation(nb::module_ &main)
             "\"we assume that the optimal covariance matrix equals to the inverse Hessian matrix, "
             "up to a constant factor\" (an assumption with strong empirical support; \"a rigorous "
             "proof is missing\"). pycma uses the same relation "
-            "(`inverse_hessian_scalar_correction` fits the factor). So C^-1 estimates the shape of the Hessian, not its scale; sigma "
-            "does not give the scale, it follows the distance to the optimum. The relation needs a "
+            "(`inverse_hessian_scalar_correction` fits the factor). So C^-1 estimates the shape of "
+            "the Hessian, not its scale; sigma does not give the scale, it follows the distance to "
+            "the optimum. The relation needs a "
             "full matrix: SEPARABLE can only match a diagonal Hessian, and NONE keeps C = I.\n\n"
             "Returns\n"
             "-------\n"
@@ -905,7 +907,12 @@ void define_matrix_adaptation(nb::module_ &main)
         "and the sampling transformation y = A z.\n\n"
         "Each generation, after selection, `adapt_evolution_paths` updates dm, dz and the "
         "paths, the step-size adaptation (`es.p.mutation`) updates sigma, and `adapt_matrix` "
-        "updates the matrix. `compute_y` and `invert_y` apply A and A^-1.")
+        "updates the matrix. `compute_y` and `invert_y` apply A and A^-1.\n\n"
+        "The matrices start at the identity. With `Settings.C0` the optimizer starts every run "
+        "from a factor F of C0 instead, F F^T = C0 (#89): the eigendecomposition for COVARIANCE, "
+        "the lower Cholesky factor for COVARIANCE_NO_EIGV, CHOLESKY and CMSA, the symmetric "
+        "square root C0^1/2 for MATRIX and NATURAL_GRADIENT, and the square roots of the "
+        "diagonal of C0 for SEPARABLE; NONE rejects C0.")
         .def_rw("m",
                 &Adaptation::m,
                 "The mean (center) of the search distribution, shape (d,).")
@@ -920,9 +927,11 @@ void define_matrix_adaptation(nb::module_ &main)
                 "size with sample_sigma, SA and LPXNES.")
         .def_rw("ps",
                 &Adaptation::ps,
-                "The evolution path of the step size (conjugate evolution path), shape (d,), "
-                "used by CSA: ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) dz (C^-1/2 dm in "
-                "`CovarianceAdaptation`). Starts at zeros, also after a restart.")
+                "The evolution path of the step size (conjugate evolution path), shape (d,): "
+                "ps = (1 - cs_path) ps + sqrt(cs_path (2 - cs_path) mueff_mean) dz, with the rates "
+                "of `es.p.weights` (C^-1/2 dm instead of dz in `CovarianceAdaptation`, not in its "
+                "subclass `CovarianceNoEigvAdaptation`). Read by CSA, by h_sigma (`hs`) and by the "
+                "rank-one term of MATRIX. Starts at zeros, also after a restart.")
         .def_rw("dz",
                 &Adaptation::dz,
                 "The weighted mean of the z of the mu selected individuals, sum_i w_i z_i "
@@ -933,19 +942,21 @@ void define_matrix_adaptation(nb::module_ &main)
                 &Adaptation::coordinate_wise_variances,
                 "The variance of each coordinate under the sampling transformation, the "
                 "diagonal of C = A A^T (without sigma^2), shape (d,). Used for the lower bound on "
-                "the step size of integer variables; a NaN or inf in it fails the matrix "
-                "update.")
+                "the step size of integer variables, and by the restart criteria TolX and "
+                "NoEffectCoord (and MaxSigma, MaxDSigma and MinDSigma where `keeps_metric()` is "
+                "False, #80); a NaN or inf in it fails the matrix update.")
         .def(
             "metric",
             [](Adaptation &a) { return a.metric().copy(); },
             "The metric of the sampled distribution: its axis lengths d and eigenvectors B, "
             "without sigma (see `Metric`).\n\n"
-            "`CovarianceAdaptation`, `SeparableAdaptation` and `NoAdaptation` keep it: it costs "
-            "nothing. The others decompose C = F F^T of their sampling factor F (M, or A) when "
-            "asked, O(d^3), and reuse the result while `factor_version` is unchanged; nothing is "
-            "computed unless something asks. A value written from Python to their matrices is seen "
-            "after the next change of the factor (an update or a restart). NaN when the "
-            "factor is not finite.\n\n"
+            "`CovarianceAdaptation` (not its subclass `CovarianceNoEigvAdaptation`), "
+            "`SeparableAdaptation` and `NoAdaptation` keep it: it costs nothing. The others "
+            "decompose C = F F^T of their sampling factor F (M, or A; CMSA its C) when asked, "
+            "O(d^3), and reuse the result while `factor_version` is unchanged; nothing is computed "
+            "unless something asks. A value written from Python to their matrices is seen after "
+            "the next change of the factor (an update or a restart). NaN when the factor is not "
+            "finite or the eigensolver fails.\n\n"
             "Returns\n"
             "-------\n"
             "Metric\n"
@@ -955,12 +966,17 @@ void define_matrix_adaptation(nb::module_ &main)
              "Whether `metric()` costs nothing: True for `CovarianceAdaptation` (not "
              "COVARIANCE_NO_EIGV), `SeparableAdaptation` and `NoAdaptation`, which keep it up to "
              "date; False for the others, which decompose their matrix on request, O(d^3).\n\n"
-             "The restart criteria ConditionC and NoEffectAxis read the metric every generation; "
-             "they are created by default only when this is True.")
+             "By default the restart criteria read the metric only where this is True (#80). "
+             "ConditionC and NoEffectAxis are created only then. MaxSigma, MaxDSigma and "
+             "MinDSigma take the longest and the shortest axis from the metric then, and "
+             "otherwise from the diagonal of C: the square roots of the largest and the smallest "
+             "entry of `coordinate_wise_variances`.")
         .def_ro("factor_version",
                 &Adaptation::factor_version,
                 "A counter increased wherever the sampling factor changes (an update of the "
-                "matrix, a decomposition, a restart): `metric()` recomputes only when it changed.")
+                "matrix, a decomposition, a restart, the start from `Settings.C0`): `metric()` "
+                "recomputes only when it changed. A write to the matrices from Python does not "
+                "increase it.")
         .def("adapt_evolution_paths",
              &Adaptation::adapt_evolution_paths,
              nb::arg("pop"),
@@ -972,7 +988,7 @@ void define_matrix_adaptation(nb::module_ &main)
              "Computes dm = (m - m_old) / sum_i w_i S_i (per coordinate, over the mu best) and "
              "dz = sum_i w_i z_i over the mu "
              "best (every point, with the utilities of `RecombinationWeights.UTILITY`), then "
-             "the update of the subclass (ps, and pc where there is one). Called by "
+             "the update of the subclass, `adapt_evolution_paths_inner`. Called by "
              "`es.adapt()` before the step-size and matrix updates.\n\n"
              ADAPT_PARAMS_DOC "\n"
              "mu : int\n"
@@ -983,9 +999,10 @@ void define_matrix_adaptation(nb::module_ &main)
              nb::arg("weights"),
              nb::arg("stats"),
              nb::arg("settings"),
-             "The update of the evolution paths of the subclass (ps, and pc "
-             "where there is one), without recomputing dm and dz; the second "
-             "part of `adapt_evolution_paths`.\n\n"
+             "The update of the evolution paths of the subclass (ps, and h_sigma (`hs`) and pc "
+             "where there are), without recomputing dm and dz; the second part of "
+             "`adapt_evolution_paths`. `NaturalGradientAdaptation` computes its natural gradient "
+             "here (`compute_gradients`).\n\n"
              ADAPT_PARAMS_DOC)
         .def("adapt_matrix",
              &Adaptation::adapt_matrix,
@@ -1018,9 +1035,10 @@ void define_matrix_adaptation(nb::module_ &main)
         .def("restart",
              &Adaptation::restart,
              nb::arg("settings"),
-             "Reset the distribution for a restart: m = `settings.x0` (`settings.center`, the "
-             "center of the bounds, when it is not given), the paths and the matrices to their "
-             "initial values. The center placement sets m afterwards.\n\n"
+             "Reset the distribution for a restart: m = `settings.x0` (`settings.center` when it "
+             "is not given), the paths to zero and the matrices to the identity. The optimizer "
+             "then starts the matrix from `Settings.C0` when it is given (every run starts from "
+             "it, #89), and the center placement sets m.\n\n"
              "Parameters\n"
              "----------\n"
              "settings : Settings\n"
@@ -1080,6 +1098,8 @@ void define_matrix_adaptation(nb::module_ &main)
              &Adaptation::invert_y,
              nb::arg("yi"),
              "The sample z = A^-1 y of a step y, the inverse of `compute_y`.\n\n"
+             "`MatrixAdaptation` and `NaturalGradientAdaptation` first compute their inverse "
+             "from the matrix when it is out of date (O(d^3), see `MatrixAdaptation.M_inv`).\n\n"
              "Parameters\n"
              "----------\n"
              "yi : numpy.ndarray\n"
@@ -1104,7 +1124,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "No matrix adaptation: only the mean and the step size are adapted, A = I "
         "(`MatrixAdaptationType.NONE`).\n\n"
         "The cheapest option, O(d lambda) per generation; for well-conditioned (sphere-like) "
-        "functions, or as a baseline. Settings switches `Modules.active` off with it.");
+        "functions, or as a baseline. Settings switches `Modules.active` off with it, and "
+        "rejects `Settings.C0`.");
     adaptation_init(none);
     none.def(
         "__repr__",
