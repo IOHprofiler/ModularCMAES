@@ -315,15 +315,14 @@ void define_options(nb::module_ &main)
         "With the matrix adaptation COVARIANCE, any method other than CSA switches it to "
         "COVARIANCE_NO_EIGV (no eigendecomposition), unless `Settings(always_compute_eigv=True)`. "
         "A population of one (lambda0 = 1, the (1+1)-ES) always uses SR, whatever ssa is given "
-        "(and so COVARIANCE becomes COVARIANCE_NO_EIGV). The learning rate cs and the damping "
-        "damps of each method are its defaults below; `Settings.cs` and `Settings.damps` "
-        "replace them. For a comparison of the methods see de Nobel et al. 2021 "
-        "(doi:10.1145/3449726.3463167).")
+        "(and so COVARIANCE becomes COVARIANCE_NO_EIGV). The values of cs and damps given "
+        "below are the defaults; `Settings.cs` and `Settings.damps` replace them. For a "
+        "comparison of the methods see de Nobel et al. 2021 (doi:10.1145/3449726.3463167).")
         .value("CSA",
                StepSizeAdaptation::CSA,
                "Cumulative step-size adaptation (Hansen & Ostermeier 2001), the default: sigma "
                "grows when the evolution path p_sigma is longer than expected under random "
-               "selection and shrinks when it is shorter, sigma <- sigma exp(cs / damps "
+               "selection and shrinks when it is shorter: sigma <- sigma exp(cs / damps "
                "(||p_sigma|| / E||z|| - 1)), the exponent clipped to [-1, 1] (as pycma). cs = "
                "(mueff + 2) / (d + mueff + 5) and damps = 1 + 2 max(0, sqrt((mueff - 1) / (d + "
                "1)) - 1) + cs (Hansen 2016, Table 1, Eq. (55); #138).")
@@ -348,8 +347,9 @@ void define_options(nb::module_ &main)
                "offspring better than the 0.3 lambda-th best of the previous generation "
                "(interpolated between two ranks, as pycma), z = 2 K / lambda - 1, s <- (1 - cs) s "
                "+ cs z and sigma <- sigma exp(s / damps), with cs = 0.3 and damps = 2 - 2/d (at "
-               "least 1). sigma grows when more than half of the offspring are better (#83). "
-               "With pairwise selection only the ranked offspring count.")
+               "least 1). sigma grows while more than half of the offspring are better than that "
+               "value (the framework paper compares the medians, #83). With pairwise selection "
+               "only the ranked offspring count.")
         .value("XNES",
                StepSizeAdaptation::XNES,
                "The step-size update of xNES. Without NATURAL_GRADIENT, xNES SA (Krause, "
@@ -395,8 +395,9 @@ void define_options(nb::module_ &main)
                "with rate 1/12, and sigma <- sigma exp((p - 2/11) / ((1 - 2/11) damps)), damps = "
                "1 + d/2: sigma grows when p is above the target 2/11. Used automatically when "
                "lambda0 = 1. Designed for elitist selection, where the best of the run is the "
-               "parent; without elitism it plays the parent's role (the framework paper compares "
-               "with the previous generation's best, which made sigma diverge, #83).")
+               "parent; without elitism the best of the run plays the parent's role (the "
+               "framework paper compares with the previous generation's best, which made sigma "
+               "diverge, #83).")
         .value("SA",
                StepSizeAdaptation::SA,
                "Self-adaptation: every individual samples its own step size sigma_i = sigma "
@@ -441,7 +442,8 @@ void define_options(nb::module_ &main)
         "Bounds may be infinite; each coordinate and each side is corrected separately, and an "
         "infinite bound is never crossed. MIRROR, COTN, UNIFORM_RESAMPLE and TOROIDAL need the "
         "width ub - lb: in a coordinate with one infinite bound they set a coordinate that "
-        "crosses the finite bound to that bound, as SATURATE does.")
+        "crosses the finite bound to that bound, as SATURATE does. A fixed coordinate (lb = ub) "
+        "is set to that value by every method but NONE and RESAMPLE.")
         .value("NONE",
                CorrectionMethod::NONE,
                "No correction, the default: points outside the bounds are evaluated as they are "
