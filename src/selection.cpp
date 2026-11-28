@@ -104,17 +104,23 @@ void NoPairwise::sort(Population &pop, const size_t /*n_offspring*/) const { pop
 
 void Elitsm::operator()(parameters::Parameters &p) const
 {
-    // No parents in the first generation of a run (old_pop is then empty: infinite values)
-    if (p.stats.t == 0 || p.old_pop.n_finite() == 0)
-        return;
-
     // (mu + lambda) selection (the framework paper, Sec. 4.1): the mu parents, the selected
     // individuals of the previous generation (the first columns of old_pop, which is sorted),
     // compete with the offspring. old_pop keeps all its columns: MSR and PSR compare with it.
+    // Not the losers of pairwise selection, which follow the ranked individuals, and none whose f
+    // is +inf (not evaluated: old_pop of the first generation of a run) or NaN, which the sort
+    // puts last: the parents are the leading ranked individuals with f < +inf. (They were
+    // counted with n_finite, which counts NaN and the losers, so that a parent with f = +inf was
+    // appended when old_pop also held NaN values or losers with a value.)
+    const auto ranked = static_cast<Eigen::Index>(std::min(p.mu, p.old_pop.ranked()));
+    Eigen::Index k = 0;
+    while (k < ranked && p.old_pop.f(k) < std::numeric_limits<Float>::infinity())
+        ++k;
+    // No parents in the first generation of a run
+    if (p.stats.t == 0 || k == 0)
+        return;
+
     const size_t n_old = p.old_pop.n;
-    // Not the losers of pairwise selection, which follow the ranked individuals
-    const auto k =
-        static_cast<Eigen::Index>(std::min({p.mu, p.old_pop.n_finite(), p.old_pop.ranked()}));
 
     if (!p.settings.one_plus_one)
     {
