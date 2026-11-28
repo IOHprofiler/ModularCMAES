@@ -5,6 +5,15 @@ namespace modcma_python
 {
 namespace
 {
+using RowMatrix = Eigen::Matrix<Float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+//! numpy.asarray(value, dtype="float64"): an array, a sequence or a number from Python
+nb::object as_float64_array(nb::handle value)
+{
+    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
+    return asarray(value, nb::arg("dtype") = "float64");
+}
+
 //! Getter of a population array: a view of the active columns 0..n-1 (bound with
 //! rv_policy::reference_internal, so the view keeps the population alive)
 auto active_columns(Matrix Population::*member)
@@ -54,9 +63,7 @@ std::optional<Matrix> to_matrix(nb::handle value)
 {
     if (value.is_none())
         return std::nullopt;
-    using RowMatrix = Eigen::Matrix<Float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
-    const nb::object a = asarray(value, nb::arg("dtype") = "float64");
+    const nb::object a = as_float64_array(value);
     if (nb::cast<size_t>(a.attr("ndim")) != 2)
         throw nb::value_error("Settings: C0 must be a 2-d (dim, dim) matrix");
     return Matrix(nb::cast<RowMatrix>(a));
@@ -1347,20 +1354,16 @@ void define_parameters(nb::module_ &main)
 
 namespace
 {
-using RowMatrix = Eigen::Matrix<Float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-
 //! Objective values from Python (an array, a sequence or a number) as a vector of float64
 Vector to_values(nb::handle f)
 {
-    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
-    return nb::cast<Vector>(asarray(f, nb::arg("dtype") = "float64").attr("reshape")(-1));
+    return nb::cast<Vector>(as_float64_array(f).attr("reshape")(-1));
 }
 
 //! Points from Python, (k, d) (or (d,) for one point), as the columns of a d x k matrix
 Matrix to_points(nb::handle X)
 {
-    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
-    nb::object a = asarray(X, nb::arg("dtype") = "float64");
+    nb::object a = as_float64_array(X);
     const auto ndim = nb::cast<size_t>(a.attr("ndim"));
     if (ndim == 0 || ndim > 2)
         throw nb::value_error("tell(f, X): X must be a (k, d) array of points");
