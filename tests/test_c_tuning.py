@@ -46,6 +46,12 @@ class TestTuning(unittest.TestCase):
             settings_changed.modules.sampler, c_maes.options.BaseSampler.HALTON
         )
 
+    def test_configspace_without_dim_warns_at_the_caller(self):
+        with self.assertWarnsRegex(UserWarning, "dim=2") as context:
+            cspace = c_maes.get_configspace()
+        self.assertEqual(context.filename, __file__)
+        self.assertEqual(cspace["lambda0"].default_value, c_maes.Settings(2).lambda0)
+
     def test_default_configuration_is_the_default_settings(self):
         """Over the pairwise combinations, the default numeric configuration changes nothing."""
         dim = 6

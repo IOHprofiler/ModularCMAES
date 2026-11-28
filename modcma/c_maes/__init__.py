@@ -385,7 +385,8 @@ def get_configspace(
         if add_popsize or add_sigma or add_learning_rates:
             warnings.warn(
                 "Filling configspace with default numeric values for dim=2, since no dim was "
-                "provided and add_popsize, add_sigma or add_learning_rates is True"
+                "provided and add_popsize, add_sigma or add_learning_rates is True",
+                stacklevel=2,
             )
         dim = 2
 
