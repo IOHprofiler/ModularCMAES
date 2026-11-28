@@ -2011,7 +2011,18 @@ void define_mutation(nb::module_ &main)
         "NONE both points move toward m by the same factor until both are in the box, so the "
         "test steps stay symmetric about m (Hansen 2008, Sec. 2.2; pycma's boundary handler "
         "moves each point on its own); `BoundCorrection.correct_point` corrects them only "
-        "when m itself is outside the box.")
+        "when m itself is outside the box.\n\n"
+        "With elitism (#179): after a generation whose (mu + lambda) selection kept every "
+        "parent (none of the mu selected points is an offspring), r = -a_tpa and the two points "
+        "are not evaluated: the mean did not move, so both would be m up to rounding, and "
+        "their comparison by rounding made sigma diverge. The test of the mean shift of "
+        "generation t is made in generation t + 1, and so is this failure. The budget still "
+        "reserves the two points in that generation. No TPA source covers elitism: Hansen "
+        "(2008) and Hansen, Atamna & Auger (2014, Algorithm 3) define TPA for comma "
+        "selection, and pycma's CMA_elitist adds only the best solution so far, so the mean "
+        "always moves. The rule follows the success rules of elitist ESs (Rechenberg's 1/5th "
+        "rule; the (1+1)-CMA-ES, Igel, Suttorp & Hansen 2006), in which a generation without "
+        "a successful offspring is a failure.")
         .def_rw("a_tpa", &TPA::a_tpa, "The magnitude of r (default 0.5).")
         .def_rw("b_tpa",
                 &TPA::b_tpa,
@@ -2142,7 +2153,16 @@ void define_mutation(nb::module_ &main)
         "with most matrix adaptations; MATRIX keeps M^-1 up to date for it, as with elitism; "
         "NATURAL_GRADIENT inverts A every generation (O(d^3)). With sampled step sizes the "
         "second point takes the step size of the first; bound correction and repelling treat "
-        "the two as a pair, as a mirrored pair.")
+        "the two as a pair, as a mirrored pair.\n\n"
+        "With elitism (#179): after a generation whose (mu + lambda) selection kept every "
+        "parent (none of the mu selected points is an offspring), the mean did not move, and "
+        "the pair would lie along its rounding noise: the generation samples ordinary "
+        "offspring instead, and z = -1. The pair for the mean shift of generation t is placed "
+        "in generation t + 1, and so is this failure. No source covers elitism: Hansen, "
+        "Atamna & Auger (2014, Algorithm 3) define TPA for the (mu/mu, lambda)-ES, and pycma's "
+        "CMA_elitist adds only the best solution so far, so its mean always moves. The rule "
+        "follows the success rules of elitist ESs (Rechenberg's 1/5th rule; the (1+1)-CMA-ES, "
+        "Igel, Suttorp & Hansen 2006).")
         .def_rw("rank_difference",
                 &TPAInPlace::rank_difference,
                 "The last normalised rank difference z of the two test points, in [-1, 1] "

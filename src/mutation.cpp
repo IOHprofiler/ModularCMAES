@@ -287,6 +287,56 @@ symmetric_fraction(const Vector &m, const Vector &step, const Vector &lb, const 
     return a;
 }
 
+/**
+ * With elitism: whether the (mu + lambda) selection of the previous generation kept every parent,
+ * so that none of the mu points it selected is an offspring (#179). Read in the next generation,
+ * before its selection, from that selection (old_pop, sorted) and the generation in which each of
+ * its points was sampled (Population::t): the offspring of the previous generation were sampled in
+ * generation stats.t - 1, the parents before it. False without elitism and in the first generation
+ * of a run.
+ *
+ * Such a generation counts as a failure for both forms of TPA: TPA takes r = -a_tpa, TPA_INPLACE
+ * z = -1, the largest decrease each makes in one generation. The selection preferred the parents,
+ * whose mean is the current one, to the step of every offspring, and the mean did not move (up to
+ * rounding). A test along the mean shift then has nothing to test: TPA's two points both lay at m
+ * up to the last bits, and their comparison by rounding made sigma grow until it diverged (to
+ * 1e205..1e307; TPA with elitism solved none of 20 ellipsoids at d = 5, 10 or 20); TPA_INPLACE's
+ * pair lay along the rounding noise of m. So TPA does not evaluate its two points in the next
+ * generation, and TPA_INPLACE samples ordinary offspring instead of its pair. The test of the
+ * mean shift of generation t is made in generation t + 1, and so is the failure.
+ *
+ * No TPA source covers this. Hansen (2008, arXiv:0805.0231, Eqs. (1), (2)) and Hansen, Atamna &
+ * Auger (2014, Algorithm 3, "The (mu/mu, lambda)-ES with TPA") define TPA for comma selection,
+ * where the mean always moves; pycma's CMA_elitist prepends only the best solution so far
+ * (evolution_strategy.py:3035-3047), so its mean moves too. The rule follows the success rules of
+ * elitist ESs instead, Rechenberg's (1973) 1/5th rule and the success rule of the (1+1)-CMA-ES
+ * (Igel, Suttorp & Hansen 2006), where a generation in which no offspring replaces the parent is a
+ * failure, and failures make sigma shrink.
+ */
+static bool kept_every_parent(const parameters::Parameters &p)
+{
+    if (!p.settings.modules.elitist || p.stats.t_run == 0)
+        return false;
+    const auto k = static_cast<Eigen::Index>(std::min(p.mu, p.old_pop.n));
+    const auto previous = static_cast<Float>(p.stats.t - 1);
+    for (Eigen::Index i = 0; i < k; ++i)
+        if (!(p.old_pop.t(i) < previous))
+            return false;
+    return k > 0;
+}
+
+size_t TPA::n_extra_points_due(const parameters::Parameters &p) const
+{
+    return kept_every_parent(p) ? 0 : n_extra_points();
+}
+
+void TPA::on_population_begin(parameters::Parameters &p)
+{
+    // The points are not evaluated (n_extra_points_due), and r is a failure (#179)
+    if (kept_every_parent(p))
+        rank_tpa = -a_tpa;
+}
+
 void TPA::extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) const
 {
     // With a bound correction the two points stay in the box (#98: they were only rounded, so TPA
@@ -342,8 +392,10 @@ void TPA::adapt(const parameters::Weights &w,
 void TPAInPlace::on_population_begin(parameters::Parameters &p)
 {
     // The test points: in every generation of a run but the first (no mean shift yet), when the
-    // population has two individuals (lambda can be 1 when a restart caps it at the budget)
-    test_points = p.stats.t_run > 0 && p.pop.n >= 2;
+    // population has two individuals (lambda can be 1 when a restart caps it at the budget). Not
+    // after a generation whose elitist selection kept every parent: the mean did not move, and the
+    // generation samples ordinary offspring (#179, kept_every_parent)
+    test_points = p.stats.t_run > 0 && p.pop.n >= 2 && !kept_every_parent(p);
     if (!test_points)
         return;
     // The direction of the last mean shift in z: y = A z then lies along dm, x - m along m - m_old
@@ -387,6 +439,12 @@ void TPAInPlace::on_population_complete(parameters::Parameters &p)
     pending = n >= 2;
     if (!pending)
         return;
+    // After a generation whose elitist selection kept every parent: a failure, z = -1 (#179)
+    if (kept_every_parent(p))
+    {
+        rank_difference = -1.0;
+        return;
+    }
     const auto f = p.pop.f.head(n).array();
     const Float better_than_1 = (f < p.pop.f(1)).cast<Float>().sum();
     const Float better_than_0 = (f < p.pop.f(0)).cast<Float>().sum();

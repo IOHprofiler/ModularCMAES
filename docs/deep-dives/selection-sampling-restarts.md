@@ -67,7 +67,8 @@ the µ + λ, which the selection dropped, as the framework paper defines the act
 pycma's weights for a population longer than λ do (#161); before, they went to ranks µ+1..λ, which
 are parents and good offspring. The step-size rules that read the individual steps of the selected
 points read the offspring alone with elitism: `XNES` (#172) and `TPA_INPLACE` (#173)
-([step-size adaptation](step-size-adaptation.md)).
+([step-size adaptation](step-size-adaptation.md)). `TPA` and `TPA_INPLACE` count a generation
+whose selection kept every parent as a failure, since its mean did not move (#179).
 
 ## Sequential selection
 

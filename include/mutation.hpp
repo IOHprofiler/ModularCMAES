@@ -196,9 +196,18 @@ struct Strategy
     //! After the last individual
     void end_population(parameters::Parameters &p);
 
-    //! The number of points the step-size adaptation evaluates with every population, fixed per
-    //! configuration (the budget reserves them: Parameters::reserved_points)
+    //! The number of points the step-size adaptation evaluates with a population, at most; fixed
+    //! per configuration (the budget reserves them in every generation:
+    //! Parameters::reserved_points)
     [[nodiscard]] virtual size_t n_extra_points() const { return 0; }
+
+    //! The number of those points that the population which begins now evaluates (after
+    //! begin_population): n_extra_points(), or none (TPA after a generation whose elitist selection
+    //! kept every parent, #179)
+    [[nodiscard]] virtual size_t n_extra_points_due(const parameters::Parameters &p) const
+    {
+        return n_extra_points();
+    }
 
     //! Those points, as columns of out (in objective space)
     virtual void extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) const {}
@@ -275,6 +284,8 @@ struct TPA : Strategy
 
     //! The two points m +- 0.5 sigma_old dm, half the last mean step (Hansen 2008, Eqs. 8, 9)
     size_t n_extra_points() const override { return 2; }
+    //! None after a generation whose elitist selection kept every parent (#179)
+    size_t n_extra_points_due(const parameters::Parameters &p) const override;
     void extra_points(Eigen::Ref<Matrix> out, const parameters::Parameters &p) const override;
     void tell_extra_points(Eigen::Ref<const Vector> f,
                            Eigen::Ref<const Matrix> X,
@@ -285,6 +296,10 @@ struct TPA : Strategy
                Population &pop,
                const Population &old_pop,
                const parameters::Stats &stats) override;
+
+  protected:
+    //! r = -a_tpa after a generation whose elitist selection kept every parent (#179)
+    void on_population_begin(parameters::Parameters &p) override;
 };
 
 struct MSR : Strategy
@@ -352,7 +367,8 @@ struct XNES : Strategy
  * The first two offspring of a generation (after the first of a run) are mirrored along the last
  * mean shift, z_1 = ||N(0, I)|| A^-1 dm / ||A^-1 dm||, z_2 = -z_1; their ranks among the offspring
  * give z = (rank(x_2) - rank(x_1)) / (n - 1), and s <- (1 - cs) s + cs sign(z) |z|^0.5,
- * sigma <- sigma exp(s / damps).
+ * sigma <- sigma exp(s / damps). After a generation whose elitist selection kept every parent, the
+ * generation samples ordinary offspring instead of the pair, and z = -1 (#179).
  */
 struct TPAInPlace : Strategy
 {

@@ -114,11 +114,12 @@ ModularCMAES::StopFlags ModularCMAES::stop_flags() const
 {
     StopFlags flags;
     flags.target = p->settings.target and p->settings.target.value() >= p->stats.global_best.y;
-    // Stop when the next generation (lambda points, plus the reserved points: TPA's) would leave no
-    // evaluation for the final center of mass (#111); a generation that ends one evaluation before
-    // the budget is still run. A generation that starts with a restart evaluates the center first
-    // (and hill-valley points of repelling, while the budget allows) and takes at most the rest of
-    // the budget, less the new run's center of mass (fit_lambda_to_budget).
+    // Stop when the next generation (lambda points, plus the reserved points: TPA's, also when the
+    // generation will skip them, #179) would leave no evaluation for the final center of mass
+    // (#111); a generation that ends one evaluation before the budget is still run. A generation
+    // that starts with a restart evaluates the center first (and hill-valley points of repelling,
+    // while the budget allows) and takes at most the rest of the budget, less the new run's center
+    // of mass (fit_lambda_to_budget).
     const auto restart_due =
         p->settings.modules.restart_strategy != parameters::RestartStrategyType::STOP &&
         p->criteria.any();
@@ -298,7 +299,8 @@ bool ModularCMAES::advance(const bool stop_before_selection)
 
         case Step::SAMPLE:
             // A new population: its first batch, with the extra points of the step-size adaptation
-            // (TPA's), which do not depend on the population's values
+            // (TPA's, when it has any in this generation), which do not depend on the population's
+            // values
             steps_skipped = false;
             p->mutation->begin_population(p->lambda, *p);
             next_individual = 0;
@@ -349,7 +351,9 @@ void ModularCMAES::queue_population_batch()
 
 void ModularCMAES::queue_extra_points()
 {
-    if (const auto k = static_cast<Eigen::Index>(p->mutation->n_extra_points()); k != 0)
+    // The points of this population: TPA evaluates none after a generation whose elitist
+    // selection kept every parent (#179); the budget reserves them in every generation
+    if (const auto k = static_cast<Eigen::Index>(p->mutation->n_extra_points_due(*p)); k != 0)
         p->mutation->extra_points(queue(k, Source::EXTRA_POINTS), *p);
 }
 

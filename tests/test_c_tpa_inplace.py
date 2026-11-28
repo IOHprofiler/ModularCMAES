@@ -206,9 +206,13 @@ class TestCombinations(unittest.TestCase):
                 es = make(5, budget=4000, **config)
                 for _ in range(6):
                     es.step(sphere)
+                # With elitism, no pair after a generation whose selection kept every parent (#179)
+                kept_every_parent = config.get("elitist", False) and bool(
+                    np.all(np.array(es.p.pop.t)[: es.p.mu] < es.p.stats.t - 1)
+                )
                 es.ask()
                 pop = es.p.pop
-                if es.p.stats.t_run > 0:
+                if es.p.stats.t_run > 0 and not kept_every_parent:
                     np.testing.assert_array_equal(pop.Z[:, 1], -pop.Z[:, 0])
                     np.testing.assert_array_equal(pop.S[:, 1], pop.S[:, 0])
 

@@ -103,7 +103,9 @@ evaluates takes three changes, two of them in `ModularCMAES`:
   `POPULATION` for the batches of sequential selection. A module that needs the objective at a new
   moment of the generation adds a step.
 * **The budget:** a fixed number of points per generation, the same in every generation of a
-  configuration, goes into `Parameters::reserved_points()`, which the budget checks reserve. A
+  configuration, goes into `Parameters::reserved_points()`, which the budget checks reserve. It is
+  an upper bound: TPA reserves its two points also in a generation that does not evaluate them
+  (`Strategy::n_extra_points_due`; after a generation whose elitist selection kept every parent). A
   module with a variable number of points stops asking when the next one would not leave room for
   the rest of the generation: the hill-valley tests of repelling check `Parameters::restart_fits()`
   before each point.

@@ -61,8 +61,10 @@ struct Parameters
     void adapt();
 
     /**
-     * The points every generation evaluates besides the population, fixed per configuration: TPA's
-     * two. The budget reserves them (break_conditions, restart_fits, fit_lambda_to_budget).
+     * The points a generation evaluates besides the population, at most; fixed per configuration:
+     * TPA's two. The budget reserves them in every generation (break_conditions, restart_fits,
+     * fit_lambda_to_budget), also in one that does not evaluate them (TPA after a generation whose
+     * elitist selection kept every parent, #179).
      */
     [[nodiscard]] size_t reserved_points() const;
 
