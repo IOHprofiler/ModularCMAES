@@ -525,6 +525,11 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   mean could start outside the box. Per coordinate: the midpoint for two finite bounds, 0 for two
   infinite bounds, and for one infinite bound 0 if the half-line holds it, else the finite bound
   moved inward by `sigma0`. `center` now follows `sigma0` too. Finite boxes are unchanged.
+* The warning of `get_configspace()` without `dim` named a line of modcma instead of the caller
+  (#193).
+* `CMakeLists.txt` asked for CMake 3.12, but the Python extension needs 3.18 (FindPython's
+  `Development.Module`), the version that the installation page gives; it now asks for 3.18
+  (#193).
 * Infinite bounds and integer variables in the box (#79). Results with finite bounds, and integer
   bounds on the integer variables, are unchanged.
   * A box with an infinite bound turned the bound correction off in every coordinate, also at the
