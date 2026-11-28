@@ -179,9 +179,10 @@ template <typename C, typename Saved = C> void def_pickle()
         nb::scope(cls),
         nb::name("__getstate__"),
         nb::is_method(),
-        "The state for pickle and copy: the bytes of the object's C++ serialization (format "
-        "described in the guide's page on saving and resuming a run), with the attributes of a "
-        "Python subclass.");
+        "The state for pickle and copy (#91): the bytes of the object's C++ serialization (the "
+        "format is described in the guide's page on saving and resuming a run), or (bytes, dict) "
+        "with the attributes of a Python subclass. TypeError when the object holds a module that "
+        "the library cannot save, such as a sampler defined in Python.");
     nb::cpp_function_def(
         [](C &self, nb::handle state) {
             nb::object data = nb::borrow(state), dict;
@@ -213,7 +214,7 @@ template <typename C, typename Saved = C> void def_pickle()
         nb::is_method(),
         nb::arg("state"),
         "Restore the object from a state of __getstate__ (pickle and copy). ValueError when the "
-        "state cannot be loaded: not a modcma state, written by a newer modcma, truncated or "
-        "corrupted.");
+        "state cannot be loaded: not a modcma state, written by a newer modcma, truncated, "
+        "corrupted, or the state of another class; TypeError when it is not bytes.");
 }
 } // namespace modcma_python

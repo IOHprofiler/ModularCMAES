@@ -1,7 +1,7 @@
 """
 Mutation: the sampling of a population and the step-size adaptation.
 
-The optimizer holds a `Strategy` subclass as `es.p.mutation`, selected by `Modules.ssa` (`options.StepSizeAdaptation`) and created anew at every restart. It holds the threshold convergence (`Modules.threshold_convergence`), the sequential selection (`Modules.sequential_selection`) and the sampler of the step sizes (`Modules.sample_sigma`). The step-size adaptations are described in de Nobel et al. (2021).
+The optimizer holds a `Strategy` subclass as `es.p.mutation`, selected by `Modules.ssa` (`options.StepSizeAdaptation`) and created anew at every restart. It holds the threshold convergence (`Modules.threshold_convergence`), the sequential selection (`Modules.sequential_selection`) and the sampler of the step sizes (`Modules.sample_sigma`). The step-size adaptations are described in de Nobel et al. (2021); `TPAInPlace` (TPA_INPLACE, new in 2.0) in its own docstring.
 """
 
 from typing import Annotated, overload
@@ -78,12 +78,12 @@ class ThresholdConvergence:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NoThresholdConvergence(ThresholdConvergence):
@@ -94,19 +94,21 @@ class NoThresholdConvergence(ThresholdConvergence):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class SequentialSelection:
     """
     Sequential selection: stop evaluating a population once it improves on the previous generation (`Modules.sequential_selection`).
 
-    The population is cut after individual i (0-based) when its objective value is better than the best of the previous generation (in the first generation of a run, never) and i >= mu * seq_cutoff_factor; with pairwise selection the factor is at least 2 and the cut falls after a complete pair. The updates use the evaluated individuals. Saves evaluations on functions where improvements are easy to find. Brockhoff et al. (2010).
+    The population is cut after individual i (0-based) when its objective value is better than the best of the previous generation (in the first generation of a run, never) and i >= floor(mu * seq_cutoff_factor); with pairwise selection the factor is at least 2 and the cut falls after a complete pair. The updates use the evaluated individuals. Saves evaluations on functions where improvements are easy to find. Brockhoff et al. (2010).
+
+    Create it as SequentialSelection(mirror, seq_cutoff_factor=1.0), with mirror the `Modules.mirrored` option; the optimizer creates it with the defaults. `NoSequentialSelection` (the module off) takes the same arguments.
     """
 
     @overload
@@ -119,7 +121,7 @@ class SequentialSelection:
         mirror : options.Mirror
             The mirrored sampling option; with `Mirror.PAIRWISE` the cutoff factor is at least 2.
         seq_cutoff_factor : float
-            The minimum number of evaluated individuals as a multiple of mu (default 1).
+            The population can stop after individual i >= floor(mu * seq_cutoff_factor) (0-based), so at least floor(mu * seq_cutoff_factor) + 1 individuals are evaluated (default 1).
         """
 
     @overload
@@ -151,17 +153,19 @@ class SequentialSelection:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NoSequentialSelection(SequentialSelection):
     """
     No sequential selection (the default): every individual of a population is evaluated.
+
+    Create it as NoSequentialSelection(mirror, seq_cutoff_factor=1.0); neither argument is used.
     """
 
     @overload
@@ -183,12 +187,12 @@ class NoSequentialSelection(SequentialSelection):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class SigmaSampler:
@@ -200,7 +204,7 @@ class SigmaSampler:
 
     def __init__(self, dimension: float) -> None:
         """
-        Create the sampler.
+        Create the sampler. It draws from the global generator (`set_seed`); the sampler of an optimizer draws from the optimizer's own.
 
         Parameters
         ----------
@@ -232,12 +236,12 @@ class SigmaSampler:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NoSigmaSampler(SigmaSampler):
@@ -252,17 +256,17 @@ class NoSigmaSampler(SigmaSampler):
         Parameters
         ----------
         dimension : float
-            The dimension d.
+            The dimension d (not used).
         """
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class Strategy:
@@ -347,7 +351,7 @@ class Strategy:
     @property
     def s(self) -> float:
         """
-        The smoothed success measure of TPA, MSR and PSR, whose exponential scales sigma (default 0).
+        The smoothed success measure of TPA, TPA_INPLACE, MSR and PSR (default 0): TPA multiplies sigma by exp(s), the others by exp(s / damps).
         """
 
     @s.setter
@@ -355,19 +359,19 @@ class Strategy:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class CSA(Strategy):
     """
     Cumulative step-size adaptation (`StepSizeAdaptation.CSA`, the default).
 
-    sigma *= exp(l), l = (cs / damps) (||ps|| / E||z|| - 1) clamped to [-1, 1] (as in pycma): sigma grows when the evolution path ps is longer than under random selection and shrinks when it is shorter. Hansen & Ostermeier (2001).
+    sigma *= exp(l), l = (cs / damps) (||ps|| / E||z|| - 1) clamped to [-1, 1] (as in pycma): sigma grows when the evolution path ps is longer than under random selection and shrinks when it is shorter. E||z|| is the expected length of a sample of the sampler (`Weights.expected_length_z`). By default cs = (mueff + 2) / (d + mueff + 5) and damps = 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs (Hansen 2016, Eqs. (44), (55)); modcma 1.1 and 1.2 used pycma's denominator d + mueff + 3 for cs (#138). Hansen & Ostermeier (2001).
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -388,19 +392,19 @@ class CSA(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class TPA(Strategy):
     """
     Two-point step-size adaptation (`StepSizeAdaptation.TPA`).
 
-    With every population (in its first batch) the two points m + 0.5 sigma_old dm and m - 0.5 sigma_old dm are evaluated: half the last step of the mean, sigma_old dm, with the step size that sampled it (Hansen, CMA-ES with Two-Point Step-Size Adaptation, 2008, Eqs. (8), (9), alpha = 0.5). s = (1 - cs) s + cs r, with r = -a_tpa when the point behind is better, a_tpa + b_tpa when the point ahead is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two evaluations per generation. A tie as in pycma. Before 2.0 the points were m +- sigma dm with the new sigma, about one step of the mean (#167). With a bound correction other than NONE both points move toward m by the same factor until both are in the box, so the test steps stay symmetric about m (Hansen 2008, Sec. 2.2; pycma's boundary handler moves each point on its own); `BoundCorrection.correct_point` corrects them only when m itself is outside the box.
+    With every population (in its first batch) the two points m + 0.5 sigma_old dm and m - 0.5 sigma_old dm are evaluated: half the last step of the mean, sigma_old dm, with the step size that sampled it (Hansen, CMA-ES with Two-Point Step-Size Adaptation, 2008, Eqs. (8), (9), alpha = 0.5). s = (1 - cs) s + cs r, with r = -a_tpa when the point behind is better, a_tpa + b_tpa when the point ahead is better and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s), with cs = 0.3 by default (Hansen 2008, Eqs. (10) to (13); `damps` is not used). Costs two evaluations per generation. A tie gives r = 0, as the sign of the rank difference in pycma; Hansen (2008, Eq. (10)) counts it as a success, which made sigma grow by 16 % after every restart (#78). Before 2.0 the points were m +- sigma dm with the new sigma, about one step of the mean (#167). With a bound correction other than NONE both points move toward m by the same factor until both are in the box, so the test steps stay symmetric about m (Hansen 2008, Sec. 2.2; pycma's boundary handler moves each point on its own); `BoundCorrection.correct_point` corrects them only when m itself is outside the box.
 
     With elitism (#179): after a generation whose (mu + lambda) selection kept every parent (none of the mu selected points is an offspring), r = -a_tpa and the two points are not evaluated: the mean did not move, so both would be m up to rounding, and their comparison by rounding made sigma diverge. The test of the mean shift of generation t is made in generation t + 1, and so is this failure. The budget still reserves the two points in that generation. No TPA source covers elitism: Hansen (2008) and Hansen, Atamna & Auger (2014, Algorithm 3) define TPA for comma selection, and pycma's CMA_elitist adds only the best solution so far, so the mean always moves. The rule follows the success rules of elitist ESs (Rechenberg's 1/5th rule; the (1+1)-CMA-ES, Igel, Suttorp & Hansen 2006), in which a generation without a successful offspring is a failure.
     """
@@ -430,14 +434,18 @@ class TPA(Strategy):
 
     @property
     def b_tpa(self) -> float:
-        """The offset added to r when the forward point is better (default 0)."""
+        """
+        The offset added to r when the forward point is better (default 0). Hansen (2008, Eq. (10)) adds his beta to the other case, r = -a_tpa + beta; with the default 0 the two agree.
+        """
 
     @b_tpa.setter
     def b_tpa(self, arg: float, /) -> None: ...
 
     @property
     def rank_tpa(self) -> float:
-        """The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0)."""
+        """
+        The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0); -a_tpa also after a generation whose elitist selection kept every parent.
+        """
 
     @rank_tpa.setter
     def rank_tpa(self, arg: float, /) -> None: ...
@@ -445,7 +453,7 @@ class TPA(Strategy):
     @property
     def sigma_old(self) -> float:
         """
-        The step size that sampled the last generation, before the update changed it: the test steps are 0.5 sigma_old dm (sigma0 at the start of a run).
+        The step size that sampled the last generation, before the update changed it: the test steps are 0.5 sigma_old dm. At the start of a run, the step size the run starts with (sigma0, or the step size of the restart).
         """
 
     @sigma_old.setter
@@ -453,12 +461,12 @@ class TPA(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class MSR(Strategy):
@@ -466,6 +474,8 @@ class MSR(Strategy):
     Median success rule (`StepSizeAdaptation.MSR`).
 
     With k the number of individuals better than the j-th best of the previous population, j = quantile * lambda (0-based, interpolated between its neighbours, as pycma): s = (1 - cs) s + cs (2 / lambda) (k - lambda / 2) and sigma *= exp(s / damps), with cs = 0.3 and damps = 2 - 2 / d (1 for d = 1) by default: sigma grows when the median offspring beats the j-th best of the previous generation. Ait ElHara, Auger & Hansen (2013).
+
+    lambda is the number of ranked individuals of each generation: fewer after sequential selection stopped it, and with PAIRWISE only the winners of the mirrored pairs (Auger et al. 2011, Alg. 1).
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -495,19 +505,19 @@ class MSR(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class PSR(Strategy):
     """
     Population success rule (`StepSizeAdaptation.PSR`).
 
-    The current and the previous population are ranked together; with z the difference of their summed ranks (previous minus current) divided by n^2, minus success_ratio: s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by default (Loshchilov 2014, Alg. 6). Equal values share their mean rank (mid-ranks; the paper does not say), so a tie counts for neither population; with elitism the parents are in both.
+    The n best individuals of the current and of the previous population are ranked together, n the smaller number of ranked individuals of the two (fewer than lambda after a stop of sequential selection; with PAIRWISE the winners of the mirrored pairs). With z the difference of their summed ranks (previous minus current) divided by n^2, minus success_ratio: s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by default (Loshchilov 2014, Alg. 6). Equal values share their mean rank (mid-ranks; the paper does not say), so a tie counts for neither population; with elitism the parents are in both.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -535,12 +545,12 @@ class PSR(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class XNES(Strategy):
@@ -570,19 +580,19 @@ class XNES(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class MXNES(Strategy):
     """
     A variant of the xNES step-size update on the mean step (`StepSizeAdaptation.MXNES`).
 
-    sigma *= exp((cs / d) (mueff ||dz||^2 - d)), with dz the weighted mean of the selected z: sigma grows when the mean step is longer than under random selection. m-xNES of Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules".
+    sigma *= exp((cs / d) (mueff ||dz||^2 - d)), with dz the weighted mean of the selected z (`Adaptation.dz`) and cs = 1 by default (Krause et al. 2017, Sec. 4.3, Table 3): sigma grows when the mean step is longer than under random selection. With UTILITY weights dz recombines all lambda z with their utilities, and mueff is theirs (`Weights.mueff_mean`). m-xNES of Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules".
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -603,12 +613,12 @@ class MXNES(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class LPXNES(Strategy):
@@ -636,19 +646,19 @@ class LPXNES(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class SR(Strategy):
     """
     The success rule of the (1+1)-CMA-ES (`StepSizeAdaptation.SR`; always used when lambda = 1).
 
-    sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the smoothed rate of successes (`es.p.stats.success_ratio`): a generation is a success when its best individual is better than the best of the run so far (with elitism, the parent). The target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).
+    sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the rate of successes, smoothed with weight 1/12 (`es.p.stats.success_ratio`): a generation is a success when its best individual is better than the best of the run so far (with elitism, the parent). The target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).
 
     The rule is designed for elitist selection, where the parent is the best point so far. Without elitism, the best of the run takes the parent's role: comparing with the previous generation's best instead would count a success about every other generation even at a good sigma, and sigma would diverge. For non-elitist selection see also `MSR`.
     """
@@ -671,19 +681,19 @@ class SR(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class SA(Strategy):
     """
     Self-adaptation of the step size (`StepSizeAdaptation.SA`).
 
-    Every individual samples its own step size sigma_i = sigma exp(n_i / sqrt(2 d)) (a `SigmaSampler` is always used; CMSA's tau = 1 / sqrt(2 d)); sigma is multiplied by the weighted geometric mean of the step sizes of the mu selected individuals divided by the geometric mean over the whole population (Beyer & Sendhoff 2008, with the correction of Ahrari et al. 2017). The step size of an individual is the geometric mean of its column of `pop.S`. With SA the default mu is lambda / 4.
+    Every individual samples its own step size sigma_i = sigma exp(n_i / sqrt(2 d)) (a `SigmaSampler` is always used; CMSA's tau = 1 / sqrt(2 d)); sigma is multiplied by the weighted geometric mean of the step sizes of the mu selected individuals (`Weights.positive`) divided by the geometric mean of the step sizes of all offspring of the generation, taken before elitism adds the parents (the CMSA-ES operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of Ahrari et al. 2017, as the framework paper describes). The step size of an individual is the geometric mean of its column of `pop.S`; a parent of elitism has the generation's sigma. With SA the default mu is lambda / 4.
     """
 
     def __init__(self, threshold_convergence: ThresholdConvergence, sequential_selection: SequentialSelection, sigma_sampler: SigmaSampler, sigma0: float) -> None:
@@ -704,21 +714,21 @@ class SA(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class TPAInPlace(Strategy):
     """
     Two-point step-size adaptation within the population (`StepSizeAdaptation.TPA_INPLACE`, #173).
 
-    pycma 4.6.0's CMAAdaptSigmaTPA (sigma_adaptation.py, evolution_strategy.py:2251-2254, 2575-2576), after Hansen, Atamna & Auger (2014), How to Assess Step-Size Adaptation Mechanisms in Randomised Search, Eq. (6) and Algorithm 3. From the second generation of a run on, the first two offspring are a mirrored pair along the last mean shift: z_1 = ||n|| A^-1 dm / ||A^-1 dm|| with n an ordinary sample of the sampler, z_2 = -z_1 (both at the mean when it did not move); they are part of the lambda offspring, so TPA_INPLACE needs no extra evaluations. Once the offspring are evaluated, z = (#{f < f_2} - #{f < f_1}) / (n - 1) over the n offspring (the parents of elitism not included), and s = (1 - cs) s + cs sign(z) |z|^0.5, sigma *= exp(s / damps), with cs = 0.3 and damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)) by default.
+    pycma 4.6.0's CMAAdaptSigmaTPA (sigma_adaptation.py, evolution_strategy.py:2251-2254, 2575-2576), after Hansen, Atamna & Auger (2014), How to Assess Step-Size Adaptation Mechanisms in Randomised Search, Eq. (6) and Algorithm 3. From the second generation of a run on (in a population of at least two), the first two offspring are a mirrored pair along the last mean shift: z_1 = ||n|| A^-1 dm / ||A^-1 dm|| with n an ordinary sample of the sampler, z_2 = -z_1 (both at the mean when it did not move); they are part of the lambda offspring, so TPA_INPLACE needs no extra evaluations. Once the offspring are evaluated, z = (#{f < f_2} - #{f < f_1}) / (n - 1) over the n offspring (the parents of elitism not included), and s = (1 - cs) s + cs sign(z) |z|^0.5, sigma *= exp(s / damps), with cs = 0.3 and damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)) by default.
 
-    Where pycma departs from the paper, and modcma follows pycma: |z|^0.5 instead of z; the damping (the paper: sqrt(d), tuned on the sphere with the default lambda); and the update in the first generation of a run, from the ranks of two ordinary samples (the paper updates from the second generation on). A^-1 dm costs a triangular solve with most matrix adaptations; MATRIX keeps M^-1 up to date for it, as with elitism; NATURAL_GRADIENT inverts A every generation (O(d^3)). With sampled step sizes the second point takes the step size of the first; bound correction and repelling treat the two as a pair, as a mirrored pair.
+    Where pycma departs from the paper, and modcma follows pycma: |z|^0.5 instead of z; the damping (the paper: sqrt(d), tuned on the sphere with the default lambda); and the update in the first generation of a run, from the ranks of two ordinary samples (the paper updates from the second generation on). A^-1 dm costs O(d^2) with most matrix adaptations (a triangular solve, or B^T and D); MATRIX keeps M^-1 up to date for it, as with elitism; NATURAL_GRADIENT inverts A every generation (O(d^3)). With sampled step sizes the second point takes the step size of the first; bound correction and repelling treat the two as a pair, as a mirrored pair.
 
     With elitism (#179): after a generation whose (mu + lambda) selection kept every parent (none of the mu selected points is an offspring), the mean did not move, and the pair would lie along its rounding noise: the generation samples ordinary offspring instead, and z = -1. The pair for the mean shift of generation t is placed in generation t + 1, and so is this failure. No source covers elitism: Hansen, Atamna & Auger (2014, Algorithm 3) define TPA for the (mu/mu, lambda)-ES, and pycma's CMA_elitist adds only the best solution so far, so its mean always moves. The rule follows the success rules of elitist ESs (Rechenberg's 1/5th rule; the (1+1)-CMA-ES, Igel, Suttorp & Hansen 2006).
     """
@@ -750,10 +760,10 @@ class TPAInPlace(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """

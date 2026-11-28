@@ -84,23 +84,28 @@ void define_selection(nb::module_ &main)
         "Elitism",
         "Elitist (mu + lambda) selection: the parents compete with the offspring.\n\n"
         "Selected by `Modules.elitist = True` (always on for a (1+1)-ES); "
-        "`NoElitism` otherwise. From the second generation on, the mu parents (the mu best "
-        "of the previous selection, the first columns of `es.p.old_pop`) are appended to the "
-        "offspring before sorting, so the best points found so far survive. Their y and z "
-        "are recomputed in the current distribution with the current step size, "
-        "y = (x - m) / sigma and z = A^-1 y, as for a repaired point (the framework paper, "
-        "Sec. 4.1). Can speed up convergence on unimodal functions, at the cost of "
-        "diversity.")
+        "`NoElitism` otherwise. From the second generation of a run on, the parents (the mu "
+        "best of the previous selection, the first columns of `es.p.old_pop`; not the losers "
+        "of pairwise selection, nor points with f = +inf) are appended to the offspring before "
+        "sorting, so the best points found so far survive. Their y and z are recomputed in the "
+        "current distribution with the current step size, y = (x - m) / sigma and z = A^-1 y, "
+        "as for a repaired point (the framework paper, Sec. 4.1); integer variables keep their "
+        "lower bound on the step size. Not in the (1+1)-ES (`Settings.one_plus_one`): its "
+        "parent keeps the y and z it was sampled with. The selection keeps lambda of the "
+        "mu + lambda points; the dropped ones stay after the population for the active update "
+        "(`Population.n_pool`, #161). Can speed up convergence on unimodal functions, at the "
+        "cost of diversity.")
         .def(nb::init<>(), "Create the elitist selection.")
         .def("__call__",
              &Elitsm::operator(),
              nb::arg("parameters"),
-             "Append the mu parents to the current population (from the second generation "
-             "on).\n\n"
+             "Append the parents (at most mu) to the current population, with y and z "
+             "recomputed (from the second generation of a run on).\n\n"
              "Parameters\n"
              "----------\n"
              "parameters : Parameters\n"
-             "    The state of the optimizer (`es.p`); its `pop` is changed in place.");
+             "    The state of the optimizer (`es.p`); its `pop` is changed in place, and the "
+             "step sizes, y and z of the parents in `old_pop`.");
 
     nb::class_<NoElitsm, Elitsm>(
         m, "NoElitism", "No elitism, (mu, lambda) selection: only the offspring are selected "
@@ -125,8 +130,9 @@ void define_selection(nb::module_ &main)
                          "follow them, sorted by f, with their real values "
                          "(`Population.n_ranked`). So the two mirrored steps do not cancel each "
                          "other in the recombination, and the losers get no negative weights in "
-                         "the active update. Settings makes lambda even with PAIRWISE. Before "
-                         "2.0 the losers got f = +inf (#75).")
+                         "the active update. The Settings constructor makes lambda0 even with "
+                         "PAIRWISE, and turns PAIRWISE into NONE for the (1+1)-ES, lambda0 = 1 "
+                         "(#136). Before 2.0 the losers got f = +inf (#75).")
         .def(nb::init<>(), "Create the pairwise selection.")
         .def("sort",
              &Pairwise::sort,
@@ -185,15 +191,18 @@ void define_selection(nb::module_ &main)
                          "`select` applies `elitism` (the parents join the offspring), sorts "
                          "the population with `pairwise` (by objective value; with "
                          "`Mirror.PAIRWISE` the losers of the mirrored pairs last), keeps the "
-                         "first lambda and updates `es.p.stats` (the best solution and the mean "
-                         "objective value).")
+                         "first lambda (with elitism the dropped points of the pool stay after "
+                         "them, `Population.n_pool`, #161) and updates `es.p.stats`: the best "
+                         "solutions (with a bound correction, only a point in the box becomes "
+                         "`global_best`, #168), the mean objective value and `success_ratio` (a "
+                         "success: the best of the generation beats the best of the run).")
         .def(nb::init<parameters::Modules>(),
              nb::arg("modules"),
              "Create the selection that the modules ask for.\n\n"
              "Parameters\n"
              "----------\n"
              "modules : Modules\n"
-             "    The modules; `mirrored` and `elitist` choose `pairwise` and `elitsm`.")
+             "    The modules; `mirrored` and `elitist` choose `pairwise` and `elitism`.")
         .def("select",
              &Strategy::select,
              nb::arg("parameters"),
@@ -202,8 +211,8 @@ void define_selection(nb::module_ &main)
              "----------\n"
              "parameters : Parameters\n"
              "    The state of the optimizer (`es.p`); `pop` is sorted (best first; with "
-             "PAIRWISE the losers of the pairs last) and cut to lambda individuals, `stats` is "
-             "updated.")
+             "PAIRWISE the losers of the pairs last) and cut to at most lambda individuals "
+             "(`pop.n_pool`: the size of the pool before the cut), `stats` is updated.")
         .def_rw("pairwise",
                 &Strategy::pairwise,
                 "The pairwise selection: `Pairwise` with `Mirror.PAIRWISE`, `NoPairwise` "
@@ -258,8 +267,8 @@ void define_center_placement(nb::module_ &main)
         "Center placement: where the mean of the search distribution is placed at a restart.\n\n"
         "The optimizer holds one as `es.p.center_placement`, selected by "
         "`Modules.center_placement` (`options.CenterPlacement`). It is applied at every restart; "
-        "the first run starts at `Settings.x0`, or at the center of the bounds when x0 is not "
-        "given.\n\n"
+        "the first run starts at `Settings.x0`, or at `Settings.center` (the center of the box; "
+        "see it for infinite bounds) when x0 is not given.\n\n"
         "UNIFORM, NOVELTY_WEIGHTED and MAXIMIN_TABOO sample in the box [lb, ub]. In a coordinate "
         "with an infinite bound they sample uniformly in [x0 - 2 sigma0, x0 + 2 sigma0], with x0 "
         "`Settings.x0` or `Settings.center`; the interval is shifted to start at a finite lb, or "
@@ -293,8 +302,8 @@ void define_center_placement(nb::module_ &main)
         .def(nb::init<>(), "Create the placement.");
     nb::class_<Center, Placement>(m,
                                   "Center",
-                                  "The mean is `Settings.center`: the midpoint (lb + ub) / 2 of a finite "
-                                  "coordinate, with the rule for infinite bounds there "
+                                  "The mean is `Settings.center`: the midpoint (lb + ub) / 2 of "
+                                  "a finite coordinate, with the rule for infinite bounds there "
                                   "(`CenterPlacement.CENTER`).")
         .def(nb::init<>(), "Create the placement.");
     nb::class_<MaximinTaboo, Placement>(
@@ -316,7 +325,8 @@ void define_center_placement(nb::module_ &main)
         "Of 512 uniform random points in the box, one is drawn with probability proportional "
         "to the square of the distance to its nearest taboo point (in coordinates divided by the "
         "widths of the box); a uniform random point while the archive is empty. For use with "
-        "repelling restarts; needs finite bounds.")
+        "repelling restarts. In a coordinate with an infinite bound, the candidates are drawn in "
+        "x0 +- 2 sigma0 and the distances divided by 4 sigma0 (see the module).")
         .def(nb::init<>(), "Create the placement.");
 
     // Pickling and copying (#91)
@@ -350,12 +360,19 @@ void define_repelling(nb::module_ &main)
         "current search distribution; EUCLIDEAN; ARCHIVED: `metric`) and divided by the current "
         "sigma. A sample is "
         "rejected when this distance is less than shrinkage^attempts * radius, with attempts "
-        "the number of samples rejected so far in the population.")
+        "the number of samples rejected so far in the population.\n\n"
+        "Create it as TabooPoint(solution, radius, metric=empty), whose radius has no bounds "
+        "(as `CoverageRepelling` does), or TabooPoint(solution, radius, min_radius, "
+        "max_radius, metric=empty), whose radius stays in [min_radius, max_radius] (as "
+        "`AdaptiveRepelling` does). solution is the optimum (a `Solution`), the radii are in "
+        "units of sigma, and metric is A^-1 of the run that found the point, scaled to unit "
+        "determinant, for `RepellingMetric.ARCHIVED` (empty for the other metrics).")
         .def(nb::init<const Solution &, Float, const Matrix &>(),
              nb::arg("solution"),
              nb::arg("radius"),
              nb::arg("metric") = Matrix(),
-             "Create a taboo point with an unbounded radius (as `CoverageRepelling` does).\n\n"
+             "Create a taboo point whose radius has no bounds (min_radius 0, max_radius inf; as "
+             "`CoverageRepelling` does).\n\n"
              "Parameters\n"
              "----------\n"
              "solution : Solution\n"
@@ -492,11 +509,14 @@ void define_repelling(nb::module_ &main)
         "of samples.\n\n"
         "Before each population the archive is sorted by criticality (`prepare_sampling`); "
         "each sample is tested against the points with criticality >= 0.01 (`is_rejected`) and "
-        "sampled again when one rejects it. After a restart, the better of the last mean and "
-        "the best solution of the run is compared with the archive by hill-valley tests (the "
-        "optimizer evaluates their points, one at a time); the subclasses add it as a new "
-        "taboo point or update the point "
-        "whose basin it shares. The base class does not add points.")
+        "sampled again when one rejects it (a mirrored pair as one). At a restart the "
+        "candidate, the better of the run's evaluated center of mass and its best solution, is "
+        "compared with the archive by hill-valley tests (Maree et al. 2018): 10 points on the "
+        "segment from a taboo point to the candidate, which the optimizer evaluates one at a "
+        "time; a point worse than both ends separates the two basins. The tests stop early when "
+        "the next point would leave too little budget for the first generation of the new run. "
+        "The subclasses add the candidate as a new taboo point or update the point whose basin "
+        "it shares. The base class runs no tests and adds no points.")
         .def(nb::init<>(), "Create a repelling with an empty archive.")
         .def("is_rejected",
              &Repelling::is_rejected,
@@ -560,8 +580,9 @@ void define_repelling(nb::module_ &main)
         "bound), sigma0 the step size of the settings and n the number of runs so far, so that "
         "points found more often repel more (de Nobel et al. 2024, Eqs. (10), (11)). The "
         "distance to a point is divided by the current sigma (Eq. (8)), so r is in units of "
-        "sigma, and sigma0^d makes it the volume in sigma0 units: the taboo regions cover "
-        "1 / coverage of the box.\n\n"
+        "sigma, and sigma0^d makes it the volume in sigma0 units: at sigma = sigma0, with the "
+        "Euclidean distance, the balls of the archive have a total volume of S / coverage when "
+        "their n_rep sum to n.\n\n"
         "sigma0 is the problem's (`Settings.sigma0`), as Eq. (10) has it, also in BIPOP's small "
         "runs, which start at sigma0 10^(-2U). r grows with the box width over sigma0: a large "
         "box with a small sigma0 gives a radius of many sigma, which rejects every sample near "
@@ -580,18 +601,19 @@ void define_repelling(nb::module_ &main)
         "Experimental: modcma's own work in progress, without a published source. In the "
         "experiment of #158 (BBOB f21 and f22, d = 5 to 40, RESTART and IPOP, 240 runs) it "
         "solved 99 runs, against 107 without repelling and 144 with COVERAGE.\n\n"
-        "A new taboo point gets the radius initial_radius_factor / sqrt(d), bounded to "
+        "A new taboo point gets the radius initial_radius_factor / sqrt(d) and the bounds "
         "[min_radius_factor, max_radius_factor] / sqrt(d). When a run ends in the basin of a "
         "point again (the first one in the archive that shares it), its radius grows by "
         "exp(grow_eta * min(w, max_waste_ratio)), with w the evaluations of that run divided by "
-        "their running average (`average_restart_evaluations`: every run counted from the "
-        "previous restart, the first from the start, also a run without a finite result; the "
-        "average starts from the first run's length. Before 2.0 the first run counted as one "
-        "evaluation and the average started at 1, #121). After each population, the radius of "
-        "a critical point shrinks "
-        "by shrink_factor when the share of rejected samples of the population exceeds "
+        "their running average, which includes that run (`average_restart_evaluations`: every "
+        "run counted from the previous restart, the first from the start, also a run without a "
+        "finite result; the average starts from the first run's length. Before 2.0 the first "
+        "run counted as one evaluation and the average started at 1, #121). The point also "
+        "keeps the better solution. After each population, the radius of a critical point "
+        "shrinks by shrink_factor when the share of rejected samples of the population exceeds "
         "max_rejection_rate and the point's own rejection rate exceeds "
-        "local_max_rejection_rate (after at least min_checks_before_local_shrink checks).")
+        "local_max_rejection_rate (after at least min_checks_before_local_shrink checks). "
+        "A radius that grows or shrinks is clamped to [min_radius, max_radius] of its point.")
         .def(nb::init<>(), "Create an adaptive repelling with an empty archive.")
         .def("initial_radius",
              &AdaptiveRepelling::initial_radius,
@@ -807,9 +829,10 @@ void define_matrix_adaptation(nb::module_ &main)
         "Metric",
         "The metric of a search distribution: its shape without the step size, from "
         "`Adaptation.metric()`.\n\n"
-        "A sample is x = m + sigma * B (d * z), z ~ N(0, I), so the samples have the covariance "
-        "sigma^2 C with C = B diag(d)^2 B^T: the one-sigma ellipsoid around m has the semi-axes "
-        "sigma * d_i along the columns B_i.\n\n"
+        "The samples are distributed as x = m + sigma * B (d * z), z ~ N(0, I), whatever factor "
+        "of C the adaptation samples with, so they have the covariance sigma^2 C with "
+        "C = B diag(d)^2 B^T: the one-sigma ellipsoid around m has the semi-axes sigma * d_i "
+        "along the columns B_i.\n\n"
         "It describes the distribution that is sampled. `CovarianceAdaptation` and "
         "`CovarianceNoEigvAdaptation` update C every generation but decompose it only every "
         "`es.p.weights.lazy_update_interval` generations, and sample with the last decomposition, "
@@ -823,8 +846,8 @@ void define_matrix_adaptation(nb::module_ &main)
             "d",
             [](const MetricCopy &metric) { return metric.d; },
             "The axis lengths, the square roots of the eigenvalues of C (pycma's D), shape (d,), "
-            "in the order of the columns of `B`. For the diagonal adaptations (SEPARABLE, NONE) in "
-            "the order of the coordinates.")
+            "in the order of the columns of `B`: ascending, the order of the eigensolver. For the "
+            "diagonal adaptations (SEPARABLE, NONE) in the order of the coordinates.")
         .def_prop_ro(
             "B",
             [](const MetricCopy &metric) { return metric.B; },
@@ -839,7 +862,7 @@ void define_matrix_adaptation(nb::module_ &main)
             [](const MetricCopy &metric) {
                 return matrix_adaptation::Metric::of(metric).eigenvalues();
             },
-            "The eigenvalues of C, d**2, in the order of `d`.\n\n"
+            "The eigenvalues of C, d^2, in the order of `d`.\n\n"
             "Returns\n"
             "-------\n"
             "numpy.ndarray\n"
@@ -848,14 +871,15 @@ void define_matrix_adaptation(nb::module_ &main)
             "inv_C",
             [](const MetricCopy &metric) { return matrix_adaptation::Metric::of(metric).inv_C(); },
             "C^-1 = B diag(d)^-2 B^T, computed on call (O(d^3); a diagonal matrix when C is "
-            "diagonal, where 1 / d**2 is the cheap form).\n\n"
+            "diagonal, where 1 / d^2 is the cheap form).\n\n"
             "On a convex-quadratic function with Hessian H, CMA-ES adapts C towards H^-1 up to a "
             "constant factor: Hansen (2016), The CMA Evolution Strategy: A Tutorial, Section 0.4, "
             "\"we assume that the optimal covariance matrix equals to the inverse Hessian matrix, "
             "up to a constant factor\" (an assumption with strong empirical support; \"a rigorous "
             "proof is missing\"). pycma uses the same relation "
-            "(`inverse_hessian_scalar_correction` fits the factor). So C^-1 estimates the shape of the Hessian, not its scale; sigma "
-            "does not give the scale, it follows the distance to the optimum. The relation needs a "
+            "(`inverse_hessian_scalar_correction` fits the factor). So C^-1 estimates the shape of "
+            "the Hessian, not its scale; sigma does not give the scale, it follows the distance to "
+            "the optimum. The relation needs a "
             "full matrix: SEPARABLE can only match a diagonal Hessian, and NONE keeps C = I.\n\n"
             "Returns\n"
             "-------\n"
@@ -889,7 +913,12 @@ void define_matrix_adaptation(nb::module_ &main)
         "and the sampling transformation y = A z.\n\n"
         "Each generation, after selection, `adapt_evolution_paths` updates dm, dz and the "
         "paths, the step-size adaptation (`es.p.mutation`) updates sigma, and `adapt_matrix` "
-        "updates the matrix. `compute_y` and `invert_y` apply A and A^-1.")
+        "updates the matrix. `compute_y` and `invert_y` apply A and A^-1.\n\n"
+        "The matrices start at the identity. With `Settings.C0` the optimizer starts every run "
+        "from a factor F of C0 instead, F F^T = C0 (#89): the eigendecomposition for COVARIANCE, "
+        "the lower Cholesky factor for COVARIANCE_NO_EIGV, CHOLESKY and CMSA, the symmetric "
+        "square root C0^1/2 for MATRIX and NATURAL_GRADIENT, and the square roots of the "
+        "diagonal of C0 for SEPARABLE; NONE rejects C0.")
         .def_rw("m",
                 &Adaptation::m,
                 "The mean (center) of the search distribution, shape (d,).")
@@ -904,9 +933,11 @@ void define_matrix_adaptation(nb::module_ &main)
                 "size with sample_sigma, SA and LPXNES.")
         .def_rw("ps",
                 &Adaptation::ps,
-                "The evolution path of the step size (conjugate evolution path), shape (d,), "
-                "used by CSA: ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) dz (C^-1/2 dm in "
-                "`CovarianceAdaptation`). Starts at zeros, also after a restart.")
+                "The evolution path of the step size (conjugate evolution path), shape (d,): "
+                "ps = (1 - cs_path) ps + sqrt(cs_path (2 - cs_path) mueff_mean) dz, with the rates "
+                "of `es.p.weights` (C^-1/2 dm instead of dz in `CovarianceAdaptation`, not in its "
+                "subclass `CovarianceNoEigvAdaptation`). Read by CSA, by h_sigma (`hs`) and by the "
+                "rank-one term of MATRIX. Starts at zeros, also after a restart.")
         .def_rw("dz",
                 &Adaptation::dz,
                 "The weighted mean of the z of the mu selected individuals, sum_i w_i z_i "
@@ -917,19 +948,21 @@ void define_matrix_adaptation(nb::module_ &main)
                 &Adaptation::coordinate_wise_variances,
                 "The variance of each coordinate under the sampling transformation, the "
                 "diagonal of C = A A^T (without sigma^2), shape (d,). Used for the lower bound on "
-                "the step size of integer variables; a NaN or inf in it fails the matrix "
-                "update.")
+                "the step size of integer variables, and by the restart criteria TolX and "
+                "NoEffectCoord (and MaxSigma, MaxDSigma and MinDSigma where `keeps_metric()` is "
+                "False, #80); a NaN or inf in it fails the matrix update.")
         .def(
             "metric",
             [](Adaptation &a) { return a.metric().copy(); },
             "The metric of the sampled distribution: its axis lengths d and eigenvectors B, "
             "without sigma (see `Metric`).\n\n"
-            "`CovarianceAdaptation`, `SeparableAdaptation` and `NoAdaptation` keep it: it costs "
-            "nothing. The others decompose C = F F^T of their sampling factor F (M, or A) when "
-            "asked, O(d^3), and reuse the result while `factor_version` is unchanged; nothing is "
-            "computed unless something asks. A value written from Python to their matrices is seen "
-            "after the next change of the factor (an update or a restart). NaN when the "
-            "factor is not finite.\n\n"
+            "`CovarianceAdaptation` (not its subclass `CovarianceNoEigvAdaptation`), "
+            "`SeparableAdaptation` and `NoAdaptation` keep it: it costs nothing. The others "
+            "decompose C = F F^T of their sampling factor F (M, or A; CMSA its C) when asked, "
+            "O(d^3), and reuse the result while `factor_version` is unchanged; nothing is computed "
+            "unless something asks. A value written from Python to their matrices is seen after "
+            "the next change of the factor (an update or a restart). NaN when the factor is not "
+            "finite or the eigensolver fails.\n\n"
             "Returns\n"
             "-------\n"
             "Metric\n"
@@ -939,12 +972,17 @@ void define_matrix_adaptation(nb::module_ &main)
              "Whether `metric()` costs nothing: True for `CovarianceAdaptation` (not "
              "COVARIANCE_NO_EIGV), `SeparableAdaptation` and `NoAdaptation`, which keep it up to "
              "date; False for the others, which decompose their matrix on request, O(d^3).\n\n"
-             "The restart criteria ConditionC and NoEffectAxis read the metric every generation; "
-             "they are created by default only when this is True.")
+             "By default the restart criteria read the metric only where this is True (#80). "
+             "ConditionC and NoEffectAxis are created only then. MaxSigma, MaxDSigma and "
+             "MinDSigma take the longest and the shortest axis from the metric then, and "
+             "otherwise from the diagonal of C: the square roots of the largest and the smallest "
+             "entry of `coordinate_wise_variances`.")
         .def_ro("factor_version",
                 &Adaptation::factor_version,
                 "A counter increased wherever the sampling factor changes (an update of the "
-                "matrix, a decomposition, a restart): `metric()` recomputes only when it changed.")
+                "matrix, a decomposition, a restart, the start from `Settings.C0`): `metric()` "
+                "recomputes only when it changed. A write to the matrices from Python does not "
+                "increase it.")
         .def("adapt_evolution_paths",
              &Adaptation::adapt_evolution_paths,
              nb::arg("pop"),
@@ -956,7 +994,7 @@ void define_matrix_adaptation(nb::module_ &main)
              "Computes dm = (m - m_old) / sum_i w_i S_i (per coordinate, over the mu best) and "
              "dz = sum_i w_i z_i over the mu "
              "best (every point, with the utilities of `RecombinationWeights.UTILITY`), then "
-             "the update of the subclass (ps, and pc where there is one). Called by "
+             "the update of the subclass, `adapt_evolution_paths_inner`. Called by "
              "`es.adapt()` before the step-size and matrix updates.\n\n"
              ADAPT_PARAMS_DOC "\n"
              "mu : int\n"
@@ -967,9 +1005,10 @@ void define_matrix_adaptation(nb::module_ &main)
              nb::arg("weights"),
              nb::arg("stats"),
              nb::arg("settings"),
-             "The update of the evolution paths of the subclass (ps, and pc "
-             "where there is one), without recomputing dm and dz; the second "
-             "part of `adapt_evolution_paths`.\n\n"
+             "The update of the evolution paths of the subclass (ps, and h_sigma (`hs`) and pc "
+             "where there are), without recomputing dm and dz; the second part of "
+             "`adapt_evolution_paths`. `NaturalGradientAdaptation` computes its natural gradient "
+             "here (`compute_gradients`).\n\n"
              ADAPT_PARAMS_DOC)
         .def("adapt_matrix",
              &Adaptation::adapt_matrix,
@@ -1002,9 +1041,10 @@ void define_matrix_adaptation(nb::module_ &main)
         .def("restart",
              &Adaptation::restart,
              nb::arg("settings"),
-             "Reset the distribution for a restart: m = `settings.x0` (`settings.center`, the "
-             "center of the bounds, when it is not given), the paths and the matrices to their "
-             "initial values. The center placement sets m afterwards.\n\n"
+             "Reset the distribution for a restart: m = `settings.x0` (`settings.center` when it "
+             "is not given), the paths to zero and the matrices to the identity. The optimizer "
+             "then starts the matrix from `Settings.C0` when it is given (every run starts from "
+             "it, #89), and the center placement sets m.\n\n"
              "Parameters\n"
              "----------\n"
              "settings : Settings\n"
@@ -1064,6 +1104,8 @@ void define_matrix_adaptation(nb::module_ &main)
              &Adaptation::invert_y,
              nb::arg("yi"),
              "The sample z = A^-1 y of a step y, the inverse of `compute_y`.\n\n"
+             "`MatrixAdaptation` and `NaturalGradientAdaptation` first compute their inverse "
+             "from the matrix when it is out of date (O(d^3), see `MatrixAdaptation.M_inv`).\n\n"
              "Parameters\n"
              "----------\n"
              "yi : numpy.ndarray\n"
@@ -1088,7 +1130,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "No matrix adaptation: only the mean and the step size are adapted, A = I "
         "(`MatrixAdaptationType.NONE`).\n\n"
         "The cheapest option, O(d lambda) per generation; for well-conditioned (sphere-like) "
-        "functions, or as a baseline. Settings switches `Modules.active` off with it.");
+        "functions, or as a baseline. Settings switches `Modules.active` off with it, and "
+        "rejects `Settings.C0`.");
     adaptation_init(none);
     none.def(
         "__repr__",
@@ -1110,7 +1153,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "elitism the worst points of the (mu + lambda) pool, #161), and is "
         "decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every "
         "generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = "
-        "1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The "
+        "1 / (10 d (c1 + cmu)) generations (with the default settings every generation up to "
+        "d = 82). The "
         "eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the "
         "rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the "
         "step-size adaptation is not CSA, also for lambda0 = 1, which runs SR (unless "
@@ -1124,40 +1168,50 @@ void define_matrix_adaptation(nb::module_ &main)
                 "start).")
         .def_rw("d",
                 &CovarianceAdaptation::d,
-                "The square roots of the eigenvalues of C (the standard deviations along the "
-                "principal axes), shape (d,), in the order of the columns of B (ones at the "
-                "start). With B, the `metric()`. In `CovarianceNoEigvAdaptation` filled only by "
-                "`metric()`.")
+                "The square roots of the eigenvalues of C at the last decomposition (the standard "
+                "deviations along the principal axes), shape (d,), in the order of the columns of "
+                "B (ones at the start without `Settings.C0`). With B, the `metric()`. In "
+                "`CovarianceNoEigvAdaptation` filled only by `metric()`.")
         .def_rw("B",
                 &CovarianceAdaptation::B,
-                "The eigenvectors of C as columns, shape (d, d) (the identity at the start). In "
-                "`CovarianceNoEigvAdaptation` filled only by `metric()`.")
+                "The eigenvectors of C at the last decomposition as columns, shape (d, d) (the "
+                "identity at the start without `Settings.C0`). In `CovarianceNoEigvAdaptation` "
+                "filled only by `metric()`.")
         .def_rw("C",
                 &CovarianceAdaptation::C,
                 "The covariance matrix (without sigma^2), symmetric, shape (d, d) (the identity "
-                "at the start).")
+                "at the start, or `Settings.C0`).")
         .def_rw("A",
                 &CovarianceAdaptation::A,
                 "The sampling matrix, y = A z, shape (d, d): B diag(d) (the lower triangular "
                 "Cholesky factor of C in `CovarianceNoEigvAdaptation`).")
         .def_rw("hs",
                 &CovarianceAdaptation::hs,
-                "The indicator h_sigma: False when ||ps|| is large (the step size is growing "
-                "fast), which stalls the update of pc; True otherwise. With "
-                "`StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False "
-                "also drops the negative weights of the generation's update (#175).")
+                "The indicator h_sigma (Hansen 2016, App. A, symbols of Fig. 6): False when "
+                "||ps|| / sqrt(1 - (1 - cs_path)^(2 (g + 1))), with g the generation of the run, "
+                "reaches `es.p.weights.expected_length_ps` = (1.4 + 2 / (d + 1)) E||z||: the step "
+                "size is far too small. False stalls the update of pc, and the decay of C "
+                "compensates the variance that pc loses (see `adapt_covariance_matrix`); True "
+                "otherwise, and always in the (1+1)-ES. With `StepSizeAdaptation.XNES` and "
+                "`Modules.active` (not with UTILITY weights), False also drops the negative "
+                "weights of the generation's update (#175).")
         .def("adapt_covariance_matrix",
              &CovarianceAdaptation::adapt_covariance_matrix,
              nb::arg("weights"),
              nb::arg("modules"),
              nb::arg("population"),
              nb::arg("mu"),
-             "Update C with the rank-one (pc) and rank-mu (selected steps) updates.\n\n"
+             "Update C with the rank-one (pc) and rank-mu (selected steps) updates: "
+             "C <- (1 + c1 delta(h_sigma) - c1 - cmu sum(w)) C + c1 pc pc^T + "
+             "cmu sum_i v_i y_i y_i^T, with delta(h_sigma) = (1 - h_sigma) cc (2 - cc), sum(w) "
+             "over the weights w_i, and v_i the weights after the rescaling below (Hansen 2016, "
+             "Eqs. (46), (47)).\n\n"
              "With `modules.active` the whole population is used, the negative weights of the "
-             "worst steps rescaled by d / ||C^-1/2 y_i||^2 (Hansen 2016, eq. 46); otherwise "
-             "the mu best. With elitism (`population.n_pool`) the negative weights go to the "
-             "points that the selection dropped, the worst of the (mu + lambda) pool (#161). "
-             "Does not decompose C.\n\n"
+             "worst steps rescaled by d / ||C^-1/2 y_i||^2 (Hansen 2016, Eq. (46)); otherwise "
+             "the mu best. With elitism (`population.n_pool`) the negative weights go "
+             "to the points that the selection dropped, the worst of the (mu + lambda) pool "
+             "(#161). With `StepSizeAdaptation.XNES` (not with UTILITY weights) a generation with "
+             "h_sigma = 0 has no negative weights (#175). Does not decompose C.\n\n"
              "Parameters\n"
              "----------\n"
              "weights : Weights\n"
@@ -1171,23 +1225,26 @@ void define_matrix_adaptation(nb::module_ &main)
         .def("perform_eigendecomposition",
              &CovarianceAdaptation::perform_eigendecomposition,
              nb::arg("stats"),
-             "Decompose C = B diag(d)^2 B^T and set A = B diag(d).\n\n"
+             "Decompose C = B diag(d)^2 B^T and set A = B diag(d), O(d^3).\n\n"
              "Uses Eigen or LAPACK (dsyevd, dsyevr) as `constants.eigen_solver` says. In "
-             "`CovarianceNoEigvAdaptation`: the Cholesky factorization C = A A^T instead.\n\n"
+             "`CovarianceNoEigvAdaptation`: the Cholesky factorization C = A A^T instead. "
+             "Increases `factor_version`.\n\n"
              "Parameters\n"
              "----------\n"
              "stats : Settings\n"
-             "    The settings (only `verbose` is used).\n\n"
+             "    The settings; only `verbose` is used (the argument keeps its name of 1.x).\n\n"
              "Returns\n"
              "-------\n"
              "bool\n"
-             "    False when the decomposition fails or gives a negative or non-finite "
-             "eigenvalue.")
+             "    False when the decomposition fails or gives an eigenvalue that is not "
+             "positive or not finite (in `CovarianceNoEigvAdaptation`: when the factorization "
+             "fails).")
         .def("adapt_ps",
              &CovarianceAdaptation::adapt_ps,
              nb::arg("weights"),
-             "Update ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) C^-1/2 dm (with dz instead of "
-             "C^-1/2 dm in `CovarianceNoEigvAdaptation`).\n\n"
+             "Update ps = (1 - cs_path) ps + sqrt(cs_path (2 - cs_path) mueff_mean) C^-1/2 dm, "
+             "with C^-1/2 = B diag(d)^-1 B^T of the last decomposition (dz instead of C^-1/2 dm "
+             "in `CovarianceNoEigvAdaptation`).\n\n"
              "Parameters\n"
              "----------\n"
              "weights : Weights\n"
@@ -1210,29 +1267,34 @@ void define_matrix_adaptation(nb::module_ &main)
         "SeparableAdaptation",
         "Separable CMA-ES: a diagonal covariance matrix (`MatrixAdaptationType.SEPARABLE`).\n\n"
         "Only the d variances are learned, with the rank-one and rank-mu updates of CMA-ES "
-        "applied per coordinate, with pycma's separable learning rates (c1_sep, cmu_sep: see "
-        "`Weights.c1`, `Weights.cmu`); samples are y = d * z. With `Modules.active` the "
-        "negative weights are multiplied by d / sum_j (y_ij / d_j)^2, the Mahalanobis length in "
-        "the diagonal C, as in pycma. O(d lambda) per generation: for separable functions, and "
-        "for high dimension, where a full matrix is slow to learn. Ros & Hansen (2008).");
+        "(Hansen 2016, Eq. (47)) applied per coordinate, with pycma's separable learning rates "
+        "(c1_sep, cmu_sep: see `Weights.c1`, `Weights.cmu`); samples are y = d * z. With "
+        "`Modules.active` the negative weights are in the sum of the decay, and are multiplied "
+        "by d / sum_j (y_ij / d_j)^2, d over the squared Mahalanobis length of the step in the "
+        "diagonal C, as in pycma (GaussDiagonalSampler.update; #73). O(d lambda) per "
+        "generation: for separable functions, and for high dimension, where a full matrix is "
+        "slow to learn. Ros & Hansen (2008).");
     adaptation_init(separable);
     separable
         .def_rw("c",
                 &SeparableAdaptation::c,
                 "The diagonal of C, the variance of each coordinate (without sigma^2), shape "
-                "(d,), at least 1e-12 (ones at the start).")
+                "(d,), at least 1e-12 after an update (ones at the start, or the diagonal of "
+                "`Settings.C0`).")
         .def_rw("pc",
                 &SeparableAdaptation::pc,
                 "The evolution path of the rank-one update, shape (d,) (zeros at the start).")
         .def_rw("d",
                 &SeparableAdaptation::d,
-                "The standard deviations sqrt(c), shape (d,): y = d * z (ones at the start).")
+                "The standard deviations sqrt(c), shape (d,): y = d * z (ones at the start "
+                "without `Settings.C0`).")
         .def_rw("hs",
                 &SeparableAdaptation::hs,
-                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
-                "which stalls the update of pc; True otherwise. With `StepSizeAdaptation.XNES` "
-                "and `Modules.active` (not with UTILITY weights), False also drops the negative "
-                "weights of the generation's update (#175).")
+                "The indicator h_sigma: False when ||ps|| is long (see `CovarianceAdaptation.hs`; "
+                "Hansen 2016, App. A, symbols of Fig. 6), which stalls the update of pc, and the "
+                "decay of c compensates the variance that pc loses; True otherwise. With "
+                "`StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False "
+                "also drops the negative weights of the generation's update (#175).")
         .def(
             "__repr__",
             [](SeparableAdaptation &a) {
@@ -1255,65 +1317,71 @@ void define_matrix_adaptation(nb::module_ &main)
         "lambda) per generation (BLAS from d = `constants.blas_min_dim`), so it suits high "
         "dimension. Beyer & Sendhoff (2017).\n\n"
         "MA-ES has no active update. With `Modules.active` this is the active update of the "
-        "CMA-ES (Hansen 2016, Eq. (47)) written for M, as MA-ES derives its own update: sum(w) "
-        "includes the negative weights, and the negative weights are multiplied by d / "
-        "||z_i||^2. With elitism the negative weights go to the worst points of the (mu + "
-        "lambda) pool, as with every matrix adaptation (#161).\n\n"
-        "With a step-size adaptation other than CSA, h_sigma (`hs`) skips the rank-one term "
-        "in a generation in which ||ps|| is long, as COVARIANCE stalls pc (Hansen 2016, after "
-        "Eq. (45); #160). MA-ES has no h_sigma: with CSA, which updates sigma from the same "
-        "path, the update is MA-ES's.");
+        "CMA-ES (Hansen 2016, Eq. (47)) written for M to first order, as MA-ES derives its own "
+        "update: sum(w) includes the negative weights, and the negative weights are multiplied "
+        "by d / ||z_i||^2. With elitism the negative weights go to the worst points of the "
+        "(mu + lambda) pool, as in the other adaptations (#161).\n\n"
+        "With a step-size adaptation other than CSA, h_sigma (`hs`) drops the rank-one term, "
+        "and its c1/2 in the decay, in a generation in which ||ps|| is long, as COVARIANCE "
+        "stalls pc (Hansen 2016, App. A, symbols of Fig. 6; #160). MA-ES has no h_sigma: with "
+        "CSA, which updates sigma from the same path, the update is MA-ES's.");
     adaptation_init(matrix);
     matrix
         .def_rw("M",
                 &MatrixAdaptation::M,
-                "The sampling matrix, y = M z, shape (d, d) (the identity at the start).")
+                "The sampling matrix, y = M z, shape (d, d) (the identity at the start without "
+                "`Settings.C0`).")
         .def_rw("M_inv",
                 &MatrixAdaptation::M_inv,
                 "The inverse of M, shape (d, d).\n\n"
                 "With elitism or TPA_INPLACE (lambda > 1) it is updated with M every "
-                "generation: M <- M F with "
-                "F = a I + U D U^T (U = [ps, the selected z], D = diag(c1/2, cmu/2 w)), so M_inv "
-                "<- F^-1 M_inv by the Woodbury identity, O(k d^2); up to d = "
+                "generation: M <- M F with F = a I + U D U^T, where a is the decay, U = [ps, the "
+                "z of the update] and D = diag(c1/2, cmu/2 w) (0 for c1/2 when `hs` is False), so "
+                "M_inv <- F^-1 M_inv by the Woodbury identity, O(k d^2) for k terms; up to d = "
                 "`inverse_recompute_max_dim` (30) it is computed exactly from M after every "
                 "`inverse_recompute_interval` (400) generations of a run, which bounds the "
                 "rounding error that the update accumulates with the active update at small d "
-                "(the maintainer's choice, #74). When the "
-                "update cannot be applied (`inverse_fallbacks`), and without elitism, it is "
-                "computed only when `invert_y` needs it (injected and repaired points; an LU "
-                "inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can "
-                "lag behind M. Before 2.0 the update with elitism was not the inverse of M F, and "
-                "drifted from the inverse of M.")
+                "(the maintainer's choice, #74). When the update cannot be applied "
+                "(`inverse_fallbacks`), and without elitism and TPA_INPLACE, it is computed only "
+                "when `invert_y` needs it (points moved by the bound correction, injected points, "
+                "the distances of repelling; an LU inverse from d = `constants.blas_min_dim`, else "
+                "the pseudo-inverse), so it can lag behind M. Before 2.0 the update with elitism "
+                "was not the inverse of M F, and drifted from the inverse of M.")
         .def_rw("hs",
                 &MatrixAdaptation::hs,
-                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
-                "which skips the rank-one term of the generation; always True with CSA and in "
+                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, App. A, symbols "
+                "of Fig. 6), which skips the rank-one term of the generation; always True with CSA "
+                "and in "
                 "the (1+1)-ES (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not "
                 "with UTILITY weights), False also drops the negative weights of the generation's "
                 "update (#175).")
         .def_ro("inverse_fallbacks",
                 &MatrixAdaptation::inverse_fallbacks,
                 nb::name("inverse_fallbacks"),
-                "The generations with elitism in which the Woodbury update of `M_inv` could not "
-                "be applied, since the adaptation was created (read-only): the decay a = 1 - c1/2 "
-                "- cmu/2 sum(w) was not positive, or the k x k system was singular or badly "
+                "The generations with elitism or TPA_INPLACE in which the Woodbury update of "
+                "`M_inv` could not be applied, since the adaptation was created (read-only; "
+                "restarts do not reset it): the decay a = 1 - c1/2 - cmu/2 sum(w) was not "
+                "positive, or the k x k system (F itself when k >= d) was singular or badly "
                 "conditioned (the ratio of its smallest to its largest pivot below 1e-8). M_inv "
                 "is then computed when `invert_y` needs it, and the update continues from it.")
         .def_ro_static("inverse_recompute_interval",
                        &MatrixAdaptation::inverse_recompute_interval,
-                       "With elitism and d <= `inverse_recompute_max_dim`, M_inv is computed "
-                       "exactly from M after every this many generations of a run, and updated by "
-                       "the Woodbury identity in between (400, the maintainer's choice on #74). "
-                       "Without it, the largest entry of M M_inv - I over 5000 generations reached "
-                       "2.4 to 26 with the active update at d = 10 and 1e-8 at d = 20; with it, at "
-                       "most 1.4e-9 at d = 10.")
+                       "With elitism or TPA_INPLACE and d <= `inverse_recompute_max_dim`, M_inv "
+                       "is computed exactly from M after every this many generations of a run, "
+                       "and updated by the Woodbury identity in between (400, the maintainer's "
+                       "choice on #74). "
+                       "Measured on the rotated ellipsoid (condition 1e6, 5 seeds, #159): without "
+                       "it, the largest entry of |M M_inv - I| over 5000 generations reached 2.4 "
+                       "to 26 with the active update at d = 10 and 1.3e-8 to 6.4e-8 at d = 20; "
+                       "with it, at most 1.4e-9 at d = 10 and 1.5e-11 at d = 20.")
         .def_ro_static("inverse_recompute_max_dim",
                        &MatrixAdaptation::inverse_recompute_max_dim,
                        "The largest dimension with the exact recomputation of M_inv every "
                        "`inverse_recompute_interval` generations (30, the maintainer's choice on "
                        "#74): the smallest d at which the drift without it stayed below 1e-10 "
                        "over 5000 generations in every run measured (at most 4.3e-11 at d = 30, "
-                       "below 1e-12 from d = 40 on, with the active update).")
+                       "below 1e-12 from d = 40 on, with the active update; the runs of "
+                       "`inverse_recompute_interval`).")
         .def(
             "__repr__",
             [](MatrixAdaptation &a) {
@@ -1339,22 +1407,23 @@ void define_matrix_adaptation(nb::module_ &main)
         "the worst points of the (mu + lambda) pool (#161).\n\n"
         "With a step-size adaptation other than CSA, h_sigma (`hs`) stalls the update of pc "
         "and A is scaled by sqrt(1 + c1 delta(h_sigma) - c1 - cmu sum(w)), as in COVARIANCE "
-        "(Hansen 2016, after Eq. (45); #160).");
+        "(Hansen 2016, App. A, symbols of Fig. 6; #160).");
     adaptation_init(cholesky);
     cholesky
         .def_rw("A",
                 &CholeskyAdaptation::A,
                 "The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity "
-                "at the start).")
+                "at the start without `Settings.C0`).")
         .def_rw("pc",
                 &CholeskyAdaptation::pc,
                 "The evolution path of the rank-one update, shape (d,) (zeros at the start).")
         .def_rw("hs",
                 &CholeskyAdaptation::hs,
-                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
-                "which stalls the update of pc; always True with CSA (#160). With "
-                "`StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False "
-                "also drops the negative weights of the generation's update (#175).")
+                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, App. A, symbols "
+                "of Fig. 6), which stalls the update of pc; always True with CSA and in the "
+                "(1+1)-ES (#160). "
+                "With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), "
+                "False also drops the negative weights of the generation's update (#175).")
         .def_ro("skipped_downdates",
                 &CholeskyAdaptation::skipped_downdates,
                 nb::name("skipped_downdates"),
@@ -1372,17 +1441,19 @@ void define_matrix_adaptation(nb::module_ &main)
         "C = (1 - 1/tc) C + (1/tc) sum_i w_i y_i y_i^T with tc = 1 + d (d + 1) / (2 mueff), "
         "without an evolution path, then a Cholesky factorization C = A A^T every generation "
         "(O(d^3); LAPACK from d = `constants.lapack_min_dim`). With CMSA the default mu is "
-        "lambda / 4. The CMSA-ES of the paper adapts the step size by self-adaptation "
-        "(`StepSizeAdaptation.SA`). Beyer & Sendhoff (2008).");
+        "lambda / 4. CMSA has no active update: Settings switches `Modules.active` off (#73), "
+        "and with UTILITY weights the positive utilities are used. The CMSA-ES of the paper "
+        "adapts the step size by self-adaptation (`StepSizeAdaptation.SA`). Beyer & Sendhoff "
+        "(2008).");
     adaptation_init(self);
     self.def_rw("A",
                 &SelfAdaptation::A,
                 "The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity "
-                "at the start).")
+                "at the start without `Settings.C0`).")
         .def_rw("C",
                 &SelfAdaptation::C,
                 "The covariance matrix (without sigma^2), shape (d, d) (the identity at the "
-                "start).");
+                "start, or `Settings.C0`).");
 
     auto no_eigv = nb::class_<CovarianceNoEigvAdaptation, CovarianceAdaptation>(
         m,
@@ -1390,12 +1461,13 @@ void define_matrix_adaptation(nb::module_ &main)
         "CMA-ES with a Cholesky factorization instead of an eigendecomposition "
         "(`MatrixAdaptationType.COVARIANCE_NO_EIGV`).\n\n"
         "C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower "
-        "triangular (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see "
+        "triangular, every `es.p.weights.lazy_update_interval` generations as COVARIANCE "
+        "decomposes it (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see "
         "`constants.cholesky_solver`), which is several times cheaper than an "
-        "eigendecomposition. B and d are filled only by `metric()`, from A A^T, the C of the last "
-        "factorization. ps is updated with dz instead "
-        "of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of "
-        "COVARIANCE for the other step-size adaptations.");
+        "eigendecomposition (docs/performance.md). B and d are filled only by `metric()`, from "
+        "A A^T, the C of the last factorization. ps is updated with dz instead of C^-1/2 dm, "
+        "which only CSA needs: Settings selects this adaptation in place of COVARIANCE for the "
+        "other step-size adaptations.");
     adaptation_init(no_eigv);
 
     nb::class_<NaturalGradientAdaptation, Adaptation>(
@@ -1405,11 +1477,14 @@ void define_matrix_adaptation(nb::module_ &main)
         "(`MatrixAdaptationType.NATURAL_GRADIENT`).\n\n"
         "The sampling matrix is updated multiplicatively, A = A expm(cc G), with the natural "
         "gradient G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace part, `sigma_g`, "
-        "goes to the step size with `StepSizeAdaptation.XNES`) and cc = "
-        "`es.p.weights.cc`, xNES's eta_B / 2 by default. For lambda < d and d >= 16 the matrix "
-        "exponential is computed "
-        "exactly from a thin QR of the samples, O(d^2 lambda); otherwise as a dense d x d "
-        "exponential. Glasmachers et al. (2010).")
+        "goes to the step size with `StepSizeAdaptation.XNES`) and cc = `es.p.weights.cc`, "
+        "xNES's eta_B / 2 by default (1 / (4 d^1.5) in the (1+1)-ES). With fewer samples k in "
+        "the gradient than d (mu, or every point with `Modules.active`) and d >= 16 the matrix "
+        "exponential is computed exactly from a thin QR of the samples, O(d^2 k); otherwise as "
+        "a dense d x d exponential. Glasmachers et al. (2010).\n\n"
+        "With `Modules.active` and DEFAULT weights Settings uses the utilities of xNES "
+        "(`RecombinationWeights.UTILITY`, which sum to zero) instead of the negative weights of "
+        "CMA-ES; with `StepSizeAdaptation.XNES` and UTILITY this is xNES.")
         .def(nb::init<size_t, Vector>(),
              nb::arg("dimension"),
              nb::arg("x0"),
@@ -1422,12 +1497,13 @@ void define_matrix_adaptation(nb::module_ &main)
              "    The initial mean m, shape (d,).")
         .def_rw("A",
                 &NaturalGradientAdaptation::A,
-                "The sampling matrix, y = A z, shape (d, d) (I at the start).")
+                "The sampling matrix, y = A z, shape (d, d) (the identity at the start without "
+                "`Settings.C0`).")
         .def_rw("A_inv",
                 &NaturalGradientAdaptation::A_inv,
                 "The inverse of A, shape (d, d). Recomputed only when `invert_y` needs it (an "
                 "LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it "
-                "can lag behind A (the identity at the start).")
+                "can lag behind A (the identity at the start without `Settings.C0`).")
         .def_prop_ro("G",
                      &NaturalGradientAdaptation::G,
                      "The natural gradient G = Z diag(u) Z^T - alpha I as a dense (d, d) "
@@ -1437,12 +1513,13 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("gradient_samples",
                 &NaturalGradientAdaptation::gradient_samples,
                 "The samples Z of the last gradient, the z of the population as columns, "
-                "shape (d, k) with k <= lambda.")
+                "shape (d, k): the mu best, or with `Modules.active` every point (with elitism, "
+                "the mu best and the worst of the (mu + lambda) pool, #161).")
         .def_rw("gradient_weights",
                 &NaturalGradientAdaptation::gradient_weights,
-                "The weights u of the samples, shape (k,) (with `Modules.active`, negative "
-                "weights for the worst; with elitism, the worst of the (mu + lambda) pool, "
-                "#161).")
+                "The weights u of the samples, shape (k,), not rescaled (with `Modules.active`, "
+                "negative weights for the worst; with elitism, the worst of the (mu + lambda) "
+                "pool, #161).")
         .def_rw("gradient_shift",
                 &NaturalGradientAdaptation::gradient_shift,
                 "The shift alpha of G: the sum of the weights plus `sigma_g`, which makes G "
@@ -1451,8 +1528,9 @@ void define_matrix_adaptation(nb::module_ &main)
                 &NaturalGradientAdaptation::sigma_g,
                 "trace(G) / d of the gradient before the shift: its isotropic (step-size) part, "
                 "removed from G and used by `StepSizeAdaptation.XNES`, "
-                "sigma *= exp(cs / 2 * sigma_g). With elitism XNES computes it from the "
-                "offspring alone instead (#172).")
+                "sigma *= exp(cs / 2 * sigma_g), with cs xNES's eta_sigma by default (see "
+                "`Weights.cs`). With elitism XNES computes it from the offspring alone instead "
+                "(#172). 0 in the (1+1)-ES.")
         .def("compute_gradients",
              &NaturalGradientAdaptation::compute_gradients,
              nb::arg("pop"),
@@ -1517,7 +1595,11 @@ void define_bounds(nb::module_ &main)
         "(`options.CorrectionMethod`). Each coordinate and each side is corrected "
         "separately: an infinite bound is never crossed, and a coordinate with one infinite "
         "bound is set to its finite bound when it crosses it (the methods other than SATURATE "
-        "need the width ub - lb). The methods are described in de Nobel et al. (2021).");
+        "need the width ub - lb). A fixed coordinate, lb_i = ub_i, is set to lb_i (#144).\n\n"
+        "The samples are corrected by `BoundCorrection.correct`; TPA's two points and the "
+        "point of gradient injection by `BoundCorrection.correct_point`. The methods follow "
+        "Caraffini et al. (2019); they are described in de Nobel et al. (2021) and in the "
+        "framework paper (de Nobel et al. 2026, Sec. \"Boundary Correction\").");
     using namespace bounds;
 
     nb::class_<BoundCorrection>(
@@ -1527,7 +1609,8 @@ void define_bounds(nb::module_ &main)
         "After a sample x = m + sigma y is formed, `correct` counts it when it lies outside "
         "[lb, ub] and, unless the method is NONE, moves the coordinates outside into the box "
         "(`correct_x`) and recomputes y and z of the individual from the corrected x, so the "
-        "updates learn from the point that is evaluated.")
+        "updates learn from the point that is evaluated. RESAMPLE moves nothing: the "
+        "optimizer samples the individual again (`Resample`).")
         .def_ro("n_out_of_bounds",
                 &BoundCorrection::n_out_of_bounds,
                 "The number of samples of the current population that were outside the bounds "
@@ -1538,8 +1621,10 @@ void define_bounds(nb::module_ &main)
              nb::arg("index"),
              nb::arg("parameters"),
              "Correct individual `index` of the population in place.\n\n"
-             "Counts it in `n_out_of_bounds` when it is outside the bounds and applies "
-             "`correct_x`; X, X_transformed, Y and Z of the individual are updated.\n\n"
+             "Counts it in `n_out_of_bounds` when it is outside the bounds and, unless the "
+             "method is NONE, applies `correct_x`; X, X_transformed, Y and Z of the individual "
+             "are then updated, y = (x - m) / s with the individual's step sizes s and "
+             "z = A^-1 y.\n\n"
              "Parameters\n"
              "----------\n"
              "index : int\n"
@@ -1555,7 +1640,9 @@ void define_bounds(nb::module_ &main)
              "The corrected point: the coordinates of xi where oob is True moved into "
              "[lb, ub], the others unchanged.\n\n"
              "Coordinates with two finite bounds are corrected by the method; a coordinate with "
-             "one infinite bound is set to the finite bound it crossed, as SATURATE does.\n\n"
+             "one infinite bound is set to the finite bound it crossed, as SATURATE does, and a "
+             "fixed coordinate (lb_i = ub_i) to lb_i (#144). NONE and RESAMPLE return xi "
+             "unchanged.\n\n"
              "Parameters\n"
              "----------\n"
              "xi : numpy.ndarray\n"
@@ -1576,15 +1663,15 @@ void define_bounds(nb::module_ &main)
              nb::arg("xi"),
              nb::arg("sigma"),
              nb::arg("settings"),
-             "A point that is not sampled from the search distribution moved into "
-             "[lb, ub].\n\n"
-             "TPA moves its two points toward the mean first, both by the same factor, until "
-             "both are in the box; it uses this only when the mean itself is outside.\n\n"
+             "A point that is not sampled from the search distribution, moved into [lb, ub]: "
+             "TPA's two points (#98) and the point of gradient injection (#90).\n\n"
              "As `correct_x` for the coordinates outside the bounds, without counting it in "
              "`n_out_of_bounds`. RESAMPLE cannot sample such a point again: it sets the "
              "coordinates outside on the bound they crossed, as SATURATE does. With NONE the "
-             "point is returned "
-             "as it is.\n\n"
+             "point is returned as it is.\n\n"
+             "TPA first moves its two points toward the mean, both by the same factor, until "
+             "both are in the box, so that they stay symmetric about the mean; this method then "
+             "changes them only when the mean itself is outside.\n\n"
              "Parameters\n"
              "----------\n"
              "xi : numpy.ndarray\n"
@@ -1604,7 +1691,9 @@ void define_bounds(nb::module_ &main)
              nb::arg("oob"),
              nb::arg("settings"),
              "The coordinates of xi where oob is True normalized to the box, "
-             "(x - lb) / (ub - lb) (in [0, 1] inside it); the others unchanged.\n\n"
+             "(x - lb) / (ub - lb) (in [0, 1] inside it); the others unchanged. Meaningful only "
+             "for a finite, positive width ub - lb: `correct_x` gives the methods no other "
+             "coordinates.\n\n"
              "Parameters\n"
              "----------\n"
              "xi : numpy.ndarray\n"
@@ -1615,7 +1704,8 @@ void define_bounds(nb::module_ &main)
              "    The settings with the bounds lb and ub.\n\n"
              "Returns\n"
              "-------\n"
-             "numpy.ndarray")
+             "numpy.ndarray\n"
+             "    Shape (d,).")
         .def("is_out_of_bounds",
              &BoundCorrection::is_out_of_bounds,
              nb::arg("xi"),
@@ -1636,8 +1726,12 @@ void define_bounds(nb::module_ &main)
         m,
         "Resample",
         "Sample again (`CorrectionMethod.RESAMPLE`): an individual outside the bounds is "
-        "drawn again, up to 5 d times, and kept as it is after that.\n\n"
-        "Keeps the distribution undistorted inside the box; costs samples, not evaluations.")
+        "drawn again, up to 5 d times (a mirrored pair as one), and kept as it is after that. "
+        "Every rejected sample counts in `n_out_of_bounds`.\n\n"
+        "Keeps the shape of the distribution inside the box; costs samples, not evaluations. "
+        "A point still outside after the last try is evaluated, and can be selected, but never "
+        "becomes `es.p.stats.global_best`, the best solution of the optimizer and what `fmin` "
+        "returns (#168).")
         .def(nb::init<>(), "Create the correction.");
     nb::class_<NoCorrection, BoundCorrection>(
         m,
@@ -1651,11 +1745,14 @@ void define_bounds(nb::module_ &main)
         "Complete one-tailed normal correction (`CorrectionMethod.COTN`; Caraffini et al. "
         "2019): a coordinate outside the bounds is moved inside, at a random distance from the "
         "violated bound.\n\n"
-        "In coordinates normalized to [0, 1], the new value is |b - sigma |n||, with b the "
-        "violated bound (0 or 1) and n normal with mean 0 and standard deviation 1/3.")
+        "In coordinates normalized to [0, 1], the new value is |b - r| with r = sigma |n|, b "
+        "the violated bound (0 or 1), sigma the step size and n normal with mean 0 and "
+        "standard deviation 1/3. Where r > 1, r is drawn again (up to 10 times), then capped "
+        "at 1, so the new value stays in the box.")
         .def(nb::init<size_t>(),
              nb::arg("dim"),
-             "Create the correction.\n\n"
+             "Create the correction. It draws from the global random generator "
+             "(`modcma.set_seed`); the optimizer creates its own from its generator.\n\n"
              "Parameters\n"
              "----------\n"
              "dim : int\n"
@@ -1677,7 +1774,8 @@ void define_bounds(nb::module_ &main)
         "(`CorrectionMethod.UNIFORM_RESAMPLE`).")
         .def(nb::init<size_t>(),
              nb::arg("dim"),
-             "Create the correction.\n\n"
+             "Create the correction. It draws from the global random generator "
+             "(`modcma.set_seed`); the optimizer creates its own from its generator.\n\n"
              "Parameters\n"
              "----------\n"
              "dim : int\n"
@@ -1715,7 +1813,7 @@ void define_mutation(nb::module_ &main)
         "holds the threshold convergence (`Modules.threshold_convergence`), the sequential "
         "selection (`Modules.sequential_selection`) and the sampler of the step sizes "
         "(`Modules.sample_sigma`). The step-size adaptations are described in de Nobel et al. "
-        "(2021).");
+        "(2021); `TPAInPlace` (TPA_INPLACE, new in 2.0) in its own docstring.");
     using namespace mutation;
 
     nb::class_<ThresholdConvergence>(
@@ -1785,10 +1883,13 @@ void define_mutation(nb::module_ &main)
         "generation (`Modules.sequential_selection`).\n\n"
         "The population is cut after individual i (0-based) when its objective value is better "
         "than the best of the previous generation (in the first generation of a run, never) "
-        "and i >= mu * seq_cutoff_factor; with pairwise selection the "
+        "and i >= floor(mu * seq_cutoff_factor); with pairwise selection the "
         "factor is at least 2 and the cut falls after a complete pair. The updates use the "
         "evaluated individuals. Saves evaluations on functions where improvements are easy to "
-        "find. Brockhoff et al. (2010).")
+        "find. Brockhoff et al. (2010).\n\n"
+        "Create it as SequentialSelection(mirror, seq_cutoff_factor=1.0), with mirror the "
+        "`Modules.mirrored` option; the optimizer creates it with the defaults. "
+        "`NoSequentialSelection` (the module off) takes the same arguments.")
         .def(nb::init<parameters::Mirror, Float>(),
              nb::arg("mirror"),
              nb::arg("seq_cutoff_factor") = 1.0,
@@ -1799,7 +1900,9 @@ void define_mutation(nb::module_ &main)
              "    The mirrored sampling option; with `Mirror.PAIRWISE` the cutoff factor is at "
              "least 2.\n"
              "seq_cutoff_factor : float\n"
-             "    The minimum number of evaluated individuals as a multiple of mu (default 1).")
+             "    The population can stop after individual i >= floor(mu * seq_cutoff_factor) "
+             "(0-based), so at least floor(mu * seq_cutoff_factor) + 1 individuals are "
+             "evaluated (default 1).")
         .def(
             "__init__",
             [](SequentialSelection *self, parameters::Mirror mirror, Float seq_cuttoff_factor) {
@@ -1841,7 +1944,9 @@ void define_mutation(nb::module_ &main)
         m,
         "NoSequentialSelection",
         "No sequential selection (the default): every individual of a population is "
-        "evaluated.")
+        "evaluated.\n\n"
+        "Create it as NoSequentialSelection(mirror, seq_cutoff_factor=1.0); neither argument "
+        "is used.")
         .def(nb::init<parameters::Mirror, Float>(),
              nb::arg("mirror"),
              nb::arg("seq_cutoff_factor") = 1.0,
@@ -1878,7 +1983,8 @@ void define_mutation(nb::module_ &main)
         "`es.p.pop.S`; the lower bound of an integer variable can raise single coordinates.")
         .def(nb::init<Float>(),
              nb::arg("dimension"),
-             "Create the sampler.\n\n"
+             "Create the sampler. It draws from the global generator (`set_seed`); the "
+             "sampler of an optimizer draws from the optimizer's own.\n\n"
              "Parameters\n"
              "----------\n"
              "dimension : float\n"
@@ -1918,7 +2024,7 @@ void define_mutation(nb::module_ &main)
              "Parameters\n"
              "----------\n"
              "dimension : float\n"
-             "    The dimension d.");
+             "    The dimension d (not used).");
 
     nb::class_<Strategy>(
         m,
@@ -1984,8 +2090,8 @@ void define_mutation(nb::module_ &main)
                 "its start (`ThresholdConvergence.threshold`; also set without the module).")
         .def_rw("s",
                 &Strategy::s,
-                "The smoothed success measure of TPA, MSR and PSR, whose exponential scales "
-                "sigma (default 0).");
+                "The smoothed success measure of TPA, TPA_INPLACE, MSR and PSR (default 0): "
+                "TPA multiplies sigma by exp(s), the others by exp(s / damps).");
 
     auto ssa_csa = nb::class_<CSA, Strategy>(
         m,
@@ -1993,7 +2099,11 @@ void define_mutation(nb::module_ &main)
         "Cumulative step-size adaptation (`StepSizeAdaptation.CSA`, the default).\n\n"
         "sigma *= exp(l), l = (cs / damps) (||ps|| / E||z|| - 1) clamped to [-1, 1] (as in "
         "pycma): sigma grows when the evolution path ps is longer than under random selection "
-        "and shrinks when it is shorter. Hansen & Ostermeier (2001).");
+        "and shrinks when it is shorter. E||z|| is the expected length of a sample of the "
+        "sampler (`Weights.expected_length_z`). By default cs = (mueff + 2) / (d + mueff + 5) "
+        "and damps = 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs (Hansen 2016, Eqs. "
+        "(44), (55)); modcma 1.1 and 1.2 used pycma's denominator d + mueff + 3 for cs (#138). "
+        "Hansen & Ostermeier (2001).");
     strategy_init(ssa_csa);
     auto ssa_tpa = nb::class_<TPA, Strategy>(
         m,
@@ -2004,8 +2114,11 @@ void define_mutation(nb::module_ &main)
         "with the step size that sampled it (Hansen, CMA-ES with Two-Point Step-Size "
         "Adaptation, 2008, Eqs. (8), (9), alpha = 0.5). s = (1 - cs) s + cs r, with r = "
         "-a_tpa when the point behind is better, a_tpa + b_tpa when the point ahead is better "
-        "and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two "
-        "evaluations per generation. A tie as in pycma. Before 2.0 the points were "
+        "and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s), with cs = 0.3 "
+        "by default (Hansen 2008, Eqs. (10) to (13); `damps` is not used). Costs two "
+        "evaluations per generation. A tie gives r = 0, as the sign of the rank difference in "
+        "pycma; Hansen (2008, Eq. (10)) counts it as a success, which made sigma grow by 16 % "
+        "after every restart (#78). Before 2.0 the points were "
         "m +- sigma dm with the new sigma, about one step of the mean (#167). With a bound "
         "correction other than "
         "NONE both points move toward m by the same factor until both are in the box, so the "
@@ -2026,12 +2139,18 @@ void define_mutation(nb::module_ &main)
         .def_rw("a_tpa", &TPA::a_tpa, "The magnitude of r (default 0.5).")
         .def_rw("b_tpa",
                 &TPA::b_tpa,
-                "The offset added to r when the forward point is better (default 0).")
-        .def_rw("rank_tpa", &TPA::rank_tpa, "The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0).")
+                "The offset added to r when the forward point is better (default 0). Hansen "
+                "(2008, Eq. (10)) adds his beta to the other case, r = -a_tpa + beta; with the "
+                "default 0 the two agree.")
+        .def_rw("rank_tpa",
+                &TPA::rank_tpa,
+                "The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0); -a_tpa also after a "
+                "generation whose elitist selection kept every parent.")
         .def_rw("sigma_old",
                 &TPA::sigma_old,
                 "The step size that sampled the last generation, before the update changed "
-                "it: the test steps are 0.5 sigma_old dm (sigma0 at the start of a run).");
+                "it: the test steps are 0.5 sigma_old dm. At the start of a run, the step size "
+                "the run starts with (sigma0, or the step size of the restart).");
     strategy_init(ssa_tpa);
     auto ssa_msr = nb::class_<MSR, Strategy>(
         m,
@@ -2042,7 +2161,10 @@ void define_mutation(nb::module_ &main)
         "pycma): s = (1 - cs) s + cs (2 / lambda) (k - lambda / 2) and "
         "sigma *= exp(s / damps), with cs = 0.3 and damps = 2 - 2 / d (1 for d = 1) by "
         "default: sigma grows when the median offspring beats the j-th best of the previous "
-        "generation. Ait ElHara, Auger & Hansen (2013).")
+        "generation. Ait ElHara, Auger & Hansen (2013).\n\n"
+        "lambda is the number of ranked individuals of each generation: fewer after "
+        "sequential selection stopped it, and with PAIRWISE only the winners of the mirrored "
+        "pairs (Auger et al. 2011, Alg. 1).")
         .def_rw("quantile",
                 &MSR::quantile,
                 "The position j / lambda of the previous generation's value that the offspring "
@@ -2052,8 +2174,11 @@ void define_mutation(nb::module_ &main)
         m,
         "PSR",
         "Population success rule (`StepSizeAdaptation.PSR`).\n\n"
-        "The current and the previous population are ranked together; with z the difference "
-        "of their summed ranks (previous minus current) divided by n^2, minus success_ratio: "
+        "The n best individuals of the current and of the previous population are ranked "
+        "together, n the smaller number of ranked individuals of the two (fewer than lambda "
+        "after a stop of sequential selection; with PAIRWISE the winners of the mirrored "
+        "pairs). With z the difference of their summed ranks (previous minus current) divided "
+        "by n^2, minus success_ratio: "
         "s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by "
         "default (Loshchilov 2014, Alg. 6). Equal values share their mean rank (mid-ranks; "
         "the paper does not say), so a tie counts for neither population; with elitism the "
@@ -2083,7 +2208,10 @@ void define_mutation(nb::module_ &main)
         "A variant of the xNES step-size update on the mean step "
         "(`StepSizeAdaptation.MXNES`).\n\n"
         "sigma *= exp((cs / d) (mueff ||dz||^2 - d)), with dz the weighted mean of the "
-        "selected z: sigma grows when the mean step is longer than under random selection. "
+        "selected z (`Adaptation.dz`) and cs = 1 by default (Krause et al. 2017, Sec. 4.3, "
+        "Table 3): sigma grows when the mean step is longer than under random selection. "
+        "With UTILITY weights dz recombines all lambda z with their utilities, and mueff is "
+        "theirs (`Weights.mueff_mean`). "
         "m-xNES of Krause, Glasmachers & Igel (2017), "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
@@ -2110,10 +2238,11 @@ void define_mutation(nb::module_ &main)
         "SR",
         "The success rule of the (1+1)-CMA-ES (`StepSizeAdaptation.SR`; always used when "
         "lambda = 1).\n\n"
-        "sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the smoothed rate of "
-        "successes (`es.p.stats.success_ratio`): a generation is a success when its best "
-        "individual is better than the best of the run so far (with elitism, the parent). The "
-        "target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).\n\n"
+        "sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the rate of successes, "
+        "smoothed with weight 1/12 (`es.p.stats.success_ratio`): a generation is a success "
+        "when its best individual is better than the best of the run so far (with elitism, the "
+        "parent). The target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. "
+        "(2006).\n\n"
         "The rule is designed for elitist selection, where the parent is the best point so "
         "far. Without elitism, the best of the run takes the parent's role: comparing with the "
         "previous generation's best instead would count a success about every other "
@@ -2126,10 +2255,13 @@ void define_mutation(nb::module_ &main)
         "Self-adaptation of the step size (`StepSizeAdaptation.SA`).\n\n"
         "Every individual samples its own step size sigma_i = sigma exp(n_i / sqrt(2 d)) (a "
         "`SigmaSampler` is always used; CMSA's tau = 1 / sqrt(2 d)); sigma is multiplied by "
-        "the weighted geometric mean of the step sizes of the mu selected individuals divided "
-        "by the geometric mean over the whole population (Beyer & Sendhoff 2008, with the "
-        "correction of Ahrari et al. 2017). The step size of an individual is the geometric "
-        "mean of its column of `pop.S`. With SA the default mu is lambda / 4.");
+        "the weighted geometric mean of the step sizes of the mu selected individuals "
+        "(`Weights.positive`) divided by the geometric mean of the step sizes of all "
+        "offspring of the generation, taken before elitism adds the parents (the CMSA-ES "
+        "operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of "
+        "Ahrari et al. 2017, as the framework paper describes). The step size of an individual "
+        "is the geometric mean of its column of `pop.S`; a parent of elitism has the "
+        "generation's sigma. With SA the default mu is lambda / 4.");
     strategy_init(ssa_sa);
     auto ssa_tpa_inplace = nb::class_<TPAInPlace, Strategy>(
         m,
@@ -2139,7 +2271,8 @@ void define_mutation(nb::module_ &main)
         "pycma 4.6.0's CMAAdaptSigmaTPA (sigma_adaptation.py, evolution_strategy.py:2251-2254, "
         "2575-2576), after Hansen, Atamna & Auger (2014), How to Assess Step-Size Adaptation "
         "Mechanisms in Randomised Search, Eq. (6) and Algorithm 3. From the second generation "
-        "of a run on, the first two offspring are a mirrored pair along the last mean shift: "
+        "of a run on (in a population of at least two), the first two offspring are a mirrored "
+        "pair along the last mean shift: "
         "z_1 = ||n|| A^-1 dm / ||A^-1 dm|| with n an ordinary sample of the sampler, z_2 = -z_1 "
         "(both at the mean when it did not move); they are part of the lambda offspring, so "
         "TPA_INPLACE needs no extra evaluations. Once the offspring are evaluated, z = "
@@ -2149,8 +2282,9 @@ void define_mutation(nb::module_ &main)
         "Where pycma departs from the paper, and modcma follows pycma: |z|^0.5 instead of z; "
         "the damping (the paper: sqrt(d), tuned on the sphere with the default lambda); and "
         "the update in the first generation of a run, from the ranks of two ordinary samples "
-        "(the paper updates from the second generation on). A^-1 dm costs a triangular solve "
-        "with most matrix adaptations; MATRIX keeps M^-1 up to date for it, as with elitism; "
+        "(the paper updates from the second generation on). A^-1 dm costs O(d^2) with most "
+        "matrix adaptations (a triangular solve, or B^T and D); MATRIX keeps M^-1 up to date "
+        "for it, as with elitism; "
         "NATURAL_GRADIENT inverts A every generation (O(d^3)). With sampled step sizes the "
         "second point takes the step size of the first; bound correction and repelling treat "
         "the two as a pair, as a mirrored pair.\n\n"

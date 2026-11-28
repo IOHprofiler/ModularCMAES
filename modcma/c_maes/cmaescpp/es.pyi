@@ -1,7 +1,7 @@
 """
 Two simple evolution strategies, as baselines.
 
-OnePlusOneES is a (1+1)-ES with a success rule, MuCommaLambdaES a (mu, lambda)-ES with self-adapted coordinate-wise step sizes. Of the Modules they use only the sampler (sampler, sample_transformation, mirrored, orthogonal) and bound_correction, with the fixed box [-5, 5]^d. They draw from the global random generator (set_seed).
+OnePlusOneES is a (1+1)-ES with a success rule, MuCommaLambdaES a (mu, lambda)-ES with self-adapted coordinate-wise step sizes. Of the Modules they use only the sampler (sampler, sample_transformation, orthogonal) and bound_correction, with the fixed box [-5, 5]^d. mirrored samples no pairs here (ModularCMAES forms its mirrored pairs in the mutation step, #75); with orthogonal it only changes how the samples are grouped into orthogonal blocks. They draw from the global random generator (set_seed).
 """
 
 from collections.abc import Callable
@@ -20,7 +20,7 @@ class OnePlusOneES:
     """
     A (1+1)-ES with a success rule for the step size.
 
-    Every step samples x1 = x + sigma z, evaluates it and keeps it when it is better than x. sigma is multiplied by exp(0.8)**decay after a success and by exp(-0.2)**decay otherwise, with decay = 1 / sqrt(d + 1).
+    Every step samples x1 = x + sigma z, evaluates it and keeps it when it is better than x (with a bound correction, only when it lies in the box [-5, 5]^d, #168). sigma is multiplied by exp(0.8)^decay after a success and by exp(-0.2)^decay otherwise, with decay = 1 / sqrt(d + 1).
     """
 
     def __init__(self, d: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], f0: float, sigma0: float = 1.0, budget: int = 10000, target: float = 1e-08, modules: modcma.c_maes.cmaescpp.parameters.Modules = ...) -> None:
@@ -165,7 +165,7 @@ class MuCommaLambdaES:
         sigma0 : float, default 1.0
             The initial step size of every coordinate.
         budget : int, default 10000
-            The maximum number of evaluations (checked before each generation).
+            The maximum number of evaluations: a generation runs only when its lambda evaluations fit.
         target : float, default 1e-8
             Stop when f_min is at most target.
         modules : Modules, default Modules()
@@ -174,7 +174,7 @@ class MuCommaLambdaES:
 
     def __call__(self, arg: Callable[[numpy.typing.NDArray[numpy.float64]], float], /) -> None:
         """
-        Run generations until e reaches budget or f_min is at most target.
+        Run generations while the next one fits the budget (e + lambda <= budget) and f_min is above target.
 
         The argument is the objective function, called with a (d,) array.
         """
@@ -188,7 +188,7 @@ class MuCommaLambdaES:
 
     def sample(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        A point m + si * z for the (d,) step sizes si, bound corrected; not evaluated.
+        A point m + si * z for the (d,) step sizes si (the argument), bound corrected; not evaluated.
         """
 
     @property
@@ -228,14 +228,18 @@ class MuCommaLambdaES:
 
     @property
     def X(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
-        """(d, lambda) array: the offspring of the last generation, sorted by f."""
+        """
+        (d, lambda) array: the offspring of the last generation, sorted by f (not set before the first generation).
+        """
 
     @X.setter
     def X(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
 
     @property
     def S(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
-        """(d, lambda) array: the step sizes of the offspring, in the order of X."""
+        """
+        (d, lambda) array: the step sizes of the offspring, in the order of X (not set before the first generation).
+        """
 
     @S.setter
     def S(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
@@ -257,7 +261,7 @@ class MuCommaLambdaES:
     @property
     def tau_i(self) -> float:
         """
-        The learning rate of the coordinate-wise step-size factors, 1 / d**0.25.
+        The learning rate of the coordinate-wise step-size factors, 1 / d^0.25.
         """
 
     @tau_i.setter

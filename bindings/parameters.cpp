@@ -73,15 +73,20 @@ void define_population(nb::module_ &main)
         "active columns that shares memory with the population: X, X_transformed, Z, Y and S are "
         "(d, n) matrices, f and t are (n,) vectors. Assigning an array replaces the whole buffer "
         "and leaves n unchanged. The buffers can hold more than n columns, e.g. after sequential "
-        "selection stopped a generation early; those columns hold no population data.\n\n"
+        "selection stopped a generation early; those columns hold no population data, except "
+        "the points that elitist selection dropped (see n_pool).\n\n"
         "A view is valid until the next generation: the optimizer then swaps pop and old_pop, "
         "and a restart or a larger population replaces the buffers (the view would read freed "
-        "memory). Copy an array (`.copy()`) to keep its values.")
+        "memory). Copy an array (`.copy()`) to keep its values.\n\n"
+        "Create it as Population(d, n), n individuals with f = +inf and every other array 0, "
+        "or as Population(X, Z, Y, f, S) from the arrays (d and n from the shape of X; t is "
+        "0).")
         .def(nb::init<size_t, size_t>(),
              nb::arg("dimension"),
              nb::arg("n"),
              "A population of n individuals in the given dimension.\n\n"
-             "f is +inf for every individual; the other arrays are not initialised.")
+             "f is +inf for every individual; the other arrays are 0 (so a saved state holds no "
+             "uninitialised memory, #91).")
         .def(nb::init<Matrix, Matrix, Matrix, Vector, Matrix>(),
              nb::arg("X"),
              nb::arg("Z"),
@@ -101,7 +106,7 @@ void define_population(nb::module_ &main)
              "    (n,) the objective values.\n"
              "S : numpy.ndarray\n"
              "    (d, n) the step sizes.\n\n"
-             "t (the generation of each individual) is not initialised.")
+             "t (the generation of each individual) is 0; d and n are the shape of X.")
         .def("sort",
              &Population::sort,
              "Sort the active individuals by f, ascending, in every array.\n\n"
@@ -117,11 +122,11 @@ void define_population(nb::module_ &main)
              nb::arg("idx"),
              "Keep only the given columns, in the given order.\n\n"
              "Every buffer becomes its columns idx (indices into the buffers, 0..capacity-1) and n "
-             "becomes len(idx).\n\n"
+             "and the capacity become len(idx).\n\n"
              "Parameters\n"
              "----------\n"
              "idx : list of int\n"
-             "    The columns to keep.")
+             "    The columns to keep; an index of capacity or more raises IndexError.")
         .def_prop_ro("n_finite",
                      &Population::n_finite,
                      "The number of active individuals whose f is not +inf.\n\n"
@@ -144,10 +149,12 @@ void define_population(nb::module_ &main)
                 "With elitism, the size of the sorted (mu + lambda) pool of which the selection "
                 "kept the first n (0 or at most n: no point was dropped).\n\n"
                 "The columns n..n_pool-1 of the buffers then hold the dropped points, the worst "
-                "of the pool, in their order (they are not part of the arrays X, Z, Y, f, ...): "
-                "the active update of the matrix gives them the negative weights (the framework "
-                "paper's \"lambda - mu worst individuals\", #161). Set by the selection; "
-                "`keep_only` and adding populations reset it to 0.")
+                "of the pool, in their order (they are not part of the arrays X, Z, Y, f, ...). "
+                "The active update of the matrix gives its negative weights to the worst points "
+                "of the pool, the last columns: these dropped points, and the worst kept ones "
+                "when there are more negative weights than dropped points (the framework paper's "
+                "\"lambda - mu worst individuals\", #161). Set by every selection; `keep_only` "
+                "and adding populations reset it to 0.")
         .def(
             "__add__",
             [](const Population &self, const Population &other) {
@@ -237,8 +244,9 @@ void define_parameters(nb::module_ &main)
         "The configuration and the bookkeeping of the optimizer.\n\n"
         "Modules (the module choices) and Settings (dimension, budget, bounds, strategy "
         "parameters) configure a run; Weights holds the recombination weights and learning "
-        "rates, Stats and Solution the progress of a run, CoordinateMapping the rounding of "
-        "integer variables. The Parameters class itself is modcma.c_maes.Parameters.");
+        "rates, Stats and Solution the progress of a run, Center the record of a finished run, "
+        "CoordinateMapping the rounding of integer variables. The Parameters class itself is "
+        "modcma.c_maes.Parameters.");
     using namespace parameters;
 
     nb::class_<Modules>(
@@ -247,23 +255,29 @@ void define_parameters(nb::module_ &main)
         "The module configuration: one choice per module.\n\n"
         "A bool attribute turns a module on or off; an enum attribute selects one option of an "
         "enum in modcma.c_maes.options. The defaults, Modules(), give the standard CMA-ES with "
-        "cumulative step-size adaptation (CSA) and no restarts. Settings may adjust some choices "
-        "so that they fit together (see Settings).")
+        "cumulative step-size adaptation (CSA) and no restart strategy. Settings may adjust some "
+        "choices so that they fit together (see Settings).")
         .def(nb::init<>(), "The default configuration: CMA-ES with CSA, every bool module off.")
         .def_prop_rw("elitist",
                      bool_getter(&Modules::elitist),
                      bool_setter(&Modules::elitist),
                      "bool, default False: (mu + lambda) selection.\n\n"
                      "The parents of the previous generation compete with the offspring. Can "
-                     "speed up convergence on unimodal functions, at the cost of diversity.")
+                     "speed up convergence on unimodal functions, at the cost of diversity. "
+                     "Settings turns it on for a (1+1)-ES (lambda0 = 1).")
         .def_prop_rw("active",
                      bool_getter(&Modules::active),
                      bool_setter(&Modules::active),
                      "bool, default False: active covariance matrix update.\n\n"
                      "The worst individuals enter the update of the matrix with negative weights "
                      "(Jastrebski and Arnold), rescaled by d / ||A^-1 y||^2 as in Hansen (2016), "
-                     "Eq. (46). Settings turns it off for matrix_adaptation NONE and CMSA (which "
-                     "has no active variant) and for a (1+1)-ES.\n\n"
+                     "Eq. (46). With PAIRWISE the losers of the pairs get no negative weights; "
+                     "with elitism they go to the worst points of the (mu + lambda) pool "
+                     "(Population.n_pool).\n\n"
+                     "Settings turns it on for weights UTILITY, and off for matrix_adaptation "
+                     "NONE and CMSA (which has no active variant) and for a (1+1)-ES; these "
+                     "win. With NATURAL_GRADIENT, active turns weights DEFAULT into UTILITY, "
+                     "xNES's active form.\n\n"
                      "With StepSizeAdaptation.XNES (and weights other than UTILITY) a generation "
                      "with h_sigma = 0 has no negative weights (COVARIANCE, COVARIANCE_NO_EIGV, "
                      "SEPARABLE, CHOLESKY, MATRIX): xNES SA keeps sigma too small, "
@@ -282,8 +296,10 @@ void define_parameters(nb::module_ &main)
                      bool_setter(&Modules::sequential_selection),
                      "bool, default False: sequential selection (Brockhoff et al.).\n\n"
                      "The evaluation of a generation stops at the first individual, from index "
-                     "mu on, that improves on the best of the previous generation; the rest of "
-                     "the generation is not evaluated.")
+                     "mu on (0-based), that improves on the best of the previous generation; the "
+                     "rest of the generation is not evaluated. With PAIRWISE from index 2 mu on, "
+                     "and only after a complete pair. Not in the first generation of a run, "
+                     "which has no previous one. Settings turns it off for a (1+1)-ES.")
         .def_prop_rw("threshold_convergence",
                      bool_getter(&Modules::threshold_convergence),
                      bool_setter(&Modules::threshold_convergence),
@@ -297,16 +313,19 @@ void define_parameters(nb::module_ &main)
                      bool_setter(&Modules::sample_sigma),
                      "bool, default False: every individual samples its own step size.\n\n"
                      "One step size per individual, the same in every coordinate, drawn from a "
-                     "log-normal distribution around sigma, sigma exp(beta n), with learning "
-                     "rate Weights.beta (self-adaptation). Always on with ssa SA and LPXNES.")
+                     "log-normal distribution around sigma, sigma exp(beta n) with n ~ N(0, 1) "
+                     "and the learning rate beta = Weights.beta (self-adaptation). Always on "
+                     "with ssa SA and LPXNES, also when this attribute is False.")
         .def_rw("weights",
                 &Modules::weights,
                 "options.RecombinationWeights, default DEFAULT: the recombination weights.\n\n"
-                "See modcma.c_maes.options.RecombinationWeights for the choices.")
+                "See modcma.c_maes.options.RecombinationWeights for the choices. Settings sets "
+                "EQUAL for a (1+1)-ES, and UTILITY for NATURAL_GRADIENT with active and DEFAULT "
+                "weights.")
         .def_rw("sampler",
                 &Modules::sampler,
                 "options.BaseSampler, default UNIFORM: the generator of the base points in "
-                "[0, 1)^d.\n\n"
+                "(0, 1)^d.\n\n"
                 "Pseudo-random or a low-discrepancy sequence; sample_transformation turns the "
                 "points into samples of the search distribution. See "
                 "modcma.c_maes.options.BaseSampler.")
@@ -315,11 +334,13 @@ void define_parameters(nb::module_ &main)
                 "options.Mirror, default NONE: mirrored sampling.\n\n"
                 "Individuals 2i and 2i + 1 of a generation are mirror images, z and -z (an "
                 "odd last individual is unpaired); PAIRWISE also ranks only the better point of "
-                "each pair. See modcma.c_maes.options.Mirror.")
+                "each pair. See modcma.c_maes.options.Mirror. With PAIRWISE, Settings increases "
+                "an odd lambda0 by one; for a (1+1)-ES it sets PAIRWISE to NONE.")
         .def_rw("ssa",
                 &Modules::ssa,
                 "options.StepSizeAdaptation, default CSA: the step-size adaptation.\n\n"
-                "See modcma.c_maes.options.StepSizeAdaptation for the choices.")
+                "See modcma.c_maes.options.StepSizeAdaptation for the choices. Settings sets SR "
+                "for a (1+1)-ES.")
         .def_rw("bound_correction",
                 &Modules::bound_correction,
                 "options.CorrectionMethod, default NONE: the correction of points outside the "
@@ -330,17 +351,21 @@ void define_parameters(nb::module_ &main)
                 "options.RestartStrategy, default NONE: what happens when a restart criterion "
                 "holds.\n\n"
                 "Restart (with the same, an increasing or an alternating population size) or "
-                "stop. See modcma.c_maes.options.RestartStrategy.")
+                "stop. See modcma.c_maes.options.RestartStrategy. With NONE the only criterion "
+                "is UnableToAdapt (the update of the matrix failed, or sigma is not finite), and "
+                "a run restarts when it holds; the other criteria need one of the other options. "
+                "Settings sets IPOP and BIPOP to RESTART for a (1+1)-ES.")
         .def_rw("repelling_type",
                 &Modules::repelling_type,
                 "options.RepellingType, default NONE: repelling restarts.\n\n"
                 "Restarts avoid the regions of the optima found by earlier runs (taboo "
-                "points). See modcma.c_maes.options.RepellingType.")
+                "points). No effect without restarts (restart_strategy STOP, or NONE unless "
+                "UnableToAdapt holds). See modcma.c_maes.options.RepellingType.")
         .def_rw("repelling_metric",
                 &Modules::repelling_metric,
-                "options.RepellingMetric, default CURRENT (EUCLIDEAN before #158): the distance "
-                "between a sample and a taboo point of repelling restarts.\n\n"
-                "See modcma.c_maes.options.RepellingMetric for the choices.")
+                "options.RepellingMetric, default CURRENT: the distance between a sample and a "
+                "taboo point of repelling restarts.\n\n"
+                "See modcma.c_maes.options.RepellingMetric for the choices (#158).")
         .def_rw("matrix_adaptation",
                 &Modules::matrix_adaptation,
                 "options.MatrixAdaptationType, default COVARIANCE: the adaptation of the shape "
@@ -352,7 +377,8 @@ void define_parameters(nb::module_ &main)
                 &Modules::center_placement,
                 "options.CenterPlacement, default X0: where the mean of the search distribution "
                 "starts after a restart.\n\n"
-                "See modcma.c_maes.options.CenterPlacement for the choices.")
+                "The first run always starts at Settings.x0, or Settings.center without x0. See "
+                "modcma.c_maes.options.CenterPlacement for the choices.")
         .def_rw("sample_transformation",
                 &Modules::sample_transformation,
                 "options.SampleTranformerType, default GAUSSIAN: the distribution of the "
@@ -386,8 +412,10 @@ void define_parameters(nb::module_ &main)
         "Every run ends with an evaluation of its center of mass (`ModularCMAES.center_of_mass`), "
         "at a restart and when the optimizer stops: x and y are that point and its value, t the "
         "last generation of the run and e the evaluations after it. The run ended with the "
-        "distribution N(x, sigma^2 C), C = B diag(d)^2 B^T, with d and B in `metric`. Every run "
-        "is recorded, converged or not: `std` and `reasons` tell how it ended.")
+        "distribution N(m, sigma^2 C), C = B diag(d)^2 B^T, with d and B in `metric`; x is its "
+        "mean m, clipped to the box when a bound correction is used and with the integer "
+        "variables rounded. Every run is recorded, converged or not: `std` and `reasons` tell "
+        "how it ended.")
         .def(nb::init<>(), "An empty record: x is empty, y is +inf, no metric, no reasons.")
         .def_ro("sigma", &Center::sigma, "The step size at the end of the run.")
         .def_ro("metric",
@@ -413,7 +441,10 @@ void define_parameters(nb::module_ &main)
             },
             "x, y and std as text.");
 
-    nb::class_<Stats>(m, "Stats", "The progress of a run: counters and the best solutions.")
+    nb::class_<Stats>(m,
+                      "Stats",
+                      "The progress of an optimizer: counters, the best solutions and the records "
+                      "of the finished runs.")
         .def(nb::init<>(), "Empty statistics: no generation, no evaluation, no solution.")
         .def_rw("t",
                 &Stats::t,
@@ -457,16 +488,21 @@ void define_parameters(nb::module_ &main)
                 &Stats::current_best,
                 "The best solution of the current run (since the last restart), of every "
                 "evaluated point; the success rules and the restarts read it. With RESAMPLE it "
-                "can lie outside the box (see global_best).")
+                "can lie outside the box (see global_best).\n\n"
+                "Reading returns the optimizer's own record, not a copy: an object held across "
+                "a generation follows the optimizer (its x is a copy when read). copy.copy() "
+                "keeps its values.")
         .def_rw("global_best",
                 &Stats::global_best,
-                "The best feasible solution found so far, over all runs: what `run()` and `fmin` "
-                "return.\n\n"
+                "The best feasible solution found so far, over all runs: the result of a run "
+                "(`run()` returns None and leaves it here), and what `fmin` returns.\n\n"
                 "With a bound correction (not NONE) only a point inside [lb, ub] becomes "
                 "global_best: RESAMPLE evaluates a point outside the box after 5 d rejected tries, "
                 "and such a point is not returned (#168). Without a bound correction the box does "
                 "not constrain the points, and every point counts. Before 2.0 it could lie "
-                "outside the box.")
+                "outside the box.\n\n"
+                "Reading returns the optimizer's own record, as current_best: copy.copy() keeps "
+                "its values.")
         .def_rw("has_improved",
                 &Stats::has_improved,
                 "Whether the last selection improved current_best.")
@@ -480,10 +516,15 @@ void define_parameters(nb::module_ &main)
                 "in the (1+1) configuration (lambda0 = 1).")
         .def_rw("last_update",
                 &Stats::last_update,
-                "The generation of the last update of the matrix of the matrix adaptation.")
+                "The generation of the last update of the sampling factor of the matrix "
+                "adaptation.\n\n"
+                "For COVARIANCE and COVARIANCE_NO_EIGV the last decomposition of C (every "
+                "Weights.lazy_update_interval generations; C itself is updated every "
+                "generation); for SEPARABLE, MATRIX, CHOLESKY, CMSA and NATURAL_GRADIENT the "
+                "last update of the matrix; NONE does not set it.")
         .def_rw("n_updates",
                 &Stats::n_updates,
-                "The number of updates of the matrix of the matrix adaptation so far.")
+                "The number of updates of the sampling factor so far, counted as last_update.")
         .def("__repr__", [](Stats &stats) {
             return repr("Stats", [&](std::stringstream &ss) {
                 ss << " t: " << stats.t << " e: " << stats.evaluations;
@@ -496,9 +537,9 @@ void define_parameters(nb::module_ &main)
         m,
         "Weights",
         "The recombination weights and the learning rates of a run.\n\n"
-        "Computed when the Parameters are created, and again at every restart with the current "
-        "mu and lambda. A learning rate given in the Settings is used as is; the defaults below "
-        "use d for the dimension.")
+        "Computed when the Parameters are created, and again with the current mu and lambda at "
+        "every restart and by Parameters.resize_population. A learning rate given in the "
+        "Settings is used as is; the defaults below use d for the dimension.")
         .def(nb::init<Settings, Float>(),
              nb::arg("Settings"),
              nb::arg("expected_length_z"),
@@ -513,11 +554,11 @@ void define_parameters(nb::module_ &main)
         .def_rw("mueff",
                 &Weights::mueff,
                 "The variance effective selection mass of the positive weights, "
-                "1 / sum(positive**2).")
+                "1 / sum(positive^2).")
         .def_rw("mueff_mean",
                 &Weights::mueff_mean,
                 "The variance effective selection mass of the weights of the mean, "
-                "1 / sum(w**2): `mueff`, except for UTILITY, where the mean uses all lambda "
+                "1 / sum(w^2): `mueff`, except for UTILITY, where the mean uses all lambda "
                 "utilities. Normalizes the evolution paths.")
         .def_rw("utility",
                 &Weights::utility,
@@ -530,28 +571,32 @@ void define_parameters(nb::module_ &main)
         .def_rw("mueff_neg",
                 &Weights::mueff_neg,
                 "The variance effective selection mass of the negative weights, "
-                "sum(negative)**2 / sum(negative**2) (of the mu negative weights of a population "
-                "of 2 mu when mu > lambda / 2, see `negative`).")
+                "sum(negative)^2 / sum(negative^2) (for DEFAULT with mu > lambda / 2: of the mu "
+                "negative weights of a population of 2 mu, see `negative`).")
         .def_rw("c1",
                 &Weights::c1,
                 "The learning rate of the rank-one update of the matrix.\n\n"
-                "Default acov / ((d + 1.3)**2 + mueff); for SEPARABLE pycma's separable rate "
-                "1 / (d + 2 sqrt(d) + mueff / d) (c1_sep of CMA_diagonal, pycma 4.6.0); 2 / (d**2 "
+                "Default acov / ((d + 1.3)^2 + mueff) (Hansen, arXiv:1604.00772v2, Table 1, "
+                "Eq. (57)); for SEPARABLE pycma's separable rate "
+                "1 / (d + 2 sqrt(d) + mueff / d) (c1_sep of CMA_diagonal, pycma 4.6.0); 2 / (d^2 "
                 "+ 6) for a (1+1)-ES (lambda0 = 1).")
         .def_rw("cmu",
                 &Weights::cmu,
                 "The learning rate of the rank-mu update of the matrix.\n\n"
-                "Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)**2 + acov mueff / "
-                "2)); for SEPARABLE pycma's separable rate min(1 - c1, (0.25 + mueff + 1 / mueff "
-                "- 2) / (d + 4 sqrt(d) + mueff / 2)) (cmu_sep of CMA_diagonal, pycma 4.6.0), so "
-                "that c1 + cmu <= 1; 2 / (d**2 + 6) for lambda0 = 1.")
+                "Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)^2 + acov mueff / "
+                "2)), as `cmaes` 0.13 (Hansen, arXiv:1604.00772v2, Table 1, Eq. (58), and pycma "
+                "add 1/4 to mueff - 2 + 1 / mueff); for SEPARABLE pycma's separable rate min(1 - "
+                "c1, (0.25 + mueff + 1 / mueff - 2) / (d + 4 sqrt(d) + mueff / 2)) (cmu_sep of "
+                "CMA_diagonal, pycma 4.6.0), so that c1 + cmu <= 1; 2 / (d^2 + 6) for lambda0 = "
+                "1.")
         .def_rw("cc",
                 &Weights::cc,
                 "The learning rate of the evolution path pc.\n\n"
-                "Default (4 + mueff / d) / (d + 4 + 2 mueff / d); 2 / (d + 2) for a (1+1)-ES. "
+                "Default (4 + mueff / d) / (d + 4 + 2 mueff / d) (Hansen, arXiv:1604.00772v2, "
+                "Table 1, Eq. (56)); 2 / (d + 2) for a (1+1)-ES. "
                 "With NATURAL_GRADIENT the learning rate of A <- A expm(cc G): xNES's eta_B / 2 = "
                 "(9 + 3 ln(d)) / (10 d sqrt(d)) (Glasmachers et al. 2010) with every ssa, or 1 / "
-                "(4 d**1.5) for a (1+1)-ES.")
+                "(4 d^1.5) for a (1+1)-ES.")
         .def_rw("cs",
                 &Weights::cs,
                 "The learning rate of the step-size adaptation.\n\n"
@@ -560,25 +605,29 @@ void define_parameters(nb::module_ &main)
                 "mueff + 3 and caps cs at 1/2); SR 2 / (d + 2); XNES mueff / (2 ln(max(2, d)) "
                 "sqrt(d)), or with NATURAL_GRADIENT xNES's eta_sigma = (9 + 3 ln(d)) / (5 d "
                 "sqrt(d)) (Glasmachers et al. 2010); MXNES 1; LPXNES min(1, 9 mueff / (10 "
-                "sqrt(d))); otherwise (TPA, MSR, PSR, SA) 0.3. The rates of XNES, MXNES and LPXNES "
-                "are those of Krause, Glasmachers & Igel (2017), Table 3; the cap of LPXNES's at 1 "
-                "is modcma's (above 1 its update overshoots). cs is also the rate of the path ps, "
-                "at most 1 (see `cs_path`).")
+                "sqrt(d))); otherwise (TPA, TPA_INPLACE, MSR, PSR, SA) 0.3. The rates of XNES, "
+                "MXNES and LPXNES are those of Krause, Glasmachers & Igel (2017), Table 3; the cap "
+                "of LPXNES's at 1 is modcma's (above 1 its update overshoots). cs is also the rate "
+                "of the path ps, at most 1 (see `cs_path`). SR and SA do not use cs in their "
+                "update of sigma: for them it is only the rate of ps.")
         .def_rw("cs_path",
                 &Weights::cs_path,
                 "The learning rate of the evolution path ps: min(cs, 1).\n\n"
-                "The default cs of XNES, mueff / (2 ln(d) sqrt(d)), exceeds 1 for large "
+                "The default cs of XNES, mueff / (2 ln(max(2, d)) sqrt(d)), exceeds 1 for large "
                 "populations (13.8 at d = 2, lambda = 100), and LPXNES's exceeded 2 before it was "
                 "capped; as the rate of ps a cs above 2 made ps NaN. At 1 ps is the current step, "
-                "sqrt(mueff) dz, as with MXNES (cs = 1). ps is read by "
-                "CSA, by MATRIX (its rank-one update) and by h_sigma of COVARIANCE, "
-                "COVARIANCE_NO_EIGV and SEPARABLE.")
+                "sqrt(mueff_mean) dz, as with MXNES (cs = 1). ps is read by CSA, by MATRIX (its "
+                "rank-one update), and by h_sigma of COVARIANCE, COVARIANCE_NO_EIGV and "
+                "SEPARABLE, and of MATRIX and CHOLESKY with a step-size rule other than CSA "
+                "(#160).")
         .def_rw("damps",
                 &Weights::damps,
                 "The damping of the step-size update.\n\n"
                 "Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs (Hansen, "
                 "arXiv:1604.00772v2, Table 1, Eq. (55)); for SR 1 + d / 2; for MSR max(1, 2 - 2 / "
-                "d); otherwise (PSR among them) 1.")
+                "d); for TPA_INPLACE 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)) (pycma 4.6.0, "
+                "CMAAdaptSigmaTPA); otherwise (PSR among them) 1. Used by CSA, MSR, PSR, SR and "
+                "TPA_INPLACE; the other step-size rules have no damping.")
         .def_rw("sqrt_cc_mueff",
                 &Weights::sqrt_cc_mueff,
                 "sqrt(cc (2 - cc) mueff_mean): the normalisation of the update of the path pc "
@@ -589,17 +638,22 @@ void define_parameters(nb::module_ &main)
                 "path ps (mueff_mean = mueff, or 1 / sum u_i^2 for the utilities of UTILITY).")
         .def_rw("lazy_update_interval",
                 &Weights::lazy_update_interval,
-                "The number of generations between two eigendecompositions of the covariance "
-                "matrix (COVARIANCE), 1 / (c1 + cmu) / d / 10; the matrix itself is updated "
-                "every generation.\n\n"
-                "Below 1, the matrix is decomposed every generation.")
+                "The number of generations between two decompositions of the covariance matrix, "
+                "1 / (c1 + cmu) / d / 10: the eigendecomposition of COVARIANCE, the Cholesky "
+                "factorization of COVARIANCE_NO_EIGV. The matrix itself is updated every "
+                "generation.\n\n"
+                "At most 1 (with the default rates up to d = 82), the matrix is decomposed every "
+                "generation.")
         .def_rw("expected_length_z",
                 &Weights::expected_length_z,
                 "The expected length of a sample of the sampler, E||z||.")
         .def_rw("expected_length_ps",
                 &Weights::expected_length_ps,
-                "(1.4 + 2 / (d + 1)) expected_length_z: the threshold on the length of ps above "
-                "which the update of the path pc stalls (h_sigma).")
+                "(1.4 + 2 / (d + 1)) expected_length_z: the threshold of h_sigma (Hansen 2016, "
+                "App. A, symbols of Fig. 6). When the length of ps, corrected for the generations "
+                "of the run, is not below it, the rank-one update stalls (the update of the path "
+                "pc; "
+                "MATRIX's rank-one term).")
         .def_rw("beta",
                 &Weights::beta,
                 "The learning rate of the sampled step sizes (sample_sigma): the standard "
@@ -609,7 +663,8 @@ void define_parameters(nb::module_ &main)
                 "for d = 1); 1 / sqrt(2 mueff) otherwise.")
         .def_rw("weights",
                 &Weights::weights,
-                "(lambda,) array: all weights by rank, positive followed by negative.")
+                "(lambda,) array: all weights by rank, positive followed by negative (with "
+                "UTILITY the utilities, which sum to zero).")
         .def_rw("positive",
                 &Weights::positive,
                 "(mu,) array: the weights of the mu best individuals, normalised to sum 1.\n\n"
@@ -623,7 +678,7 @@ void define_parameters(nb::module_ &main)
                 "(lambda - mu,) array: the weights of the other individuals, for the active "
                 "update.\n\n"
                 "Scaled so that their absolute values sum to max(0, min(1 + c1 / cmu, 1 + 2 "
-                "mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu))) (Hansen 2016, Eq. (51) to "
+                "mueff_neg / (mueff + 2), (1 - c1 - cmu) / (d cmu))) (Hansen 2016, Eq. (50) to "
                 "(53)). DEFAULT with the default mu: ln((lambda + 1) / 2) - ln(i), i = mu + "
                 "1..lambda. DEFAULT with another mu, as pycma with CMA_mu: the mu negative "
                 "weights ln(mu + 1/2) - ln(i), i = mu + 1..2 mu, of a population of 2 mu go to "
@@ -638,7 +693,8 @@ void define_parameters(nb::module_ &main)
              "After sequential selection stopped a generation early (mu < n < lambda), the "
              "positive weights are unchanged and the negative weights of ranks mu..n-1 are scaled "
              "so that their sum equals the sum of all lambda - mu negative weights. For n >= "
-             "lambda, these are the weights themselves.\n\n"
+             "lambda, these are the weights themselves; for n <= mu, the first n positive "
+             "weights. With UTILITY, the utilities of min(n, lambda) points.\n\n"
              "Parameters\n"
              "----------\n"
              "n : int\n"
@@ -671,12 +727,12 @@ void define_parameters(nb::module_ &main)
         "has_bounds) and adjusts the modules.\n\n"
         "Setting a field afterwards checks that field alone (ValueError for a wrong length, NaN, "
         "a sign or a range) and recomputes what is derived from it: lb and ub the derived values "
-        "of the box, lambda0 the default mu0. The fields can therefore be set in any order. The "
-        "checks between fields (lb <= ub, the integer variables in the box, mu0 <= lambda0, the "
-        "budget against the first generation, lambda0 with the modules) run in the constructor "
-        "and again when an optimizer is created from the settings (ModularCMAES(settings), "
-        "Parameters(settings)): ValueError naming the fields. Changing the modules afterwards, "
-        "in place, does not adjust them.")
+        "of the box, sigma0 the center, lambda0 the default mu0. The fields can therefore be set "
+        "in any order. The checks between fields (lb <= ub, the integer variables in the box, "
+        "c1 + cmu <= 1, mu0 <= lambda0, the budget against the first generation, lambda0 with "
+        "the modules) run in the constructor and again when an optimizer is created from the "
+        "settings (ModularCMAES(settings), Parameters(settings)): ValueError naming the fields. "
+        "Changing the modules afterwards, in place, does not adjust them.")
         .def(
             "__init__",
             [](Settings *self,
@@ -772,6 +828,9 @@ void define_parameters(nb::module_ &main)
             "The constructor makes the configuration consistent:\n\n"
             "- with mirrored PAIRWISE, an odd lambda0 above 1 is increased by one;\n"
             "- with ssa SA or matrix_adaptation CMSA, the default mu0 is lambda0 // 4;\n"
+            "- with matrix_adaptation NATURAL_GRADIENT and active, weights DEFAULT become "
+            "UTILITY;\n"
+            "- with weights UTILITY, active is turned on;\n"
             "- with matrix_adaptation NONE or CMSA, active is turned off;\n"
             "- lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL "
             "weights, no active update, no sequential selection, mirrored PAIRWISE becomes "
@@ -779,15 +838,18 @@ void define_parameters(nb::module_ &main)
             "- then, when ssa is not CSA (so also for lambda0 = 1), matrix_adaptation "
             "COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);\n"
             "- when the box lb..ub is not finite, has_bounds is False, diameter 10, volume "
-            "10**dim; center is computed per coordinate (see `center`).\n\n"
+            "10^dim; center is computed per coordinate (see `center`).\n\n"
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
-            "mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, a "
-            "sigma0 that is not positive and finite, x0, lb or ub of a length other "
-            "than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above "
-            "ub, an integer variable without an integer value in [lb, ub], a budget smaller "
-            "than the first generation and the evaluation of the final center of mass, or a C0 "
-            "that is not a symmetric positive definite (dim, dim) matrix (or with "
-            "matrix_adaptation NONE).\n\n"
+            "mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, "
+            "max_generations 0, a sigma0 that is not positive and finite, x0, lb or ub of a "
+            "length other than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, "
+            "lb above ub, an integer variable without an integer value in [lb, ub], a budget "
+            "smaller than the first generation and the evaluation of the final center of mass, "
+            "a learning rate out of its range (cs and cc in (0, 1], c1 and cmu in [0, 1], c1 + "
+            "cmu above 1 when both are given, damps not positive, acov not positive and "
+            "finite; #147), or a C0 that is not a symmetric positive definite (dim, dim) matrix "
+            "(or with matrix_adaptation NONE). An index of integer_variables outside 0..dim-1 "
+            "raises ValueError when the optimizer is created.\n\n"
             "Parameters\n"
             "----------\n"
             "dim : int\n"
@@ -803,22 +865,23 @@ void define_parameters(nb::module_ &main)
             "    The maximum number of evaluations, default 10000 * dim; at least the first "
             "generation (lambda0, and TPA's 2 points) and the final center of mass. A generation "
             "runs only when it leaves one evaluation: the run stops when the evaluations so far "
-            "plus lambda (and TPA's 2 points) plus 1 would exceed it, and every run ends with "
-            "the evaluation of its center of mass (#111).\n"
+            "plus lambda (and TPA's 2 points, reserved also in a generation that skips them, "
+            "#179) plus 1 would exceed it, and every run ends with the evaluation of its center "
+            "of mass (#111).\n"
             "sigma0 : float, optional\n"
             "    The initial step size, default 2.0, positive and finite; also the step size "
-            "after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u "
+            "after a restart (the small-population runs of BIPOP use sigma0 * 10^(-2 u), u "
             "uniform in (0, 1)).\n"
             "mu0 : int, optional\n"
             "    The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or "
             "matrix_adaptation CMSA); at least 1 and at most lambda0.\n"
             "lambda0 : int, optional\n"
             "    The number of offspring per generation, default 4 + floor(3 ln(dim)); at least 1 "
-            "(1 is the (1+1)-ES). Many modules work poorly with 2 or 3 (see the compatibility "
+            "(1 is the (1+1)-ES). Many modules fail with 2, a few with 3 (see the compatibility "
             "page).\n"
             "x0 : array_like, optional\n"
-            "    (dim,) the initial mean of the search distribution. Default None: the center of "
-            "the bounds (the zero vector when the box is not finite); after a restart, "
+            "    (dim,) the initial mean of the search distribution. Default None: `center`, the "
+            "midpoint of the box (see `center` for infinite bounds); after a restart, "
             "center_placement X0 uses the same point.\n"
             "lb : array_like, optional\n"
             "    (dim,) the lower bounds, default -5 in every coordinate.\n"
@@ -827,23 +890,24 @@ void define_parameters(nb::module_ &main)
             "integer_variables : sequence of int, optional\n"
             "    The indices of the variables that take integer values: they are rounded before "
             "evaluation (a value in [lb, ub] to the nearest integer in [lb, ub]) and their step "
-            "size has a lower bound. Each needs an integer value in [lb, ub]. Default: none.\n"
+            "size has a lower bound (the step size times sqrt(C_ii) is at least min(0.2, "
+            "mueff / dim)). Each needs an integer value in [lb, ub]. Default: none.\n"
             "cs : float, optional\n"
-            "    The learning rate of the step-size adaptation, in (0, 1]. Default depends on ssa (see "
-            "Weights.cs); for CSA (mueff + 2) / (dim + mueff + 5) (Hansen, The CMA Evolution "
-            "Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55)).\n"
+            "    The learning rate of the step-size adaptation, in (0, 1]. Default depends on "
+            "ssa (see Weights.cs); for CSA (mueff + 2) / (dim + mueff + 5) (Hansen, The CMA "
+            "Evolution Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55)).\n"
             "cc : float, optional\n"
-            "    The learning rate of the evolution path pc, in (0, 1]. Default (4 + mueff / dim) / (dim + "
-            "4 + 2 mueff / dim) (see Weights.cc).\n"
+            "    The learning rate of the evolution path pc, in (0, 1]. Default (4 + mueff / "
+            "dim) / (dim + 4 + 2 mueff / dim) (see Weights.cc).\n"
             "cmu : float, optional\n"
-            "    The learning rate of the rank-mu update, in [0, 1]. Default min(1 - c1, acov (mueff - 2 + "
-            "1 / mueff) / ((dim + 2)**2 + acov mueff / 2)) (see Weights.cmu).\n"
+            "    The learning rate of the rank-mu update, in [0, 1]. Default min(1 - c1, acov "
+            "(mueff - 2 + 1 / mueff) / ((dim + 2)^2 + acov mueff / 2)) (see Weights.cmu).\n"
             "c1 : float, optional\n"
-            "    The learning rate of the rank-one update, in [0, 1]; with cmu, c1 + cmu <= 1. Default acov / ((dim + 1.3)**2 + "
-            "mueff) (see Weights.c1).\n"
+            "    The learning rate of the rank-one update, in [0, 1]; with cmu, c1 + cmu <= 1. "
+            "Default acov / ((dim + 1.3)^2 + mueff) (see Weights.c1).\n"
             "damps : float, optional\n"
-            "    The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, sqrt((mueff - "
-            "1) / (dim + 1)) - 1) + cs (see Weights.damps).\n"
+            "    The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, "
+            "sqrt((mueff - 1) / (dim + 1)) - 1) + cs (see Weights.damps).\n"
             "acov : float, optional\n"
             "    The factor alpha_cov in the defaults of c1 and cmu, positive, default 2 (not "
             "used by SEPARABLE, whose defaults are pycma's separable rates).\n"
@@ -862,7 +926,7 @@ void define_parameters(nb::module_ &main)
             "random stream.\n"
             "C0 : array_like, optional\n"
             "    (dim, dim) the initial covariance matrix C, symmetric positive definite: the "
-            "first generation samples N(x0, sigma0**2 C0). Default None: the identity. See the "
+            "first generation samples N(x0, sigma0^2 C0). Default None: the identity. See the "
             "attribute C0; modcma.warm_start estimates x0, sigma0 and C0 from the solutions of "
             "a related task.")
         // The read-only properties name their getter: Python's "property 'db' of 'Settings'
@@ -890,7 +954,7 @@ void define_parameters(nb::module_ &main)
             nb::for_setter(nb::arg("value").none()),
             "(dim, dim) array: the initial covariance matrix C, or None (default) for the "
             "identity.\n\n"
-            "The first generation samples N(x0, sigma0**2 C0) (warm starting, Nomura et al. "
+            "The first generation samples N(x0, sigma0^2 C0) (warm starting, Nomura et al. "
             "2021; see modcma.warm_start). Each matrix adaptation starts its matrix from a factor "
             "F of C0, F F^T = C0: COVARIANCE from the eigendecomposition, COVARIANCE_NO_EIGV, "
             "CHOLESKY and CMSA from the lower Cholesky factor, MATRIX and NATURAL_GRADIENT from "
@@ -927,8 +991,9 @@ void define_parameters(nb::module_ &main)
             "The maximum number of evaluations, default 10000 * dim; at least 2 "
             "(ValueError).\n\n"
             "A generation runs only when it leaves one evaluation: the run stops when the "
-            "evaluations so far plus lambda (and TPA's 2 points) plus 1 would exceed it, "
-            "and every run ends with the evaluation of its center of mass (#111). The "
+            "evaluations so far plus lambda (and TPA's 2 points, reserved also in a generation "
+            "that skips them, #179) plus 1 would exceed it, and every run ends with the "
+            "evaluation of its center of mass (#111). The "
             "budget must hold the first generation (lambda0, and TPA's 2 points) and the "
             "final center of mass: the constructor checks it, and after a setter the "
             "optimizer does when it is created (ValueError).")
@@ -949,8 +1014,9 @@ void define_parameters(nb::module_ &main)
             "Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting "
             "lambda0 recomputes it. A mu0 above lambda0 raises ValueError: in the constructor, "
             "and after a setter when the optimizer is created. Parameters.mu is the current "
-            "value, which IPOP and BIPOP restarts change: to the default of the new lambda "
-            "(as pycma), or, when mu0 was given, to mu0 / lambda0 of the new lambda.")
+            "value, which a restart that changes lambda changes (IPOP, BIPOP, the cap of the "
+            "first generation at the budget): to the default of the new lambda (as pycma), or, "
+            "when mu0 was given, to mu0 / lambda0 of the new lambda.")
         .def_prop_rw(
             "lambda0",
             [](const Settings &s) { return s.lambda0; },
@@ -963,7 +1029,8 @@ void define_parameters(nb::module_ &main)
             "= 1 set after construction or another lambda0 for settings created with lambda0 = 1 "
             "(the (1+1)-ES, for which the constructor adjusts the modules), or with a budget "
             "that does not hold the first generation. Parameters.lamb is the current value, "
-            "which IPOP and BIPOP restarts change.")
+            "which IPOP and BIPOP restarts change, and a restart near the end of the budget "
+            "caps.")
         .def_prop_rw(
             "x0",
             [](const Settings &s) { return s.x0; },
@@ -973,8 +1040,8 @@ void define_parameters(nb::module_ &main)
             // array_like, as the constructor
             nb::for_setter(nb::sig("def x0(self, arg: numpy.typing.ArrayLike | None, /) -> None")),
             "(dim,) array: the initial mean of the search distribution, or None (default) for "
-            "`center` (the midpoint of the bounds; see `center` for infinite bounds). A length other than dim, or a value that is not "
-            "finite, raises ValueError.")
+            "`center` (the midpoint of the bounds; see `center` for infinite bounds). A length "
+            "other than dim, or a value that is not finite, raises ValueError.")
         .def_prop_rw(
             "lb",
             [](const Settings &s) { return s.lb; },
@@ -1019,15 +1086,15 @@ void define_parameters(nb::module_ &main)
         .def_ro("volume",
                 &Settings::volume,
                 nb::name("volume"),
-                "The volume of the box, prod(ub - lb); 10**dim when the box is not finite. "
+                "The volume of the box, prod(ub - lb); 10^dim when the box is not finite. "
                 "Read-only: derived from lb and ub.")
         .def_prop_ro(
             "has_bounds",
             bool_getter(&Settings::has_bounds),
             nb::name("has_bounds"),
-            "Whether the box lb..ub is finite (`diameter`, `volume` and `center` depend on "
-            "it); read-only, derived from lb and ub. Bound correction does not depend on "
-            "it: it corrects every finite bound.")
+            "Whether the box lb..ub is finite (`diameter` and `volume` depend on it; `center` "
+            "is computed per coordinate); read-only, derived from lb and ub. Bound correction "
+            "does not depend on it: it corrects every finite bound.")
         .def_ro("integer_variables",
                 &Settings::integer_variables,
                 nb::name("integer_variables"),
@@ -1036,21 +1103,21 @@ void define_parameters(nb::module_ &main)
             "cs",
             [](const Settings &s) { return s.cs; },
             [](Settings &s, const std::optional<Float> value) { s.set_cs(value); },
-            "The learning rate cs given to the constructor, or None for the default; in (0, 1] "
+            "The learning rate cs, or None (default) for the module's default; in (0, 1] "
             "(ValueError).\n\n"
             "The value in use is Parameters.weights.cs.")
         .def_prop_rw(
             "cc",
             [](const Settings &s) { return s.cc; },
             [](Settings &s, const std::optional<Float> value) { s.set_cc(value); },
-            "The learning rate cc given to the constructor, or None for the default; in (0, 1] "
+            "The learning rate cc, or None (default) for the module's default; in (0, 1] "
             "(ValueError).\n\n"
             "The value in use is Parameters.weights.cc.")
         .def_prop_rw(
             "cmu",
             [](const Settings &s) { return s.cmu; },
             [](Settings &s, const std::optional<Float> value) { s.set_cmu(value); },
-            "The learning rate cmu given to the constructor, or None for the default; in [0, 1] "
+            "The learning rate cmu, or None (default) for the module's default; in [0, 1] "
             "(ValueError). With c1 given, c1 + cmu must be at most 1 (ValueError when the "
             "optimizer is created).\n\n"
             "The value in use is Parameters.weights.cmu.")
@@ -1058,7 +1125,7 @@ void define_parameters(nb::module_ &main)
             "c1",
             [](const Settings &s) { return s.c1; },
             [](Settings &s, const std::optional<Float> value) { s.set_c1(value); },
-            "The learning rate c1 given to the constructor, or None for the default; in [0, 1] "
+            "The learning rate c1, or None (default) for the module's default; in [0, 1] "
             "(ValueError). With cmu given, c1 + cmu must be at most 1 (ValueError when the "
             "optimizer is created).\n\n"
             "The value in use is Parameters.weights.c1.")
@@ -1066,8 +1133,8 @@ void define_parameters(nb::module_ &main)
             "damps",
             [](const Settings &s) { return s.damps; },
             [](Settings &s, const std::optional<Float> value) { s.set_damps(value); },
-            "The damping given to the constructor, or None for the default; positive "
-            "(ValueError).\n\n"
+            "The damping of the step-size update, or None (default) for the module's default; "
+            "positive (ValueError).\n\n"
             "The value in use is Parameters.weights.damps.")
         .def_prop_rw(
             "acov",
@@ -1084,7 +1151,8 @@ void define_parameters(nb::module_ &main)
         .def_ro("one_plus_one",
                 &Settings::one_plus_one,
                 nb::name("one_plus_one"),
-                "Whether lambda0 is 1: a (1+1)-ES (read-only; see the constructor).")
+                "Whether the settings were created with lambda0 = 1: a (1+1)-ES (read-only; see "
+                "the constructor).")
         .def("__repr__", [](Settings &s) {
             return repr("Settings", [&](std::stringstream &ss) {
                 ss << " dim: " << s.dim << " modules: " << to_string(s.modules);
@@ -1161,20 +1229,25 @@ void define_parameters(nb::module_ &main)
         "Settings.modules is an object here (adaptation, mutation, selection, sampler, bounds, "
         "...), which can be inspected and, for experiments, changed. Every Parameters object has "
         "its own random generator: seeded with Settings.seed, or a copy of the global generator "
-        "(set_seed) at creation.")
+        "(set_seed) at creation.\n\n"
+        "Create it as Parameters(settings), which copies the Settings and checks them (every "
+        "field, the checks between fields and C0; ValueError), or Parameters(d), the same as "
+        "Parameters(Settings(d)).")
         .def(nb::init<size_t>(),
              nb::arg("dimension"),
              "Parameters with the default settings for this dimension (Settings(dimension)).")
         .def(nb::init<Settings>(),
              nb::arg("settings"),
-             "Parameters for the given settings (copied).")
+             "Parameters for the given settings (copied).\n\n"
+             "The settings are checked first, every field and the checks between fields "
+             "(ValueError, see Settings), and C0 again.")
         .def("adapt",
              &Parameters::adapt,
              "The adaptation at the end of a generation.\n\n"
              "Updates the evolution paths, the step size (clipped to the tolerances of the "
              "MinSigma and MaxSigma restart criteria when constants.clip_sigma is set), the "
              "matrix of the matrix adaptation and the restart criteria, then increments "
-             "stats.t. ModularCMAES.adapt calls it.")
+             "stats.t and stats.t_run. ModularCMAES.adapt calls it.")
         .def("resize_population",
              &Parameters::resize_population,
              nb::arg("new_mu"),
@@ -1191,7 +1264,12 @@ void define_parameters(nb::module_ &main)
              "    The number of parents.\n"
              "new_lambda : int\n"
              "    The number of offspring per generation.")
-        .def_rw("settings", &Parameters::settings, "The Settings of this optimizer.")
+        .def_rw("settings",
+                &Parameters::settings,
+                "The Settings of this optimizer, a copy of those it was created with.\n\n"
+                "Setting a field of it checks that field alone: the checks between fields and "
+                "the adjustments of the constructor do not run again, and the module objects are "
+                "not rebuilt.")
         .def_rw("mu",
                 &Parameters::mu,
                 "The current number of parents: settings.mu0 at first. A restart that changes "
@@ -1202,7 +1280,8 @@ void define_parameters(nb::module_ &main)
         .def_rw("lamb",
                 &Parameters::lambda,
                 "The current number of offspring per generation (lambda): settings.lambda0 at "
-                "first, changed by IPOP and BIPOP restarts.")
+                "first, changed by IPOP and BIPOP restarts, and capped at a restart near the end "
+                "of the budget (the first generation of the new run takes at most the rest).")
         // shared_ptr<Adaptation> comes back as its most-derived bound type
         .def_rw("adaptation",
                 &Parameters::adaptation,
@@ -1221,11 +1300,13 @@ void define_parameters(nb::module_ &main)
         .def_rw("pop", &Parameters::pop, "The population of the current generation.")
         .def_rw("old_pop",
                 &Parameters::old_pop,
-                "The population of the previous generation (the parents for elitism).")
+                "The population of the previous generation, sorted: the parents for elitism, and "
+                "the reference of MSR, PSR and sequential selection.")
         .def_rw("sampler",
                 &Parameters::sampler,
                 "The sampler of the samples z (sampling.Sampler), built from modules.sampler, "
-                "sample_transformation, mirrored and orthogonal.")
+                "sample_transformation and orthogonal (and settings.fast_sampling). The mutation "
+                "forms the mirrored pairs, not the sampler.")
         .def_rw("mutation",
                 &Parameters::mutation,
                 "The mutation (mutation.Strategy, by modules.ssa): the step size sigma and its "
@@ -1363,7 +1444,11 @@ void define_cmaes(nb::module_ &m)
         m,
         "ModularCMAES",
         "The modular CMA-ES.\n\n"
-        "Create it from Settings (or from Parameters), then run it in one of two ways:\n\n"
+        "Create it as ModularCMAES(settings), which copies the Settings; ModularCMAES(d), the "
+        "same as ModularCMAES(Settings(d)); or ModularCMAES(parameters), which works on the "
+        "given Parameters without copying them (p is parameters). The signature of 1.x, "
+        "ModularCMAES(fitness_func, d, ...), raises TypeError. Then run it in one of two "
+        "ways:\n\n"
         "- with an objective function: run() (or calling the object) until a break condition "
         "holds, step() for one generation, or mutate(), select(), recombine() and adapt() for "
         "the steps of a generation;\n"
@@ -1375,7 +1460,10 @@ void define_cmaes(nb::module_ &m)
         "(p.stats.global_best), is in p.\n\n"
         "With the gradient of the objective, run(f, gradient=g) (or, with ask-tell, "
         "inject_gradient()) puts a point along the negative gradient into every population "
-        "(gradient injection).")
+        "(gradient injection).\n\n"
+        "pickle, copy.deepcopy and copy.copy save and restore the whole state at any point of a "
+        "run, also between ask() and tell(); the loaded optimizer continues bit for bit. The "
+        "objective is not saved: pass it again (#91).")
         .def(nb::init<std::shared_ptr<parameters::Parameters>>(),
              nb::arg("parameters"),
              "An optimizer that works on the given Parameters (shared, not copied: p is "
@@ -1433,7 +1521,8 @@ void define_cmaes(nb::module_ &m)
             nb::arg("gradient") = nb::none(),
             "Sample and evaluate a generation: the first step of a generation.\n\n"
             "Restarts first when a restart criterion holds (the run that ends evaluates its "
-            "center of mass with objective). Then select(), recombine() and adapt() complete the "
+            "center of mass with objective, and repelling the points of its hill-valley tests). "
+            "Then select(), recombine() and adapt() complete the "
             "generation. Every call samples a new generation, as in 1.x; only a generation that "
             "ask() started is completed instead (its points evaluated with objective). When the "
             "optimizer stops (stop_conditions()), it evaluates the final center of mass instead "
@@ -1450,9 +1539,10 @@ void define_cmaes(nb::module_ &m)
         .def("select",
              &ModularCMAES::select,
              "Select the individuals of the evaluated generation: the second step.\n\n"
-             "Applies pairwise selection (mirrored PAIRWISE) and elitism (the parents join the "
-             "offspring), sorts the population by f, keeps lambda individuals and updates the "
-             "statistics (current_avg, current_best, global_best). Raises RuntimeError while the "
+             "Applies elitism ((mu + lambda) selection: the parents join the offspring), sorts "
+             "the population by f (with mirrored PAIRWISE, the losers of the pairs last), keeps "
+             "at most lambda individuals and updates the statistics (current_avg, current_best, "
+             "global_best, success_ratio); see selection.Strategy. Raises RuntimeError while the "
              "points of a generation wait for their values (after ask(), or an interrupted "
              "mutate() or step()).")
         .def("adapt",
@@ -1474,7 +1564,10 @@ void define_cmaes(nb::module_ &m)
              nb::arg("gradient") = nb::none(),
              "Run one generation (with a restart first, when one is due).\n\n"
              "When the optimizer stops (stop_conditions()), the call evaluates the final center "
-             "of mass instead, one evaluation, and returns False.\n\n"
+             "of mass instead, one evaluation, and returns False. step() does not check "
+             "break_conditions() first: called after the optimizer has stopped, it runs another "
+             "generation, which can exceed the budget (run() checks before every "
+             "generation).\n\n"
              "Parameters\n"
              "----------\n"
              "objective : callable\n"
@@ -1539,16 +1632,25 @@ void define_cmaes(nb::module_ &m)
              &ask,
              "The points to evaluate next, a new (k, d) array (row i is point i).\n\n"
              "Starts a generation when none is in progress; until tell(), it returns the same "
-             "points. k >= 1 is the largest batch that can be evaluated in any order: usually "
-             "lambda (lambda + 2 with TPA step-size adaptation; lambda after a generation whose "
-             "elitist selection kept every parent, when TPA skips its points). With sequential "
-             "selection, the points up to the first one after which the generation may stop, "
-             "then one point at a time (a pair with pairwise mirroring). Every run ends with its "
-             "center of mass, "
-             "one point: a restart asks for it first and, with repelling restarts, for the "
-             "points of the hill-valley tests, one at a time; when the optimizer stops "
-             "(stop_conditions()), the last ask() returns it, and break_conditions() holds after "
-             "its tell().")
+             "points (call it again after inject_gradient()). k >= 1 is the largest batch that "
+             "can be evaluated in any order:\n\n"
+             "- usually lambda; with ssa=TPA lambda + 2, its two test points, except after a "
+             "generation whose elitist selection kept every parent (#179). TPA_INPLACE adds no "
+             "points.\n"
+             "- with sequential selection, the points up to the first one after which the "
+             "generation may stop (with TPA's two), then one point at a time (a pair with "
+             "mirrored PAIRWISE).\n"
+             "- one point, the center of mass, at the end of every run: a restart asks for it "
+             "first and, with repelling restarts, then for the points of the hill-valley tests, "
+             "one at a time; when the optimizer stops (stop_conditions()), the last ask() "
+             "returns it, and break_conditions() holds after its tell().\n\n"
+             "ask() does not check break_conditions(): after the optimizer has stopped, it starts "
+             "another generation.\n\n"
+             "Returns\n"
+             "-------\n"
+             "numpy.ndarray\n"
+             "    (k, d), in the space of the objective; a copy, so changing it does not change "
+             "the optimizer (give changed points to tell(f, X)).")
         .def("tell",
              &tell,
              nb::sig("def tell(self, f: numpy.typing.ArrayLike, X: numpy.typing.ArrayLike | None "
@@ -1566,7 +1668,11 @@ void define_cmaes(nb::module_ &m)
              "    (k, d), or (d,) for one point: the points that were evaluated, when they "
              "differ from the asked ones (repaired or injected solutions). A row that differs "
              "from the asked point replaces it; for an individual of the population, its y and "
-             "z are derived from the row with its step size, as for elitism.\n\n"
+             "z are derived from the row with its step size, as for elitism. Such an individual "
+             "far outside the distribution enters the update clipped: z is shortened to a length "
+             "of at most sqrt(d) + 2 d / (d + 2), and y and its x with it (Hansen 2011, "
+             "\"Injecting external solutions into CMA-ES\"; pycma); the statistics keep the "
+             "evaluated point and its value.\n\n"
              "Returns\n"
              "-------\n"
              "bool\n"
@@ -1599,12 +1705,13 @@ void define_cmaes(nb::module_ &m)
             "the mean m, at the length of a typical sample,\n\n"
             "    x = m - sigma * c * C g / sqrt(g^T C g),\n\n"
             "with c = E||N(0, I)|| (the expected length of a sample z of the sampler, "
-            "Weights.expected_length_z) and sigma**2 C the covariance of the samples (Hansen 2011, "
+            "Weights.expected_length_z) and sigma^2 C the covariance of the samples (Hansen 2011, "
             "Eq. 14, with c for his sqrt(d)). With sampled step sizes or integer variables the "
             "point gets the step size of the individual it replaces. With mirrored sampling the "
             "next individual becomes its mirror, m + sigma * c * C g / sqrt(g^T C g), so the "
-            "pair stays a pair. With a bound correction the point is moved into the box, as "
-            "TPA's points (RESAMPLE clips it), and its integer variables are rounded; it then "
+            "pair stays a pair. With a bound correction the point is moved into the box by "
+            "`bounds.BoundCorrection.correct_point` (RESAMPLE clips it), and its integer "
+            "variables are rounded; it then "
             "enters the update as a point given to tell(f, X): clipped when it is far outside "
             "the distribution. A point in a taboo region of the repelling archive is not "
             "injected. The samples are drawn as without injection, so a bad gradient costs the "
@@ -1636,11 +1743,11 @@ void define_cmaes(nb::module_ &m)
              "final center of mass, and break_conditions() holds after it.\n\n"
              "True when one of these holds: p.stats.t reached settings.max_generations; the "
              "best objective value is at most settings.target; the next generation (lambda "
-             "points, and the 2 extra points of TPA, also when the generation skips them) "
+             "points, and with ssa=TPA its 2 test points, also when the generation skips them) "
              "would leave no evaluation of settings.budget for the final center of mass; a "
-             "restart is due, but its center, "
-             "the smallest first generation of the new run and its center of mass would exceed "
-             "settings.budget; or restart_strategy is STOP and a restart criterion holds.")
+             "restart is due, but its center, the smallest first generation of the new run (2 "
+             "points, and TPA's 2) and that run's center of mass would exceed settings.budget; "
+             "or restart_strategy is STOP and a restart criterion holds.")
         .def_ro("p",
                 &ModularCMAES::p,
                 "The Parameters: the state of the optimizer (settings, modules, population, "
@@ -1657,16 +1764,19 @@ void define_es(nb::module_ &main)
         "Two simple evolution strategies, as baselines.\n\n"
         "OnePlusOneES is a (1+1)-ES with a success rule, MuCommaLambdaES a (mu, lambda)-ES with "
         "self-adapted coordinate-wise step sizes. Of the Modules they use only the sampler "
-        "(sampler, sample_transformation, mirrored, orthogonal) and bound_correction, with the "
-        "fixed box [-5, 5]^d. They draw from the global random generator (set_seed).");
+        "(sampler, sample_transformation, orthogonal) and bound_correction, with the fixed box "
+        "[-5, 5]^d. mirrored samples no pairs here (ModularCMAES forms its mirrored pairs in the "
+        "mutation step, #75); with orthogonal it only changes how the samples are grouped into "
+        "orthogonal blocks. They draw from the global random generator (set_seed).");
     using namespace es;
     nb::class_<OnePlusOneES>(
         m,
         "OnePlusOneES",
         "A (1+1)-ES with a success rule for the step size.\n\n"
         "Every step samples x1 = x + sigma z, evaluates it and keeps it when it is better than "
-        "x. sigma is multiplied by exp(0.8)**decay after a success and by exp(-0.2)**decay "
-        "otherwise, with decay = 1 / sqrt(d + 1).")
+        "x (with a bound correction, only when it lies in the box [-5, 5]^d, #168). sigma is "
+        "multiplied by exp(0.8)^decay after a success and by exp(-0.2)^decay otherwise, with "
+        "decay = 1 / sqrt(d + 1).")
         .def(nb::init<size_t, Vector, Float, Float, size_t, Float, parameters::Modules>(),
              nb::arg("d"),
              nb::arg("x0"),
@@ -1754,7 +1864,8 @@ void define_es(nb::module_ &main)
              "sigma0 : float, default 1.0\n"
              "    The initial step size of every coordinate.\n"
              "budget : int, default 10000\n"
-             "    The maximum number of evaluations (checked before each generation).\n"
+             "    The maximum number of evaluations: a generation runs only when its lambda "
+             "evaluations fit.\n"
              "target : float, default 1e-8\n"
              "    Stop when f_min is at most target.\n"
              "modules : Modules, default Modules()\n"
@@ -1762,7 +1873,8 @@ void define_es(nb::module_ &main)
         .def(
             "__call__",
             [](MuCommaLambdaES &es, FunctionType objective) { es(objective); },
-            "Run generations until e reaches budget or f_min is at most target.\n\n"
+            "Run generations while the next one fits the budget (e + lambda <= budget) and f_min "
+            "is above target.\n\n"
             "The argument is the objective function, called with a (d,) array.")
         .def(
             "step",
@@ -1771,7 +1883,8 @@ void define_es(nb::module_ &main)
             "The argument is the objective function, called with a (d,) array.")
         .def("sample",
              &MuCommaLambdaES::sample,
-             "A point m + si * z for the (d,) step sizes si, bound corrected; not evaluated.")
+             "A point m + si * z for the (d,) step sizes si (the argument), bound corrected; not "
+             "evaluated.")
         .def_rw("d", &MuCommaLambdaES::d, "The dimension.")
         .def_rw("lamb", &MuCommaLambdaES::lambda, "The number of offspring, 5 d.")
         .def_rw("mu", &MuCommaLambdaES::mu, "The number of parents, lambda // 4.")
@@ -1779,10 +1892,12 @@ void define_es(nb::module_ &main)
         .def_rw("m", &MuCommaLambdaES::m, "(d,) array: the mean.")
         .def_rw("X",
                 &MuCommaLambdaES::X,
-                "(d, lambda) array: the offspring of the last generation, sorted by f.")
+                "(d, lambda) array: the offspring of the last generation, sorted by f (not set "
+                "before the first generation).")
         .def_rw("S",
                 &MuCommaLambdaES::S,
-                "(d, lambda) array: the step sizes of the offspring, in the order of X.")
+                "(d, lambda) array: the step sizes of the offspring, in the order of X (not set "
+                "before the first generation).")
         .def_rw("f",
                 &MuCommaLambdaES::f,
                 "(lambda,) array: the objective values of the offspring, sorted.")
@@ -1791,7 +1906,7 @@ void define_es(nb::module_ &main)
                 "The learning rate of the common step-size factor, 1 / sqrt(d).")
         .def_rw("tau_i",
                 &MuCommaLambdaES::tau_i,
-                "The learning rate of the coordinate-wise step-size factors, 1 / d**0.25.")
+                "The learning rate of the coordinate-wise step-size factors, 1 / d^0.25.")
         .def_rw("mu_inv", &MuCommaLambdaES::mu_inv, "1 / mu: the recombination weight.")
         .def_rw("f_min", &MuCommaLambdaES::f_min, "The best objective value found (+inf at first).")
         .def_rw("x_min",

@@ -13,10 +13,12 @@ def i8_sobol(dim_num: int, seed: int, quasi: Annotated[NDArray[numpy.float64], d
     """
     Write the next point of the Sobol sequence into quasi and return the next seed.
 
+    The routine keeps its tables in static variables: calls from several threads at once are not safe.
+
     Parameters
     ----------
     dim_num : int
-        The dimension of the point.
+        The dimension of the point, 1 to 1111 (the size of the table of direction numbers; outside this range the routine ends the process).
     seed : int
         The position in the sequence (the `sampling.Sobol` sampler starts at 2).
     quasi : numpy.ndarray
@@ -44,7 +46,7 @@ def lapack_eigh(C: Annotated[NDArray[numpy.float64], dict(shape=(None, None), or
     C : numpy.ndarray
         A symmetric matrix (its lower triangle is read).
     method : int
-        1: dsyevd (divide and conquer, default), 2: dsyevr (MRRR).
+        1: dsyevd (divide and conquer, default), 2: dsyevr (MRRR); any other value: dsyevd.
 
     Returns
     -------
@@ -53,6 +55,8 @@ def lapack_eigh(C: Annotated[NDArray[numpy.float64], dict(shape=(None, None), or
 
     Raises
     ------
+    ValueError
+        When C is not square.
     RuntimeError
         When LAPACK fails or is not available.
     """
@@ -61,21 +65,21 @@ def lapack_cholesky(C: Annotated[NDArray[numpy.float64], dict(shape=(None, None)
     """
     The lower triangular Cholesky factor L of C (C = L L^T) with LAPACK dpotrf, as CMSA and COVARIANCE_NO_EIGV compute it.
 
-    Raises RuntimeError when C is not positive definite or LAPACK is not available.
+    Raises ValueError when C is not square, RuntimeError when C is not positive definite or LAPACK is not available.
     """
 
 def lapack_inverse(M: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
     """
     The inverse of the square matrix M with an LU factorization (LAPACK dgetrf, dgetri), as MA-ES and xNES compute it.
 
-    Raises RuntimeError when M is singular or LAPACK is not available.
+    Raises ValueError when M is not square, RuntimeError when M is singular or LAPACK is not available.
     """
 
 def blas_gemm(A: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], B: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], transpose_a: bool = False, transpose_b: bool = False) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
     """
     The product op(A) op(B) with BLAS dgemm, as the matrix adaptations compute it (for tests).
 
-    op(X) is X, or X^T when transpose_a (transpose_b) is True. Raises RuntimeError when BLAS is not available.
+    op(X) is X, or X^T when transpose_a (transpose_b) is True. Raises ValueError when the inner dimensions of op(A) and op(B) differ, RuntimeError when BLAS is not available.
     """
 
 class Shuffler:

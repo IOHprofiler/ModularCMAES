@@ -12,7 +12,7 @@ class Elitism:
     """
     Elitist (mu + lambda) selection: the parents compete with the offspring.
 
-    Selected by `Modules.elitist = True` (always on for a (1+1)-ES); `NoElitism` otherwise. From the second generation on, the mu parents (the mu best of the previous selection, the first columns of `es.p.old_pop`) are appended to the offspring before sorting, so the best points found so far survive. Their y and z are recomputed in the current distribution with the current step size, y = (x - m) / sigma and z = A^-1 y, as for a repaired point (the framework paper, Sec. 4.1). Can speed up convergence on unimodal functions, at the cost of diversity.
+    Selected by `Modules.elitist = True` (always on for a (1+1)-ES); `NoElitism` otherwise. From the second generation of a run on, the parents (the mu best of the previous selection, the first columns of `es.p.old_pop`; not the losers of pairwise selection, nor points with f = +inf) are appended to the offspring before sorting, so the best points found so far survive. Their y and z are recomputed in the current distribution with the current step size, y = (x - m) / sigma and z = A^-1 y, as for a repaired point (the framework paper, Sec. 4.1); integer variables keep their lower bound on the step size. Not in the (1+1)-ES (`Settings.one_plus_one`): its parent keeps the y and z it was sampled with. The selection keeps lambda of the mu + lambda points; the dropped ones stay after the population for the active update (`Population.n_pool`, #161). Can speed up convergence on unimodal functions, at the cost of diversity.
     """
 
     def __init__(self) -> None:
@@ -20,22 +20,22 @@ class Elitism:
 
     def __call__(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
         """
-        Append the mu parents to the current population (from the second generation on).
+        Append the parents (at most mu) to the current population, with y and z recomputed (from the second generation of a run on).
 
         Parameters
         ----------
         parameters : Parameters
-            The state of the optimizer (`es.p`); its `pop` is changed in place.
+            The state of the optimizer (`es.p`); its `pop` is changed in place, and the step sizes, y and z of the parents in `old_pop`.
         """
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NoElitism(Elitism):
@@ -58,19 +58,19 @@ class NoElitism(Elitism):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class Pairwise:
     """
     Pairwise selection for mirrored sampling (Auger, Brockhoff and Hansen 2011): of each mirrored pair only the better point is ranked.
 
-    Selected by `Modules.mirrored = Mirror.PAIRWISE`; `NoPairwise` otherwise. The better point of each pair (offspring 2i and 2i + 1) is ranked with the unpaired points and the parents of elitism; the losers follow them, sorted by f, with their real values (`Population.n_ranked`). So the two mirrored steps do not cancel each other in the recombination, and the losers get no negative weights in the active update. Settings makes lambda even with PAIRWISE. Before 2.0 the losers got f = +inf (#75).
+    Selected by `Modules.mirrored = Mirror.PAIRWISE`; `NoPairwise` otherwise. The better point of each pair (offspring 2i and 2i + 1) is ranked with the unpaired points and the parents of elitism; the losers follow them, sorted by f, with their real values (`Population.n_ranked`). So the two mirrored steps do not cancel each other in the recombination, and the losers get no negative weights in the active update. The Settings constructor makes lambda0 even with PAIRWISE, and turns PAIRWISE into NONE for the (1+1)-ES, lambda0 = 1 (#136). Before 2.0 the losers got f = +inf (#75).
     """
 
     def __init__(self) -> None:
@@ -102,12 +102,12 @@ class Pairwise:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NoPairwise(Pairwise):
@@ -142,19 +142,19 @@ class NoPairwise(Pairwise):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class Strategy:
     """
     The selection of a generation: elitism, then sorting (with pairwise selection).
 
-    `select` applies `elitism` (the parents join the offspring), sorts the population with `pairwise` (by objective value; with `Mirror.PAIRWISE` the losers of the mirrored pairs last), keeps the first lambda and updates `es.p.stats` (the best solution and the mean objective value).
+    `select` applies `elitism` (the parents join the offspring), sorts the population with `pairwise` (by objective value; with `Mirror.PAIRWISE` the losers of the mirrored pairs last), keeps the first lambda (with elitism the dropped points of the pool stay after them, `Population.n_pool`, #161) and updates `es.p.stats`: the best solutions (with a bound correction, only a point in the box becomes `global_best`, #168), the mean objective value and `success_ratio` (a success: the best of the generation beats the best of the run).
     """
 
     def __init__(self, modules: modcma.c_maes.cmaescpp.parameters.Modules) -> None:
@@ -164,7 +164,7 @@ class Strategy:
         Parameters
         ----------
         modules : Modules
-            The modules; `mirrored` and `elitist` choose `pairwise` and `elitsm`.
+            The modules; `mirrored` and `elitist` choose `pairwise` and `elitism`.
         """
 
     def select(self, parameters: modcma.c_maes.cmaescpp.Parameters) -> None:
@@ -174,7 +174,7 @@ class Strategy:
         Parameters
         ----------
         parameters : Parameters
-            The state of the optimizer (`es.p`); `pop` is sorted (best first; with PAIRWISE the losers of the pairs last) and cut to lambda individuals, `stats` is updated.
+            The state of the optimizer (`es.p`); `pop` is sorted (best first; with PAIRWISE the losers of the pairs last) and cut to at most lambda individuals (`pop.n_pool`: the size of the pool before the cut), `stats` is updated.
         """
 
     @property
@@ -202,12 +202,12 @@ class Strategy:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 def __getattr__(name: str) -> object:

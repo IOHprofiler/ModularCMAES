@@ -1,7 +1,7 @@
 """
 The options of the modules: one enum per module family.
 
-A `parameters.Modules` object holds one value of each (and the on/off modules as bools); the options combine freely. The default of every enum gives the CMA-ES with cumulative step-size adaptation.
+A `parameters.Modules` object holds one value of each (and the on/off modules as bools). The options combine freely; `parameters.Settings` adjusts the few combinations that cannot run as given (the compatibility page of the guide). The default of every enum gives the CMA-ES with cumulative step-size adaptation.
 """
 
 import enum
@@ -11,27 +11,27 @@ class RecombinationWeights(enum.Enum):
     """
     The recombination weights (`Modules.weights`; default DEFAULT).
 
-    The weights of the mu best individuals are positive and sum to 1; with `Modules.active`, the other lambda - mu individuals get negative weights.
+    The weights of the mu best individuals are positive and sum to 1. With `Modules.active` the other lambda - mu individuals get negative (or zero) weights, scaled to sum to -min(1 + c1 / cmu, 1 + 2 mueff^- / (mueff + 2), (1 - c1 - cmu) / (d cmu)) (Hansen 2016, Eqs. (50) to (53)). UTILITY differs from both rules.
     """
 
     DEFAULT = 0
     """
-    Log-linear weights, the default: w_i proportional to ln((lambda + 1) / floor(lambda / mu)) - ln(i); with mu = lambda / 2 the weights of the standard CMA-ES (Hansen 2016, "The CMA Evolution Strategy: A Tutorial").
+    Log-linear weights, the default: w_i proportional to ln((n + 1) / 2) - ln(i) (Hansen 2016, "The CMA Evolution Strategy: A Tutorial", Eq. (49)). For the default mu = floor(lambda / 2), n = lambda: the weights of the standard CMA-ES. For another mu (`Settings.mu0`, or the default mu = lambda / 4 of SA and CMSA), n = 2 mu, as pycma with CMA_mu: ln(mu + 1/2) - ln(i) for the mu best, and the mu negative weights of that population go to the worst ranks (the ranks between get 0 when lambda > 2 mu; only the last lambda - mu of them are used when lambda < 2 mu) (#73).
     """
 
     EQUAL = 1
     """
-    Equal weights 1/mu (intermediate recombination): every selected individual counts the same.
+    Equal weights 1/mu (intermediate recombination): every selected individual counts the same; with `Modules.active` the negative weights are equal too.
     """
 
     EXPONENTIAL = 2
     """
-    Exponentially decaying weights, w_i = 2^-i + 1 / (mu 2^mu), which sum to 1: they halve with every rank, more weight on the best individuals than DEFAULT (de Nobel et al. 2026); the negative ones the same for lambda - mu.
+    Exponentially decaying weights, w_i = 2^-i + 1 / (mu 2^mu) for i = 1..mu, which sum to 1 (de Nobel et al. 2026, the framework paper, Sec. 4.2): the first term halves with every rank, more weight on the best individuals than DEFAULT. The negative weights follow the same rule for the lambda - mu worst, the largest on the worst.
     """
 
     UTILITY = 3
     """
-    The utilities of NES and xNES (Wierstra et al. 2014; Glasmachers et al. 2010), u_k = max(0, ln(lambda/2 + 1) - ln k) / sum - 1/lambda: log-shaped for the better half, minus a baseline, summing to zero. Unlike the other options they are not only the weights of the mu parents: the mean moves by the utility-weighted sum of all lambda steps, and every matrix update uses all of them (so `Modules.active` is set). With NATURAL_GRADIENT and StepSizeAdaptation.XNES this is xNES.
+    The utilities of NES and xNES (Wierstra et al. 2014; Glasmachers et al. 2010), u_k = max(0, ln(lambda/2 + 1) - ln k) / sum - 1/lambda: log-shaped for the better half, minus a baseline, summing to zero. Unlike the other options they are not only the weights of the mu parents: the mean moves by the utility-weighted sum of all lambda steps, and every matrix update uses all of them (`Settings` sets `Modules.active`, except with matrix_adaptation NONE and CMSA; CMSA uses the positive utilities). The step-size rules SA, LPXNES and XNES without NATURAL_GRADIENT use the positive utilities of the mu best, normalized to sum to 1. With NATURAL_GRADIENT and StepSizeAdaptation.XNES this is xNES.
     """
 
 class BaseSampler(enum.Enum):
@@ -48,7 +48,7 @@ class BaseSampler(enum.Enum):
 
     SOBOL = 1
     """
-    Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order, which repeats after all of them: N = max(128, the largest power of 2 <= 2e6 / d) points; at d = 1000, N = 1024: after 42 generations of the default lambda = 24.
+    Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order, which repeats after all of them: N = max(128, the largest power of 2 <= 2e6 / d) points with the default constants; at d = 1000, N = 1024: after 42 generations of the default lambda = 24. Only for d <= 1111, the size of the table of direction numbers: with a larger d, creating the sampler ends the process.
     """
 
     HALTON = 2
@@ -60,7 +60,7 @@ class SampleTranformerType(enum.Enum):
     """
     The distribution of the mutation vectors (`Modules.sample_transformation`; default GAUSSIAN).
 
-    Each coordinate of a uniform sample of the `BaseSampler` is mapped through the inverse CDF of a symmetric distribution. Except for CAUCHY, the distributions have unit variance. de Nobel et al. (2025), "Abnormal mutations: evolution strategies don't require Gaussianity" (doi:10.1145/3712256.3726479).
+    Each coordinate of a uniform sample of the `BaseSampler` is mapped through the inverse CDF of a symmetric distribution. Except for CAUCHY (and NONE), the distributions have unit variance. de Nobel et al. (2025), "Abnormal mutations: evolution strategies don't require Gaussianity" (doi:10.1145/3712256.3726479).
     """
 
     NONE = 0
@@ -70,7 +70,7 @@ class SampleTranformerType(enum.Enum):
 
     GAUSSIAN = 1
     """
-    Standard normal samples (the inverse normal CDF, or Box-Muller with `constants.use_box_muller`), the default: the CMA-ES.
+    Standard normal samples (the inverse normal CDF, or Box-Muller with `constants.use_box_muller`; with the UNIFORM sampler and `Settings.fast_sampling`, a ziggurat), the default: the CMA-ES.
     """
 
     SCALED_UNIFORM = 2
@@ -88,7 +88,7 @@ class SampleTranformerType(enum.Enum):
 
     CAUCHY = 5
     """
-    Standard Cauchy distribution (scale 1): very heavy tails and no finite variance; occasional long jumps.
+    Standard Cauchy distribution (scale 1): very heavy tails and no finite variance; occasional long jumps. E||z|| is infinite: CSA and threshold convergence use an empirical approximation of the median of ||z||, d (1 + 0.18 tanh(d / 4.07)), instead.
     """
 
     DOUBLE_WEIBULL = 6
@@ -113,64 +113,64 @@ class Mirror(enum.Enum):
 
     PAIRWISE = 2
     """
-    Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored pair only the better one can be selected, so that the two do not cancel out in the recombination. Makes lambda even (the default mu is half the even lambda); with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE.
+    Mirrored sampling with pairwise selection (Auger et al. 2011): the worse point of each mirrored pair is ranked after all the better ones (and after the parents of elitism), so that with mu <= lambda / 2 only the better one can be selected and the two do not cancel out in the recombination. The worse points keep their objective values and get no negative weights in the active update (as pycma). Makes lambda even (the default mu is half the even lambda); with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE.
     """
 
 class StepSizeAdaptation(enum.Enum):
     """
     The adaptation of the global step size sigma (`Modules.ssa`; default CSA).
 
-    With the matrix adaptation COVARIANCE, any method other than CSA switches it to COVARIANCE_NO_EIGV (no eigendecomposition), unless `Settings(always_compute_eigv=True)`. A population of one (lambda = 1, the (1+1)-ES) always uses SR (and so COVARIANCE_NO_EIGV, whatever ssa is given). For a comparison of the methods see de Nobel et al. 2021 (doi:10.1145/3449726.3463167).
+    With the matrix adaptation COVARIANCE, any method other than CSA switches it to COVARIANCE_NO_EIGV (no eigendecomposition), unless `Settings(always_compute_eigv=True)`. A population of one (lambda0 = 1, the (1+1)-ES) always uses SR, whatever ssa is given (and so COVARIANCE becomes COVARIANCE_NO_EIGV). The values of cs and damps given below are the defaults; `Settings.cs` and `Settings.damps` replace them. For a comparison of the methods see de Nobel et al. 2021 (doi:10.1145/3449726.3463167).
     """
 
     CSA = 0
     """
-    Cumulative step-size adaptation (Hansen & Ostermeier 2001), the default: sigma grows when the evolution path p_sigma is longer than expected under random selection and shrinks when it is shorter.
+    Cumulative step-size adaptation (Hansen & Ostermeier 2001), the default: sigma grows when the evolution path p_sigma is longer than expected under random selection and shrinks when it is shorter: sigma <- sigma exp(cs / damps (||p_sigma|| / E||z|| - 1)), the exponent clipped to [-1, 1] (as pycma). cs = (mueff + 2) / (d + mueff + 5) and damps = 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs (Hansen 2016, Table 1, Eq. (55); #138).
     """
 
     TPA = 1
     """
-    Two-point step-size adaptation (Hansen 2008): two extra points m +- 0.5 sigma_old dm, half the last step of the mean (Eqs. 8, 9), are evaluated every generation (two more evaluations); sigma grows when the point ahead is the better one. With a bound correction both points move toward m, symmetrically, until both are in the box. With elitism, a generation whose selection kept every parent is a failure: the next generation evaluates no test points (the mean did not move) and sigma shrinks, as in the success rules of elitist ESs (#179; no TPA source covers elitism). Before 2.0 the points were m +- sigma dm, about one step of the mean (#167). `TPA_INPLACE` is the version within the population.
+    Two-point step-size adaptation (Hansen 2008, "CMA-ES with Two-Point Step-Size Adaptation"): two extra points, m +- 0.5 sigma_old dm, half the last step of the mean with the step size that sampled it (Eqs. (8), (9)), are evaluated every generation (two more evaluations). r = 0.5 when the point ahead is the better one, -0.5 when the point behind is, 0 on a tie (as pycma; the paper counts a tie as a success); s <- (1 - cs) s + cs r and sigma <- sigma exp(s), cs = 0.3 (Eqs. (10) to (13)); damps is not used. With a bound correction both points move toward m, symmetrically, until both are in the box. With elitism, a generation whose selection kept every parent is a failure: the next generation evaluates no test points (the mean did not move; the budget still reserves them) and takes r = -0.5, as in the success rules of elitist ESs (#179; no TPA source covers elitism). Before 2.0 the points were m +- sigma dm, about one step of the mean (#167). `TPA_INPLACE` is the version within the population.
     """
 
     MSR = 2
     """
-    Median success rule (Ait ElHara et al. 2013): counts the individuals that are better than the 0.3 lambda-th best of the previous generation; sigma grows when more than half are.
+    Median success rule (Ait ElHara et al. 2013, as pycma): K is the number of offspring better than the 0.3 lambda-th best of the previous generation (interpolated between two ranks, as pycma), z = 2 K / lambda - 1, s <- (1 - cs) s + cs z and sigma <- sigma exp(s / damps), with cs = 0.3 and damps = 2 - 2/d (at least 1). sigma grows while more than half of the offspring are better than that value (the framework paper compares the medians, #83). With pairwise selection only the ranked offspring count.
     """
 
     XNES = 3
     """
-    The step-size update of xNES (Glasmachers et al. 2010), from the weighted squared lengths of the samples (xNES SA, with the learning rate of Krause, Glasmachers & Igel (2017)); with NATURAL_GRADIENT, from its natural gradient, with xNES's learning rate. With `Modules.active` (and weights other than UTILITY) a generation with h_sigma = 0 has no negative weights in the matrix update, for the matrix adaptations with h_sigma (#175). xNES SA with weights EQUAL fails on the ellipsoid (#180, see the compatibility page).
+    The step-size update of xNES. Without NATURAL_GRADIENT, xNES SA (Krause, Glasmachers & Igel (2017), Sec. 4.2): sigma <- sigma exp(cs / sqrt(d) sum_i w_i (||z_i||^2 - d)) over the mu best, with their positive weights and cs = mueff / (2 ln(max(2, d)) sqrt(d)) (their Table 3; #72). With NATURAL_GRADIENT, xNES's own update (Glasmachers et al. 2010): sigma <- sigma exp(cs / 2 tr(G) / d), G the natural gradient, with xNES's cs = eta_sigma = (9 + 3 ln d) / (5 d sqrt(d)). With elitism both read the offspring alone (#172). With `Modules.active` (and weights other than UTILITY) a generation with h_sigma = 0 has no negative weights in the matrix update of COVARIANCE, COVARIANCE_NO_EIGV, SEPARABLE, MATRIX and CHOLESKY (#175; modcma's rule: Hansen 2016 and pycma keep them). xNES SA with weights EQUAL fails on the ellipsoid (#180, see the compatibility page).
     """
 
     MXNES = 4
     """
-    A variant of the xNES update from the length of the weighted mean of the selected samples, mueff ||sum w_i z_i||^2 - d, instead of their individual lengths (m-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules").
+    A variant of the xNES update from the length of the weighted mean of the selected samples instead of their individual lengths: sigma <- sigma exp(cs / d (mueff ||sum_i w_i z_i||^2 - d)), with cs = 1 (m-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules", Sec. 4.3, Table 3).
     """
 
     LPXNES = 5
     """
-    An xNES-like update from the logarithms of the individual step sizes of the samples, weighted by rank; samples one step size per individual (as `Modules.sample_sigma`) (lp-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules").
+    An xNES-like update from the logarithms of the individual step sizes of the samples (lp-xNES, Krause, Glasmachers & Igel (2017), "Qualitative and quantitative assessment of step size adaptation rules", Sec. 4.4). Every individual samples its own step size, as with `Modules.sample_sigma` but with another tau: sigma_i = sigma exp(tau n_i), tau = ln(2) / (sqrt(d) ln(max(2, d))). Then sigma <- sigma^(1 - cs) exp(cs sum_i w_i ln(sigma_i)) over the mu best with their positive weights; cs = 9 mueff / (10 sqrt(d)) (their Table 3), capped at 1 (modcma's cap, #72).
     """
 
     PSR = 6
     """
-    Population success rule (Loshchilov 2014, LM-CMA-ES): ranks the current and the previous generation together and adapts sigma towards a target success ratio of 0.25.
+    Population success rule (Loshchilov 2014, LM-CMA-ES): the n best of the offspring and of the previous generation are ranked together, n the smaller number of ranked individuals of the two (equal values share their mean rank, #120); z = (sum of the ranks of the previous generation - sum of the ranks of the offspring) / n^2 - 0.25, the target success ratio; s <- (1 - cs) s + cs z and sigma <- sigma exp(s / damps), with cs = 0.3 and damps = 1 (Loshchilov 2014; #83). With pairwise selection only the ranked offspring count.
     """
 
     SR = 7
     """
-    Success rule of the (1+1)-ES: sigma grows when the success ratio is above the target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically when lambda = 1. Designed for elitist selection; without elitism a success is measured against the best of the run, which plays the parent's role.
+    Success rule of the (1+1)-ES (Igel et al. 2006): a generation is a success when its best point beats the best of the run so far; the success ratio p is averaged with rate 1/12, and sigma <- sigma exp((p - 2/11) / ((1 - 2/11) damps)), damps = 1 + d/2: sigma grows when p is above the target 2/11. Used automatically when lambda0 = 1. Designed for elitist selection, where the best of the run is the parent; without elitism the best of the run plays the parent's role (the framework paper compares with the previous generation's best, which made sigma diverge, #83).
     """
 
     SA = 8
     """
-    Self-adaptation: every individual gets its own step size, sampled log-normally around sigma (learning rate 1 / sqrt(2 d), CMSA's), and sigma moves to the weighted geometric mean of the step sizes of the selected individuals, divided by that of the population (the CMSA-ES operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of Ahrari et al. 2017). Meant for CMSA; makes the default mu lambda / 4.
+    Self-adaptation: every individual samples its own step size sigma_i = sigma exp(tau n_i), with CMSA's tau = 1 / sqrt(2 d) (Spettel, Beyer & Hellwig 2018, Table I; #71); sigma is multiplied by the weighted geometric mean of the step sizes of the mu selected individuals divided by the geometric mean of those of the population (the CMSA-ES operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of Ahrari et al. 2017, as the framework paper describes it). Meant for CMSA; makes the default mu lambda / 4.
     """
 
     TPA_INPLACE = 9
     """
-    Two-point step-size adaptation within the population, as pycma 4.6.0's CMAAdaptSigmaTPA (after Hansen, Atamna & Auger 2014, Eq. (6) and Algorithm 3). From the second generation of a run on, offspring 1 and 2 are a mirrored pair along the last mean shift, z = +-||N(0, I)|| A^-1 dm / ||A^-1 dm||, so no extra evaluations. With z the difference of their ranks among the n offspring divided by n - 1, s <- (1 - cs) s + cs sign(z) |z|^0.5 and sigma <- sigma exp(s / damps); cs = 0.3, damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)). pycma departs from the paper in the |z|^0.5 (the paper uses z), the damping (the paper: sqrt(d)), and the update in the first generation of a run, from two ordinary samples (the paper updates from the second generation on). Needs lambda >= 2 (with lambda = 1 a generation is not updated). Works with mirrored sampling (the test points are the first pair), pairwise selection (the ranks are of all offspring), sequential selection (which cannot stop before both are evaluated; n is then the evaluated offspring) and elitism (the ranks are of the offspring; after a generation whose selection kept every parent, the generation samples ordinary offspring and z = -1, #179); with orthogonal sampling the test points are not orthogonal to the other samples. #173.
+    Two-point step-size adaptation within the population, as pycma 4.6.0's CMAAdaptSigmaTPA (after Hansen, Atamna & Auger 2014, Eq. (6) and Algorithm 3). From the second generation of a run on, offspring 1 and 2 are a mirrored pair along the last mean shift, z_1 = ||N(0, I)|| A^-1 dm / ||A^-1 dm|| and z_2 = -z_1, so no extra evaluations. With z = (rank of offspring 2 - rank of offspring 1) / (n - 1) among the n offspring, positive when offspring 1 is the better one, s <- (1 - cs) s + cs sign(z) |z|^0.5 and sigma <- sigma exp(s / damps); cs = 0.3, damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)). pycma departs from the paper in the |z|^0.5 (the paper uses z), the damping (the paper: sqrt(d)), and the update in the first generation of a run, from two ordinary samples (the paper updates from the second generation on); modcma follows pycma. A generation with fewer than two offspring is not updated. Works with mirrored sampling (the test points are the first pair), pairwise selection (the ranks are of all offspring), sequential selection (which cannot stop before both are evaluated; n is then the evaluated offspring) and elitism (the ranks are of the offspring; after a generation whose selection kept every parent, the generation samples ordinary offspring and z = -1, #179); with orthogonal sampling the test points are not orthogonal to the other samples. #173.
     """
 
 class CorrectionMethod(enum.Enum):
@@ -179,7 +179,7 @@ class CorrectionMethod(enum.Enum):
 
     The bounds are `Settings.lb` and `Settings.ub` (default [-5, 5] in every coordinate). The methods other than RESAMPLE move each coordinate that is out of bounds into [lb, ub]; the mutation vector of the sample is then recomputed from the corrected point, so the adaptation learns from the point that was evaluated. The methods are those of Caraffini, Kononova & Corne (2019), "Infeasibility and structural bias in differential evolution".
 
-    Bounds may be infinite; each coordinate and each side is corrected separately, and an infinite bound is never crossed. MIRROR, COTN, UNIFORM_RESAMPLE and TOROIDAL need the width ub - lb: in a coordinate with one infinite bound they set a coordinate that crosses the finite bound to that bound, as SATURATE does.
+    Bounds may be infinite; each coordinate and each side is corrected separately, and an infinite bound is never crossed. MIRROR, COTN, UNIFORM_RESAMPLE and TOROIDAL need the width ub - lb: in a coordinate with one infinite bound they set a coordinate that crosses the finite bound to that bound, as SATURATE does. A fixed coordinate (lb = ub) is set to that value by every method but NONE and RESAMPLE.
     """
 
     NONE = 0
@@ -194,7 +194,7 @@ class CorrectionMethod(enum.Enum):
 
     COTN = 2
     """
-    Complete one-tailed normal correction: place the coordinate inside the violated bound, at a random distance sigma * |N(0, 1/3^2)| times the domain width ub - lb.
+    Complete one-tailed normal correction: place the coordinate inside the violated bound, at a random distance sigma * |N(0, 1/3^2)| times the domain width ub - lb. A distance above the width is drawn again (up to 10 times), then set to the width: the point stays in the box.
     """
 
     UNIFORM_RESAMPLE = 3
@@ -212,14 +212,14 @@ class CorrectionMethod(enum.Enum):
 
     RESAMPLE = 6
     """
-    Sample the whole individual again until it lies inside the bounds, at most 5 d times; after that, the last sample is evaluated as it is.
+    Sample the whole individual again until it lies inside the bounds, at most 5 d times; after that, the last sample is evaluated as it is (such a point does not become `stats.global_best`, #168). A point outside the box that is not a sample (an injected gradient point; TPA's test points when the mean is outside the box) is clipped to it instead.
     """
 
 class RestartStrategy(enum.Enum):
     """
     When the optimizer restarts, and with which population size (`Modules.restart_strategy`; default NONE).
 
-    A restart happens when a restart criterion (`Parameters.criteria`, module `restart`) is met: the mean is placed again (`CenterPlacement`), sigma is reset to sigma0 (BIPOP: possibly smaller) and the adaptation starts over. Except for NONE, the strategies use the full set of criteria (see `restart.Criteria`). With lambda = 1, IPOP and BIPOP become RESTART.
+    A restart happens when a restart criterion (`Parameters.criteria`, module `restart`) is met: the run ends with the evaluation of its center of mass, the mean is placed again (`CenterPlacement`), sigma is reset to sigma0 (BIPOP: possibly smaller) and the adaptation starts over. Except for NONE, the strategies use the full set of criteria (see `restart.Criteria`). With lambda0 = 1, IPOP and BIPOP become RESTART.
     """
 
     NONE = 0
@@ -244,7 +244,7 @@ class RestartStrategy(enum.Enum):
 
     BIPOP = 4
     """
-    BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used up to 2^9 lambda0 (as IPOP), and a small one with a random size between lambda0 and the latest large population (as pycma) and a smaller initial sigma. Each restart uses the regime that has used fewer evaluations so far, so both get about half of the evaluations; a small run takes at most half of what the large regime has used. See `restart.BIPOP`.
+    BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles every time it is used up to 2^9 lambda0 (as IPOP), and a small one with a random size between lambda0 and the latest large population (as pycma; Hansen 2009 has half of it, #140) and a smaller initial sigma, sigma0 10^(-2 U) with U uniform in (0, 1). Each restart uses the regime that has used fewer evaluations so far (the first run counts as small), so both get about half of the evaluations; a small run takes at most half of what the large regime has used. mu as with IPOP. See `restart.BIPOP`.
     """
 
 class MatrixAdaptationType(enum.Enum):
@@ -256,7 +256,7 @@ class MatrixAdaptationType(enum.Enum):
 
     COVARIANCE = 1
     """
-    The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with rank-one and rank-mu update, the default. C is eigendecomposed every few generations (O(d^3), with LAPACK from `constants.lapack_min_dim` on). Keeps its metric (`Adaptation.metric()`), so the restart criteria ConditionC and NoEffectAxis are used, as with SEPARABLE and NONE.
+    The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with rank-one and rank-mu update, the default. C is updated every generation and eigendecomposed when 1 / (10 d (c1 + cmu)) generations have passed since the last decomposition (every generation in low dimension; O(d^3), with LAPACK from `constants.lapack_min_dim` on). Keeps its metric (`Adaptation.metric()`), so the restart criteria ConditionC and NoEffectAxis are used, as with SEPARABLE and NONE.
     """
 
     NONE = 0
@@ -266,7 +266,7 @@ class MatrixAdaptationType(enum.Enum):
 
     MATRIX = 2
     """
-    MA-ES (Beyer & Sendhoff 2017): adapts a matrix M with C = M M^T directly, without the evolution path p_c and without eigendecomposition; O(d^2 lambda) per generation, about 4x faster than COVARIANCE at d = 1000.
+    MA-ES (Beyer & Sendhoff 2017): adapts a matrix M with C = M M^T directly, without the evolution path p_c (its rank-one term reads p_sigma) and without eigendecomposition; O(d^2 lambda) per generation: at d = 1000, 956 us against 6.0 ms per generation for COVARIANCE (docs/performance.md, about 6 times faster). With a step-size rule other than CSA the rank-one term is skipped in a generation with h_sigma = 0 (#160). With `Modules.active` it uses the active update of COVARIANCE, written in M (MA-ES has none; #73).
     """
 
     SEPARABLE = 3
@@ -286,12 +286,12 @@ class MatrixAdaptationType(enum.Enum):
 
     COVARIANCE_NO_EIGV = 6
     """
-    The covariance update of COVARIANCE, with C factorized by a Cholesky decomposition instead of an eigendecomposition (cheaper). The path p_sigma uses the inverse Cholesky factor instead of C^-1/2 (the same up to a rotation), which worked as well as COVARIANCE with CSA in tests. Chosen automatically when COVARIANCE is combined with a step-size adaptation other than CSA.
+    The covariance update of COVARIANCE, with C factorized by a Cholesky decomposition instead of an eigendecomposition (cheaper), at the same interval. The path p_sigma uses the inverse Cholesky factor instead of C^-1/2 (the same up to a rotation); with CSA it gave the same results as COVARIANCE on the sphere and a rotated ellipsoid (d = 5 to 20; the deep dive on the matrix adaptations). There is no published counterpart. Chosen automatically when COVARIANCE is combined with a step-size adaptation other than CSA, and for lambda0 = 1.
     """
 
     NATURAL_GRADIENT = 7
     """
-    xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is updated with the matrix exponential of the natural gradient, A <- A expm(cc G) with xNES's cc = eta_B / 2; a low-rank form keeps it O(d^2 lambda) for lambda < d. With StepSizeAdaptation.XNES also xNES's update of sigma, with xNES's learning rate cs = eta_sigma (the other step-size adaptations keep their own cs), and with RecombinationWeights.UTILITY (also selected by `Modules.active` with the default weights) xNES's utilities for the mean and the matrix: all three together are xNES.
+    xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is updated with the matrix exponential of the natural gradient, A <- A expm(cc G) with G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace goes to sigma) and xNES's cc = eta_B / 2 = (9 + 3 ln d) / (10 d sqrt(d)); a low-rank form keeps it O(d^2 k) when the k samples of the gradient (mu, or lambda with `Modules.active`) are fewer than d and d >= 16. With StepSizeAdaptation.XNES also xNES's update of sigma, with xNES's learning rate cs = eta_sigma (the other step-size adaptations keep their own cs; #72), and with RecombinationWeights.UTILITY (also selected by `Modules.active` with the default weights) xNES's utilities for the mean and the matrix: all three together are xNES.
     """
 
 class CenterPlacement(enum.Enum):
@@ -301,7 +301,7 @@ class CenterPlacement(enum.Enum):
 
     X0 = 0
     """
-    At `Settings.x0`, or at the centre of the bounds when x0 is not given (0 with the default bounds), the default.
+    At `Settings.x0`, or at the center of the bounds (`Settings.center`) when x0 is not given (0 with the default bounds), the default.
     """
 
     ZERO = 1
@@ -313,23 +313,25 @@ class CenterPlacement(enum.Enum):
     """
 
     CENTER = 3
-    """At the centre of the bounds, (lb + ub) / 2."""
+    """
+    At the center of the bounds, `Settings.center`: (lb + ub) / 2 in a coordinate with two finite bounds; with one infinite bound, 0 if 0 lies between the bounds, else the finite bound moved inward by sigma0; 0 with two infinite bounds (#134).
+    """
 
     NOVELTY_WEIGHTED = 4
     """
-    At one of 512 uniform random candidates in the bounds, drawn with a probability proportional to its squared distance to the nearest point of the repelling archive (distances relative to the domain width). Uniform while the archive is empty; the archive needs `Modules.repelling_type`. With an infinite bound, as UNIFORM.
+    At one of 512 uniform random candidates in the bounds, drawn with a probability proportional to its squared distance to the nearest point of the repelling archive (distances relative to the domain width). Uniform while the archive is empty; the archive needs `Modules.repelling_type`. In a coordinate with an infinite bound the candidates are drawn as by UNIFORM.
     """
 
     MAXIMIN_TABOO = 5
     """
-    At the one of 512 uniform random candidates in the bounds that is farthest from its nearest point of the repelling archive (maximin). Uniform while the archive is empty; the archive needs `Modules.repelling_type`. With an infinite bound, as UNIFORM.
+    At the one of 512 uniform random candidates in the bounds that is farthest from its nearest point of the repelling archive (maximin; distances relative to the domain width). Uniform while the archive is empty; the archive needs `Modules.repelling_type`. In a coordinate with an infinite bound the candidates are drawn as by UNIFORM.
     """
 
 class RepellingType(enum.Enum):
     """
-    Repelling restarts (`Modules.repelling_type`; default NONE).
+    Repelling restarts (`Modules.repelling_type`; default NONE): de Nobel et al. 2024, "Avoiding redundant restarts in multimodal global optimization" (doi:10.1007/978-3-031-70068-2_17).
 
-    After a restart, the result of the run joins an archive of taboo points, unless hill-valley tests (which evaluate the objective) show that it lies in the basin of a point already there. New samples too close to a taboo point are rejected and drawn again, which steers later runs away from the basins already found (paper: doi:10.1007/978-3-031-70068-2_17). Only useful with a restart strategy; adds the restart criterion `restart.TooMuchRepelling`.
+    After a restart, the result of the run (the better of its best point and its final center of mass) joins an archive of taboo points, unless hill-valley tests (which evaluate the objective at up to 10 points per taboo point) show that it lies in the basin of a point already there. A new sample whose distance to a taboo point (`RepellingMetric`, divided by the current sigma) is below the point's radius is rejected and drawn again; the radius shrinks by 0.95^(1/d) with every rejection in a generation, and only the taboo points near the mean are checked. This steers later runs away from the basins already found. Only useful with restarts; with a restart strategy other than NONE it adds the restart criterion `restart.TooMuchRepelling`.
     """
 
     NONE = 0
@@ -337,30 +339,30 @@ class RepellingType(enum.Enum):
 
     COVERAGE = 1
     """
-    Radii from a coverage of the search volume (de Nobel et al. 2024): the radius of a taboo point grows with the number of runs that ended in its basin and shrinks as the total number of runs grows; in units of sigma, from the volume of the box in sigma0 units (`repelling.CoverageRepelling`).
+    Radii from a coverage of the search volume (de Nobel et al. 2024, Eqs. (10), (11)): r = (n_T S / (c sigma0^d N))^(1/d) Gamma(d/2 + 1)^(1/d) / sqrt(pi), in units of the current sigma, with S the volume of the box (10^d with an infinite bound), c = `Repelling.coverage` (2), N the runs so far and n_T the runs that ended in the basin of the point. sigma0 is the problem's, also in BIPOP's small runs; the paper divides by sigma0 instead of sigma0^d (#158). See `repelling.CoverageRepelling`.
     """
 
     ADAPTIVE = 2
     """
-    Experimental (modcma's own, without a published source): radii adapted from the rejection rate of the samples and the evaluations the runs need, between a minimum and a maximum radius.
+    Experimental (modcma's own, without a published source): radii adapted from the rejection rate of the samples and the evaluations the runs need, between a minimum and a maximum radius. In the experiment of #158 (BBOB f21 and f22, d = 5 to 40, RESTART and IPOP) it solved 99 of 240 runs, 107 without repelling and 144 with COVERAGE (the compatibility page).
     """
 
 class RepellingMetric(enum.Enum):
     """
     The distance between a sample and a taboo point of repelling (`Modules.repelling_metric`; default CURRENT).
 
-    Every metric divides the distance by the current sigma before comparing it with the radius of the taboo point. The default was EUCLIDEAN until #158; the framework paper measures the Mahalanobis distance (Eq. (8)).
+    Every metric divides the distance by the current sigma before comparing it with the radius of the taboo point. The repelling paper (de Nobel et al. 2024, Eq. (8)) measures the Mahalanobis distance in the current distribution, CURRENT, as modcma 1.x did.
     """
 
     EUCLIDEAN = 0
-    """||x - x_t||, the Euclidean distance (the default before #158)."""
+    """||x - x_t||, the Euclidean distance."""
 
     CURRENT = 1
     """
-    ||A^-1 (x - x_t)||, with A of the current run: the Mahalanobis distance in the current search distribution (the paper's Eq. (8)), the default. With matrix_adaptation NONE it is the Euclidean distance.
+    ||A^-1 (x - x_t)||, with A of the current run: the Mahalanobis distance in the current search distribution (de Nobel et al. 2024, Eq. (8)), the default. With matrix_adaptation NONE it is the Euclidean distance.
     """
 
     ARCHIVED = 2
     """
-    ||A_t^-1 (x - x_t)||, with A_t of the run that found x_t, scaled to unit determinant: the shape of the basin that run had learned.
+    ||A_t^-1 (x - x_t)||, with A_t of the run that found x_t, scaled to unit determinant: the shape of the basin that run had learned (the Euclidean distance when that matrix is degenerate).
     """

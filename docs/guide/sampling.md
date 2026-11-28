@@ -75,7 +75,7 @@ for name, modules in configs.items():
 | value | |
 |---|---|
 | `UNIFORM` | Pseudo-random uniform numbers (mt19937, the optimizer's own generator), the default. With the GAUSSIAN transformation: ordinary random normal samples, which `Settings.fast_sampling` replaces by a faster generator. |
-| `SOBOL` | Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order, which repeats after all of them: N = max(128, the largest power of 2 <= 2e6 / d) points; at d = 1000, N = 1024: after 42 generations of the default lambda = 24. |
+| `SOBOL` | Points of the Sobol sequence (Sobol' 1967). A cache of points (see `constants.cache_max_doubles`) is computed when the sampler is created and drawn in a random order, which repeats after all of them: N = max(128, the largest power of 2 <= 2e6 / d) points with the default constants; at d = 1000, N = 1024: after 42 generations of the default lambda = 24. Only for d <= 1111, the size of the table of direction numbers: with a larger d, creating the sampler ends the process. |
 | `HALTON` | Points of the Halton sequence (Halton 1960), scrambled with random digit permutations. |
 <!-- /options -->
 
@@ -86,5 +86,5 @@ for name, modules in configs.items():
 |---|---|
 | `NONE` | Independent samples, the default. |
 | `MIRRORED` | Mirrored sampling (Brockhoff et al. 2010): the samples come in pairs z, -z. All the points take part in the selection. |
-| `PAIRWISE` | Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored pair only the better one can be selected, so that the two do not cancel out in the recombination. Makes lambda even (the default mu is half the even lambda); with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE. |
+| `PAIRWISE` | Mirrored sampling with pairwise selection (Auger et al. 2011): the worse point of each mirrored pair is ranked after all the better ones (and after the parents of elitism), so that with mu <= lambda / 2 only the better one can be selected and the two do not cancel out in the recombination. The worse points keep their objective values and get no negative weights in the active update (as pycma). Makes lambda even (the default mu is half the even lambda); with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE. |
 <!-- /options -->

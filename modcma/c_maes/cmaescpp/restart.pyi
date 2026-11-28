@@ -98,7 +98,7 @@ class ExceededMaxIter(Criterion):
     @property
     def max_iter(self) -> int:
         """
-        The most generations of one run, set at every reset to 100 + 50 (d + 3)^2 / sqrt(lambda), or to the smaller `Strategy.max_iter` of the restart strategy (BIPOP's small runs).
+        The most generations of one run, set at every reset to 100 + 50 (d + 3)^2 / sqrt(lambda) (rounded down; lambda of the run), or to the smaller `Strategy.max_iter` of the restart strategy (BIPOP's small runs). pycma's default maxiter, 100 + 150 (d + 3)^2 / sqrt(lambda), has three times the variable term.
         """
 
     @max_iter.setter
@@ -106,19 +106,19 @@ class ExceededMaxIter(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NoImprovement(Criterion):
     """
     Met when the best fitness of a generation has not changed over the last `n_bin` generations.
 
-    Checked from n_bin generations after a restart on: met when the range (max - min) of the best fitness of the last n_bin generations is at most `NoImprovement.tolerance`.
+    Checked from n_bin generations after a restart on: met when the range (max - min) of the best fitness of the last n_bin generations is at most `NoImprovement.tolerance`. EqualFunValues of Hansen (2016, App. B.3), which stops when that range is zero.
     """
 
     def __init__(self) -> None:
@@ -149,19 +149,19 @@ class NoImprovement(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class MaxSigma(Criterion):
     """
     Met when sigma max(D) has grown by more than `MaxSigma.tolerance` since the start of the run: TolXUp of Hansen (2016, App. B.3), "usually indicates a far too small initial sigma, or divergent behavior".
 
-    D are the axis lengths of the distribution, the square roots of the eigenvalues of C, from `Adaptation.metric()`, for COVARIANCE, SEPARABLE and NONE. The others, which would decompose their matrix every generation, use sqrt(max C_ii) (`Adaptation.coordinate_wise_variances`) instead of max(D): for them the test is pycma's tolfacupx, sigma sqrt(C_ii) > 1e3 sigma0 for some i, with 1e4. max C_ii is at most the largest eigenvalue, so it fires later than with the eigenvalues. Before 2.0 the criterion compared sigma with 1e4, whatever sigma0 and C.
+    D are the axis lengths of the distribution, the square roots of the eigenvalues of C, from `Adaptation.metric()`, for COVARIANCE, SEPARABLE and NONE. The others, which would decompose their matrix every generation, use sqrt(max C_ii) (`Adaptation.coordinate_wise_variances`) instead of max(D): for them, when C starts at the identity, the test is pycma's tolfacupx (sigma sqrt(C_ii) > tolfacupx sigma0 for some i, pycma's default 1e3) with 1e4. max C_ii is at most the largest eigenvalue, so it fires later than with the eigenvalues. Before 2.0 the criterion compared sigma with 1e4, whatever sigma0 and C.
     """
 
     def __init__(self) -> None:
@@ -181,12 +181,12 @@ class MaxSigma(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class MinSigma(Criterion):
@@ -202,19 +202,19 @@ class MinSigma(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class UnableToAdapt(Criterion):
     """
     Met when the matrix adaptation failed (e.g. its eigendecomposition or Cholesky factorization) or sigma is not finite.
 
-    Always among the criteria, also with RestartStrategy.NONE.
+    Always among the criteria, also with RestartStrategy.NONE, which then restarts too: a matrix that could not be updated cannot be used further.
     """
 
     def __init__(self) -> None:
@@ -222,12 +222,12 @@ class UnableToAdapt(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class FlatFitness(Criterion):
@@ -254,7 +254,7 @@ class FlatFitness(Criterion):
     @property
     def flat_fitness_index(self) -> int:
         """
-        The rank compared with the best, set at every reset to round(0.1 + lambda / 4).
+        The index (0-based) in the sorted population of the value compared with the best, set at every reset to round(0.1 + lambda / 4); at most the last evaluated individual (sequential selection).
         """
 
     @flat_fitness_index.setter
@@ -271,19 +271,19 @@ class FlatFitness(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class TolX(Criterion):
     """
     Met when the search distribution has become very small in every coordinate.
 
-    Met when every entry of `tolx_vector` (sigma times the standard deviations sqrt(C_ii) and the absolute values of the evolution path p_c) is smaller than tolerance times the step size at the start of the run (Hansen 2016, App. B.3; pycma's tolx).
+    Met when every entry of `tolx_vector` (sigma times the standard deviations sqrt(C_ii) and the absolute values of the evolution path p_c) is smaller than tolerance times the step size at the start of the run (Hansen 2016, App. B.3, TolX: 1e-12 times the initial sigma). pycma's tolx is the same test with an absolute tolerance, 1e-11.
 
     For every matrix adaptation: C_ii from `Adaptation.coordinate_wise_variances`, and p_c where the adaptation has one (COVARIANCE, COVARIANCE_NO_EIGV, SEPARABLE, CHOLESKY).
     """
@@ -305,12 +305,12 @@ class TolX(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class MaxDSigma(Criterion):
@@ -337,12 +337,12 @@ class MaxDSigma(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class MinDSigma(Criterion):
@@ -367,12 +367,12 @@ class MinDSigma(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class ConditionC(Criterion):
@@ -390,12 +390,12 @@ class ConditionC(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NoEffectAxis(Criterion):
@@ -415,12 +415,12 @@ class NoEffectAxis(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NoEffectCoord(Criterion):
@@ -440,19 +440,19 @@ class NoEffectCoord(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class Stagnation(Criterion):
     """
     Met when neither the best nor the median fitness of the generations improves any more.
 
-    From `n_stagnation` generations after a restart on, the history of each is split at tolerance (0.3) of its length; met when the median of the later part is not lower than the median of the earlier part, for both the best and the median fitness.
+    From `n_stagnation` generations after a restart on, the history of each since the reset is split at tolerance (0.3) of its length; met when the median of the later part is not lower than the median of the earlier part, for both the best and the median fitness. Hansen's Stagnation (2016, App. B.3) compares other parts: the most recent 30 % of a window of the history (the last 20 % of the generations, at least 120 + 30 d / lambda and at most 20000) with its first 30 %.
     """
 
     def __init__(self) -> None:
@@ -463,7 +463,7 @@ class Stagnation(Criterion):
     @property
     def n_stagnation(self) -> int:
         """
-        The generations before the criterion is checked, set at every reset to 100 + 100 d^1.5 / lambda.
+        The generations before the criterion is checked, set at every reset to 100 + 100 d^1.5 / lambda (rounded down), the formula of pycma's default tolstagnation.
         """
 
     @n_stagnation.setter
@@ -492,19 +492,19 @@ class Stagnation(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class TooMuchRepelling(Criterion):
     """
     Met when repelling rejected too many samples: on average at least tolerance rejections per individual in a generation.
 
-    Used when `Modules.repelling_type` is not NONE.
+    Used when `Modules.repelling_type` is not NONE (and the restart strategy is not NONE).
     """
 
     def __init__(self) -> None:
@@ -515,12 +515,12 @@ class TooMuchRepelling(Criterion):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class CriteriaVector:
@@ -630,12 +630,12 @@ class Criteria:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class Strategy:
@@ -661,17 +661,17 @@ class Strategy:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class IPOP(Strategy):
     """
-    IPOP (Auger & Hansen 2005): every restart multiplies lambda by `ipop_factor`, up to `max_lambda_factor` * lambda0 (2^9 lambda0, the framework paper).
+    IPOP (Auger & Hansen 2005): every restart multiplies lambda by `ipop_factor`, up to `max_lambda_factor` * lambda0 (2^9 lambda0, the framework paper), and restarts with sigma0.
 
     mu is the default of the new lambda, lambda // 2 (lambda // 4 with ssa SA or matrix_adaptation CMSA), as pycma's fmin (popsize // 2) and the framework paper (Alg. 1); with a Settings.mu0 that was given, mu0 / lambda0 of the new lambda, rounded half up (at least 1). Before 2.0 mu kept the ratio mu / lambda of the previous run (#150).
     """
@@ -696,12 +696,12 @@ class IPOP(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class BIPOP(Strategy):
@@ -781,10 +781,10 @@ class BIPOP(Strategy):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
