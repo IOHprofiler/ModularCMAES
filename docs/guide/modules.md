@@ -211,7 +211,8 @@ strategy); the code counts more:
   2,438,553,600 combinations;
 * the options without effect of the [compatibility](compatibility.md) page, each checked in the
   code: `sample_sigma` is forced on for `SA` and `LPXNES`; sequential selection with `PAIRWISE`
-  and the default µ = λ/2 has no effect (its earliest stop is the whole generation); with
+  and the default µ = λ/2 has no effect (its earliest stop, after 2µ + 2 points, is past the
+  whole generation); with
   `restart_strategy=STOP` center placement and repelling have no effect; `repelling_metric` acts
   only with repelling, and `CURRENT` and `ARCHIVED` equal `EUCLIDEAN` without a matrix;
   `NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` equal `UNIFORM` without repelling.
