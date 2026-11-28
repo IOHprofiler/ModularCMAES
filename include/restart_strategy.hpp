@@ -17,6 +17,8 @@ struct Strategy
     //! own limit. No limit, except in BIPOP's small runs
     size_t max_iter = std::numeric_limits<size_t>::max();
 
+    virtual ~Strategy() = default;
+
     virtual Float update(parameters::Parameters &p);
 };
 

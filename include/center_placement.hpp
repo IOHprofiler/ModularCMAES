@@ -36,6 +36,8 @@ struct Region
 
 struct Placement
 {
+    virtual ~Placement() = default;
+
     virtual void operator()(parameters::Parameters &p) = 0;
 };
 
