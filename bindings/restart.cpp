@@ -11,7 +11,7 @@ namespace
 //! Python subclasses of restart.Criterion: update (required) and on_reset are called from C++
 struct PyCriterion : restart::Criterion
 {
-    NB_TRAMPOLINE(restart::Criterion, 2);
+    NB_TRAMPOLINE(restart::Criterion);
 
     void update(const parameters::Parameters &p) override { NB_OVERRIDE_PURE(update, p); }
 
