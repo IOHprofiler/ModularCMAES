@@ -18,7 +18,6 @@ from ConfigSpace import (
     LessThanCondition,
     NormalFloatHyperparameter,
     OrConjunction,
-    UniformFloatHyperparameter,
     UniformIntegerHyperparameter,
 )
 
@@ -76,9 +75,6 @@ _use_scipy_lapack()
 
 
 def _get_module_options(name: str) -> tuple:
-    if not hasattr(Modules, name):
-        raise NameError(f"Modules has no member {name}")
-
     default_value = getattr(Modules(), name)
     if isinstance(default_value, bool):
         return (default_value, not default_value)
@@ -113,10 +109,10 @@ def _make_numeric_parameter(
     name: str, dim: int, lb: float, ub: float
 ) -> Union[UniformIntegerHyperparameter, NormalFloatHyperparameter]:
 
-    settings = Parameters(Settings(dim))
-    default = getattr(settings.weights, name, None)
+    p = Parameters(Settings(dim))
+    default = getattr(p.weights, name, None)
     if default is None:
-        default = getattr(settings.settings, name)
+        default = getattr(p.settings, name)
 
     if isinstance(default, int):
         return UniformIntegerHyperparameter(name, lb, ub, default, log=True)
