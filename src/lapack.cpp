@@ -230,16 +230,18 @@ void gemm(const double alpha,
                const_cast<double *>(B.data()), &ldb, &b, C.data(), &ldc);
 }
 
+int solver(const int choice, const Eigen::Index n)
+{
+    if (!available())
+        return 0;
+    if (choice >= 0)
+        return choice;
+    return static_cast<size_t>(n) >= constants::lapack_min_dim ? 1 : 0;
+}
+
 bool cholesky_factor(const Matrix &C, Matrix &L)
 {
-    // LAPACK when asked for (constants::cholesky_solver 1) and available, or automatically from
-    // lapack_min_dim on; Eigen otherwise (also when LAPACK is asked for but missing, #117)
-    const int solver =
-        !available() ? 0
-                     : (constants::cholesky_solver >= 0
-                            ? constants::cholesky_solver
-                            : (static_cast<size_t>(C.rows()) >= constants::lapack_min_dim ? 1 : 0));
-    if (solver == 1)
+    if (solver(constants::cholesky_solver, C.rows()) == 1)
         return cholesky(C, L);
 
     const Eigen::LLT<Matrix> llt(C);

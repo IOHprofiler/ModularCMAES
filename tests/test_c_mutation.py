@@ -50,6 +50,18 @@ class TestMutation(unittest.TestCase):
         np.testing.assert_allclose(y, np.array([3.0, 4.0]) * factor)
         self.assertAlmostEqual(np.linalg.norm(z), 2 * t - 0.5)
 
+    def test_sequential_selection_cutoff_factor_is_checked(self):
+        # A factor below 1 could stop a population after mu or fewer individuals (the updates then
+        # read columns of an earlier generation); NaN and inf have no cutoff (#191)
+        for mirror in (options.Mirror.NONE, options.Mirror.PAIRWISE):
+            for factor in (0.5, 0.0, -1.0, float("nan"), float("inf")):
+                for cls in (mutation.SequentialSelection, mutation.NoSequentialSelection):
+                    with self.subTest(mirror=mirror, factor=factor, cls=cls.__name__):
+                        with self.assertRaisesRegex(ValueError, "seq_cutoff_factor"):
+                            cls(mirror, factor)
+        mutation.SequentialSelection(options.Mirror.NONE, 1.0)
+        mutation.SequentialSelection(options.Mirror.PAIRWISE, 1.5)
+
     def get_cma(self, ssa, adapt_sigma=True):
         modules = parameters.Modules()
         modules.ssa = ssa

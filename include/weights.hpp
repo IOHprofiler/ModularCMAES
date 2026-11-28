@@ -24,8 +24,9 @@ struct Weights
     //! Mirror::PAIRWISE: the losers of the mirrored pairs get no negative weights
     bool pairwise = false;
     Float c1, cmu, cc, cs;
-    //! The learning rate of the path p_sigma: min(cs, 1). LPXNES's cs exceeds 1 for large mueff,
-    //! and as the rate of the path made it NaN (#72)
+    //! The learning rate of the path p_sigma: min(cs, 1). The default cs of XNES without
+    //! NATURAL_GRADIENT exceeds 1 at d = 2 and for large mueff (as LPXNES's did before #159): as
+    //! the rate of the path it made (1 - cs) negative and, above 2, sqrt(cs (2 - cs)) NaN (#72)
     Float cs_path;
     Float damps, acov;
     Float sqrt_cc_mueff, sqrt_cs_mueff;
@@ -50,10 +51,6 @@ struct Weights
      */
     static void utilities_into(const size_t n, Vector &out);
 
-    //! The weights the mean is recombined with for n evaluated points: the mu positive weights, or
-    //! with UTILITY the utilities of all n points
-    void mean_weights_into(const size_t n, Vector &out) const;
-
     /**
      * @brief The weights for a population of n evaluated individuals, mu < n <= lambda (when
      * sequential selection stopped a generation early). The positive weights are unchanged;
@@ -65,8 +62,9 @@ struct Weights
     /**
      * @brief for_population into out (no allocation once out has the capacity). With pairwise
      * selection only the first n_ranked points (the winners of the mirrored pairs and, with
-     * elitism, the parents; the losers have f = +inf and are sorted last) can get a negative
-     * weight: as pycma, mirrored points that lost their pair get no negative weights.
+     * elitism, the parents; the losers keep their real f and are sorted after them,
+     * selection::Pairwise, #75) can get a negative weight: as pycma, mirrored points that lost
+     * their pair get no negative weights.
      */
     void for_population_into(const size_t n,
                              Vector &out,

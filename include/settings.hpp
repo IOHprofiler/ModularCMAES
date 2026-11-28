@@ -17,10 +17,10 @@ namespace parameters
  * After construction, the set_* methods change one field (the Python setters call them, #136).
  * A setter checks only its own field (its length, NaN, sign or range) and recomputes the values
  * derived from it, so the fields may be set in any order and through invalid intermediate states.
- * The checks between fields (require_consistent: lb <= ub, c1 + cmu <= 1, the integer variables, mu0 <= lambda0,
- * the budget, ...) run in the constructor and again when an optimizer is created from the
- * settings (Parameters calls require_valid). Assigning a field directly skips the setter, not
- * require_valid; it does not recompute the derived values.
+ * The checks between fields (require_consistent: lb <= ub, c1 + cmu <= 1, the integer variables,
+ * mu0 <= lambda0, the budget, ...) run in the constructor and again when an optimizer is created
+ * from the settings (Parameters calls require_valid). Assigning a field directly skips the
+ * setter, not require_valid; it does not recompute the derived values.
  */
 struct Settings
 {
@@ -148,18 +148,9 @@ struct Settings
         one_plus_one(false)
     {
         // Invalid values raise std::invalid_argument (ValueError in Python) here, instead of a
-        // crash or a silent misbehaviour later (#113): first each field, as its setter does
-        require_lambda0(lambda0);
-        if (mu)
-            require_mu0(*mu);
-        require_sigma0(sigma0);
-        require_budget(this->budget);
-        require_lb(this->lb);
-        require_ub(this->ub);
-        require_target(this->target);
-        require_x0(this->x0);
-        require_max_generations(this->max_generations);
-        require_rates(this->cs, this->cc, this->cmu, this->c1, this->damps, this->acov);
+        // crash or a silent misbehaviour later (#113): first each field, as its setter does (mu0
+        // only when given: the default follows the adjustments below)
+        require_fields(mu.has_value());
         mu0_given = mu.has_value();
 
         // The (1+1)-ES has no mirrored pairs to select from: PAIRWISE becomes NONE (the
@@ -170,19 +161,13 @@ struct Settings
         if (lambda0 == 1 and modules.mirrored == Mirror::PAIRWISE)
             modules.mirrored = Mirror::NONE;
 
-        // The default mu0 follows the even lambda0 (#75: it was half the odd one, 3 of 8 at d = 3);
-        // a given mu0 is kept, and checked against lambda0 (require_consistent)
         if (modules.mirrored == Mirror::PAIRWISE and lambda0 % 2 != 0)
-        {
             lambda0++;
-            mu0 = mu.value_or(default_mu0());
-        }
 
-        if (modules.ssa == StepSizeAdaptation::SA ||
-            modules.matrix_adaptation == MatrixAdaptationType::CMSA)
-        {
-            mu0 = mu.value_or(default_mu0());
-        }
+        // The default mu0 of the final lambda0 (#75: with PAIRWISE it was half the odd one, 3 of 8
+        // at d = 3): lambda0 / 2, or lambda0 / 4 with SA or CMSA (default_mu). A given mu0 is
+        // kept, and checked against lambda0 (require_consistent)
+        mu0 = mu.value_or(default_mu0());
 
         // xNES's active form is its utilities (summing to zero) over all lambda points; CMA-ES's
         // negative weights, scaled for CMA-ES, made the natural gradient shrink sigma even on a
@@ -492,24 +477,18 @@ struct Settings
     }
 
     /**
-     * No coordinate of the box is empty (#133); std::invalid_argument otherwise. A coordinate with
-     * lb_i == ub_i, finite, is a fixed variable and is accepted. Empty: lb_i > ub_i, a NaN bound,
-     * lb_i = +inf, ub_i = -inf (this includes lb_i = ub_i = +inf or -inf, whose width is NaN).
-     * The messages are built only for a coordinate that fails.
+     * No coordinate of the box is empty (#133): lb_i <= ub_i, std::invalid_argument otherwise. A
+     * coordinate with lb_i == ub_i, finite, is a fixed variable and is accepted. The other empty
+     * coordinates, with a NaN bound, lb_i = +inf or ub_i = -inf (also lb_i = ub_i = +inf or
+     * -inf), are rejected by require_lb and require_ub, which run first. The message is built only
+     * for a coordinate that fails.
      */
     static void require_nonempty_box(const Vector &lb, const Vector &ub)
     {
         for (Eigen::Index i = 0; i < lb.size(); ++i)
-        {
             if (!(lb(i) <= ub(i)))
                 fail("lb must not exceed ub (and neither may be NaN): lb[" + std::to_string(i) +
                      "] = " + str(lb(i)) + ", ub[" + std::to_string(i) + "] = " + str(ub(i)));
-            if (lb(i) == std::numeric_limits<Float>::infinity() ||
-                ub(i) == -std::numeric_limits<Float>::infinity())
-                fail("the box is empty in coordinate " + std::to_string(i) +
-                     ": lb = " + str(lb(i)) + ", ub = " + str(ub(i)) +
-                     " (a bound of +inf for lb, or -inf for ub, leaves no value)");
-        }
     }
 
     /**
@@ -584,8 +563,17 @@ struct Settings
     //! when it is created from the settings (Parameters).
     void require_valid() const
     {
+        require_fields(true);
+        require_consistent();
+    }
+
+    //! The checks of each field, as the setters do them (mu0 only when check_mu0), in the order of
+    //! the fields: the constructor and require_valid
+    void require_fields(const bool check_mu0) const
+    {
         require_lambda0(lambda0);
-        require_mu0(mu0);
+        if (check_mu0)
+            require_mu0(mu0);
         require_sigma0(sigma0);
         require_budget(budget);
         require_lb(lb);
@@ -594,7 +582,6 @@ struct Settings
         require_x0(x0);
         require_max_generations(max_generations);
         require_rates(cs, cc, cmu, c1, damps, acov);
-        require_consistent();
     }
 
     //! The default mu0 of the current lambda0 and modules: default_mu(lambda0)

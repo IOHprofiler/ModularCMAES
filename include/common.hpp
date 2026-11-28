@@ -128,15 +128,7 @@ struct Solution
     {
     }
 
-    [[nodiscard]] size_t n() const { return x.size(); }
-
-    bool operator<(const Solution &other) const { return y < other.y; }
-
     bool operator>(const Solution &other) const { return y > other.y; }
-
-    bool operator<=(const Solution &other) const { return y <= other.y; }
-
-    bool operator>=(const Solution &other) const { return y >= other.y; }
 
     std::string repr() const
     {
@@ -187,6 +179,13 @@ void sort_order(Eigen::Ref<const Vector> v, std::vector<size_t> &idx);
  * @return std::pair<Float, size_t> (ERT, number of successful runs)
  */
 std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, size_t budget);
+
+/**
+ * The number of points of a cache of points of dimension d (sampling::CachedSampler, and the
+ * rng::CachedShuffleSequence of the Sobol sampler): max(constants::cache_min_samples, the largest
+ * power of 2 <= constants::cache_max_doubles / d)
+ */
+size_t cache_size(size_t d);
 
 /**
  * \brief calculate the nearest power of two

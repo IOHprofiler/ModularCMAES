@@ -82,9 +82,10 @@ struct Parameters
      * step sizes are sampled or integer variables raise it). With s = sigma this is
      * x = m - sigma c C g / sqrt(g^T C g), Hansen (2011), Eq. (14), with c for his sqrt(d).
      * With mirrored sampling individual 1 becomes its mirror (-z), so that the pair stays a pair.
-     * Each point is moved into the box as TPA's points (BoundCorrection::correct_point), its
-     * integer variables are rounded, and it enters the update as an injected solution: y and z
-     * derived from x, clipped (inject). The samples are drawn as without injection.
+     * Each point is moved into the box by BoundCorrection::correct_point (RESAMPLE clips it; unlike
+     * TPA's points it is not first shrunk toward m), its integer variables are rounded, and it
+     * enters the update as an injected solution: y and z derived from x, clipped (inject). The
+     * samples are drawn as without injection.
      *
      * Returns the number of individuals replaced: 0 when A^T g is zero, or when the repelling
      * archive rejects a point (the samples stay). Throws std::invalid_argument when g does not

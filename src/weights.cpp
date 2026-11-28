@@ -204,14 +204,6 @@ void Weights::utilities_into(const size_t n, Vector &out)
     out.array() -= 1.0 / static_cast<Float>(n);
 }
 
-void Weights::mean_weights_into(const size_t n, Vector &out) const
-{
-    if (utility)
-        utilities_into(n, out);
-    else
-        out = positive;
-}
-
 void Weights::init_weights(const Settings &settings)
 {
     const Float d = static_cast<Float>(settings.dim);
@@ -231,10 +223,12 @@ void Weights::init_weights(const Settings &settings)
     damps = settings.damps.value_or(
         get_default_damps(settings, mueff, d, cs, static_cast<Float>(weights.size())));
 
-    // The rate of the path p_sigma: cs, at most 1. The cs of LPXNES, 9 mueff / (10 sqrt(d)),
-    // exceeds 2 for mueff > 2.22 sqrt(d) (and XNES's for large populations): as the rate of the
-    // path it made (1 - cs) negative and sqrt(cs (2 - cs)) NaN (#72). At 1 the path is the current
-    // step, as with MXNES's cs = 1. (pycma gives the path of h_sigma CSA's rate with every
+    // The rate of the path p_sigma: cs, at most 1. The default cs of XNES without NATURAL_GRADIENT,
+    // mueff / (2 ln(max(2, d)) sqrt(d)), exceeds 1 at d = 2 and with large populations (1.04 at
+    // d = 2 with the default lambda, 7.1 with lambda = 50; 3.6 at d = 10 with lambda = 200), as
+    // LPXNES's did before it was capped at 1 (#159): as the rate of the path it made (1 - cs)
+    // negative and, above 2, sqrt(cs (2 - cs)) NaN (#72). At 1 the path is the current step, as
+    // with MXNES's cs = 1. (pycma gives the path of h_sigma CSA's rate with every
     // step-size rule, CMAAdaptSigmaBase.initialize_base, sigma_adaptation.py:51; with MATRIX, whose
     // rank-one update reads the path, that was worse on BBOB with MXNES: an open decision of #72)
     cs_path = std::min(cs, Float{1.0});
@@ -242,7 +236,7 @@ void Weights::init_weights(const Settings &settings)
     sqrt_cc_mueff = std::sqrt(cc * (2.0 - cc) * mueff_mean);
 
     // The sum of the absolute negative weights: min(1 + c1 / cmu, 1 + 2 mueff^- / (mueff + 2),
-    // (1 - c1 - cmu) / (d cmu)) (Hansen, The CMA Evolution Strategy: A Tutorial, 2016, Eq. (51) to
+    // (1 - c1 - cmu) / (d cmu)) (Hansen, The CMA Evolution Strategy: A Tutorial, 2016, Eq. (50) to
     // (53); pycma's RecombinationWeights.finalize_negative_weights). At least 0, so that the
     // negative weights stay non-positive when c1 + cmu > 1 (given learning rates)
     const Float amu_neg = 1.0 + (c1 / cmu);
@@ -278,12 +272,13 @@ void Weights::weights_default(const size_t mu, const size_t lambda)
 {
     // The raw weights of a population of n (Hansen, The CMA Evolution Strategy: A Tutorial, 2016,
     // Eq. (49); pycma's RecombinationWeights(n)): w'_i = ln((n + 1) / 2) - ln i, positive exactly
-    // for i <= n / 2. With the default mu = lambda / 2, n = lambda. With another mu (given, or the
-    // ratio of IPOP), n = 2 mu, as pycma with CMA_mu (options_parameters.py:1010-1013): then the
-    // first mu are the positive weights, and the other mu the negative ones, for the worst ranks
-    // (pycma's RecombinationWeights.__call__, recombination_weights.py:191-199). With lambda > 2 mu
-    // the ranks in between get 0; with lambda < 2 mu the worst lambda - mu ranks get the last
-    // (most negative) lambda - mu of them, and the scaling of init_weights is that of all mu.
+    // for i <= n / 2. With the default mu = lambda / 2, n = lambda. With another mu (given, its
+    // ratio to lambda after a restart, or lambda / 4 with SA and CMSA: Settings::mu_for), n = 2 mu,
+    // as pycma with CMA_mu (options_parameters.py:1010-1013): then the first mu are the positive
+    // weights, and the other mu the negative ones, for the worst ranks (pycma's
+    // RecombinationWeights.__call__, recombination_weights.py:191-199). With lambda > 2 mu the
+    // ranks in between get 0; with lambda < 2 mu the worst lambda - mu ranks get the last (most
+    // negative) lambda - mu of them, and the scaling of init_weights is that of all mu.
     // Computed from the raw weights of n = lambda, the weights between ranks lambda / 2 and mu
     // were positive in the negative part (#73, F8).
     const bool default_mu = mu == lambda / 2;

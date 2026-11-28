@@ -37,6 +37,42 @@ class TestSelection(unittest.TestCase):
         # old_pop keeps all its columns (MSR and PSR compare with it)
         self.assertEqual(self.p.old_pop.n, 4)
 
+    def test_elitism_appends_no_parent_without_a_value(self):
+        # The parents are the leading ranked points with f < +inf: not a parent with f = +inf when
+        # old_pop also holds NaN (n_finite counts NaN, so it was appended), nor a NaN one (#191)
+        self.p.settings.modules.elitist = True
+        selector = selection.Strategy(self.p.settings.modules)
+        self.p.stats.t = 1
+        self.assertEqual(self.p.mu, 2)
+        for old, parents in (([-4.0, np.inf, np.nan, np.nan], 1),
+                             ([-4.0, -3.0, np.nan, np.nan], 2),
+                             ([np.inf, np.inf, np.inf, np.nan], 0),
+                             ([np.nan] * 4, 0)):
+            with self.subTest(old=old):
+                self.p.pop = Population(1, 4)
+                self.p.pop.f = np.arange(4.0)
+                self.p.old_pop = Population(1, 4)
+                self.p.old_pop.f = np.array(old)
+                selector.select(self.p)
+                # the (mu + lambda) pool: the 4 offspring and the parents
+                self.assertEqual(self.p.pop.n_pool, 4 + parents)
+
+    def test_elitism_appends_no_parent_without_a_value_pairwise(self):
+        # Pairwise selection: the ranked points [1, inf] come before the losers [2, inf]; n_finite
+        # counted the loser 2, so the ranked parent with f = +inf was appended too (#191)
+        self.p.settings.modules.elitist = True
+        self.p.settings.modules.mirrored = options.Mirror.PAIRWISE
+        selector = selection.Strategy(self.p.settings.modules)
+        self.p.stats.t = 1
+        self.assertEqual((self.p.lamb, self.p.mu), (4, 2))
+        self.p.pop = Population(1, 4)
+        self.p.pop.f = np.arange(4.0)
+        self.p.old_pop = Population(1, 4)
+        self.p.old_pop.f = np.array([1.0, np.inf, 2.0, np.inf])
+        self.p.old_pop.n_ranked = 2
+        selector.select(self.p)
+        self.assertEqual(self.p.pop.n_pool, 5)
+
     def test_elitist_parents_take_the_current_sigma(self):
         # The parents' steps are recomputed with the generation's sigma (the framework paper,
         # Eq. 1-3), not with the step size each was sampled with
