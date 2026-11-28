@@ -477,24 +477,18 @@ struct Settings
     }
 
     /**
-     * No coordinate of the box is empty (#133); std::invalid_argument otherwise. A coordinate with
-     * lb_i == ub_i, finite, is a fixed variable and is accepted. Empty: lb_i > ub_i, a NaN bound,
-     * lb_i = +inf, ub_i = -inf (this includes lb_i = ub_i = +inf or -inf, whose width is NaN).
-     * The messages are built only for a coordinate that fails.
+     * No coordinate of the box is empty (#133): lb_i <= ub_i, std::invalid_argument otherwise. A
+     * coordinate with lb_i == ub_i, finite, is a fixed variable and is accepted. The other empty
+     * coordinates, with a NaN bound, lb_i = +inf or ub_i = -inf (also lb_i = ub_i = +inf or
+     * -inf), are rejected by require_lb and require_ub, which run first. The message is built only
+     * for a coordinate that fails.
      */
     static void require_nonempty_box(const Vector &lb, const Vector &ub)
     {
         for (Eigen::Index i = 0; i < lb.size(); ++i)
-        {
             if (!(lb(i) <= ub(i)))
                 fail("lb must not exceed ub (and neither may be NaN): lb[" + std::to_string(i) +
                      "] = " + str(lb(i)) + ", ub[" + std::to_string(i) + "] = " + str(ub(i)));
-            if (lb(i) == std::numeric_limits<Float>::infinity() ||
-                ub(i) == -std::numeric_limits<Float>::infinity())
-                fail("the box is empty in coordinate " + std::to_string(i) +
-                     ": lb = " + str(lb(i)) + ", ub = " + str(ub(i)) +
-                     " (a bound of +inf for lb, or -inf for ub, leaves no value)");
-        }
     }
 
     /**
