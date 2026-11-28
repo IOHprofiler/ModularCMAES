@@ -206,12 +206,11 @@ exceeded 2 for µ_eff > 2.22√d, which made p_σ NaN.
   framework paper's description of the xNES rule (the length of the weighted mean of z) is MXNES.
 * **XNES with `active`** (#175, every matrix adaptation with h_σ): no negative weights in a
   generation with h_σ = 0, except with `UTILITY`. xNES SA keeps σ below its optimum (Krause et al.
-  2017, Sec. 6); in modcma's runs h_σ was 0 in 89–99 % of the generations at d ≥ 10. In that
-  nearly linear surrounding the negative weights undid the growth of C towards the optimum:
-  `COVARIANCE` and `CHOLESKY` with `active` solved the ellipsoid at d = 10 and 20 in at most 1 of
-  20 runs, against 20 of 20 without `active`. Without the negative weights in those generations,
-  20 of 20. This is
-  modcma's own rule; the tutorial and pycma keep the negative weights for every h_σ
+  2017, Sec. 6); in modcma's runs h_σ was 0 in 89–99 % of the generations at d ≥ 10. In that nearly
+  linear surrounding the negative weights undid the growth of C towards the optimum: `COVARIANCE`
+  and `CHOLESKY` with `active` solved the ellipsoid at d = 10 and 20 in at most 1 of 20 runs,
+  against 20 of 20 without `active`. Without the negative weights in those generations, 20 of 20.
+  This is modcma's own rule; the tutorial and pycma keep the negative weights for every h_σ
   ([compatibility](../guide/compatibility.md)).
 * **MXNES** (m-xNES, Krause, Glasmachers & Igel 2017): σ ← σ·exp((cs/d)(µ_eff‖Σwᵢzᵢ‖² − d)), cs = 1
   (also with `NATURAL_GRADIENT` since #72): the length of the mean step, unbiased under random

@@ -26,7 +26,7 @@ CMA-ES run       shifted by 0.1    3526  3511         3471
 CMA-ES run       0.02, rotated     3486  3446         3536
 ```
 
-Each median has a bootstrap standard error of 40 to 70 evaluations (20 seeds), so differences
+Each median has a bootstrap standard error of 35 to 70 evaluations (20 seeds), so differences
 below about 150 evaluations are within the noise.
 
 * **The shape transfers.** With the solutions of a random search, the best 10% lie in a level set

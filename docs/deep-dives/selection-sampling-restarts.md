@@ -78,11 +78,10 @@ its mean did not move (#179).
 
 A generation stops at the first point that is better than the best of the previous generation
 (Brockhoff et al. 2010; the framework paper), but only after more than µ points: the point that
-stops it has the index i ≥ µ (0-based; `seq_cutoff_factor` = 1), so a generation has at least
-µ + 1 points (the framework paper says at least µ, #197). With pairwise selection the factor is
-at least 2 and the stop falls after a complete pair: with the default µ = λ/2 a generation is never
-stopped early
-([compatibility](../guide/compatibility.md)). The first generation of a run has no previous
+stops it has the index i ≥ µ (0-based; `seq_cutoff_factor` = 1), so a generation has at least µ + 1
+points (the framework paper says at least µ, #197). With pairwise selection the factor is at least 2
+and the stop falls after a complete pair: with the default µ = λ/2 a generation is never stopped
+early ([compatibility](../guide/compatibility.md)). The first generation of a run has no previous
 generation and is evaluated completely.
 
 Before 2.0 the reference was the best of all runs, so after a restart the rule hardly

@@ -253,15 +253,15 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * `get_configspace`: `cs` is inactive with `NATURAL_GRADIENT` for `ssa` `SR` and `SA` (its default
   `cc` no longer reads `cs`, #72).
 * **The end of a run** (#111): every run ends with an evaluation of its center of mass, as pycma's
-  `eval_final_mean`, also when the optimizer stops (it was evaluated only at a restart). The
-  budget always keeps that evaluation: a generation runs only when it leaves one, `Settings`
-  rejects a budget smaller than the first generation plus one, and when the generations would use
-  the budget up exactly, the last one is dropped for the center. `break_conditions()` holds once
-  the final center of mass is evaluated: the last `ask()` returns it, a single point, and the last
-  `step()` evaluates only it;
-  after it the 1.x steps `select()`, `recombine()` and `adapt()` do nothing. `stats.solutions`, like
-  `stats.centers`, has one entry per run, the last one too. Trajectories are unchanged until the
-  last generations of a run (checked on all golden configurations, 260 at the time).
+  `eval_final_mean`, also when the optimizer stops (it was evaluated only at a restart). The budget
+  always keeps that evaluation: a generation runs only when it leaves one, `Settings` rejects a
+  budget smaller than the first generation plus one, and when the generations would use the budget
+  up exactly, the last one is dropped for the center. `break_conditions()` holds once the final
+  center of mass is evaluated: the last `ask()` returns it, a single point, and the last `step()`
+  evaluates only it; after it the 1.x steps `select()`, `recombine()` and `adapt()` do nothing.
+  `stats.solutions`, like `stats.centers`, has one entry per run, the last one too. Trajectories are
+  unchanged until the last generations of a run (checked on all golden configurations, 260 at the
+  time).
 * **The restart criteria for every matrix adaptation** (#80; Hansen 2016, App. B.3; pycma):
   * `TolX` and `NoEffectCoord` are used with every matrix adaptation, from the diagonal of C (and
     p_c where there is one); `ConditionC` and `NoEffectAxis`, which read `Adaptation.metric()`,

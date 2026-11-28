@@ -2,10 +2,9 @@
 
 Complete scripts, in [`examples/`](https://github.com/IOHprofiler/ModularCMAES/tree/master/examples)
 of the repository. Most run in a few seconds; the parallel example takes about 20 s, the tuning
-example about 40 s. The tests
-run all of them, in a shortened form (`MODCMA_EXAMPLE_QUICK=1`), so they work with the current
-version. The outputs on these pages are from the full runs, on macOS; on another platform the
-numbers can differ a little ([reproducibility](../guide/reproducibility.md)).
+example about 40 s. The tests run all of them, in a shortened form (`MODCMA_EXAMPLE_QUICK=1`), so
+they work with the current version. The outputs on these pages are from the full runs, on macOS; on
+another platform the numbers can differ a little ([reproducibility](../guide/reproducibility.md)).
 
 | example | shows |
 |---|---|
