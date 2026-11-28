@@ -90,6 +90,14 @@ parameters::Modules make_modules(std::string name)
         m.mirrored = parameters::Mirror::MIRRORED;
         m.orthogonal = true;
     }
+    else if (name == "tpa-elitist" || name == "tpa-inplace-elitist")
+    {
+        // with elitism, a generation whose selection kept every parent is a failure: TPA then
+        // evaluates no test points, TPA_INPLACE samples no test pair (#179)
+        m.ssa = name == "tpa-elitist" ? parameters::StepSizeAdaptation::TPA
+                                      : parameters::StepSizeAdaptation::TPA_INPLACE;
+        m.elitist = true;
+    }
     else if (name == "matrix-xnes" || name == "cholesky-xnes")
     {
         // h_sigma of the rank-one update with a step-size rule other than CSA (#160)

@@ -581,6 +581,17 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   natural gradient) read the parents among the µ best, whose z are short; σ settled 3 to 14 times
   too small and the runs stalled on the ellipsoid (d ≥ 10: at most 3 of 20 runs). It now reads the
   offspring alone, ranked among themselves, as xNES and xNES SA; selection is unchanged.
+* **TPA and TPA_INPLACE with elitism** (#179): a generation whose (µ+λ) selection keeps every
+  parent (no offspring among the µ selected) is a failure. Its mean did not move, and `TPA`
+  compared two test points that differed from m only by rounding: σ diverged (to 1e205 to 1e307;
+  the compatibility page said it collapsed). In the next generation `TPA` now evaluates no test
+  points (`ask()` returns λ points; the budget still reserves them) and takes r = −`a_tpa`;
+  `TPA_INPLACE` samples ordinary offspring instead of its test pair and takes z = −1. No TPA
+  source covers elitism; the rule follows the success rules of elitist ESs (Rechenberg's 1/5th
+  rule, the (1+1)-CMA-ES). On a sphere and two ellipsoids (d = 5, 10, 20; 20 runs each) `TPA`
+  with `elitist` solved 15 of 180 runs and `TPA_INPLACE` 130; both solve 180. On BBOB (7
+  functions, d = 5 and 20, 25 runs) 56 → 243 and 174 → 251 of 350. Without `elitist` nothing
+  changes.
 * **The best point lies in the box** (#168): with a bound correction, only a point in [lb, ub]
   becomes `stats.global_best`, what `run()` and `fmin` return, and in the standalone ES classes
   `OnePlusOneES.x` and `MuCommaLambdaES.x_min`. `RESAMPLE` evaluates a point outside the box after

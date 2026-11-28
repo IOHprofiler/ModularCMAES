@@ -87,9 +87,11 @@ algorithms.
   (away from themselves), so outliers matter, unlike with the other weights, where only the µ best
   do. The evolution paths are normalized with the utilities' selection mass (`mueff_mean`).
 * **Elitism** is (µ+λ) selection: the µ parents compete with the offspring. Their steps are
-  recomputed in the current distribution with the generation's σ. `MSR`, `PSR` and `TPA` then
-  compare against the elite. With `PSR` the parents are in both generations it ranks; equal
-  values share their mean rank, so a parent counts for neither generation (#120).
+  recomputed in the current distribution with the generation's σ. `MSR` and `PSR` then compare
+  against the elite. With `PSR` the parents are in both generations it ranks; equal values share
+  their mean rank, so a parent counts for neither generation (#120). `TPA` compares its two test
+  points with each other, around the mean that the (µ+λ) selection gives; a generation that keeps
+  every parent is below.
   * **With `active`** the negative weights of the matrix update go to the λ − µ worst points of
     the (µ+λ) pool, the points that the selection dropped (`Population.n_pool`), as the framework
     paper defines the active update ("the λ − µ worst individuals") and as pycma does with
@@ -102,6 +104,21 @@ algorithms.
     distribution. The parents' z, recomputed against the mean they recombined, are short
     (‖z‖²/d of 0.3 to 0.6), and as part of the µ best they kept σ 3 to 14 times too small (#172).
   * **`TPA_INPLACE`** ranks its two test points among the offspring, without the parents.
+  * **`TPA` and `TPA_INPLACE`** count a generation whose selection kept every parent (no offspring
+    among the µ selected) as a failure (#179). The mean did not move in it, so the next
+    generation has nothing to test along the mean shift: `TPA` evaluates no test points there
+    and takes r = −½ (`-a_tpa`), and `ask()` returns λ points; `TPA_INPLACE` samples ordinary
+    offspring instead of its pair and takes z = −1. No TPA source covers elitism: Hansen (2008)
+    and Hansen, Atamna & Auger (2014) define TPA for comma selection, and pycma's `CMA_elitist`
+    adds only the best solution so far, so its mean always moves. The rule follows the success
+    rules of elitist ESs (Rechenberg's 1/5th rule; the (1+1)-CMA-ES of Igel, Suttorp & Hansen
+    2006), in which a generation without a successful offspring is a failure. Before #179 TPA
+    compared two points that differed from m only by rounding, and σ diverged (to 1e205 to
+    1e307; this page said it collapsed). On a sphere and two ellipsoids (d = 5, 10, 20; 20 runs
+    each) `TPA` with `elitist` solved 15 of 180 runs and `TPA_INPLACE` 130, with `active` as well
+    22 and 140; all four now solve 180. On BBOB (7 functions, d = 5 and 20, 25 runs) `TPA` with
+    `elitist` solves 243 of 350 runs (56 before; `TPA` without elitism 249), `TPA_INPLACE` 251
+    (174 before; 252 without).
   * **`weights=UTILITY`** recombines the mean from the λ best of the pool, parents included, with
     utilities that sum to zero. It was listed as a combination to avoid (the mean drifted away);
     most of that failure was the active update's negative weights on good points, which `UTILITY`
@@ -129,6 +146,8 @@ algorithms.
     corrected pair is no longer symmetric; RESAMPLE and repelling sample the pair again as a pair.
   * With λ = 1 (a run whose λ a restart capped at the end of the budget) there is no pair and
     no update; `lambda0=1` runs `SR`.
+  * With `elitist`, a generation after one whose selection kept every parent has no pair and
+    counts as a failure (#179, under elitism above).
 * **MATRIX and CHOLESKY with a step-size rule other than `CSA`** stall their rank-one update by
   h_σ, as `COVARIANCE` does (Hansen 2016, after Eq. (45); #160): `CHOLESKY` stalls p_c and
   compensates the variance in the decay; `MATRIX`, whose rank-one term reads p_σ, skips the term
@@ -256,7 +275,6 @@ noted; with the current version. Most are recorded for fixing.
 | `ssa=SA` with the default λ on ill-conditioned functions, d = 20 | σ shrinks before the matrix adapts: BBOB f2 and f8 (d = 20) reach 1e-8 in 0 of 25 runs each within 3000·d evaluations (`CSA`: 25 and 22); λ = 40 or 80 did not help within 60,000 evaluations (4 runs each). The step sizes per coordinate before #71 hid this on separable functions (25 of 25 on f2), at the cost of rotation invariance (0 of 25 on f10 and f12) |
 | `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |
 | `ssa=XNES` with `weights=EQUAL` | the runs fail, with or without `active` (#180). Ellipsoid with `COVARIANCE` (x0 uniform in [−3, 3]^d, σ₀ = 2, 10⁴·d evaluations, 20 runs): 0 runs reach 1e-8 at d = 5, 10 and 20, with 68–207 restarts per 20 runs. Sphere at d = 10: 1 of 5 runs. `MXNES` and `CSA` with `EQUAL` solve all of these. Measured on master 091c577 by the investigation of #175. The cause has not been measured; the investigation's explanation: with equal weights over the µ = λ/2 best, xNES SA's signal Σ wᵢ(‖zᵢ‖² − d) has no drift on a linear function, since the better and the worse half have the same distribution of ‖z‖². Nothing raises σ then, and the curvature lowers it |
-| `ssa=TPA` with `elitist` | σ collapses in some runs: on the sphere (d = 5, x0 uniform in [−3, 3]^d, σ₀ = 2, 10,000 evaluations, 20 seeds) 13 of 20 runs reach 1e-8 (without `elitist` 20), 10 with `active` as well; before #167 11 and 2 (2026-11-27). Not investigated |
 | `repelling_type=ADAPTIVE` | experimental: modcma's own work in progress, without a published source. In the experiment of #158 (BBOB f21 and f22, d = 5 to 40, `RESTART` and `IPOP`) it solved 99 of 240 runs, against 107 without repelling and 144 with `COVERAGE` |
 | `matrix_adaptation=NATURAL_GRADIENT` with `ssa=LPXNES` at small d | LPXNES keeps its own rate (cs = 1 at d = 5; before #72 NATURAL_GRADIENT gave it xNES's 0.25): BBOB at d = 5 (7 functions, 25 runs each) solves 66 of 175 runs, 118 on master 20bdf27; at d = 20 79 of 175, 0 on master |
 | `weights=UTILITY` with `bound_correction=TOROIDAL` or `sample_transformation=CAUCHY` | far points (wrapped around, heavy tails) pull the mean through their negative utilities |

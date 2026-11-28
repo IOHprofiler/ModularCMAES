@@ -1,8 +1,10 @@
-"""Elitism with the active update (#161) and with XNES (#172).
+"""Elitism with the active update (#161), with XNES (#172) and with TPA (#179).
 
 #161: with elitism the population is the lambda best of the (mu + lambda) pool; the negative weights
 of the matrix update go to the worst points of the pool, which the selection dropped.
 #172: XNES's step-size update reads the offspring alone, ranked among themselves.
+#179: a generation whose selection kept every parent is a failure of TPA and TPA_INPLACE: in the
+next generation TPA evaluates no test points (r = -a_tpa), TPA_INPLACE samples no test pair (z = -1).
 """
 
 import math
@@ -200,6 +202,89 @@ class TestXnesWithElitism(unittest.TestCase):
                 ))
                 es.run(ellipsoid)
                 self.assertLessEqual(es.p.stats.global_best.y, 1e-8)
+
+
+def kept_every_parent(es):
+    """Whether the selection of the generation that just ended kept every parent: none of the mu
+    selected points was sampled in that generation (stats.t - 1, after adapt counted it)."""
+    t = np.array(es.p.pop.t)[: es.p.mu]
+    return bool(np.all(t < es.p.stats.t - 1))
+
+
+class TestTpaWithElitism(unittest.TestCase):
+    def settings(self, d, ssa, seed, elitist=True):
+        # The setup of #179: x0 uniform in [-3, 3]^d, sigma0 = 2, 10^4 d evaluations
+        x0 = np.random.default_rng(seed + 1000).uniform(-3.0, 3.0, d)
+        return c_maes.settings_from_dict(
+            d, ssa=ssa, elitist=elitist, seed=seed, x0=x0, sigma0=2.0, budget=10000 * d,
+            target=1e-8,
+        )
+
+    def test_solves_the_ellipsoid(self):
+        # Before #179, with elitist: TPA solved 0 of 20 runs at d = 10 and 20 (sigma diverged),
+        # TPA_INPLACE 11 and 0
+        for ssa in ("TPA", "TPA_INPLACE"):
+            for d in (10, 20):
+                for seed in (0, 1):
+                    with self.subTest(ssa=ssa, d=d, seed=seed):
+                        es = c_maes.ModularCMAES(self.settings(d, ssa, seed))
+                        es.run(ellipsoid)
+                        self.assertLessEqual(es.p.stats.global_best.y, 1e-8)
+
+    def test_no_test_points_after_a_stuck_generation(self):
+        # ask() returns the population and TPA's two points, but only the population after a
+        # generation whose selection kept every parent; r is then a failure, -a_tpa
+        es = c_maes.ModularCMAES(self.settings(5, "TPA", 2))
+        lam, a_tpa = es.p.lamb, es.p.mutation.a_tpa
+        stuck = False
+        counts = {True: 0, False: 0}
+        for _ in range(80):
+            X = es.ask()
+            self.assertEqual(len(X), lam if stuck else lam + 2)
+            evaluations = es.p.stats.evaluations
+            self.assertTrue(es.tell(np.array([ellipsoid(x) for x in X])))
+            self.assertEqual(es.p.stats.evaluations - evaluations, len(X))
+            if stuck:
+                self.assertEqual(es.p.mutation.rank_tpa, -a_tpa)
+            counts[stuck] += 1
+            stuck = kept_every_parent(es)
+        # both kinds of generation occurred
+        self.assertGreater(counts[True], 5)
+        self.assertGreater(counts[False], 5)
+
+    def test_no_test_pair_after_a_stuck_generation(self):
+        # TPA_INPLACE's first two offspring are a mirrored pair along the mean shift, except after
+        # a generation whose selection kept every parent: then ordinary samples, and z = -1
+        es = c_maes.ModularCMAES(self.settings(5, "TPA_INPLACE", 2))
+        stuck = False
+        counts = {True: 0, False: 0}
+        for generation in range(80):
+            X = es.ask()
+            self.assertEqual(len(X), es.p.lamb)
+            Z = np.array(es.p.pop.Z)
+            if generation > 0:
+                self.assertEqual(np.array_equal(Z[:, 1], -Z[:, 0]), not stuck)
+            self.assertTrue(es.tell(np.array([ellipsoid(x) for x in X])))
+            if stuck:
+                self.assertEqual(es.p.mutation.rank_difference, -1.0)
+            counts[stuck] += 1
+            stuck = kept_every_parent(es)
+        self.assertGreater(counts[True], 5)
+        self.assertGreater(counts[False], 5)
+
+    def test_without_elitism_every_generation_has_test_points(self):
+        for ssa in ("TPA", "TPA_INPLACE"):
+            with self.subTest(ssa=ssa):
+                es = c_maes.ModularCMAES(self.settings(5, ssa, 2, elitist=False))
+                lam = es.p.lamb
+                for generation in range(40):
+                    X = es.ask()
+                    if ssa == "TPA":
+                        self.assertEqual(len(X), lam + 2)
+                    elif generation > 0:
+                        Z = np.array(es.p.pop.Z)
+                        np.testing.assert_array_equal(Z[:, 1], -Z[:, 0])
+                    es.tell(np.array([ellipsoid(x) for x in X]))
 
 
 if __name__ == "__main__":

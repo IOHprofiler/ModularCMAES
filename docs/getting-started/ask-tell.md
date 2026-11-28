@@ -60,7 +60,7 @@ Usually `k` is the population size λ. Some modules ask for other batches:
 | configuration | what `ask()` returns |
 |---|---|
 | default | the λ points of a generation |
-| TPA step-size adaptation (`ssa=TPA`) | λ + 2 points: the population and the two TPA test points (`TPA_INPLACE` takes them from the population: λ points) |
+| TPA step-size adaptation (`ssa=TPA`) | λ + 2 points: the population and the two TPA test points (`TPA_INPLACE` takes them from the population: λ points). With `elitist`, λ points after a generation whose selection kept every parent (#179) |
 | sequential selection | the points up to the first one after which the generation may stop (with TPA, its two points too), then one point at a time (two with pairwise mirroring) |
 | at the end of every run: a restart, and when the optimizer stops | the run's center of mass, one point (recorded in `es.p.stats.centers`) |
 | repelling restarts | the points of the hill–valley tests, one at a time |

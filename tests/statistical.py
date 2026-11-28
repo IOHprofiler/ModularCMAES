@@ -186,6 +186,9 @@ CONFIGS = {
     "cholesky_sa": {"matrix_adaptation": "CHOLESKY", "ssa": "SA"},
     # #173: TPA within the population (compare with tpa and default)
     "tpa_inplace": {"ssa": "TPA_INPLACE"},
+    # #179: with elitism, a generation that keeps every parent is a failure of TPA (tpa_elitist)
+    # and TPA_INPLACE
+    "tpa_inplace_elitist": {"ssa": "TPA_INPLACE", "elitist": True},
     # #158: COVERAGE repelling's radius in sigma0 units, the Mahalanobis distance by default
     "restart_coverage": {"restart_strategy": "RESTART", "repelling_type": "COVERAGE"},
     "ipop_coverage": {"restart_strategy": "IPOP", "repelling_type": "COVERAGE"},

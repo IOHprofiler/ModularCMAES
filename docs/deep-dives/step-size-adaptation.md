@@ -44,7 +44,7 @@ the mean, with ⟨y⟩ = Δm the last mean shift in units of the step size (as f
 the step size that sampled it. They are evaluated with the population (in its first batch: they
 do not depend on its values); s ← (1 − c)s + c·r with r = −0.5 when f(x−) < f(x+), 0.5 when
 f(x+) < f(x−) and 0 on a tie, c = 0.3, then σ ← σ·eˢ. With ask–tell, `ask()` returns λ + 2
-points.
+points (λ with elitism after a generation that kept every parent, [below](#tpa-with-elitism)).
 
 **Compared with Hansen (2008).** The paper's test points are x± = m ± α σ⟨y⟩ with α = 0.5
 (Eqs. (8), (9), (13)) and the σ that sampled the generation ("the original step-size is used for
@@ -72,6 +72,34 @@ clipped points (for `RESAMPLE`) solved f2 (d = 20) in 10 to 15 of 25 runs instea
 method moves the points only when m itself is outside the box. The points were only rounded
 before, so TPA evaluated points outside the box, and one could be reported as the best (#98).
 
+### TPA with elitism
+
+**What modcma does** (#179). A generation whose (µ+λ) selection kept every parent, so that none
+of the µ selected points is an offspring, is a failure. Its mean is the mean of the same parents
+with the same weights: it did not move, up to rounding. The test of a mean shift is made in the
+next generation, and that generation evaluates no test points (`ask()` returns λ points) and
+takes r = −½ (`-a_tpa`). The budget still reserves the two points.
+
+* **Why.** Both test points of a zero step are m. In floating point, m = m_old + Σ wᵢ(xᵢ − m_old)
+  differs from m_old by about 1e-17, so the two points differed only in the last bits, and
+  rounding decided which was better. It favored the point ahead, σ grew, larger steps made the
+  offspring worse, and the parents stayed: σ diverged, to 1e205 to 1e307 in the failed runs. On a
+  sphere and two ellipsoids (d = 5, 10, 20; x0 uniform in [−3, 3]^d, σ₀ = 2, 10⁴·d evaluations;
+  20 runs each) TPA with `elitist` solved 15 of 180 runs. With exact ties (r = 0 when the mean
+  did not move) σ stayed 4 to 19 times too large and the ellipsoids at d = 20 failed: nothing
+  shrinks σ while the parents absorb the long steps.
+* **Sources.** No TPA source covers elitism. Hansen (2008, Eqs. (1), (2)) and Hansen, Atamna &
+  Auger (2014, Algorithm 3) define TPA for the (µ/µ_w, λ)-ES, where the mean always moves.
+  pycma's `CMA_elitist` prepends only the best solution so far, when it beats the generation's
+  best (`evolution_strategy.py`:3035–3047), so its mean moves too. The rule follows the success
+  rules of elitist ESs instead: Rechenberg's 1/5th rule and the success rule of the (1+1)-CMA-ES
+  (Igel, Suttorp & Hansen 2006), in which a generation without a successful offspring is a
+  failure, and failures shrink σ.
+* **Result.** All 180 runs of that grid are solved. The median evaluations (d = 5, 10, 20) are
+  617, 1345, 2692 on the sphere (without elitism 651, 1369, 2381) and 2837, 9060, 35701 on the
+  ellipsoid (2561, 7483, 24774). Evaluating the two points at m instead, as the investigation
+  did, cost 4 to 6 % more. BBOB: see the [compatibility](../guide/compatibility.md) page.
+
 ## TPA_INPLACE: two-point adaptation within the population
 
 **What modcma does** (#173). From the second generation of a run on, offspring 1 and 2 are a
@@ -96,6 +124,15 @@ pycma departs from the paper's Eq. (6) and Algorithm 3 in three places, and modc
   the default λ only, and the two are close for d = 2 to 9;
 * the update in the first generation of a run, from the ranks of two ordinary samples (pycma's
   `update2` runs at every `tell`); the paper updates from the second generation on (t > 0).
+
+**With elitism** (#179), as [TPA](#tpa-with-elitism): after a generation whose (µ+λ) selection
+kept every parent, the mean did not move, and the pair would lie along its rounding noise (its
+direction is normalized, so the noise of 1e-17 became a full-length test direction). That
+generation samples ordinary offspring instead of the pair, and z = −1. The pair for the mean shift
+of generation t is placed in generation t + 1, and so is the failure. Hansen, Atamna & Auger
+(2014) define the direction (x(t) − x(t−1))/‖x(t) − x(t−1)‖ only for a mean that moved, and
+pycma's elitism keeps the mean moving. Before #179 `TPA_INPLACE` with `elitist` solved 130 of the
+180 runs of the TPA grid (0 of 20 ellipsoids at d = 20), now 180.
 
 The direction needs A⁻¹Δm: a triangular solve with most matrix adaptations; `MATRIX` keeps M⁻¹
 with M every generation for it (as with elitism, by the Woodbury identity); `NATURAL_GRADIENT`
@@ -229,8 +266,8 @@ paper and the Python implementation draw one per point.
 | step-size rule | reads | works with | notes |
 |---|---|---|---|
 | `CSA` (default) | the path p_σ | every matrix adaptation | `COVARIANCE` uses C^-1/2 Δm, the others the weighted z |
-| `TPA` | two extra evaluations | every | with `elitist` σ collapses in some runs |
-| `TPA_INPLACE` | the ranks of two offspring | every (`NATURAL_GRADIENT` inverts A every generation) | |
+| `TPA` | two extra evaluations | every | with elitism a generation that keeps every parent is a failure (#179) |
+| `TPA_INPLACE` | the ranks of two offspring | every (`NATURAL_GRADIENT` inverts A every generation) | with elitism the offspring only (#173); a generation that keeps every parent is a failure (#179) |
 | `MSR`, `PSR` | the f-values of two generations | every | with pairwise selection the ranked points only |
 | `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | with elitism the offspring only (#172); `MATRIX` and `CHOLESKY` stall their rank-one term by h_σ (#160); with `active`, no negative weights when h_σ = 0 (#175) |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |

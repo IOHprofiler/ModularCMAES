@@ -78,7 +78,7 @@ void Parameters::resize_population(const size_t new_mu, const size_t new_lambda)
 
 size_t Parameters::reserved_points() const
 {
-    // TPA's two points, with the population's first batch
+    // TPA's two points, with the population's first batch (also in a generation that skips them)
     return mutation->n_extra_points();
 }
 

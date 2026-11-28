@@ -17,12 +17,12 @@
  * A generation is a sequence of steps, in advance(): a restart when one is due, the population,
  * selection, then recombination and adaptation. advance() is the only place that queues points;
  * a step runs again, or the next one runs, once tell() has given their values.
- * ask() returns everything that is queued: a whole population (with TPA's two points), or, with
- * sequential selection, the individuals up to the first one after which it can stop (with TPA's
- * points), then one (or a mirrored pair) at a time. Every run ends with the evaluation of its
- * center of mass, one point (#111): when a restart is due, followed by the hill-valley points of
- * the repelling archive, one at a time; and when the optimizer stops, after which
- * break_conditions() holds.
+ * ask() returns everything that is queued: a whole population (with TPA's two points, except
+ * after a generation whose elitist selection kept every parent, #179), or, with sequential
+ * selection, the individuals up to the first one after which it can stop (with TPA's points), then
+ * one (or a mirrored pair) at a time. Every run ends with the evaluation of its center of mass, one
+ * point (#111): when a restart is due, followed by the hill-valley points of the repelling archive,
+ * one at a time; and when the optimizer stops, after which break_conditions() holds.
  *
  * Gradient injection (#90): between the ask() that returns a new population and its tell(),
  * inject_gradient() replaces one of its points by a point along the negative gradient; run(),
@@ -157,7 +157,7 @@ struct ModularCMAES
         //! modules are reset for the new run
         RESTART,
         //! A new population: its first batch, with the points that do not depend on its values
-        //! (TPA's two)
+        //! (TPA's two, when the generation has them)
         SAMPLE,
         //! The next batch of the population, until it is complete (sequential selection)
         POPULATION,
@@ -246,7 +246,8 @@ struct ModularCMAES
     void queue(Eigen::Ref<const Matrix> X, Source source);
     //! Queue the next batch of the population (Strategy::sample_batch_from)
     void queue_population_batch();
-    //! Queue the extra points of the step-size adaptation (TPA's)
+    //! Queue the extra points of the step-size adaptation that this population evaluates (TPA's;
+    //! Strategy::n_extra_points_due)
     void queue_extra_points();
     //! The objective values of the queued points
     void evaluate(FunctionType &objective);

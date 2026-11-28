@@ -652,7 +652,7 @@ class ModularCMAES:
         """
         The points to evaluate next, a new (k, d) array (row i is point i).
 
-        Starts a generation when none is in progress; until tell(), it returns the same points. k >= 1 is the largest batch that can be evaluated in any order: usually lambda (lambda + 2 with TPA step-size adaptation). With sequential selection, the points up to the first one after which the generation may stop, then one point at a time (a pair with pairwise mirroring). Every run ends with its center of mass, one point: a restart asks for it first and, with repelling restarts, for the points of the hill-valley tests, one at a time; when the optimizer stops (stop_conditions()), the last ask() returns it, and break_conditions() holds after its tell().
+        Starts a generation when none is in progress; until tell(), it returns the same points. k >= 1 is the largest batch that can be evaluated in any order: usually lambda (lambda + 2 with TPA step-size adaptation; lambda after a generation whose elitist selection kept every parent, when TPA skips its points). With sequential selection, the points up to the first one after which the generation may stop, then one point at a time (a pair with pairwise mirroring). Every run ends with its center of mass, one point: a restart asks for it first and, with repelling restarts, for the points of the hill-valley tests, one at a time; when the optimizer stops (stop_conditions()), the last ask() returns it, and break_conditions() holds after its tell().
         """
 
     def tell(self, f: numpy.typing.ArrayLike, X: numpy.typing.ArrayLike | None = None) -> bool:
@@ -729,7 +729,7 @@ class ModularCMAES:
         """
         Whether the optimizer should stop: then the next ask() (or step()) evaluates the final center of mass, and break_conditions() holds after it.
 
-        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the next generation (lambda points, and the 2 extra points of TPA) would leave no evaluation of settings.budget for the final center of mass; a restart is due, but its center, the smallest first generation of the new run and its center of mass would exceed settings.budget; or restart_strategy is STOP and a restart criterion holds.
+        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the next generation (lambda points, and the 2 extra points of TPA, also when the generation skips them) would leave no evaluation of settings.budget for the final center of mass; a restart is due, but its center, the smallest first generation of the new run and its center of mass would exceed settings.budget; or restart_strategy is STOP and a restart criterion holds.
         """
 
     @property

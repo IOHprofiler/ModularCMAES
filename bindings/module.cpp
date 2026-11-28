@@ -300,7 +300,10 @@ void define_options(nb::module_ &main)
                "sigma_old dm, half the last step of the mean (Eqs. 8, 9), are evaluated every "
                "generation (two more evaluations); sigma grows when the point ahead is the "
                "better one. With a bound correction both points move toward m, symmetrically, "
-               "until both are in the box. Before 2.0 the points were m +- sigma dm, about one "
+               "until both are in the box. With elitism, a generation whose selection kept every "
+               "parent is a failure: the next generation evaluates no test points (the mean did "
+               "not move) and sigma shrinks, as in the success rules of elitist ESs (#179; no TPA "
+               "source covers elitism). Before 2.0 the points were m +- sigma dm, about one "
                "step of the mean (#167). `TPA_INPLACE` is the version within the population.")
         .value("MSR",
                StepSizeAdaptation::MSR,
@@ -364,8 +367,10 @@ void define_options(nb::module_ &main)
                "a generation is not updated). Works with mirrored sampling (the test points are "
                "the first pair), pairwise selection (the ranks are of all offspring), sequential "
                "selection (which cannot stop before both are evaluated; n is then the evaluated "
-               "offspring) and elitism (the ranks are of the offspring); with orthogonal sampling "
-               "the test points are not orthogonal to the other samples. #173.");
+               "offspring) and elitism (the ranks are of the offspring; after a generation whose "
+               "selection kept every parent, the generation samples ordinary offspring and z = "
+               "-1, #179); with orthogonal sampling the test points are not orthogonal to the "
+               "other samples. #173.");
 
     nb::enum_<CorrectionMethod>(
         m,
