@@ -610,7 +610,7 @@ void define_parameters(nb::module_ &main)
         .def_rw("cs_path",
                 &Weights::cs_path,
                 "The learning rate of the evolution path ps: min(cs, 1).\n\n"
-                "The default cs of XNES, mueff / (2 ln(d) sqrt(d)), exceeds 1 for large "
+                "The default cs of XNES, mueff / (2 ln(max(2, d)) sqrt(d)), exceeds 1 for large "
                 "populations (13.8 at d = 2, lambda = 100), and LPXNES's exceeded 2 before it was "
                 "capped; as the rate of ps a cs above 2 made ps NaN. At 1 ps is the current step, "
                 "sqrt(mueff_mean) dz, as with MXNES (cs = 1). ps is read by CSA, by MATRIX (its "
@@ -639,7 +639,8 @@ void define_parameters(nb::module_ &main)
                 "1 / (c1 + cmu) / d / 10: the eigendecomposition of COVARIANCE, the Cholesky "
                 "factorization of COVARIANCE_NO_EIGV. The matrix itself is updated every "
                 "generation.\n\n"
-                "Below 1, the matrix is decomposed every generation.")
+                "At most 1 (with the default rates up to d = 82), the matrix is decomposed every "
+                "generation.")
         .def_rw("expected_length_z",
                 &Weights::expected_length_z,
                 "The expected length of a sample of the sampler, E||z||.")

@@ -382,12 +382,13 @@ void define_options(nb::module_ &main)
                "(modcma's cap, #72).")
         .value("PSR",
                StepSizeAdaptation::PSR,
-               "Population success rule (Loshchilov 2014, LM-CMA-ES): the offspring and the "
-               "previous generation are ranked together (equal values share their mean rank, "
+               "Population success rule (Loshchilov 2014, LM-CMA-ES): the n best of the "
+               "offspring and of the previous generation are ranked together, n the smaller "
+               "number of ranked individuals of the two (equal values share their mean rank, "
                "#120); z = (sum of the ranks of the previous generation - sum of the ranks of the "
-               "offspring) / n^2 - 0.25, the target success ratio, with n the size of each; s <- "
-               "(1 - cs) s + cs z and sigma <- sigma exp(s / damps), with cs = 0.3 and damps = 1 "
-               "(Loshchilov 2014; #83). With pairwise selection only the ranked offspring count.")
+               "offspring) / n^2 - 0.25, the target success ratio; s <- (1 - cs) s + cs z and "
+               "sigma <- sigma exp(s / damps), with cs = 0.3 and damps = 1 (Loshchilov 2014; "
+               "#83). With pairwise selection only the ranked offspring count.")
         .value("SR",
                StepSizeAdaptation::SR,
                "Success rule of the (1+1)-ES (Igel et al. 2006): a generation is a success when "
@@ -661,11 +662,12 @@ void define_options(nb::module_ &main)
         "The distance between a sample and a taboo point of repelling "
         "(`Modules.repelling_metric`; default CURRENT).\n\n"
         "Every metric divides the distance by the current sigma before comparing it with the "
-        "radius of the taboo point. The default was EUCLIDEAN until #158; the repelling paper "
-        "(de Nobel et al. 2024, Eq. (8)) measures the Mahalanobis distance.")
+        "radius of the taboo point. The repelling paper (de Nobel et al. 2024, Eq. (8)) "
+        "measures the Mahalanobis distance in the current distribution, CURRENT, as modcma 1.x "
+        "did.")
         .value("EUCLIDEAN",
                RepellingMetric::EUCLIDEAN,
-               "||x - x_t||, the Euclidean distance (the default before #158).")
+               "||x - x_t||, the Euclidean distance.")
         .value("CURRENT",
                RepellingMetric::CURRENT,
                "||A^-1 (x - x_t)||, with A of the current run: the Mahalanobis distance in the "
