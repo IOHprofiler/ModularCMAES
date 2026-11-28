@@ -149,7 +149,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * Also bound: `ModularCMAES.has_pending`; `Settings.integer_variables` (read-only);
   `restart.IPOP.max_lambda_factor` and `mutation.MSR.quantile` (#83);
   `mutation.Strategy.generation_threshold` (#78); `Weights.mueff_mean`, `utility` and `pairwise`;
-  `restart.NoImprovement.tolerance`; `sampling.FastGaussian` (`fast_sampling`).
+  `restart.NoImprovement.tolerance`; `sampling.FastGaussian` (`fast_sampling`);
+  `restart.TolX.sigma_start`, as `MaxDSigma` and `MinDSigma` have it (#193).
   `NaturalGradientAdaptation.G` is read-only, computed from the new `gradient_samples`,
   `gradient_weights` and `gradient_shift` (internal).
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
@@ -167,6 +168,10 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 
 ### Changed
 
+* Internals: the argument of `Weights(settings, expected_length_z)` is named `settings`; during
+  the 2.0 work it was `Settings` (#193). The repr of a matrix adaptation names the class of the
+  object (`CholeskyAdaptation`, `SelfAdaptation`, `NaturalGradientAdaptation` and
+  `CovarianceNoEigvAdaptation` showed their base class).
 * The configuration space of `get_configspace` and `settings_from_config` (#81). The numeric
   hyperparameters keep their names. Their defaults are those of `Settings(dim)`, so the defaults
   of `cs` and `damps` follow CSA's new rate (#138; at d = 5, cs 0.434 → 0.365). Their ranges are
