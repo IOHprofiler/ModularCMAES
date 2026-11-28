@@ -50,6 +50,19 @@ class TestMutation(unittest.TestCase):
         self.assertTrue(np.all(np.isclose(cma.p.adaptation.M, M)))
 
 
+class TestRepr(unittest.TestCase):
+    def test_every_adaptation_names_its_own_class(self):
+        # the classes without a repr of their own inherit Adaptation's (CovarianceAdaptation's for
+        # COVARIANCE_NO_EIGV), which named the base class
+        for option in options.MatrixAdaptationType.__members__.values():
+            with self.subTest(option=option.name):
+                modules = parameters.Modules()
+                modules.matrix_adaptation = option
+                adaptation = Parameters(parameters.Settings(3, modules)).adaptation
+                text = repr(adaptation)
+                self.assertTrue(text.startswith(f"<{type(adaptation).__name__} m: "), text)
+
+
 def ellipsoid(x):
     x = np.asarray(x)
     return float(np.sum(10 ** (6 * np.arange(len(x)) / (len(x) - 1)) * x**2))

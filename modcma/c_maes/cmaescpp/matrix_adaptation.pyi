@@ -351,9 +351,6 @@ class NoAdaptation(Adaptation):
             The initial mean m, shape (d,).
         """
 
-    def __repr__(self) -> str:
-        """A summary of the state (mean, paths and matrices)."""
-
     def __getstate__(self) -> object:
         """
         The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.

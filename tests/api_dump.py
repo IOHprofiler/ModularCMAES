@@ -106,6 +106,9 @@ ACCEPTED = {
     "overload not accepted: cmaescpp.parameters.Weights.__init__(Settings, expected_length_z)":
         "internal: the argument is named settings (it was named after its type; this signature "
         "is not in 1.2.0, whose Weights took dimension, mu0, lambda0, modules)",
+    "missing: cmaescpp.matrix_adaptation.NoAdaptation.__repr__":
+        "inherited: Adaptation's repr names the class of the object, so NoAdaptation needs no "
+        "copy of its own",
 }
 # #136: derived from lb and ub, which recompute them; a value set directly was inconsistent with
 # the bounds (db is the width the bound corrections use, center the default x0)
