@@ -60,6 +60,8 @@ class SequentialSelection
                                                             : seq_cutoff_factor)
     {
     }
+    virtual ~SequentialSelection() = default;
+
     virtual bool break_conditions(const size_t i,
                                   const Float f,
                                   Float fopt,
@@ -108,6 +110,7 @@ struct SigmaSampler
         sampler{std::make_shared<sampling::Uniform>(1, generator)}
     {
     }
+    virtual ~SigmaSampler() = default;
 
     void apply_integer_bounds(parameters::Parameters &p);
 

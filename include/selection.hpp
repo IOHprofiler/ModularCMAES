@@ -13,6 +13,7 @@ namespace selection
 {
 struct Elitsm
 {
+    virtual ~Elitsm() = default;
     virtual void operator()(parameters::Parameters &p) const;
 };
 
