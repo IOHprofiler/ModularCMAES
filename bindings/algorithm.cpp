@@ -1147,7 +1147,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "elitism the worst points of the (mu + lambda) pool, #161), and is "
         "decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every "
         "generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = "
-        "1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The "
+        "1 / (10 d (c1 + cmu)) generations (with the default settings every generation up to "
+        "d = 82). The "
         "eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the "
         "rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the "
         "step-size adaptation is not CSA, also for lambda0 = 1, which runs SR (unless "
@@ -1161,40 +1162,50 @@ void define_matrix_adaptation(nb::module_ &main)
                 "start).")
         .def_rw("d",
                 &CovarianceAdaptation::d,
-                "The square roots of the eigenvalues of C (the standard deviations along the "
-                "principal axes), shape (d,), in the order of the columns of B (ones at the "
-                "start). With B, the `metric()`. In `CovarianceNoEigvAdaptation` filled only by "
-                "`metric()`.")
+                "The square roots of the eigenvalues of C at the last decomposition (the standard "
+                "deviations along the principal axes), shape (d,), in the order of the columns of "
+                "B (ones at the start without `Settings.C0`). With B, the `metric()`. In "
+                "`CovarianceNoEigvAdaptation` filled only by `metric()`.")
         .def_rw("B",
                 &CovarianceAdaptation::B,
-                "The eigenvectors of C as columns, shape (d, d) (the identity at the start). In "
-                "`CovarianceNoEigvAdaptation` filled only by `metric()`.")
+                "The eigenvectors of C at the last decomposition as columns, shape (d, d) (the "
+                "identity at the start without `Settings.C0`). In `CovarianceNoEigvAdaptation` "
+                "filled only by `metric()`.")
         .def_rw("C",
                 &CovarianceAdaptation::C,
                 "The covariance matrix (without sigma^2), symmetric, shape (d, d) (the identity "
-                "at the start).")
+                "at the start, or `Settings.C0`).")
         .def_rw("A",
                 &CovarianceAdaptation::A,
                 "The sampling matrix, y = A z, shape (d, d): B diag(d) (the lower triangular "
                 "Cholesky factor of C in `CovarianceNoEigvAdaptation`).")
         .def_rw("hs",
                 &CovarianceAdaptation::hs,
-                "The indicator h_sigma: False when ||ps|| is large (the step size is growing "
-                "fast), which stalls the update of pc; True otherwise. With "
-                "`StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False "
-                "also drops the negative weights of the generation's update (#175).")
+                "The indicator h_sigma (Hansen 2016, after Eq. (45)): False when "
+                "||ps|| / sqrt(1 - (1 - cs_path)^(2 (g + 1))), with g the generation of the run, "
+                "reaches `es.p.weights.expected_length_ps` = (1.4 + 2 / (d + 1)) E||z||: the step "
+                "size is far too small. False stalls the update of pc, and the decay of C "
+                "compensates the variance that pc loses (see `adapt_covariance_matrix`); True "
+                "otherwise, and always in the (1+1)-ES. With `StepSizeAdaptation.XNES` and "
+                "`Modules.active` (not with UTILITY weights), False also drops the negative "
+                "weights of the generation's update (#175).")
         .def("adapt_covariance_matrix",
              &CovarianceAdaptation::adapt_covariance_matrix,
              nb::arg("weights"),
              nb::arg("modules"),
              nb::arg("population"),
              nb::arg("mu"),
-             "Update C with the rank-one (pc) and rank-mu (selected steps) updates.\n\n"
+             "Update C with the rank-one (pc) and rank-mu (selected steps) updates: "
+             "C <- (1 + c1 delta(h_sigma) - c1 - cmu sum(w)) C + c1 pc pc^T + "
+             "cmu sum_i v_i y_i y_i^T, with delta(h_sigma) = (1 - h_sigma) cc (2 - cc), sum(w) "
+             "over the weights w_i, and v_i the weights after the rescaling below (Hansen 2016, "
+             "Eqs. (46), (47)).\n\n"
              "With `modules.active` the whole population is used, the negative weights of the "
-             "worst steps rescaled by d / ||C^-1/2 y_i||^2 (Hansen 2016, eq. 46); otherwise "
-             "the mu best. With elitism (`population.n_pool`) the negative weights go to the "
-             "points that the selection dropped, the worst of the (mu + lambda) pool (#161). "
-             "Does not decompose C.\n\n"
+             "worst steps rescaled by d / ||C^-1/2 y_i||^2 (Hansen 2016, Eq. (46)); otherwise "
+             "the mu best. With elitism (`population.n_pool`) the negative weights go "
+             "to the points that the selection dropped, the worst of the (mu + lambda) pool "
+             "(#161). With `StepSizeAdaptation.XNES` (not with UTILITY weights) a generation with "
+             "h_sigma = 0 has no negative weights (#175). Does not decompose C.\n\n"
              "Parameters\n"
              "----------\n"
              "weights : Weights\n"
@@ -1208,23 +1219,26 @@ void define_matrix_adaptation(nb::module_ &main)
         .def("perform_eigendecomposition",
              &CovarianceAdaptation::perform_eigendecomposition,
              nb::arg("stats"),
-             "Decompose C = B diag(d)^2 B^T and set A = B diag(d).\n\n"
+             "Decompose C = B diag(d)^2 B^T and set A = B diag(d), O(d^3).\n\n"
              "Uses Eigen or LAPACK (dsyevd, dsyevr) as `constants.eigen_solver` says. In "
-             "`CovarianceNoEigvAdaptation`: the Cholesky factorization C = A A^T instead.\n\n"
+             "`CovarianceNoEigvAdaptation`: the Cholesky factorization C = A A^T instead. "
+             "Increases `factor_version`.\n\n"
              "Parameters\n"
              "----------\n"
              "stats : Settings\n"
-             "    The settings (only `verbose` is used).\n\n"
+             "    The settings; only `verbose` is used (the argument keeps its name of 1.x).\n\n"
              "Returns\n"
              "-------\n"
              "bool\n"
-             "    False when the decomposition fails or gives a negative or non-finite "
-             "eigenvalue.")
+             "    False when the decomposition fails or gives an eigenvalue that is not "
+             "positive or not finite (in `CovarianceNoEigvAdaptation`: when the factorization "
+             "fails).")
         .def("adapt_ps",
              &CovarianceAdaptation::adapt_ps,
              nb::arg("weights"),
-             "Update ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) C^-1/2 dm (with dz instead of "
-             "C^-1/2 dm in `CovarianceNoEigvAdaptation`).\n\n"
+             "Update ps = (1 - cs_path) ps + sqrt(cs_path (2 - cs_path) mueff_mean) C^-1/2 dm, "
+             "with C^-1/2 = B diag(d)^-1 B^T of the last decomposition (dz instead of C^-1/2 dm "
+             "in `CovarianceNoEigvAdaptation`).\n\n"
              "Parameters\n"
              "----------\n"
              "weights : Weights\n"
