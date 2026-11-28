@@ -10,9 +10,17 @@ load, and the loaded object must save to the same bytes: the reader reads format
 written, and the writer still writes it. This holds on every platform (the state holds the bits of
 every number; nothing in it depends on the compiler).
 
+To keep the file small, `write()` leaves out the states larger than 12 kB, and prints them: 11 of
+them, the large populations of special/large_lambda (ask3, end) and the states of
+special/orthogonal_mirrored_halton (ask3, end), the end of 5 runs with restarts and of
+constants/cache_samples, and that run's CachedSampler on its own. Every option of every module is
+still in a kept state, and so are the orthogonal and mirrored samplers, Halton and CachedSampler
+(standalone samplers).
+
 The file is the record of format 1: it is not regenerated. A new format version keeps reading it,
 and this test then checks that a format-1 state loads (and no longer that it saves to the same
-bytes). `python -m tests.test_c_state_format write` wrote it.
+bytes). `python -m tests.test_c_state_format write` wrote it; `... write <path>` writes the
+states of the current code elsewhere, to compare with `read(<path>)`.
 """
 
 import json
@@ -52,8 +60,9 @@ def load(name: str, state: bytes):
     return obj
 
 
-def write():
-    """Write the fixture (once, with the serialization of format 1; see the module docstring)."""
+def write(path: str = FIXTURE):
+    """Write the fixture (once, with the serialization of format 1; see the module docstring).
+    Prints the states it leaves out for their size."""
     from tests import golden
 
     # The pairwise configurations that cover every option of every module (a greedy cover), the
@@ -85,12 +94,18 @@ def write():
         state = obj.__getstate__()
         if len(state) <= max_size:
             records.append((name, class_name(obj), state))
+        else:
+            print(f"left out (larger than {max_size} bytes): {name}, {len(state)} bytes")
 
     def keep_object(obj):
         states = objects.setdefault(class_name(obj), [])
         state = obj.__getstate__()
-        if len(states) < 2 and state not in states and len(state) <= max_size:
-            states.append(state)
+        if len(states) < 2 and state not in states:
+            if len(state) <= max_size:
+                states.append(state)
+            else:
+                print(f"left out (larger than {max_size} bytes): object/{class_name(obj)}, "
+                      f"{len(state)} bytes")
 
     try:
         for run in runs:
@@ -153,22 +168,22 @@ def write():
         for state in states:
             records.append((f"object/{name}", name, state))
 
-    os.makedirs(os.path.dirname(FIXTURE), exist_ok=True)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
     header = {
         "format_version": 1,
         "generated_from_commit": golden.git_commit(),
         "states": [[name, cls, len(state)] for name, cls, state in records],
     }
-    with lzma.open(FIXTURE, "wb", preset=9 | lzma.PRESET_EXTREME) as f:
+    with lzma.open(path, "wb", preset=9 | lzma.PRESET_EXTREME) as f:
         f.write(json.dumps(header, separators=(",", ":")).encode() + b"\n")
         for _, _, state in records:
             f.write(state)
-    print(f"{len(records)} states, {os.path.getsize(FIXTURE)} bytes: {FIXTURE}")
+    print(f"{len(records)} states, {os.path.getsize(path)} bytes: {path}")
 
 
-def read():
+def read(path: str = FIXTURE):
     """The fixture: (format_version, [(name, class, state), ...])"""
-    with lzma.open(FIXTURE, "rb") as f:
+    with lzma.open(path, "rb") as f:
         header = json.loads(f.readline())
         states = [(name, cls, f.read(size)) for name, cls, size in header["states"]]
         assert f.read() == b"", "data after the last state"
@@ -208,7 +223,7 @@ class TestFormat1(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ["write"]:
-        write()
+    if sys.argv[1:2] == ["write"]:
+        write(*sys.argv[2:3])
     else:
         unittest.main()
