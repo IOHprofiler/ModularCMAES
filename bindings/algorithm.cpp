@@ -1261,29 +1261,34 @@ void define_matrix_adaptation(nb::module_ &main)
         "SeparableAdaptation",
         "Separable CMA-ES: a diagonal covariance matrix (`MatrixAdaptationType.SEPARABLE`).\n\n"
         "Only the d variances are learned, with the rank-one and rank-mu updates of CMA-ES "
-        "applied per coordinate, with pycma's separable learning rates (c1_sep, cmu_sep: see "
-        "`Weights.c1`, `Weights.cmu`); samples are y = d * z. With `Modules.active` the "
-        "negative weights are multiplied by d / sum_j (y_ij / d_j)^2, the Mahalanobis length in "
-        "the diagonal C, as in pycma. O(d lambda) per generation: for separable functions, and "
-        "for high dimension, where a full matrix is slow to learn. Ros & Hansen (2008).");
+        "(Hansen 2016, Eq. (47)) applied per coordinate, with pycma's separable learning rates "
+        "(c1_sep, cmu_sep: see `Weights.c1`, `Weights.cmu`); samples are y = d * z. With "
+        "`Modules.active` the negative weights are in the sum of the decay, and are multiplied "
+        "by d / sum_j (y_ij / d_j)^2, d over the squared Mahalanobis length of the step in the "
+        "diagonal C, as in pycma (GaussDiagonalSampler.update; #73). O(d lambda) per "
+        "generation: for separable functions, and for high dimension, where a full matrix is "
+        "slow to learn. Ros & Hansen (2008).");
     adaptation_init(separable);
     separable
         .def_rw("c",
                 &SeparableAdaptation::c,
                 "The diagonal of C, the variance of each coordinate (without sigma^2), shape "
-                "(d,), at least 1e-12 (ones at the start).")
+                "(d,), at least 1e-12 after an update (ones at the start, or the diagonal of "
+                "`Settings.C0`).")
         .def_rw("pc",
                 &SeparableAdaptation::pc,
                 "The evolution path of the rank-one update, shape (d,) (zeros at the start).")
         .def_rw("d",
                 &SeparableAdaptation::d,
-                "The standard deviations sqrt(c), shape (d,): y = d * z (ones at the start).")
+                "The standard deviations sqrt(c), shape (d,): y = d * z (ones at the start "
+                "without `Settings.C0`).")
         .def_rw("hs",
                 &SeparableAdaptation::hs,
-                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
-                "which stalls the update of pc; True otherwise. With `StepSizeAdaptation.XNES` "
-                "and `Modules.active` (not with UTILITY weights), False also drops the negative "
-                "weights of the generation's update (#175).")
+                "The indicator h_sigma: False when ||ps|| is long (see `CovarianceAdaptation.hs`; "
+                "Hansen 2016, after Eq. (45)), which stalls the update of pc, and the decay of c "
+                "compensates the variance that pc loses; True otherwise. With "
+                "`StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False "
+                "also drops the negative weights of the generation's update (#175).")
         .def(
             "__repr__",
             [](SeparableAdaptation &a) {
