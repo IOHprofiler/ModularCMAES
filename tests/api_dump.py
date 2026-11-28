@@ -11,7 +11,9 @@ with the extension after the nanobind port.
 
 ``compare`` reports what the installed extension lacks compared with the reference: a missing name,
 a property that became read-only, a reference overload that no current overload accepts (same
-argument names in the same order, the same arguments optional). Additions are allowed.
+argument names in the same order, the same arguments optional). Additions are allowed. A
+difference that is accepted goes into ``ACCEPTED``, with the reason; ``tests/test_c_api_dump.py``
+runs the comparison.
 """
 
 import argparse
@@ -311,6 +313,25 @@ def compare_entry(name: str, ref: dict, cur: dict) -> list:
     return []
 
 
+def load(path: str) -> dict:
+    """A dump written by ``write``; dumps written before the kind field was recorded get kind ""."""
+    with open(path) as f:
+        reference = json.load(f)
+    for entry in reference.values():
+        members = entry["members"].values() if entry["kind"] == "class" else []
+        for member in [entry, *members]:
+            for overload in member.get("overloads", []):
+                for arg in overload:
+                    if len(arg) == 2:
+                        arg.append("")
+    return reference
+
+
+def incompatibilities(reference: dict, current: dict) -> list:
+    """The differences from the reference that ``ACCEPTED`` does not list."""
+    return [p for p in compare(reference, current) if p not in ACCEPTED]
+
+
 def main():
     parser = argparse.ArgumentParser(description="API dump of modcma.c_maes.cmaescpp")
     parser.add_argument("command", choices=("write", "compare"))
@@ -325,18 +346,9 @@ def main():
             f.write("\n")
         print(f"wrote {args.output}")
     else:
-        with open(args.reference) as f:
-            reference = json.load(f)
-        # dumps written before the kind field was recorded
-        for entry in reference.values():
-            members = entry["members"].values() if entry["kind"] == "class" else []
-            for member in [entry, *members]:
-                for overload in member.get("overloads", []):
-                    for arg in overload:
-                        if len(arg) == 2:
-                            arg.append("")
+        reference = load(args.reference)
         current = dump()
-        problems = [p for p in compare(reference, current) if p not in ACCEPTED]
+        problems = incompatibilities(reference, current)
         if args.notes:
             for note in notes(reference, current):
                 print(f"note: {note}")
