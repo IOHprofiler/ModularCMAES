@@ -1230,14 +1230,16 @@ void define_parameters(nb::module_ &main)
              "Parameters with the default settings for this dimension (Settings(dimension)).")
         .def(nb::init<Settings>(),
              nb::arg("settings"),
-             "Parameters for the given settings (copied).")
+             "Parameters for the given settings (copied).\n\n"
+             "The settings are checked first, every field and the checks between fields "
+             "(ValueError, see Settings), and C0 again.")
         .def("adapt",
              &Parameters::adapt,
              "The adaptation at the end of a generation.\n\n"
              "Updates the evolution paths, the step size (clipped to the tolerances of the "
              "MinSigma and MaxSigma restart criteria when constants.clip_sigma is set), the "
              "matrix of the matrix adaptation and the restart criteria, then increments "
-             "stats.t. ModularCMAES.adapt calls it.")
+             "stats.t and stats.t_run. ModularCMAES.adapt calls it.")
         .def("resize_population",
              &Parameters::resize_population,
              nb::arg("new_mu"),
@@ -1254,7 +1256,12 @@ void define_parameters(nb::module_ &main)
              "    The number of parents.\n"
              "new_lambda : int\n"
              "    The number of offspring per generation.")
-        .def_rw("settings", &Parameters::settings, "The Settings of this optimizer.")
+        .def_rw("settings",
+                &Parameters::settings,
+                "The Settings of this optimizer, a copy of those it was created with.\n\n"
+                "Setting a field of it checks that field alone: the checks between fields and "
+                "the adjustments of the constructor do not run again, and the module objects are "
+                "not rebuilt.")
         .def_rw("mu",
                 &Parameters::mu,
                 "The current number of parents: settings.mu0 at first. A restart that changes "
@@ -1265,7 +1272,8 @@ void define_parameters(nb::module_ &main)
         .def_rw("lamb",
                 &Parameters::lambda,
                 "The current number of offspring per generation (lambda): settings.lambda0 at "
-                "first, changed by IPOP and BIPOP restarts.")
+                "first, changed by IPOP and BIPOP restarts, and capped at a restart near the end "
+                "of the budget (the first generation of the new run takes at most the rest).")
         // shared_ptr<Adaptation> comes back as its most-derived bound type
         .def_rw("adaptation",
                 &Parameters::adaptation,
@@ -1284,11 +1292,13 @@ void define_parameters(nb::module_ &main)
         .def_rw("pop", &Parameters::pop, "The population of the current generation.")
         .def_rw("old_pop",
                 &Parameters::old_pop,
-                "The population of the previous generation (the parents for elitism).")
+                "The population of the previous generation, sorted: the parents for elitism, and "
+                "the reference of MSR, PSR and sequential selection.")
         .def_rw("sampler",
                 &Parameters::sampler,
                 "The sampler of the samples z (sampling.Sampler), built from modules.sampler, "
-                "sample_transformation, mirrored and orthogonal.")
+                "sample_transformation and orthogonal (and settings.fast_sampling). The mutation "
+                "forms the mirrored pairs, not the sampler.")
         .def_rw("mutation",
                 &Parameters::mutation,
                 "The mutation (mutation.Strategy, by modules.ssa): the step size sigma and its "
