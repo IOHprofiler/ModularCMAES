@@ -137,6 +137,6 @@ show_signature_annotations = true
 separate_signature = true
 signature_crossrefs = true
 members_order = "source"
-filters = ["!^_"]
+filters = ["!^_", "^__(init|call|add|iadd)__$"]
 show_if_no_docstring = true
 heading_level = 2
