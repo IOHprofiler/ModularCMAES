@@ -1123,9 +1123,11 @@ void define_matrix_adaptation(nb::module_ &main)
              "    z, shape (d,).")
         .def(
             "__repr__",
-            [](nb::handle self) {
-                const auto &a = nb::cast<const Adaptation &>(self);
-                return repr(class_name(self).c_str(), [&](std::stringstream &ss) {
+            // pointer_and_handle: the object and its handle, with the usual check of the
+            // argument (TypeError for an object of another class)
+            [](nb::pointer_and_handle<Adaptation> self) {
+                const Adaptation &a = *self.p;
+                return repr(class_name(self.h).c_str(), [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
                     ss << " dd: " << a.dd;
                 });
@@ -1250,9 +1252,9 @@ void define_matrix_adaptation(nb::module_ &main)
              "    The recombination weights and learning rates (`es.p.weights`).")
         .def(
             "__repr__",
-            [](nb::handle self) {
-                const auto &a = nb::cast<const CovarianceAdaptation &>(self);
-                return repr(class_name(self).c_str(), [&](std::stringstream &ss) {
+            [](nb::pointer_and_handle<CovarianceAdaptation> self) {
+                const CovarianceAdaptation &a = *self.p;
+                return repr(class_name(self.h).c_str(), [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
                     ss << " pc: " << a.pc.transpose() << " d: " << a.d.transpose();
                     ss << " B: " << a.B << " C: " << a.C;

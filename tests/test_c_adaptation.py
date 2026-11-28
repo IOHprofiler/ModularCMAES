@@ -62,6 +62,17 @@ class TestRepr(unittest.TestCase):
                 text = repr(adaptation)
                 self.assertTrue(text.startswith(f"<{type(adaptation).__name__} m: "), text)
 
+    def test_the_repr_of_another_object_is_a_type_error(self):
+        from modcma.c_maes import matrix_adaptation
+
+        matrix = matrix_adaptation.MatrixAdaptation(2, np.zeros(2))
+        with self.assertRaises(TypeError):
+            matrix_adaptation.Adaptation.__repr__(5)  # type: ignore[arg-type]
+        with self.assertRaises(TypeError):
+            matrix_adaptation.CovarianceAdaptation.__repr__(matrix)  # type: ignore[arg-type]
+        with self.assertRaises(TypeError):  # not initialized
+            repr(matrix_adaptation.CholeskyAdaptation.__new__(matrix_adaptation.CholeskyAdaptation))
+
 
 def ellipsoid(x):
     x = np.asarray(x)
