@@ -9,10 +9,12 @@ average. The modules of this page change which points are selected and how they 
   to zero. `UTILITY` is more than a set of weights: the mean moves by the utility-weighted sum of
   *all* λ steps (the worse half pulls it away from the worse points), and every matrix update uses
   all of them (it sets `active`). With `NATURAL_GRADIENT` and `ssa=XNES` it is xNES; with the
-  CMA-ES updates it needs 20–35 % more evaluations than `DEFAULT` on the sphere, a rotated ellipsoid
-  and Rosenbrock (d = 10), and with CMSA (which uses only the positive utilities) 14–22 % fewer on
-  the rotated ellipsoid and Rosenbrock, 8 % more on the sphere. Avoid it with outlier-prone
-  sampling ([compatibility](compatibility.md#combinations-to-avoid)).
+  CMA-ES updates it needed 20–35 % more evaluations than `DEFAULT` on the sphere, a rotated
+  ellipsoid and Rosenbrock (d = 10), and with CMSA (which uses only the positive utilities) 14–22 %
+  fewer on the rotated ellipsoid and Rosenbrock, 8 % more on the sphere (measured when `UTILITY`
+  was added, a5cc106 of 2026-11-24; not repeated since the changes of CSA and the weights in #73
+  and #138). Avoid it with outlier-prone sampling
+  ([compatibility](compatibility.md#combinations-to-avoid)).
 * `active=True`: the active covariance update (Jastrebski & Arnold 2006): the worst points get
   negative weights in the update of C, which shrinks the variance in unpromising directions. It
   often speeds up the adaptation (pycma uses it by default); not used with
@@ -22,8 +24,8 @@ average. The modules of this page change which points are selected and how they 
   `active`, the negative weights go to the λ − µ worst points of the µ + λ pool (#161); `XNES` adapts σ
   from the offspring alone (#172) ([compatibility](compatibility.md#combinations-that-change-the-meaning-of-an-option)).
 * `sequential_selection=True`: evaluate the points one by one and end the generation at the first
-  point (from the µ-th on) that improves on the best of the previous generation (Brockhoff et al.
-  2010); the updates
+  point that improves on the best of the previous generation, from the (µ + 1)-th point on (with
+  `PAIRWISE`, after complete pairs, from the (2µ + 2)-th on) (Brockhoff et al. 2010); the updates
   use the evaluated points. Saves evaluations when improvements are easy to find, typically with
   mirrored sampling.
 * Pairwise selection with mirrored sampling: `mirrored=PAIRWISE` ([sampling](sampling.md)).

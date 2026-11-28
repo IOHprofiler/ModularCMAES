@@ -107,9 +107,9 @@ What each does and when to use it: [the user guide](https://modularcmaes.readthe
 ## Documentation
 
 [modularcmaes.readthedocs.io](https://modularcmaes.readthedocs.io): getting started, the user
-guide for every module, examples (multimodal problems, parallel evaluation, BBOB benchmarks, tuning,
-mixed-integer problems, coming from pycma, checkpointing), the API reference, and the C++ library.
-`help()` works on every class and function.
+guide for every module (with saving and resuming a run, and the C++ library), examples (multimodal
+problems, parallel evaluation, BBOB benchmarks, tuning, mixed-integer problems, warm starting,
+coming from pycma), and the API reference. `help()` works on every class and function.
 
 Upgrading from 1.x: version 2.0 removed the pure-Python implementation (`AskTellCMAES`,
 `evaluate_bbob`, `ModularCMAES(func, d)`); see the

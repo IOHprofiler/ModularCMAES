@@ -34,8 +34,9 @@ times cheaper per generation (d = 1000: default 6.0 ms; MA-ES 0.96 ms; `COVARIAN
 
 ## LAPACK and BLAS
 
-From d = 100 to 120 on, the eigendecomposition, Cholesky factorizations, matrix inverses and
-matrix products use LAPACK and BLAS ([installation](../getting-started/installation.md#lapack-and-blas)).
+In high dimension the linear algebra uses LAPACK and BLAS: the matrix products and inverses from
+d = 100 on, the eigendecomposition and the Cholesky factorizations from d = 120 on
+([installation](../getting-started/installation.md#lapack-and-blas)).
 The choice is visible and adjustable with the global `modcma.constants`:
 
 ```python

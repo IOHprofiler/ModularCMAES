@@ -18,9 +18,12 @@ The number of points of the current population that were outside the box is
 `es.p.bounds.n_out_of_bounds`. With a correction other than `NONE` the best point that `run()` and
 `fmin` return (`es.p.stats.global_best`) is the best point in the box: a point that `RESAMPLE` left
 outside after its last try is evaluated and can be selected, but never becomes the best (#168).
-Without a correction the box does not constrain the points, and every point counts. The two test points of the step-size rule `TPA` are not corrected
-by the method: with any correction other than `NONE` both move toward the mean by the same factor
-until both are in the box, which keeps TPA's comparison symmetric (they are not counted).
+Without a correction the box does not constrain the points, and every point counts.
+
+The two test points of the step-size rule `TPA` are not corrected by the method: with any
+correction other than `NONE` both move toward the mean by the same factor until both are in the
+box, which keeps TPA's comparison symmetric. Only when the mean itself is outside the box does the
+method correct them. They are not counted in `n_out_of_bounds`.
 
 ```python
 import numpy as np

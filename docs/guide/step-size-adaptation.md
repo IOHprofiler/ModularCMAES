@@ -13,7 +13,7 @@ its expected length under random selection, and increases σ when the steps add 
 | `MSR` | median success rule: does the median point beat the 0.3λ-th best of the previous generation? (Ait ElHara et al. 2013) | |
 | `PSR` | population success rule: rank the current and the previous generation together (Loshchilov 2014) | |
 | `XNES`, `MXNES`, `LPXNES` | natural-gradient step-size updates in the style of xNES (Glasmachers et al. 2010) and variants | |
-| `SR` | the 1/5th success rule, for a (1+1)-ES | chosen automatically with `lambda0=1` |
+| `SR` | the success rule of the (1+1)-ES, with the target success rate 2/11 (Igel et al. 2006), a variant of the 1/5th rule | chosen automatically with `lambda0=1` |
 | `SA` | self-adaptation: each point has its own σ, selected along with it | with `matrix_adaptation=CMSA`: CMSA-ES |
 
 All methods other than CSA work without the eigendecomposition of C, so with the default

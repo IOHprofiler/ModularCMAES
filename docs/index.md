@@ -35,7 +35,8 @@ Wheels for Linux, macOS and Windows, CPython 3.10 to 3.14, including free-thread
     Choose the covariance update (`COVARIANCE`, `MATRIX`, `SEPARABLE`, `CHOLESKY`, `CMSA`,
     `NATURAL_GRADIENT`, ...), the step-size adaptation (CSA, TPA, MSR, xNES, ...), restarts
     (IPOP, BIPOP, repelling restarts), active updates, elitism, mirrored and quasi-random sampling,
-    and more: millions of distinct variants, all compatible with each other.
+    and more: millions of distinct variants. Every combination runs; the few that do not fit
+    together are adjusted ([compatibility](guide/compatibility.md)).
     [The modules →](guide/modules.md)
 
 -   **Fast**
@@ -72,7 +73,7 @@ Wheels for Linux, macOS and Windows, CPython 3.10 to 3.14, including free-thread
 * [Installation](getting-started/installation.md) and the [quickstart](getting-started/quickstart.md).
 * [Modules](guide/modules.md): what each module does and when to use it.
 * [Examples](examples/index.md): multimodal problems, parallel evaluation, BBOB benchmarks,
-  tuning, mixed-integer problems, and the pycma equivalents.
+  tuning, mixed-integer problems, warm starting, and the pycma equivalents.
 * [API reference](reference/index.md).
 * Upgrading from modcma 1.x? See [migrating from 1.x](migration.md).
 

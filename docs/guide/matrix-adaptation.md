@@ -10,7 +10,7 @@ efficient on ill-conditioned problems. `matrix_adaptation` chooses how C, or a f
 | option | learns | cost per generation | time at d = 1000 | choose it for |
 |---|---|---|---|---|
 | `COVARIANCE` | full C | O(d²λ) + an O(d³) eigendecomposition every few generations | 6.0 ms | the default: the most robust choice up to a few hundred dimensions |
-| `MATRIX` (MA-ES) | full M, C = M Mᵀ | O(d²λ) | 0.95 ms | high dimension, when the full covariance matters but CMA-ES is too slow |
+| `MATRIX` (MA-ES) | full M, C = M Mᵀ | O(d²λ) | 0.96 ms | high dimension, when the full covariance matters but CMA-ES is too slow |
 | `NATURAL_GRADIENT` (xNES) | full A | O(d²λ) (exact low-rank update) | 0.87 ms | as MA-ES; xNES itself with `ssa=XNES` and `weights=UTILITY` |
 | `CHOLESKY` | Cholesky factor | O(d²λ) | 2.2 ms | as MA-ES |
 | `COVARIANCE_NO_EIGV` | full C, Cholesky factor | O(d²λ) + O(d³) every few generations | 1.1 ms | step-size adaptations other than CSA (chosen automatically) |
@@ -46,11 +46,13 @@ scaling and runs out of budget. After a rotation of the problem, `SEPARABLE` wou
 
 ## The state
 
-The adaptation is `es.p.adaptation`: the mean `m`, the evolution paths `pc` and `ps`, and the
-matrix (`C` and its eigendecomposition `B`, `d` for `COVARIANCE`; `M` for `MATRIX`; `A` for
-`CHOLESKY` and `NATURAL_GRADIENT`). See the [reference](../reference/matrix_adaptation.md). The
-matrix starts as the identity, or as `Settings.C0`
-([warm starting](settings.md#the-initial-covariance-matrix-and-warm-starting)).
+The adaptation is `es.p.adaptation`: the mean `m`, the evolution path `ps` of the step size, the
+path `pc` of the rank-one update (`COVARIANCE`, `COVARIANCE_NO_EIGV`, `SEPARABLE`, `CHOLESKY`), and
+the matrix: `C` with its eigendecomposition `B`, `d` for `COVARIANCE`; `C` and its Cholesky factor
+`A` for `COVARIANCE_NO_EIGV` and `CMSA`; the diagonal `c` (and `d`, its square root) for
+`SEPARABLE`; `M` for `MATRIX`; `A` for `CHOLESKY` and `NATURAL_GRADIENT`. See the
+[reference](../reference/matrix_adaptation.md). The matrix starts as the identity, or as
+`Settings.C0` ([warm starting](settings.md#the-initial-covariance-matrix-and-warm-starting)).
 
 ### The shape of the distribution: `metric()`
 
@@ -77,7 +79,7 @@ weights = 10.0 ** np.arange(5)  # the Hessian has condition 1e4
 def rotated_ellipsoid(x):
     return float(np.sum(weights * (rotation @ x) ** 2))
 
-es = modcma.ModularCMAES(modcma.settings_from_dict(5, target=1e-6, seed=1))
+es = modcma.ModularCMAES(modcma.settings_from_dict(5, target=1e-12, seed=1))
 es.run(rotated_ellipsoid)
 metric = es.p.adaptation.metric()
 print(f"condition of C: {metric.eigenvalues().max() / metric.eigenvalues().min():.3g}")
@@ -86,8 +88,9 @@ print(f"longest semi-axis: {es.p.mutation.sigma * metric.d.max():.2e}")
 
 On a convex-quadratic function C approaches the inverse Hessian up to a constant factor (Hansen
 2016, Section 0.4, an assumption with strong empirical support): here the condition of C ends near
-the Hessian's 10⁴. So `inv_C()` estimates the shape of the Hessian, not its scale, for the
-adaptations that learn a full matrix.
+the Hessian's 10⁴ (1.4 × 10⁴ with this seed, 7 × 10³ to 1.5 × 10⁴ with the seeds 1 to 5). So
+`inv_C()` estimates the shape of the Hessian, not its scale, for the adaptations that learn a full
+matrix.
 
 ## The options
 

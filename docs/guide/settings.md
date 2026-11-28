@@ -9,7 +9,7 @@ other argument is a keyword argument with a default:
 |---|---|---|
 | `dim` | (required) | the number of variables d |
 | `modules` | `Modules()` | the [modules](modules.md) |
-| `x0` | the center of the bounds ([rule for infinite bounds](bound-correction.md#where-the-search-starts)) | the starting point (with `center_placement=X0`) |
+| `x0` | the center of the bounds ([rule for infinite bounds](bound-correction.md#where-the-search-starts)) | the starting point of the first run, and of every restart with `center_placement=X0` (the default) |
 | `sigma0` | 2.0 | the initial step size σ₀; rule of thumb: 0.3 × the width of the search region |
 | `C0` | the identity | the initial covariance matrix C, (d, d), symmetric positive definite ([warm starting](#the-initial-covariance-matrix-and-warm-starting)) |
 | `lb`, `ub` | −5 and 5 in every coordinate | the bounds, arrays of length d ([bounds](bound-correction.md)) |
@@ -18,7 +18,7 @@ other argument is a keyword argument with a default:
 | `max_generations` | none | stop after this many generations, at least 1 |
 | `lambda0` | 4 + ⌊3 ln d⌋ | the population size λ, at least 1 (1 is the (1+1)-ES; 2 and 3 work poorly with many modules, see [compatibility](compatibility.md)) |
 | `mu0` | λ / 2 (λ / 4 with `ssa=SA` or CMSA) | the number of parents µ, at least 1 and at most λ |
-| `cs`, `cc`, `cmu`, `c1`, `damps`, `acov` | from d, λ and µ (Hansen 2016) | learning rates and damping of the step-size and covariance updates: `cs`, `cc` in (0, 1], `c1`, `cmu` in [0, 1] with `c1 + cmu` ≤ 1, `damps`, `acov` > 0 (ValueError otherwise; Hansen 2016). Other values work, some poorly: they are not rejected |
+| `cs`, `cc`, `cmu`, `c1`, `damps`, `acov` | the default of the chosen modules, from d and µ_eff (for CSA and `COVARIANCE`: Hansen 2016) | learning rates and damping of the step-size and covariance updates. Allowed: `cs`, `cc` in (0, 1]; `c1`, `cmu` in [0, 1], with `c1 + cmu` ≤ 1 when both are given; `damps` > 0; `acov` > 0 and finite (the bounds of Hansen 2016; ValueError outside them). A value inside these ranges is accepted even when it works poorly |
 | `integer_variables` | none | indices of integer variables ([integer variables](integer-variables.md)) |
 | `seed` | none (copy the global generator) | the seed of the optimizer's random generator ([reproducibility](reproducibility.md)) |
 | `fast_sampling` | `False` | a faster random generator and normal sampler, with a different random stream ([performance](performance.md)) |
@@ -26,10 +26,12 @@ other argument is a keyword argument with a default:
 | `verbose` | `False` | print what happens at restarts |
 
 An invalid value raises `ValueError` that names the argument: a dimension or `lambda0` of 0, a
-`mu0` of 0 or above `lambda0`, a NaN `target`, a non-positive `sigma0`, vectors that do not have
-length d, NaN in the bounds, a lower bound of +∞ or an upper bound of −∞, `lb` above `ub`, a budget
-smaller than the first generation and the final center of mass, or a `C0` that is not a symmetric
-positive definite (d, d) matrix. With `lambda0=1` (the (1+1)-ES) `mu0` is 1 whatever is given.
+`mu0` of 0 or above `lambda0`, a NaN `target`, a non-positive `sigma0`, `max_generations` of 0, a
+learning rate outside its range, vectors that do not have length d, NaN in the bounds, a lower
+bound of +∞ or an upper bound of −∞, `lb` above `ub`, an integer variable without an integer
+between its bounds, a budget smaller than the first generation and the final center of mass, or a
+`C0` that is not a symmetric positive definite (d, d) matrix. With `lambda0=1` (the (1+1)-ES)
+`mu0` is 1 whatever is given.
 
 The gradient of the objective is not a setting: it is passed with the objective
 (`run(f, gradient=g)`, `fmin(..., gradient=g)`) or, with ask–tell, to `inject_gradient`
@@ -80,9 +82,11 @@ of the constructor. The optimizer rejects what they would have changed: an odd `
 mirrored `PAIRWISE`, and a change of `lambda0` to or from 1 (the (1+1)-ES is set up by the
 constructor). Changes of `settings.modules` in place are not adjusted either.
 
-`es.p.settings` is the optimizer's own copy and can be assigned (`es.p.settings.cs = 3`): that
-assignment is not checked and does not recompute anything. Set the fields before the optimizer is
-created.
+`es.p.settings` is the optimizer's own copy. Assigning one of its fields runs the setter's check
+(`es.p.settings.cs = 3` raises `ValueError`), but recomputes nothing that the optimizer derived from
+it: `es.p.weights.cs` keeps its value until a restart recomputes the weights. The fields that the
+optimizer reads in every generation take effect at once: a larger `budget` lets a stopped optimizer
+continue. Set the fields before the optimizer is created.
 
 The values actually used (after defaults and [adjustments](modules.md#combinations-that-are-adjusted))
 are on the optimizer: `es.p.settings` for the settings and modules, `es.p.lamb` and `es.p.mu` for the

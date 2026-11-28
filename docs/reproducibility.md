@@ -7,6 +7,14 @@ The notebooks in `scripts/matrix/` and `scripts/tuning/` are retained as
 analysis records. The commands below are the supported reproduction entry
 points and do not depend on notebook kernel state or machine-specific paths.
 
+!!! note "The paper ran modcma 1.1.0"
+    The experiments of the paper ran with modcma 1.1.0 (the version the paper names), its C++
+    implementation. Version 2.0 fixed bugs that changed results and changed several modules to
+    follow their sources, and the configuration space of `get_configspace` changed (#81); see the
+    [changelog](changelog.md). With 2.0, the commands below run the paper's protocol, but their
+    numbers differ from the paper's. The scripts are maintained for the current version; they were
+    not tested with 1.1.0.
+
 ## Environment
 
 A Linux environment, a C++17 compiler, and Python 3.10 or newer are
@@ -17,8 +25,10 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e .
-python -m pip install -r scripts/requirements-experiments.txt
+python -m pip install -r scripts/requirements-experiments.txt ioh
 ```
+
+`ioh` (the BBOB functions) is not in the requirements file: modcma depended on it before 2.0.
 
 The original environment was not fully locked. `scripts/requirements-experiments.txt`
 records compatible dependency ranges and pins Pycma to the version stated in
@@ -54,7 +64,8 @@ Use a separate `--output_root` for each independent SMAC reproduction. The
 analysis command rejects ambiguous directories containing multiple run
 histories for one function.
 
-For reference, a `data.zip` is included in the `/scripts/tuning/`folder, which contains the data to generate the plots from the paper.
+Of these, the repository holds the two timing files and `ERT_BBOB.csv`; `data/` and
+`scripts/tuning/data/` are not in it, and the commands below generate them.
 
 ## Matrix-adaptation runtime experiment
 
@@ -132,11 +143,12 @@ for fid in $(seq 1 24); do
 done
 ```
 
-The defaults match the tuning setup described in the paper:
+With `--add_popsize` and the defaults otherwise, the setup is the tuning setup described in the
+paper:
 
 - 50,000 SMAC target-function evaluations per BBOB function;
 - at most 25 evaluations of one configuration;
-- population sizes enabled;
+- population sizes enabled (`--add_popsize`);
 - learning rates and initial sigma excluded;
 - seed 2062;
 - one worker.
@@ -213,9 +225,9 @@ python scripts/tuning/analyze.py --help
   analysis.
 - `scripts/tuning/plotting.ipynb` is an older irace-based analysis and is not
   part of the final SMAC pipeline.
-- `scripts/matrix/test_timing.py`, `scripts/matrix/test_bbob5d.py`,
-  `scripts/tuning/test_config.py`, `scripts/tuning/smac_info.py`, and
-  `scripts/tuning/cmd.sh` are exploratory or diagnostic helpers.
+- `scripts/matrix/test_bbob5d.py`, `scripts/tuning/test_config.py`,
+  `scripts/tuning/smac_info.py`, and `scripts/tuning/cmd.sh` are exploratory or
+  diagnostic helpers.
 
 The standalone commands above supersede these artifacts for clean
 reproduction, while the notebooks remain available for provenance.

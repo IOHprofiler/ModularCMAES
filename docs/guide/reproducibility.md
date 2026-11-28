@@ -35,8 +35,9 @@ diverge; the results are statistically the same. The last bits differ because:
 
 * the compiler and the CPU decide whether fused multiply–add instructions are used (`build_info()`
   shows it);
-* from dimension 100 (the default thresholds) the linear algebra uses LAPACK and BLAS, whose
-  results depend on the library (Accelerate, OpenBLAS, MKL);
+* in high dimension the linear algebra uses LAPACK and BLAS (by default the matrix products from
+  d = 100 on, the eigendecomposition and Cholesky factorizations from d = 120 on), whose results
+  depend on the library (Accelerate, OpenBLAS, MKL);
 * `fast_sampling=True` uses a different random stream (xoshiro256++ and a ziggurat instead of
   mt19937 and the inverse normal CDF).
 

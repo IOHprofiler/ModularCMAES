@@ -73,6 +73,12 @@ ones:
 * A. Auger, D. Brockhoff and N. Hansen (2011). Mirrored sampling in evolution strategies with
   weighted recombination. *GECCO*.
 * N. Hansen (2008). CMA-ES with two-point step-size adaptation. arXiv:0805.0231.
+* N. Hansen, A. Atamna and A. Auger (2014). How to assess step-size adaptation mechanisms in
+  randomised search. *PPSN XIII*. (two-point adaptation within the population, `TPA_INPLACE`)
+* N. Hansen (2011). Injecting external solutions into CMA-ES. arXiv:1110.4181. (injected points
+  and gradient injection)
+* M. Nomura, S. Watanabe, Y. Akimoto, Y. Ozaki and M. Onishi (2021). Warm starting CMA-ES for
+  hyperparameter optimization. *AAAI*. (`warm_start`)
 * O. Ait Elhara, A. Auger and N. Hansen (2013). A median success rule for non-elitist evolution
   strategies: study of feasibility. *GECCO*.
 * I. Loshchilov (2014). A computationally efficient limited memory CMA-ES for large scale

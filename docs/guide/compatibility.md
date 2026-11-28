@@ -7,8 +7,10 @@ whose meaning changes, and the combinations to avoid. The [deep dives](../deep-d
 explain how the modules compare with the published algorithms they come from.
 
 The lists come from the code and from a test of every module value, every pair of values and
-600 random configurations (shifted sphere and Rastrigin; 2026-11). Items marked *known issue* are
-recorded for fixing (TASKS.md, WP23; the identifier in brackets).
+600 random configurations (shifted sphere and Rastrigin, 2026-11-24; WP23 of
+[`dev/overhaul-2.0.md`](https://github.com/IOHprofiler/ModularCMAES/blob/master/dev/overhaul-2.0.md)),
+updated with every fix since. A measured number gives its setup, and the issue or pull request
+that measured it.
 
 ## Combinations that are adjusted
 
@@ -29,7 +31,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | `ssa=SA` or `LPXNES` | sampled step sizes (`sample_sigma`) are always on |
 | `weights=UTILITY` | `active` on (the utilities of the worse half are negative; every matrix update uses all of them) |
 | `matrix_adaptation=NATURAL_GRADIENT` with `active` and the default weights | `weights=UTILITY`: xNES's active form (CMA-ES's negative weights broke it) |
-| `mirrored=PAIRWISE` with `sequential_selection` | the generation stops only after complete pairs, at 2µ points at the earliest |
+| `mirrored=PAIRWISE` with `sequential_selection` | the generation stops only after complete pairs, after 2µ + 2 points at the earliest (µ + 1 without `PAIRWISE`) |
 | `matrix_adaptation=NATURAL_GRADIENT` | `cc`, the learning rate of A, is xNES's η_B/2; with `ssa=XNES` also `cs` is xNES's η_σ. The other step-size rules keep their own `cs` (#72) |
 | `ssa=LPXNES` | `cs` = min(1, 9µ_eff/(10√d)): Krause et al.'s rate, capped at 1 by modcma (above 1 the update overshoots; 1.29 at d = 2) (#72) |
 | a `cs` above 1 (`XNES` with a large λ: 13.8 at d = 2, λ = 100) | the path p_σ (h_σ, MATRIX's rank-one update) has the rate 1, the current step (`Weights.cs_path`); with `cs` above 2 it became NaN (#72) |
@@ -48,7 +50,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | `center_placement` | without restarts (as for repelling): it only places restarts, the first run starts at `x0` (or the center of the bounds). `X0` and `CENTER` coincide without `x0`, `ZERO` and `CENTER` for a symmetric box |
 | `NOVELTY_WEIGHTED`, `MAXIMIN_TABOO` | without repelling restarts (empty archive): they are `UNIFORM` |
 | `sample_sigma=False` | with `ssa=SA` or `LPXNES` (forced on) |
-| `sequential_selection` | with `PAIRWISE` and the default µ = λ/2 (the earliest stop, 2µ = λ, is the whole generation); with λ = 1 |
+| `sequential_selection` | with `PAIRWISE` and the default µ = λ/2 (its earliest stop, after 2µ + 2 points, is past the whole generation); with λ = 1 |
 | `weights`, `elitist`, `ssa`, IPOP/BIPOP, `mirrored=PAIRWISE` | with λ = 1 (overridden) |
 | `mirrored=MIRRORED` | with λ = 1: the pairs are formed within a generation, and its one individual is unpaired |
 | `fast_sampling` | with a sampler other than `UNIFORM` + `GAUSSIAN` |
@@ -56,7 +58,7 @@ change of λ to or from 1 when it is created ([settings](settings.md#changing-th
 | all restart criteria but `UnableToAdapt` | with `restart_strategy=NONE` |
 | `bound_correction` | in the coordinates with two infinite bounds |
 | `threshold_convergence` | late in a run: its threshold decays to 0 with the budget |
-| learning rates | `cs` with `ssa` `SR` or `SA` and a matrix adaptation that does not read the path p_σ (`NONE`, `CMSA`, `NATURAL_GRADIENT`; `CHOLESKY` reads it for h_σ since #160, except in a (1+1)-ES); `damps` except with `CSA`, `MSR`, `PSR`, `SR` and `TPA_INPLACE`; `c1`, `cmu` with `CMSA`, and with `NATURAL_GRADIENT` (which uses `cc`) without `active`; `cc` with `MATRIX`, `CMSA`, `NONE` |
+| learning rates | `cs` with `ssa` `SR` or `SA` and a matrix adaptation that does not read the path p_σ (`NONE`, `CMSA`, `NATURAL_GRADIENT`; `CHOLESKY` reads it for h_σ since #160, except in a (1+1)-ES); `damps` except with `CSA`, `MSR`, `PSR`, `SR` and `TPA_INPLACE`; `c1`, `cmu` with `NONE` and `CMSA`, and with `NATURAL_GRADIENT` (which uses `cc`) without `active`; `cc` with `MATRIX`, `CMSA`, `NONE` |
 
 These equivalences mean that the number of combinations overstates the number of distinct
 algorithms.
@@ -78,8 +80,9 @@ algorithms.
   with `EQUAL` or `EXPONENTIAL` weights and µ < λ/2 the winners from rank µ + 1 on get negative
   weights. `MSR` and `PSR` compare the ranked points only; the statistics and the restart criteria
   read every value.
-* **µ other than λ/2 with the default weights** (`mu0`, or IPOP's ratio of an odd λ₀): the weights
-  of a population of 2µ, as pycma with `CMA_mu` (#73): w′ᵢ = ln(µ + ½) − ln i, positive for the µ
+* **µ other than ⌊λ/2⌋ with the default weights** (a given `mu0`, which IPOP and BIPOP scale with
+  λ, and the default µ = λ/4 of `SA` and `CMSA`): the weights of a population of 2µ, as pycma with
+  `CMA_mu` (#73): w′ᵢ = ln(µ + ½) − ln i, positive for the µ
   best; the µ negative ones go to the worst ranks, with weight 0 for the ranks in between when
   λ > 2µ, and only the last λ − µ of them when λ < 2µ. A generation that sequential selection stops
   before the first negative rank has no negative weights.
@@ -185,7 +188,7 @@ algorithms.
   one is unpaired. A pair that RESAMPLE or repelling rejects is sampled again as a pair. With
   sequential selection the partner of a batch's last individual is sampled with it, and discarded
   if the generation stops before it.
-* **Threshold convergence** applies its threshold to z (E‖z‖ at the start of a run, decaying with
+* **Threshold convergence** applies its threshold to z (E‖z‖ in the first generation, decaying with
   the budget); it lengthens the samples that length-based step-size rules (`XNES`, `MXNES`)
   measure.
 * **Integer variables** are rounded after the bound correction, to the nearest integer in
@@ -265,15 +268,16 @@ E‖N(0, I)‖ for the Gaussian samplers.
 
 ## Combinations to avoid
 
-Measured on a shifted sphere (d = 5, 2000 evaluations) and confirmed on more functions where
-noted; with the current version. Most are recorded for fixing.
+These combinations run, but work badly. Unless a row says otherwise, measured on a shifted sphere
+(d = 5, 2000 evaluations) when the page was written (2026-11-24), and confirmed on more functions
+where noted. They are not bugs to fix; `ADAPTIVE` repelling is studied in #177.
 
 | combination | what happens |
 |---|---|
 | `sample_transformation=NONE` | the raw base sampler, for testing: uniform samples with mean 0.5, which fail everywhere |
-| `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `MSR`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | σ diverges or collapses: the step-size rules assume finite variance |
+| `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | σ diverges or collapses: the step-size rules assume finite variance. 0 of 5 runs reach 1e-8 with each, on the shifted sphere (d = 5, 2000 evaluations) and a rotated ellipsoid (condition 10⁶, d = 5, 5000 evaluations), where `CAUCHY` alone solves 5 of 5 (re-measured for #187, 2026-11-28). `MSR` solves 5 of 5 on both since #83 |
 | `ssa=SA` with the default λ on ill-conditioned functions, d = 20 | σ shrinks before the matrix adapts: BBOB f2 and f8 (d = 20) reach 1e-8 in 0 of 25 runs each within 3000·d evaluations (`CSA`: 25 and 22); λ = 40 or 80 did not help within 60,000 evaluations (4 runs each). The step sizes per coordinate before #71 hid this on separable functions (25 of 25 on f2), at the cost of rotation invariance (0 of 25 on f10 and f12) |
-| `PAIRWISE` with `EQUAL` weights | C degenerates in some runs |
+| `PAIRWISE` with `EQUAL` weights | C degenerates and the search stalls: on the shifted sphere (d = 5) the condition of C reaches 5 × 10² to 10⁵ within 2000 evaluations (3 with `PAIRWISE` alone), and 0 of 5 runs reach 1e-8 with 2000 or 20,000 evaluations, against 5 of 5 with the `DEFAULT` or `EXPONENTIAL` weights (re-measured for #187, 2026-11-28) |
 | `ssa=XNES` with `weights=EQUAL` | the runs fail, with or without `active` (#180). Ellipsoid with `COVARIANCE` (x0 uniform in [−3, 3]^d, σ₀ = 2, 10⁴·d evaluations, 20 runs): 0 runs reach 1e-8 at d = 5, 10 and 20, with 68–207 restarts per 20 runs. Sphere at d = 10: 1 of 5 runs. `MXNES` and `CSA` with `EQUAL` solve all of these. Measured on master 091c577 by the investigation of #175. The cause has not been measured; the investigation's explanation: with equal weights over the µ = λ/2 best, xNES SA's signal Σ wᵢ(‖zᵢ‖² − d) has no drift on a linear function, since the better and the worse half have the same distribution of ‖z‖². Nothing raises σ then, and the curvature lowers it |
 | `repelling_type=ADAPTIVE` | experimental: modcma's own work in progress, without a published source. In the experiment of #158 (BBOB f21 and f22, d = 5 to 40, `RESTART` and `IPOP`) it solved 99 of 240 runs, against 107 without repelling and 144 with `COVERAGE` |
 | `matrix_adaptation=NATURAL_GRADIENT` with `ssa=LPXNES` at small d | LPXNES keeps its own rate (cs = 1 at d = 5; before #72 NATURAL_GRADIENT gave it xNES's 0.25): BBOB at d = 5 (7 functions, 25 runs each) solves 66 of 175 runs, 118 on master 20bdf27; at d = 20 79 of 175, 0 on master |
