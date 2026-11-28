@@ -2,8 +2,10 @@
 
 All learning rates below are modcma's defaults (`es.p.weights`): c1 = 2/((d+1.3)² + µ_eff),
 cµ = min(1 − c1, 2(µ_eff − 2 + 1/µ_eff)/((d+2)² + µ_eff)), cc = (4 + µ_eff/d)/(d + 4 + 2µ_eff/d),
-cs = (µ_eff + 2)/(d + µ_eff + 5) and damps = 1 + 2 max(0, √((µ_eff − 1)/(d + 1)) − 1) + cs
-(Hansen 2016, Table 1, Eq. (55), as in its 2023 revision, arXiv:1604.00772v2).
+cs = (µ_eff + 2)/(d + µ_eff + 5) and damps = 1 + 2 max(0, √((µ_eff − 1)/(d + 1)) − 1) + cs.
+c1, cc, cs and damps are those of Hansen (2016) in its 2023 revision (arXiv:1604.00772v2, Table 1,
+Eqs. (55)–(57)). cµ is not: the revision's Eq. (58) has 1/4 + µ_eff + 1/µ_eff − 2 in the numerator,
+as pycma (its `rankmu_offset`); modcma has no 1/4.
 
 ## COVARIANCE: CMA-ES
 
@@ -34,7 +36,8 @@ d = 10 in 0 of 25 runs (pycma: 25 of 25).
 `MATRIX`). With `ssa=XNES` a generation with h_σ = 0 has no negative weights: its update is the
 one without `active`. The `UTILITY` weights are exempt. h_σ = 0 marks "a linear surrounding, i.e.
 when the step-size is far too small" (Hansen 2016, after Eq. (45)). xNES SA keeps σ below its
-optimum (Krause et al. 2017, Sec. 6): h_σ was 0 in 89–99 % of the generations at d ≥ 10. In those
+optimum (Krause et al. 2017, Sec. 6); in modcma's runs (#175) h_σ was 0 in 89–99 % of the
+generations at d ≥ 10. In those
 generations the negative weights took back most of the growth of C towards the optimum that the
 positive weights gave: `COVARIANCE` + `XNES` + `active` solved the ellipsoid at
 d = 10 and 20 in 1 and 0 of 20 runs, now 20 and 20. It is modcma's rule, not the tutorial's or
@@ -47,8 +50,9 @@ does too ([compatibility](../guide/compatibility.md)).
   (`CMA_active=True`) include it.
 * cs is the tutorial's; pycma has d + µ_eff + 3 in the denominator and caps cs at 1/2 (modcma 1.1
   and 1.2 had pycma's formula without the cap).
-* pycma adds an offset to cµ (0.0236 against modcma's 0.0202 at d = 10), scales c1 for small λ, and
-  tests h_σ with the squared path length.
+* pycma, as the tutorial's 2023 revision, adds 1/4 to the numerator of cµ (0.0236 against
+  modcma's 0.0202 at d = 10). pycma also scales c1 for small λ and tests h_σ with the squared path
+  length.
 * h_σ's bias correction, 1 − (1 − cs)^(2(g+1)), counts the generations g of the current run, as
   Hansen (2016) and pycma. Before 2.0 it counted evaluations/λ over all runs, so after a restart
   the correction was already about 1.

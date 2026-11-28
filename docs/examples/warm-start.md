@@ -26,6 +26,9 @@ CMA-ES run       shifted by 0.1    3526  3511         3471
 CMA-ES run       0.02, rotated     3486  3446         3536
 ```
 
+Each median has a bootstrap standard error of 40 to 70 evaluations (20 seeds), so differences
+below about 150 evaluations are within the noise.
+
 * **The shape transfers.** With the solutions of a random search, the best 10% lie in a level set
   of the source task, an ellipsoid with the shape of its inverse Hessian. `C0` starts the run with
   part of that shape (its condition is 9 to 11 over the 20 seeds, against 10⁴ of the Hessian: the
@@ -36,9 +39,11 @@ CMA-ES run       0.02, rotated     3486  3446         3536
   dominates their spread: `C0` is nearly the identity (median condition 1.06), `sigma0` is about α
   (median 0.101), and only the location transfers. Here that saves nothing: the warm start needs
   from 1% fewer to 5% more evaluations than the cold start.
-* **Related tasks only.** When the target has another rotation, the shape of the source is wrong
-  for it and the warm start needs 2% more evaluations than the cold start. The paper measures the
-  similarity of two tasks (its γ-similarity); the warm start helps when it is positive.
+* **Related tasks only.** With another rotation the warm start saves nothing: 3556 (random
+  search) and 3446 (CMA-ES run) evaluations against 3486 for the cold start, within the noise.
+  The shape of the source is not the shape of the target then; whether it costs evaluations is not
+  measurable with 20 seeds. The paper measures the similarity of two tasks (its γ-similarity); the
+  warm start helps when it is positive.
 
 ## The paper's synthetic experiment
 

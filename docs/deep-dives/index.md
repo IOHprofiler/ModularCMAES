@@ -24,13 +24,15 @@ interact, and which to avoid, is on the [compatibility](../guide/compatibility.m
 Two choices hold for every module and explain many of the differences below:
 
 * **One generation, one order.** Every generation runs the same steps, in the order below; the
-  modules act within them. The mean is recombined with learning rate 1: the weighted average of
-  the µ best (of all λ with `weights=UTILITY`). A published algorithm with another order or another
-  mean update is reproduced as far as this order allows.
+  modules act within them. The mean is recombined with learning rate 1: m ← m + Σ wᵢ(xᵢ − m) over
+  the µ best (over all λ, with the utilities, for `weights=UTILITY`). A published algorithm with
+  another order or another mean update is reproduced as far as this order allows.
 
     ```mermaid
     flowchart TD
-        R{"a restart criterion met?"} -- yes --> N["end the run: evaluate its center of mass;<br>start a new one (restart strategy, center placement, repelling)"]
+        B{"stop? budget (also: no room for a restart), target,<br>max_generations, or a criterion met with restart_strategy=STOP"} -- yes --> X["end the run: evaluate its center of mass;<br>the optimizer stops"]
+        B -- no --> R{"a restart criterion met?"}
+        R -- yes --> N["end the run: evaluate its center of mass;<br>start a new one (restart strategy, center placement, repelling)"]
         R -- no --> S
         N --> S["sample z, y = A z, x = m + σ y<br>(sampler, mirrored, orthogonal, threshold convergence, bound correction)"]
         S --> E["evaluate the points<br>(TPA's two points with the first batch; sequential selection can stop early)"]
@@ -40,7 +42,7 @@ Two choices hold for every module and explain many of the differences below:
         P --> SS["adapt σ (ssa)"]
         SS --> C["adapt the matrix (matrix_adaptation, active)"]
         C --> U["update the restart criteria"]
-        U --> R
+        U --> B
     ```
 
 * **One step-size path for every matrix adaptation.** CSA needs C^-1/2 Δm. Only `COVARIANCE` has

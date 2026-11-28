@@ -56,8 +56,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `tell(f)` takes their values; the results are identical to `run()`, bit for bit. `tell(f, X)`
   takes the values of repaired or injected points X instead of the asked ones. The steps of the
   1.x API (`mutate()`, `select()`, `recombine()`, `adapt()`) still work; `select()`,
-  `recombine()` and `adapt()` raise `RuntimeError` while the points of a generation wait for their values (after
-  `ask()`, or an interrupted `mutate()` or `step()`).
+  `recombine()` and `adapt()` raise `RuntimeError` while the points of a generation wait for their
+  values (after `ask()`, or an interrupted `mutate()` or `step()`).
 * **Vectorized objectives**: `run(f, vectorized=True)` and `step(f, vectorized=True)` evaluate a
   whole batch per call.
 * **Gradient injection** (#90): with the gradient of the objective, every generation one point
@@ -83,8 +83,9 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `COVERAGE` (the repelling restarts of de Nobel et al. 2024) and `ADAPTIVE` (experimental, see
   Changed). `CenterPlacement.NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` place the center of a restart
   away from the points of the repelling archive.
-* `Modules.repelling_metric` (`CURRENT`, the default since #158; `EUCLIDEAN`, the behaviour of
-  1.x; `ARCHIVED`).
+* `Modules.repelling_metric`, the distance of repelling: `CURRENT` (the default; the Mahalanobis
+  distance in the current distribution, which 1.x used), `EUCLIDEAN` and `ARCHIVED` (the shape,
+  scaled to determinant 1, of the run that found the point).
 * **`StepSizeAdaptation.TPA_INPLACE`** (#173): two-point step-size adaptation within the
   population, as pycma 4.6.0's `CMAAdaptSigmaTPA` (after Hansen, Atamna & Auger 2014): offspring 1
   and 2 are a mirrored pair along the last mean shift, no extra evaluations; its σ trajectory on
@@ -167,8 +168,9 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 ### Changed
 
 * The configuration space of `get_configspace` and `settings_from_config` (#81). The numeric
-  hyperparameters keep their names and defaults, and their ranges except the lower bound of `cs`,
-  `cc` and `damps` (#169, below).
+  hyperparameters keep their names. Their defaults are those of `Settings(dim)`, so the defaults
+  of `cs` and `damps` follow CSA's new rate (#138; at d = 5, cs 0.434 → 0.365). Their ranges are
+  unchanged except the lower bound of `cs`, `cc` and `damps` (#169, below).
   * Hyperparameters without an effect are inactive (conditions): `active`, `center_placement`,
     `repelling_type`, `repelling_metric`, `cs`, `cc`, `cmu`, `c1`, `damps`, `mu0`, and (for
     lambda0 = 1) `elitist`, `sequential_selection`, `weights` and `ssa` (#131). A sampled
@@ -238,8 +240,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   active CMA-ES update written in M. `CMSA` has no active variant: `Settings` switches `active` off
   (with negative weights C became indefinite), and `get_configspace` has no `active`, `c1` and `cmu`
   for it.
-* **The default weights for µ ≠ λ/2** (`mu0`, IPOP with an odd λ₀, and the default µ = λ/4 of SA
-  and CMSA) are those of a population of 2µ, as pycma with `CMA_mu` (#73): ln(µ + ½) − ln i for the
+* **The default weights for µ ≠ λ/2** (a given `mu0`, and the default µ = ⌊λ/4⌋ of SA and CMSA)
+  are those of a population of 2µ, as pycma with `CMA_mu` (#73): ln(µ + ½) − ln i for the
   µ best, and the µ negative weights on the worst ranks (0 between them when λ > 2µ; the last λ − µ
   of them when λ < 2µ). They were ln((λ + 1)/⌊λ/µ⌋) − ln i for all ranks. With pairwise selection
   every negative weight now falls on a loser, so the active update has no effect there.
@@ -254,8 +256,9 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `eval_final_mean`, also when the optimizer stops (it was evaluated only at a restart). The
   budget always keeps that evaluation: a generation runs only when it leaves one, `Settings`
   rejects a budget smaller than the first generation plus one, and when the generations would use
-  the budget up exactly, the last one is dropped for the center. `break_conditions()` holds once the final center of mass is
-  evaluated: the last `ask()` returns it, a single point, and the last `step()` evaluates only it;
+  the budget up exactly, the last one is dropped for the center. `break_conditions()` holds once
+  the final center of mass is evaluated: the last `ask()` returns it, a single point, and the last
+  `step()` evaluates only it;
   after it the 1.x steps `select()`, `recombine()` and `adapt()` do nothing. `stats.solutions`, like
   `stats.centers`, has one entry per run, the last one too. Trajectories are unchanged until the
   last generations of a run (checked on all golden configurations, 260 at the time).
@@ -275,9 +278,10 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
     adaptations (they used D = 1 for every type but `COVARIANCE`).
 * **BIPOP** (#80; Hansen 2009, pycma's `fmin`): each regime counts the evaluations of its runs, the
   first run as small (pycma), and a restart uses the regime that has used fewer. A small run takes
-  at most half the evaluations of the large regime so far (`ExceededMaxIter`, from
-  `Strategy.max_iter`). λ of a small run is rounded down, as in the paper; up to even only with
-  `PAIRWISE` (it was always even).
+  about half the evaluations of the large regime so far: at most ⌈½ used_large/λ⌉ generations,
+  pycma's cap, rounded up (`Strategy.max_iter`, enforced by `ExceededMaxIter`; #80, #139).
+  λ of a small run is rounded down, as in the paper; up to even only with `PAIRWISE` (it was always
+  even).
 * **BIPOP's large population** stops growing at `BIPOP.max_lambda_factor` λ₀ = 2⁹ λ₀, the limit of
   IPOP, and restarts continue at that size; it had no limit (#140). pycma's `fmin` has none
   either, but stops after `restarts` large runs, 2⁹ λ₀ with `restarts=9` (Hansen 2009). The limit
@@ -309,7 +313,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   when both are given. Before, `cs=3` or `damps=-1` ran and ended with sigma at 1e26 or more.
   Hansen (2016) has c_c <= 1, c_sigma < 1, c_1 + c_mu <= 1; `cs = 1` stays allowed (it works).
   The default of one of `c1`, `cmu` against a given other is not checked. `es.p.settings.<field> =`
-  on a running optimizer is not checked either.
+  on a running optimizer checks the field, as the setters do, but not the checks between fields
+  (`c1 + cmu > 1` is accepted there).
 * **`Settings` rejects `mu0` above `lambda0`** (#136) with a `ValueError` that names both; 1.x
   replaced it by `lambda0 // 2` (but not with SA or CMSA). A (1+1)-ES (`lambda0 = 1`) still uses
   µ = 1 whatever `mu0` is. **A NaN `target`** raises `ValueError` too: it never stopped a run.
@@ -336,14 +341,13 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   (MA-ES with CSA is as published).
 * **`COVERAGE` repelling's radius** (#158): the volume is in σ₀^d units,
   V = n_T S / (c σ₀^d N), so the radius does not change when the box and σ₀ are scaled together
-  (the framework paper's Eq. (10) divides by σ₀), and the radius has no extra factor 1/√d (its
-  Eq. (11) has none). Computed in logarithms, so it stays finite at large d (the volume of [−5, 5]^d
-  overflowed from d = 309). σ₀ is the problem's in every run, also in BIPOP's small runs, as
-  Eq. (10) has it (documented).
-* **The default `repelling_metric` is `CURRENT`**, the Mahalanobis distance in the current
-  distribution, as the framework paper's Eq. (8) (#158); it was `EUCLIDEAN`. In the experiment of
-  #158 (BBOB f19, f21, f22; d = 5, 10, 20) the new radius with `CURRENT` solved 128 of 270 runs,
-  101 without repelling.
+  (Eq. (10) of de Nobel et al. 2024, "Avoiding Redundant Restarts", divides by σ₀), and the radius
+  has no extra factor 1/√d (their Eq. (11) has none). Computed in logarithms, so it stays finite at
+  large d (the volume of [−5, 5]^d overflowed from d = 309). σ₀ is the problem's in every run, also
+  in BIPOP's small runs, as Eq. (10) has it (documented). The distance is `CURRENT`, the
+  Mahalanobis distance in the current distribution (their Eq. (8)), as in 1.x (during the 2.0
+  work the default had become `EUCLIDEAN`). In the experiment of #158 (BBOB f19, f21, f22;
+  d = 5, 10, 20) the new radius with `CURRENT` solved 128 of 270 runs, 101 without repelling.
 * `repelling_type=ADAPTIVE` is documented as experimental: modcma's own, without a published
   source; it solved fewer runs than no repelling in the experiment of #158.
 
@@ -370,9 +374,6 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   as pycma), with SA or CMSA when λ₀ is not a multiple of 4, and BIPOP with a given `mu0` (#150).
 * `ExceededMaxIter` let a run take `max_iter` + 2 generations; now at most `max_iter`, as pycma's
   `maxiter` (#139).
-* BIPOP's small runs: their cap of half the large regime's evaluations is pycma's, not rounded
-  (`max_iter` = ⌈½ used_large/λ⌉; it was rounded down). With the fix of `ExceededMaxIter` above, a
-  capped small run is one or two generations shorter than before (#139).
 * `MaxDSigma` and `MinDSigma` compared σ with `Settings.sigma0`, also in BIPOP's small runs, which
   start smaller; now with the step size of the run's start, as pycma's `tolupsigma` (#139).
 * `AdaptiveRepelling`'s running average of the run lengths, which sets how much a radius grows when
@@ -455,8 +456,6 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * `integer_variables` rounded the coordinates 0, 1, ... instead of the listed indices.
 * Active update: the negative weights of the default µ = λ/2 were not rescaled.
 * `NATURAL_GRADIENT` recomputed a pseudo-inverse on every call of `invert_y`.
-* Repelling restarts measured distances with the identity, not the covariance of the taboo points.
-  The metric is now the option `repelling_metric`, by default `CURRENT` since #158 (see Changed).
 * Uniform random numbers could be exactly 0 or 1, giving infinite normal samples.
 * Shared state between optimizers in the normal sampler (Box–Muller) and the generators.
 * A non-finite covariance matrix counted as a successful adaptation, so a run could evaluate NaN

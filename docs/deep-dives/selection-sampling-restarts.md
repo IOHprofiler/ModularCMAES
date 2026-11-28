@@ -23,7 +23,7 @@
   the n evaluated points are used.
 
 The negative weights (active update) are scaled so that their absolute values sum to
-min(1 + c1/cµ, 1 + 2µ_eff⁻/(µ_eff + 2), (1 − c1 − cµ)/(d cµ)) (Hansen 2016, Eq. (51)–(53)). The
+min(1 + c1/cµ, 1 + 2µ_eff⁻/(µ_eff + 2), (1 − c1 − cµ)/(d cµ)) (Hansen 2016, Eq. (50)–(53)). The
 mean is recombined from the µ positive weights (from all λ utilities with `UTILITY`).
 
 ## The active update, per matrix adaptation
@@ -69,17 +69,19 @@ With the active update the negative weights of the matrix update go to the λ �
 the µ + λ (with the default weights, the nonzero ones to points that the selection dropped), as the
 framework paper defines the active update and as pycma's weights for a population longer than λ
 do (#161); before, they went to ranks µ+1..λ, which are parents and good offspring. The step-size
-rules that read the individual steps of the selected points read the offspring alone with elitism: `XNES` (#172) and `TPA_INPLACE` (#173)
-([step-size adaptation](step-size-adaptation.md)). `TPA` and `TPA_INPLACE` count a generation
-whose selection kept every parent as a failure, since its mean did not move (#179).
+rules that read the individual steps of the selected points read the offspring alone with
+elitism: `XNES` (#172) and `TPA_INPLACE` (#173) ([step-size adaptation](step-size-adaptation.md)).
+`TPA` and `TPA_INPLACE` count a generation whose selection kept every parent as a failure, since
+its mean did not move (#179).
 
 ## Sequential selection
 
 A generation stops at the first point that is better than the best of the previous generation
-(Brockhoff et al. 2010; the framework paper), but not before µ points have been evaluated: the
-point that stops it has the index i ≥ µ (0-based; `seq_cutoff_factor` = 1), so a generation has at
-least µ + 1 points. With pairwise selection the factor is at least 2 and the stop falls after a
-complete pair: with the default µ = λ/2 a generation is never stopped early
+(Brockhoff et al. 2010; the framework paper), but only after more than µ points: the point that
+stops it has the index i ≥ µ (0-based; `seq_cutoff_factor` = 1), so a generation has at least
+µ + 1 points (the framework paper says at least µ, #197). With pairwise selection the factor is
+at least 2 and the stop falls after a complete pair: with the default µ = λ/2 a generation is never
+stopped early
 ([compatibility](../guide/compatibility.md)). The first generation of a run has no previous
 generation and is evaluated completely.
 
@@ -203,17 +205,18 @@ same behaviour as now) but stretched every sample on larger boxes.
 
 **BIPOP** (Hansen 2009) alternates two regimes: large runs, whose population doubles as in IPOP,
 and small runs with a random population size and step size. Each regime counts the evaluations of
-its runs, and at a restart the regime that has used fewer runs next:
+its runs (the first run counts as small, as in pycma's `fmin`; Hansen 2009 disregards it), and at
+a restart the regime that has used fewer runs next:
 
 ```mermaid
 flowchart TD
-    E["a run ends: its evaluations go to its regime<br>(the first run, with λ₀, counts as small)"] --> Q{"used_large ≤ used_small?"}
-    Q -- "yes (so the first restart is large)" --> L["large run<br>λ_large = min(2 λ_large, 2⁹ λ₀), the first time 2 λ₀<br>σ = σ₀, no cap on its generations"]
+    E["a run ends: its evaluations go to its regime"] --> Q{"used_large ≤ used_small?"}
+    Q -- "yes (so the first restart is large)" --> L["large run<br>λ_large = min(2 λ_large, 2⁹ λ₀), the first time 2 λ₀<br>σ = σ₀, no BIPOP cap on its generations"]
     Q -- no --> S["small run, U and U′ uniform in (0, 1)<br>λ_s = ⌊λ₀ (λ_large / λ₀)^(U²)⌋, σ = σ₀ · 10^(−2U′)<br>at most ⌈½ used_large / λ_s⌉ generations"]
 ```
 
-* **The cap of a small run.** As in pycma's `fmin`, the first run counts as small (Hansen 2009
-  disregards it). `restart.BIPOP.max_iter`, which `ExceededMaxIter` enforces, is pycma's cap
+* **The cap of a small run.** `restart.BIPOP.max_iter`, which `ExceededMaxIter` enforces (the
+  smaller of it and the criterion's own limit applies), is pycma's cap
   `maxiter = min(maxiter0, 0.5 * sum(large_i) / popsize)`, which pycma does not round
   (`cma/evolution_strategy.py`:5372), with its stop `countiter >= maxiter` (4527–4529). A capped
   run has ⌈·⌉ generations: one more than Hansen (2009)'s "maximum number of function evaluations
@@ -298,7 +301,8 @@ volume of the repelling region, normalized for σ₀" (Eq. (10)) and δ(T) = V(T
 * uses the problem's σ₀ (`Settings.sigma0`) in every run, also in BIPOP's small runs, as Eq. (10)
   has one σ₀, the input of the algorithm;
 * measures the distance with `repelling_metric`, by default `CURRENT`, the paper's Mahalanobis
-  distance in the current distribution (the default was `EUCLIDEAN` before #158).
+  distance in the current distribution, as in 1.x (during the 2.0 work the default had become
+  `EUCLIDEAN`, until #158).
 
 In the experiment of #158 (BBOB f19, f21, f22; d = 5, 10, 20; `RESTART` and `IPOP`), this radius
 with `CURRENT` solved 128 of 270 runs, the former radius 109, and no repelling 101 (Fisher's exact
