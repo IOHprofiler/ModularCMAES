@@ -11,8 +11,13 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `evaluate_bbob`, `Parameters`/`BIPOPParameters` of `modcma.parameters`, the samplers of
   `modcma.sampling`, `modcma.utils`, the `python -m modcma` command line). It had not been developed
   for several releases; it remains in modcma 1.x (`pip install "modcma<2"`) and on the branch
-  `legacy-python`. Its names raise an error that says where they went.
+  `legacy-python`. Its top-level names (`modcma.ModularCMAES(func, d)`, `AskTellCMAES`,
+  `evaluate_bbob`, `modcma.utils`) raise an error that says where they went; importing from the
+  modules `modcma.parameters`, `modcma.sampling` and `modcma.utils` raises `ModuleNotFoundError`.
 * `ioh` is no longer a dependency (only the Python implementation used it).
+* `Modules.repelling_restart` (1.2.0): replaced by `Modules.repelling_type` (Added); `True` is
+  `COVERAGE`, `False` is `NONE`. The old name raises a plain `AttributeError` (a `TypeError` in
+  `settings_from_dict`), without a pointer to the new one.
 * Internal helpers of repelling: `repelling.hill_valley_test`, `TabooPoint.shares_basin` and
   `Repelling.update_archive` (the optimizer runs the hill-valley tests itself, #84); and
   `mutation.Strategy.mutate`.
@@ -49,21 +54,22 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   other submodules (1.x had it only as `modcma.c_maes.cmaescpp.matrix_adaptation`).
 * **Ask–tell for every module**: `ask()` returns the points to evaluate as a `(k, d)` array,
   `tell(f)` takes their values; the results are identical to `run()`, bit for bit. `tell(f, X)`
-  evaluates repaired or injected points instead of the asked ones. The steps of the 1.x API
-  (`mutate()`, `select()`, `recombine()`, `adapt()`) still work; `select()`, `recombine()` and
-  `adapt()` raise `RuntimeError` while the points of a generation wait for their values (after
-  `ask()`, or an interrupted `mutate()` or `step()`).
+  takes the values of repaired or injected points X instead of the asked ones. The steps of the
+  1.x API (`mutate()`, `select()`, `recombine()`, `adapt()`) still work; `select()`,
+  `recombine()` and `adapt()` raise `RuntimeError` while the points of a generation wait for their
+  values (after `ask()`, or an interrupted `mutate()` or `step()`).
 * **Vectorized objectives**: `run(f, vectorized=True)` and `step(f, vectorized=True)` evaluate a
   whole batch per call.
 * **Gradient injection** (#90): with the gradient of the objective, every generation one point
-  along the negative gradient from the mean, x = m − σ c C g / √(gᵀ C g) with c = E‖N(0, I)‖,
-  replaces a sample (Hansen 2011, "Injecting external solutions into CMA-ES", Eq. 14; libcmaes'
+  along the negative gradient from the mean, x = m − σ c C g / √(gᵀ C g) with c = E‖z‖ of the
+  sampler, replaces a sample (with mirrored sampling, the point and its mirror replace a pair;
+  Hansen 2011, "Injecting external solutions into CMA-ES", Eq. 14; libcmaes'
   gradient injection). `run(f, gradient=g)`, `step`, `mutate` and `fmin(..., gradient=g)`; with
   ask–tell, `es.inject_gradient(g)` while `es.accepts_gradient`. Without a gradient nothing
   changes. On BBOB f2, f10 and f12 (d = 10 to 100) the exact gradient saves 8 to 46 % of the
   evaluations; a bad gradient costs about the replaced sample. Guide: "Coming from gradient-based
-  optimization". In C++: `GradientType`, `ModularCMAES::inject_gradient` and
-  `Adaptation::apply_transpose_into` (y = A z's transpose).
+  optimization". In C++: `GradientType`, `ModularCMAES::inject_gradient`, `accepts_gradient` and
+  `Adaptation::apply_transpose_into` (out = Aᵀ v).
 * **Per-optimizer random generators**: `Settings(seed=...)`; without a seed an optimizer copies the
   global generator (`modcma.set_seed`) when it is created. Optimizers run independently in parallel
   threads; the module supports free-threaded CPython 3.14t (no GIL).
@@ -73,8 +79,13 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   and matrix products, from d = 100 to 120 (`constants.eigen_solver`, `cholesky_solver`, `blas`,
   `lapack_min_dim`, `blas_min_dim`). Apple Accelerate on macOS, scipy's LAPACK and BLAS on Linux and
   Windows. `modcma.build_info()`.
-* `Modules.repelling_metric` (`CURRENT`, the default since #158; `EUCLIDEAN`, the behaviour of
-  1.x; `ARCHIVED`).
+* `Modules.repelling_type`, in place of 1.2.0's `repelling_restart`: `NONE` (the default),
+  `COVERAGE` (the repelling restarts of de Nobel et al. 2024) and `ADAPTIVE` (experimental, see
+  Changed). `CenterPlacement.NOVELTY_WEIGHTED` and `MAXIMIN_TABOO` place the center of a restart
+  away from the points of the repelling archive.
+* `Modules.repelling_metric`, the distance of repelling: `CURRENT` (the default; the Mahalanobis
+  distance in the current distribution, which 1.x used), `EUCLIDEAN` and `ARCHIVED` (the shape,
+  scaled to determinant 1, of the run that found the point).
 * **`StepSizeAdaptation.TPA_INPLACE`** (#173): two-point step-size adaptation within the
   population, as pycma 4.6.0's `CMAAdaptSigmaTPA` (after Hansen, Atamna & Auger 2014): offspring 1
   and 2 are a mirrored pair along the last mean shift, no extra evaluations; its σ trajectory on
@@ -84,26 +95,19 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   one abi3 wheel for 3.12+.
 * Docstrings for the whole API (`help()`, editors), type stubs (with `py.typed`), and a new
   documentation site.
-* One path for every evaluation of the objective (#84): the optimizer runs the fixed steps of a
-  generation and queues the points its modules need, and ask–tell, `step()`, `run()` and
-  `mutate()` evaluate them the same way. Results are unchanged, but with sequential selection
-  TPA's two points are now evaluated with the population's first batch (before: with its last
-  batch, or after a population that sequential selection stopped). The order of the objective
-  calls changes, and so does the evaluation count recorded with the best solution (`Solution.e`)
-  when it is one of TPA's points. Every evaluation is counted in one place, when its value
-  arrives.
-* `ModularCMAES.center_of_mass`: the mean of the search distribution as a solution, pycma's
+* `ModularCMAES.center_of_mass`, a (d,) array: the mean of the search distribution as a point of
+  the objective (integer variables rounded, inside the bounds with a bound correction), pycma's
   `xfavorite`; with noise and a large population often closer to the optimum than the best
   evaluated point, whose recorded value is biased low (#24).
-* **Every run ends with an evaluation of its center of mass**, the last one too, as pycma's
-  `eval_final_mean` (#111). `stats.centers` holds a record of every run, a `Center`: the evaluated
-  point (`x`, `y`), the step size `sigma` and the shape `metric` the run ended with, the `reasons` it
-  ended (the met restart criteria, `"budget"`, `"target"`, `"max_generations"`) and `std`, the
-  longest semi-axis of its one-sigma ellipsoid. `ModularCMAES.stop_conditions()` tells that the
-  optimizer should stop; `break_conditions()` holds once the final center of mass is evaluated.
+* `stats.centers` (#111): a record of every run, a `Center`: its evaluated center of mass (`x`,
+  `y`), the step size `sigma` and the shape `metric` the run ended with, the `reasons` it ended (the
+  met restart criteria, `"budget"`, `"target"`, `"max_generations"`) and `std`, the longest
+  semi-axis of its one-sigma ellipsoid. `ModularCMAES.stop_conditions()` tells whether the
+  optimizer should stop. Every run now ends with an evaluation of its center of mass (see Changed,
+  "The end of a run").
 * `RecombinationWeights.UTILITY`: the utilities of NES/xNES (summing to zero) for the mean and every
-  matrix update; with `NATURAL_GRADIENT` and `ssa=XNES` it is xNES (the same evaluations as
-  `cmaes`' XNES within 1 %).
+  matrix update; with `NATURAL_GRADIENT` and `ssa=XNES` it is xNES (median evaluations within 2 %
+  of `cmaes`' XNES on the sphere and the ellipsoid, d = 5 to 20).
 * Correctly spelled names: `selection.Elitism`, `NoElitism`, `Strategy.elitism`,
   `repelling.euclidean`, `mahalanobis`, `Adaptation.adapt_evolution_paths_inner`, the keyword
   `seq_cutoff_factor`. The old names still work, with a `DeprecationWarning` (#82).
@@ -139,9 +143,15 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `MatrixAdaptation.inverse_fallbacks`, `inverse_recompute_interval` and
   `inverse_recompute_max_dim`, of the update of M⁻¹ with elitism (#74).
 * Internals: `Population.n_pool`, the size of the (µ+λ) pool of elitist selection, whose dropped
-  points stay after the population (#161); `MatrixAdaptation.hs` and `CholeskyAdaptation.hs` (#160);
-  `TPA.sigma_old` (#167); `mutation.Strategy` hooks for samples of the step-size rule (#173).
-
+  points stay after the population (#161); `MatrixAdaptation.hs` and `CholeskyAdaptation.hs` (#160),
+  `SeparableAdaptation.hs` (#176); `TPA.sigma_old` (#167); `mutation.Strategy` hooks for samples of
+  the step-size rule (#173, C++).
+* Also bound: `ModularCMAES.has_pending`; `Settings.integer_variables` (read-only);
+  `restart.IPOP.max_lambda_factor` and `mutation.MSR.quantile` (#83);
+  `mutation.Strategy.generation_threshold` (#78); `Weights.mueff_mean`, `utility` and `pairwise`;
+  `restart.NoImprovement.tolerance`; `sampling.FastGaussian` (`fast_sampling`).
+  `NaturalGradientAdaptation.G` is read-only, computed from the new `gradient_samples`,
+  `gradient_weights` and `gradient_shift` (internal).
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
 * `tools/count_variants.py` counts the distinct variants from the code, and the guide documents
   the counts (Modules, "How many variants"): 21,954,240 for the 14 modules of the framework paper
@@ -151,19 +161,22 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 
 ### Deprecated
 
-* The misspelled names of 1.x (above), and `AdaptiveRepelling.target_rejection_rate` and
+* The misspelled names of 1.x (above); `modcma.c_maes.utils.set_seed`, `build_info` and
+  `compute_ert` (use `modcma.set_seed`, ...); and `AdaptiveRepelling.target_rejection_rate` and
   `local_target_rejection_rate`, which never had an effect.
 
 ### Changed
 
 * The configuration space of `get_configspace` and `settings_from_config` (#81). The numeric
-  hyperparameters keep their names, ranges and defaults.
+  hyperparameters keep their names. Their defaults are those of `Settings(dim)`, so the defaults
+  of `cs` and `damps` follow CSA's new rate (#138; at d = 5, cs 0.434 → 0.365). Their ranges are
+  unchanged except the lower bound of `cs`, `cc` and `damps` (#169, below).
   * Hyperparameters without an effect are inactive (conditions): `active`, `center_placement`,
     `repelling_type`, `repelling_metric`, `cs`, `cc`, `cmu`, `c1`, `damps`, `mu0`, and (for
-    lambda0 = 1) `elitist`, `sequential_selection`, `weights` and `ssa` (#131). A sampled configuration no longer
-    contains them; the evidence is in the source. A configuration with a value for an inactive
-    hyperparameter is not valid for `Configuration(space, ...)`; `settings_from_config` still
-    takes it as a dict.
+    lambda0 = 1) `elitist`, `sequential_selection`, `weights` and `ssa` (#131). A sampled
+    configuration no longer contains them; the evidence is in the source. A configuration with a
+    value for an inactive hyperparameter is not valid for `Configuration(space, ...)`;
+    `settings_from_config` still takes it as a dict.
   * `sample_transformation=NONE` is not in the space (`get_all_module_options` still lists it).
   * `COVARIANCE` with another `ssa` than `CSA`, and `COVARIANCE` (#131), `IPOP`, `BIPOP` or
     `mirrored=PAIRWISE` (#136) with `lambda0 = 1`, are forbidden: `Settings` turns them into
@@ -173,13 +186,22 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
     equal to the default was dropped and `lambda0 = 20, mu0 = 3` ran with `mu0 = 10`. It passes
     `mu0` now whenever `lambda0` is passed.
 * Requires Python ≥ 3.10 and numpy ≥ 2.0 (was Python ≥ 3.8).
-* The bindings use nanobind instead of pybind11; the Python API of `modcma.c_maes` is unchanged
-  (checked against a dump of the 1.x API).
+* The bindings use nanobind instead of pybind11; the Python API of `modcma.c_maes` is unchanged by
+  the port (checked against a dump of the pybind11 API before it, `tests/api_dump.py`). The dump
+  was taken after the release of 1.2.0, so it does not cover `Modules.repelling_restart` (Removed).
 * Much faster: an in-place population and allocation-free sampling, batched linear algebra, LAPACK
   and BLAS in high dimension, an exact low-rank update for `NATURAL_GRADIENT` (80× faster at
   d = 1000) and an O(1) stagnation criterion. A generation is 20–47× faster than pycma up to d = 10.
 * Results differ from 1.x in the last bits (batched linear algebra, LAPACK in high dimension), and
   where bugs were fixed (below); the differences are statistically indistinguishable on BBOB.
+* One path for every evaluation of the objective (#84): the optimizer runs the fixed steps of a
+  generation and queues the points its modules need, and ask–tell, `step()`, `run()` and
+  `mutate()` evaluate them the same way. Results are unchanged, but with sequential selection
+  TPA's two points are now evaluated with the population's first batch (before: with its last
+  batch, or after a population that sequential selection stopped). The order of the objective
+  calls changes, and so does the evaluation count recorded with the best solution (`Solution.e`)
+  when it is one of TPA's points. Every evaluation is counted in one place, when its value
+  arrives.
 * Modules now follow the framework paper and their original papers where the code had diverged
   (#83):
   * **Elitism** is (µ + λ) selection: the µ parents compete with the offspring (it kept all λ
@@ -218,8 +240,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   active CMA-ES update written in M. `CMSA` has no active variant: `Settings` switches `active` off
   (with negative weights C became indefinite), and `get_configspace` has no `active`, `c1` and `cmu`
   for it.
-* **The default weights for µ ≠ λ/2** (`mu0`, IPOP with an odd λ₀, and the default µ = λ/4 of SA
-  and CMSA) are those of a population of 2µ, as pycma with `CMA_mu` (#73): ln(µ + ½) − ln i for the
+* **The default weights for µ ≠ λ/2** (a given `mu0`, and the default µ = ⌊λ/4⌋ of SA and CMSA)
+  are those of a population of 2µ, as pycma with `CMA_mu` (#73): ln(µ + ½) − ln i for the
   µ best, and the µ negative weights on the worst ranks (0 between them when λ > 2µ; the last λ − µ
   of them when λ < 2µ). They were ln((λ + 1)/⌊λ/µ⌋) − ln i for all ranks. With pairwise selection
   every negative weight now falls on a loser, so the active update has no effect there.
@@ -230,15 +252,16 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   longer affects `SEPARABLE`.
 * `get_configspace`: `cs` is inactive with `NATURAL_GRADIENT` for `ssa` `SR` and `SA` (its default
   `cc` no longer reads `cs`, #72).
-* **The end of a run** (#111): every run ends with an evaluation of its center of mass, also when
-  the optimizer stops (it was evaluated only at a restart). The budget always keeps that
-  evaluation: a generation runs only when it leaves one, `Settings` rejects a budget smaller than
-  the first generation plus one, and when the generations would use the budget up exactly, the last
-  one is dropped for the center. `break_conditions()` holds once the final center of mass is
-  evaluated: the last `ask()` returns it, a single point, and the last `step()` evaluates only it;
-  after it the 1.x steps `select()`, `recombine()` and `adapt()` do nothing. `stats.solutions`, like
-  `stats.centers`, has one entry per run, the last one too. Trajectories are unchanged until the
-  last generations of a run (all 260 golden configurations).
+* **The end of a run** (#111): every run ends with an evaluation of its center of mass, as pycma's
+  `eval_final_mean`, also when the optimizer stops (it was evaluated only at a restart). The budget
+  always keeps that evaluation: a generation runs only when it leaves one, `Settings` rejects a
+  budget smaller than the first generation plus one, and when the generations would use the budget
+  up exactly, the last one is dropped for the center. `break_conditions()` holds once the final
+  center of mass is evaluated: the last `ask()` returns it, a single point, and the last `step()`
+  evaluates only it; after it the 1.x steps `select()`, `recombine()` and `adapt()` do nothing.
+  `stats.solutions`, like `stats.centers`, has one entry per run, the last one too. Trajectories are
+  unchanged until the last generations of a run (checked on all golden configurations, 260 at the
+  time).
 * **The restart criteria for every matrix adaptation** (#80; Hansen 2016, App. B.3; pycma):
   * `TolX` and `NoEffectCoord` are used with every matrix adaptation, from the diagonal of C (and
     p_c where there is one); `ConditionC` and `NoEffectAxis`, which read `Adaptation.metric()`,
@@ -248,15 +271,17 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
     mᵢ + 0.2σ√Cᵢᵢ equals mᵢ, in floating point; they compared the step with 10 ε. Their
     `tolerance` is now the step in standard deviations (0.1, 0.2).
   * `MaxSigma` is Hansen's TolXUp: σ max(D) grew by more than 1e4 since the start of the run. It
-    compared σ with 1e4, whatever σ₀ and C. `constants.clip_sigma` still keeps σ below 1e4.
+    compared σ with 1e4, whatever σ₀ and C. With `constants.clip_sigma = True` (off by default) σ
+    is still clipped to at most 1e4 (`MaxSigma.tolerance`).
   * `MaxSigma`, `MaxDSigma` and `MinDSigma` read max(D) and min(D) from the metric for
     `COVARIANCE`, `SEPARABLE` and `NONE`, and √max Cᵢᵢ and √min Cᵢᵢ for the other matrix
     adaptations (they used D = 1 for every type but `COVARIANCE`).
 * **BIPOP** (#80; Hansen 2009, pycma's `fmin`): each regime counts the evaluations of its runs, the
   first run as small (pycma), and a restart uses the regime that has used fewer. A small run takes
-  at most half the evaluations of the large regime so far (`ExceededMaxIter`, from
-  `Strategy.max_iter`). λ of a small run is rounded down, as in the paper; up to even only with
-  `PAIRWISE` (it was always even).
+  about half the evaluations of the large regime so far: at most ⌈½ used_large/λ⌉ generations,
+  pycma's cap, rounded up (`Strategy.max_iter`, enforced by `ExceededMaxIter`; #80, #139).
+  λ of a small run is rounded down, as in the paper; up to even only with `PAIRWISE` (it was always
+  even).
 * **BIPOP's large population** stops growing at `BIPOP.max_lambda_factor` λ₀ = 2⁹ λ₀, the limit of
   IPOP, and restarts continue at that size; it had no limit (#140). pycma's `fmin` has none
   either, but stops after `restarts` large runs, 2⁹ λ₀ with `restarts=9` (Hansen 2009). The limit
@@ -288,7 +313,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   when both are given. Before, `cs=3` or `damps=-1` ran and ended with sigma at 1e26 or more.
   Hansen (2016) has c_c <= 1, c_sigma < 1, c_1 + c_mu <= 1; `cs = 1` stays allowed (it works).
   The default of one of `c1`, `cmu` against a given other is not checked. `es.p.settings.<field> =`
-  on a running optimizer is not checked either.
+  on a running optimizer checks the field, as the setters do, but not the checks between fields
+  (`c1 + cmu > 1` is accepted there).
 * **`Settings` rejects `mu0` above `lambda0`** (#136) with a `ValueError` that names both; 1.x
   replaced it by `lambda0 // 2` (but not with SA or CMSA). A (1+1)-ES (`lambda0 = 1`) still uses
   µ = 1 whatever `mu0` is. **A NaN `target`** raises `ValueError` too: it never stopped a run.
@@ -297,9 +323,10 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   into `NONE`. Before, `PAIRWISE` made λ = 2 with µ = 0 and NaN weights. `MIRRORED` stays.
 * **`ssa=SA`: the learning rate of the sampled step sizes** is CMSA's τ = 1/√(2d) (Beyer &
   Sendhoff 2008; Spettel, Beyer & Hellwig 2018, Table I), for the one step size per point (#71);
-  it was 1/√(2µ_eff). `LPXNES` keeps ln 2/(√d ln d) (Krause et al. 2017), `sample_sigma` with the
-  other rules 1/√(2µ_eff).
-* Internal: `BoundCorrection.correct_point` corrects a point that is not a sample (TPA uses it when the mean is outside the box, #98);
+  it was 1/√(2µ_eff). `LPXNES` keeps ln 2/(√d ln max(d, 2)) (Krause et al. 2017), `sample_sigma`
+  with the other rules 1/√(2µ_eff).
+* Internal: `BoundCorrection.correct_point` corrects a point that is not a sample (TPA's points
+  when the mean is outside the box, #98, and the gradient point, #90);
   `SigmaSampler(dimension)` no longer uses the dimension (one step size per individual, #71).
 * **TPA's test points are m ± ½σ⟨y⟩**, half the last step of the mean with the step size that
   sampled it, as Hansen (2008, Eqs. (8), (9)); they were m ± σ_new⟨y⟩, about one step (#167).
@@ -314,23 +341,17 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   (MA-ES with CSA is as published).
 * **`COVERAGE` repelling's radius** (#158): the volume is in σ₀^d units,
   V = n_T S / (c σ₀^d N), so the radius does not change when the box and σ₀ are scaled together
-  (the framework paper's Eq. (10) divides by σ₀), and the radius has no extra factor 1/√d (its
-  Eq. (11) has none). Computed in logarithms, so it stays finite at large d (the volume of [−5, 5]^d
-  overflowed from d = 309). σ₀ is the problem's in every run, also in BIPOP's small runs, as Eq. (10) has it
-  (documented).
-* **The default `repelling_metric` is `CURRENT`**, the Mahalanobis distance in the current
-  distribution, as the framework paper's Eq. (8) (#158); it was `EUCLIDEAN`. In the experiment of
-  #158 (BBOB f19, f21, f22; d = 5, 10, 20) the new radius with `CURRENT` solved 128 of 270 runs,
-  101 without repelling.
+  (Eq. (10) of de Nobel et al. 2024, "Avoiding Redundant Restarts", divides by σ₀), and the radius
+  has no extra factor 1/√d (their Eq. (11) has none). Computed in logarithms, so it stays finite at
+  large d (the volume of [−5, 5]^d overflowed from d = 309). σ₀ is the problem's in every run, also
+  in BIPOP's small runs, as Eq. (10) has it (documented). The distance is `CURRENT`, the
+  Mahalanobis distance in the current distribution (their Eq. (8)), as in 1.x (during the 2.0
+  work the default had become `EUCLIDEAN`). In the experiment of #158 (BBOB f19, f21, f22;
+  d = 5, 10, 20) the new radius with `CURRENT` solved 128 of 270 runs, 101 without repelling.
 * `repelling_type=ADAPTIVE` is documented as experimental: modcma's own, without a published
   source; it solved fewer runs than no repelling in the experiment of #158.
 
 ### Fixed
-
-* `Settings.center` with an infinite bound (#134): it was 0 in every coordinate, so the first
-  mean could start outside the box. Per coordinate: the midpoint for two finite bounds, 0 for two infinite
-  bounds, and for one infinite bound 0 if the half-line holds it, else the finite bound moved
-  inward by `sigma0`. `center` now follows `sigma0` too. Finite boxes are unchanged.
 
 Checked against the original sources (Hansen's tutorial, pycma, the papers of each module); most
 change results, compared on BBOB before and after (`tests/statistical.py`):
@@ -353,9 +374,6 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   as pycma), with SA or CMSA when λ₀ is not a multiple of 4, and BIPOP with a given `mu0` (#150).
 * `ExceededMaxIter` let a run take `max_iter` + 2 generations; now at most `max_iter`, as pycma's
   `maxiter` (#139).
-* BIPOP's small runs: their cap of half the large regime's evaluations is pycma's, not rounded
-  (`max_iter` = ⌈½ used_large/λ⌉; it was rounded down). With the fix of `ExceededMaxIter` above, a
-  capped small run is one or two generations shorter than before (#139).
 * `MaxDSigma` and `MinDSigma` compared σ with `Settings.sigma0`, also in BIPOP's small runs, which
   start smaller; now with the step size of the run's start, as pycma's `tolupsigma` (#139).
 * `AdaptiveRepelling`'s running average of the run lengths, which sets how much a radius grows when
@@ -395,9 +413,8 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * `Settings`: `mu0 > lambda0` was not caught with SA or CMSA (it is now rejected, #136); the C++
   default `verbose = true` made `ModularCMAES(d)` print at every restart; changing `lb`/`ub` left
   `center`, `db`, ... stale.
-* `set_module` did not accept enum members; `Population.__add__` changed its left operand;
-  `utils.random_normal` could return a number from before `set_seed`; out-of-range indices in
-  `CachedShuffleSequence` and an empty `CachedSampler` were not checked.
+* `set_module` did not accept enum members; `Population.__add__` changed its left operand; an
+  empty `CachedSampler` was not checked.
 * h_σ's bias correction counted evaluations/λ over all runs (restarts and TPA's points included)
   instead of the generations of the current run (Hansen 2016, pycma); `Stats.t_run` (#77).
 * Sequential selection compared with the best of all runs, so after a restart it hardly ever
@@ -405,7 +422,7 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   paper (the first generation of a run is complete) (#77).
 * TPA counted a tie of its two points (as after every restart, when the mean has not moved) as a
   success, so σ grew by 16 % after each restart and diverged with elitism; a tie now gives no
-  signal, as in pycma (#78).
+  signal, as in pycma (#78). (TPA with elitism still diverged for another reason: #179, below.)
 * Sampled step sizes (`sample_sigma`, `SA`, `LPXNES`) were drawn per coordinate: a point m + S∘y
   was not along y (no rotation invariance), and the signal of SA was averaged over d draws. Each
   point now has one step size, as in CMSA-ES and lp-xNES; CMSA with SA solves a rotated ellipsoid
@@ -436,12 +453,9 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   `ThresholdConvergence.scale` is replaced by `threshold()` and `apply()` (#78).
 * Sequential selection with the active update broke the eigendecomposition (#42; fixed by the
   sequential-selection and active-update fixes below, now tested).
-
 * `integer_variables` rounded the coordinates 0, 1, ... instead of the listed indices.
 * Active update: the negative weights of the default µ = λ/2 were not rescaled.
 * `NATURAL_GRADIENT` recomputed a pseudo-inverse on every call of `invert_y`.
-* Repelling restarts used the identity instead of the covariance of the taboo points (now the
-  `repelling_metric` option, Euclidean by default as before).
 * Uniform random numbers could be exactly 0 or 1, giving infinite normal samples.
 * Shared state between optimizers in the normal sampler (Box–Muller) and the generators.
 * A non-finite covariance matrix counted as a successful adaptation, so a run could evaluate NaN
@@ -471,7 +485,7 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   constants `MatrixAdaptation.inverse_recompute_interval` and `inverse_recompute_max_dim` are the
   maintainer's choice). On BBOB (d = 5, 20) it solves 249 instead of 105 of 350 runs.
 * `NATURAL_GRADIENT` with `active` used CMA-ES's negative weights, which made σ shrink even on a
-  linear function; it now uses xNES's utilities (`weights=UTILITY`).
+  linear function; with the default weights it now uses xNES's utilities (`weights=UTILITY`).
 * `fmin` ignored `x0` (it used only its length) and started at the origin.
 * Type hints: `Settings(x0=, lb=, ub=)` accept numpy arrays (the stubs said sequences), and the
   annotations of `fmin`, `settings_from_dict`, `settings_from_config` and `get_configspace` were
@@ -506,8 +520,11 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   eigenvalue is rejected like a negative one; LAPACK asked for in `constants` but missing falls
   back to Eigen; `resize_population` keeps the previous generation; `inv_root_C` of
   `COVARIANCE_NO_EIGV` was the identity (it is now `metric().inv_root_C()`, computed for every
-  adaptation, #123); `MuCommaLambdaES` stays within its budget
-  and sorts NaN last.
+  adaptation, #123); `MuCommaLambdaES` stays within its budget and sorts NaN last.
+* `Settings.center` with an infinite bound (#134): it was 0 in every coordinate, so the first
+  mean could start outside the box. Per coordinate: the midpoint for two finite bounds, 0 for two
+  infinite bounds, and for one infinite bound 0 if the half-line holds it, else the finite bound
+  moved inward by `sigma0`. `center` now follows `sigma0` too. Finite boxes are unchanged.
 * Infinite bounds and integer variables in the box (#79). Results with finite bounds, and integer
   bounds on the integer variables, are unchanged.
   * A box with an infinite bound turned the bound correction off in every coordinate, also at the
@@ -563,20 +580,22 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   permutations of `HALTON` used `std::shuffle`, and the order of the `SOBOL` points
   `std::uniform_int_distribution`, whose results depend on the standard library: on macOS and Linux
   the same seed gave different runs. Both now draw bounded integers from the raw mt19937 output
-  (`rng::below`, a Fisher-Yates shuffle). In the golden set (macOS clang 21 against Linux gcc 13,
-  the best f at generation 10 within 1e-12) 18 of 19 `HALTON` and 15 of 16 `SOBOL` runs agree (0
-  and 0 before; 220 of 225 with the default sampler); the rest differ in the last bits. The order of the Sobol points was a constant stride through them (the multiplier of
-  its generator was 1 modulo the number of points); the multiplier is now random, = 5 (mod 8).
+  (`rng::below`, a Fisher-Yates shuffle). In the golden set of the release (macOS clang 21 against
+  Linux gcc 13, σ and the best f at generation 10 within a relative 1e-12), 15 of 16 `HALTON` and
+  12 of 14 `SOBOL` runs agree (none before), and 238 of 241 with the default sampler; the rest
+  differ in the last bits (re-measured for #165). The order of the Sobol points was a constant
+  stride through them (the multiplier of its generator was 1 modulo the number of points); the
+  multiplier is now random, = 5 (mod 8).
 * Internals: `sampling.get` no longer wraps a `Mirrored` sampler (the optimizer mirrors the
   pairs; `sampling.Mirrored` remains, standalone); `Sampler.begin_generation`; `Orthogonal` takes
   the samples per generation; `selection.Pairwise.sort` and `NoPairwise.sort`, and
-  `NoPairwise.__call__` sorts (it did nothing); `Population.n_ranked`; the `Shuffler` draws its
-  multiplier.
+  `NoPairwise.__call__` sorts (it did nothing); `Population.n_ranked`.
 * **Elitism with the active update** (#161): the negative weights of every matrix update with an
   active update went to ranks µ+1..λ of the (µ+λ) pool, which are parents and good offspring, and
   the worst points got none. They now go to the λ − µ worst points of the pool, as the framework
   paper defines the active update and pycma does with `CMA_elitist`; selection is unchanged.
-  `COVARIANCE` with `elitist` and `active` solved BBOB f10 and f12 (d = 10) in 0 of 25 runs.
+  `COVARIANCE` with `elitist` and `active` solved BBOB f10 and f12 (d = 10) in 0 of 25 runs. On
+  BBOB (7 functions, d = 5 and 20, 25 runs) it solves 250 instead of 85 of 350 runs.
 * **XNES with elitism** (#172): its step-size update (both forms, xNES SA and the σ part of the
   natural gradient) read the parents among the µ best, whose z are short; σ settled 3 to 14 times
   too small and the runs stalled on the ellipsoid (d ≥ 10: at most 3 of 20 runs). It now reads the
@@ -615,6 +634,5 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   vectors, although the docstrings said copies (#176). A new entry reallocates a vector (and the
   archive is sorted before each population), so a list held across `step()` read freed memory and
   could segfault, and a write to an element changed the optimizer. Reading now returns a copy.
-  `SeparableAdaptation.hs` is bound, as in the other adaptations with h_σ.
 * The compatibility page lists `ssa=XNES` with `weights=EQUAL` as a combination to avoid (#180):
   0 of 20 runs solve the ellipsoid at d = 5, 10 and 20, with or without `active`.

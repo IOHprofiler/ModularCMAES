@@ -13,16 +13,20 @@ Differences to keep in mind:
 
 * **Defaults.** pycma (`CMA_active=True`) and `cmaes` use the active covariance update by default;
   modcma does not, since its default is the baseline of the framework paper. To compare modcma with
-  pycma or `cmaes`, set `active=True`. pycma's default bounds are none; modcma's default box is
-  [−5, 5]^d, which matters only with a `bound_correction` other than `NONE`, or for
-  `center_placement` other than `X0`.
+  pycma or `cmaes`, set `active=True`; the learning rates that still differ (pycma's cs and cµ) are
+  in the [deep dive](../deep-dives/matrix-adaptations.md#covariance-cma-es). pycma's default
+  bounds are none; modcma's default box is [−5, 5]^d. It matters only with a `bound_correction`
+  other than `NONE`, without `x0` (the run starts at the center of the box), for
+  `center_placement` other than `X0`, and for `repelling_type=COVERAGE`, whose radius depends on
+  the volume of the box.
 * **Shapes.** `ask()` returns a `(k, d)` numpy array (pycma: a list of arrays), and `tell` takes only
   the values (`tell(f)`), or the values and the points when they differ from the asked ones
   (`tell(f, X)`; pycma: `tell(X, f)`).
-* **Stopping.** modcma stops at the budget, the target or `max_generations`; pycma's termination
-  criteria (`tolx`, `tolfun`, ...) are modcma's restart criteria, which stop the run with
-  `restart_strategy="STOP"` and restart it with `RESTART`, `IPOP` or `BIPOP`
-  ([restarts](../guide/restarts.md)).
+* **Stopping.** modcma stops at the budget, the target or `max_generations` (over all runs;
+  pycma's `maxiter` counts the generations of one run). pycma's termination criteria (`tolx`,
+  `tolfunhist`, ...; `tolfun` is planned, #87) are modcma's restart criteria. They stop the run
+  with `restart_strategy="STOP"` and restart it with `RESTART`, `IPOP` or `BIPOP`; the default,
+  `NONE`, does not use them ([restarts](../guide/restarts.md)).
 * **Restarts.** `fmin(..., restarts=n)` stops after n restarts with a larger population; modcma
   restarts until the budget or the target is reached. The populations of IPOP and of BIPOP's
   large runs stop growing at 2⁹ λ₀, the largest population of `fmin` with `restarts=9`, and

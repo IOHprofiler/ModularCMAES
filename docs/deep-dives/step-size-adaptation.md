@@ -153,7 +153,8 @@ interpolated between its two neighbours. Then:
 `MSR.quantile` sets 0.3. K is centered at λ/2, as in pycma. Loshchilov (2014), restating the paper,
 centers it at (λ + 1)/2. On BBOB at d = 20 that version solved Rosenbrock (f8) and the bent cigar
 (f12) in 15 of 25 runs each. With pycma's centering, modcma solves them in 22 and 20 of 25 (pycma
-itself: 22 and 25), and its median evaluations on the sphere equal pycma's (3120).
+itself: 22 and 25), and its median evaluations on the sphere equal pycma's (3120). (Measured for
+#83, budget 3000 d.)
 
 With pairwise selection K counts the ranked points of the generation (the winners of the mirrored
 pairs), against the j-th best ranked point of the previous one, and is centered at half their
@@ -183,9 +184,10 @@ first, would count each tied parent as a success of 1/n² in z; on BBOB with eli
 ## XNES, MXNES, LPXNES
 
 The learning rates of the three are those of Krause, Glasmachers & Igel (2017), Table 3, except
-XNES with `NATURAL_GRADIENT`, which has xNES's. Their cs is a learning rate of log σ, and also the
-rate of the path p_σ, which h_σ and MATRIX's rank-one update read, at most 1
-(`Weights.cs_path`): LPXNES's cs exceeds 2 for µ_eff > 2.22√d, and p_σ became NaN (#72).
+XNES with `NATURAL_GRADIENT`, which has xNES's. Their cs is a learning rate of log σ. The path p_σ,
+which h_σ and MATRIX's rank-one update read, has the rate min(cs, 1) (`Weights.cs_path`, #72):
+XNES's cs exceeds 1 for large populations (µ_eff > 2 ln d √d), and before #72 LPXNES's, uncapped,
+exceeded 2 for µ_eff > 2.22√d, which made p_σ NaN.
 
 * **XNES with `NATURAL_GRADIENT`** is xNES's rule: σ ← σ·exp((η_σ/2)·tr(G)/d), from the natural
   gradient G of the matrix update ([matrix adaptations](matrix-adaptations.md#natural_gradient-xnes)),
@@ -204,11 +206,11 @@ rate of the path p_σ, which h_σ and MATRIX's rank-one update read, at most 1
   framework paper's description of the xNES rule (the length of the weighted mean of z) is MXNES.
 * **XNES with `active`** (#175, every matrix adaptation with h_σ): no negative weights in a
   generation with h_σ = 0, except with `UTILITY`. xNES SA keeps σ below its optimum (Krause et al.
-  2017, Sec. 6), so h_σ was 0 in 89–99 % of the generations at d ≥ 10. In that nearly linear
-  surrounding the negative weights undid the growth of C towards the optimum: `COVARIANCE` and
-  `CHOLESKY` with `active` solved the ellipsoid at d = 10 and 20 in at most 1 of 20 runs, against
-  20 of 20 without `active`. Without the negative weights in those generations, 20 of 20. This is
-  modcma's own rule; the tutorial and pycma keep the negative weights for every h_σ
+  2017, Sec. 6); in modcma's runs h_σ was 0 in 89–99 % of the generations at d ≥ 10. In that nearly
+  linear surrounding the negative weights undid the growth of C towards the optimum: `COVARIANCE`
+  and `CHOLESKY` with `active` solved the ellipsoid at d = 10 and 20 in at most 1 of 20 runs,
+  against 20 of 20 without `active`. Without the negative weights in those generations, 20 of 20.
+  This is modcma's own rule; the tutorial and pycma keep the negative weights for every h_σ
   ([compatibility](../guide/compatibility.md)).
 * **MXNES** (m-xNES, Krause, Glasmachers & Igel 2017): σ ← σ·exp((cs/d)(µ_eff‖Σwᵢzᵢ‖² − d)), cs = 1
   (also with `NATURAL_GRADIENT` since #72): the length of the mean step, unbiased under random
@@ -252,9 +254,9 @@ is to be corrected: "the best so far", or SR described for elitist selection (#8
 
 **What modcma does.** Each point samples its step size σᵢ = σ·exp(β nᵢ), one per point, with
 β = 1/√(2d), CMSA's τ (Beyer & Sendhoff 2008, as restated by Spettel, Beyer & Hellwig 2018,
-Alg. 3 and Table I); σ moves to the weighted geometric mean of the selected points' step sizes
-divided by the geometric mean over the population: the weighted CMSA operator with the correction
-of Ahrari et al. (2017), as the framework paper describes. µ = λ/4 by default.
+Alg. 3 and Table I). σ is multiplied by the weighted geometric mean of the selected points' step
+sizes over the geometric mean of the step sizes of the whole population: the weighted CMSA operator
+with the correction of Ahrari et al. (2017), as the framework paper describes. µ = λ/4 by default.
 
 The step sizes were drawn per coordinate, with β = 1/√(2µ_eff), until #71: the points were not
 along y (no rotation invariance), and the signal of SA was averaged over d draws. CMSA with SA
@@ -269,7 +271,7 @@ paper and the Python implementation draw one per point.
 | `TPA` | two extra evaluations | every | with elitism a generation that keeps every parent is a failure (#179) |
 | `TPA_INPLACE` | the ranks of two offspring | every (`NATURAL_GRADIENT` inverts A every generation) | with elitism the offspring only (#173); a generation that keeps every parent is a failure (#179) |
 | `MSR`, `PSR` | the f-values of two generations | every | with pairwise selection the ranked points only |
-| `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | with elitism the offspring only (#172); `MATRIX` and `CHOLESKY` stall their rank-one term by h_σ (#160); with `active`, no negative weights when h_σ = 0 (#175) |
+| `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | with elitism the offspring only (#172); `MATRIX` and `CHOLESKY` stall their rank-one term by h_σ (#160); with `active`, no negative weights when h_σ = 0 (#175); with `weights=EQUAL` the runs fail (measured with `COVARIANCE`, #180; [compatibility](../guide/compatibility.md#combinations-to-avoid)) |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
 | `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | |
 | `SR` | successes against the best of the run | λ = 1 (automatic) | one success per generation for λ > 1 |

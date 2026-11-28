@@ -42,7 +42,8 @@ print(f"modcma ask-tell: f = {es.p.stats.global_best.y:.2e} after {es.p.stats.ev
 # Options and their modcma equivalents (Settings arguments, or Modules fields):
 #   popsize            -> lambda0                 CMA_mu            -> mu0
 #   maxfevals          -> budget                  ftarget           -> target
-#   maxiter            -> max_generations         seed              -> seed
+#   maxiter            -> max_generations (modcma's counts all runs, pycma's one run)
+#   seed               -> seed
 #   bounds=[lb, ub]    -> lb=..., ub=... (arrays) with a bound_correction module
 #   CMA_active         -> active=True (off by default in modcma, on in pycma)
 #   CMA_diagonal       -> matrix_adaptation="SEPARABLE"
