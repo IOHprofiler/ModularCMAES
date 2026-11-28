@@ -453,7 +453,9 @@ void define_options(nb::module_ &main)
         .value("COTN",
                CorrectionMethod::COTN,
                "Complete one-tailed normal correction: place the coordinate inside the violated "
-               "bound, at a random distance sigma * |N(0, 1/3^2)| times the domain width ub - lb.")
+               "bound, at a random distance sigma * |N(0, 1/3^2)| times the domain width ub - lb. "
+               "A distance above the width is drawn again (up to 10 times), then set to the "
+               "width: the point stays in the box.")
         .value("UNIFORM_RESAMPLE",
                CorrectionMethod::UNIFORM_RESAMPLE,
                "Replace the coordinate by a uniform random value in [lb, ub].")
@@ -467,7 +469,10 @@ void define_options(nb::module_ &main)
         .value("RESAMPLE",
                CorrectionMethod::RESAMPLE,
                "Sample the whole individual again until it lies inside the bounds, at most 5 d "
-               "times; after that, the last sample is evaluated as it is.");
+               "times; after that, the last sample is evaluated as it is (such a point does not "
+               "become `stats.global_best`, #168). A point outside the box that is not a sample "
+               "(an injected gradient point; TPA's test points when the mean is outside the box) "
+               "is clipped to it instead.");
 
     nb::enum_<RestartStrategyType>(
         m,
@@ -475,10 +480,10 @@ void define_options(nb::module_ &main)
         "When the optimizer restarts, and with which population size "
         "(`Modules.restart_strategy`; default NONE).\n\n"
         "A restart happens when a restart criterion (`Parameters.criteria`, module `restart`) "
-        "is met: the mean is placed again (`CenterPlacement`), sigma is reset to sigma0 (BIPOP: "
-        "possibly smaller) and the adaptation starts over. Except for NONE, the strategies use "
-        "the full set of criteria (see `restart.Criteria`). With lambda = 1, IPOP and BIPOP "
-        "become RESTART.")
+        "is met: the run ends with the evaluation of its center of mass, the mean is placed "
+        "again (`CenterPlacement`), sigma is reset to sigma0 (BIPOP: possibly smaller) and the "
+        "adaptation starts over. Except for NONE, the strategies use the full set of criteria "
+        "(see `restart.Criteria`). With lambda0 = 1, IPOP and BIPOP become RESTART.")
         .value("NONE",
                RestartStrategyType::NONE,
                "No restart criteria other than `restart.UnableToAdapt`, the default: the "
@@ -502,10 +507,12 @@ void define_options(nb::module_ &main)
                RestartStrategyType::BIPOP,
                "BIPOP-CMA-ES (Hansen 2009): alternates between a large population, which doubles "
                "every time it is used up to 2^9 lambda0 (as IPOP), and a small one with a random "
-               "size between lambda0 and the latest large population (as pycma) and a smaller "
-               "initial sigma. Each restart uses the regime that has used fewer "
-               "evaluations so far, so both get about half of the evaluations; a small run takes "
-               "at most half of what the large regime has used. See `restart.BIPOP`.");
+               "size between lambda0 and the latest large population (as pycma; Hansen 2009 has "
+               "half of it, #140) and a smaller initial sigma, sigma0 10^(-2 U) with U uniform in "
+               "(0, 1). Each restart uses the regime that has used fewer evaluations so far (the "
+               "first run counts as small), so both get about half of the evaluations; a small "
+               "run takes at most half of what the large regime has used. mu as with IPOP. See "
+               "`restart.BIPOP`.");
 
     nb::enum_<MatrixAdaptationType>(
         m,
@@ -519,10 +526,12 @@ void define_options(nb::module_ &main)
         .value("COVARIANCE",
                MatrixAdaptationType::COVARIANCE,
                "The covariance matrix adaptation of the CMA-ES (Hansen & Ostermeier 2001), with "
-               "rank-one and rank-mu update, the default. C is eigendecomposed every few "
-               "generations (O(d^3), with LAPACK from `constants.lapack_min_dim` on). Keeps its "
-               "metric (`Adaptation.metric()`), so the restart criteria ConditionC and "
-               "NoEffectAxis are used, as with SEPARABLE and NONE.")
+               "rank-one and rank-mu update, the default. C is updated every generation and "
+               "eigendecomposed when 1 / (10 d (c1 + cmu)) generations have passed since the last "
+               "decomposition (every generation in low dimension; O(d^3), with LAPACK from "
+               "`constants.lapack_min_dim` on). Keeps its metric (`Adaptation.metric()`), so the "
+               "restart criteria ConditionC and NoEffectAxis are used, as with SEPARABLE and "
+               "NONE.")
         .value("NONE",
                MatrixAdaptationType::NONE,
                "No matrix adaptation (C = I): only the step size is adapted. Disables "
@@ -530,8 +539,12 @@ void define_options(nb::module_ &main)
         .value("MATRIX",
                MatrixAdaptationType::MATRIX,
                "MA-ES (Beyer & Sendhoff 2017): adapts a matrix M with C = M M^T directly, "
-               "without the evolution path p_c and without eigendecomposition; O(d^2 lambda) per "
-               "generation, about 4x faster than COVARIANCE at d = 1000.")
+               "without the evolution path p_c (its rank-one term reads p_sigma) and without "
+               "eigendecomposition; O(d^2 lambda) per generation, about 6 times faster than "
+               "COVARIANCE at d = 1000 (docs/performance.md). With a step-size rule other than "
+               "CSA the rank-one term is skipped in a generation with h_sigma = 0 (#160). With "
+               "`Modules.active` it uses the active update of COVARIANCE, written in M (MA-ES has "
+               "none; #73).")
         .value("SEPARABLE",
                MatrixAdaptationType::SEPARABLE,
                "sep-CMA-ES (Ros & Hansen 2008): adapts only the diagonal of C, O(d lambda) per "
@@ -553,20 +566,23 @@ void define_options(nb::module_ &main)
         .value("COVARIANCE_NO_EIGV",
                MatrixAdaptationType::COVARIANCE_NO_EIGV,
                "The covariance update of COVARIANCE, with C factorized by a Cholesky "
-               "decomposition instead of an eigendecomposition (cheaper). The path p_sigma uses the "
-               "inverse Cholesky factor instead of C^-1/2 (the same up to a rotation), which "
-               "worked as well as COVARIANCE with CSA in tests. Chosen automatically when "
-               "COVARIANCE is combined with a step-size adaptation other than CSA.")
+               "decomposition instead of an eigendecomposition (cheaper), at the same interval. "
+               "The path p_sigma uses the inverse Cholesky factor instead of C^-1/2 (the same up "
+               "to a rotation); with CSA it gave the same results as COVARIANCE on the sphere and "
+               "a rotated ellipsoid (d = 5 to 20; the deep dive on the matrix adaptations). There "
+               "is no published counterpart. Chosen automatically when COVARIANCE is combined "
+               "with a step-size adaptation other than CSA, and for lambda0 = 1.")
         .value("NATURAL_GRADIENT",
                MatrixAdaptationType::NATURAL_GRADIENT,
                "xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is "
                "updated with the matrix exponential of the natural gradient, A <- A expm(cc G) "
-               "with xNES's cc = eta_B / 2; a low-rank form keeps it O(d^2 lambda) for lambda < "
-               "d. With StepSizeAdaptation.XNES also xNES's update of sigma, with xNES's "
-               "learning rate cs = eta_sigma (the other step-size adaptations keep their own "
-               "cs), and with RecombinationWeights.UTILITY (also selected by `Modules.active` "
-               "with the default weights) xNES's utilities for the mean and the matrix: all "
-               "three together are xNES.");
+               "with G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace goes to sigma) and "
+               "xNES's cc = eta_B / 2 = (9 + 3 ln d) / (10 d sqrt(d)); a low-rank form keeps it "
+               "O(d^2 lambda) for lambda < d. With StepSizeAdaptation.XNES also xNES's update of "
+               "sigma, with xNES's learning rate cs = eta_sigma (the other step-size adaptations "
+               "keep their own cs; #72), and with RecombinationWeights.UTILITY (also selected by "
+               "`Modules.active` with the default weights) xNES's utilities for the mean and the "
+               "matrix: all three together are xNES.");
 
     nb::enum_<CenterPlacement>(
         m,
@@ -576,51 +592,66 @@ void define_options(nb::module_ &main)
         "`Settings.x0`, or at the center of the bounds.")
         .value("X0",
                CenterPlacement::X0,
-               "At `Settings.x0`, or at the centre of the bounds when x0 is not given (0 with the "
-               "default bounds), the default.")
+               "At `Settings.x0`, or at the center of the bounds (`Settings.center`) when x0 is "
+               "not given (0 with the default bounds), the default.")
         .value("ZERO", CenterPlacement::ZERO, "At the origin.")
         .value("UNIFORM",
                CenterPlacement::UNIFORM,
                "At a uniform random point in the bounds: every restart starts elsewhere. In a "
                "coordinate with an infinite bound, uniform in x0 +- 2 sigma0 (moved inside a "
                "finite bound; x0 is `Settings.x0` or the center).")
-        .value("CENTER", CenterPlacement::CENTER, "At the centre of the bounds, (lb + ub) / 2.")
+        .value("CENTER",
+               CenterPlacement::CENTER,
+               "At the center of the bounds, `Settings.center`: (lb + ub) / 2 in a coordinate "
+               "with two finite bounds; with one infinite bound, 0 if 0 lies between the bounds, "
+               "else the finite bound moved inward by sigma0; 0 with two infinite bounds (#134).")
         .value("NOVELTY_WEIGHTED",
                CenterPlacement::NOVELTY_WEIGHTED,
                "At one of 512 uniform random candidates in the bounds, drawn with a probability "
                "proportional to its squared distance to the nearest point of the repelling "
                "archive (distances relative to the domain width). Uniform while the archive is "
-               "empty; the archive needs `Modules.repelling_type`. With an infinite bound, as "
-               "UNIFORM.")
+               "empty; the archive needs `Modules.repelling_type`. In a coordinate with an "
+               "infinite bound the candidates are drawn as by UNIFORM.")
         .value("MAXIMIN_TABOO",
                CenterPlacement::MAXIMIN_TABOO,
                "At the one of 512 uniform random candidates in the bounds that is farthest from "
-               "its nearest point of the repelling archive (maximin). Uniform while the archive "
-               "is empty; the archive needs `Modules.repelling_type`. With an infinite bound, as "
-               "UNIFORM.");
+               "its nearest point of the repelling archive (maximin; distances relative to the "
+               "domain width). Uniform while the archive is empty; the archive needs "
+               "`Modules.repelling_type`. In a coordinate with an infinite bound the candidates "
+               "are drawn as by UNIFORM.");
 
     nb::enum_<RepellingType>(
         m,
         "RepellingType",
-        "Repelling restarts (`Modules.repelling_type`; default NONE).\n\n"
-        "After a restart, the result of the run joins an archive of taboo points, unless "
-        "hill-valley tests (which evaluate the objective) show that it lies in the basin of a "
-        "point already there. New samples too close to a taboo point are rejected and drawn "
-        "again, which steers later runs away from the basins already found (paper: "
-        "doi:10.1007/978-3-031-70068-2_17). Only useful with a restart strategy; adds "
-        "the restart criterion `restart.TooMuchRepelling`.")
+        "Repelling restarts (`Modules.repelling_type`; default NONE): de Nobel et al. 2024, "
+        "\"Avoiding redundant restarts in multimodal global optimization\" "
+        "(doi:10.1007/978-3-031-70068-2_17).\n\n"
+        "After a restart, the result of the run (the better of its best point and its final "
+        "center of mass) joins an archive of taboo points, unless hill-valley tests (which "
+        "evaluate the objective at up to 10 points per taboo point) show that it lies in the "
+        "basin of a point already there. A new sample whose distance to a taboo point "
+        "(`RepellingMetric`, divided by the current sigma) is below the point's radius is "
+        "rejected and drawn again; the radius shrinks by 0.95^(1/d) with every rejection in a "
+        "generation, and only the taboo points near the mean are checked. This steers later "
+        "runs away from the basins already found. Only useful with restarts; with a restart "
+        "strategy other than NONE it adds the restart criterion `restart.TooMuchRepelling`.")
         .value("NONE", RepellingType::NONE, "No repelling, the default.")
         .value("COVERAGE",
                RepellingType::COVERAGE,
-               "Radii from a coverage of the search volume (de Nobel et al. 2024): the radius "
-               "of a taboo point grows with the number of runs that ended in its basin and "
-               "shrinks as the total number of runs grows; in units of sigma, from the volume of "
-               "the box in sigma0 units (`repelling.CoverageRepelling`).")
+               "Radii from a coverage of the search volume (de Nobel et al. 2024, Eqs. (10), "
+               "(11)): r = (n_T S / (c sigma0^d N))^(1/d) Gamma(d/2 + 1)^(1/d) / sqrt(pi), in "
+               "units of the current sigma, with S the volume of the box (10^d with an infinite "
+               "bound), c = `Repelling.coverage` (2), N the runs so far and n_T the runs that "
+               "ended in the basin of the point. sigma0 is the problem's, also in BIPOP's small "
+               "runs; the paper divides by sigma0 instead of sigma0^d (#158). See "
+               "`repelling.CoverageRepelling`.")
         .value("ADAPTIVE",
                RepellingType::ADAPTIVE,
                "Experimental (modcma's own, without a published source): radii adapted from the "
                "rejection rate of the samples and the evaluations the runs need, between a "
-               "minimum and a maximum radius.");
+               "minimum and a maximum radius. In the experiment of #158 (BBOB f21 and f22, d = 5 "
+               "to 40, RESTART and IPOP) it solved 99 of 240 runs, 107 without repelling and 144 "
+               "with COVERAGE (the compatibility page).");
 
     nb::enum_<RepellingMetric>(
         m,
@@ -628,20 +659,21 @@ void define_options(nb::module_ &main)
         "The distance between a sample and a taboo point of repelling "
         "(`Modules.repelling_metric`; default CURRENT).\n\n"
         "Every metric divides the distance by the current sigma before comparing it with the "
-        "radius of the taboo point. The default was EUCLIDEAN until #158; the framework paper "
-        "measures the Mahalanobis distance (Eq. (8)).")
+        "radius of the taboo point. The default was EUCLIDEAN until #158; the repelling paper "
+        "(de Nobel et al. 2024, Eq. (8)) measures the Mahalanobis distance.")
         .value("EUCLIDEAN",
                RepellingMetric::EUCLIDEAN,
                "||x - x_t||, the Euclidean distance (the default before #158).")
         .value("CURRENT",
                RepellingMetric::CURRENT,
                "||A^-1 (x - x_t)||, with A of the current run: the Mahalanobis distance in the "
-               "current search distribution (the paper's Eq. (8)), the default. With "
+               "current search distribution (de Nobel et al. 2024, Eq. (8)), the default. With "
                "matrix_adaptation NONE it is the Euclidean distance.")
         .value("ARCHIVED",
                RepellingMetric::ARCHIVED,
                "||A_t^-1 (x - x_t)||, with A_t of the run that found x_t, scaled to unit "
-               "determinant: the shape of the basin that run had learned.");
+               "determinant: the shape of the basin that run had learned (the Euclidean distance "
+               "when that matrix is degenerate).");
 }
 
 void define_utils(nb::module_ &main)
