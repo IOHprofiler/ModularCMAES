@@ -11,10 +11,7 @@ import unittest
 import numpy as np
 
 from modcma import c_maes
-
-
-def sphere(x):
-    return math.fsum(xi * xi for xi in x)
+from tests.golden import sphere
 
 
 def settings(**kwargs):

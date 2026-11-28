@@ -5,7 +5,6 @@ objective reproduce the golden trajectories of step() bit for bit. These tests c
 not: configurations the golden runs do not reach, the batches ask() returns, injection and errors.
 """
 
-import math
 import subprocess
 import sys
 import unittest
@@ -13,14 +12,7 @@ import unittest
 import numpy as np
 
 from modcma import c_maes
-
-
-def sphere(x):
-    return math.fsum(xi * xi for xi in x)
-
-
-def rastrigin(x):
-    return 10.0 * len(x) + math.fsum(xi * xi - 10.0 * math.cos(2.0 * math.pi * xi) for xi in x)
+from tests.golden import rastrigin, sphere
 
 
 class RestartAt(c_maes.restart.Criterion):
