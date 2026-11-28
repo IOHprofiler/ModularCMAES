@@ -21,7 +21,7 @@ struct Strategy
 };
 
 //! The largest population of IPOP and BIPOP, as a multiple of lambda0: 2^9 (the framework paper,
-//! Sec. 4.5). pycma's fmin has no such limit, but stops after `restarts` large runs; with 9, as
+//! Sec. 6.1). pycma's fmin has no such limit, but stops after `restarts` large runs; with 9, as
 //! Hansen (2009), its largest population is the same 2^9 lambda0
 inline constexpr size_t default_max_lambda_factor = 512;
 

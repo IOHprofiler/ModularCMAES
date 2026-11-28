@@ -355,9 +355,12 @@ void AdaptiveRepelling::on_restart(parameters::Parameters &p)
         std::max<Float>(1.0, static_cast<Float>(current_evaluations - last_restart_evaluations));
     last_restart_evaluations = current_evaluations;
 
-    // The average starts from the first run's length (maintainer, #121 D2): from the start value 1
-    // the waste ratio of runs of equal length was 1 / (1 - 0.8^k) at the k-th restart, 2.8 at the
-    // second; now 1. No average yet: 0 (a positive value set before the first restart is kept)
+    // The average starts from the first run's length (maintainer, #121 D2); for runs of equal
+    // length the waste ratio is then 1. Before 2.0 the average started at 1 and the first run
+    // counted as one evaluation: for runs of equal length n >> 1 the waste ratio at the k-th
+    // restart was 1 / (1 - 0.8^(k-1)), 5 at the second restart (the first that can find a shared
+    // basin) and 2.8 at the third. No average yet: 0 (a positive value set before the first
+    // restart is kept)
     if (average_restart_evaluations <= 0.0)
         average_restart_evaluations = restart_evals;
     else
