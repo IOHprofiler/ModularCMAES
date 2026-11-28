@@ -281,7 +281,7 @@ void Parameters::recombine()
         return;
     }
     for (Eigen::Index k = 0; k < static_cast<Eigen::Index>(mu); ++k)
-        a.m.noalias() += (1.0 * weights.positive(k)) * (pop.X.col(k) - a.m_old);
+        a.m.noalias() += weights.positive(k) * (pop.X.col(k) - a.m_old);
 }
 
 void Parameters::adapt()

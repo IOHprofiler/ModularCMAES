@@ -218,11 +218,7 @@ struct Adaptation
         ++factor_version;
     }
 
-    Float distance(const Vector u, const Vector &v)
-    {
-        const auto &delta = u - v;
-        return invert_y(delta).norm();
-    }
+    Float distance(const Vector &u, const Vector &v) { return invert_y(u - v).norm(); }
 
     Float distance_from_center(const Vector &xi) { return distance(m, xi); }
 
