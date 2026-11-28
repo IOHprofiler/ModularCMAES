@@ -722,12 +722,12 @@ void define_parameters(nb::module_ &main)
         "has_bounds) and adjusts the modules.\n\n"
         "Setting a field afterwards checks that field alone (ValueError for a wrong length, NaN, "
         "a sign or a range) and recomputes what is derived from it: lb and ub the derived values "
-        "of the box, lambda0 the default mu0. The fields can therefore be set in any order. The "
-        "checks between fields (lb <= ub, the integer variables in the box, mu0 <= lambda0, the "
-        "budget against the first generation, lambda0 with the modules) run in the constructor "
-        "and again when an optimizer is created from the settings (ModularCMAES(settings), "
-        "Parameters(settings)): ValueError naming the fields. Changing the modules afterwards, "
-        "in place, does not adjust them.")
+        "of the box, sigma0 the center, lambda0 the default mu0. The fields can therefore be set "
+        "in any order. The checks between fields (lb <= ub, the integer variables in the box, "
+        "c1 + cmu <= 1, mu0 <= lambda0, the budget against the first generation, lambda0 with "
+        "the modules) run in the constructor and again when an optimizer is created from the "
+        "settings (ModularCMAES(settings), Parameters(settings)): ValueError naming the fields. "
+        "Changing the modules afterwards, in place, does not adjust them.")
         .def(
             "__init__",
             [](Settings *self,
@@ -823,6 +823,9 @@ void define_parameters(nb::module_ &main)
             "The constructor makes the configuration consistent:\n\n"
             "- with mirrored PAIRWISE, an odd lambda0 above 1 is increased by one;\n"
             "- with ssa SA or matrix_adaptation CMSA, the default mu0 is lambda0 // 4;\n"
+            "- with matrix_adaptation NATURAL_GRADIENT and active, weights DEFAULT become "
+            "UTILITY;\n"
+            "- with weights UTILITY, active is turned on;\n"
             "- with matrix_adaptation NONE or CMSA, active is turned off;\n"
             "- lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL "
             "weights, no active update, no sequential selection, mirrored PAIRWISE becomes "
@@ -832,13 +835,16 @@ void define_parameters(nb::module_ &main)
             "- when the box lb..ub is not finite, has_bounds is False, diameter 10, volume "
             "10**dim; center is computed per coordinate (see `center`).\n\n"
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
-            "mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, a "
-            "sigma0 that is not positive and finite, x0, lb or ub of a length other "
-            "than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above "
-            "ub, an integer variable without an integer value in [lb, ub], a budget smaller "
-            "than the first generation and the evaluation of the final center of mass, or a C0 "
-            "that is not a symmetric positive definite (dim, dim) matrix (or with "
-            "matrix_adaptation NONE).\n\n"
+            "mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, "
+            "max_generations 0, a sigma0 that is not positive and finite, x0, lb or ub of a "
+            "length other than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, "
+            "lb above ub, an integer variable without an integer value in [lb, ub], a budget "
+            "smaller than the first generation and the evaluation of the final center of mass, "
+            "a learning rate out of its range (cs and cc in (0, 1], c1 and cmu in [0, 1], c1 + "
+            "cmu above 1 when both are given, damps not positive, acov not positive and "
+            "finite; #147), or a C0 that is not a symmetric positive definite (dim, dim) matrix "
+            "(or with matrix_adaptation NONE). An index of integer_variables outside 0..dim-1 "
+            "raises ValueError when the optimizer is created.\n\n"
             "Parameters\n"
             "----------\n"
             "dim : int\n"
@@ -854,8 +860,9 @@ void define_parameters(nb::module_ &main)
             "    The maximum number of evaluations, default 10000 * dim; at least the first "
             "generation (lambda0, and TPA's 2 points) and the final center of mass. A generation "
             "runs only when it leaves one evaluation: the run stops when the evaluations so far "
-            "plus lambda (and TPA's 2 points) plus 1 would exceed it, and every run ends with "
-            "the evaluation of its center of mass (#111).\n"
+            "plus lambda (and TPA's 2 points, reserved also in a generation that skips them, "
+            "#179) plus 1 would exceed it, and every run ends with the evaluation of its center "
+            "of mass (#111).\n"
             "sigma0 : float, optional\n"
             "    The initial step size, default 2.0, positive and finite; also the step size "
             "after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u "
@@ -865,11 +872,11 @@ void define_parameters(nb::module_ &main)
             "matrix_adaptation CMSA); at least 1 and at most lambda0.\n"
             "lambda0 : int, optional\n"
             "    The number of offspring per generation, default 4 + floor(3 ln(dim)); at least 1 "
-            "(1 is the (1+1)-ES). Many modules work poorly with 2 or 3 (see the compatibility "
+            "(1 is the (1+1)-ES). Many modules fail with 2, a few with 3 (see the compatibility "
             "page).\n"
             "x0 : array_like, optional\n"
-            "    (dim,) the initial mean of the search distribution. Default None: the center of "
-            "the bounds (the zero vector when the box is not finite); after a restart, "
+            "    (dim,) the initial mean of the search distribution. Default None: `center`, the "
+            "midpoint of the box (see `center` for infinite bounds); after a restart, "
             "center_placement X0 uses the same point.\n"
             "lb : array_like, optional\n"
             "    (dim,) the lower bounds, default -5 in every coordinate.\n"
@@ -878,23 +885,24 @@ void define_parameters(nb::module_ &main)
             "integer_variables : sequence of int, optional\n"
             "    The indices of the variables that take integer values: they are rounded before "
             "evaluation (a value in [lb, ub] to the nearest integer in [lb, ub]) and their step "
-            "size has a lower bound. Each needs an integer value in [lb, ub]. Default: none.\n"
+            "size has a lower bound (the step size times sqrt(C_ii) is at least min(0.2, "
+            "mueff / dim)). Each needs an integer value in [lb, ub]. Default: none.\n"
             "cs : float, optional\n"
-            "    The learning rate of the step-size adaptation, in (0, 1]. Default depends on ssa (see "
-            "Weights.cs); for CSA (mueff + 2) / (dim + mueff + 5) (Hansen, The CMA Evolution "
-            "Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55)).\n"
+            "    The learning rate of the step-size adaptation, in (0, 1]. Default depends on "
+            "ssa (see Weights.cs); for CSA (mueff + 2) / (dim + mueff + 5) (Hansen, The CMA "
+            "Evolution Strategy: A Tutorial, arXiv:1604.00772v2, Table 1, Eq. (55)).\n"
             "cc : float, optional\n"
-            "    The learning rate of the evolution path pc, in (0, 1]. Default (4 + mueff / dim) / (dim + "
-            "4 + 2 mueff / dim) (see Weights.cc).\n"
+            "    The learning rate of the evolution path pc, in (0, 1]. Default (4 + mueff / "
+            "dim) / (dim + 4 + 2 mueff / dim) (see Weights.cc).\n"
             "cmu : float, optional\n"
-            "    The learning rate of the rank-mu update, in [0, 1]. Default min(1 - c1, acov (mueff - 2 + "
-            "1 / mueff) / ((dim + 2)**2 + acov mueff / 2)) (see Weights.cmu).\n"
+            "    The learning rate of the rank-mu update, in [0, 1]. Default min(1 - c1, acov "
+            "(mueff - 2 + 1 / mueff) / ((dim + 2)**2 + acov mueff / 2)) (see Weights.cmu).\n"
             "c1 : float, optional\n"
-            "    The learning rate of the rank-one update, in [0, 1]; with cmu, c1 + cmu <= 1. Default acov / ((dim + 1.3)**2 + "
-            "mueff) (see Weights.c1).\n"
+            "    The learning rate of the rank-one update, in [0, 1]; with cmu, c1 + cmu <= 1. "
+            "Default acov / ((dim + 1.3)**2 + mueff) (see Weights.c1).\n"
             "damps : float, optional\n"
-            "    The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, sqrt((mueff - "
-            "1) / (dim + 1)) - 1) + cs (see Weights.damps).\n"
+            "    The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, "
+            "sqrt((mueff - 1) / (dim + 1)) - 1) + cs (see Weights.damps).\n"
             "acov : float, optional\n"
             "    The factor alpha_cov in the defaults of c1 and cmu, positive, default 2 (not "
             "used by SEPARABLE, whose defaults are pycma's separable rates).\n"
@@ -978,8 +986,9 @@ void define_parameters(nb::module_ &main)
             "The maximum number of evaluations, default 10000 * dim; at least 2 "
             "(ValueError).\n\n"
             "A generation runs only when it leaves one evaluation: the run stops when the "
-            "evaluations so far plus lambda (and TPA's 2 points) plus 1 would exceed it, "
-            "and every run ends with the evaluation of its center of mass (#111). The "
+            "evaluations so far plus lambda (and TPA's 2 points, reserved also in a generation "
+            "that skips them, #179) plus 1 would exceed it, and every run ends with the "
+            "evaluation of its center of mass (#111). The "
             "budget must hold the first generation (lambda0, and TPA's 2 points) and the "
             "final center of mass: the constructor checks it, and after a setter the "
             "optimizer does when it is created (ValueError).")
@@ -1000,8 +1009,9 @@ void define_parameters(nb::module_ &main)
             "Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting "
             "lambda0 recomputes it. A mu0 above lambda0 raises ValueError: in the constructor, "
             "and after a setter when the optimizer is created. Parameters.mu is the current "
-            "value, which IPOP and BIPOP restarts change: to the default of the new lambda "
-            "(as pycma), or, when mu0 was given, to mu0 / lambda0 of the new lambda.")
+            "value, which a restart that changes lambda changes (IPOP, BIPOP, the cap of the "
+            "first generation at the budget): to the default of the new lambda (as pycma), or, "
+            "when mu0 was given, to mu0 / lambda0 of the new lambda.")
         .def_prop_rw(
             "lambda0",
             [](const Settings &s) { return s.lambda0; },
@@ -1014,7 +1024,8 @@ void define_parameters(nb::module_ &main)
             "= 1 set after construction or another lambda0 for settings created with lambda0 = 1 "
             "(the (1+1)-ES, for which the constructor adjusts the modules), or with a budget "
             "that does not hold the first generation. Parameters.lamb is the current value, "
-            "which IPOP and BIPOP restarts change.")
+            "which IPOP and BIPOP restarts change, and a restart near the end of the budget "
+            "caps.")
         .def_prop_rw(
             "x0",
             [](const Settings &s) { return s.x0; },
@@ -1024,8 +1035,8 @@ void define_parameters(nb::module_ &main)
             // array_like, as the constructor
             nb::for_setter(nb::sig("def x0(self, arg: numpy.typing.ArrayLike | None, /) -> None")),
             "(dim,) array: the initial mean of the search distribution, or None (default) for "
-            "`center` (the midpoint of the bounds; see `center` for infinite bounds). A length other than dim, or a value that is not "
-            "finite, raises ValueError.")
+            "`center` (the midpoint of the bounds; see `center` for infinite bounds). A length "
+            "other than dim, or a value that is not finite, raises ValueError.")
         .def_prop_rw(
             "lb",
             [](const Settings &s) { return s.lb; },
@@ -1066,7 +1077,7 @@ void define_parameters(nb::module_ &main)
                 &Settings::diameter,
                 nb::name("diameter"),
                 "The length of the diagonal of the box, ||ub - lb||; 10 when the box is not "
-                "finite (then volume is 10^dim). Read-only: derived from lb and ub.")
+                "finite (then volume is 10**dim). Read-only: derived from lb and ub.")
         .def_ro("volume",
                 &Settings::volume,
                 nb::name("volume"),
@@ -1076,9 +1087,9 @@ void define_parameters(nb::module_ &main)
             "has_bounds",
             bool_getter(&Settings::has_bounds),
             nb::name("has_bounds"),
-            "Whether the box lb..ub is finite (`diameter`, `volume` and `center` depend on "
-            "it); read-only, derived from lb and ub. Bound correction does not depend on "
-            "it: it corrects every finite bound.")
+            "Whether the box lb..ub is finite (`diameter` and `volume` depend on it; `center` "
+            "is computed per coordinate); read-only, derived from lb and ub. Bound correction "
+            "does not depend on it: it corrects every finite bound.")
         .def_ro("integer_variables",
                 &Settings::integer_variables,
                 nb::name("integer_variables"),
@@ -1087,21 +1098,21 @@ void define_parameters(nb::module_ &main)
             "cs",
             [](const Settings &s) { return s.cs; },
             [](Settings &s, const std::optional<Float> value) { s.set_cs(value); },
-            "The learning rate cs given to the constructor, or None for the default; in (0, 1] "
+            "The learning rate cs, or None (default) for the module's default; in (0, 1] "
             "(ValueError).\n\n"
             "The value in use is Parameters.weights.cs.")
         .def_prop_rw(
             "cc",
             [](const Settings &s) { return s.cc; },
             [](Settings &s, const std::optional<Float> value) { s.set_cc(value); },
-            "The learning rate cc given to the constructor, or None for the default; in (0, 1] "
+            "The learning rate cc, or None (default) for the module's default; in (0, 1] "
             "(ValueError).\n\n"
             "The value in use is Parameters.weights.cc.")
         .def_prop_rw(
             "cmu",
             [](const Settings &s) { return s.cmu; },
             [](Settings &s, const std::optional<Float> value) { s.set_cmu(value); },
-            "The learning rate cmu given to the constructor, or None for the default; in [0, 1] "
+            "The learning rate cmu, or None (default) for the module's default; in [0, 1] "
             "(ValueError). With c1 given, c1 + cmu must be at most 1 (ValueError when the "
             "optimizer is created).\n\n"
             "The value in use is Parameters.weights.cmu.")
@@ -1109,7 +1120,7 @@ void define_parameters(nb::module_ &main)
             "c1",
             [](const Settings &s) { return s.c1; },
             [](Settings &s, const std::optional<Float> value) { s.set_c1(value); },
-            "The learning rate c1 given to the constructor, or None for the default; in [0, 1] "
+            "The learning rate c1, or None (default) for the module's default; in [0, 1] "
             "(ValueError). With cmu given, c1 + cmu must be at most 1 (ValueError when the "
             "optimizer is created).\n\n"
             "The value in use is Parameters.weights.c1.")
@@ -1117,8 +1128,8 @@ void define_parameters(nb::module_ &main)
             "damps",
             [](const Settings &s) { return s.damps; },
             [](Settings &s, const std::optional<Float> value) { s.set_damps(value); },
-            "The damping given to the constructor, or None for the default; positive "
-            "(ValueError).\n\n"
+            "The damping of the step-size update, or None (default) for the module's default; "
+            "positive (ValueError).\n\n"
             "The value in use is Parameters.weights.damps.")
         .def_prop_rw(
             "acov",
@@ -1135,7 +1146,8 @@ void define_parameters(nb::module_ &main)
         .def_ro("one_plus_one",
                 &Settings::one_plus_one,
                 nb::name("one_plus_one"),
-                "Whether lambda0 is 1: a (1+1)-ES (read-only; see the constructor).")
+                "Whether the settings were created with lambda0 = 1: a (1+1)-ES (read-only; see "
+                "the constructor).")
         .def("__repr__", [](Settings &s) {
             return repr("Settings", [&](std::stringstream &ss) {
                 ss << " dim: " << s.dim << " modules: " << to_string(s.modules);
