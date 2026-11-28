@@ -26,13 +26,10 @@ class RestartAt(c_maes.restart.Criterion):
         self.met = parameters.stats.t in self.generations
 
 
-def make(d=4, seed=12, **kwargs):
-    modules = c_maes.Modules()
-    for name, value in kwargs.pop("modules", {}).items():
-        if not c_maes.set_module(modules, name, value):
-            raise ValueError(name)
+def make(d=4, seed=12, modules=None, **kwargs):
     c_maes.set_seed(seed)
-    return c_maes.ModularCMAES(c_maes.Settings(d, modules, verbose=False, **kwargs))
+    settings = c_maes.settings_from_dict(d, verbose=False, **(modules or {}), **kwargs)
+    return c_maes.ModularCMAES(settings)
 
 
 def ask_tell_generation(cma, objective, sizes=None):

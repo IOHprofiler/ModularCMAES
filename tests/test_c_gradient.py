@@ -183,12 +183,9 @@ def trajectory(run, driver, gradient=None):
 
 
 def make(d=5, seed=3, modules=None, **kwargs):
-    m = c_maes.Modules()
-    for name, value in (modules or {}).items():
-        if not c_maes.set_module(m, name, value):
-            raise ValueError(name)
     kwargs.setdefault("verbose", False)
-    return c_maes.ModularCMAES(c_maes.Settings(d, m, seed=seed, **kwargs))
+    settings = c_maes.settings_from_dict(d, seed=seed, **(modules or {}), **kwargs)
+    return c_maes.ModularCMAES(settings)
 
 
 def covariance(cma):

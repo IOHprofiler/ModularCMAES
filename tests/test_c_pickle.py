@@ -21,11 +21,7 @@ from tests.golden import rastrigin, sphere
 
 
 def make(d=4, seed=3, budget=4000, **modules):
-    m = c_maes.Modules()
-    for name, value in modules.items():
-        if not c_maes.set_module(m, name, value):
-            raise ValueError(name)
-    return c_maes.ModularCMAES(c_maes.Settings(d, m, budget=budget, seed=seed))
+    return c_maes.ModularCMAES(c_maes.settings_from_dict(d, budget=budget, seed=seed, **modules))
 
 
 def resumed(obj):
