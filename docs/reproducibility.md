@@ -160,14 +160,15 @@ configuration space is built by `get_configspace` in `run_smac.py`, from that of
   with a matrix adaptation other than `NONE` and with λ above 1; `mu0`, `elitist`,
   `sequential_selection`, `weights` and `ssa` only with λ above 1;
 - it forbids µ above λ, an odd λ with `PAIRWISE`, `IPOP` and `BIPOP` with λ = 1, `active` or
-  sequential selection with µ = λ, and `COVARIANCE` with a step-size adaptation other than CSA.
+  sequential selection with µ = λ, and `COVARIANCE` with a step-size adaptation other than CSA
+  and `TPA_INPLACE` (the script's list predates `TPA_INPLACE`).
 
 With modcma 2.0, d = 5 and `--add_popsize`, the space has 16 hyperparameters, 7 conditions and 130
 forbidden clauses. The paper describes the full space without bound correction, with µ ≤ λ. The
 repository does not record which space the paper's runs used. The script left out the three
-modules and `COVARIANCE_NO_EIGV`, `STOP` and `sample_transformation=NONE` already in July 2026
-(78ddafe, with µ ≤ λ as its only clause); `ADAPTIVE`, the conditions and the other forbidden
-clauses came in August 2026 (eef30dc).
+modules and `COVARIANCE_NO_EIGV`, `STOP` and `sample_transformation=NONE` already in April 2026
+(759c201; µ ≤ λ, its only clause, from d588cc1); `ADAPTIVE`, the conditions and the other
+forbidden clauses came in August 2026 (eef30dc).
 
 The main resource controls are exposed as `--n_trials`,
 `--max_config_calls`, `--n_workers`, `--seed`, and `--output_root`.

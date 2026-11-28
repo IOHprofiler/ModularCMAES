@@ -142,8 +142,8 @@ the others by ub − lb.
 Repelling restarts keep each new run away from the optima found before (de Nobel et al. 2024): the
 centers of mass of earlier runs (or their best points, when better) become *taboo points*, with a
 region around each, and samples in a taboo region are rejected. Hill–valley tests run when a run
-ends: they decide whether its result is a new taboo point or lies in the basin of one already in
-the archive.
+ends with a restart: they decide whether its result is a new taboo point or lies in the basin of
+one already in the archive.
 This helps to find *different* optima, for example when several good solutions are wanted, and
 avoids spending restarts on optima that are already known.
 
