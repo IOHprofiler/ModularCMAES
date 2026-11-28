@@ -16,6 +16,28 @@ Vector uniform_vector(const size_t d, rng::Generator &gen)
         ui = uniform(gen);
     return u;
 }
+
+//! The candidates of NOVELTY_WEIGHTED and MAXIMIN_TABOO
+constexpr int n_candidates = 512;
+
+//! A point uniform in the region, from the optimizer's generator
+Vector uniform_point(const Region &region, parameters::Parameters &p)
+{
+    return region.point(uniform_vector(p.settings.dim, *p.generator));
+}
+
+//! The distance from x to the nearest point of the repelling archive, with each coordinate divided
+//! by the width of the region
+Float nearest_taboo_point(const Vector &x, const Region &region, const parameters::Parameters &p)
+{
+    Float nearest = std::numeric_limits<Float>::infinity();
+    for (const auto &point : p.repelling->archive)
+    {
+        const Vector diff = (x - point.solution.x).cwiseQuotient(region.width);
+        nearest = std::min(nearest, diff.norm());
+    }
+    return nearest;
+}
 } // namespace
 
 Region::Region(const parameters::Settings &settings) : lower(settings.lb), width(settings.db)
@@ -44,9 +66,7 @@ void X0::operator()(parameters::Parameters &p)
 
 void Uniform::operator()(parameters::Parameters &p)
 {
-    const Vector u = uniform_vector(p.settings.dim, *p.generator);
-
-    p.adaptation->m = Region(p.settings).point(u);
+    p.adaptation->m = uniform_point(Region(p.settings), p);
 }
 
 void Zero::operator()(parameters::Parameters &p) { p.adaptation->m.setZero(); }
@@ -55,16 +75,11 @@ void Center::operator()(parameters::Parameters &p) { p.adaptation->m = p.setting
 
 void MaximinTaboo::operator()(parameters::Parameters &p)
 {
-    const int dim = p.settings.dim;
-    const int n_candidates = 512;
     const Region region(p.settings);
 
     if (p.repelling->archive.empty())
     {
-        const Vector u = uniform_vector(dim, *p.generator);
-
-        p.adaptation->m = region.point(u);
-
+        p.adaptation->m = uniform_point(region, p);
         return;
     }
 
@@ -73,20 +88,8 @@ void MaximinTaboo::operator()(parameters::Parameters &p)
 
     for (int i = 0; i < n_candidates; ++i)
     {
-        const Vector u = uniform_vector(dim, *p.generator);
-
-        const Vector x = region.point(u);
-
-        Float nearest = std::numeric_limits<Float>::infinity();
-
-        for (const auto &point : p.repelling->archive)
-        {
-            const Vector diff = (x - point.solution.x).cwiseQuotient(region.width);
-
-            const Float d = diff.norm();
-
-            nearest = std::min(nearest, d);
-        }
+        const Vector x = uniform_point(region, p);
+        const Float nearest = nearest_taboo_point(x, region, p);
 
         if (nearest > best_score)
         {
@@ -100,17 +103,12 @@ void MaximinTaboo::operator()(parameters::Parameters &p)
 
 void NoveltyWeighted::operator()(parameters::Parameters &p)
 {
-    const int dim = p.settings.dim;
-    const int n_candidates = 512;
     const Float temperature = 2.0;
     const Region region(p.settings);
 
     if (p.repelling->archive.empty())
     {
-        const Vector u = uniform_vector(dim, *p.generator);
-
-        p.adaptation->m = region.point(u);
-
+        p.adaptation->m = uniform_point(region, p);
         return;
     }
 
@@ -122,20 +120,8 @@ void NoveltyWeighted::operator()(parameters::Parameters &p)
 
     for (int i = 0; i < n_candidates; ++i)
     {
-        const Vector u = uniform_vector(dim, *p.generator);
-
-        const Vector x = region.point(u);
-
-        Float nearest = std::numeric_limits<Float>::infinity();
-
-        for (const auto &point : p.repelling->archive)
-        {
-            const Vector diff = (x - point.solution.x).cwiseQuotient(region.width);
-
-            const Float d = diff.norm();
-
-            nearest = std::min(nearest, d);
-        }
+        const Vector x = uniform_point(region, p);
+        const Float nearest = nearest_taboo_point(x, region, p);
 
         const Float score = std::pow(std::max<Float>(nearest, 1e-12), temperature);
 
