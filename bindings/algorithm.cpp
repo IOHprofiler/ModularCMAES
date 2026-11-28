@@ -1311,35 +1311,36 @@ void define_matrix_adaptation(nb::module_ &main)
         "lambda) per generation (BLAS from d = `constants.blas_min_dim`), so it suits high "
         "dimension. Beyer & Sendhoff (2017).\n\n"
         "MA-ES has no active update. With `Modules.active` this is the active update of the "
-        "CMA-ES (Hansen 2016, Eq. (47)) written for M, as MA-ES derives its own update: sum(w) "
-        "includes the negative weights, and the negative weights are multiplied by d / "
-        "||z_i||^2. With elitism the negative weights go to the worst points of the (mu + "
-        "lambda) pool, as with every matrix adaptation (#161).\n\n"
-        "With a step-size adaptation other than CSA, h_sigma (`hs`) skips the rank-one term "
-        "in a generation in which ||ps|| is long, as COVARIANCE stalls pc (Hansen 2016, after "
-        "Eq. (45); #160). MA-ES has no h_sigma: with CSA, which updates sigma from the same "
-        "path, the update is MA-ES's.");
+        "CMA-ES (Hansen 2016, Eq. (47)) written for M to first order, as MA-ES derives its own "
+        "update: sum(w) includes the negative weights, and the negative weights are multiplied "
+        "by d / ||z_i||^2. With elitism the negative weights go to the worst points of the "
+        "(mu + lambda) pool, as in the other adaptations (#161).\n\n"
+        "With a step-size adaptation other than CSA, h_sigma (`hs`) drops the rank-one term, "
+        "and its c1/2 in the decay, in a generation in which ||ps|| is long, as COVARIANCE "
+        "stalls pc (Hansen 2016, after Eq. (45); #160). MA-ES has no h_sigma: with CSA, which "
+        "updates sigma from the same path, the update is MA-ES's.");
     adaptation_init(matrix);
     matrix
         .def_rw("M",
                 &MatrixAdaptation::M,
-                "The sampling matrix, y = M z, shape (d, d) (the identity at the start).")
+                "The sampling matrix, y = M z, shape (d, d) (the identity at the start without "
+                "`Settings.C0`).")
         .def_rw("M_inv",
                 &MatrixAdaptation::M_inv,
                 "The inverse of M, shape (d, d).\n\n"
                 "With elitism or TPA_INPLACE (lambda > 1) it is updated with M every "
-                "generation: M <- M F with "
-                "F = a I + U D U^T (U = [ps, the selected z], D = diag(c1/2, cmu/2 w)), so M_inv "
-                "<- F^-1 M_inv by the Woodbury identity, O(k d^2); up to d = "
+                "generation: M <- M F with F = a I + U D U^T, where a is the decay, U = [ps, the "
+                "z of the update] and D = diag(c1/2, cmu/2 w) (0 for c1/2 when `hs` is False), so "
+                "M_inv <- F^-1 M_inv by the Woodbury identity, O(k d^2) for k terms; up to d = "
                 "`inverse_recompute_max_dim` (30) it is computed exactly from M after every "
                 "`inverse_recompute_interval` (400) generations of a run, which bounds the "
                 "rounding error that the update accumulates with the active update at small d "
-                "(the maintainer's choice, #74). When the "
-                "update cannot be applied (`inverse_fallbacks`), and without elitism, it is "
-                "computed only when `invert_y` needs it (injected and repaired points; an LU "
-                "inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can "
-                "lag behind M. Before 2.0 the update with elitism was not the inverse of M F, and "
-                "drifted from the inverse of M.")
+                "(the maintainer's choice, #74). When the update cannot be applied "
+                "(`inverse_fallbacks`), and without elitism and TPA_INPLACE, it is computed only "
+                "when `invert_y` needs it (points moved by the bound correction, injected points, "
+                "the distances of repelling; an LU inverse from d = `constants.blas_min_dim`, else "
+                "the pseudo-inverse), so it can lag behind M. Before 2.0 the update with elitism "
+                "was not the inverse of M F, and drifted from the inverse of M.")
         .def_rw("hs",
                 &MatrixAdaptation::hs,
                 "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
@@ -1350,26 +1351,30 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_ro("inverse_fallbacks",
                 &MatrixAdaptation::inverse_fallbacks,
                 nb::name("inverse_fallbacks"),
-                "The generations with elitism in which the Woodbury update of `M_inv` could not "
-                "be applied, since the adaptation was created (read-only): the decay a = 1 - c1/2 "
-                "- cmu/2 sum(w) was not positive, or the k x k system was singular or badly "
+                "The generations with elitism or TPA_INPLACE in which the Woodbury update of "
+                "`M_inv` could not be applied, since the adaptation was created (read-only; "
+                "restarts do not reset it): the decay a = 1 - c1/2 - cmu/2 sum(w) was not "
+                "positive, or the k x k system (F itself when k >= d) was singular or badly "
                 "conditioned (the ratio of its smallest to its largest pivot below 1e-8). M_inv "
                 "is then computed when `invert_y` needs it, and the update continues from it.")
         .def_ro_static("inverse_recompute_interval",
                        &MatrixAdaptation::inverse_recompute_interval,
-                       "With elitism and d <= `inverse_recompute_max_dim`, M_inv is computed "
-                       "exactly from M after every this many generations of a run, and updated by "
-                       "the Woodbury identity in between (400, the maintainer's choice on #74). "
-                       "Without it, the largest entry of M M_inv - I over 5000 generations reached "
-                       "2.4 to 26 with the active update at d = 10 and 1e-8 at d = 20; with it, at "
-                       "most 1.4e-9 at d = 10.")
+                       "With elitism or TPA_INPLACE and d <= `inverse_recompute_max_dim`, M_inv "
+                       "is computed exactly from M after every this many generations of a run, "
+                       "and updated by the Woodbury identity in between (400, the maintainer's "
+                       "choice on #74). "
+                       "Measured on the rotated ellipsoid (condition 1e6, 5 seeds, #159): without "
+                       "it, the largest entry of |M M_inv - I| over 5000 generations reached 2.4 "
+                       "to 26 with the active update at d = 10 and 1.3e-8 to 6.4e-8 at d = 20; "
+                       "with it, at most 1.4e-9 at d = 10 and 1.5e-11 at d = 20.")
         .def_ro_static("inverse_recompute_max_dim",
                        &MatrixAdaptation::inverse_recompute_max_dim,
                        "The largest dimension with the exact recomputation of M_inv every "
                        "`inverse_recompute_interval` generations (30, the maintainer's choice on "
                        "#74): the smallest d at which the drift without it stayed below 1e-10 "
                        "over 5000 generations in every run measured (at most 4.3e-11 at d = 30, "
-                       "below 1e-12 from d = 40 on, with the active update).")
+                       "below 1e-12 from d = 40 on, with the active update; the runs of "
+                       "`inverse_recompute_interval`).")
         .def(
             "__repr__",
             [](MatrixAdaptation &a) {
