@@ -17,10 +17,10 @@ namespace parameters
  * After construction, the set_* methods change one field (the Python setters call them, #136).
  * A setter checks only its own field (its length, NaN, sign or range) and recomputes the values
  * derived from it, so the fields may be set in any order and through invalid intermediate states.
- * The checks between fields (require_consistent: lb <= ub, c1 + cmu <= 1, the integer variables, mu0 <= lambda0,
- * the budget, ...) run in the constructor and again when an optimizer is created from the
- * settings (Parameters calls require_valid). Assigning a field directly skips the setter, not
- * require_valid; it does not recompute the derived values.
+ * The checks between fields (require_consistent: lb <= ub, c1 + cmu <= 1, the integer variables,
+ * mu0 <= lambda0, the budget, ...) run in the constructor and again when an optimizer is created
+ * from the settings (Parameters calls require_valid). Assigning a field directly skips the
+ * setter, not require_valid; it does not recompute the derived values.
  */
 struct Settings
 {

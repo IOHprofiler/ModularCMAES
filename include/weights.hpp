@@ -65,8 +65,9 @@ struct Weights
     /**
      * @brief for_population into out (no allocation once out has the capacity). With pairwise
      * selection only the first n_ranked points (the winners of the mirrored pairs and, with
-     * elitism, the parents; the losers have f = +inf and are sorted last) can get a negative
-     * weight: as pycma, mirrored points that lost their pair get no negative weights.
+     * elitism, the parents; the losers keep their real f and are sorted after them,
+     * selection::Pairwise, #75) can get a negative weight: as pycma, mirrored points that lost
+     * their pair get no negative weights.
      */
     void for_population_into(const size_t n,
                              Vector &out,

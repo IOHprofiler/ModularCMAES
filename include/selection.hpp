@@ -39,8 +39,8 @@ struct Pairwise
     /**
      * The order in which sort() puts the values f, whose first n_offspring are the offspring, in
      * their pairs: the indices into f, written to out. Returns the number of ranked individuals
-     * (pop.n_ranked after sort()). XNES and TPA_INPLACE rank the offspring alone with it, before
-     * elitism adds the parents (#172, #173).
+     * (pop.n_ranked after sort()). XNES ranks the offspring alone with it, before elitism adds the
+     * parents (#172).
      */
     virtual size_t
     rank(Eigen::Ref<const Vector> f, size_t n_offspring, std::vector<size_t> &out) const;

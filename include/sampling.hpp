@@ -100,7 +100,7 @@ template <typename Distribution = rng::normal<Float>> struct Random : Sampler
     std::shared_ptr<rng::Generator> generator;
 };
 
-// //! Gaussian distribution sampler
+//! Gaussian distribution sampler
 using Gaussian = Random<rng::normal<Float>>;
 
 //! E||z|| of z ~ N(0, I) of dimension d, approximately: sqrt(d) (1 - 1 / (4 d) + 1 / (21 d^2))

@@ -278,12 +278,13 @@ void Weights::weights_default(const size_t mu, const size_t lambda)
 {
     // The raw weights of a population of n (Hansen, The CMA Evolution Strategy: A Tutorial, 2016,
     // Eq. (49); pycma's RecombinationWeights(n)): w'_i = ln((n + 1) / 2) - ln i, positive exactly
-    // for i <= n / 2. With the default mu = lambda / 2, n = lambda. With another mu (given, or the
-    // ratio of IPOP), n = 2 mu, as pycma with CMA_mu (options_parameters.py:1010-1013): then the
-    // first mu are the positive weights, and the other mu the negative ones, for the worst ranks
-    // (pycma's RecombinationWeights.__call__, recombination_weights.py:191-199). With lambda > 2 mu
-    // the ranks in between get 0; with lambda < 2 mu the worst lambda - mu ranks get the last
-    // (most negative) lambda - mu of them, and the scaling of init_weights is that of all mu.
+    // for i <= n / 2. With the default mu = lambda / 2, n = lambda. With another mu (given, its
+    // ratio to lambda after a restart, or lambda / 4 with SA and CMSA: Settings::mu_for), n = 2 mu,
+    // as pycma with CMA_mu (options_parameters.py:1010-1013): then the first mu are the positive
+    // weights, and the other mu the negative ones, for the worst ranks (pycma's
+    // RecombinationWeights.__call__, recombination_weights.py:191-199). With lambda > 2 mu the
+    // ranks in between get 0; with lambda < 2 mu the worst lambda - mu ranks get the last (most
+    // negative) lambda - mu of them, and the scaling of init_weights is that of all mu.
     // Computed from the raw weights of n = lambda, the weights between ranks lambda / 2 and mu
     // were positive in the negative part (#73, F8).
     const bool default_mu = mu == lambda / 2;
