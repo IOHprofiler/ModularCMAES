@@ -103,6 +103,13 @@ template <typename Distribution = rng::normal<Float>> struct Random : Sampler
 // //! Gaussian distribution sampler
 using Gaussian = Random<rng::normal<Float>>;
 
+//! E||z|| of z ~ N(0, I) of dimension d, approximately: sqrt(d) (1 - 1 / (4 d) + 1 / (21 d^2))
+inline Float expected_normal_length(const size_t d)
+{
+    const Float dd = static_cast<Float>(d);
+    return sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)));
+}
+
 /**
  * Opt-in fast Gaussian sampler (Settings.fast_sampling): standard normal numbers from xoshiro256++
  * and a ziggurat, instead of mt19937 and the inverse normal CDF of the default
@@ -124,11 +131,7 @@ struct FastGaussian : Sampler
     }
 
     //! The expected length of a d-dimensional standard normal vector
-    Float expected_length() override
-    {
-        const Float dd = static_cast<Float>(d);
-        return sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)));
-    }
+    Float expected_length() override { return expected_normal_length(d); }
 
   private:
     friend struct serialization::Access;
@@ -297,8 +300,7 @@ struct CachedSampler : Sampler
         sampler(sampler),
         cache(),
         index(0),
-        n_samples(std::max(constants::cache_min_samples,
-                           utils::nearest_power_of_2(constants::cache_max_doubles / sampler->d)))
+        n_samples(utils::cache_size(sampler->d))
     {
         cache.reserve(n_samples);
     }
@@ -437,11 +439,7 @@ struct GaussianTransformer : SampleTransformer
     {
     }
 
-    Float expected_length() override
-    {
-        const Float dd = static_cast<Float>(this->sampler->d);
-        return sqrt(dd) * (1.0 - 1.0 / (4.0 * dd) + 1.0 / (21.0 * pow(dd, 2.0)));
-    }
+    Float expected_length() override { return expected_normal_length(sampler->d); }
 
     [[nodiscard]] inline std::pair<Float, Float> box_muller(const Float u1, const Float u2)
     {

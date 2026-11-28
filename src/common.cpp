@@ -41,6 +41,12 @@ void sort_order(Eigen::Ref<const Vector> v, std::vector<size_t> &idx)
     });
 }
 
+size_t cache_size(const size_t d)
+{
+    return std::max(constants::cache_min_samples,
+                    nearest_power_of_2(constants::cache_max_doubles / d));
+}
+
 std::pair<Float, size_t> compute_ert(const std::vector<size_t> &running_times, const size_t budget)
 {
     size_t successful_runs = 0, total_rt = 0;
@@ -203,8 +209,7 @@ size_t Shuffler::next()
 
 CachedShuffleSequence::CachedShuffleSequence(const size_t d, Generator &gen) :
     dim(d),
-    n_samples(std::max(constants::cache_min_samples,
-                       utils::nearest_power_of_2(constants::cache_max_doubles / d))),
+    n_samples(utils::cache_size(d)),
     cache(n_samples * d, 0.0),
     shuffler(n_samples, gen)
 {
