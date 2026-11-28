@@ -84,23 +84,28 @@ void define_selection(nb::module_ &main)
         "Elitism",
         "Elitist (mu + lambda) selection: the parents compete with the offspring.\n\n"
         "Selected by `Modules.elitist = True` (always on for a (1+1)-ES); "
-        "`NoElitism` otherwise. From the second generation on, the mu parents (the mu best "
-        "of the previous selection, the first columns of `es.p.old_pop`) are appended to the "
-        "offspring before sorting, so the best points found so far survive. Their y and z "
-        "are recomputed in the current distribution with the current step size, "
-        "y = (x - m) / sigma and z = A^-1 y, as for a repaired point (the framework paper, "
-        "Sec. 4.1). Can speed up convergence on unimodal functions, at the cost of "
-        "diversity.")
+        "`NoElitism` otherwise. From the second generation of a run on, the parents (the mu "
+        "best of the previous selection, the first columns of `es.p.old_pop`; not the losers "
+        "of pairwise selection, nor points with f = +inf) are appended to the offspring before "
+        "sorting, so the best points found so far survive. Their y and z are recomputed in the "
+        "current distribution with the current step size, y = (x - m) / sigma and z = A^-1 y, "
+        "as for a repaired point (the framework paper, Sec. 4.1); integer variables keep their "
+        "lower bound on the step size. Not in the (1+1)-ES (`Settings.one_plus_one`): its "
+        "parent keeps the y and z it was sampled with. The selection keeps lambda of the "
+        "mu + lambda points; the dropped ones stay after the population for the active update "
+        "(`Population.n_pool`, #161). Can speed up convergence on unimodal functions, at the "
+        "cost of diversity.")
         .def(nb::init<>(), "Create the elitist selection.")
         .def("__call__",
              &Elitsm::operator(),
              nb::arg("parameters"),
-             "Append the mu parents to the current population (from the second generation "
-             "on).\n\n"
+             "Append the parents (at most mu) to the current population, with y and z "
+             "recomputed (from the second generation of a run on).\n\n"
              "Parameters\n"
              "----------\n"
              "parameters : Parameters\n"
-             "    The state of the optimizer (`es.p`); its `pop` is changed in place.");
+             "    The state of the optimizer (`es.p`); its `pop` is changed in place, and the "
+             "step sizes, y and z of the parents in `old_pop`.");
 
     nb::class_<NoElitsm, Elitsm>(
         m, "NoElitism", "No elitism, (mu, lambda) selection: only the offspring are selected "
@@ -125,8 +130,9 @@ void define_selection(nb::module_ &main)
                          "follow them, sorted by f, with their real values "
                          "(`Population.n_ranked`). So the two mirrored steps do not cancel each "
                          "other in the recombination, and the losers get no negative weights in "
-                         "the active update. Settings makes lambda even with PAIRWISE. Before "
-                         "2.0 the losers got f = +inf (#75).")
+                         "the active update. The Settings constructor makes lambda0 even with "
+                         "PAIRWISE, and turns PAIRWISE into NONE for the (1+1)-ES, lambda0 = 1 "
+                         "(#136). Before 2.0 the losers got f = +inf (#75).")
         .def(nb::init<>(), "Create the pairwise selection.")
         .def("sort",
              &Pairwise::sort,
@@ -185,15 +191,18 @@ void define_selection(nb::module_ &main)
                          "`select` applies `elitism` (the parents join the offspring), sorts "
                          "the population with `pairwise` (by objective value; with "
                          "`Mirror.PAIRWISE` the losers of the mirrored pairs last), keeps the "
-                         "first lambda and updates `es.p.stats` (the best solution and the mean "
-                         "objective value).")
+                         "first lambda (with elitism the dropped points of the pool stay after "
+                         "them, `Population.n_pool`, #161) and updates `es.p.stats`: the best "
+                         "solutions (with a bound correction, only a point in the box becomes "
+                         "`global_best`, #168), the mean objective value and `success_ratio` (a "
+                         "success: the best of the generation beats the best of the run).")
         .def(nb::init<parameters::Modules>(),
              nb::arg("modules"),
              "Create the selection that the modules ask for.\n\n"
              "Parameters\n"
              "----------\n"
              "modules : Modules\n"
-             "    The modules; `mirrored` and `elitist` choose `pairwise` and `elitsm`.")
+             "    The modules; `mirrored` and `elitist` choose `pairwise` and `elitism`.")
         .def("select",
              &Strategy::select,
              nb::arg("parameters"),
@@ -202,8 +211,8 @@ void define_selection(nb::module_ &main)
              "----------\n"
              "parameters : Parameters\n"
              "    The state of the optimizer (`es.p`); `pop` is sorted (best first; with "
-             "PAIRWISE the losers of the pairs last) and cut to lambda individuals, `stats` is "
-             "updated.")
+             "PAIRWISE the losers of the pairs last) and cut to at most lambda individuals "
+             "(`pop.n_pool`: the size of the pool before the cut), `stats` is updated.")
         .def_rw("pairwise",
                 &Strategy::pairwise,
                 "The pairwise selection: `Pairwise` with `Mirror.PAIRWISE`, `NoPairwise` "
