@@ -83,9 +83,8 @@ Vector BoundCorrection::correct_x(const Vector &xi,
     // A fixed coordinate has none either: SATURATE puts it at lb_i = ub_i (#133).
     // The method draws its random numbers (COTN, UNIFORM_RESAMPLE) for every coordinate, as with
     // a finite box.
-    const Mask finite = usable;
-    const Mask by_method = oob && finite;
-    const Mask saturated = oob && !finite;
+    const Mask by_method = oob && usable;
+    const Mask saturated = oob && !usable;
     const Vector x = correct_finite(xi, by_method, sigma, settings);
     return saturated.select(xi.cwiseMax(settings.lb).cwiseMin(settings.ub), x);
 }
