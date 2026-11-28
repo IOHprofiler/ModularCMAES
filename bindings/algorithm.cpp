@@ -365,7 +365,8 @@ void define_repelling(nb::module_ &main)
              nb::arg("solution"),
              nb::arg("radius"),
              nb::arg("metric") = Matrix(),
-             "Create a taboo point with an unbounded radius (as `CoverageRepelling` does).\n\n"
+             "Create a taboo point whose radius has no bounds (min_radius 0, max_radius inf; as "
+             "`CoverageRepelling` does).\n\n"
              "Parameters\n"
              "----------\n"
              "solution : Solution\n"
@@ -502,11 +503,14 @@ void define_repelling(nb::module_ &main)
         "of samples.\n\n"
         "Before each population the archive is sorted by criticality (`prepare_sampling`); "
         "each sample is tested against the points with criticality >= 0.01 (`is_rejected`) and "
-        "sampled again when one rejects it. After a restart, the better of the last mean and "
-        "the best solution of the run is compared with the archive by hill-valley tests (the "
-        "optimizer evaluates their points, one at a time); the subclasses add it as a new "
-        "taboo point or update the point "
-        "whose basin it shares. The base class does not add points.")
+        "sampled again when one rejects it (a mirrored pair as one). At a restart the "
+        "candidate, the better of the run's evaluated center of mass and its best solution, is "
+        "compared with the archive by hill-valley tests (Maree et al. 2018): 10 points on the "
+        "segment from a taboo point to the candidate, which the optimizer evaluates one at a "
+        "time; a point worse than both ends separates the two basins. The tests stop early when "
+        "the next point would leave too little budget for the first generation of the new run. "
+        "The subclasses add the candidate as a new taboo point or update the point whose basin "
+        "it shares. The base class runs no tests and adds no points.")
         .def(nb::init<>(), "Create a repelling with an empty archive.")
         .def("is_rejected",
              &Repelling::is_rejected,
@@ -570,8 +574,9 @@ void define_repelling(nb::module_ &main)
         "bound), sigma0 the step size of the settings and n the number of runs so far, so that "
         "points found more often repel more (de Nobel et al. 2024, Eqs. (10), (11)). The "
         "distance to a point is divided by the current sigma (Eq. (8)), so r is in units of "
-        "sigma, and sigma0^d makes it the volume in sigma0 units: the taboo regions cover "
-        "1 / coverage of the box.\n\n"
+        "sigma, and sigma0^d makes it the volume in sigma0 units: at sigma = sigma0, with the "
+        "Euclidean distance, the balls of the archive have a total volume of S / coverage when "
+        "their n_rep sum to n.\n\n"
         "sigma0 is the problem's (`Settings.sigma0`), as Eq. (10) has it, also in BIPOP's small "
         "runs, which start at sigma0 10^(-2U). r grows with the box width over sigma0: a large "
         "box with a small sigma0 gives a radius of many sigma, which rejects every sample near "
@@ -590,18 +595,19 @@ void define_repelling(nb::module_ &main)
         "Experimental: modcma's own work in progress, without a published source. In the "
         "experiment of #158 (BBOB f21 and f22, d = 5 to 40, RESTART and IPOP, 240 runs) it "
         "solved 99 runs, against 107 without repelling and 144 with COVERAGE.\n\n"
-        "A new taboo point gets the radius initial_radius_factor / sqrt(d), bounded to "
+        "A new taboo point gets the radius initial_radius_factor / sqrt(d) and the bounds "
         "[min_radius_factor, max_radius_factor] / sqrt(d). When a run ends in the basin of a "
         "point again (the first one in the archive that shares it), its radius grows by "
         "exp(grow_eta * min(w, max_waste_ratio)), with w the evaluations of that run divided by "
-        "their running average (`average_restart_evaluations`: every run counted from the "
-        "previous restart, the first from the start, also a run without a finite result; the "
-        "average starts from the first run's length. Before 2.0 the first run counted as one "
-        "evaluation and the average started at 1, #121). After each population, the radius of "
-        "a critical point shrinks "
-        "by shrink_factor when the share of rejected samples of the population exceeds "
+        "their running average, which includes that run (`average_restart_evaluations`: every "
+        "run counted from the previous restart, the first from the start, also a run without a "
+        "finite result; the average starts from the first run's length. Before 2.0 the first "
+        "run counted as one evaluation and the average started at 1, #121). The point also "
+        "keeps the better solution. After each population, the radius of a critical point "
+        "shrinks by shrink_factor when the share of rejected samples of the population exceeds "
         "max_rejection_rate and the point's own rejection rate exceeds "
-        "local_max_rejection_rate (after at least min_checks_before_local_shrink checks).")
+        "local_max_rejection_rate (after at least min_checks_before_local_shrink checks). "
+        "A radius that grows or shrinks is clamped to [min_radius, max_radius] of its point.")
         .def(nb::init<>(), "Create an adaptive repelling with an empty archive.")
         .def("initial_radius",
              &AdaptiveRepelling::initial_radius,
