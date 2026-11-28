@@ -305,7 +305,7 @@ def get_configspace(
     `sample_transformation` has no `NONE` (raw uniform samples, a testing option that fails
     everywhere). The numeric hyperparameters are:
 
-    - `lambda0` and `mu0`: integers in [1, 50 * dim], log scale, with the condition mu0 <= lambda0;
+    - `lambda0` and `mu0`: integers in [1, 50 * dim], log scale; mu0 > lambda0 is forbidden;
     - `sigma0`: a normal distribution around its default, truncated to [1e-15, 1e15];
     - `cs`, `cc`, `cmu`, `c1` in [0, 1] and `damps` in [0, 10]: normal distributions around
       their defaults. The lower bound of `cs`, `cc` and `damps` is 1e-6, because `Settings`
@@ -324,15 +324,16 @@ def get_configspace(
     Hyperparameters without an effect are inactive (ConfigSpace conditions, absent from a sampled
     configuration):
 
-    - `active` needs a `matrix_adaptation` other than `NONE` and `lambda0` above 1;
+    - `active` needs a `matrix_adaptation` other than `NONE` and `CMSA`, and `lambda0` above 1
+      (`Settings` switches it off otherwise);
     - `center_placement` and `repelling_type` are inactive for `restart_strategy` `STOP` (the
       criteria stop the run; `NONE` still restarts when the adaptation fails), and
       `repelling_metric` needs `repelling_type` other than `NONE`;
     - `cs` is inactive when `ssa` is `SR` or `SA` and `matrix_adaptation` is `NONE`, `CMSA`
       or `NATURAL_GRADIENT`; `damps` for `TPA`, `XNES`, `MXNES`, `LPXNES` and `SA`;
     - `cc` is inactive for `matrix_adaptation` `NONE`, `MATRIX` and `CMSA`;
-    - `cmu` and `c1` are inactive for `NONE`, and for `CMSA` and
-      `NATURAL_GRADIENT` without `active` (with `active` they scale the negative weights);
+    - `cmu` and `c1` are inactive for `NONE` and `CMSA`, and for `NATURAL_GRADIENT` without
+      `active` (with `active` they scale its negative weights);
     - `mu0`, `elitist`, `sequential_selection`, `weights` and `ssa` need `lambda0` above 1
       (a (1+1)-ES has mu = 1, is elitist, with equal weights, and runs `SR` whatever `ssa` is);
       `damps` is active for `lambda0` = 1, which runs `SR`.
@@ -593,8 +594,8 @@ def preset(name: str, dim: int, **config: Any) -> Settings:
     Examples
     --------
     >>> settings = preset("sep-cma", 10, budget=5000)
-    >>> settings.modules.matrix_adaptation
-    <MatrixAdaptationType.SEPARABLE: 2>
+    >>> settings.modules.matrix_adaptation.name
+    'SEPARABLE'
     """
     key = str(name).strip().lower().replace("_", "-")
     if key not in _PRESETS:
@@ -630,14 +631,16 @@ def fmin(
     sigma0 : float
         The initial step size (rule of thumb: 0.3 * (ub - lb)).
     budget : int
-        The maximum number of function evaluations, at least one generation (lambda0, and
-        TPA's two points); a smaller budget raises ValueError.
+        The maximum number of function evaluations. It must hold the first generation (lambda0,
+        and TPA's two points) and the evaluation of the final center of mass that ends every
+        run; a smaller budget raises ValueError.
     preset : str, optional
         The name of a published algorithm (see `modcma.preset`), e.g. `"sep-cma"`. The keyword
         arguments below override it.
     gradient : callable, optional
         The gradient of `func`, called with a (d,) numpy array; returns d numbers. Every
-        generation, a point along the negative gradient from the mean replaces one sample
+        generation, it is called at the center of mass, and a point along the negative gradient
+        from there replaces one sample
         (gradient injection, `ModularCMAES.inject_gradient`). It costs no evaluations; a bad
         gradient costs the replaced sample.
     **kwargs
@@ -647,8 +650,8 @@ def fmin(
     Returns
     -------
     xopt : numpy.ndarray
-        (d,) the best feasible point found, `es.p.stats.global_best` (a copy: it does not change
-        if the run continues). With a bound correction it lies in [lb, ub] (#168).
+        (d,) the best point found, `es.p.stats.global_best.x` (a copy: it does not change if
+        the run continues). With a bound correction, the best point in [lb, ub] (#168).
     fopt : float
         The objective value of xopt.
     evals : int
