@@ -1678,16 +1678,19 @@ void define_es(nb::module_ &main)
         "Two simple evolution strategies, as baselines.\n\n"
         "OnePlusOneES is a (1+1)-ES with a success rule, MuCommaLambdaES a (mu, lambda)-ES with "
         "self-adapted coordinate-wise step sizes. Of the Modules they use only the sampler "
-        "(sampler, sample_transformation, mirrored, orthogonal) and bound_correction, with the "
-        "fixed box [-5, 5]^d. They draw from the global random generator (set_seed).");
+        "(sampler, sample_transformation, orthogonal) and bound_correction, with the fixed box "
+        "[-5, 5]^d. mirrored samples no pairs here (ModularCMAES forms its mirrored pairs in the "
+        "mutation step, #75); with orthogonal it only changes how the samples are grouped into "
+        "orthogonal blocks. They draw from the global random generator (set_seed).");
     using namespace es;
     nb::class_<OnePlusOneES>(
         m,
         "OnePlusOneES",
         "A (1+1)-ES with a success rule for the step size.\n\n"
         "Every step samples x1 = x + sigma z, evaluates it and keeps it when it is better than "
-        "x. sigma is multiplied by exp(0.8)**decay after a success and by exp(-0.2)**decay "
-        "otherwise, with decay = 1 / sqrt(d + 1).")
+        "x (with a bound correction, only when it lies in the box [-5, 5]^d, #168). sigma is "
+        "multiplied by exp(0.8)**decay after a success and by exp(-0.2)**decay otherwise, with "
+        "decay = 1 / sqrt(d + 1).")
         .def(nb::init<size_t, Vector, Float, Float, size_t, Float, parameters::Modules>(),
              nb::arg("d"),
              nb::arg("x0"),
@@ -1775,7 +1778,8 @@ void define_es(nb::module_ &main)
              "sigma0 : float, default 1.0\n"
              "    The initial step size of every coordinate.\n"
              "budget : int, default 10000\n"
-             "    The maximum number of evaluations (checked before each generation).\n"
+             "    The maximum number of evaluations: a generation runs only when its lambda "
+             "evaluations fit.\n"
              "target : float, default 1e-8\n"
              "    Stop when f_min is at most target.\n"
              "modules : Modules, default Modules()\n"
@@ -1783,7 +1787,8 @@ void define_es(nb::module_ &main)
         .def(
             "__call__",
             [](MuCommaLambdaES &es, FunctionType objective) { es(objective); },
-            "Run generations until e reaches budget or f_min is at most target.\n\n"
+            "Run generations while the next one fits the budget (e + lambda <= budget) and f_min "
+            "is above target.\n\n"
             "The argument is the objective function, called with a (d,) array.")
         .def(
             "step",
@@ -1792,7 +1797,8 @@ void define_es(nb::module_ &main)
             "The argument is the objective function, called with a (d,) array.")
         .def("sample",
              &MuCommaLambdaES::sample,
-             "A point m + si * z for the (d,) step sizes si, bound corrected; not evaluated.")
+             "A point m + si * z for the (d,) step sizes si (the argument), bound corrected; not "
+             "evaluated.")
         .def_rw("d", &MuCommaLambdaES::d, "The dimension.")
         .def_rw("lamb", &MuCommaLambdaES::lambda, "The number of offspring, 5 d.")
         .def_rw("mu", &MuCommaLambdaES::mu, "The number of parents, lambda // 4.")
@@ -1800,10 +1806,12 @@ void define_es(nb::module_ &main)
         .def_rw("m", &MuCommaLambdaES::m, "(d,) array: the mean.")
         .def_rw("X",
                 &MuCommaLambdaES::X,
-                "(d, lambda) array: the offspring of the last generation, sorted by f.")
+                "(d, lambda) array: the offspring of the last generation, sorted by f (not set "
+                "before the first generation).")
         .def_rw("S",
                 &MuCommaLambdaES::S,
-                "(d, lambda) array: the step sizes of the offspring, in the order of X.")
+                "(d, lambda) array: the step sizes of the offspring, in the order of X (not set "
+                "before the first generation).")
         .def_rw("f",
                 &MuCommaLambdaES::f,
                 "(lambda,) array: the objective values of the offspring, sorted.")
