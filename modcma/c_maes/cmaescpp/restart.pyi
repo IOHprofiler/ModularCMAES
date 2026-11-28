@@ -289,7 +289,7 @@ class TolX(Criterion):
     """
 
     def __init__(self) -> None:
-        """The criterion."""
+        """The criterion; `sigma_start` is set by the first reset."""
 
     @property
     def tolx_vector(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
@@ -299,6 +299,15 @@ class TolX(Criterion):
 
     @tolx_vector.setter
     def tolx_vector(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
+
+    @property
+    def sigma_start(self) -> float:
+        """
+        The step size at the start of the run, set at every reset; the threshold is tolerance * sigma_start.
+        """
+
+    @sigma_start.setter
+    def sigma_start(self, arg: float, /) -> None: ...
 
     tolerance: ClassVar[float] = ...
     """The tolerance (default 1e-11)."""

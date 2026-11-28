@@ -41,6 +41,15 @@ class TestCriteria(unittest.TestCase):
         self.assertEqual(len(self.cma.p.criteria.items), 4)
         self.assertEqual(self.cma.p.criteria.items[-1].name, "MyCriterionc3")
 
+    def test_the_criteria_relative_to_the_start_of_the_run_show_sigma_start(self):
+        # TolX, MaxDSigma and MinDSigma compare with the step size at the start of the run
+        items = {c.name: c for c in self.cma.p.criteria.items}
+        self.cma.p.mutation.sigma = 0.25
+        for name in ("TolX", "MaxDSigma", "MinDSigma"):
+            with self.subTest(name=name):
+                items[name].reset(self.cma.p)
+                self.assertEqual(items[name].sigma_start, 0.25)
+
 
 if __name__ == "__main__":
     unittest.main()
