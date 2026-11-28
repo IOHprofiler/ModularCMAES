@@ -1375,7 +1375,10 @@ void define_cmaes(nb::module_ &m)
         "(p.stats.global_best), is in p.\n\n"
         "With the gradient of the objective, run(f, gradient=g) (or, with ask-tell, "
         "inject_gradient()) puts a point along the negative gradient into every population "
-        "(gradient injection).")
+        "(gradient injection).\n\n"
+        "pickle, copy.deepcopy and copy.copy save and restore the whole state at any point of a "
+        "run, also between ask() and tell(); the loaded optimizer continues bit for bit. The "
+        "objective is not saved: pass it again (#91).")
         .def(nb::init<std::shared_ptr<parameters::Parameters>>(),
              nb::arg("parameters"),
              "An optimizer that works on the given Parameters (shared, not copied: p is "
@@ -1433,7 +1436,8 @@ void define_cmaes(nb::module_ &m)
             nb::arg("gradient") = nb::none(),
             "Sample and evaluate a generation: the first step of a generation.\n\n"
             "Restarts first when a restart criterion holds (the run that ends evaluates its "
-            "center of mass with objective). Then select(), recombine() and adapt() complete the "
+            "center of mass with objective, and repelling the points of its hill-valley tests). "
+            "Then select(), recombine() and adapt() complete the "
             "generation. Every call samples a new generation, as in 1.x; only a generation that "
             "ask() started is completed instead (its points evaluated with objective). When the "
             "optimizer stops (stop_conditions()), it evaluates the final center of mass instead "
@@ -1450,9 +1454,10 @@ void define_cmaes(nb::module_ &m)
         .def("select",
              &ModularCMAES::select,
              "Select the individuals of the evaluated generation: the second step.\n\n"
-             "Applies pairwise selection (mirrored PAIRWISE) and elitism (the parents join the "
-             "offspring), sorts the population by f, keeps lambda individuals and updates the "
-             "statistics (current_avg, current_best, global_best). Raises RuntimeError while the "
+             "Applies elitism ((mu + lambda) selection: the parents join the offspring), sorts "
+             "the population by f (with mirrored PAIRWISE, the losers of the pairs last), keeps "
+             "at most lambda individuals and updates the statistics (current_avg, current_best, "
+             "global_best, success_ratio); see selection.Strategy. Raises RuntimeError while the "
              "points of a generation wait for their values (after ask(), or an interrupted "
              "mutate() or step()).")
         .def("adapt",
@@ -1474,7 +1479,10 @@ void define_cmaes(nb::module_ &m)
              nb::arg("gradient") = nb::none(),
              "Run one generation (with a restart first, when one is due).\n\n"
              "When the optimizer stops (stop_conditions()), the call evaluates the final center "
-             "of mass instead, one evaluation, and returns False.\n\n"
+             "of mass instead, one evaluation, and returns False. step() does not check "
+             "break_conditions() first: called after the optimizer has stopped, it runs another "
+             "generation, which can exceed the budget (run() checks before every "
+             "generation).\n\n"
              "Parameters\n"
              "----------\n"
              "objective : callable\n"
@@ -1539,16 +1547,25 @@ void define_cmaes(nb::module_ &m)
              &ask,
              "The points to evaluate next, a new (k, d) array (row i is point i).\n\n"
              "Starts a generation when none is in progress; until tell(), it returns the same "
-             "points. k >= 1 is the largest batch that can be evaluated in any order: usually "
-             "lambda (lambda + 2 with TPA step-size adaptation; lambda after a generation whose "
-             "elitist selection kept every parent, when TPA skips its points). With sequential "
-             "selection, the points up to the first one after which the generation may stop, "
-             "then one point at a time (a pair with pairwise mirroring). Every run ends with its "
-             "center of mass, "
-             "one point: a restart asks for it first and, with repelling restarts, for the "
-             "points of the hill-valley tests, one at a time; when the optimizer stops "
-             "(stop_conditions()), the last ask() returns it, and break_conditions() holds after "
-             "its tell().")
+             "points (call it again after inject_gradient()). k >= 1 is the largest batch that "
+             "can be evaluated in any order:\n\n"
+             "- usually lambda; with ssa=TPA lambda + 2, its two test points, except after a "
+             "generation whose elitist selection kept every parent (#179). TPA_INPLACE adds no "
+             "points.\n"
+             "- with sequential selection, the points up to the first one after which the "
+             "generation may stop (with TPA's two), then one point at a time (a pair with "
+             "mirrored PAIRWISE).\n"
+             "- one point, the center of mass, at the end of every run: a restart asks for it "
+             "first and, with repelling restarts, then for the points of the hill-valley tests, "
+             "one at a time; when the optimizer stops (stop_conditions()), the last ask() "
+             "returns it, and break_conditions() holds after its tell().\n\n"
+             "ask() does not check break_conditions(): after the optimizer has stopped, it starts "
+             "another generation.\n\n"
+             "Returns\n"
+             "-------\n"
+             "numpy.ndarray\n"
+             "    (k, d), in the space of the objective; a copy, so changing it does not change "
+             "the optimizer (give changed points to tell(f, X)).")
         .def("tell",
              &tell,
              nb::sig("def tell(self, f: numpy.typing.ArrayLike, X: numpy.typing.ArrayLike | None "
@@ -1566,7 +1583,11 @@ void define_cmaes(nb::module_ &m)
              "    (k, d), or (d,) for one point: the points that were evaluated, when they "
              "differ from the asked ones (repaired or injected solutions). A row that differs "
              "from the asked point replaces it; for an individual of the population, its y and "
-             "z are derived from the row with its step size, as for elitism.\n\n"
+             "z are derived from the row with its step size, as for elitism. Such an individual "
+             "far outside the distribution enters the update clipped: z is shortened to a length "
+             "of at most sqrt(d) + 2 d / (d + 2), and y with it (Hansen 2011, \"Injecting "
+             "external solutions into CMA-ES\"; pycma); the statistics keep the evaluated point "
+             "and its value.\n\n"
              "Returns\n"
              "-------\n"
              "bool\n"
@@ -1636,11 +1657,11 @@ void define_cmaes(nb::module_ &m)
              "final center of mass, and break_conditions() holds after it.\n\n"
              "True when one of these holds: p.stats.t reached settings.max_generations; the "
              "best objective value is at most settings.target; the next generation (lambda "
-             "points, and the 2 extra points of TPA, also when the generation skips them) "
+             "points, and with ssa=TPA its 2 test points, also when the generation skips them) "
              "would leave no evaluation of settings.budget for the final center of mass; a "
-             "restart is due, but its center, "
-             "the smallest first generation of the new run and its center of mass would exceed "
-             "settings.budget; or restart_strategy is STOP and a restart criterion holds.")
+             "restart is due, but its center, the smallest first generation of the new run (2 "
+             "points, and TPA's 2) and that run's center of mass would exceed settings.budget; "
+             "or restart_strategy is STOP and a restart criterion holds.")
         .def_ro("p",
                 &ModularCMAES::p,
                 "The Parameters: the state of the optimizer (settings, modules, population, "
