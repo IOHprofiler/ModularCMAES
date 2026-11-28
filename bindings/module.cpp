@@ -49,7 +49,9 @@ void define_constants(nb::module_ &m)
         "Global switches of the library, as static properties (`constants.eigen_solver = 0`).\n\n"
         "They are process-wide: a change applies to every optimizer, also to ones that exist "
         "already, except for the cache settings, which are read when a sampler is created. Set "
-        "them before creating optimizers, and not while optimizers run in other threads.")
+        "them before creating optimizers, and not while optimizers run in other threads. They "
+        "are not part of the saved state of an optimizer (pickle): a loaded run continues with "
+        "the values of the process that loads it.")
         .def_prop_rw_static(
             "cache_max_doubles",
             [](nb::handle) { return constants::cache_max_doubles; },
@@ -90,7 +92,8 @@ void define_constants(nb::module_ &m)
             "False).\n\n"
             "False: every uniform number is mapped to a normal one with the inverse normal CDF. "
             "True: pairs of uniform numbers are mapped with Box-Muller, a different "
-            "random stream.")
+            "random stream. No effect with `Settings.fast_sampling`, whose sampler (UNIFORM with "
+            "GAUSSIAN) draws normal numbers with a ziggurat.")
         .def_prop_rw_static(
             "eigen_solver",
             [](nb::handle) { return constants::eigen_solver; },
@@ -104,6 +107,9 @@ void define_constants(nb::module_ &m)
                 constants::eigen_solver = a;
             },
             "The eigendecomposition of the covariance matrix (COVARIANCE) (default -1).\n\n"
+            "Also used for `Adaptation.metric()` of the matrix adaptations that compute it when "
+            "asked (all but COVARIANCE, SEPARABLE and NONE), and for the square root of "
+            "`Settings.C0` of MATRIX and NATURAL_GRADIENT. "
             "-1: automatic, LAPACK dsyevd from `lapack_min_dim` on when LAPACK is available, "
             "Eigen below; 0: Eigen's SelfAdjointEigenSolver; 1: LAPACK dsyevd (divide and "
             "conquer); 2: LAPACK dsyevr (MRRR). 1 and 2 raise ValueError without LAPACK "
@@ -123,6 +129,7 @@ void define_constants(nb::module_ &m)
                 constants::cholesky_solver = a;
             },
             "The Cholesky factorization of CMSA and COVARIANCE_NO_EIGV (default -1).\n\n"
+            "Also used for the factor of `Settings.C0` of CHOLESKY and CMSA. "
             "-1: automatic, LAPACK dpotrf from `lapack_min_dim` on when LAPACK is available, "
             "Eigen below; 0: Eigen's LLT; 1: LAPACK dpotrf (raises ValueError without LAPACK).")
         .def_prop_rw_static(
@@ -151,8 +158,8 @@ void define_constants(nb::module_ &m)
             [](nb::handle, size_t a) { constants::lapack_min_dim = a; },
             "The dimension from which `eigen_solver` = -1 and `cholesky_solver` = -1 use LAPACK "
             "(default 120).\n\n"
-            "Below it, Eigen's decompositions are faster (docs/performance.md, \"LAPACK and BLAS in "
-            "high dimension\").");
+            "Below it, Eigen's decompositions are faster (docs/performance.md, \"LAPACK and BLAS "
+            "in high dimension\").");
 }
 
 void define_options(nb::module_ &main)
