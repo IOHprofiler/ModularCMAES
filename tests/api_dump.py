@@ -106,9 +106,6 @@ ACCEPTED = {
     "overload not accepted: cmaescpp.parameters.Weights.__init__(Settings, expected_length_z)":
         "internal: the argument is named settings (it was named after its type; this signature "
         "is not in 1.2.0, whose Weights took dimension, mu0, lambda0, modules)",
-    "missing: cmaescpp.matrix_adaptation.NoAdaptation.__repr__":
-        "inherited: Adaptation's repr names the class of the object, so NoAdaptation needs no "
-        "copy of its own",
 }
 # #136: derived from lb and ub, which recompute them; a value set directly was inconsistent with
 # the bounds (db is the width the bound corrections use, center the default x0)
@@ -291,6 +288,20 @@ def notes(reference: dict, current: dict) -> list:
     return sorted(set(out))
 
 
+def member_of(dump: dict, name: str, member: str):
+    """The member of class ``name`` in a dump, its own or inherited from a base class (the
+    bases are looked up in the submodule of the class, where all bound bases are)."""
+    entry = dump.get(name, {})
+    if member in entry.get("members", {}):
+        return entry["members"][member]
+    module = name.rsplit(".", 1)[0]
+    for base in entry.get("bases", []):
+        found = member_of(dump, f"{module}.{base}", member)
+        if found is not None:
+            return found
+    return None
+
+
 def compare(reference: dict, current: dict) -> list:
     problems = []
     for name, ref in reference.items():
@@ -301,7 +312,7 @@ def compare(reference: dict, current: dict) -> list:
         problems += compare_entry(name, ref, cur)
         if ref["kind"] == "class":
             for member, ref_member in ref["members"].items():
-                cur_member = cur.get("members", {}).get(member)
+                cur_member = member_of(current, name, member)
                 if cur_member is None:
                     problems.append(f"missing: {name}.{member}")
                 else:
