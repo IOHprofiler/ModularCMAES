@@ -140,7 +140,7 @@ CONFIGS = {
     "sa": {"ssa": "SA"},
     "sa_cmsa_equal": {"ssa": "SA", "matrix_adaptation": "CMSA", "weights": "EQUAL"},
     "sa_elitist": {"ssa": "SA", "elitist": True},
-    "lpxnes": {"ssa": "LPXNES"},
+    # lpxnes: above (#72)
     "sample_sigma": {"sample_sigma": True},
     "sample_sigma_tpa": {"sample_sigma": True, "ssa": "TPA"},
     # #98: TPA's points corrected into the box (a box of +-4: BBOB's optima lie in [-4, 4]^d)
@@ -273,8 +273,10 @@ def run(output: str, processes: int, configs=None, dims=DIMS):
 def compare(old_path: str, new_path: str) -> int:
     from scipy.stats import mannwhitneyu
 
-    old = json.load(open(old_path))["runs"]
-    new = json.load(open(new_path))["runs"]
+    with open(old_path) as f:
+        old = json.load(f)["runs"]
+    with open(new_path) as f:
+        new = json.load(f)["runs"]
     tests = []
     old = {cell: runs for cell, runs in old.items() if cell in new}
     for cell in old:
