@@ -51,11 +51,13 @@ ctest --test-dir build --output-on-failure
   (`python -m tests.golden write`), and CI produces the fixtures of the other toolchains as
   artifacts.
 * **The saved state.** A run that is pickled and loaded continues bit for bit (#91). A new member of
-  a class that changes during a run is written and read in `src/serialization.cpp` (or named there
-  as not saved, with the reason); a new class of a module gets a type tag there and
-  `def_pickle` in the bindings. `python -m tests.golden check --drivers resume` checks that runs
-  resumed at every generation, between every `ask()` and `tell()` and between the 1.x steps match
-  the fixture. A change of what is written increases `serialization::format_version`.
+  a class that changes during a run gets a line in the class's `io()` in `src/serialization.cpp`,
+  which both writes and reads it (or is named there as not saved, with the reason); a new class of
+  a module gets a type tag there and `def_pickle` in the bindings.
+  `python -m tests.golden check --drivers resume` checks that runs resumed at every generation,
+  between every `ask()` and `tell()` and between the 1.x steps match the fixture. A change of what
+  is written increases `serialization::format_version`; `tests/test_c_state_format.py` checks that
+  the states of format 1 still load.
 * **Docstrings.** Every name bound in `bindings/*.cpp` has a docstring (numpy style). After a
   change of the bindings, regenerate the stubs with `python tools/gen_stubs.py` and commit them;
   `tests/test_c_stubs.py` checks that nothing is undocumented.
