@@ -2012,7 +2012,11 @@ void define_mutation(nb::module_ &main)
         "Cumulative step-size adaptation (`StepSizeAdaptation.CSA`, the default).\n\n"
         "sigma *= exp(l), l = (cs / damps) (||ps|| / E||z|| - 1) clamped to [-1, 1] (as in "
         "pycma): sigma grows when the evolution path ps is longer than under random selection "
-        "and shrinks when it is shorter. Hansen & Ostermeier (2001).");
+        "and shrinks when it is shorter. E||z|| is the expected length of a sample of the "
+        "sampler (`Weights.expected_length_z`). By default cs = (mueff + 2) / (d + mueff + 5) "
+        "and damps = 1 + 2 max(0, sqrt((mueff - 1) / (d + 1)) - 1) + cs (Hansen 2016, Eqs. "
+        "(44), (55)); modcma 1.1 and 1.2 used pycma's denominator d + mueff + 3 for cs (#138). "
+        "Hansen & Ostermeier (2001).");
     strategy_init(ssa_csa);
     auto ssa_tpa = nb::class_<TPA, Strategy>(
         m,
@@ -2023,8 +2027,11 @@ void define_mutation(nb::module_ &main)
         "with the step size that sampled it (Hansen, CMA-ES with Two-Point Step-Size "
         "Adaptation, 2008, Eqs. (8), (9), alpha = 0.5). s = (1 - cs) s + cs r, with r = "
         "-a_tpa when the point behind is better, a_tpa + b_tpa when the point ahead is better "
-        "and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s). Costs two "
-        "evaluations per generation. A tie as in pycma. Before 2.0 the points were "
+        "and 0 for a tie (as after a restart, when dm = 0), and sigma *= exp(s), with cs = 0.3 "
+        "by default (Hansen 2008, Eqs. (10) to (13); `damps` is not used). Costs two "
+        "evaluations per generation. A tie gives r = 0, as the sign of the rank difference in "
+        "pycma; Hansen (2008, Eq. (10)) counts it as a success, which made sigma grow by 16 % "
+        "after every restart (#78). Before 2.0 the points were "
         "m +- sigma dm with the new sigma, about one step of the mean (#167). With a bound "
         "correction other than "
         "NONE both points move toward m by the same factor until both are in the box, so the "
@@ -2045,12 +2052,18 @@ void define_mutation(nb::module_ &main)
         .def_rw("a_tpa", &TPA::a_tpa, "The magnitude of r (default 0.5).")
         .def_rw("b_tpa",
                 &TPA::b_tpa,
-                "The offset added to r when the forward point is better (default 0).")
-        .def_rw("rank_tpa", &TPA::rank_tpa, "The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0).")
+                "The offset added to r when the forward point is better (default 0). Hansen "
+                "(2008, Eq. (10)) adds his beta to the other case, r = -a_tpa + beta; with the "
+                "default 0 the two agree.")
+        .def_rw("rank_tpa",
+                &TPA::rank_tpa,
+                "The last r: -a_tpa, a_tpa + b_tpa or 0 (default 0); -a_tpa also after a "
+                "generation whose elitist selection kept every parent.")
         .def_rw("sigma_old",
                 &TPA::sigma_old,
                 "The step size that sampled the last generation, before the update changed "
-                "it: the test steps are 0.5 sigma_old dm (sigma0 at the start of a run).");
+                "it: the test steps are 0.5 sigma_old dm. At the start of a run, the step size "
+                "the run starts with (sigma0, or the step size of the restart).");
     strategy_init(ssa_tpa);
     auto ssa_msr = nb::class_<MSR, Strategy>(
         m,
@@ -2061,7 +2074,10 @@ void define_mutation(nb::module_ &main)
         "pycma): s = (1 - cs) s + cs (2 / lambda) (k - lambda / 2) and "
         "sigma *= exp(s / damps), with cs = 0.3 and damps = 2 - 2 / d (1 for d = 1) by "
         "default: sigma grows when the median offspring beats the j-th best of the previous "
-        "generation. Ait ElHara, Auger & Hansen (2013).")
+        "generation. Ait ElHara, Auger & Hansen (2013).\n\n"
+        "lambda is the number of ranked individuals of each generation: fewer after "
+        "sequential selection stopped it, and with PAIRWISE only the winners of the mirrored "
+        "pairs (Auger et al. 2011, Alg. 1).")
         .def_rw("quantile",
                 &MSR::quantile,
                 "The position j / lambda of the previous generation's value that the offspring "
@@ -2071,8 +2087,11 @@ void define_mutation(nb::module_ &main)
         m,
         "PSR",
         "Population success rule (`StepSizeAdaptation.PSR`).\n\n"
-        "The current and the previous population are ranked together; with z the difference "
-        "of their summed ranks (previous minus current) divided by n^2, minus success_ratio: "
+        "The n best individuals of the current and of the previous population are ranked "
+        "together, n the smaller number of ranked individuals of the two (fewer than lambda "
+        "after a stop of sequential selection; with PAIRWISE the winners of the mirrored "
+        "pairs). With z the difference of their summed ranks (previous minus current) divided "
+        "by n^2, minus success_ratio: "
         "s = (1 - cs) s + cs z and sigma *= exp(s / damps), with cs = 0.3 and damps = 1 by "
         "default (Loshchilov 2014, Alg. 6). Equal values share their mean rank (mid-ranks; "
         "the paper does not say), so a tie counts for neither population; with elitism the "
@@ -2102,7 +2121,10 @@ void define_mutation(nb::module_ &main)
         "A variant of the xNES step-size update on the mean step "
         "(`StepSizeAdaptation.MXNES`).\n\n"
         "sigma *= exp((cs / d) (mueff ||dz||^2 - d)), with dz the weighted mean of the "
-        "selected z: sigma grows when the mean step is longer than under random selection. "
+        "selected z (`Adaptation.dz`) and cs = 1 by default (Krause et al. 2017, Sec. 4.3, "
+        "Table 3): sigma grows when the mean step is longer than under random selection. "
+        "With UTILITY weights dz recombines all lambda z with their utilities, and mueff is "
+        "theirs (`Weights.mueff_mean`). "
         "m-xNES of Krause, Glasmachers & Igel (2017), "
         "\"Qualitative and quantitative assessment of step size adaptation "
         "rules\".");
@@ -2129,10 +2151,11 @@ void define_mutation(nb::module_ &main)
         "SR",
         "The success rule of the (1+1)-CMA-ES (`StepSizeAdaptation.SR`; always used when "
         "lambda = 1).\n\n"
-        "sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the smoothed rate of "
-        "successes (`es.p.stats.success_ratio`): a generation is a success when its best "
-        "individual is better than the best of the run so far (with elitism, the parent). The "
-        "target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. (2006).\n\n"
+        "sigma *= exp((p_s - p_t) / (damps (1 - p_t))), with p_s the rate of successes, "
+        "smoothed with weight 1/12 (`es.p.stats.success_ratio`): a generation is a success "
+        "when its best individual is better than the best of the run so far (with elitism, the "
+        "parent). The target p_t = 2/11 and damps = 1 + d / 2 by default. Igel et al. "
+        "(2006).\n\n"
         "The rule is designed for elitist selection, where the parent is the best point so "
         "far. Without elitism, the best of the run takes the parent's role: comparing with the "
         "previous generation's best instead would count a success about every other "
@@ -2145,10 +2168,13 @@ void define_mutation(nb::module_ &main)
         "Self-adaptation of the step size (`StepSizeAdaptation.SA`).\n\n"
         "Every individual samples its own step size sigma_i = sigma exp(n_i / sqrt(2 d)) (a "
         "`SigmaSampler` is always used; CMSA's tau = 1 / sqrt(2 d)); sigma is multiplied by "
-        "the weighted geometric mean of the step sizes of the mu selected individuals divided "
-        "by the geometric mean over the whole population (Beyer & Sendhoff 2008, with the "
-        "correction of Ahrari et al. 2017). The step size of an individual is the geometric "
-        "mean of its column of `pop.S`. With SA the default mu is lambda / 4.");
+        "the weighted geometric mean of the step sizes of the mu selected individuals "
+        "(`Weights.positive`) divided by the geometric mean of the step sizes of all "
+        "offspring of the generation, taken before elitism adds the parents (the CMSA-ES "
+        "operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of "
+        "Ahrari et al. 2017, as the framework paper describes). The step size of an individual "
+        "is the geometric mean of its column of `pop.S`; a parent of elitism has the "
+        "generation's sigma. With SA the default mu is lambda / 4.");
     strategy_init(ssa_sa);
     auto ssa_tpa_inplace = nb::class_<TPAInPlace, Strategy>(
         m,
@@ -2158,7 +2184,8 @@ void define_mutation(nb::module_ &main)
         "pycma 4.6.0's CMAAdaptSigmaTPA (sigma_adaptation.py, evolution_strategy.py:2251-2254, "
         "2575-2576), after Hansen, Atamna & Auger (2014), How to Assess Step-Size Adaptation "
         "Mechanisms in Randomised Search, Eq. (6) and Algorithm 3. From the second generation "
-        "of a run on, the first two offspring are a mirrored pair along the last mean shift: "
+        "of a run on (in a population of at least two), the first two offspring are a mirrored "
+        "pair along the last mean shift: "
         "z_1 = ||n|| A^-1 dm / ||A^-1 dm|| with n an ordinary sample of the sampler, z_2 = -z_1 "
         "(both at the mean when it did not move); they are part of the lambda offspring, so "
         "TPA_INPLACE needs no extra evaluations. Once the offspring are evaluated, z = "
@@ -2168,8 +2195,9 @@ void define_mutation(nb::module_ &main)
         "Where pycma departs from the paper, and modcma follows pycma: |z|^0.5 instead of z; "
         "the damping (the paper: sqrt(d), tuned on the sphere with the default lambda); and "
         "the update in the first generation of a run, from the ranks of two ordinary samples "
-        "(the paper updates from the second generation on). A^-1 dm costs a triangular solve "
-        "with most matrix adaptations; MATRIX keeps M^-1 up to date for it, as with elitism; "
+        "(the paper updates from the second generation on). A^-1 dm costs O(d^2) with most "
+        "matrix adaptations (a triangular solve, or B^T and D); MATRIX keeps M^-1 up to date "
+        "for it, as with elitism; "
         "NATURAL_GRADIENT inverts A every generation (O(d^3)). With sampled step sizes the "
         "second point takes the step size of the first; bound correction and repelling treat "
         "the two as a pair, as a mirrored pair.\n\n"
