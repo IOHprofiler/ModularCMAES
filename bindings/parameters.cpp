@@ -73,7 +73,8 @@ void define_population(nb::module_ &main)
         "active columns that shares memory with the population: X, X_transformed, Z, Y and S are "
         "(d, n) matrices, f and t are (n,) vectors. Assigning an array replaces the whole buffer "
         "and leaves n unchanged. The buffers can hold more than n columns, e.g. after sequential "
-        "selection stopped a generation early; those columns hold no population data.\n\n"
+        "selection stopped a generation early; those columns hold no population data, except "
+        "the points that elitist selection dropped (see n_pool).\n\n"
         "A view is valid until the next generation: the optimizer then swaps pop and old_pop, "
         "and a restart or a larger population replaces the buffers (the view would read freed "
         "memory). Copy an array (`.copy()`) to keep its values.")
@@ -81,7 +82,8 @@ void define_population(nb::module_ &main)
              nb::arg("dimension"),
              nb::arg("n"),
              "A population of n individuals in the given dimension.\n\n"
-             "f is +inf for every individual; the other arrays are not initialised.")
+             "f is +inf for every individual; the other arrays are 0 (so a saved state holds no "
+             "uninitialised memory, #91).")
         .def(nb::init<Matrix, Matrix, Matrix, Vector, Matrix>(),
              nb::arg("X"),
              nb::arg("Z"),
@@ -101,7 +103,7 @@ void define_population(nb::module_ &main)
              "    (n,) the objective values.\n"
              "S : numpy.ndarray\n"
              "    (d, n) the step sizes.\n\n"
-             "t (the generation of each individual) is not initialised.")
+             "t (the generation of each individual) is 0; d and n are the shape of X.")
         .def("sort",
              &Population::sort,
              "Sort the active individuals by f, ascending, in every array.\n\n"
@@ -117,11 +119,11 @@ void define_population(nb::module_ &main)
              nb::arg("idx"),
              "Keep only the given columns, in the given order.\n\n"
              "Every buffer becomes its columns idx (indices into the buffers, 0..capacity-1) and n "
-             "becomes len(idx).\n\n"
+             "and the capacity become len(idx).\n\n"
              "Parameters\n"
              "----------\n"
              "idx : list of int\n"
-             "    The columns to keep.")
+             "    The columns to keep; an index of capacity or more raises IndexError.")
         .def_prop_ro("n_finite",
                      &Population::n_finite,
                      "The number of active individuals whose f is not +inf.\n\n"
@@ -144,10 +146,12 @@ void define_population(nb::module_ &main)
                 "With elitism, the size of the sorted (mu + lambda) pool of which the selection "
                 "kept the first n (0 or at most n: no point was dropped).\n\n"
                 "The columns n..n_pool-1 of the buffers then hold the dropped points, the worst "
-                "of the pool, in their order (they are not part of the arrays X, Z, Y, f, ...): "
-                "the active update of the matrix gives them the negative weights (the framework "
-                "paper's \"lambda - mu worst individuals\", #161). Set by the selection; "
-                "`keep_only` and adding populations reset it to 0.")
+                "of the pool, in their order (they are not part of the arrays X, Z, Y, f, ...). "
+                "The active update of the matrix gives its negative weights to the worst points "
+                "of the pool, the last columns: these dropped points, and the worst kept ones "
+                "when there are more negative weights than dropped points (the framework paper's "
+                "\"lambda - mu worst individuals\", #161). Set by every selection; `keep_only` "
+                "and adding populations reset it to 0.")
         .def(
             "__add__",
             [](const Population &self, const Population &other) {
@@ -237,8 +241,9 @@ void define_parameters(nb::module_ &main)
         "The configuration and the bookkeeping of the optimizer.\n\n"
         "Modules (the module choices) and Settings (dimension, budget, bounds, strategy "
         "parameters) configure a run; Weights holds the recombination weights and learning "
-        "rates, Stats and Solution the progress of a run, CoordinateMapping the rounding of "
-        "integer variables. The Parameters class itself is modcma.c_maes.Parameters.");
+        "rates, Stats and Solution the progress of a run, Center the record of a finished run, "
+        "CoordinateMapping the rounding of integer variables. The Parameters class itself is "
+        "modcma.c_maes.Parameters.");
     using namespace parameters;
 
     nb::class_<Modules>(
