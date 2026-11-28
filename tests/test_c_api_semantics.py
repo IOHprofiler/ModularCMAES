@@ -180,6 +180,50 @@ class TestObjectSemantics(unittest.TestCase):
         self.assertEqual(len(cma.p.stats.centers), 1)  # one restart, by this criterion
         self.assertIn("AfterGenerations", [c.name for c in cma.p.criteria.items])
 
+    def test_lists_of_structs_are_copies(self):
+        """#176: repelling.archive, stats.solutions and stats.centers returned references into the
+        C++ vectors. A new entry reallocates the vector (and the archive is sorted before each
+        population), so a list held across step() read freed memory, and could segfault; a write
+        to an element changed the optimizer. They are copies now, as their docstrings say."""
+
+        def rastrigin(x):
+            return float(10 * len(x) + np.sum(x * x - 10 * np.cos(2 * np.pi * x)))
+
+        modules = c_maes.Modules()
+        modules.restart_strategy = c_maes.options.RestartStrategy.IPOP
+        modules.repelling_type = c_maes.options.RepellingType.COVERAGE
+        settings = c_maes.Settings(
+            3, modules, budget=20_000, lb=np.full(3, -5.0), ub=np.full(3, 5.0), seed=1,
+            verbose=False,
+        )
+        cma = c_maes.ModularCMAES(settings)
+        while len(cma.p.repelling.archive) == 0:
+            cma.step(rastrigin)
+        p = cma.p
+        held = (p.repelling.archive, p.stats.solutions, p.stats.centers)
+        y = [p.repelling.archive[0].solution.y, p.stats.solutions[0].y, p.stats.centers[0].y]
+        # A write to the copy does not reach the optimizer
+        held[0][0].n_rep = 99
+        held[1][0].y = -1.0
+        held[2][0].y = -2.0
+        self.assertEqual(p.repelling.archive[0].n_rep, 1)
+        self.assertEqual([p.stats.solutions[0].y, p.stats.centers[0].y], y[1:])
+        # The held lists stay valid while the vectors grow (restarts, new taboo points)
+        n = (len(p.repelling.archive), len(p.stats.solutions))
+        while not cma.break_conditions():
+            cma.step(rastrigin)
+            self.assertEqual(
+                (held[0][0].n_rep, held[0][0].solution.y, held[1][0].y, held[2][0].y),
+                (99, y[0], -1.0, -2.0),
+            )
+        self.assertGreater(len(p.repelling.archive), n[0])
+        self.assertGreater(len(p.stats.solutions), n[1] + 2)
+        self.assertEqual(p.stats.solutions[0].y, y[1])
+        # Assigning a list still replaces the vector
+        p.repelling.archive = held[0][:1]
+        self.assertEqual(len(p.repelling.archive), 1)
+        self.assertEqual(p.repelling.archive[0].n_rep, 99)
+
     def test_constants_are_module_level_properties(self):
         default = c_maes.constants.use_box_muller
         try:

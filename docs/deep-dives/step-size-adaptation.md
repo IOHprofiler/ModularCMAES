@@ -165,6 +165,14 @@ rate of the path p_σ, which h_σ and MATRIX's rank-one update read, at most 1
   for `UTILITY`) and cs = µ_eff/(2 ln d √d) (ln(max(2, d)) at d = 1, as 1.x). It was 0.01 until
   #72: a median of 3650–9950 evaluations on the sphere at d = 10 instead of 750–1070 (5 runs). The
   framework paper's description of the xNES rule (the length of the weighted mean of z) is MXNES.
+* **XNES with `active`** (#175, every matrix adaptation with h_σ): no negative weights in a
+  generation with h_σ = 0, except with `UTILITY`. xNES SA keeps σ below its optimum (Krause et al.
+  2017, Sec. 6), so h_σ was 0 in 89–99 % of the generations at d ≥ 10. In that nearly linear
+  surrounding the negative weights undid the growth of C towards the optimum: `COVARIANCE` and
+  `CHOLESKY` with `active` solved the ellipsoid at d = 10 and 20 in at most 1 of 20 runs, against
+  20 of 20 without `active`. Without the negative weights in those generations, 20 of 20. This is
+  modcma's own rule; the tutorial and pycma keep the negative weights for every h_σ
+  ([compatibility](../guide/compatibility.md)).
 * **MXNES** (m-xNES, Krause, Glasmachers & Igel 2017): σ ← σ·exp((cs/d)(µ_eff‖Σwᵢzᵢ‖² − d)), cs = 1
   (also with `NATURAL_GRADIENT` since #72): the length of the mean step, unbiased under random
   selection.
@@ -224,7 +232,7 @@ paper and the Python implementation draw one per point.
 | `TPA` | two extra evaluations | every | with `elitist` σ collapses in some runs |
 | `TPA_INPLACE` | the ranks of two offspring | every (`NATURAL_GRADIENT` inverts A every generation) | |
 | `MSR`, `PSR` | the f-values of two generations | every | with pairwise selection the ranked points only |
-| `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | with elitism the offspring only (#172); `MATRIX` and `CHOLESKY` stall their rank-one term by h_σ (#160) |
+| `XNES` | the natural gradient, or the lengths of z | every (with `NATURAL_GRADIENT` xNES's rule; with `weights=UTILITY` too, all of xNES) | with elitism the offspring only (#172); `MATRIX` and `CHOLESKY` stall their rank-one term by h_σ (#160); with `active`, no negative weights when h_σ = 0 (#175) |
 | `MXNES` | the length of the mean step | every | sensitive to threshold convergence |
 | `LPXNES`, `SA` | sampled step sizes | every; `SA` is CMSA's | |
 | `SR` | successes against the best of the run | λ = 1 (automatic) | one success per generation for λ > 1 |

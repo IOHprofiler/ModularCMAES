@@ -43,6 +43,8 @@ class Modules:
         bool, default False: active covariance matrix update.
 
         The worst individuals enter the update of the matrix with negative weights (Jastrebski and Arnold), rescaled by d / ||A^-1 y||^2 as in Hansen (2016), Eq. (46). Settings turns it off for matrix_adaptation NONE and CMSA (which has no active variant) and for a (1+1)-ES.
+
+        With StepSizeAdaptation.XNES (and weights other than UTILITY) a generation with h_sigma = 0 has no negative weights (COVARIANCE, COVARIANCE_NO_EIGV, SEPARABLE, CHOLESKY, MATRIX): xNES SA keeps sigma too small, and there the negative weights undid the growth of C towards the optimum (#175; modcma's rule, not the tutorial's or pycma's).
         """
 
     @active.setter
@@ -338,6 +340,8 @@ class Stats:
     def solutions(self) -> list[Solution]:
         """
         list of Solution: the best solution of every finished run, appended when it ends, at a restart and when the optimizer stops (a copy of current_best, so with RESAMPLE possibly outside the box). Its center of mass, evaluated after it, can be better: see centers.
+
+        Reading returns a copy of the list and its elements, which stays valid and does not follow the optimizer; assign a list to change it.
         """
 
     @solutions.setter
@@ -346,7 +350,9 @@ class Stats:
     @property
     def centers(self) -> list[Center]:
         """
-        list of Center: the record of every finished run, appended when it ends, at a restart and when the optimizer stops: its evaluated center of mass, with sigma, the metric and why it ended (a copy). One per run, as solutions.
+        list of Center: the record of every finished run, appended when it ends, at a restart and when the optimizer stops: its evaluated center of mass, with sigma, the metric and why it ended. One per run, as solutions.
+
+        Reading returns a copy of the list and its elements, which stays valid and does not follow the optimizer; assign a list to change it.
         """
 
     @centers.setter

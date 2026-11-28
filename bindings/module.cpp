@@ -312,7 +312,10 @@ void define_options(nb::module_ &main)
                "The step-size update of xNES (Glasmachers et al. 2010), from the weighted squared "
                "lengths of the samples (xNES SA, with the learning rate of Krause, Glasmachers & "
                "Igel (2017)); with NATURAL_GRADIENT, from its natural gradient, with xNES's "
-               "learning rate.")
+               "learning rate. With `Modules.active` (and weights other than UTILITY) a "
+               "generation with h_sigma = 0 has no negative weights in the matrix update, for "
+               "the matrix adaptations with h_sigma (#175). xNES SA with weights EQUAL fails on "
+               "the ellipsoid (#180, see the compatibility page).")
         .value("MXNES",
                StepSizeAdaptation::MXNES,
                "A variant of the xNES update from the length of the weighted mean of the "

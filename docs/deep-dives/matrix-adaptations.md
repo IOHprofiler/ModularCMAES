@@ -29,6 +29,16 @@ pointed along the flat directions (4 to 6 times flatter than a random step on a 
 C learned the wrong shape, and `COVARIANCE` with `elitist` and `active` solved BBOB f10 and f12 at
 d = 10 in 0 of 25 runs (pycma 25).
 
+**The active update with XNES** (#175; `COVARIANCE`, `COVARIANCE_NO_EIGV`, `SEPARABLE`, `CHOLESKY`,
+`MATRIX`). With `ssa=XNES` a generation with h_σ = 0 has no negative weights: its update is the
+one without `active`. The `UTILITY` weights are exempt. h_σ = 0 marks "a linear surrounding, i.e.
+when the step-size is far too small" (Hansen 2016, after Eq. (45)). xNES SA keeps σ there (Krause
+et al. 2017, Sec. 6), and the negative weights took back most of the growth of C towards the
+optimum that the positive weights gave: `COVARIANCE` + `XNES` + `active` solved the ellipsoid at
+d = 10 and 20 in 1 and 0 of 20 runs, now 20 and 20. It is modcma's rule, not the tutorial's or
+pycma's, which keep the negative weights for every h_σ; with the other step-size rules modcma
+does too ([compatibility](../guide/compatibility.md)).
+
 **Compared with Hansen (2016) and pycma.**
 
 * The active update is off by default (`active=False`); the tutorial's default weights and pycma

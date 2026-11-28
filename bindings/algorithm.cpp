@@ -515,10 +515,17 @@ void define_repelling(nb::module_ &main)
              "----------\n"
              "p : Parameters\n"
              "    The state of the optimizer.")
-        .def_rw("archive",
-                &Repelling::archive,
-                "The taboo points, a list of TabooPoint (sorted by criticality before each "
-                "population). Reading returns a copy; assign a list to change it.")
+        // A copy (#176): def_rw gave references into the vector, which a new taboo point
+        // (reallocation) or the sort by criticality invalidated; a list held across step() read
+        // freed memory
+        .def_prop_rw(
+            "archive",
+            [](const Repelling &r) { return r.archive; },
+            [](Repelling &r, const std::vector<TabooPoint> &archive) { r.archive = archive; },
+            "The taboo points, a list of TabooPoint (sorted by criticality before each "
+            "population). Reading returns a copy, which stays valid and does not follow the "
+            "optimizer; writing to its elements does not change the archive. Assign a list to "
+            "change it.")
         .def_rw("attempts",
                 &Repelling::attempts,
                 "The number of samples rejected in the current population.")
@@ -1114,7 +1121,9 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("hs",
                 &CovarianceAdaptation::hs,
                 "The indicator h_sigma: False when ||ps|| is large (the step size is growing "
-                "fast), which stalls the update of pc; True otherwise.")
+                "fast), which stalls the update of pc; True otherwise. With "
+                "`StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False "
+                "also drops the negative weights of the generation's update (#175).")
         .def("adapt_covariance_matrix",
              &CovarianceAdaptation::adapt_covariance_matrix,
              nb::arg("weights"),
@@ -1196,6 +1205,12 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("d",
                 &SeparableAdaptation::d,
                 "The standard deviations sqrt(c), shape (d,): y = d * z (ones at the start).")
+        .def_rw("hs",
+                &SeparableAdaptation::hs,
+                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
+                "which stalls the update of pc; True otherwise. With `StepSizeAdaptation.XNES` "
+                "and `Modules.active` (not with UTILITY weights), False also drops the negative "
+                "weights of the generation's update (#175).")
         .def(
             "__repr__",
             [](SeparableAdaptation &a) {
@@ -1251,7 +1266,9 @@ void define_matrix_adaptation(nb::module_ &main)
                 &MatrixAdaptation::hs,
                 "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
                 "which skips the rank-one term of the generation; always True with CSA and in "
-                "the (1+1)-ES (#160).")
+                "the (1+1)-ES (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not "
+                "with UTILITY weights), False also drops the negative weights of the generation's "
+                "update (#175).")
         .def_ro("inverse_fallbacks",
                 &MatrixAdaptation::inverse_fallbacks,
                 nb::name("inverse_fallbacks"),
@@ -1313,7 +1330,9 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("hs",
                 &CholeskyAdaptation::hs,
                 "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
-                "which stalls the update of pc; always True with CSA (#160).")
+                "which stalls the update of pc; always True with CSA (#160). With "
+                "`StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False "
+                "also drops the negative weights of the generation's update (#175).")
         .def_ro("skipped_downdates",
                 &CholeskyAdaptation::skipped_downdates,
                 nb::name("skipped_downdates"),

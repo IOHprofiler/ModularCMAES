@@ -103,6 +103,12 @@ parameters::Modules make_modules(std::string name)
         m.ssa = parameters::StepSizeAdaptation::XNES;
         m.elitist = true;
     }
+    else if (name == "xnes-active")
+    {
+        // no negative weights in a generation with h_sigma = 0 (#175)
+        m.ssa = parameters::StepSizeAdaptation::XNES;
+        m.active = true;
+    }
     else if (name == "elitist-active")
     {
         // the negative weights on the worst points of the (mu + lambda) pool (#161)

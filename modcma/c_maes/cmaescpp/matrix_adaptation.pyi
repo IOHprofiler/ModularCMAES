@@ -407,7 +407,7 @@ class CovarianceAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma: False when ||ps|| is large (the step size is growing fast), which stalls the update of pc; True otherwise.
+        The indicator h_sigma: False when ||ps|| is large (the step size is growing fast), which stalls the update of pc; True otherwise. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter
@@ -507,6 +507,15 @@ class SeparableAdaptation(Adaptation):
     @d.setter
     def d(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], /) -> None: ...
 
+    @property
+    def hs(self) -> bool:
+        """
+        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which stalls the update of pc; True otherwise. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
+        """
+
+    @hs.setter
+    def hs(self, arg: bool, /) -> None: ...
+
     def __repr__(self) -> str:
         """A summary of the state (mean, paths and matrices)."""
 
@@ -556,7 +565,7 @@ class MatrixAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which skips the rank-one term of the generation; always True with CSA and in the (1+1)-ES (#160).
+        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which skips the rank-one term of the generation; always True with CSA and in the (1+1)-ES (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter
@@ -625,7 +634,7 @@ class CholeskyAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which stalls the update of pc; always True with CSA (#160).
+        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which stalls the update of pc; always True with CSA (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter
