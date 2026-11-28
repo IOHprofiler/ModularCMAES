@@ -9,6 +9,11 @@
 // that is computed again. A new member of a class needs a line in its io() (or in the comment),
 // and, when it changes what is written, a new format_version.
 //
+// A derived class without an io() of its own is saved by its base class's io() (CSA, MXNES, LPXNES
+// and SR by mutation::Strategy's; MinSigma, UnableToAdapt, ConditionC, NoEffectAxis, NoEffectCoord
+// and TooMuchRepelling by restart::Criterion's; ...): a member added to such a class is not saved
+// until the class gets an io() that calls its base's first.
+//
 // An object is created before its members are read into it (create()): most classes with
 // placeholder arguments; the few whose constructor needs part of the state (the dimension of a
 // matrix adaptation, ...) write that part first (header()).
@@ -17,6 +22,13 @@
 // the object; the reader creates the object of that type (the registries at the end of Access).
 // Types the library does not know (a sampler or a restart criterion written in Python) cannot be
 // written, except the restart criteria through External (the Python bindings pickle them).
+//
+// Saving and loading differ only in the methods of Writer and Reader, in header() and create(), in
+// poly() and nullable() (which create the object when loading), and in the blocks
+// `if constexpr (A::loading)` (the checks of a state, and the halves of SplitMedian, built again).
+// When a state does not load, or does not save to the same bytes after loading, look there first.
+// The message of a state that cannot be loaded gives the byte where reading stopped and the
+// modules being read (Reader::fail).
 #include "serialization.hpp"
 
 #include <cstdlib>
@@ -388,32 +400,53 @@ class Reader
   public:
     static constexpr bool loading = true;
 
-    //! The object's bytes (between the header and the checksum)
+    //! The object's bytes (between the header and the checksum), which start at byte `offset` of
+    //! the state
     std::string_view in;
+    size_t offset = 0;
     size_t pos = 0;
     //! The format version of the state
     uint32_t version = format_version;
     //! The generators read so far, in order
     std::vector<std::shared_ptr<rng::Generator>> generators;
+    //! The objects being read, for messages: the kind of the state, then each module by its tag
+    std::vector<std::string> path;
 
-    [[noreturn]] static void fail(const std::string &what) { throw Error("modcma state: " + what); }
+    //! A state that cannot be loaded as a whole (not a state, another version or kind)
+    [[noreturn]] static void reject(const std::string &what)
+    {
+        throw Error("modcma state: " + what);
+    }
+
+    //! A state that cannot be loaded, with where: the byte at which reading stopped (from the
+    //! start of the state) and the objects being read
+    [[noreturn]] void fail(const std::string &what) const
+    {
+        std::string where = "; at byte " + std::to_string(offset + pos) + " of the state";
+        for (size_t i = 0; i < path.size(); ++i)
+            where += (i == 0 ? ", in " : " > ") + path[i];
+        reject(what + where);
+    }
 
     //! A state that holds the impossible: a value out of range, inconsistent sizes
-    static void check(const bool condition, const std::string &what)
+    void check(const bool condition, const std::string &what) const
     {
         if (!condition)
-            fail("corrupted (" + what + ")");
+            fail("corrupted: " + what);
     }
 
-    static void check(const bool condition, const char *what)
+    void check(const bool condition, const char *what) const
     {
         if (!condition)
-            fail("corrupted (" + std::string(what) + ")");
+            fail("corrupted: " + std::string(what));
     }
+
+    //! The bytes that are left
+    [[nodiscard]] size_t remaining() const { return in.size() - pos; }
 
     void need(const size_t n) const
     {
-        if (n > in.size() - pos)
+        if (n > remaining())
             fail("truncated: the data ends in the middle of the object");
     }
 
@@ -764,8 +797,17 @@ struct Access
         using namespace sampling;
         if constexpr (std::is_base_of_v<matrix_adaptation::Adaptation, T>)
         {
+            // Checked against the data before the constructor allocates: the state holds the mean
+            // (dim numbers) and, but for NONE and SEPARABLE, a dim x dim matrix
+            using namespace matrix_adaptation;
+            constexpr bool square =
+                !std::is_same_v<T, None> && !std::is_same_v<T, SeparableAdaptation>;
             const size_t dim = r.size();
-            Reader::check(dim >= 1, "the dimension of a matrix adaptation");
+            const size_t numbers = r.remaining() / sizeof(double);
+            r.check(dim >= 1, "the dimension of a matrix adaptation is 0");
+            r.check(dim <= numbers && (!square || dim <= numbers / dim),
+                    "a matrix adaptation of dimension " + std::to_string(dim) +
+                        ", which the data cannot hold");
             return std::make_shared<T>(dim, Vector::Zero(static_cast<Eigen::Index>(dim)));
         }
         else if constexpr (std::is_same_v<T, Sobol>)
@@ -773,9 +815,19 @@ struct Access
             const size_t d = r.size();
             const size_t dim = r.size();
             const size_t n_samples = r.size();
-            Reader::check(d == dim && d >= 1 && n_samples >= 1 &&
-                              n_samples <= std::numeric_limits<size_t>::max() / d,
-                          "the cache of a Sobol sampler");
+            r.check(d == dim && d >= 1 && n_samples >= 1 &&
+                        n_samples <= std::numeric_limits<size_t>::max() / d,
+                    "the cache of a Sobol sampler");
+            // The points of the cache are not in the state, so the data does not bound their
+            // number: at most what this process would compute (CachedShuffleSequence)
+            const size_t limit =
+                std::max(constants::cache_max_doubles, constants::cache_min_samples * d);
+            if (n_samples > limit / d)
+                r.fail("the cache of a Sobol sampler has " + std::to_string(n_samples) +
+                       " points of dimension " + std::to_string(d) +
+                       ", more than constants.cache_max_doubles (" +
+                       std::to_string(constants::cache_max_doubles) +
+                       ") allows: set it as in the process that saved the state");
             // The constructor computes the points for the current constants (from a generator
             // of its own, whose shuffler is overwritten); again when the state's number of points
             // differs
@@ -797,8 +849,12 @@ struct Access
             const size_t d = r.size();
             std::shared_ptr<Sampler> inner;
             required(r, inner, "sampler");
-            Reader::check(inner->d == d, "the dimension of an orthogonal sampler");
+            r.check(inner->d == d, "the dimension of an orthogonal sampler");
             const size_t n = r.size();
+            // The constructor allocates a d x d block, which the state holds (io())
+            r.check(d <= r.remaining() / sizeof(double) / std::max<size_t>(1, d),
+                    "an orthogonal sampler of dimension " + std::to_string(d) +
+                        ", which the data cannot hold");
             auto s = std::make_shared<Orthogonal>(inner, n);
             s->n = n;
             return s;
@@ -911,18 +967,22 @@ struct Access
             {
                 const std::string bytes = r.str();
                 if (!external().load_criterion)
-                    Reader::fail("the state holds a restart criterion defined in Python, which "
-                                 "only the Python package can load");
+                    r.fail("the state holds a restart criterion defined in Python, which only "
+                           "the Python package can load");
                 auto criterion = external().load_criterion(bytes);
-                Reader::check(criterion != nullptr, "an external restart criterion");
+                r.check(criterion != nullptr, "an external restart criterion");
                 return criterion;
             }
         }
         const auto *entry = registry(Tag<Base>{}).by_tag(tag);
         if (entry == nullptr)
-            Reader::fail("unknown " + std::string(what) + " type '" + tag +
-                         "' (written by a newer modcma?)");
-        return entry->read(r);
+            r.fail("unknown " + std::string(what) + " type '" + tag +
+                   "' (written by a newer modcma?)");
+        // For the messages of a state that cannot be loaded
+        r.path.push_back(std::string(what) + " '" + tag + "'");
+        auto object = entry->read(r);
+        r.path.pop_back();
+        return object;
     }
 
     //! A polymorphic member (what: its name in messages)
@@ -1590,7 +1650,7 @@ struct Access
         a.mat(t.metric);
     }
 
-    // NONE, COVERAGE
+    // The base class, NONE, COVERAGE
     template <typename A> static void io(A &a, repelling::Repelling &x)
     {
         a.list(x.archive, [&](repelling::TabooPoint &t) { io(a, t); }, blank_taboo_point());
@@ -1887,6 +1947,9 @@ struct Access
     {
         using namespace repelling;
         static const Registry<Repelling> r{{
+            // The base class, which Python can create (#192: saving one failed, so no older state
+            // holds the tag, and format 1 stays)
+            entry<Repelling, Repelling>("Repelling"),
             entry<NoRepelling, Repelling>("NoRepelling"),
             entry<CoverageRepelling, Repelling>("CoverageRepelling"),
             entry<AdaptiveRepelling, Repelling>("AdaptiveRepelling"),
@@ -1931,46 +1994,50 @@ template <typename T> T load(std::string_view state)
 {
     const std::string expected = detail::Kind<T>::value;
     if (state.size() < sizeof magic || std::memcmp(state.data(), magic, sizeof magic) != 0)
-        Reader::fail("not a modcma state (it does not start with the magic number of the format)");
+        Reader::reject(
+            "not a modcma state (it does not start with the magic number of the format)");
     if (state.size() < header_size + trailer_size)
-        Reader::fail("truncated: the state is shorter than its header");
+        Reader::reject("truncated: the state is shorter than its header");
 
     Reader r;
     r.in = state.substr(sizeof magic, 4);
     const uint32_t version = r.u32();
     if (version > format_version)
-        Reader::fail("written by a newer modcma, in format version " + std::to_string(version) +
-                     "; this modcma reads versions up to " + std::to_string(format_version) +
-                     ": update modcma to load it");
+        Reader::reject("written by a newer modcma, in format version " + std::to_string(version) +
+                       "; this modcma reads versions up to " + std::to_string(format_version) +
+                       ": update modcma to load it");
     if (version == 0)
-        Reader::fail("corrupted (format version 0)");
+        Reader::reject("corrupted (format version 0)");
 
     const size_t body = state.size() - trailer_size;
     r.in = state.substr(body);
     r.pos = 0;
     if (r.u32() != crc32(state.data(), body))
-        Reader::fail("corrupted or truncated: the checksum does not match");
+        Reader::reject("corrupted or truncated: the checksum does not match");
 
     r.in = state.substr(header_size, body - header_size);
+    r.offset = header_size;
     r.pos = 0;
     r.version = version;
     const std::string kind = r.str();
     if (kind != expected)
-        Reader::fail("the state holds a " + kind + ", not a " + expected);
+        Reader::reject("the state holds a " + kind + ", not a " + expected);
+    // A module adds its tag to the path itself (read_poly)
+    if constexpr (!detail::Kind<T>::module)
+        r.path.push_back(kind);
     T object = [&] {
         if constexpr (detail::Kind<T>::module)
         {
             using Base = typename T::element_type;
             auto module = Access::read_poly<Base>(r, detail::Kind<Base>::value);
-            Reader::check(module != nullptr, "an empty object");
+            r.check(module != nullptr, "an empty object");
             return module;
         }
         else
             return std::move(*Access::load_object<T>(r));
     }();
     if (r.pos != r.in.size())
-        Reader::fail("corrupted: " + std::to_string(r.in.size() - r.pos) +
-                     " bytes after the object");
+        r.fail("corrupted: " + std::to_string(r.remaining()) + " bytes after the object");
     return object;
 }
 

@@ -52,8 +52,10 @@ ctest --test-dir build --output-on-failure
   artifacts.
 * **The saved state.** A run that is pickled and loaded continues bit for bit (#91). A new member of
   a class that changes during a run gets a line in the class's `io()` in `src/serialization.cpp`,
-  which both writes and reads it (or is named there as not saved, with the reason); a new class of
-  a module gets a type tag there and `def_pickle` in the bindings.
+  which both writes and reads it (or is named there as not saved, with the reason). A class without
+  an `io()` of its own (CSA, MXNES, ..., most restart criteria) is saved by its base class's
+  `io()`: its first member of its own needs a new `io()`, which calls the base's first. A new class
+  of a module gets a type tag there and `def_pickle` in the bindings.
   `python -m tests.golden check --drivers resume` checks that runs resumed at every generation,
   between every `ask()` and `tell()` and between the 1.x steps match the fixture. A change of what
   is written increases `serialization::format_version`; `tests/test_c_state_format.py` checks that

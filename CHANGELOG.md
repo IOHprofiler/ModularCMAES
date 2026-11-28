@@ -527,6 +527,11 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   moved inward by `sigma0`. `center` now follows `sigma0` too. Finite boxes are unchanged.
 * `es.MuCommaLambdaES.X` and `S` are zero before the first step; they were uninitialized memory
   (#192). Results are unchanged.
+* Undefined behaviour far out of range (#192): `MIRROR` took the parity of the number of box widths
+  a coordinate lies outside as an `int`, from 2^31 widths on (a diverged step size); it is computed
+  in floating point, with the same results below 2^31. `AdaptiveRepelling` counted evaluations in
+  `int` (`last_restart_evaluations`), which overflowed after 2^31 evaluations; it is an unsigned
+  64-bit count. A base `repelling.Repelling` can be pickled (it had no type tag).
 * Infinite bounds and integer variables in the box (#79). Results with finite bounds, and integer
   bounds on the integer variables, are unchanged.
   * A box with an infinite bound turned the bound correction off in every coordinate, also at the
