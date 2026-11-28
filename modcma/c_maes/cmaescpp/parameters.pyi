@@ -476,13 +476,13 @@ class Weights:
     Computed when the Parameters are created, and again with the current mu and lambda at every restart and by Parameters.resize_population. A learning rate given in the Settings is used as is; the defaults below use d for the dimension.
     """
 
-    def __init__(self, Settings: Settings, expected_length_z: float) -> None:
+    def __init__(self, settings: Settings, expected_length_z: float) -> None:
         """
         The weights and learning rates for settings.mu0 and settings.lambda0.
 
         Parameters
         ----------
-        Settings : Settings
+        settings : Settings
             The settings: dimension, modules and the learning rates given there.
         expected_length_z : float
             The expected length of a sample of the sampler, E||z|| (Parameters pass the sampler's expected_length()).

@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 import modcma
 from modcma import c_maes
-from modcma.c_maes import bounds, center, Population, Parameters, parameters, options
+from modcma.c_maes import bounds, center, Parameters, parameters, options
 
 
 class TestBounds(unittest.TestCase):

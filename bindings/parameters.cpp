@@ -5,6 +5,15 @@ namespace modcma_python
 {
 namespace
 {
+using RowMatrix = Eigen::Matrix<Float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
+
+//! numpy.asarray(value, dtype="float64"): an array, a sequence or a number from Python
+nb::object as_float64_array(nb::handle value)
+{
+    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
+    return asarray(value, nb::arg("dtype") = "float64");
+}
+
 //! Getter of a population array: a view of the active columns 0..n-1 (bound with
 //! rv_policy::reference_internal, so the view keeps the population alive)
 auto active_columns(Matrix Population::*member)
@@ -54,9 +63,7 @@ std::optional<Matrix> to_matrix(nb::handle value)
 {
     if (value.is_none())
         return std::nullopt;
-    using RowMatrix = Eigen::Matrix<Float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
-    const nb::object a = asarray(value, nb::arg("dtype") = "float64");
+    const nb::object a = as_float64_array(value);
     if (nb::cast<size_t>(a.attr("ndim")) != 2)
         throw nb::value_error("Settings: C0 must be a 2-d (dim, dim) matrix");
     return Matrix(nb::cast<RowMatrix>(a));
@@ -541,12 +548,12 @@ void define_parameters(nb::module_ &main)
         "every restart and by Parameters.resize_population. A learning rate given in the "
         "Settings is used as is; the defaults below use d for the dimension.")
         .def(nb::init<Settings, Float>(),
-             nb::arg("Settings"),
+             nb::arg("settings"),
              nb::arg("expected_length_z"),
              "The weights and learning rates for settings.mu0 and settings.lambda0.\n\n"
              "Parameters\n"
              "----------\n"
-             "Settings : Settings\n"
+             "settings : Settings\n"
              "    The settings: dimension, modules and the learning rates given there.\n"
              "expected_length_z : float\n"
              "    The expected length of a sample of the sampler, E||z|| (Parameters pass the "
@@ -975,19 +982,19 @@ void define_parameters(nb::module_ &main)
         .def_prop_rw(
             "target",
             [](const Settings &s) { return s.target; },
-            [](Settings &s, const std::optional<Float> value) { s.set_target(value); },
+            &Settings::set_target,
             "Stop when the best objective value is at most target; None (default): no "
             "target. NaN raises ValueError: it would never stop the run.")
         .def_prop_rw(
             "max_generations",
             [](const Settings &s) { return s.max_generations; },
-            [](Settings &s, const std::optional<size_t> value) { s.set_max_generations(value); },
+            &Settings::set_max_generations,
             "Stop after this many generations, at least 1 (ValueError); None (default): no "
             "limit.")
         .def_prop_rw(
             "budget",
             [](const Settings &s) { return s.budget; },
-            [](Settings &s, const size_t value) { s.set_budget(value); },
+            &Settings::set_budget,
             "The maximum number of evaluations, default 10000 * dim; at least 2 "
             "(ValueError).\n\n"
             "A generation runs only when it leaves one evaluation: the run stops when the "
@@ -1000,7 +1007,7 @@ void define_parameters(nb::module_ &main)
         .def_prop_rw(
             "sigma0",
             [](const Settings &s) { return s.sigma0; },
-            [](Settings &s, const Float value) { s.set_sigma0(value); },
+            &Settings::set_sigma0,
             "The initial step size, default 2.0; positive and finite (ValueError). Also "
             "the step size after a restart (smaller for the small-population runs of "
             "BIPOP). Setting it recomputes `center`, which depends on it for a coordinate "
@@ -1008,7 +1015,7 @@ void define_parameters(nb::module_ &main)
         .def_prop_rw(
             "mu0",
             [](const Settings &s) { return s.mu0; },
-            [](Settings &s, const size_t value) { s.set_mu0(value); },
+            &Settings::set_mu0,
             "The initial number of parents, at least 1 (ValueError); default lambda0 // 2 "
             "(lambda0 // 4 with ssa SA or matrix_adaptation CMSA).\n\n"
             "Until mu0 is given, to the constructor or by setting it, it follows lambda0: setting "
@@ -1020,7 +1027,7 @@ void define_parameters(nb::module_ &main)
         .def_prop_rw(
             "lambda0",
             [](const Settings &s) { return s.lambda0; },
-            [](Settings &s, const size_t value) { s.set_lambda0(value); },
+            &Settings::set_lambda0,
             "The initial number of offspring per generation, at least 1 (ValueError); default 4 "
             "+ floor(3 ln(dim)).\n\n"
             "Setting it recomputes mu0, unless mu0 was given. The setter does not apply the "
@@ -1102,21 +1109,21 @@ void define_parameters(nb::module_ &main)
         .def_prop_rw(
             "cs",
             [](const Settings &s) { return s.cs; },
-            [](Settings &s, const std::optional<Float> value) { s.set_cs(value); },
+            &Settings::set_cs,
             "The learning rate cs, or None (default) for the module's default; in (0, 1] "
             "(ValueError).\n\n"
             "The value in use is Parameters.weights.cs.")
         .def_prop_rw(
             "cc",
             [](const Settings &s) { return s.cc; },
-            [](Settings &s, const std::optional<Float> value) { s.set_cc(value); },
+            &Settings::set_cc,
             "The learning rate cc, or None (default) for the module's default; in (0, 1] "
             "(ValueError).\n\n"
             "The value in use is Parameters.weights.cc.")
         .def_prop_rw(
             "cmu",
             [](const Settings &s) { return s.cmu; },
-            [](Settings &s, const std::optional<Float> value) { s.set_cmu(value); },
+            &Settings::set_cmu,
             "The learning rate cmu, or None (default) for the module's default; in [0, 1] "
             "(ValueError). With c1 given, c1 + cmu must be at most 1 (ValueError when the "
             "optimizer is created).\n\n"
@@ -1124,7 +1131,7 @@ void define_parameters(nb::module_ &main)
         .def_prop_rw(
             "c1",
             [](const Settings &s) { return s.c1; },
-            [](Settings &s, const std::optional<Float> value) { s.set_c1(value); },
+            &Settings::set_c1,
             "The learning rate c1, or None (default) for the module's default; in [0, 1] "
             "(ValueError). With cmu given, c1 + cmu must be at most 1 (ValueError when the "
             "optimizer is created).\n\n"
@@ -1132,14 +1139,14 @@ void define_parameters(nb::module_ &main)
         .def_prop_rw(
             "damps",
             [](const Settings &s) { return s.damps; },
-            [](Settings &s, const std::optional<Float> value) { s.set_damps(value); },
+            &Settings::set_damps,
             "The damping of the step-size update, or None (default) for the module's default; "
             "positive (ValueError).\n\n"
             "The value in use is Parameters.weights.damps.")
         .def_prop_rw(
             "acov",
             [](const Settings &s) { return s.acov; },
-            [](Settings &s, const std::optional<Float> value) { s.set_acov(value); },
+            &Settings::set_acov,
             "The factor alpha_cov of the defaults of c1 and cmu, or None for the default 2; "
             "positive and finite (ValueError). SEPARABLE does not use it: its defaults are "
             "pycma's separable rates.")
@@ -1347,20 +1354,16 @@ void define_parameters(nb::module_ &main)
 
 namespace
 {
-using RowMatrix = Eigen::Matrix<Float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor>;
-
 //! Objective values from Python (an array, a sequence or a number) as a vector of float64
 Vector to_values(nb::handle f)
 {
-    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
-    return nb::cast<Vector>(asarray(f, nb::arg("dtype") = "float64").attr("reshape")(-1));
+    return nb::cast<Vector>(as_float64_array(f).attr("reshape")(-1));
 }
 
 //! Points from Python, (k, d) (or (d,) for one point), as the columns of a d x k matrix
 Matrix to_points(nb::handle X)
 {
-    static const nb::object asarray = nb::module_::import_("numpy").attr("asarray");
-    nb::object a = asarray(X, nb::arg("dtype") = "float64");
+    nb::object a = as_float64_array(X);
     const auto ndim = nb::cast<size_t>(a.attr("ndim"));
     if (ndim == 0 || ndim > 2)
         throw nb::value_error("tell(f, X): X must be a (k, d) array of points");

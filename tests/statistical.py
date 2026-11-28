@@ -9,10 +9,13 @@ evaluations used (to the target 1e-8, or the budget) and on the final precision.
 Pre-registered criterion: no cell differs after a Bonferroni correction over all tests
 (p < 0.05 / number of tests), and at most 10 % of the tests have a raw p < 0.05.
 
-    python -m tests.statistical run --output new.json        # in the environment of each build
-    python -m tests.statistical compare old.json new.json
+    python -I tests/statistical.py run --output new.json     # in the environment of each build
+    python -I tests/statistical.py compare old.json new.json
 
-Needs ioh and scipy (not dependencies of modcma).
+`-I` keeps the checkout off sys.path, so the environment of the other build (master installed
+non-editable in its own venv) imports its installed modcma, not the one of the checkout.
+
+Needs ioh (not a dependency of modcma).
 """
 
 import argparse
@@ -140,7 +143,7 @@ CONFIGS = {
     "sa": {"ssa": "SA"},
     "sa_cmsa_equal": {"ssa": "SA", "matrix_adaptation": "CMSA", "weights": "EQUAL"},
     "sa_elitist": {"ssa": "SA", "elitist": True},
-    "lpxnes": {"ssa": "LPXNES"},
+    # lpxnes: above (#72)
     "sample_sigma": {"sample_sigma": True},
     "sample_sigma_tpa": {"sample_sigma": True, "ssa": "TPA"},
     # #98: TPA's points corrected into the box (a box of +-4: BBOB's optima lie in [-4, 4]^d)
@@ -273,8 +276,10 @@ def run(output: str, processes: int, configs=None, dims=DIMS):
 def compare(old_path: str, new_path: str) -> int:
     from scipy.stats import mannwhitneyu
 
-    old = json.load(open(old_path))["runs"]
-    new = json.load(open(new_path))["runs"]
+    with open(old_path) as f:
+        old = json.load(f)["runs"]
+    with open(new_path) as f:
+        new = json.load(f)["runs"]
     tests = []
     old = {cell: runs for cell, runs in old.items() if cell in new}
     for cell in old:

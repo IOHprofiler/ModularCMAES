@@ -9,7 +9,6 @@ and states that cannot be loaded.
 """
 
 import copy
-import math
 import pickle
 import unittest
 import zlib
@@ -18,22 +17,11 @@ import numpy as np
 
 from modcma import c_maes
 from tests import golden
-
-
-def sphere(x):
-    return math.fsum(xi * xi for xi in x)
-
-
-def rastrigin(x):
-    return 10.0 * len(x) + math.fsum(xi * xi - 10.0 * math.cos(2.0 * math.pi * xi) for xi in x)
+from tests.golden import rastrigin, sphere
 
 
 def make(d=4, seed=3, budget=4000, **modules):
-    m = c_maes.Modules()
-    for name, value in modules.items():
-        if not c_maes.set_module(m, name, value):
-            raise ValueError(name)
-    return c_maes.ModularCMAES(c_maes.Settings(d, m, budget=budget, seed=seed))
+    return c_maes.ModularCMAES(c_maes.settings_from_dict(d, budget=budget, seed=seed, **modules))
 
 
 def resumed(obj):

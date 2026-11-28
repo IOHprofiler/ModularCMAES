@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from modcma.c_maes import es, parameters, set_seed
+from modcma.c_maes import es, set_seed
 
 
 def sphere(x: np.ndarray) -> float:

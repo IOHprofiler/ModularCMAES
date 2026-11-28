@@ -1,6 +1,5 @@
 import unittest
 from modcma import c_maes
-import numpy as np
 
 
 def sphere(x):

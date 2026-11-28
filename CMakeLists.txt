@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.18)
 
 project(modcma C CXX)
 
@@ -40,7 +40,8 @@ if (MODCMA_LAPACK)
 endif()
 
 if (MSVC)
-  target_compile_options(modcma_core PUBLIC /bigobj)
+  # /W3: the warning level that CMake put into the default flags before policy CMP0092 (3.15)
+  target_compile_options(modcma_core PUBLIC /bigobj /W3)
 else()
   target_compile_options(modcma_core PUBLIC -fno-math-errno)
   if (MODCMA_NATIVE)

@@ -11,7 +11,7 @@ namespace
 //! Python subclasses of restart.Criterion: update (required) and on_reset are called from C++
 struct PyCriterion : restart::Criterion
 {
-    NB_TRAMPOLINE(restart::Criterion, 2);
+    NB_TRAMPOLINE(restart::Criterion);
 
     void update(const parameters::Parameters &p) override { NB_OVERRIDE_PURE(update, p); }
 
@@ -195,11 +195,15 @@ void define_restart_criteria(nb::module_ &main)
         "For every matrix adaptation: C_ii from `Adaptation.coordinate_wise_variances`, and "
         "p_c where the adaptation has one (COVARIANCE, COVARIANCE_NO_EIGV, SEPARABLE, "
         "CHOLESKY).")
-        .def(nb::init<>(), "The criterion.")
+        .def(nb::init<>(), "The criterion; `sigma_start` is set by the first reset.")
         .def_rw("tolx_vector",
                 &TolX::tolx_vector,
                 "The values compared: sigma sqrt(C_ii) (d values), then sigma |p_c| (d more, for "
                 "the adaptations with p_c).")
+        .def_rw("sigma_start",
+                &TolX::sigma_start,
+                "The step size at the start of the run, set at every reset; the threshold is "
+                "tolerance * sigma_start.")
         .def_rw_static("tolerance", &TolX::tolerance, "The tolerance (default 1e-11).");
 
     nb::class_<MaxDSigma, Criterion>(

@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 import modcma
-from modcma.c_maes import parameters, Parameters, Population, ModularCMAES, options
+from modcma.c_maes import parameters, Parameters, ModularCMAES, options
 
 
 class TestMutation(unittest.TestCase):
@@ -48,6 +48,30 @@ class TestMutation(unittest.TestCase):
 
         cma.adapt()
         self.assertTrue(np.all(np.isclose(cma.p.adaptation.M, M)))
+
+
+class TestRepr(unittest.TestCase):
+    def test_every_adaptation_names_its_own_class(self):
+        # the classes without a repr of their own inherit Adaptation's (CovarianceAdaptation's for
+        # COVARIANCE_NO_EIGV), which named the base class
+        for option in options.MatrixAdaptationType.__members__.values():
+            with self.subTest(option=option.name):
+                modules = parameters.Modules()
+                modules.matrix_adaptation = option
+                adaptation = Parameters(parameters.Settings(3, modules)).adaptation
+                text = repr(adaptation)
+                self.assertTrue(text.startswith(f"<{type(adaptation).__name__} m: "), text)
+
+    def test_the_repr_of_another_object_is_a_type_error(self):
+        from modcma.c_maes import matrix_adaptation
+
+        matrix = matrix_adaptation.MatrixAdaptation(2, np.zeros(2))
+        with self.assertRaises(TypeError):
+            matrix_adaptation.Adaptation.__repr__(5)  # type: ignore[arg-type]
+        with self.assertRaises(TypeError):
+            matrix_adaptation.CovarianceAdaptation.__repr__(matrix)  # type: ignore[arg-type]
+        with self.assertRaises(TypeError):  # not initialized
+            repr(matrix_adaptation.CholeskyAdaptation.__new__(matrix_adaptation.CholeskyAdaptation))
 
 
 def ellipsoid(x):

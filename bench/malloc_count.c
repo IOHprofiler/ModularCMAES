@@ -6,38 +6,53 @@
  * loaded at launch, so all allocations of the process go through these wrappers.
  * Linux (glibc): compiled into the executable, which then defines malloc & co. itself and forwards to
  * glibc's __libc_* implementations.
- * Elsewhere: modcma_malloc_count_supported() returns 0 and the harness prints n/a.
+ * Elsewhere: modcma_malloc_count_supported() returns 0 and the harness prints n/a (no wrappers and
+ * no GCC atomics, which MSVC does not have).
  */
+#include <errno.h>
 #include <stddef.h>
 #include <stdlib.h>
 
+#if defined(__APPLE__) || defined(__GLIBC__)
+
 static unsigned long long n_allocations = 0;
+
+static void count_allocation(void) { __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED); }
+
+int modcma_malloc_count_supported(void) { return 1; }
+
+unsigned long long modcma_malloc_count(void)
+{
+    return __atomic_load_n(&n_allocations, __ATOMIC_RELAXED);
+}
+
+#endif
 
 #if defined(__APPLE__)
 
 static void *count_malloc(size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     return malloc(n);
 }
 static void *count_calloc(size_t c, size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     return calloc(c, n);
 }
 static void *count_realloc(void *p, size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     return realloc(p, n);
 }
 static int count_posix_memalign(void **p, size_t a, size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     return posix_memalign(p, a, n);
 }
 static void *count_aligned_alloc(size_t a, size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     return aligned_alloc(a, n);
 }
 
@@ -55,8 +70,6 @@ __attribute__((used)) static const interpose_t interposers[] __attribute__((sect
     {(const void *)count_aligned_alloc, (const void *)aligned_alloc},
 };
 
-int modcma_malloc_count_supported(void) { return 1; }
-
 #elif defined(__GLIBC__)
 
 extern void *__libc_malloc(size_t);
@@ -66,37 +79,35 @@ extern void *__libc_memalign(size_t, size_t);
 
 void *malloc(size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     return __libc_malloc(n);
 }
 void *calloc(size_t c, size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     return __libc_calloc(c, n);
 }
 void *realloc(void *p, size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     return __libc_realloc(p, n);
 }
 int posix_memalign(void **p, size_t a, size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     *p = __libc_memalign(a, n);
-    return *p ? 0 : 12; /* ENOMEM */
+    return *p ? 0 : ENOMEM;
 }
 void *aligned_alloc(size_t a, size_t n)
 {
-    __atomic_add_fetch(&n_allocations, 1, __ATOMIC_RELAXED);
+    count_allocation();
     return __libc_memalign(a, n);
 }
-
-int modcma_malloc_count_supported(void) { return 1; }
 
 #else
 
 int modcma_malloc_count_supported(void) { return 0; }
 
-#endif
+unsigned long long modcma_malloc_count(void) { return 0; }
 
-unsigned long long modcma_malloc_count(void) { return __atomic_load_n(&n_allocations, __ATOMIC_RELAXED); }
+#endif

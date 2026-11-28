@@ -149,7 +149,8 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 * Also bound: `ModularCMAES.has_pending`; `Settings.integer_variables` (read-only);
   `restart.IPOP.max_lambda_factor` and `mutation.MSR.quantile` (#83);
   `mutation.Strategy.generation_threshold` (#78); `Weights.mueff_mean`, `utility` and `pairwise`;
-  `restart.NoImprovement.tolerance`; `sampling.FastGaussian` (`fast_sampling`).
+  `restart.NoImprovement.tolerance`; `sampling.FastGaussian` (`fast_sampling`);
+  `restart.TolX.sigma_start`, as `MaxDSigma` and `MinDSigma` have it (#193).
   `NaturalGradientAdaptation.G` is read-only, computed from the new `gradient_samples`,
   `gradient_weights` and `gradient_shift` (internal).
 * `docs/performance.md`: benchmarks against pycma, `cmaes`, evosax and EvoTorch.
@@ -167,6 +168,10 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
 
 ### Changed
 
+* Internals: the argument of `Weights(settings, expected_length_z)` is named `settings`; during
+  the 2.0 work it was `Settings` (#193). The repr of a matrix adaptation names the class of the
+  object (`CholeskyAdaptation`, `SelfAdaptation`, `NaturalGradientAdaptation` and
+  `CovarianceNoEigvAdaptation` showed their base class).
 * The configuration space of `get_configspace` and `settings_from_config` (#81). The numeric
   hyperparameters keep their names. Their defaults are those of `Settings(dim)`, so the defaults
   of `cs` and `damps` follow CSA's new rate (#138; at d = 5, cs 0.434 → 0.365). Their ranges are
@@ -525,6 +530,11 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   mean could start outside the box. Per coordinate: the midpoint for two finite bounds, 0 for two
   infinite bounds, and for one infinite bound 0 if the half-line holds it, else the finite bound
   moved inward by `sigma0`. `center` now follows `sigma0` too. Finite boxes are unchanged.
+* The warning of `get_configspace()` without `dim` named a line of modcma instead of the caller
+  (#193).
+* `CMakeLists.txt` asked for CMake 3.12, but the Python extension needs 3.18 (FindPython's
+  `Development.Module`), the version that the installation page gives; it now asks for 3.18
+  (#193).
 * Infinite bounds and integer variables in the box (#79). Results with finite bounds, and integer
   bounds on the integer variables, are unchanged.
   * A box with an infinite bound turned the bound correction off in every coordinate, also at the

@@ -6,6 +6,13 @@ namespace modcma_python
 {
 namespace
 {
+//! The name of the Python class of self: a subclass without a repr of its own (CHOLESKY, CMSA,
+//! NATURAL_GRADIENT, NONE, COVARIANCE_NO_EIGV) shows its own name in the repr it inherits
+std::string class_name(nb::handle self)
+{
+    return nb::cast<std::string>(self.type().attr("__name__"));
+}
+
 //! The members that every matrix adaptation shows in its repr
 void adaptation_repr(std::stringstream &ss, const matrix_adaptation::Adaptation &a)
 {
@@ -1116,8 +1123,11 @@ void define_matrix_adaptation(nb::module_ &main)
              "    z, shape (d,).")
         .def(
             "__repr__",
-            [](Adaptation &a) {
-                return repr("Adaptation", [&](std::stringstream &ss) {
+            // pointer_and_handle: the object and its handle, with the usual check of the
+            // argument (TypeError for an object of another class)
+            [](nb::pointer_and_handle<Adaptation> self) {
+                const Adaptation &a = *self.p;
+                return repr(class_name(self.h).c_str(), [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
                     ss << " dd: " << a.dd;
                 });
@@ -1133,15 +1143,6 @@ void define_matrix_adaptation(nb::module_ &main)
         "functions, or as a baseline. Settings switches `Modules.active` off with it, and "
         "rejects `Settings.C0`.");
     adaptation_init(none);
-    none.def(
-        "__repr__",
-        [](None &a) {
-            return repr("NoAdaptation", [&](std::stringstream &ss) {
-                adaptation_repr(ss, a);
-                ss << " dd: " << a.dd;
-            });
-        },
-        repr_doc);
 
     auto covariance = nb::class_<CovarianceAdaptation, Adaptation>(
         m,
@@ -1251,8 +1252,9 @@ void define_matrix_adaptation(nb::module_ &main)
              "    The recombination weights and learning rates (`es.p.weights`).")
         .def(
             "__repr__",
-            [](CovarianceAdaptation &a) {
-                return repr("CovarianceAdaptation", [&](std::stringstream &ss) {
+            [](nb::pointer_and_handle<CovarianceAdaptation> self) {
+                const CovarianceAdaptation &a = *self.p;
+                return repr(class_name(self.h).c_str(), [&](std::stringstream &ss) {
                     adaptation_repr(ss, a);
                     ss << " pc: " << a.pc.transpose() << " d: " << a.d.transpose();
                     ss << " B: " << a.B << " C: " << a.C;

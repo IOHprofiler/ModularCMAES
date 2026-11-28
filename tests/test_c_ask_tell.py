@@ -5,23 +5,14 @@ objective reproduce the golden trajectories of step() bit for bit. These tests c
 not: configurations the golden runs do not reach, the batches ask() returns, injection and errors.
 """
 
-import math
 import subprocess
 import sys
-import textwrap
 import unittest
 
 import numpy as np
 
 from modcma import c_maes
-
-
-def sphere(x):
-    return math.fsum(xi * xi for xi in x)
-
-
-def rastrigin(x):
-    return 10.0 * len(x) + math.fsum(xi * xi - 10.0 * math.cos(2.0 * math.pi * xi) for xi in x)
+from tests.golden import rastrigin, sphere
 
 
 class RestartAt(c_maes.restart.Criterion):
@@ -35,13 +26,10 @@ class RestartAt(c_maes.restart.Criterion):
         self.met = parameters.stats.t in self.generations
 
 
-def make(d=4, seed=12, **kwargs):
-    modules = c_maes.Modules()
-    for name, value in kwargs.pop("modules", {}).items():
-        if not c_maes.set_module(modules, name, value):
-            raise ValueError(name)
+def make(d=4, seed=12, modules=None, **kwargs):
     c_maes.set_seed(seed)
-    return c_maes.ModularCMAES(c_maes.Settings(d, modules, verbose=False, **kwargs))
+    settings = c_maes.settings_from_dict(d, verbose=False, **(modules or {}), **kwargs)
+    return c_maes.ModularCMAES(settings)
 
 
 def ask_tell_generation(cma, objective, sizes=None):

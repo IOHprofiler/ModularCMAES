@@ -23,7 +23,7 @@ The C++ library, its unit tests and the benchmark harness build with CMake:
 ```bash
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
-ctest --test-dir build --output-on-failure
+(cd build && ctest --output-on-failure)
 ./build/modcma_bench --dims 2,10,100
 ```
 
@@ -83,7 +83,8 @@ ctest --test-dir build --output-on-failure
   options of `Modules`, the top-level names). A name that is renamed or removed keeps a deprecated
   alias, or raises an error that says what to use instead. The internals (the methods and helpers
   of the module objects) may change without deprecation; `tests/api_dump.py` records each change
-  with the reason "internal". Every change gets a line in the changelog.
+  with the reason "internal" (`tests/test_c_api_dump.py` fails on a change it does not list). Every
+  change gets a line in the changelog.
 
 ## A module that evaluates the objective
 

@@ -7,7 +7,7 @@ import unittest
 import numpy as np
 
 from modcma import c_maes
-from modcma.c_maes import options, parameters, Parameters, Population
+from modcma.c_maes import Parameters, Population
 
 
 def make(d=4, **modules):

@@ -11,7 +11,15 @@ with the extension after the nanobind port.
 
 ``compare`` reports what the installed extension lacks compared with the reference: a missing name,
 a property that became read-only, a reference overload that no current overload accepts (same
-argument names in the same order, the same arguments optional). Additions are allowed.
+argument names in the same order, the same arguments optional). Additions are allowed. A
+difference that is accepted goes into ``ACCEPTED``, with the reason; ``tests/test_c_api_dump.py``
+runs the comparison.
+
+The reference, ``tests/data/api/pybind11.json``, is the pybind11 API of commit 41f7544
+(2026-11-23, T1.1; rewritten in the current format by bedd9e3, with the same names and
+arguments). That is 46 commits after the release of 1.2.0, not the API of the release: what
+changed between the two is not in it (``Modules.repelling_restart``, #195; the constructors of
+``SequentialSelection`` and ``Weights``; ``SequentialSelection.break_conditions``).
 """
 
 import argparse
@@ -95,6 +103,9 @@ ACCEPTED = {
         "internal: lamb was not used",
     "overload not accepted: cmaescpp.mutation.Strategy.adapt(weights, dynamic, population, old_population, stats, lamb)":
         "internal: lamb was not used",
+    "overload not accepted: cmaescpp.parameters.Weights.__init__(Settings, expected_length_z)":
+        "internal: the argument is named settings (it was named after its type; this signature "
+        "is not in 1.2.0, whose Weights took dimension, mu0, lambda0, modules)",
 }
 # #136: derived from lb and ub, which recompute them; a value set directly was inconsistent with
 # the bounds (db is the width the bound corrections use, center the default x0)
@@ -277,6 +288,20 @@ def notes(reference: dict, current: dict) -> list:
     return sorted(set(out))
 
 
+def member_of(dump: dict, name: str, member: str):
+    """The member of class ``name`` in a dump, its own or inherited from a base class (the
+    bases are looked up in the submodule of the class, where all bound bases are)."""
+    entry = dump.get(name, {})
+    if member in entry.get("members", {}):
+        return entry["members"][member]
+    module = name.rsplit(".", 1)[0]
+    for base in entry.get("bases", []):
+        found = member_of(dump, f"{module}.{base}", member)
+        if found is not None:
+            return found
+    return None
+
+
 def compare(reference: dict, current: dict) -> list:
     problems = []
     for name, ref in reference.items():
@@ -287,7 +312,7 @@ def compare(reference: dict, current: dict) -> list:
         problems += compare_entry(name, ref, cur)
         if ref["kind"] == "class":
             for member, ref_member in ref["members"].items():
-                cur_member = cur.get("members", {}).get(member)
+                cur_member = member_of(current, name, member)
                 if cur_member is None:
                     problems.append(f"missing: {name}.{member}")
                 else:
@@ -311,6 +336,25 @@ def compare_entry(name: str, ref: dict, cur: dict) -> list:
     return []
 
 
+def load(path: str) -> dict:
+    """A dump written by ``write``; dumps written before the kind field was recorded get kind ""."""
+    with open(path) as f:
+        reference = json.load(f)
+    for entry in reference.values():
+        members = entry["members"].values() if entry["kind"] == "class" else []
+        for member in [entry, *members]:
+            for overload in member.get("overloads", []):
+                for arg in overload:
+                    if len(arg) == 2:
+                        arg.append("")
+    return reference
+
+
+def incompatibilities(reference: dict, current: dict) -> list:
+    """The differences from the reference that ``ACCEPTED`` does not list."""
+    return [p for p in compare(reference, current) if p not in ACCEPTED]
+
+
 def main():
     parser = argparse.ArgumentParser(description="API dump of modcma.c_maes.cmaescpp")
     parser.add_argument("command", choices=("write", "compare"))
@@ -325,18 +369,9 @@ def main():
             f.write("\n")
         print(f"wrote {args.output}")
     else:
-        with open(args.reference) as f:
-            reference = json.load(f)
-        # dumps written before the kind field was recorded
-        for entry in reference.values():
-            members = entry["members"].values() if entry["kind"] == "class" else []
-            for member in [entry, *members]:
-                for overload in member.get("overloads", []):
-                    for arg in overload:
-                        if len(arg) == 2:
-                            arg.append("")
+        reference = load(args.reference)
         current = dump()
-        problems = [p for p in compare(reference, current) if p not in ACCEPTED]
+        problems = incompatibilities(reference, current)
         if args.notes:
             for note in notes(reference, current):
                 print(f"note: {note}")
