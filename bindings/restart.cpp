@@ -92,8 +92,10 @@ void define_restart_criteria(nb::module_ &main)
         .def_rw("max_iter",
                 &ExceededMaxIter::max_iter,
                 "The most generations of one run, set at every reset to "
-                "100 + 50 (d + 3)^2 / sqrt(lambda), or to the smaller `Strategy.max_iter` of the "
-                "restart strategy (BIPOP's small runs).");
+                "100 + 50 (d + 3)^2 / sqrt(lambda) (rounded down; lambda of the run), or to the "
+                "smaller `Strategy.max_iter` of the restart strategy (BIPOP's small runs). "
+                "pycma's default maxiter is three times as large, 100 + 150 (d + 3)^2 / "
+                "sqrt(lambda).");
 
     nb::class_<NoImprovement, Criterion>(
         m,
@@ -101,7 +103,8 @@ void define_restart_criteria(nb::module_ &main)
         "Met when the best fitness of a generation has not changed over the last `n_bin` "
         "generations.\n\n"
         "Checked from n_bin generations after a restart on: met when the range (max - min) of "
-        "the best fitness of the last n_bin generations is at most `NoImprovement.tolerance`.")
+        "the best fitness of the last n_bin generations is at most `NoImprovement.tolerance`. "
+        "EqualFunValues of Hansen (2016, App. B.3), which stops when that range is zero.")
         .def(nb::init<>(),
              "The criterion; `n_bin` is set by the first reset (or, added to a running "
              "optimizer, before its first update).")
@@ -126,9 +129,10 @@ void define_restart_criteria(nb::module_ &main)
         "D are the axis lengths of the distribution, the square roots of the eigenvalues of C, "
         "from `Adaptation.metric()`, for COVARIANCE, SEPARABLE and NONE. The others, which "
         "would decompose their matrix every generation, use sqrt(max C_ii) "
-        "(`Adaptation.coordinate_wise_variances`) instead of max(D): for them the test is "
-        "pycma's tolfacupx, sigma sqrt(C_ii) > 1e3 sigma0 for some i, with 1e4. max C_ii is at "
-        "most the largest eigenvalue, so it fires later than with the eigenvalues. Before 2.0 "
+        "(`Adaptation.coordinate_wise_variances`) instead of max(D): for them, when C starts "
+        "at the identity, the test is pycma's tolfacupx (sigma sqrt(C_ii) > tolfacupx sigma0 "
+        "for some i, pycma's default 1e3) with 1e4. max C_ii is at most the largest "
+        "eigenvalue, so it fires later than with the eigenvalues. Before 2.0 "
         "the criterion compared sigma with 1e4, whatever sigma0 and C.")
         .def(nb::init<>(), "The criterion; `start` is set by the first reset.")
         .def_rw("start",
@@ -152,7 +156,8 @@ void define_restart_criteria(nb::module_ &main)
         "UnableToAdapt",
         "Met when the matrix adaptation failed (e.g. its eigendecomposition or Cholesky "
         "factorization) or sigma is not finite.\n\n"
-        "Always among the criteria, also with RestartStrategy.NONE.")
+        "Always among the criteria, also with RestartStrategy.NONE, which then restarts too: "
+        "a matrix that could not be updated cannot be used further.")
         .def(nb::init<>(), "The criterion.");
 
     nb::class_<FlatFitness, Criterion>(
@@ -171,7 +176,9 @@ void define_restart_criteria(nb::module_ &main)
                 "The most flat generations among the last d, set at every reset to ceil(d / 3).")
         .def_rw("flat_fitness_index",
                 &FlatFitness::flat_fitness_index,
-                "The rank compared with the best, set at every reset to round(0.1 + lambda / 4).")
+                "The index (0-based) in the sorted population of the value compared with the "
+                "best, set at every reset to round(0.1 + lambda / 4); at most the last "
+                "evaluated individual (sequential selection).")
         .def_rw("flat_fitnesses",
                 &FlatFitness::flat_fitnesses,
                 "For each of the last d generations (generation t at t mod d), 1 when it was "
@@ -183,7 +190,8 @@ void define_restart_criteria(nb::module_ &main)
         "Met when the search distribution has become very small in every coordinate.\n\n"
         "Met when every entry of `tolx_vector` (sigma times the standard deviations sqrt(C_ii) "
         "and the absolute values of the evolution path p_c) is smaller than tolerance times the "
-        "step size at the start of the run (Hansen 2016, App. B.3; pycma's tolx).\n\n"
+        "step size at the start of the run (Hansen 2016, App. B.3, TolX: 1e-12 times the "
+        "initial sigma). pycma's tolx is the same test with an absolute tolerance, 1e-11.\n\n"
         "For every matrix adaptation: C_ii from `Adaptation.coordinate_wise_variances`, and "
         "p_c where the adaptation has one (COVARIANCE, COVARIANCE_NO_EIGV, SEPARABLE, "
         "CHOLESKY).")
@@ -277,16 +285,20 @@ void define_restart_criteria(nb::module_ &main)
         "Stagnation",
         "Met when neither the best nor the median fitness of the generations improves any "
         "more.\n\n"
-        "From `n_stagnation` generations after a restart on, the history of each is split at "
-        "tolerance (0.3) of its length; met when the median of the later part is not lower than "
-        "the median of the earlier part, for both the best and the median fitness.")
+        "From `n_stagnation` generations after a restart on, the history of each since the "
+        "reset is split at tolerance (0.3) of its length; met when the median of the later part "
+        "is not lower than the median of the earlier part, for both the best and the median "
+        "fitness. Hansen's Stagnation (2016, App. B.3) compares other parts: the most recent "
+        "30 % of a window of the history (the last 20 % of the generations, at least "
+        "120 + 30 d / lambda and at most 20000) with its first 30 %.")
         .def(nb::init<>(),
              "The criterion; `n_stagnation` is set by the first reset (or, added to a running "
              "optimizer, before its first update).")
         .def_rw("n_stagnation",
                 &Stagnation::n_stagnation,
                 "The generations before the criterion is checked, set at every reset to "
-                "100 + 100 d^1.5 / lambda.")
+                "100 + 100 d^1.5 / lambda (rounded down), the formula of pycma's default "
+                "tolstagnation.")
         // lists, as before; assigning one rebuilds the running medians
         .def_prop_rw(
             "median_fitnesses",
@@ -309,7 +321,8 @@ void define_restart_criteria(nb::module_ &main)
         "TooMuchRepelling",
         "Met when repelling rejected too many samples: on average at least tolerance "
         "rejections per individual in a generation.\n\n"
-        "Used when `Modules.repelling_type` is not NONE.")
+        "Used when `Modules.repelling_type` is not NONE (and the restart strategy is not "
+        "NONE).")
         .def(nb::init<>(), "The criterion.")
         .def_rw_static("tolerance",
                        &TooMuchRepelling::tolerance,
@@ -450,7 +463,8 @@ void define_restart_strategy(nb::module_ &main)
         m,
         "IPOP",
         "IPOP (Auger & Hansen 2005): every restart multiplies lambda by `ipop_factor`, up to "
-        "`max_lambda_factor` * lambda0 (2^9 lambda0, the framework paper).\n\n"
+        "`max_lambda_factor` * lambda0 (2^9 lambda0, the framework paper), and restarts with "
+        "sigma0.\n\n"
         "mu is the default of the new lambda, lambda // 2 (lambda // 4 with ssa SA or "
         "matrix_adaptation CMSA), as pycma's fmin (popsize // 2) and the framework paper (Alg. "
         "1); with a Settings.mu0 that was given, mu0 / lambda0 of the new lambda, rounded half "
