@@ -77,7 +77,10 @@ void define_population(nb::module_ &main)
         "the points that elitist selection dropped (see n_pool).\n\n"
         "A view is valid until the next generation: the optimizer then swaps pop and old_pop, "
         "and a restart or a larger population replaces the buffers (the view would read freed "
-        "memory). Copy an array (`.copy()`) to keep its values.")
+        "memory). Copy an array (`.copy()`) to keep its values.\n\n"
+        "Create it as Population(d, n), n individuals with f = +inf and every other array 0, "
+        "or as Population(X, Z, Y, f, S) from the arrays (d and n from the shape of X; t is "
+        "0).")
         .def(nb::init<size_t, size_t>(),
              nb::arg("dimension"),
              nb::arg("n"),
@@ -322,7 +325,7 @@ void define_parameters(nb::module_ &main)
         .def_rw("sampler",
                 &Modules::sampler,
                 "options.BaseSampler, default UNIFORM: the generator of the base points in "
-                "[0, 1)^d.\n\n"
+                "(0, 1)^d.\n\n"
                 "Pseudo-random or a low-discrepancy sequence; sample_transformation turns the "
                 "points into samples of the search distribution. See "
                 "modcma.c_maes.options.BaseSampler.")
@@ -491,8 +494,8 @@ void define_parameters(nb::module_ &main)
                 "keeps its values.")
         .def_rw("global_best",
                 &Stats::global_best,
-                "The best feasible solution found so far, over all runs: what `run()` and `fmin` "
-                "return.\n\n"
+                "The best feasible solution found so far, over all runs: the result of a run "
+                "(`run()` returns None and leaves it here), and what `fmin` returns.\n\n"
                 "With a bound correction (not NONE) only a point inside [lb, ub] becomes "
                 "global_best: RESAMPLE evaluates a point outside the box after 5 d rejected tries, "
                 "and such a point is not returned (#168). Without a bound correction the box does "
@@ -551,11 +554,11 @@ void define_parameters(nb::module_ &main)
         .def_rw("mueff",
                 &Weights::mueff,
                 "The variance effective selection mass of the positive weights, "
-                "1 / sum(positive**2).")
+                "1 / sum(positive^2).")
         .def_rw("mueff_mean",
                 &Weights::mueff_mean,
                 "The variance effective selection mass of the weights of the mean, "
-                "1 / sum(w**2): `mueff`, except for UTILITY, where the mean uses all lambda "
+                "1 / sum(w^2): `mueff`, except for UTILITY, where the mean uses all lambda "
                 "utilities. Normalizes the evolution paths.")
         .def_rw("utility",
                 &Weights::utility,
@@ -568,23 +571,23 @@ void define_parameters(nb::module_ &main)
         .def_rw("mueff_neg",
                 &Weights::mueff_neg,
                 "The variance effective selection mass of the negative weights, "
-                "sum(negative)**2 / sum(negative**2) (for DEFAULT with mu > lambda / 2: of the mu "
+                "sum(negative)^2 / sum(negative^2) (for DEFAULT with mu > lambda / 2: of the mu "
                 "negative weights of a population of 2 mu, see `negative`).")
         .def_rw("c1",
                 &Weights::c1,
                 "The learning rate of the rank-one update of the matrix.\n\n"
-                "Default acov / ((d + 1.3)**2 + mueff) (Hansen, arXiv:1604.00772v2, Table 1, "
+                "Default acov / ((d + 1.3)^2 + mueff) (Hansen, arXiv:1604.00772v2, Table 1, "
                 "Eq. (57)); for SEPARABLE pycma's separable rate "
-                "1 / (d + 2 sqrt(d) + mueff / d) (c1_sep of CMA_diagonal, pycma 4.6.0); 2 / (d**2 "
+                "1 / (d + 2 sqrt(d) + mueff / d) (c1_sep of CMA_diagonal, pycma 4.6.0); 2 / (d^2 "
                 "+ 6) for a (1+1)-ES (lambda0 = 1).")
         .def_rw("cmu",
                 &Weights::cmu,
                 "The learning rate of the rank-mu update of the matrix.\n\n"
-                "Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)**2 + acov mueff / "
+                "Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)^2 + acov mueff / "
                 "2)), as `cmaes` 0.13 (Hansen, arXiv:1604.00772v2, Table 1, Eq. (58), and pycma "
                 "add 1/4 to mueff - 2 + 1 / mueff); for SEPARABLE pycma's separable rate min(1 - "
                 "c1, (0.25 + mueff + 1 / mueff - 2) / (d + 4 sqrt(d) + mueff / 2)) (cmu_sep of "
-                "CMA_diagonal, pycma 4.6.0), so that c1 + cmu <= 1; 2 / (d**2 + 6) for lambda0 = "
+                "CMA_diagonal, pycma 4.6.0), so that c1 + cmu <= 1; 2 / (d^2 + 6) for lambda0 = "
                 "1.")
         .def_rw("cc",
                 &Weights::cc,
@@ -593,7 +596,7 @@ void define_parameters(nb::module_ &main)
                 "Table 1, Eq. (56)); 2 / (d + 2) for a (1+1)-ES. "
                 "With NATURAL_GRADIENT the learning rate of A <- A expm(cc G): xNES's eta_B / 2 = "
                 "(9 + 3 ln(d)) / (10 d sqrt(d)) (Glasmachers et al. 2010) with every ssa, or 1 / "
-                "(4 d**1.5) for a (1+1)-ES.")
+                "(4 d^1.5) for a (1+1)-ES.")
         .def_rw("cs",
                 &Weights::cs,
                 "The learning rate of the step-size adaptation.\n\n"
@@ -647,8 +650,9 @@ void define_parameters(nb::module_ &main)
         .def_rw("expected_length_ps",
                 &Weights::expected_length_ps,
                 "(1.4 + 2 / (d + 1)) expected_length_z: the threshold of h_sigma (Hansen 2016, "
-                "after Eq. (45)). When the length of ps, corrected for the generations of the "
-                "run, is not below it, the rank-one update stalls (the update of the path pc; "
+                "App. A, symbols of Fig. 6). When the length of ps, corrected for the generations "
+                "of the run, is not below it, the rank-one update stalls (the update of the path "
+                "pc; "
                 "MATRIX's rank-one term).")
         .def_rw("beta",
                 &Weights::beta,
@@ -834,7 +838,7 @@ void define_parameters(nb::module_ &main)
             "- then, when ssa is not CSA (so also for lambda0 = 1), matrix_adaptation "
             "COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);\n"
             "- when the box lb..ub is not finite, has_bounds is False, diameter 10, volume "
-            "10**dim; center is computed per coordinate (see `center`).\n\n"
+            "10^dim; center is computed per coordinate (see `center`).\n\n"
             "Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a "
             "mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, "
             "max_generations 0, a sigma0 that is not positive and finite, x0, lb or ub of a "
@@ -866,7 +870,7 @@ void define_parameters(nb::module_ &main)
             "of mass (#111).\n"
             "sigma0 : float, optional\n"
             "    The initial step size, default 2.0, positive and finite; also the step size "
-            "after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u "
+            "after a restart (the small-population runs of BIPOP use sigma0 * 10^(-2 u), u "
             "uniform in (0, 1)).\n"
             "mu0 : int, optional\n"
             "    The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or "
@@ -897,10 +901,10 @@ void define_parameters(nb::module_ &main)
             "dim) / (dim + 4 + 2 mueff / dim) (see Weights.cc).\n"
             "cmu : float, optional\n"
             "    The learning rate of the rank-mu update, in [0, 1]. Default min(1 - c1, acov "
-            "(mueff - 2 + 1 / mueff) / ((dim + 2)**2 + acov mueff / 2)) (see Weights.cmu).\n"
+            "(mueff - 2 + 1 / mueff) / ((dim + 2)^2 + acov mueff / 2)) (see Weights.cmu).\n"
             "c1 : float, optional\n"
             "    The learning rate of the rank-one update, in [0, 1]; with cmu, c1 + cmu <= 1. "
-            "Default acov / ((dim + 1.3)**2 + mueff) (see Weights.c1).\n"
+            "Default acov / ((dim + 1.3)^2 + mueff) (see Weights.c1).\n"
             "damps : float, optional\n"
             "    The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, "
             "sqrt((mueff - 1) / (dim + 1)) - 1) + cs (see Weights.damps).\n"
@@ -922,7 +926,7 @@ void define_parameters(nb::module_ &main)
             "random stream.\n"
             "C0 : array_like, optional\n"
             "    (dim, dim) the initial covariance matrix C, symmetric positive definite: the "
-            "first generation samples N(x0, sigma0**2 C0). Default None: the identity. See the "
+            "first generation samples N(x0, sigma0^2 C0). Default None: the identity. See the "
             "attribute C0; modcma.warm_start estimates x0, sigma0 and C0 from the solutions of "
             "a related task.")
         // The read-only properties name their getter: Python's "property 'db' of 'Settings'
@@ -950,7 +954,7 @@ void define_parameters(nb::module_ &main)
             nb::for_setter(nb::arg("value").none()),
             "(dim, dim) array: the initial covariance matrix C, or None (default) for the "
             "identity.\n\n"
-            "The first generation samples N(x0, sigma0**2 C0) (warm starting, Nomura et al. "
+            "The first generation samples N(x0, sigma0^2 C0) (warm starting, Nomura et al. "
             "2021; see modcma.warm_start). Each matrix adaptation starts its matrix from a factor "
             "F of C0, F F^T = C0: COVARIANCE from the eigendecomposition, COVARIANCE_NO_EIGV, "
             "CHOLESKY and CMSA from the lower Cholesky factor, MATRIX and NATURAL_GRADIENT from "
@@ -1078,11 +1082,11 @@ void define_parameters(nb::module_ &main)
                 &Settings::diameter,
                 nb::name("diameter"),
                 "The length of the diagonal of the box, ||ub - lb||; 10 when the box is not "
-                "finite (then volume is 10**dim). Read-only: derived from lb and ub.")
+                "finite (then volume is 10^dim). Read-only: derived from lb and ub.")
         .def_ro("volume",
                 &Settings::volume,
                 nb::name("volume"),
-                "The volume of the box, prod(ub - lb); 10**dim when the box is not finite. "
+                "The volume of the box, prod(ub - lb); 10^dim when the box is not finite. "
                 "Read-only: derived from lb and ub.")
         .def_prop_ro(
             "has_bounds",
@@ -1225,7 +1229,10 @@ void define_parameters(nb::module_ &main)
         "Settings.modules is an object here (adaptation, mutation, selection, sampler, bounds, "
         "...), which can be inspected and, for experiments, changed. Every Parameters object has "
         "its own random generator: seeded with Settings.seed, or a copy of the global generator "
-        "(set_seed) at creation.")
+        "(set_seed) at creation.\n\n"
+        "Create it as Parameters(settings), which copies the Settings and checks them (every "
+        "field, the checks between fields and C0; ValueError), or Parameters(d), the same as "
+        "Parameters(Settings(d)).")
         .def(nb::init<size_t>(),
              nb::arg("dimension"),
              "Parameters with the default settings for this dimension (Settings(dimension)).")
@@ -1437,7 +1444,11 @@ void define_cmaes(nb::module_ &m)
         m,
         "ModularCMAES",
         "The modular CMA-ES.\n\n"
-        "Create it from Settings (or from Parameters), then run it in one of two ways:\n\n"
+        "Create it as ModularCMAES(settings), which copies the Settings; ModularCMAES(d), the "
+        "same as ModularCMAES(Settings(d)); or ModularCMAES(parameters), which works on the "
+        "given Parameters without copying them (p is parameters). The signature of 1.x, "
+        "ModularCMAES(fitness_func, d, ...), raises TypeError. Then run it in one of two "
+        "ways:\n\n"
         "- with an objective function: run() (or calling the object) until a break condition "
         "holds, step() for one generation, or mutate(), select(), recombine() and adapt() for "
         "the steps of a generation;\n"
@@ -1659,9 +1670,9 @@ void define_cmaes(nb::module_ &m)
              "from the asked point replaces it; for an individual of the population, its y and "
              "z are derived from the row with its step size, as for elitism. Such an individual "
              "far outside the distribution enters the update clipped: z is shortened to a length "
-             "of at most sqrt(d) + 2 d / (d + 2), and y with it (Hansen 2011, \"Injecting "
-             "external solutions into CMA-ES\"; pycma); the statistics keep the evaluated point "
-             "and its value.\n\n"
+             "of at most sqrt(d) + 2 d / (d + 2), and y and its x with it (Hansen 2011, "
+             "\"Injecting external solutions into CMA-ES\"; pycma); the statistics keep the "
+             "evaluated point and its value.\n\n"
              "Returns\n"
              "-------\n"
              "bool\n"
@@ -1694,12 +1705,13 @@ void define_cmaes(nb::module_ &m)
             "the mean m, at the length of a typical sample,\n\n"
             "    x = m - sigma * c * C g / sqrt(g^T C g),\n\n"
             "with c = E||N(0, I)|| (the expected length of a sample z of the sampler, "
-            "Weights.expected_length_z) and sigma**2 C the covariance of the samples (Hansen 2011, "
+            "Weights.expected_length_z) and sigma^2 C the covariance of the samples (Hansen 2011, "
             "Eq. 14, with c for his sqrt(d)). With sampled step sizes or integer variables the "
             "point gets the step size of the individual it replaces. With mirrored sampling the "
             "next individual becomes its mirror, m + sigma * c * C g / sqrt(g^T C g), so the "
-            "pair stays a pair. With a bound correction the point is moved into the box, as "
-            "TPA's points (RESAMPLE clips it), and its integer variables are rounded; it then "
+            "pair stays a pair. With a bound correction the point is moved into the box by "
+            "`bounds.BoundCorrection.correct_point` (RESAMPLE clips it), and its integer "
+            "variables are rounded; it then "
             "enters the update as a point given to tell(f, X): clipped when it is far outside "
             "the distribution. A point in a taboo region of the repelling archive is not "
             "injected. The samples are drawn as without injection, so a bad gradient costs the "
@@ -1763,7 +1775,7 @@ void define_es(nb::module_ &main)
         "A (1+1)-ES with a success rule for the step size.\n\n"
         "Every step samples x1 = x + sigma z, evaluates it and keeps it when it is better than "
         "x (with a bound correction, only when it lies in the box [-5, 5]^d, #168). sigma is "
-        "multiplied by exp(0.8)**decay after a success and by exp(-0.2)**decay otherwise, with "
+        "multiplied by exp(0.8)^decay after a success and by exp(-0.2)^decay otherwise, with "
         "decay = 1 / sqrt(d + 1).")
         .def(nb::init<size_t, Vector, Float, Float, size_t, Float, parameters::Modules>(),
              nb::arg("d"),
@@ -1894,7 +1906,7 @@ void define_es(nb::module_ &main)
                 "The learning rate of the common step-size factor, 1 / sqrt(d).")
         .def_rw("tau_i",
                 &MuCommaLambdaES::tau_i,
-                "The learning rate of the coordinate-wise step-size factors, 1 / d**0.25.")
+                "The learning rate of the coordinate-wise step-size factors, 1 / d^0.25.")
         .def_rw("mu_inv", &MuCommaLambdaES::mu_inv, "1 / mu: the recombination weight.")
         .def_rw("f_min", &MuCommaLambdaES::f_min, "The best objective value found (+inf at first).")
         .def_rw("x_min",

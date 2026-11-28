@@ -360,7 +360,13 @@ void define_repelling(nb::module_ &main)
         "current search distribution; EUCLIDEAN; ARCHIVED: `metric`) and divided by the current "
         "sigma. A sample is "
         "rejected when this distance is less than shrinkage^attempts * radius, with attempts "
-        "the number of samples rejected so far in the population.")
+        "the number of samples rejected so far in the population.\n\n"
+        "Create it as TabooPoint(solution, radius, metric=empty), whose radius has no bounds "
+        "(as `CoverageRepelling` does), or TabooPoint(solution, radius, min_radius, "
+        "max_radius, metric=empty), whose radius stays in [min_radius, max_radius] (as "
+        "`AdaptiveRepelling` does). solution is the optimum (a `Solution`), the radii are in "
+        "units of sigma, and metric is A^-1 of the run that found the point, scaled to unit "
+        "determinant, for `RepellingMetric.ARCHIVED` (empty for the other metrics).")
         .def(nb::init<const Solution &, Float, const Matrix &>(),
              nb::arg("solution"),
              nb::arg("radius"),
@@ -856,7 +862,7 @@ void define_matrix_adaptation(nb::module_ &main)
             [](const MetricCopy &metric) {
                 return matrix_adaptation::Metric::of(metric).eigenvalues();
             },
-            "The eigenvalues of C, d**2, in the order of `d`.\n\n"
+            "The eigenvalues of C, d^2, in the order of `d`.\n\n"
             "Returns\n"
             "-------\n"
             "numpy.ndarray\n"
@@ -865,7 +871,7 @@ void define_matrix_adaptation(nb::module_ &main)
             "inv_C",
             [](const MetricCopy &metric) { return matrix_adaptation::Metric::of(metric).inv_C(); },
             "C^-1 = B diag(d)^-2 B^T, computed on call (O(d^3); a diagonal matrix when C is "
-            "diagonal, where 1 / d**2 is the cheap form).\n\n"
+            "diagonal, where 1 / d^2 is the cheap form).\n\n"
             "On a convex-quadratic function with Hessian H, CMA-ES adapts C towards H^-1 up to a "
             "constant factor: Hansen (2016), The CMA Evolution Strategy: A Tutorial, Section 0.4, "
             "\"we assume that the optimal covariance matrix equals to the inverse Hessian matrix, "
@@ -1181,7 +1187,7 @@ void define_matrix_adaptation(nb::module_ &main)
                 "Cholesky factor of C in `CovarianceNoEigvAdaptation`).")
         .def_rw("hs",
                 &CovarianceAdaptation::hs,
-                "The indicator h_sigma (Hansen 2016, after Eq. (45)): False when "
+                "The indicator h_sigma (Hansen 2016, App. A, symbols of Fig. 6): False when "
                 "||ps|| / sqrt(1 - (1 - cs_path)^(2 (g + 1))), with g the generation of the run, "
                 "reaches `es.p.weights.expected_length_ps` = (1.4 + 2 / (d + 1)) E||z||: the step "
                 "size is far too small. False stalls the update of pc, and the decay of C "
@@ -1285,8 +1291,8 @@ void define_matrix_adaptation(nb::module_ &main)
         .def_rw("hs",
                 &SeparableAdaptation::hs,
                 "The indicator h_sigma: False when ||ps|| is long (see `CovarianceAdaptation.hs`; "
-                "Hansen 2016, after Eq. (45)), which stalls the update of pc, and the decay of c "
-                "compensates the variance that pc loses; True otherwise. With "
+                "Hansen 2016, App. A, symbols of Fig. 6), which stalls the update of pc, and the "
+                "decay of c compensates the variance that pc loses; True otherwise. With "
                 "`StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False "
                 "also drops the negative weights of the generation's update (#175).")
         .def(
@@ -1317,8 +1323,8 @@ void define_matrix_adaptation(nb::module_ &main)
         "(mu + lambda) pool, as in the other adaptations (#161).\n\n"
         "With a step-size adaptation other than CSA, h_sigma (`hs`) drops the rank-one term, "
         "and its c1/2 in the decay, in a generation in which ||ps|| is long, as COVARIANCE "
-        "stalls pc (Hansen 2016, after Eq. (45); #160). MA-ES has no h_sigma: with CSA, which "
-        "updates sigma from the same path, the update is MA-ES's.");
+        "stalls pc (Hansen 2016, App. A, symbols of Fig. 6; #160). MA-ES has no h_sigma: with "
+        "CSA, which updates sigma from the same path, the update is MA-ES's.");
     adaptation_init(matrix);
     matrix
         .def_rw("M",
@@ -1343,8 +1349,9 @@ void define_matrix_adaptation(nb::module_ &main)
                 "was not the inverse of M F, and drifted from the inverse of M.")
         .def_rw("hs",
                 &MatrixAdaptation::hs,
-                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
-                "which skips the rank-one term of the generation; always True with CSA and in "
+                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, App. A, symbols "
+                "of Fig. 6), which skips the rank-one term of the generation; always True with CSA "
+                "and in "
                 "the (1+1)-ES (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not "
                 "with UTILITY weights), False also drops the negative weights of the generation's "
                 "update (#175).")
@@ -1400,7 +1407,7 @@ void define_matrix_adaptation(nb::module_ &main)
         "the worst points of the (mu + lambda) pool (#161).\n\n"
         "With a step-size adaptation other than CSA, h_sigma (`hs`) stalls the update of pc "
         "and A is scaled by sqrt(1 + c1 delta(h_sigma) - c1 - cmu sum(w)), as in COVARIANCE "
-        "(Hansen 2016, after Eq. (45); #160).");
+        "(Hansen 2016, App. A, symbols of Fig. 6; #160).");
     adaptation_init(cholesky);
     cholesky
         .def_rw("A",
@@ -1412,8 +1419,9 @@ void define_matrix_adaptation(nb::module_ &main)
                 "The evolution path of the rank-one update, shape (d,) (zeros at the start).")
         .def_rw("hs",
                 &CholeskyAdaptation::hs,
-                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), "
-                "which stalls the update of pc; always True with CSA and in the (1+1)-ES (#160). "
+                "The indicator h_sigma: False when ||ps|| is long (Hansen 2016, App. A, symbols "
+                "of Fig. 6), which stalls the update of pc; always True with CSA and in the "
+                "(1+1)-ES (#160). "
                 "With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), "
                 "False also drops the negative weights of the generation's update (#175).")
         .def_ro("skipped_downdates",
@@ -1722,8 +1730,8 @@ void define_bounds(nb::module_ &main)
         "Every rejected sample counts in `n_out_of_bounds`.\n\n"
         "Keeps the shape of the distribution inside the box; costs samples, not evaluations. "
         "A point still outside after the last try is evaluated, and can be selected, but never "
-        "becomes `es.p.stats.global_best`, the solution that `run()` and `fmin` return "
-        "(#168).")
+        "becomes `es.p.stats.global_best`, the best solution of the optimizer and what `fmin` "
+        "returns (#168).")
         .def(nb::init<>(), "Create the correction.");
     nb::class_<NoCorrection, BoundCorrection>(
         m,
@@ -1875,10 +1883,13 @@ void define_mutation(nb::module_ &main)
         "generation (`Modules.sequential_selection`).\n\n"
         "The population is cut after individual i (0-based) when its objective value is better "
         "than the best of the previous generation (in the first generation of a run, never) "
-        "and i >= mu * seq_cutoff_factor; with pairwise selection the "
+        "and i >= floor(mu * seq_cutoff_factor); with pairwise selection the "
         "factor is at least 2 and the cut falls after a complete pair. The updates use the "
         "evaluated individuals. Saves evaluations on functions where improvements are easy to "
-        "find. Brockhoff et al. (2010).")
+        "find. Brockhoff et al. (2010).\n\n"
+        "Create it as SequentialSelection(mirror, seq_cutoff_factor=1.0), with mirror the "
+        "`Modules.mirrored` option; the optimizer creates it with the defaults. "
+        "`NoSequentialSelection` (the module off) takes the same arguments.")
         .def(nb::init<parameters::Mirror, Float>(),
              nb::arg("mirror"),
              nb::arg("seq_cutoff_factor") = 1.0,
@@ -1933,7 +1944,9 @@ void define_mutation(nb::module_ &main)
         m,
         "NoSequentialSelection",
         "No sequential selection (the default): every individual of a population is "
-        "evaluated.")
+        "evaluated.\n\n"
+        "Create it as NoSequentialSelection(mirror, seq_cutoff_factor=1.0); neither argument "
+        "is used.")
         .def(nb::init<parameters::Mirror, Float>(),
              nb::arg("mirror"),
              nb::arg("seq_cutoff_factor") = 1.0,

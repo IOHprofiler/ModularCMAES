@@ -169,7 +169,13 @@ void define_samplers(nb::module_ &main)
         "A sampler that cycles through a fixed set of points.\n\n"
         "The optimizer wraps its sampler in one when `constants.cache_samples` is set (off by "
         "default), except with SOBOL, which keeps its points itself. A restart does not empty "
-        "the cache.")
+        "the cache.\n\n"
+        "Create it as CachedSampler(sampler), which caches the first n_samples samples of "
+        "sampler and then repeats them (n_samples = max(constants.cache_min_samples, the "
+        "largest power of 2 <= constants.cache_max_doubles / d)), or as CachedSampler(cache, "
+        "transform_ppf=False), which cycles through the given points (a non-empty list of "
+        "equally long vectors; with transform_ppf every coordinate is first mapped through the "
+        "inverse normal CDF).")
         .def(nb::init<const std::shared_ptr<Sampler>>(),
              nb::arg("sampler"),
              "Cache the first n_samples samples of sampler and then repeat them; n_samples = "

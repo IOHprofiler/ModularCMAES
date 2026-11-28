@@ -94,8 +94,8 @@ void define_restart_criteria(nb::module_ &main)
                 "The most generations of one run, set at every reset to "
                 "100 + 50 (d + 3)^2 / sqrt(lambda) (rounded down; lambda of the run), or to the "
                 "smaller `Strategy.max_iter` of the restart strategy (BIPOP's small runs). "
-                "pycma's default maxiter is three times as large, 100 + 150 (d + 3)^2 / "
-                "sqrt(lambda).");
+                "pycma's default maxiter, 100 + 150 (d + 3)^2 / sqrt(lambda), has three times "
+                "the variable term.");
 
     nb::class_<NoImprovement, Criterion>(
         m,
