@@ -129,7 +129,7 @@ class Resample(BoundCorrection):
     """
     Sample again (`CorrectionMethod.RESAMPLE`): an individual outside the bounds is drawn again, up to 5 d times (a mirrored pair as one), and kept as it is after that. Every rejected sample counts in `n_out_of_bounds`.
 
-    Keeps the shape of the distribution inside the box; costs samples, not evaluations. A point still outside after the last try is evaluated, and can be selected, but never becomes `es.p.stats.global_best`, the solution that `run()` and `fmin` return (#168).
+    Keeps the shape of the distribution inside the box; costs samples, not evaluations. A point still outside after the last try is evaluated, and can be selected, but never becomes `es.p.stats.global_best`, the best solution of the optimizer and what `fmin` returns (#168).
     """
 
     def __init__(self) -> None:

@@ -19,6 +19,8 @@ class TabooPoint:
     A taboo point: an optimum found by an earlier run, with a radius around it in which samples are rejected.
 
     The distance of a sample to it is measured in the metric of `Modules.repelling_metric` (CURRENT, the default: the Mahalanobis distance in the current search distribution; EUCLIDEAN; ARCHIVED: `metric`) and divided by the current sigma. A sample is rejected when this distance is less than shrinkage^attempts * radius, with attempts the number of samples rejected so far in the population.
+
+    Create it as TabooPoint(solution, radius, metric=empty), whose radius has no bounds (as `CoverageRepelling` does), or TabooPoint(solution, radius, min_radius, max_radius, metric=empty), whose radius stays in [min_radius, max_radius] (as `AdaptiveRepelling` does). solution is the optimum (a `Solution`), the radii are in units of sigma, and metric is A^-1 of the run that found the point, scaled to unit determinant, for `RepellingMetric.ARCHIVED` (empty for the other metrics).
     """
 
     @overload

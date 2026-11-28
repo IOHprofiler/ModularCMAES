@@ -151,6 +151,8 @@ class Population:
     The first n columns are the active individuals. Reading an array returns a view of the active columns that shares memory with the population: X, X_transformed, Z, Y and S are (d, n) matrices, f and t are (n,) vectors. Assigning an array replaces the whole buffer and leaves n unchanged. The buffers can hold more than n columns, e.g. after sequential selection stopped a generation early; those columns hold no population data, except the points that elitist selection dropped (see n_pool).
 
     A view is valid until the next generation: the optimizer then swaps pop and old_pop, and a restart or a larger population replaces the buffers (the view would read freed memory). Copy an array (`.copy()`) to keep its values.
+
+    Create it as Population(d, n), n individuals with f = +inf and every other array 0, or as Population(X, Z, Y, f, S) from the arrays (d and n from the shape of X; t is 0).
     """
 
     @overload
@@ -350,6 +352,8 @@ class Parameters:
     The state of an optimizer: settings, module objects, populations and statistics.
 
     ModularCMAES works on a Parameters object (ModularCMAES.p). Every module choice of Settings.modules is an object here (adaptation, mutation, selection, sampler, bounds, ...), which can be inspected and, for experiments, changed. Every Parameters object has its own random generator: seeded with Settings.seed, or a copy of the global generator (set_seed) at creation.
+
+    Create it as Parameters(settings), which copies the Settings and checks them (every field, the checks between fields and C0; ValueError), or Parameters(d), the same as Parameters(Settings(d)).
     """
 
     @overload
@@ -548,7 +552,7 @@ class ModularCMAES:
     """
     The modular CMA-ES.
 
-    Create it from Settings (or from Parameters), then run it in one of two ways:
+    Create it as ModularCMAES(settings), which copies the Settings; ModularCMAES(d), the same as ModularCMAES(Settings(d)); or ModularCMAES(parameters), which works on the given Parameters without copying them (p is parameters). The signature of 1.x, ModularCMAES(fitness_func, d, ...), raises TypeError. Then run it in one of two ways:
 
     - with an objective function: run() (or calling the object) until a break condition holds, step() for one generation, or mutate(), select(), recombine() and adapt() for the steps of a generation;
     - ask-tell, for an objective that is evaluated outside the optimizer (in parallel, on a cluster): ask() returns the points to evaluate, tell() takes their objective values.
@@ -694,7 +698,7 @@ class ModularCMAES:
         f : array_like
             (k,) the objective values of the k points of ask(), in the same order.
         X : array_like, optional
-            (k, d), or (d,) for one point: the points that were evaluated, when they differ from the asked ones (repaired or injected solutions). A row that differs from the asked point replaces it; for an individual of the population, its y and z are derived from the row with its step size, as for elitism. Such an individual far outside the distribution enters the update clipped: z is shortened to a length of at most sqrt(d) + 2 d / (d + 2), and y with it (Hansen 2011, "Injecting external solutions into CMA-ES"; pycma); the statistics keep the evaluated point and its value.
+            (k, d), or (d,) for one point: the points that were evaluated, when they differ from the asked ones (repaired or injected solutions). A row that differs from the asked point replaces it; for an individual of the population, its y and z are derived from the row with its step size, as for elitism. Such an individual far outside the distribution enters the update clipped: z is shortened to a length of at most sqrt(d) + 2 d / (d + 2), and y and its x with it (Hansen 2011, "Injecting external solutions into CMA-ES"; pycma); the statistics keep the evaluated point and its value.
 
         Returns
         -------
@@ -729,7 +733,7 @@ class ModularCMAES:
 
             x = m - sigma * c * C g / sqrt(g^T C g),
 
-        with c = E||N(0, I)|| (the expected length of a sample z of the sampler, Weights.expected_length_z) and sigma**2 C the covariance of the samples (Hansen 2011, Eq. 14, with c for his sqrt(d)). With sampled step sizes or integer variables the point gets the step size of the individual it replaces. With mirrored sampling the next individual becomes its mirror, m + sigma * c * C g / sqrt(g^T C g), so the pair stays a pair. With a bound correction the point is moved into the box, as TPA's points (RESAMPLE clips it), and its integer variables are rounded; it then enters the update as a point given to tell(f, X): clipped when it is far outside the distribution. A point in a taboo region of the repelling archive is not injected. The samples are drawn as without injection, so a bad gradient costs the replaced sample (and its mirror).
+        with c = E||N(0, I)|| (the expected length of a sample z of the sampler, Weights.expected_length_z) and sigma^2 C the covariance of the samples (Hansen 2011, Eq. 14, with c for his sqrt(d)). With sampled step sizes or integer variables the point gets the step size of the individual it replaces. With mirrored sampling the next individual becomes its mirror, m + sigma * c * C g / sqrt(g^T C g), so the pair stays a pair. With a bound correction the point is moved into the box by `bounds.BoundCorrection.correct_point` (RESAMPLE clips it), and its integer variables are rounded; it then enters the update as a point given to tell(f, X): clipped when it is far outside the distribution. A point in a taboo region of the repelling archive is not injected. The samples are drawn as without injection, so a bad gradient costs the replaced sample (and its mirror).
 
         Call ask() again for the points with the gradient point; run(f, gradient=...) and step() do the same.
 

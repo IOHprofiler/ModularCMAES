@@ -42,7 +42,7 @@ class Metric:
 
     def eigenvalues(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The eigenvalues of C, d**2, in the order of `d`.
+        The eigenvalues of C, d^2, in the order of `d`.
 
         Returns
         -------
@@ -52,7 +52,7 @@ class Metric:
 
     def inv_C(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        C^-1 = B diag(d)^-2 B^T, computed on call (O(d^3); a diagonal matrix when C is diagonal, where 1 / d**2 is the cheap form).
+        C^-1 = B diag(d)^-2 B^T, computed on call (O(d^3); a diagonal matrix when C is diagonal, where 1 / d^2 is the cheap form).
 
         On a convex-quadratic function with Hessian H, CMA-ES adapts C towards H^-1 up to a constant factor: Hansen (2016), The CMA Evolution Strategy: A Tutorial, Section 0.4, "we assume that the optimal covariance matrix equals to the inverse Hessian matrix, up to a constant factor" (an assumption with strong empirical support; "a rigorous proof is missing"). pycma uses the same relation (`inverse_hessian_scalar_correction` fits the factor). So C^-1 estimates the shape of the Hessian, not its scale; sigma does not give the scale, it follows the distance to the optimum. The relation needs a full matrix: SEPARABLE can only match a diagonal Hessian, and NONE keeps C = I.
 
@@ -431,7 +431,7 @@ class CovarianceAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma (Hansen 2016, after Eq. (45)): False when ||ps|| / sqrt(1 - (1 - cs_path)^(2 (g + 1))), with g the generation of the run, reaches `es.p.weights.expected_length_ps` = (1.4 + 2 / (d + 1)) E||z||: the step size is far too small. False stalls the update of pc, and the decay of C compensates the variance that pc loses (see `adapt_covariance_matrix`); True otherwise, and always in the (1+1)-ES. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
+        The indicator h_sigma (Hansen 2016, App. A, symbols of Fig. 6): False when ||ps|| / sqrt(1 - (1 - cs_path)^(2 (g + 1))), with g the generation of the run, reaches `es.p.weights.expected_length_ps` = (1.4 + 2 / (d + 1)) E||z||: the step size is far too small. False stalls the update of pc, and the decay of C compensates the variance that pc loses (see `adapt_covariance_matrix`); True otherwise, and always in the (1+1)-ES. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter
@@ -544,7 +544,7 @@ class SeparableAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma: False when ||ps|| is long (see `CovarianceAdaptation.hs`; Hansen 2016, after Eq. (45)), which stalls the update of pc, and the decay of c compensates the variance that pc loses; True otherwise. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
+        The indicator h_sigma: False when ||ps|| is long (see `CovarianceAdaptation.hs`; Hansen 2016, App. A, symbols of Fig. 6), which stalls the update of pc, and the decay of c compensates the variance that pc loses; True otherwise. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter
@@ -571,7 +571,7 @@ class MatrixAdaptation(Adaptation):
 
     MA-ES has no active update. With `Modules.active` this is the active update of the CMA-ES (Hansen 2016, Eq. (47)) written for M to first order, as MA-ES derives its own update: sum(w) includes the negative weights, and the negative weights are multiplied by d / ||z_i||^2. With elitism the negative weights go to the worst points of the (mu + lambda) pool, as in the other adaptations (#161).
 
-    With a step-size adaptation other than CSA, h_sigma (`hs`) drops the rank-one term, and its c1/2 in the decay, in a generation in which ||ps|| is long, as COVARIANCE stalls pc (Hansen 2016, after Eq. (45); #160). MA-ES has no h_sigma: with CSA, which updates sigma from the same path, the update is MA-ES's.
+    With a step-size adaptation other than CSA, h_sigma (`hs`) drops the rank-one term, and its c1/2 in the decay, in a generation in which ||ps|| is long, as COVARIANCE stalls pc (Hansen 2016, App. A, symbols of Fig. 6; #160). MA-ES has no h_sigma: with CSA, which updates sigma from the same path, the update is MA-ES's.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -609,7 +609,7 @@ class MatrixAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which skips the rank-one term of the generation; always True with CSA and in the (1+1)-ES (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
+        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, App. A, symbols of Fig. 6), which skips the rank-one term of the generation; always True with CSA and in the (1+1)-ES (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter
@@ -652,7 +652,7 @@ class CholeskyAdaptation(Adaptation):
 
     With `Modules.active` the negative weights, multiplied by d / ||A^-1 y_i||^2 as in COVARIANCE, are rank-one downdates, and A is scaled by sqrt(1 - c1 - cmu sum(w)) with the negative weights in the sum. A downdate whose result would not be positive definite is skipped (`skipped_downdates`). With elitism the negative weights go to the worst points of the (mu + lambda) pool (#161).
 
-    With a step-size adaptation other than CSA, h_sigma (`hs`) stalls the update of pc and A is scaled by sqrt(1 + c1 delta(h_sigma) - c1 - cmu sum(w)), as in COVARIANCE (Hansen 2016, after Eq. (45); #160).
+    With a step-size adaptation other than CSA, h_sigma (`hs`) stalls the update of pc and A is scaled by sqrt(1 + c1 delta(h_sigma) - c1 - cmu sum(w)), as in COVARIANCE (Hansen 2016, App. A, symbols of Fig. 6; #160).
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -688,7 +688,7 @@ class CholeskyAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which stalls the update of pc; always True with CSA and in the (1+1)-ES (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
+        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, App. A, symbols of Fig. 6), which stalls the update of pc; always True with CSA and in the (1+1)-ES (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter

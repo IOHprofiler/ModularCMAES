@@ -20,7 +20,7 @@ class OnePlusOneES:
     """
     A (1+1)-ES with a success rule for the step size.
 
-    Every step samples x1 = x + sigma z, evaluates it and keeps it when it is better than x (with a bound correction, only when it lies in the box [-5, 5]^d, #168). sigma is multiplied by exp(0.8)**decay after a success and by exp(-0.2)**decay otherwise, with decay = 1 / sqrt(d + 1).
+    Every step samples x1 = x + sigma z, evaluates it and keeps it when it is better than x (with a bound correction, only when it lies in the box [-5, 5]^d, #168). sigma is multiplied by exp(0.8)^decay after a success and by exp(-0.2)^decay otherwise, with decay = 1 / sqrt(d + 1).
     """
 
     def __init__(self, d: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], f0: float, sigma0: float = 1.0, budget: int = 10000, target: float = 1e-08, modules: modcma.c_maes.cmaescpp.parameters.Modules = ...) -> None:
@@ -261,7 +261,7 @@ class MuCommaLambdaES:
     @property
     def tau_i(self) -> float:
         """
-        The learning rate of the coordinate-wise step-size factors, 1 / d**0.25.
+        The learning rate of the coordinate-wise step-size factors, 1 / d^0.25.
         """
 
     @tau_i.setter

@@ -110,7 +110,7 @@ class Modules:
     @property
     def sampler(self) -> modcma.c_maes.cmaescpp.options.BaseSampler:
         """
-        options.BaseSampler, default UNIFORM: the generator of the base points in [0, 1)^d.
+        options.BaseSampler, default UNIFORM: the generator of the base points in (0, 1)^d.
 
         Pseudo-random or a low-discrepancy sequence; sample_transformation turns the points into samples of the search distribution. See modcma.c_maes.options.BaseSampler.
         """
@@ -406,7 +406,7 @@ class Stats:
     @property
     def global_best(self) -> Solution:
         """
-        The best feasible solution found so far, over all runs: what `run()` and `fmin` return.
+        The best feasible solution found so far, over all runs: the result of a run (`run()` returns None and leaves it here), and what `fmin` returns.
 
         With a bound correction (not NONE) only a point inside [lb, ub] becomes global_best: RESAMPLE evaluates a point outside the box after 5 d rejected tries, and such a point is not returned (#168). Without a bound correction the box does not constrain the points, and every point counts. Before 2.0 it could lie outside the box.
 
@@ -491,7 +491,7 @@ class Weights:
     @property
     def mueff(self) -> float:
         """
-        The variance effective selection mass of the positive weights, 1 / sum(positive**2).
+        The variance effective selection mass of the positive weights, 1 / sum(positive^2).
         """
 
     @mueff.setter
@@ -500,7 +500,7 @@ class Weights:
     @property
     def mueff_mean(self) -> float:
         """
-        The variance effective selection mass of the weights of the mean, 1 / sum(w**2): `mueff`, except for UTILITY, where the mean uses all lambda utilities. Normalizes the evolution paths.
+        The variance effective selection mass of the weights of the mean, 1 / sum(w^2): `mueff`, except for UTILITY, where the mean uses all lambda utilities. Normalizes the evolution paths.
         """
 
     @mueff_mean.setter
@@ -527,7 +527,7 @@ class Weights:
     @property
     def mueff_neg(self) -> float:
         """
-        The variance effective selection mass of the negative weights, sum(negative)**2 / sum(negative**2) (for DEFAULT with mu > lambda / 2: of the mu negative weights of a population of 2 mu, see `negative`).
+        The variance effective selection mass of the negative weights, sum(negative)^2 / sum(negative^2) (for DEFAULT with mu > lambda / 2: of the mu negative weights of a population of 2 mu, see `negative`).
         """
 
     @mueff_neg.setter
@@ -538,7 +538,7 @@ class Weights:
         """
         The learning rate of the rank-one update of the matrix.
 
-        Default acov / ((d + 1.3)**2 + mueff) (Hansen, arXiv:1604.00772v2, Table 1, Eq. (57)); for SEPARABLE pycma's separable rate 1 / (d + 2 sqrt(d) + mueff / d) (c1_sep of CMA_diagonal, pycma 4.6.0); 2 / (d**2 + 6) for a (1+1)-ES (lambda0 = 1).
+        Default acov / ((d + 1.3)^2 + mueff) (Hansen, arXiv:1604.00772v2, Table 1, Eq. (57)); for SEPARABLE pycma's separable rate 1 / (d + 2 sqrt(d) + mueff / d) (c1_sep of CMA_diagonal, pycma 4.6.0); 2 / (d^2 + 6) for a (1+1)-ES (lambda0 = 1).
         """
 
     @c1.setter
@@ -549,7 +549,7 @@ class Weights:
         """
         The learning rate of the rank-mu update of the matrix.
 
-        Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)**2 + acov mueff / 2)), as `cmaes` 0.13 (Hansen, arXiv:1604.00772v2, Table 1, Eq. (58), and pycma add 1/4 to mueff - 2 + 1 / mueff); for SEPARABLE pycma's separable rate min(1 - c1, (0.25 + mueff + 1 / mueff - 2) / (d + 4 sqrt(d) + mueff / 2)) (cmu_sep of CMA_diagonal, pycma 4.6.0), so that c1 + cmu <= 1; 2 / (d**2 + 6) for lambda0 = 1.
+        Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((d + 2)^2 + acov mueff / 2)), as `cmaes` 0.13 (Hansen, arXiv:1604.00772v2, Table 1, Eq. (58), and pycma add 1/4 to mueff - 2 + 1 / mueff); for SEPARABLE pycma's separable rate min(1 - c1, (0.25 + mueff + 1 / mueff - 2) / (d + 4 sqrt(d) + mueff / 2)) (cmu_sep of CMA_diagonal, pycma 4.6.0), so that c1 + cmu <= 1; 2 / (d^2 + 6) for lambda0 = 1.
         """
 
     @cmu.setter
@@ -560,7 +560,7 @@ class Weights:
         """
         The learning rate of the evolution path pc.
 
-        Default (4 + mueff / d) / (d + 4 + 2 mueff / d) (Hansen, arXiv:1604.00772v2, Table 1, Eq. (56)); 2 / (d + 2) for a (1+1)-ES. With NATURAL_GRADIENT the learning rate of A <- A expm(cc G): xNES's eta_B / 2 = (9 + 3 ln(d)) / (10 d sqrt(d)) (Glasmachers et al. 2010) with every ssa, or 1 / (4 d**1.5) for a (1+1)-ES.
+        Default (4 + mueff / d) / (d + 4 + 2 mueff / d) (Hansen, arXiv:1604.00772v2, Table 1, Eq. (56)); 2 / (d + 2) for a (1+1)-ES. With NATURAL_GRADIENT the learning rate of A <- A expm(cc G): xNES's eta_B / 2 = (9 + 3 ln(d)) / (10 d sqrt(d)) (Glasmachers et al. 2010) with every ssa, or 1 / (4 d^1.5) for a (1+1)-ES.
         """
 
     @cc.setter
@@ -638,7 +638,7 @@ class Weights:
     @property
     def expected_length_ps(self) -> float:
         """
-        (1.4 + 2 / (d + 1)) expected_length_z: the threshold of h_sigma (Hansen 2016, after Eq. (45)). When the length of ps, corrected for the generations of the run, is not below it, the rank-one update stalls (the update of the path pc; MATRIX's rank-one term).
+        (1.4 + 2 / (d + 1)) expected_length_z: the threshold of h_sigma (Hansen 2016, App. A, symbols of Fig. 6). When the length of ps, corrected for the generations of the run, is not below it, the rank-one update stalls (the update of the path pc; MATRIX's rank-one term).
         """
 
     @expected_length_ps.setter
@@ -740,7 +740,7 @@ class Settings:
         - with matrix_adaptation NONE or CMSA, active is turned off;
         - lambda0 = 1 gives a (1+1)-ES (one_plus_one): mu0 = 1, elitist, ssa SR, EQUAL weights, no active update, no sequential selection, mirrored PAIRWISE becomes NONE, and IPOP or BIPOP become RESTART;
         - then, when ssa is not CSA (so also for lambda0 = 1), matrix_adaptation COVARIANCE becomes COVARIANCE_NO_EIGV (unless always_compute_eigv);
-        - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10**dim; center is computed per coordinate (see `center`).
+        - when the box lb..ub is not finite, has_bounds is False, diameter 10, volume 10^dim; center is computed per coordinate (see `center`).
 
         Invalid values raise ValueError, naming the argument: dim 0, lambda0 0, mu0 0, a mu0 above lambda0 (except for lambda0 = 1, which uses mu0 = 1), a NaN target, max_generations 0, a sigma0 that is not positive and finite, x0, lb or ub of a length other than dim, a non-finite x0, NaN in lb or ub, +inf in lb or -inf in ub, lb above ub, an integer variable without an integer value in [lb, ub], a budget smaller than the first generation and the evaluation of the final center of mass, a learning rate out of its range (cs and cc in (0, 1], c1 and cmu in [0, 1], c1 + cmu above 1 when both are given, damps not positive, acov not positive and finite; #147), or a C0 that is not a symmetric positive definite (dim, dim) matrix (or with matrix_adaptation NONE). An index of integer_variables outside 0..dim-1 raises ValueError when the optimizer is created.
 
@@ -757,7 +757,7 @@ class Settings:
         budget : int, optional
             The maximum number of evaluations, default 10000 * dim; at least the first generation (lambda0, and TPA's 2 points) and the final center of mass. A generation runs only when it leaves one evaluation: the run stops when the evaluations so far plus lambda (and TPA's 2 points, reserved also in a generation that skips them, #179) plus 1 would exceed it, and every run ends with the evaluation of its center of mass (#111).
         sigma0 : float, optional
-            The initial step size, default 2.0, positive and finite; also the step size after a restart (the small-population runs of BIPOP use sigma0 * 10**(-2 u), u uniform in (0, 1)).
+            The initial step size, default 2.0, positive and finite; also the step size after a restart (the small-population runs of BIPOP use sigma0 * 10^(-2 u), u uniform in (0, 1)).
         mu0 : int, optional
             The number of parents, default lambda0 // 2 (lambda0 // 4 with ssa SA or matrix_adaptation CMSA); at least 1 and at most lambda0.
         lambda0 : int, optional
@@ -775,9 +775,9 @@ class Settings:
         cc : float, optional
             The learning rate of the evolution path pc, in (0, 1]. Default (4 + mueff / dim) / (dim + 4 + 2 mueff / dim) (see Weights.cc).
         cmu : float, optional
-            The learning rate of the rank-mu update, in [0, 1]. Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((dim + 2)**2 + acov mueff / 2)) (see Weights.cmu).
+            The learning rate of the rank-mu update, in [0, 1]. Default min(1 - c1, acov (mueff - 2 + 1 / mueff) / ((dim + 2)^2 + acov mueff / 2)) (see Weights.cmu).
         c1 : float, optional
-            The learning rate of the rank-one update, in [0, 1]; with cmu, c1 + cmu <= 1. Default acov / ((dim + 1.3)**2 + mueff) (see Weights.c1).
+            The learning rate of the rank-one update, in [0, 1]; with cmu, c1 + cmu <= 1. Default acov / ((dim + 1.3)^2 + mueff) (see Weights.c1).
         damps : float, optional
             The damping of the step-size update, positive. Default for CSA 1 + 2 max(0, sqrt((mueff - 1) / (dim + 1)) - 1) + cs (see Weights.damps).
         acov : float, optional
@@ -791,7 +791,7 @@ class Settings:
         fast_sampling : bool, default False
             Sample with xoshiro256++ and a ziggurat instead of mt19937 and the inverse normal CDF (the default UNIFORM + GAUSSIAN sampler only): faster, but a different random stream.
         C0 : array_like, optional
-            (dim, dim) the initial covariance matrix C, symmetric positive definite: the first generation samples N(x0, sigma0**2 C0). Default None: the identity. See the attribute C0; modcma.warm_start estimates x0, sigma0 and C0 from the solutions of a related task.
+            (dim, dim) the initial covariance matrix C, symmetric positive definite: the first generation samples N(x0, sigma0^2 C0). Default None: the identity. See the attribute C0; modcma.warm_start estimates x0, sigma0 and C0 from the solutions of a related task.
         """
 
     @property
@@ -825,7 +825,7 @@ class Settings:
         """
         (dim, dim) array: the initial covariance matrix C, or None (default) for the identity.
 
-        The first generation samples N(x0, sigma0**2 C0) (warm starting, Nomura et al. 2021; see modcma.warm_start). Each matrix adaptation starts its matrix from a factor F of C0, F F^T = C0: COVARIANCE from the eigendecomposition, COVARIANCE_NO_EIGV, CHOLESKY and CMSA from the lower Cholesky factor, MATRIX and NATURAL_GRADIENT from the symmetric square root. SEPARABLE uses only the diagonal of C0; matrix_adaptation NONE rejects C0 (ValueError). Every restart starts from C0 again, as from sigma0 and x0.
+        The first generation samples N(x0, sigma0^2 C0) (warm starting, Nomura et al. 2021; see modcma.warm_start). Each matrix adaptation starts its matrix from a factor F of C0, F F^T = C0: COVARIANCE from the eigendecomposition, COVARIANCE_NO_EIGV, CHOLESKY and CMSA from the lower Cholesky factor, MATRIX and NATURAL_GRADIENT from the symmetric square root. SEPARABLE uses only the diagonal of C0; matrix_adaptation NONE rejects C0 (ValueError). Every restart starts from C0 again, as from sigma0 and x0.
 
         Setting it checks it: a (dim, dim) finite matrix, symmetric up to rounding (a relative difference ||C0 - C0^T|| <= 1e-10 ||C0||, Frobenius norm; its symmetric part (C0 + C0^T) / 2 is stored) and positive definite, otherwise ValueError. Set it before the optimizer is created; the getter returns a copy.
         """
@@ -943,13 +943,13 @@ class Settings:
     @property
     def diameter(self) -> float:
         """
-        The length of the diagonal of the box, ||ub - lb||; 10 when the box is not finite (then volume is 10**dim). Read-only: derived from lb and ub.
+        The length of the diagonal of the box, ||ub - lb||; 10 when the box is not finite (then volume is 10^dim). Read-only: derived from lb and ub.
         """
 
     @property
     def volume(self) -> float:
         """
-        The volume of the box, prod(ub - lb); 10**dim when the box is not finite. Read-only: derived from lb and ub.
+        The volume of the box, prod(ub - lb); 10^dim when the box is not finite. Read-only: derived from lb and ub.
         """
 
     @property

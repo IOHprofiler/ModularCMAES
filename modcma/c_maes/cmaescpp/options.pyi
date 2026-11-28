@@ -291,7 +291,7 @@ class MatrixAdaptationType(enum.Enum):
 
     NATURAL_GRADIENT = 7
     """
-    xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is updated with the matrix exponential of the natural gradient, A <- A expm(cc G) with G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace goes to sigma) and xNES's cc = eta_B / 2 = (9 + 3 ln d) / (10 d sqrt(d)); a low-rank form keeps it O(d^2 lambda) for lambda < d. With StepSizeAdaptation.XNES also xNES's update of sigma, with xNES's learning rate cs = eta_sigma (the other step-size adaptations keep their own cs; #72), and with RecombinationWeights.UTILITY (also selected by `Modules.active` with the default weights) xNES's utilities for the mean and the matrix: all three together are xNES.
+    xNES (Glasmachers et al. 2010), exponential natural evolution strategies: A is updated with the matrix exponential of the natural gradient, A <- A expm(cc G) with G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace goes to sigma) and xNES's cc = eta_B / 2 = (9 + 3 ln d) / (10 d sqrt(d)); a low-rank form keeps it O(d^2 k) when the k samples of the gradient (mu, or lambda with `Modules.active`) are fewer than d and d >= 16. With StepSizeAdaptation.XNES also xNES's update of sigma, with xNES's learning rate cs = eta_sigma (the other step-size adaptations keep their own cs; #72), and with RecombinationWeights.UTILITY (also selected by `Modules.active` with the default weights) xNES's utilities for the mean and the matrix: all three together are xNES.
     """
 
 class CenterPlacement(enum.Enum):
