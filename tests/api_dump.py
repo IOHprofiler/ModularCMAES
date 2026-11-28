@@ -14,6 +14,12 @@ a property that became read-only, a reference overload that no current overload 
 argument names in the same order, the same arguments optional). Additions are allowed. A
 difference that is accepted goes into ``ACCEPTED``, with the reason; ``tests/test_c_api_dump.py``
 runs the comparison.
+
+The reference, ``tests/data/api/pybind11.json``, is the pybind11 API of commit 41f7544
+(2026-11-23, T1.1; rewritten in the current format by bedd9e3, with the same names and
+arguments). That is 46 commits after the release of 1.2.0, not the API of the release: what
+changed between the two is not in it (``Modules.repelling_restart``, #195; the constructors of
+``SequentialSelection`` and ``Weights``; ``SequentialSelection.break_conditions``).
 """
 
 import argparse
