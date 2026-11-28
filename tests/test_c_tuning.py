@@ -1,3 +1,4 @@
+import itertools
 import random
 import unittest
 from copy import deepcopy
@@ -186,6 +187,29 @@ class TestTuning(unittest.TestCase):
                 es = c_maes.ModularCMAES(settings)
                 es.run(sphere)
                 self.assertGreater(es.p.stats.evaluations, 0)
+
+    def test_every_combination_of_the_flags(self):
+        """The conditions are built for the hyperparameters that are there: the space without
+        lambda0 and mu0, or without the learning rates, has none on them."""
+        groups = {
+            "add_popsize": {"lambda0", "mu0"},
+            "add_sigma": {"sigma0"},
+            "add_learning_rates": {"cs", "cc", "cmu", "c1", "damps"},
+        }
+        for flags in itertools.product((True, False), repeat=4):
+            kwargs = dict(zip([*groups, "remove_duplicates"], flags))
+            with self.subTest(**kwargs):
+                cspace = c_maes.get_configspace(4, **kwargs)
+                names = set(cspace.keys())
+                for flag, group in groups.items():
+                    self.assertEqual(group <= names, kwargs[flag])
+                    self.assertTrue(kwargs[flag] or not group & names)
+                cspace.seed(2)
+                for config in cspace.sample_configuration(20):
+                    try:
+                        c_maes.settings_from_config(4, config)
+                    except ValueError as error:
+                        self.assertIn("c1 + cmu", str(error))
 
     def test_the_lower_bounds_of_cs_cc_damps_are_positive(self):
         # #169: Settings rejects cs, cc and damps <= 0, so no sample may be there. The defaults
