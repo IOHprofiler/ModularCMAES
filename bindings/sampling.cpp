@@ -35,7 +35,8 @@ template <typename T, typename Class> void transformer_members(Class &cls)
         .def("__call__", &T::operator(), "One transformed sample of the sampler.")
         .def("expected_length",
              &T::expected_length,
-             "The expected length of a sample, used to normalize the step-size adaptation.");
+             "The expected length E||z|| of a transformed sample (see the class), which CSA, "
+             "h_sigma, threshold convergence and gradient injection use.");
 }
 } // namespace
 
@@ -49,8 +50,10 @@ void define_samplers(nb::module_ &main)
         "The optimizer builds its sampler from the modules: a base sampler of uniform numbers "
         "in (0, 1)^d (`Uniform`, `Sobol` or `Halton`; `options.BaseSampler`), a transformer to "
         "the distribution of the mutations (`GaussianTransformer` and the others; "
-        "`options.SampleTranformerType`), then optionally `Orthogonal` and `CachedSampler` "
-        "around it. Mirrored sampling (`Modules.mirrored`) is not a sampler of the optimizer: "
+        "`options.SampleTranformerType`), then `Orthogonal` around it with "
+        "`Modules.orthogonal`, and `CachedSampler` with `constants.cache_samples` (not with "
+        "SOBOL). With `Settings.fast_sampling`, `FastGaussian` replaces the default UNIFORM + "
+        "GAUSSIAN. Mirrored sampling (`Modules.mirrored`) is not a sampler of the optimizer: "
         "it samples the first of each pair and negates it for the second (`Mirrored` is a "
         "standalone version). Calling a sampler returns one sample, a vector of length d. The "
         "samplers created here draw from the global generator (`set_seed`); the ones of an "
@@ -74,11 +77,17 @@ void define_samplers(nb::module_ &main)
              "nothing.")
         .def("expected_length",
              &Sampler::expected_length,
-             "The expected length of a sample, used to normalize the step-size adaptation; "
-             "sqrt(d) unless a sampler knows better.");
+             "The expected length E||z|| of a sample. The optimizer reads it when it is created "
+             "(`Weights.expected_length_z`: CSA, h_sigma, gradient injection) and threshold "
+             "convergence at every generation. sqrt(d) for `Uniform`, `Sobol`, `Halton`, "
+             "`Gaussian` and `PySampler`; the transformers and `FastGaussian` give their own, "
+             "and `Orthogonal`, `CachedSampler` and `Mirrored` that of the sampler they wrap.");
 
     nb::class_<PySampler, Sampler>(
-        m, "PySampler", "A sampler that calls a Python function for every coordinate.")
+        m,
+        "PySampler",
+        "A sampler that calls a Python function for every coordinate. It cannot be pickled "
+        "or copied.")
         .def(nb::init<size_t, std::function<Float()>>(),
              nb::arg("d"),
              nb::arg("function"),
@@ -90,7 +99,8 @@ void define_samplers(nb::module_ &main)
         "Gaussian",
         "Standard normal samples with the Box-Muller transform of mt19937 numbers.\n\n"
         "The optimizer builds its normal samples from a base sampler and a "
-        "`GaussianTransformer` instead.")
+        "`GaussianTransformer` instead. Its `expected_length` is sqrt(d), not "
+        "E||N(0, I)||.")
         .def(nb::init<size_t>(), nb::arg("d"), "Samples of dimension d.")
         .def("__call__", &Gaussian::operator(), "One sample.");
 
@@ -116,22 +126,28 @@ void define_samplers(nb::module_ &main)
         m,
         "Sobol",
         "Points of the Sobol sequence in (0, 1)^d, in a random order; BaseSampler.SOBOL.\n\n"
-        "The points (from the second point of the sequence on) are computed when the sampler "
-        "is created, as many as `constants.cache_max_doubles` allows, and drawn in a random "
-        "order that repeats after all of them.")
-        .def(nb::init<size_t>(), nb::arg("d"), "Samples of dimension d.")
+        "The points are computed when the sampler is created: n of them, from index 2 of the "
+        "sequence on (the first two, 0 and (1/2, ..., 1/2), are left out), with n = "
+        "max(constants.cache_min_samples, the largest power of 2 <= "
+        "constants.cache_max_doubles / d). They are drawn in a random order that repeats "
+        "after all n; the order is the same on every platform for the same seed (#116).")
+        .def(nb::init<size_t>(),
+             nb::arg("d"),
+             "Samples of dimension d, at most 1111 (the table of direction numbers): a larger "
+             "d terminates the process.")
         .def("__call__", &Sobol::operator(), "One sample: the next point in the random order.");
 
     nb::class_<Halton, Sampler>(m,
                                 "Halton",
                                 "Points of the Halton sequence in (0, 1)^d; BaseSampler.HALTON.\n\n"
                                 "Coordinate j uses the j-th prime as its base; the sequence "
-                                "starts at index 6.")
+                                "starts at index 6. The optimizer uses the scrambled sequence.")
         .def(nb::init<size_t, bool>(),
              nb::arg("d"),
              nb::arg("scrambled") = true,
              "Samples of dimension d; with scrambled, the digits are permuted with random "
-             "permutations (drawn once, from the global generator).")
+             "permutations, one per digit position and base (drawn once, from the global "
+             "generator; the same on every platform for the same seed, #116).")
         .def("__call__", &Halton::operator(), "One sample: the next point of the sequence.");
 
     nb::class_<Mirrored, Sampler>(
@@ -150,7 +166,10 @@ void define_samplers(nb::module_ &main)
     nb::class_<CachedSampler, Sampler>(
         m,
         "CachedSampler",
-        "A sampler that cycles through a fixed set of points (constants.cache_samples).")
+        "A sampler that cycles through a fixed set of points.\n\n"
+        "The optimizer wraps its sampler in one when `constants.cache_samples` is set (off by "
+        "default), except with SOBOL, which keeps its points itself. A restart does not empty "
+        "the cache.")
         .def(nb::init<const std::shared_ptr<Sampler>>(),
              nb::arg("sampler"),
              "Cache the first n_samples samples of sampler and then repeat them; n_samples = "
@@ -168,8 +187,8 @@ void define_samplers(nb::module_ &main)
             nb::arg("cache"),
             nb::arg("transform_ppf") = false,
             "Cycle through the given points (a non-empty list of equally long vectors).\n\n"
-            "With transform_ppf, every coordinate is first mapped through the inverse normal CDF, turning "
-            "uniform numbers in (0, 1) into standard normal ones.")
+            "With transform_ppf, every coordinate is first mapped through the inverse normal "
+            "CDF, turning uniform numbers in (0, 1) into standard normal ones.")
         .def("__call__", &CachedSampler::operator(), "One sample: the next point of the cycle.")
         .def_ro("index",
                 &CachedSampler::index,
@@ -225,8 +244,9 @@ void define_samplers(nb::module_ &main)
         "Standard normal numbers: the inverse normal CDF of each uniform number, "
         "or the Box-Muller transform of pairs with `constants.use_box_muller` "
         "(SampleTranformerType.GAUSSIAN, the default).\n\n"
-        "Its expected length is that of a d-dimensional standard normal vector, "
-        "sqrt(d) (1 - 1/(4 d) + 1/(21 d^2)).");
+        "Its expected length is that of a d-dimensional standard normal vector, in Hansen's "
+        "approximation sqrt(d) (1 - 1/(4 d) + 1/(21 d^2)) (Hansen 2016; `FastGaussian` uses "
+        "the same).");
     transformer_members<GaussianTransformer>(gaussian);
     auto uniform = nb::class_<UniformScaler, SampleTransformer>(
         m,
