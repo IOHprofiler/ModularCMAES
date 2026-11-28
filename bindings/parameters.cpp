@@ -252,23 +252,29 @@ void define_parameters(nb::module_ &main)
         "The module configuration: one choice per module.\n\n"
         "A bool attribute turns a module on or off; an enum attribute selects one option of an "
         "enum in modcma.c_maes.options. The defaults, Modules(), give the standard CMA-ES with "
-        "cumulative step-size adaptation (CSA) and no restarts. Settings may adjust some choices "
-        "so that they fit together (see Settings).")
+        "cumulative step-size adaptation (CSA) and no restart strategy. Settings may adjust some "
+        "choices so that they fit together (see Settings).")
         .def(nb::init<>(), "The default configuration: CMA-ES with CSA, every bool module off.")
         .def_prop_rw("elitist",
                      bool_getter(&Modules::elitist),
                      bool_setter(&Modules::elitist),
                      "bool, default False: (mu + lambda) selection.\n\n"
                      "The parents of the previous generation compete with the offspring. Can "
-                     "speed up convergence on unimodal functions, at the cost of diversity.")
+                     "speed up convergence on unimodal functions, at the cost of diversity. "
+                     "Settings turns it on for a (1+1)-ES (lambda0 = 1).")
         .def_prop_rw("active",
                      bool_getter(&Modules::active),
                      bool_setter(&Modules::active),
                      "bool, default False: active covariance matrix update.\n\n"
                      "The worst individuals enter the update of the matrix with negative weights "
                      "(Jastrebski and Arnold), rescaled by d / ||A^-1 y||^2 as in Hansen (2016), "
-                     "Eq. (46). Settings turns it off for matrix_adaptation NONE and CMSA (which "
-                     "has no active variant) and for a (1+1)-ES.\n\n"
+                     "Eq. (46). With PAIRWISE the losers of the pairs get no negative weights; "
+                     "with elitism they go to the worst points of the (mu + lambda) pool "
+                     "(Population.n_pool).\n\n"
+                     "Settings turns it on for weights UTILITY, and off for matrix_adaptation "
+                     "NONE and CMSA (which has no active variant) and for a (1+1)-ES; these "
+                     "win. With NATURAL_GRADIENT, active turns weights DEFAULT into UTILITY, "
+                     "xNES's active form.\n\n"
                      "With StepSizeAdaptation.XNES (and weights other than UTILITY) a generation "
                      "with h_sigma = 0 has no negative weights (COVARIANCE, COVARIANCE_NO_EIGV, "
                      "SEPARABLE, CHOLESKY, MATRIX): xNES SA keeps sigma too small, "
@@ -287,8 +293,10 @@ void define_parameters(nb::module_ &main)
                      bool_setter(&Modules::sequential_selection),
                      "bool, default False: sequential selection (Brockhoff et al.).\n\n"
                      "The evaluation of a generation stops at the first individual, from index "
-                     "mu on, that improves on the best of the previous generation; the rest of "
-                     "the generation is not evaluated.")
+                     "mu on (0-based), that improves on the best of the previous generation; the "
+                     "rest of the generation is not evaluated. With PAIRWISE from index 2 mu on, "
+                     "and only after a complete pair. Not in the first generation of a run, "
+                     "which has no previous one. Settings turns it off for a (1+1)-ES.")
         .def_prop_rw("threshold_convergence",
                      bool_getter(&Modules::threshold_convergence),
                      bool_setter(&Modules::threshold_convergence),
@@ -302,12 +310,15 @@ void define_parameters(nb::module_ &main)
                      bool_setter(&Modules::sample_sigma),
                      "bool, default False: every individual samples its own step size.\n\n"
                      "One step size per individual, the same in every coordinate, drawn from a "
-                     "log-normal distribution around sigma, sigma exp(beta n), with learning "
-                     "rate Weights.beta (self-adaptation). Always on with ssa SA and LPXNES.")
+                     "log-normal distribution around sigma, sigma exp(beta n) with n ~ N(0, 1) "
+                     "and the learning rate beta = Weights.beta (self-adaptation). Always on "
+                     "with ssa SA and LPXNES, also when this attribute is False.")
         .def_rw("weights",
                 &Modules::weights,
                 "options.RecombinationWeights, default DEFAULT: the recombination weights.\n\n"
-                "See modcma.c_maes.options.RecombinationWeights for the choices.")
+                "See modcma.c_maes.options.RecombinationWeights for the choices. Settings sets "
+                "EQUAL for a (1+1)-ES, and UTILITY for NATURAL_GRADIENT with active and DEFAULT "
+                "weights.")
         .def_rw("sampler",
                 &Modules::sampler,
                 "options.BaseSampler, default UNIFORM: the generator of the base points in "
@@ -320,11 +331,13 @@ void define_parameters(nb::module_ &main)
                 "options.Mirror, default NONE: mirrored sampling.\n\n"
                 "Individuals 2i and 2i + 1 of a generation are mirror images, z and -z (an "
                 "odd last individual is unpaired); PAIRWISE also ranks only the better point of "
-                "each pair. See modcma.c_maes.options.Mirror.")
+                "each pair. See modcma.c_maes.options.Mirror. With PAIRWISE, Settings increases "
+                "an odd lambda0 by one; for a (1+1)-ES it sets PAIRWISE to NONE.")
         .def_rw("ssa",
                 &Modules::ssa,
                 "options.StepSizeAdaptation, default CSA: the step-size adaptation.\n\n"
-                "See modcma.c_maes.options.StepSizeAdaptation for the choices.")
+                "See modcma.c_maes.options.StepSizeAdaptation for the choices. Settings sets SR "
+                "for a (1+1)-ES.")
         .def_rw("bound_correction",
                 &Modules::bound_correction,
                 "options.CorrectionMethod, default NONE: the correction of points outside the "
@@ -335,17 +348,21 @@ void define_parameters(nb::module_ &main)
                 "options.RestartStrategy, default NONE: what happens when a restart criterion "
                 "holds.\n\n"
                 "Restart (with the same, an increasing or an alternating population size) or "
-                "stop. See modcma.c_maes.options.RestartStrategy.")
+                "stop. See modcma.c_maes.options.RestartStrategy. With NONE the only criterion "
+                "is UnableToAdapt (the update of the matrix failed, or sigma is not finite), and "
+                "a run restarts when it holds; the other criteria need one of the other options. "
+                "Settings sets IPOP and BIPOP to RESTART for a (1+1)-ES.")
         .def_rw("repelling_type",
                 &Modules::repelling_type,
                 "options.RepellingType, default NONE: repelling restarts.\n\n"
                 "Restarts avoid the regions of the optima found by earlier runs (taboo "
-                "points). See modcma.c_maes.options.RepellingType.")
+                "points). No effect without restarts (restart_strategy STOP, or NONE unless "
+                "UnableToAdapt holds). See modcma.c_maes.options.RepellingType.")
         .def_rw("repelling_metric",
                 &Modules::repelling_metric,
-                "options.RepellingMetric, default CURRENT (EUCLIDEAN before #158): the distance "
-                "between a sample and a taboo point of repelling restarts.\n\n"
-                "See modcma.c_maes.options.RepellingMetric for the choices.")
+                "options.RepellingMetric, default CURRENT: the distance between a sample and a "
+                "taboo point of repelling restarts.\n\n"
+                "See modcma.c_maes.options.RepellingMetric for the choices (#158).")
         .def_rw("matrix_adaptation",
                 &Modules::matrix_adaptation,
                 "options.MatrixAdaptationType, default COVARIANCE: the adaptation of the shape "
@@ -357,7 +374,8 @@ void define_parameters(nb::module_ &main)
                 &Modules::center_placement,
                 "options.CenterPlacement, default X0: where the mean of the search distribution "
                 "starts after a restart.\n\n"
-                "See modcma.c_maes.options.CenterPlacement for the choices.")
+                "The first run always starts at Settings.x0, or Settings.center without x0. See "
+                "modcma.c_maes.options.CenterPlacement for the choices.")
         .def_rw("sample_transformation",
                 &Modules::sample_transformation,
                 "options.SampleTranformerType, default GAUSSIAN: the distribution of the "
