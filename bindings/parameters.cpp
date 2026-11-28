@@ -548,12 +548,12 @@ void define_parameters(nb::module_ &main)
         "every restart and by Parameters.resize_population. A learning rate given in the "
         "Settings is used as is; the defaults below use d for the dimension.")
         .def(nb::init<Settings, Float>(),
-             nb::arg("Settings"),
+             nb::arg("settings"),
              nb::arg("expected_length_z"),
              "The weights and learning rates for settings.mu0 and settings.lambda0.\n\n"
              "Parameters\n"
              "----------\n"
-             "Settings : Settings\n"
+             "settings : Settings\n"
              "    The settings: dimension, modules and the learning rates given there.\n"
              "expected_length_z : float\n"
              "    The expected length of a sample of the sampler, E||z|| (Parameters pass the "
