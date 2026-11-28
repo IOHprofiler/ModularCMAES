@@ -51,7 +51,13 @@ GROUP_A = (
     "mirrored",
 )
 GROUP_B = ("restart_strategy", "center_placement", "repelling_type", "repelling_metric")
-GROUP_C = ("bound_correction", "orthogonal", "sample_transformation", "sampler", "threshold_convergence")
+GROUP_C = (
+    "bound_correction",
+    "orthogonal",
+    "sample_transformation",
+    "sampler",
+    "threshold_convergence",
+)
 
 # The algorithmic modules: components of the search, whose options are alternative mechanisms
 # from the literature and act on any problem. The values left out are not algorithmic options:
@@ -82,8 +88,9 @@ OPTION_FIELDS = ("center_placement", "repelling_metric", "sample_sigma")
 
 RULES = """\
 sample_sigma is forced on for SA and LPXNES (src/mutation.cpp, mutation::get)
-sequential selection with PAIRWISE stops at 2 mu at the earliest, the whole generation when
-  2 mu >= lambda (include/mutation.hpp:58, src/mutation.cpp:43)
+sequential selection with PAIRWISE stops after 2 mu + 2 points at the earliest (the cutoff 2 mu,
+  then the end of a pair), the whole generation when 2 mu + 2 >= lambda (the constructor and
+  break_conditions of SequentialSelection, include/mutation.hpp, src/mutation.cpp; #197)
 STOP never restarts: center placement and repelling have no effect (NONE restarts when
   UnableToAdapt fires; the conditions of get_configspace, #81)
 repelling_metric acts only with repelling; CURRENT and ARCHIVED are EUCLIDEAN without a matrix
@@ -124,7 +131,7 @@ def classes_a(opts: dict, merge_no_eigv: bool) -> set:
             m["matrix_adaptation"] = "COVARIANCE"
         if m["ssa"] in ("SA", "LPXNES"):
             m["sample_sigma"] = "True"
-        if m["mirrored"] == "PAIRWISE" and 2 * s.mu0 >= s.lambda0:
+        if m["mirrored"] == "PAIRWISE" and 2 * s.mu0 + 2 >= s.lambda0:
             m["sequential_selection"] = "False"
         seen.add(tuple(m[k] for k in GROUP_A))
     return seen
