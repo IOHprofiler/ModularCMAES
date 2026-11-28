@@ -2,7 +2,10 @@
 #include "parameters.hpp"
 #include "population.hpp"
 
-static Float modulo2(const int x) { return (2 + x % 2) % 2; }
+//! x mod 2 in [0, 2), for the integer x = floor(y) of MIRROR, in floating point: as an int, a point
+//! more than 2^31 widths outside the box was undefined behaviour (exact for |x| < 2^53, where the
+//! integers are exact; the larger doubles are even)
+static Float modulo2(const Float x) { return x - 2.0 * std::floor(x / 2.0); }
 
 namespace bounds
 {
