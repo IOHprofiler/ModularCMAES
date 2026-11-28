@@ -709,9 +709,15 @@ void define_utils(nb::module_ &main)
              nb::arg("seed"),
              "Seed the global random generator (mt19937).\n\n"
              "An optimizer without `Settings.seed` copies the global generator when it is "
-             "created and advances it, so that after set_seed(s) the optimizers created in the "
-             "same order draw the same numbers. Samplers and bound corrections that are used on "
-             "their own draw from the global generator directly.");
+             "created and then reseeds the global one from its next number, so that after "
+             "set_seed(s) the optimizers created in the same order draw the same numbers. "
+             "Samplers and bound corrections that are used on their own draw from the global "
+             "generator directly. The global generator is not part of the saved state of an "
+             "optimizer (pickle).\n\n"
+             "Parameters\n"
+             "----------\n"
+             "seed : int\n"
+             "    The seed.");
     main.def("compute_ert",
              &utils::compute_ert,
              nb::arg("running_times"),
@@ -727,7 +733,7 @@ void define_utils(nb::module_ &main)
              "-------\n"
              "tuple[float, int]\n"
              "    The sum of all running times divided by the number of successful runs (inf when "
-             "no run succeeded), and the number of successful runs.");
+             "no run succeeded, nan for an empty list), and the number of successful runs.");
 
     auto m = main.def_submodule(
         "_internal",
@@ -746,10 +752,13 @@ void define_utils(nb::module_ &main)
         nb::arg("seed"),
         nb::arg("quasi"),
         "Write the next point of the Sobol sequence into quasi and return the next seed.\n\n"
+        "The routine keeps its tables in static variables: calls from several threads at once "
+        "are not safe.\n\n"
         "Parameters\n"
         "----------\n"
         "dim_num : int\n"
-        "    The dimension of the point.\n"
+        "    The dimension of the point, 1 to 1111 (the size of the table of direction numbers; "
+        "outside this range the routine ends the process).\n"
         "seed : int\n"
         "    The position in the sequence (the `sampling.Sobol` sampler starts at 2).\n"
         "quasi : numpy.ndarray\n"
@@ -809,13 +818,16 @@ void define_utils(nb::module_ &main)
         "C : numpy.ndarray\n"
         "    A symmetric matrix (its lower triangle is read).\n"
         "method : int\n"
-        "    1: dsyevd (divide and conquer, default), 2: dsyevr (MRRR).\n\n"
+        "    1: dsyevd (divide and conquer, default), 2: dsyevr (MRRR); any other value: "
+        "dsyevd.\n\n"
         "Returns\n"
         "-------\n"
         "tuple[numpy.ndarray, numpy.ndarray]\n"
         "    The eigenvalues in ascending order and the orthonormal eigenvectors (columns).\n\n"
         "Raises\n"
         "------\n"
+        "ValueError\n"
+        "    When C is not square.\n"
         "RuntimeError\n"
         "    When LAPACK fails or is not available.");
     m.def(
@@ -830,7 +842,8 @@ void define_utils(nb::module_ &main)
         nb::arg("C"),
         "The lower triangular Cholesky factor L of C (C = L L^T) with LAPACK dpotrf, as CMSA "
         "and COVARIANCE_NO_EIGV compute it.\n\n"
-        "Raises RuntimeError when C is not positive definite or LAPACK is not available.");
+        "Raises ValueError when C is not square, RuntimeError when C is not positive definite "
+        "or LAPACK is not available.");
     m.def(
         "lapack_inverse",
         [](const Matrix &M) {
@@ -843,7 +856,8 @@ void define_utils(nb::module_ &main)
         nb::arg("M"),
         "The inverse of the square matrix M with an LU factorization (LAPACK dgetrf, dgetri), "
         "as MA-ES and xNES compute it.\n\n"
-        "Raises RuntimeError when M is singular or LAPACK is not available.");
+        "Raises ValueError when M is not square, RuntimeError when M is singular or LAPACK is "
+        "not available.");
     m.def(
         "blas_gemm",
         [](const Matrix &A, const Matrix &B, bool transpose_a, bool transpose_b) {
@@ -862,8 +876,8 @@ void define_utils(nb::module_ &main)
         nb::arg("transpose_b") = false,
         "The product op(A) op(B) with BLAS dgemm, as the matrix adaptations compute it (for "
         "tests).\n\n"
-        "op(X) is X, or X^T when transpose_a (transpose_b) is True. Raises RuntimeError when "
-        "BLAS is not available.");
+        "op(X) is X, or X^T when transpose_a (transpose_b) is True. Raises ValueError when the "
+        "inner dimensions of op(A) and op(B) differ, RuntimeError when BLAS is not available.");
     nb::class_<rng::Shuffler>(
         m,
         "Shuffler",
@@ -939,8 +953,8 @@ NB_MODULE(cmaescpp, m)
         "options in `options`. Submodules: `options` (the module options), `parameters` "
         "(settings, modules, weights, statistics), `sampling`, `mutation` (step-size "
         "adaptation), `matrix_adaptation`, `selection`, `bounds`, `center`, `repelling`, "
-        "`restart` (criteria and strategies), `es` (a (1+1)-ES and a (mu, lambda)-ES) and "
-        "`constants` (global switches); `set_seed`, `build_info` and `compute_ert`.";
+        "`restart` (criteria and strategies) and `es` (a (1+1)-ES and a (mu, lambda)-ES); the "
+        "class `constants` (global switches); `set_seed`, `build_info` and `compute_ert`.";
 
     define_constants(m);
     define_options(m);
