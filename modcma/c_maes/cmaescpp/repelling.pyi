@@ -24,7 +24,7 @@ class TabooPoint:
     @overload
     def __init__(self, solution: modcma.c_maes.cmaescpp.parameters.Solution, radius: float, metric: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')] = ...) -> None:
         """
-        Create a taboo point with an unbounded radius (as `CoverageRepelling` does).
+        Create a taboo point whose radius has no bounds (min_radius 0, max_radius inf; as `CoverageRepelling` does).
 
         Parameters
         ----------
@@ -208,19 +208,19 @@ class TabooPoint:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class Repelling:
     """
     Base class of the repelling restarts: the archive of taboo points and the rejection of samples.
 
-    Before each population the archive is sorted by criticality (`prepare_sampling`); each sample is tested against the points with criticality >= 0.01 (`is_rejected`) and sampled again when one rejects it. After a restart, the better of the last mean and the best solution of the run is compared with the archive by hill-valley tests (the optimizer evaluates their points, one at a time); the subclasses add it as a new taboo point or update the point whose basin it shares. The base class does not add points.
+    Before each population the archive is sorted by criticality (`prepare_sampling`); each sample is tested against the points with criticality >= 0.01 (`is_rejected`) and sampled again when one rejects it (a mirrored pair as one). At a restart the candidate, the better of the run's evaluated center of mass and its best solution, is compared with the archive by hill-valley tests (Maree et al. 2018): 10 points on the segment from a taboo point to the candidate, which the optimizer evaluates one at a time; a point worse than both ends separates the two basins. The tests stop early when the next point would leave too little budget for the first generation of the new run. The subclasses add the candidate as a new taboo point or update the point whose basin it shares. The base class runs no tests and adds no points.
     """
 
     def __init__(self) -> None:
@@ -289,19 +289,19 @@ class Repelling:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class CoverageRepelling(Repelling):
     """
     Repelling with radii from a coverage of the search space (`RepellingType.COVERAGE`).
 
-    A candidate that shares no basin with a taboo point becomes a new one; when it shares a basin, the n_rep of that point grows and the point keeps the better solution. After each update all radii are set to r = (S n_rep / (coverage sigma0^d n))^(1/d) Gamma(d/2 + 1)^(1/d) / sqrt(pi), with S the volume of the box (10^d with an infinite bound), sigma0 the step size of the settings and n the number of runs so far, so that points found more often repel more (de Nobel et al. 2024, Eqs. (10), (11)). The distance to a point is divided by the current sigma (Eq. (8)), so r is in units of sigma, and sigma0^d makes it the volume in sigma0 units: the taboo regions cover 1 / coverage of the box.
+    A candidate that shares no basin with a taboo point becomes a new one; when it shares a basin, the n_rep of that point grows and the point keeps the better solution. After each update all radii are set to r = (S n_rep / (coverage sigma0^d n))^(1/d) Gamma(d/2 + 1)^(1/d) / sqrt(pi), with S the volume of the box (10^d with an infinite bound), sigma0 the step size of the settings and n the number of runs so far, so that points found more often repel more (de Nobel et al. 2024, Eqs. (10), (11)). The distance to a point is divided by the current sigma (Eq. (8)), so r is in units of sigma, and sigma0^d makes it the volume in sigma0 units: at sigma = sigma0, with the Euclidean distance, the balls of the archive have a total volume of S / coverage when their n_rep sum to n.
 
     sigma0 is the problem's (`Settings.sigma0`), as Eq. (10) has it, also in BIPOP's small runs, which start at sigma0 10^(-2U). r grows with the box width over sigma0: a large box with a small sigma0 gives a radius of many sigma, which rejects every sample near a taboo point (`restart.TooMuchRepelling` then ends the run). With d, r tends to sqrt(d / (2 pi e)) (box width / sigma0): about 0.24 sqrt(d) times the ratio. Computed in logarithms, so it stays finite at large d.
 
@@ -313,12 +313,12 @@ class CoverageRepelling(Repelling):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class AdaptiveRepelling(Repelling):
@@ -327,7 +327,7 @@ class AdaptiveRepelling(Repelling):
 
     Experimental: modcma's own work in progress, without a published source. In the experiment of #158 (BBOB f21 and f22, d = 5 to 40, RESTART and IPOP, 240 runs) it solved 99 runs, against 107 without repelling and 144 with COVERAGE.
 
-    A new taboo point gets the radius initial_radius_factor / sqrt(d), bounded to [min_radius_factor, max_radius_factor] / sqrt(d). When a run ends in the basin of a point again (the first one in the archive that shares it), its radius grows by exp(grow_eta * min(w, max_waste_ratio)), with w the evaluations of that run divided by their running average (`average_restart_evaluations`: every run counted from the previous restart, the first from the start, also a run without a finite result; the average starts from the first run's length. Before 2.0 the first run counted as one evaluation and the average started at 1, #121). After each population, the radius of a critical point shrinks by shrink_factor when the share of rejected samples of the population exceeds max_rejection_rate and the point's own rejection rate exceeds local_max_rejection_rate (after at least min_checks_before_local_shrink checks).
+    A new taboo point gets the radius initial_radius_factor / sqrt(d) and the bounds [min_radius_factor, max_radius_factor] / sqrt(d). When a run ends in the basin of a point again (the first one in the archive that shares it), its radius grows by exp(grow_eta * min(w, max_waste_ratio)), with w the evaluations of that run divided by their running average, which includes that run (`average_restart_evaluations`: every run counted from the previous restart, the first from the start, also a run without a finite result; the average starts from the first run's length. Before 2.0 the first run counted as one evaluation and the average started at 1, #121). The point also keeps the better solution. After each population, the radius of a critical point shrinks by shrink_factor when the share of rejected samples of the population exceeds max_rejection_rate and the point's own rejection rate exceeds local_max_rejection_rate (after at least min_checks_before_local_shrink checks). A radius that grows or shrinks is clamped to [min_radius, max_radius] of its point.
     """
 
     def __init__(self) -> None:
@@ -491,12 +491,12 @@ class AdaptiveRepelling(Repelling):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NoRepelling(Repelling):
@@ -509,12 +509,12 @@ class NoRepelling(Repelling):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 def euclidean(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], v: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> float:

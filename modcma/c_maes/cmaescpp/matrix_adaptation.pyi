@@ -17,7 +17,7 @@ class Metric:
     """
     The metric of a search distribution: its shape without the step size, from `Adaptation.metric()`.
 
-    A sample is x = m + sigma * B (d * z), z ~ N(0, I), so the samples have the covariance sigma^2 C with C = B diag(d)^2 B^T: the one-sigma ellipsoid around m has the semi-axes sigma * d_i along the columns B_i.
+    The samples are distributed as x = m + sigma * B (d * z), z ~ N(0, I), whatever factor of C the adaptation samples with, so they have the covariance sigma^2 C with C = B diag(d)^2 B^T: the one-sigma ellipsoid around m has the semi-axes sigma * d_i along the columns B_i.
 
     It describes the distribution that is sampled. `CovarianceAdaptation` and `CovarianceNoEigvAdaptation` update C every generation but decompose it only every `es.p.weights.lazy_update_interval` generations, and sample with the last decomposition, so the metric can be that many generations behind their `C` (with the default settings they decompose every generation up to d = 82). `coordinate_wise_variances`, the diagonal of the latest C, can be ahead of it by as much.
 
@@ -27,7 +27,7 @@ class Metric:
     @property
     def d(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The axis lengths, the square roots of the eigenvalues of C (pycma's D), shape (d,), in the order of the columns of `B`. For the diagonal adaptations (SEPARABLE, NONE) in the order of the coordinates.
+        The axis lengths, the square roots of the eigenvalues of C (pycma's D), shape (d,), in the order of the columns of `B`: ascending, the order of the eigensolver. For the diagonal adaptations (SEPARABLE, NONE) in the order of the coordinates.
         """
 
     @property
@@ -77,12 +77,12 @@ class Metric:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class Adaptation:
@@ -90,6 +90,8 @@ class Adaptation:
     Base class of the matrix adaptations: the mean, the evolution path of the step size and the sampling transformation y = A z.
 
     Each generation, after selection, `adapt_evolution_paths` updates dm, dz and the paths, the step-size adaptation (`es.p.mutation`) updates sigma, and `adapt_matrix` updates the matrix. `compute_y` and `invert_y` apply A and A^-1.
+
+    The matrices start at the identity. With `Settings.C0` the optimizer starts every run from a factor F of C0 instead, F F^T = C0 (#89): the eigendecomposition for COVARIANCE, the lower Cholesky factor for COVARIANCE_NO_EIGV, CHOLESKY and CMSA, the symmetric square root C0^1/2 for MATRIX and NATURAL_GRADIENT, and the square roots of the diagonal of C0 for SEPARABLE; NONE rejects C0.
     """
 
     @property
@@ -118,7 +120,7 @@ class Adaptation:
     @property
     def ps(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The evolution path of the step size (conjugate evolution path), shape (d,), used by CSA: ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) dz (C^-1/2 dm in `CovarianceAdaptation`). Starts at zeros, also after a restart.
+        The evolution path of the step size (conjugate evolution path), shape (d,): ps = (1 - cs_path) ps + sqrt(cs_path (2 - cs_path) mueff_mean) dz, with the rates of `es.p.weights` (C^-1/2 dm instead of dz in `CovarianceAdaptation`, not in its subclass `CovarianceNoEigvAdaptation`). Read by CSA, by h_sigma (`hs`) and by the rank-one term of MATRIX. Starts at zeros, also after a restart.
         """
 
     @ps.setter
@@ -143,7 +145,7 @@ class Adaptation:
     @property
     def coordinate_wise_variances(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The variance of each coordinate under the sampling transformation, the diagonal of C = A A^T (without sigma^2), shape (d,). Used for the lower bound on the step size of integer variables; a NaN or inf in it fails the matrix update.
+        The variance of each coordinate under the sampling transformation, the diagonal of C = A A^T (without sigma^2), shape (d,). Used for the lower bound on the step size of integer variables, and by the restart criteria TolX and NoEffectCoord (and MaxSigma, MaxDSigma and MinDSigma where `keeps_metric()` is False, #80); a NaN or inf in it fails the matrix update.
         """
 
     @coordinate_wise_variances.setter
@@ -153,7 +155,7 @@ class Adaptation:
         """
         The metric of the sampled distribution: its axis lengths d and eigenvectors B, without sigma (see `Metric`).
 
-        `CovarianceAdaptation`, `SeparableAdaptation` and `NoAdaptation` keep it: it costs nothing. The others decompose C = F F^T of their sampling factor F (M, or A) when asked, O(d^3), and reuse the result while `factor_version` is unchanged; nothing is computed unless something asks. A value written from Python to their matrices is seen after the next change of the factor (an update or a restart). NaN when the factor is not finite.
+        `CovarianceAdaptation` (not its subclass `CovarianceNoEigvAdaptation`), `SeparableAdaptation` and `NoAdaptation` keep it: it costs nothing. The others decompose C = F F^T of their sampling factor F (M, or A; CMSA its C) when asked, O(d^3), and reuse the result while `factor_version` is unchanged; nothing is computed unless something asks. A value written from Python to their matrices is seen after the next change of the factor (an update or a restart). NaN when the factor is not finite or the eigensolver fails.
 
         Returns
         -------
@@ -165,20 +167,20 @@ class Adaptation:
         """
         Whether `metric()` costs nothing: True for `CovarianceAdaptation` (not COVARIANCE_NO_EIGV), `SeparableAdaptation` and `NoAdaptation`, which keep it up to date; False for the others, which decompose their matrix on request, O(d^3).
 
-        The restart criteria ConditionC and NoEffectAxis read the metric every generation; they are created by default only when this is True.
+        By default the restart criteria read the metric only where this is True (#80). ConditionC and NoEffectAxis are created only then. MaxSigma, MaxDSigma and MinDSigma take the longest and the shortest axis from the metric then, and otherwise from the diagonal of C: the square roots of the largest and the smallest entry of `coordinate_wise_variances`.
         """
 
     @property
     def factor_version(self) -> int:
         """
-        A counter increased wherever the sampling factor changes (an update of the matrix, a decomposition, a restart): `metric()` recomputes only when it changed.
+        A counter increased wherever the sampling factor changes (an update of the matrix, a decomposition, a restart, the start from `Settings.C0`): `metric()` recomputes only when it changed. A write to the matrices from Python does not increase it.
         """
 
     def adapt_evolution_paths(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings, mu: int) -> None:
         """
         Update dm, dz and the evolution paths after selection.
 
-        Computes dm = (m - m_old) / sum_i w_i S_i (per coordinate, over the mu best) and dz = sum_i w_i z_i over the mu best (every point, with the utilities of `RecombinationWeights.UTILITY`), then the update of the subclass (ps, and pc where there is one). Called by `es.adapt()` before the step-size and matrix updates.
+        Computes dm = (m - m_old) / sum_i w_i S_i (per coordinate, over the mu best) and dz = sum_i w_i z_i over the mu best (every point, with the utilities of `RecombinationWeights.UTILITY`), then the update of the subclass, `adapt_evolution_paths_inner`. Called by `es.adapt()` before the step-size and matrix updates.
 
         Parameters
         ----------
@@ -196,7 +198,7 @@ class Adaptation:
 
     def adapt_evolution_paths_inner(self, pop: modcma.c_maes.cmaescpp.Population, weights: modcma.c_maes.cmaescpp.parameters.Weights, stats: modcma.c_maes.cmaescpp.parameters.Stats, settings: modcma.c_maes.cmaescpp.parameters.Settings) -> None:
         """
-        The update of the evolution paths of the subclass (ps, and pc where there is one), without recomputing dm and dz; the second part of `adapt_evolution_paths`.
+        The update of the evolution paths of the subclass (ps, and h_sigma (`hs`) and pc where there are), without recomputing dm and dz; the second part of `adapt_evolution_paths`. `NaturalGradientAdaptation` computes its natural gradient here (`compute_gradients`).
 
         Parameters
         ----------
@@ -237,7 +239,7 @@ class Adaptation:
 
     def restart(self, settings: modcma.c_maes.cmaescpp.parameters.Settings) -> None:
         """
-        Reset the distribution for a restart: m = `settings.x0` (`settings.center`, the center of the bounds, when it is not given), the paths and the matrices to their initial values. The center placement sets m afterwards.
+        Reset the distribution for a restart: m = `settings.x0` (`settings.center` when it is not given), the paths to zero and the matrices to the identity. The optimizer then starts the matrix from `Settings.C0` when it is given (every run starts from it, #89), and the center placement sets m.
 
         Parameters
         ----------
@@ -309,6 +311,8 @@ class Adaptation:
         """
         The sample z = A^-1 y of a step y, the inverse of `compute_y`.
 
+        `MatrixAdaptation` and `NaturalGradientAdaptation` first compute their inverse from the matrix when it is out of date (O(d^3), see `MatrixAdaptation.M_inv`).
+
         Parameters
         ----------
         yi : numpy.ndarray
@@ -332,7 +336,7 @@ class NoAdaptation(Adaptation):
     """
     No matrix adaptation: only the mean and the step size are adapted, A = I (`MatrixAdaptationType.NONE`).
 
-    The cheapest option, O(d lambda) per generation; for well-conditioned (sphere-like) functions, or as a baseline. Settings switches `Modules.active` off with it.
+    The cheapest option, O(d lambda) per generation; for well-conditioned (sphere-like) functions, or as a baseline. Settings switches `Modules.active` off with it, and rejects `Settings.C0`.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -352,19 +356,19 @@ class NoAdaptation(Adaptation):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class CovarianceAdaptation(Adaptation):
     """
     The covariance matrix adaptation of CMA-ES (`MatrixAdaptationType.COVARIANCE`, the default).
 
-    C receives a rank-one update from the evolution path pc and a rank-mu update from the selected steps (with `Modules.active`, negative weights for the worst steps: with elitism the worst points of the (mu + lambda) pool, #161), and is decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = 1 / (10 d (c1 + cmu)) generations (every generation unless d is large). The eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the step-size adaptation is not CSA, also for lambda0 = 1, which runs SR (unless `always_compute_eigv`). Hansen & Ostermeier (2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.
+    C receives a rank-one update from the evolution path pc and a rank-mu update from the selected steps (with `Modules.active`, negative weights for the worst steps: with elitism the worst points of the (mu + lambda) pool, #161), and is decomposed as C = B diag(d)^2 B^T; samples are y = B diag(d) z. C is updated every generation; the eigendecomposition only every `es.p.weights.lazy_update_interval` = 1 / (10 d (c1 + cmu)) generations (with the default settings every generation up to d = 82). The eigendecomposition costs O(d^3) (LAPACK from d = `constants.lapack_min_dim`), the rank updates O(d^2 lambda). Settings replaces it by COVARIANCE_NO_EIGV when the step-size adaptation is not CSA, also for lambda0 = 1, which runs SR (unless `always_compute_eigv`). Hansen & Ostermeier (2001); Hansen (2016), The CMA Evolution Strategy: A Tutorial.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -391,7 +395,7 @@ class CovarianceAdaptation(Adaptation):
     @property
     def d(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The square roots of the eigenvalues of C (the standard deviations along the principal axes), shape (d,), in the order of the columns of B (ones at the start). With B, the `metric()`. In `CovarianceNoEigvAdaptation` filled only by `metric()`.
+        The square roots of the eigenvalues of C at the last decomposition (the standard deviations along the principal axes), shape (d,), in the order of the columns of B (ones at the start without `Settings.C0`). With B, the `metric()`. In `CovarianceNoEigvAdaptation` filled only by `metric()`.
         """
 
     @d.setter
@@ -400,7 +404,7 @@ class CovarianceAdaptation(Adaptation):
     @property
     def B(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The eigenvectors of C as columns, shape (d, d) (the identity at the start). In `CovarianceNoEigvAdaptation` filled only by `metric()`.
+        The eigenvectors of C at the last decomposition as columns, shape (d, d) (the identity at the start without `Settings.C0`). In `CovarianceNoEigvAdaptation` filled only by `metric()`.
         """
 
     @B.setter
@@ -409,7 +413,7 @@ class CovarianceAdaptation(Adaptation):
     @property
     def C(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The covariance matrix (without sigma^2), symmetric, shape (d, d) (the identity at the start).
+        The covariance matrix (without sigma^2), symmetric, shape (d, d) (the identity at the start, or `Settings.C0`).
         """
 
     @C.setter
@@ -427,7 +431,7 @@ class CovarianceAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma: False when ||ps|| is large (the step size is growing fast), which stalls the update of pc; True otherwise. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
+        The indicator h_sigma (Hansen 2016, after Eq. (45)): False when ||ps|| / sqrt(1 - (1 - cs_path)^(2 (g + 1))), with g the generation of the run, reaches `es.p.weights.expected_length_ps` = (1.4 + 2 / (d + 1)) E||z||: the step size is far too small. False stalls the update of pc, and the decay of C compensates the variance that pc loses (see `adapt_covariance_matrix`); True otherwise, and always in the (1+1)-ES. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter
@@ -435,9 +439,9 @@ class CovarianceAdaptation(Adaptation):
 
     def adapt_covariance_matrix(self, weights: modcma.c_maes.cmaescpp.parameters.Weights, modules: modcma.c_maes.cmaescpp.parameters.Modules, population: modcma.c_maes.cmaescpp.Population, mu: int) -> None:
         """
-        Update C with the rank-one (pc) and rank-mu (selected steps) updates.
+        Update C with the rank-one (pc) and rank-mu (selected steps) updates: C <- (1 + c1 delta(h_sigma) - c1 - cmu sum(w)) C + c1 pc pc^T + cmu sum_i v_i y_i y_i^T, with delta(h_sigma) = (1 - h_sigma) cc (2 - cc), sum(w) over the weights w_i, and v_i the weights after the rescaling below (Hansen 2016, Eqs. (46), (47)).
 
-        With `modules.active` the whole population is used, the negative weights of the worst steps rescaled by d / ||C^-1/2 y_i||^2 (Hansen 2016, eq. 46); otherwise the mu best. With elitism (`population.n_pool`) the negative weights go to the points that the selection dropped, the worst of the (mu + lambda) pool (#161). Does not decompose C.
+        With `modules.active` the whole population is used, the negative weights of the worst steps rescaled by d / ||C^-1/2 y_i||^2 (Hansen 2016, Eq. (46)); otherwise the mu best. With elitism (`population.n_pool`) the negative weights go to the points that the selection dropped, the worst of the (mu + lambda) pool (#161). With `StepSizeAdaptation.XNES` (not with UTILITY weights) a generation with h_sigma = 0 has no negative weights (#175). Does not decompose C.
 
         Parameters
         ----------
@@ -453,24 +457,24 @@ class CovarianceAdaptation(Adaptation):
 
     def perform_eigendecomposition(self, stats: modcma.c_maes.cmaescpp.parameters.Settings) -> bool:
         """
-        Decompose C = B diag(d)^2 B^T and set A = B diag(d).
+        Decompose C = B diag(d)^2 B^T and set A = B diag(d), O(d^3).
 
-        Uses Eigen or LAPACK (dsyevd, dsyevr) as `constants.eigen_solver` says. In `CovarianceNoEigvAdaptation`: the Cholesky factorization C = A A^T instead.
+        Uses Eigen or LAPACK (dsyevd, dsyevr) as `constants.eigen_solver` says. In `CovarianceNoEigvAdaptation`: the Cholesky factorization C = A A^T instead. Increases `factor_version`.
 
         Parameters
         ----------
         stats : Settings
-            The settings (only `verbose` is used).
+            The settings; only `verbose` is used (the argument keeps its name of 1.x).
 
         Returns
         -------
         bool
-            False when the decomposition fails or gives a negative or non-finite eigenvalue.
+            False when the decomposition fails or gives an eigenvalue that is not positive or not finite (in `CovarianceNoEigvAdaptation`: when the factorization fails).
         """
 
     def adapt_ps(self, weights: modcma.c_maes.cmaescpp.parameters.Weights) -> None:
         """
-        Update ps = (1 - cs) ps + sqrt(cs (2 - cs) mueff) C^-1/2 dm (with dz instead of C^-1/2 dm in `CovarianceNoEigvAdaptation`).
+        Update ps = (1 - cs_path) ps + sqrt(cs_path (2 - cs_path) mueff_mean) C^-1/2 dm, with C^-1/2 = B diag(d)^-1 B^T of the last decomposition (dz instead of C^-1/2 dm in `CovarianceNoEigvAdaptation`).
 
         Parameters
         ----------
@@ -483,19 +487,19 @@ class CovarianceAdaptation(Adaptation):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class SeparableAdaptation(Adaptation):
     """
     Separable CMA-ES: a diagonal covariance matrix (`MatrixAdaptationType.SEPARABLE`).
 
-    Only the d variances are learned, with the rank-one and rank-mu updates of CMA-ES applied per coordinate, with pycma's separable learning rates (c1_sep, cmu_sep: see `Weights.c1`, `Weights.cmu`); samples are y = d * z. With `Modules.active` the negative weights are multiplied by d / sum_j (y_ij / d_j)^2, the Mahalanobis length in the diagonal C, as in pycma. O(d lambda) per generation: for separable functions, and for high dimension, where a full matrix is slow to learn. Ros & Hansen (2008).
+    Only the d variances are learned, with the rank-one and rank-mu updates of CMA-ES (Hansen 2016, Eq. (47)) applied per coordinate, with pycma's separable learning rates (c1_sep, cmu_sep: see `Weights.c1`, `Weights.cmu`); samples are y = d * z. With `Modules.active` the negative weights are in the sum of the decay, and are multiplied by d / sum_j (y_ij / d_j)^2, d over the squared Mahalanobis length of the step in the diagonal C, as in pycma (GaussDiagonalSampler.update; #73). O(d lambda) per generation: for separable functions, and for high dimension, where a full matrix is slow to learn. Ros & Hansen (2008).
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -513,7 +517,7 @@ class SeparableAdaptation(Adaptation):
     @property
     def c(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The diagonal of C, the variance of each coordinate (without sigma^2), shape (d,), at least 1e-12 (ones at the start).
+        The diagonal of C, the variance of each coordinate (without sigma^2), shape (d,), at least 1e-12 after an update (ones at the start, or the diagonal of `Settings.C0`).
         """
 
     @c.setter
@@ -531,7 +535,7 @@ class SeparableAdaptation(Adaptation):
     @property
     def d(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The standard deviations sqrt(c), shape (d,): y = d * z (ones at the start).
+        The standard deviations sqrt(c), shape (d,): y = d * z (ones at the start without `Settings.C0`).
         """
 
     @d.setter
@@ -540,7 +544,7 @@ class SeparableAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which stalls the update of pc; True otherwise. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
+        The indicator h_sigma: False when ||ps|| is long (see `CovarianceAdaptation.hs`; Hansen 2016, after Eq. (45)), which stalls the update of pc, and the decay of c compensates the variance that pc loses; True otherwise. With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter
@@ -551,12 +555,12 @@ class SeparableAdaptation(Adaptation):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class MatrixAdaptation(Adaptation):
@@ -565,9 +569,9 @@ class MatrixAdaptation(Adaptation):
 
     Learns the sampling matrix M directly, y = M z, without a covariance matrix, an evolution path pc or a decomposition: M = (1 - c1/2 - cmu/2 sum(w)) M + (c1/2) (M ps) ps^T + (cmu/2) sum_i w_i y_i z_i^T, with sum(w) = 1 for the positive weights. O(d^2 lambda) per generation (BLAS from d = `constants.blas_min_dim`), so it suits high dimension. Beyer & Sendhoff (2017).
 
-    MA-ES has no active update. With `Modules.active` this is the active update of the CMA-ES (Hansen 2016, Eq. (47)) written for M, as MA-ES derives its own update: sum(w) includes the negative weights, and the negative weights are multiplied by d / ||z_i||^2. With elitism the negative weights go to the worst points of the (mu + lambda) pool, as with every matrix adaptation (#161).
+    MA-ES has no active update. With `Modules.active` this is the active update of the CMA-ES (Hansen 2016, Eq. (47)) written for M to first order, as MA-ES derives its own update: sum(w) includes the negative weights, and the negative weights are multiplied by d / ||z_i||^2. With elitism the negative weights go to the worst points of the (mu + lambda) pool, as in the other adaptations (#161).
 
-    With a step-size adaptation other than CSA, h_sigma (`hs`) skips the rank-one term in a generation in which ||ps|| is long, as COVARIANCE stalls pc (Hansen 2016, after Eq. (45); #160). MA-ES has no h_sigma: with CSA, which updates sigma from the same path, the update is MA-ES's.
+    With a step-size adaptation other than CSA, h_sigma (`hs`) drops the rank-one term, and its c1/2 in the decay, in a generation in which ||ps|| is long, as COVARIANCE stalls pc (Hansen 2016, after Eq. (45); #160). MA-ES has no h_sigma: with CSA, which updates sigma from the same path, the update is MA-ES's.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -585,7 +589,7 @@ class MatrixAdaptation(Adaptation):
     @property
     def M(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The sampling matrix, y = M z, shape (d, d) (the identity at the start).
+        The sampling matrix, y = M z, shape (d, d) (the identity at the start without `Settings.C0`).
         """
 
     @M.setter
@@ -596,7 +600,7 @@ class MatrixAdaptation(Adaptation):
         """
         The inverse of M, shape (d, d).
 
-        With elitism or TPA_INPLACE (lambda > 1) it is updated with M every generation: M <- M F with F = a I + U D U^T (U = [ps, the selected z], D = diag(c1/2, cmu/2 w)), so M_inv <- F^-1 M_inv by the Woodbury identity, O(k d^2); up to d = `inverse_recompute_max_dim` (30) it is computed exactly from M after every `inverse_recompute_interval` (400) generations of a run, which bounds the rounding error that the update accumulates with the active update at small d (the maintainer's choice, #74). When the update cannot be applied (`inverse_fallbacks`), and without elitism, it is computed only when `invert_y` needs it (injected and repaired points; an LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can lag behind M. Before 2.0 the update with elitism was not the inverse of M F, and drifted from the inverse of M.
+        With elitism or TPA_INPLACE (lambda > 1) it is updated with M every generation: M <- M F with F = a I + U D U^T, where a is the decay, U = [ps, the z of the update] and D = diag(c1/2, cmu/2 w) (0 for c1/2 when `hs` is False), so M_inv <- F^-1 M_inv by the Woodbury identity, O(k d^2) for k terms; up to d = `inverse_recompute_max_dim` (30) it is computed exactly from M after every `inverse_recompute_interval` (400) generations of a run, which bounds the rounding error that the update accumulates with the active update at small d (the maintainer's choice, #74). When the update cannot be applied (`inverse_fallbacks`), and without elitism and TPA_INPLACE, it is computed only when `invert_y` needs it (points moved by the bound correction, injected points, the distances of repelling; an LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can lag behind M. Before 2.0 the update with elitism was not the inverse of M F, and drifted from the inverse of M.
         """
 
     @M_inv.setter
@@ -614,17 +618,17 @@ class MatrixAdaptation(Adaptation):
     @property
     def inverse_fallbacks(self) -> int:
         """
-        The generations with elitism in which the Woodbury update of `M_inv` could not be applied, since the adaptation was created (read-only): the decay a = 1 - c1/2 - cmu/2 sum(w) was not positive, or the k x k system was singular or badly conditioned (the ratio of its smallest to its largest pivot below 1e-8). M_inv is then computed when `invert_y` needs it, and the update continues from it.
+        The generations with elitism or TPA_INPLACE in which the Woodbury update of `M_inv` could not be applied, since the adaptation was created (read-only; restarts do not reset it): the decay a = 1 - c1/2 - cmu/2 sum(w) was not positive, or the k x k system (F itself when k >= d) was singular or badly conditioned (the ratio of its smallest to its largest pivot below 1e-8). M_inv is then computed when `invert_y` needs it, and the update continues from it.
         """
 
     inverse_recompute_interval: Final[int] = ...
     """
-    With elitism and d <= `inverse_recompute_max_dim`, M_inv is computed exactly from M after every this many generations of a run, and updated by the Woodbury identity in between (400, the maintainer's choice on #74). Without it, the largest entry of M M_inv - I over 5000 generations reached 2.4 to 26 with the active update at d = 10 and 1e-8 at d = 20; with it, at most 1.4e-9 at d = 10.
+    With elitism or TPA_INPLACE and d <= `inverse_recompute_max_dim`, M_inv is computed exactly from M after every this many generations of a run, and updated by the Woodbury identity in between (400, the maintainer's choice on #74). Measured on the rotated ellipsoid (condition 1e6, 5 seeds, #159): without it, the largest entry of |M M_inv - I| over 5000 generations reached 2.4 to 26 with the active update at d = 10 and 1.3e-8 to 6.4e-8 at d = 20; with it, at most 1.4e-9 at d = 10 and 1.5e-11 at d = 20.
     """
 
     inverse_recompute_max_dim: Final[int] = ...
     """
-    The largest dimension with the exact recomputation of M_inv every `inverse_recompute_interval` generations (30, the maintainer's choice on #74): the smallest d at which the drift without it stayed below 1e-10 over 5000 generations in every run measured (at most 4.3e-11 at d = 30, below 1e-12 from d = 40 on, with the active update).
+    The largest dimension with the exact recomputation of M_inv every `inverse_recompute_interval` generations (30, the maintainer's choice on #74): the smallest d at which the drift without it stayed below 1e-10 over 5000 generations in every run measured (at most 4.3e-11 at d = 30, below 1e-12 from d = 40 on, with the active update; the runs of `inverse_recompute_interval`).
     """
 
     def __repr__(self) -> str:
@@ -632,12 +636,12 @@ class MatrixAdaptation(Adaptation):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class CholeskyAdaptation(Adaptation):
@@ -666,7 +670,7 @@ class CholeskyAdaptation(Adaptation):
     @property
     def A(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity at the start).
+        The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity at the start without `Settings.C0`).
         """
 
     @A.setter
@@ -684,7 +688,7 @@ class CholeskyAdaptation(Adaptation):
     @property
     def hs(self) -> bool:
         """
-        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which stalls the update of pc; always True with CSA (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
+        The indicator h_sigma: False when ||ps|| is long (Hansen 2016, after Eq. (45)), which stalls the update of pc; always True with CSA and in the (1+1)-ES (#160). With `StepSizeAdaptation.XNES` and `Modules.active` (not with UTILITY weights), False also drops the negative weights of the generation's update (#175).
         """
 
     @hs.setter
@@ -700,19 +704,19 @@ class CholeskyAdaptation(Adaptation):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class SelfAdaptation(Adaptation):
     """
     CMSA-ES, covariance matrix self-adaptation (`MatrixAdaptationType.CMSA`).
 
-    C = (1 - 1/tc) C + (1/tc) sum_i w_i y_i y_i^T with tc = 1 + d (d + 1) / (2 mueff), without an evolution path, then a Cholesky factorization C = A A^T every generation (O(d^3); LAPACK from d = `constants.lapack_min_dim`). With CMSA the default mu is lambda / 4. The CMSA-ES of the paper adapts the step size by self-adaptation (`StepSizeAdaptation.SA`). Beyer & Sendhoff (2008).
+    C = (1 - 1/tc) C + (1/tc) sum_i w_i y_i y_i^T with tc = 1 + d (d + 1) / (2 mueff), without an evolution path, then a Cholesky factorization C = A A^T every generation (O(d^3); LAPACK from d = `constants.lapack_min_dim`). With CMSA the default mu is lambda / 4. CMSA has no active update: Settings switches `Modules.active` off (#73), and with UTILITY weights the positive utilities are used. The CMSA-ES of the paper adapts the step size by self-adaptation (`StepSizeAdaptation.SA`). Beyer & Sendhoff (2008).
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -730,7 +734,7 @@ class SelfAdaptation(Adaptation):
     @property
     def A(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity at the start).
+        The lower triangular Cholesky factor of C, y = A z, shape (d, d) (the identity at the start without `Settings.C0`).
         """
 
     @A.setter
@@ -739,7 +743,7 @@ class SelfAdaptation(Adaptation):
     @property
     def C(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The covariance matrix (without sigma^2), shape (d, d) (the identity at the start).
+        The covariance matrix (without sigma^2), shape (d, d) (the identity at the start, or `Settings.C0`).
         """
 
     @C.setter
@@ -747,19 +751,19 @@ class SelfAdaptation(Adaptation):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class CovarianceNoEigvAdaptation(CovarianceAdaptation):
     """
     CMA-ES with a Cholesky factorization instead of an eigendecomposition (`MatrixAdaptationType.COVARIANCE_NO_EIGV`).
 
-    C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower triangular (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see `constants.cholesky_solver`), which is several times cheaper than an eigendecomposition. B and d are filled only by `metric()`, from A A^T, the C of the last factorization. ps is updated with dz instead of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of COVARIANCE for the other step-size adaptations.
+    C is updated as in `CovarianceAdaptation` and factorized as C = A A^T with A lower triangular, every `es.p.weights.lazy_update_interval` generations as COVARIANCE decomposes it (Eigen, or LAPACK dpotrf from d = `constants.lapack_min_dim`, see `constants.cholesky_solver`), which is several times cheaper than an eigendecomposition (docs/performance.md). B and d are filled only by `metric()`, from A A^T, the C of the last factorization. ps is updated with dz instead of C^-1/2 dm, which only CSA needs: Settings selects this adaptation in place of COVARIANCE for the other step-size adaptations.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -776,19 +780,21 @@ class CovarianceNoEigvAdaptation(CovarianceAdaptation):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class NaturalGradientAdaptation(Adaptation):
     """
     xNES, exponential natural evolution strategies (`MatrixAdaptationType.NATURAL_GRADIENT`).
 
-    The sampling matrix is updated multiplicatively, A = A expm(cc G), with the natural gradient G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace part, `sigma_g`, goes to the step size with `StepSizeAdaptation.XNES`) and cc = `es.p.weights.cc`, xNES's eta_B / 2 by default. For lambda < d and d >= 16 the matrix exponential is computed exactly from a thin QR of the samples, O(d^2 lambda); otherwise as a dense d x d exponential. Glasmachers et al. (2010).
+    The sampling matrix is updated multiplicatively, A = A expm(cc G), with the natural gradient G = sum_i w_i (z_i z_i^T - I) made trace-free (its trace part, `sigma_g`, goes to the step size with `StepSizeAdaptation.XNES`) and cc = `es.p.weights.cc`, xNES's eta_B / 2 by default (1 / (4 d^1.5) in the (1+1)-ES). With fewer samples k in the gradient than d (mu, or every point with `Modules.active`) and d >= 16 the matrix exponential is computed exactly from a thin QR of the samples, O(d^2 k); otherwise as a dense d x d exponential. Glasmachers et al. (2010).
+
+    With `Modules.active` and DEFAULT weights Settings uses the utilities of xNES (`RecombinationWeights.UTILITY`, which sum to zero) instead of the negative weights of CMA-ES; with `StepSizeAdaptation.XNES` and UTILITY this is xNES.
     """
 
     def __init__(self, dimension: int, x0: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> None:
@@ -805,7 +811,9 @@ class NaturalGradientAdaptation(Adaptation):
 
     @property
     def A(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
-        """The sampling matrix, y = A z, shape (d, d) (I at the start)."""
+        """
+        The sampling matrix, y = A z, shape (d, d) (the identity at the start without `Settings.C0`).
+        """
 
     @A.setter
     def A(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
@@ -813,7 +821,7 @@ class NaturalGradientAdaptation(Adaptation):
     @property
     def A_inv(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The inverse of A, shape (d, d). Recomputed only when `invert_y` needs it (an LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can lag behind A (the identity at the start).
+        The inverse of A, shape (d, d). Recomputed only when `invert_y` needs it (an LU inverse from d = `constants.blas_min_dim`, else the pseudo-inverse), so it can lag behind A (the identity at the start without `Settings.C0`).
         """
 
     @A_inv.setter
@@ -828,7 +836,7 @@ class NaturalGradientAdaptation(Adaptation):
     @property
     def gradient_samples(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')]:
         """
-        The samples Z of the last gradient, the z of the population as columns, shape (d, k) with k <= lambda.
+        The samples Z of the last gradient, the z of the population as columns, shape (d, k): the mu best, or with `Modules.active` every point (with elitism, the mu best and the worst of the (mu + lambda) pool, #161).
         """
 
     @gradient_samples.setter
@@ -837,7 +845,7 @@ class NaturalGradientAdaptation(Adaptation):
     @property
     def gradient_weights(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """
-        The weights u of the samples, shape (k,) (with `Modules.active`, negative weights for the worst; with elitism, the worst of the (mu + lambda) pool, #161).
+        The weights u of the samples, shape (k,), not rescaled (with `Modules.active`, negative weights for the worst; with elitism, the worst of the (mu + lambda) pool, #161).
         """
 
     @gradient_weights.setter
@@ -855,7 +863,7 @@ class NaturalGradientAdaptation(Adaptation):
     @property
     def sigma_g(self) -> float:
         """
-        trace(G) / d of the gradient before the shift: its isotropic (step-size) part, removed from G and used by `StepSizeAdaptation.XNES`, sigma *= exp(cs / 2 * sigma_g). With elitism XNES computes it from the offspring alone instead (#172).
+        trace(G) / d of the gradient before the shift: its isotropic (step-size) part, removed from G and used by `StepSizeAdaptation.XNES`, sigma *= exp(cs / 2 * sigma_g), with cs xNES's eta_sigma by default (see `Weights.cs`). With elitism XNES computes it from the offspring alone instead (#172). 0 in the (1+1)-ES.
         """
 
     @sigma_g.setter
@@ -877,10 +885,10 @@ class NaturalGradientAdaptation(Adaptation):
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """

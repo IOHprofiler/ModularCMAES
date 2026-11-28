@@ -1,7 +1,7 @@
 """
 The C++ ModularCMAES library: a modular CMA-ES in which every module (matrix adaptation, step-size adaptation, sampling, selection, restarts, bound correction, ...) is an option that combines freely with the others.
 
-Use it through `modcma.c_maes`, which re-exports these names. The classes you need most are `ModularCMAES`, `parameters.Settings` and `parameters.Modules`, with the options in `options`. Submodules: `options` (the module options), `parameters` (settings, modules, weights, statistics), `sampling`, `mutation` (step-size adaptation), `matrix_adaptation`, `selection`, `bounds`, `center`, `repelling`, `restart` (criteria and strategies), `es` (a (1+1)-ES and a (mu, lambda)-ES) and `constants` (global switches); `set_seed`, `build_info` and `compute_ert`.
+Use it through `modcma.c_maes`, which re-exports these names. The classes you need most are `ModularCMAES`, `parameters.Settings` and `parameters.Modules`, with the options in `options`. Submodules: `options` (the module options), `parameters` (settings, modules, weights, statistics), `sampling`, `mutation` (step-size adaptation), `matrix_adaptation`, `selection`, `bounds`, `center`, `repelling`, `restart` (criteria and strategies) and `es` (a (1+1)-ES and a (mu, lambda)-ES); the class `constants` (global switches); `set_seed`, `build_info` and `compute_ert`.
 """
 
 from collections.abc import Callable, Sequence
@@ -30,7 +30,7 @@ class constants:
     """
     Global switches of the library, as static properties (`constants.eigen_solver = 0`).
 
-    They are process-wide: a change applies to every optimizer, also to ones that exist already, except for the cache settings, which are read when a sampler is created. Set them before creating optimizers, and not while optimizers run in other threads.
+    They are process-wide: a change applies to every optimizer, also to ones that exist already, except for the cache settings, which are read when a sampler is created. Set them before creating optimizers, and not while optimizers run in other threads. They are not part of the saved state of an optimizer (pickle): a loaded run continues with the values of the process that loads it.
     """
 
     cache_max_doubles: ClassVar[int] = ...
@@ -63,21 +63,21 @@ class constants:
     """
     Whether the GAUSSIAN sample transformation uses the Box-Muller transform (default False).
 
-    False: every uniform number is mapped to a normal one with the inverse normal CDF. True: pairs of uniform numbers are mapped with Box-Muller, a different random stream.
+    False: every uniform number is mapped to a normal one with the inverse normal CDF. True: pairs of uniform numbers are mapped with Box-Muller, a different random stream. No effect with `Settings.fast_sampling`, whose sampler (UNIFORM with GAUSSIAN) draws normal numbers with a ziggurat.
     """
 
     eigen_solver: ClassVar[int] = ...
     """
     The eigendecomposition of the covariance matrix (COVARIANCE) (default -1).
 
-    -1: automatic, LAPACK dsyevd from `lapack_min_dim` on when LAPACK is available, Eigen below; 0: Eigen's SelfAdjointEigenSolver; 1: LAPACK dsyevd (divide and conquer); 2: LAPACK dsyevr (MRRR). 1 and 2 raise ValueError without LAPACK (`build_info()['lapack'] == 'none'`). LAPACK is several times faster in high dimension (d = 1000: 5.5 ms against 18.6 ms per generation, docs/performance.md); the results are not bit-identical to Eigen's.
+    Also used for `Adaptation.metric()` of the matrix adaptations that compute it when asked (all but COVARIANCE, SEPARABLE and NONE), and for the square root of `Settings.C0` of MATRIX and NATURAL_GRADIENT. -1: automatic, LAPACK dsyevd from `lapack_min_dim` on when LAPACK is available, Eigen below; 0: Eigen's SelfAdjointEigenSolver; 1: LAPACK dsyevd (divide and conquer); 2: LAPACK dsyevr (MRRR). 1 and 2 raise ValueError without LAPACK (`build_info()['lapack'] == 'none'`). LAPACK is several times faster in high dimension (d = 1000: 5.5 ms against 18.6 ms per generation, docs/performance.md); the results are not bit-identical to Eigen's.
     """
 
     cholesky_solver: ClassVar[int] = ...
     """
     The Cholesky factorization of CMSA and COVARIANCE_NO_EIGV (default -1).
 
-    -1: automatic, LAPACK dpotrf from `lapack_min_dim` on when LAPACK is available, Eigen below; 0: Eigen's LLT; 1: LAPACK dpotrf (raises ValueError without LAPACK).
+    Also used for the factor of `Settings.C0` of CHOLESKY and CMSA. -1: automatic, LAPACK dpotrf from `lapack_min_dim` on when LAPACK is available, Eigen below; 0: Eigen's LLT; 1: LAPACK dpotrf (raises ValueError without LAPACK).
     """
 
     blas: ClassVar[int] = ...
@@ -119,7 +119,12 @@ def set_seed(seed: int) -> None:
     """
     Seed the global random generator (mt19937).
 
-    An optimizer without `Settings.seed` copies the global generator when it is created and advances it, so that after set_seed(s) the optimizers created in the same order draw the same numbers. Samplers and bound corrections that are used on their own draw from the global generator directly.
+    An optimizer without `Settings.seed` copies the global generator when it is created and then reseeds the global one from its next number, so that after set_seed(s) the optimizers created in the same order draw the same numbers. Samplers and bound corrections that are used on their own draw from the global generator directly. The global generator is not part of the saved state of an optimizer (pickle).
+
+    Parameters
+    ----------
+    seed : int
+        The seed.
     """
 
 def compute_ert(running_times: Sequence[int], budget: int) -> tuple[float, int]:
@@ -136,14 +141,14 @@ def compute_ert(running_times: Sequence[int], budget: int) -> tuple[float, int]:
     Returns
     -------
     tuple[float, int]
-        The sum of all running times divided by the number of successful runs (inf when no run succeeded), and the number of successful runs.
+        The sum of all running times divided by the number of successful runs (inf when no run succeeded, nan for an empty list), and the number of successful runs.
     """
 
 class Population:
     """
     The individuals of one generation, as the columns of (d, capacity) buffers.
 
-    The first n columns are the active individuals. Reading an array returns a view of the active columns that shares memory with the population: X, X_transformed, Z, Y and S are (d, n) matrices, f and t are (n,) vectors. Assigning an array replaces the whole buffer and leaves n unchanged. The buffers can hold more than n columns, e.g. after sequential selection stopped a generation early; those columns hold no population data.
+    The first n columns are the active individuals. Reading an array returns a view of the active columns that shares memory with the population: X, X_transformed, Z, Y and S are (d, n) matrices, f and t are (n,) vectors. Assigning an array replaces the whole buffer and leaves n unchanged. The buffers can hold more than n columns, e.g. after sequential selection stopped a generation early; those columns hold no population data, except the points that elitist selection dropped (see n_pool).
 
     A view is valid until the next generation: the optimizer then swaps pop and old_pop, and a restart or a larger population replaces the buffers (the view would read freed memory). Copy an array (`.copy()`) to keep its values.
     """
@@ -153,7 +158,7 @@ class Population:
         """
         A population of n individuals in the given dimension.
 
-        f is +inf for every individual; the other arrays are not initialised.
+        f is +inf for every individual; the other arrays are 0 (so a saved state holds no uninitialised memory, #91).
         """
 
     @overload
@@ -174,7 +179,7 @@ class Population:
         S : numpy.ndarray
             (d, n) the step sizes.
 
-        t (the generation of each individual) is not initialised.
+        t (the generation of each individual) is 0; d and n are the shape of X.
         """
 
     def sort(self) -> None:
@@ -195,12 +200,12 @@ class Population:
         """
         Keep only the given columns, in the given order.
 
-        Every buffer becomes its columns idx (indices into the buffers, 0..capacity-1) and n becomes len(idx).
+        Every buffer becomes its columns idx (indices into the buffers, 0..capacity-1) and n and the capacity become len(idx).
 
         Parameters
         ----------
         idx : list of int
-            The columns to keep.
+            The columns to keep; an index of capacity or more raises IndexError.
         """
 
     @property
@@ -227,7 +232,7 @@ class Population:
         """
         With elitism, the size of the sorted (mu + lambda) pool of which the selection kept the first n (0 or at most n: no point was dropped).
 
-        The columns n..n_pool-1 of the buffers then hold the dropped points, the worst of the pool, in their order (they are not part of the arrays X, Z, Y, f, ...): the active update of the matrix gives them the negative weights (the framework paper's "lambda - mu worst individuals", #161). Set by the selection; `keep_only` and adding populations reset it to 0.
+        The columns n..n_pool-1 of the buffers then hold the dropped points, the worst of the pool, in their order (they are not part of the arrays X, Z, Y, f, ...). The active update of the matrix gives its negative weights to the worst points of the pool, the last columns: these dropped points, and the worst kept ones when there are more negative weights than dropped points (the framework paper's "lambda - mu worst individuals", #161). Set by every selection; `keep_only` and adding populations reset it to 0.
         """
 
     @n_pool.setter
@@ -332,12 +337,12 @@ class Population:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class Parameters:
@@ -355,13 +360,17 @@ class Parameters:
 
     @overload
     def __init__(self, settings: parameters.Settings) -> None:
-        """Parameters for the given settings (copied)."""
+        """
+        Parameters for the given settings (copied).
+
+        The settings are checked first, every field and the checks between fields (ValueError, see Settings), and C0 again.
+        """
 
     def adapt(self) -> None:
         """
         The adaptation at the end of a generation.
 
-        Updates the evolution paths, the step size (clipped to the tolerances of the MinSigma and MaxSigma restart criteria when constants.clip_sigma is set), the matrix of the matrix adaptation and the restart criteria, then increments stats.t. ModularCMAES.adapt calls it.
+        Updates the evolution paths, the step size (clipped to the tolerances of the MinSigma and MaxSigma restart criteria when constants.clip_sigma is set), the matrix of the matrix adaptation and the restart criteria, then increments stats.t and stats.t_run. ModularCMAES.adapt calls it.
         """
 
     def resize_population(self, new_mu: int, new_lambda: int) -> None:
@@ -380,7 +389,11 @@ class Parameters:
 
     @property
     def settings(self) -> parameters.Settings:
-        """The Settings of this optimizer."""
+        """
+        The Settings of this optimizer, a copy of those it was created with.
+
+        Setting a field of it checks that field alone: the checks between fields and the adjustments of the constructor do not run again, and the module objects are not rebuilt.
+        """
 
     @settings.setter
     def settings(self, arg: parameters.Settings, /) -> None: ...
@@ -397,7 +410,7 @@ class Parameters:
     @property
     def lamb(self) -> int:
         """
-        The current number of offspring per generation (lambda): settings.lambda0 at first, changed by IPOP and BIPOP restarts.
+        The current number of offspring per generation (lambda): settings.lambda0 at first, changed by IPOP and BIPOP restarts, and capped at a restart near the end of the budget (the first generation of the new run takes at most the rest).
         """
 
     @lamb.setter
@@ -446,7 +459,9 @@ class Parameters:
 
     @property
     def old_pop(self) -> Population:
-        """The population of the previous generation (the parents for elitism)."""
+        """
+        The population of the previous generation, sorted: the parents for elitism, and the reference of MSR, PSR and sequential selection.
+        """
 
     @old_pop.setter
     def old_pop(self, arg: Population, /) -> None: ...
@@ -454,7 +469,7 @@ class Parameters:
     @property
     def sampler(self) -> sampling.Sampler:
         """
-        The sampler of the samples z (sampling.Sampler), built from modules.sampler, sample_transformation, mirrored and orthogonal.
+        The sampler of the samples z (sampling.Sampler), built from modules.sampler, sample_transformation and orthogonal (and settings.fast_sampling). The mutation forms the mirrored pairs, not the sampler.
         """
 
     @sampler.setter
@@ -521,12 +536,12 @@ class Parameters:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """
 
 class ModularCMAES:
@@ -541,6 +556,8 @@ class ModularCMAES:
     step() and run() are loops over ask() and tell(), so both ways give the same results, bit for bit. The state, including the statistics and the best solution (p.stats.global_best), is in p.
 
     With the gradient of the objective, run(f, gradient=g) (or, with ask-tell, inject_gradient()) puts a point along the negative gradient into every population (gradient injection).
+
+    pickle, copy.deepcopy and copy.copy save and restore the whole state at any point of a run, also between ask() and tell(); the loaded optimizer continues bit for bit. The objective is not saved: pass it again (#91).
     """
 
     @overload
@@ -584,7 +601,7 @@ class ModularCMAES:
         """
         Sample and evaluate a generation: the first step of a generation.
 
-        Restarts first when a restart criterion holds (the run that ends evaluates its center of mass with objective). Then select(), recombine() and adapt() complete the generation. Every call samples a new generation, as in 1.x; only a generation that ask() started is completed instead (its points evaluated with objective). When the optimizer stops (stop_conditions()), it evaluates the final center of mass instead of a generation, and select(), recombine() and adapt() then do nothing: the 1.x loop `while not es.break_conditions(): es.mutate(f); es.select(); ...` ends as run() does.
+        Restarts first when a restart criterion holds (the run that ends evaluates its center of mass with objective, and repelling the points of its hill-valley tests). Then select(), recombine() and adapt() complete the generation. Every call samples a new generation, as in 1.x; only a generation that ask() started is completed instead (its points evaluated with objective). When the optimizer stops (stop_conditions()), it evaluates the final center of mass instead of a generation, and select(), recombine() and adapt() then do nothing: the 1.x loop `while not es.break_conditions(): es.mutate(f); es.select(); ...` ends as run() does.
 
         Parameters
         ----------
@@ -598,7 +615,7 @@ class ModularCMAES:
         """
         Select the individuals of the evaluated generation: the second step.
 
-        Applies pairwise selection (mirrored PAIRWISE) and elitism (the parents join the offspring), sorts the population by f, keeps lambda individuals and updates the statistics (current_avg, current_best, global_best). Raises RuntimeError while the points of a generation wait for their values (after ask(), or an interrupted mutate() or step()).
+        Applies elitism ((mu + lambda) selection: the parents join the offspring), sorts the population by f (with mirrored PAIRWISE, the losers of the pairs last), keeps at most lambda individuals and updates the statistics (current_avg, current_best, global_best, success_ratio); see selection.Strategy. Raises RuntimeError while the points of a generation wait for their values (after ask(), or an interrupted mutate() or step()).
         """
 
     def adapt(self) -> None:
@@ -612,7 +629,7 @@ class ModularCMAES:
         """
         Run one generation (with a restart first, when one is due).
 
-        When the optimizer stops (stop_conditions()), the call evaluates the final center of mass instead, one evaluation, and returns False.
+        When the optimizer stops (stop_conditions()), the call evaluates the final center of mass instead, one evaluation, and returns False. step() does not check break_conditions() first: called after the optimizer has stopped, it runs another generation, which can exceed the budget (run() checks before every generation).
 
         Parameters
         ----------
@@ -652,7 +669,18 @@ class ModularCMAES:
         """
         The points to evaluate next, a new (k, d) array (row i is point i).
 
-        Starts a generation when none is in progress; until tell(), it returns the same points. k >= 1 is the largest batch that can be evaluated in any order: usually lambda (lambda + 2 with TPA step-size adaptation; lambda after a generation whose elitist selection kept every parent, when TPA skips its points). With sequential selection, the points up to the first one after which the generation may stop, then one point at a time (a pair with pairwise mirroring). Every run ends with its center of mass, one point: a restart asks for it first and, with repelling restarts, for the points of the hill-valley tests, one at a time; when the optimizer stops (stop_conditions()), the last ask() returns it, and break_conditions() holds after its tell().
+        Starts a generation when none is in progress; until tell(), it returns the same points (call it again after inject_gradient()). k >= 1 is the largest batch that can be evaluated in any order:
+
+        - usually lambda; with ssa=TPA lambda + 2, its two test points, except after a generation whose elitist selection kept every parent (#179). TPA_INPLACE adds no points.
+        - with sequential selection, the points up to the first one after which the generation may stop (with TPA's two), then one point at a time (a pair with mirrored PAIRWISE).
+        - one point, the center of mass, at the end of every run: a restart asks for it first and, with repelling restarts, then for the points of the hill-valley tests, one at a time; when the optimizer stops (stop_conditions()), the last ask() returns it, and break_conditions() holds after its tell().
+
+        ask() does not check break_conditions(): after the optimizer has stopped, it starts another generation.
+
+        Returns
+        -------
+        numpy.ndarray
+            (k, d), in the space of the objective; a copy, so changing it does not change the optimizer (give changed points to tell(f, X)).
         """
 
     def tell(self, f: numpy.typing.ArrayLike, X: numpy.typing.ArrayLike | None = None) -> bool:
@@ -666,7 +694,7 @@ class ModularCMAES:
         f : array_like
             (k,) the objective values of the k points of ask(), in the same order.
         X : array_like, optional
-            (k, d), or (d,) for one point: the points that were evaluated, when they differ from the asked ones (repaired or injected solutions). A row that differs from the asked point replaces it; for an individual of the population, its y and z are derived from the row with its step size, as for elitism.
+            (k, d), or (d,) for one point: the points that were evaluated, when they differ from the asked ones (repaired or injected solutions). A row that differs from the asked point replaces it; for an individual of the population, its y and z are derived from the row with its step size, as for elitism. Such an individual far outside the distribution enters the update clipped: z is shortened to a length of at most sqrt(d) + 2 d / (d + 2), and y with it (Hansen 2011, "Injecting external solutions into CMA-ES"; pycma); the statistics keep the evaluated point and its value.
 
         Returns
         -------
@@ -729,7 +757,7 @@ class ModularCMAES:
         """
         Whether the optimizer should stop: then the next ask() (or step()) evaluates the final center of mass, and break_conditions() holds after it.
 
-        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the next generation (lambda points, and the 2 extra points of TPA, also when the generation skips them) would leave no evaluation of settings.budget for the final center of mass; a restart is due, but its center, the smallest first generation of the new run and its center of mass would exceed settings.budget; or restart_strategy is STOP and a restart criterion holds.
+        True when one of these holds: p.stats.t reached settings.max_generations; the best objective value is at most settings.target; the next generation (lambda points, and with ssa=TPA its 2 test points, also when the generation skips them) would leave no evaluation of settings.budget for the final center of mass; a restart is due, but its center, the smallest first generation of the new run (2 points, and TPA's 2) and that run's center of mass would exceed settings.budget; or restart_strategy is STOP and a restart criterion holds.
         """
 
     @property
@@ -740,10 +768,10 @@ class ModularCMAES:
 
     def __getstate__(self) -> object:
         """
-        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        The state for pickle and copy (#91): the bytes of the object's C++ serialization (the format is described in the guide's page on saving and resuming a run), or (bytes, dict) with the attributes of a Python subclass. TypeError when the object holds a module that the library cannot save, such as a sampler defined in Python.
         """
 
     def __setstate__(self, state: object) -> None:
         """
-        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated, corrupted, or the state of another class; TypeError when it is not bytes.
         """

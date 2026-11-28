@@ -111,15 +111,15 @@ follows it when it is set.
 ## The options
 
 <!-- options: CorrectionMethod -->
-**`modcma.options.CorrectionMethod`**: What happens to a sample outside the box bounds (`Modules.bound_correction`; default NONE). The bounds are `Settings.lb` and `Settings.ub` (default [-5, 5] in every coordinate). The methods other than RESAMPLE move each coordinate that is out of bounds into [lb, ub]; the mutation vector of the sample is then recomputed from the corrected point, so the adaptation learns from the point that was evaluated. The methods are those of Caraffini, Kononova & Corne (2019), "Infeasibility and structural bias in differential evolution". Bounds may be infinite; each coordinate and each side is corrected separately, and an infinite bound is never crossed. MIRROR, COTN, UNIFORM_RESAMPLE and TOROIDAL need the width ub - lb: in a coordinate with one infinite bound they set a coordinate that crosses the finite bound to that bound, as SATURATE does.
+**`modcma.options.CorrectionMethod`**: What happens to a sample outside the box bounds (`Modules.bound_correction`; default NONE). The bounds are `Settings.lb` and `Settings.ub` (default [-5, 5] in every coordinate). The methods other than RESAMPLE move each coordinate that is out of bounds into [lb, ub]; the mutation vector of the sample is then recomputed from the corrected point, so the adaptation learns from the point that was evaluated. The methods are those of Caraffini, Kononova & Corne (2019), "Infeasibility and structural bias in differential evolution". Bounds may be infinite; each coordinate and each side is corrected separately, and an infinite bound is never crossed. MIRROR, COTN, UNIFORM_RESAMPLE and TOROIDAL need the width ub - lb: in a coordinate with one infinite bound they set a coordinate that crosses the finite bound to that bound, as SATURATE does. A fixed coordinate (lb = ub) is set to that value by every method but NONE and RESAMPLE.
 
 | value | |
 |---|---|
 | `NONE` | No correction, the default: points outside the bounds are evaluated as they are (and counted in `Parameters.bounds.n_out_of_bounds`). |
 | `MIRROR` | Reflect the coordinate at the violated bound (periodically, for points more than a domain width outside). |
-| `COTN` | Complete one-tailed normal correction: place the coordinate inside the violated bound, at a random distance sigma * \|N(0, 1/3^2)\| times the domain width ub - lb. |
+| `COTN` | Complete one-tailed normal correction: place the coordinate inside the violated bound, at a random distance sigma * \|N(0, 1/3^2)\| times the domain width ub - lb. A distance above the width is drawn again (up to 10 times), then set to the width: the point stays in the box. |
 | `UNIFORM_RESAMPLE` | Replace the coordinate by a uniform random value in [lb, ub]. |
 | `SATURATE` | Set the coordinate to the violated bound (clipping): corrected points lie on the boundary. |
 | `TOROIDAL` | Wrap the coordinate around: leaving at one bound enters at the other (a torus). |
-| `RESAMPLE` | Sample the whole individual again until it lies inside the bounds, at most 5 d times; after that, the last sample is evaluated as it is. |
+| `RESAMPLE` | Sample the whole individual again until it lies inside the bounds, at most 5 d times; after that, the last sample is evaluated as it is (such a point does not become `stats.global_best`, #168). A point outside the box that is not a sample (an injected gradient point; TPA's test points when the mean is outside the box) is clipped to it instead. |
 <!-- /options -->
