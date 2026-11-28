@@ -525,6 +525,8 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   mean could start outside the box. Per coordinate: the midpoint for two finite bounds, 0 for two
   infinite bounds, and for one infinite bound 0 if the half-line holds it, else the finite bound
   moved inward by `sigma0`. `center` now follows `sigma0` too. Finite boxes are unchanged.
+* `es.MuCommaLambdaES.X` and `S` are zero before the first step; they were uninitialized memory
+  (#192). Results are unchanged.
 * Infinite bounds and integer variables in the box (#79). Results with finite bounds, and integer
   bounds on the integer variables, are unchanged.
   * A box with an infinite bound turned the bound correction off in every coordinate, also at the
