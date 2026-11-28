@@ -10,6 +10,9 @@ from modcma import c_maes
 
 class TestPackage(unittest.TestCase):
     def test_top_level_is_c_maes(self):
+        # modcma lists the names of c_maes once more, for type checkers (a re-export needs an
+        # explicit import and __all__); the two lists must stay the same
+        self.assertEqual(sorted(modcma.__all__), sorted(["c_maes", *c_maes.__all__]))
         for name in modcma.__all__:
             if name != "c_maes":
                 self.assertIs(getattr(modcma, name), getattr(c_maes, name), name)
