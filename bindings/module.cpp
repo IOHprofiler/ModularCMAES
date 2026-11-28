@@ -168,37 +168,50 @@ void define_options(nb::module_ &main)
         "options",
         "The options of the modules: one enum per module family.\n\n"
         "A `parameters.Modules` object holds one value of each (and the on/off modules as "
-        "bools); the options combine freely. The default of every enum gives the CMA-ES with "
-        "cumulative step-size adaptation.");
+        "bools). The options combine freely; `parameters.Settings` adjusts the few "
+        "combinations that cannot run as given (the compatibility page of the guide). The "
+        "default of every enum gives the CMA-ES with cumulative step-size adaptation.");
     using namespace parameters;
     nb::enum_<RecombinationWeights>(
         m,
         "RecombinationWeights",
         "The recombination weights (`Modules.weights`; default DEFAULT).\n\n"
-        "The weights of the mu best individuals are positive and sum to 1; with "
-        "`Modules.active`, the other lambda - mu individuals get negative weights.")
+        "The weights of the mu best individuals are positive and sum to 1. With "
+        "`Modules.active` the other lambda - mu individuals get negative (or zero) weights, "
+        "scaled to sum to -min(1 + c1 / cmu, 1 + 2 mueff^- / (mueff + 2), (1 - c1 - cmu) / "
+        "(d cmu)) (Hansen 2016, Eqs. (50) to (53)). UTILITY differs from both rules.")
         .value("DEFAULT",
                RecombinationWeights::DEFAULT,
-               "Log-linear weights, the default: w_i proportional to ln((lambda + 1) / "
-               "floor(lambda / mu)) - ln(i); with mu = lambda / 2 the weights of the standard "
-               "CMA-ES (Hansen 2016, \"The CMA Evolution Strategy: A Tutorial\").")
+               "Log-linear weights, the default: w_i proportional to ln((n + 1) / 2) - ln(i) "
+               "(Hansen 2016, \"The CMA Evolution Strategy: A Tutorial\", Eq. (49)). For the "
+               "default mu = floor(lambda / 2), n = lambda: the weights of the standard CMA-ES. "
+               "For another mu (`Settings.mu0`, or the default mu = lambda / 4 of SA and CMSA), "
+               "n = 2 mu, as pycma with CMA_mu: ln(mu + 1/2) - ln(i) for the mu best, and the "
+               "mu negative weights of that population go to the worst ranks (the ranks between "
+               "get 0 when lambda > 2 mu; only the last lambda - mu of them are used when "
+               "lambda < 2 mu) (#73).")
         .value("EQUAL",
                RecombinationWeights::EQUAL,
                "Equal weights 1/mu (intermediate recombination): every selected individual "
-               "counts the same.")
+               "counts the same; with `Modules.active` the negative weights are equal too.")
         .value("EXPONENTIAL",
                RecombinationWeights::EXPONENTIAL,
-               "Exponentially decaying weights, w_i = 2^-i + 1 / (mu 2^mu), which sum to 1: they "
-               "halve with every rank, more weight on the best individuals than DEFAULT (de "
-               "Nobel et al. 2026); the negative ones the same for lambda - mu.")
+               "Exponentially decaying weights, w_i = 2^-i + 1 / (mu 2^mu) for i = 1..mu, which "
+               "sum to 1 (de Nobel et al. 2026, the framework paper, Sec. 4.2): the first term "
+               "halves with every rank, more weight on the best individuals than DEFAULT. The "
+               "negative weights follow the same rule for the lambda - mu worst, the largest on "
+               "the worst.")
         .value("UTILITY",
                RecombinationWeights::UTILITY,
                "The utilities of NES and xNES (Wierstra et al. 2014; Glasmachers et al. 2010), "
                "u_k = max(0, ln(lambda/2 + 1) - ln k) / sum - 1/lambda: log-shaped for the better "
                "half, minus a baseline, summing to zero. Unlike the other options they are not "
                "only the weights of the mu parents: the mean moves by the utility-weighted sum of "
-               "all lambda steps, and every matrix update uses all of them (so `Modules.active` is "
-               "set). With NATURAL_GRADIENT and StepSizeAdaptation.XNES this is xNES.");
+               "all lambda steps, and every matrix update uses all of them (`Settings` sets "
+               "`Modules.active`, except with matrix_adaptation NONE and CMSA; CMSA uses the "
+               "positive utilities). The step-size rules SA, LPXNES and XNES without "
+               "NATURAL_GRADIENT use the positive utilities of the mu best, normalized to sum to "
+               "1. With NATURAL_GRADIENT and StepSizeAdaptation.XNES this is xNES.");
 
     nb::enum_<BaseSampler>(
         m,
@@ -220,8 +233,10 @@ void define_options(nb::module_ &main)
                "Points of the Sobol sequence (Sobol' 1967). A cache of points (see "
                "`constants.cache_max_doubles`) is computed when the sampler is created and drawn "
                "in a random order, which repeats after all of them: N = max(128, the largest "
-               "power of 2 <= 2e6 / d) points; at d = 1000, N = 1024: after 42 generations of the "
-               "default lambda = 24.")
+               "power of 2 <= 2e6 / d) points with the default constants; at d = 1000, N = 1024: "
+               "after 42 generations of the default lambda = 24. Only for d <= 1111, the size of "
+               "the table of direction numbers: with a larger d, creating the sampler ends the "
+               "process.")
         .value("HALTON",
                BaseSampler::HALTON,
                "Points of the Halton sequence (Halton 1960), scrambled with random digit "
@@ -233,8 +248,8 @@ void define_options(nb::module_ &main)
         "The distribution of the mutation vectors (`Modules.sample_transformation`; default "
         "GAUSSIAN).\n\n"
         "Each coordinate of a uniform sample of the `BaseSampler` is mapped through the inverse "
-        "CDF of a symmetric distribution. Except for CAUCHY, the distributions have unit "
-        "variance. de Nobel et al. (2025), \"Abnormal mutations: evolution strategies don't "
+        "CDF of a symmetric distribution. Except for CAUCHY (and NONE), the distributions have "
+        "unit variance. de Nobel et al. (2025), \"Abnormal mutations: evolution strategies don't "
         "require Gaussianity\" (doi:10.1145/3712256.3726479).")
         .value("NONE",
                SampleTranformerType::NONE,
@@ -245,7 +260,8 @@ void define_options(nb::module_ &main)
         .value("GAUSSIAN",
                SampleTranformerType::GAUSSIAN,
                "Standard normal samples (the inverse normal CDF, or Box-Muller with "
-               "`constants.use_box_muller`), the default: the CMA-ES.")
+               "`constants.use_box_muller`; with the UNIFORM sampler and "
+               "`Settings.fast_sampling`, a ziggurat), the default: the CMA-ES.")
         .value("SCALED_UNIFORM",
                SampleTranformerType::SCALED_UNIFORM,
                "Uniform in (-sqrt(3), sqrt(3)): bounded mutations with unit variance.")
@@ -260,7 +276,9 @@ void define_options(nb::module_ &main)
         .value("CAUCHY",
                SampleTranformerType::CAUCHY,
                "Standard Cauchy distribution (scale 1): very heavy tails and no finite variance; "
-               "occasional long jumps.")
+               "occasional long jumps. E||z|| is infinite: CSA and threshold convergence use an "
+               "empirical approximation of the median of ||z||, d (1 + 0.18 tanh(d / 4.07)), "
+               "instead.")
         .value("DOUBLE_WEIBULL",
                SampleTranformerType::DOUBLE_WEIBULL,
                "Double Weibull distribution with shape 2 and scale 1 (unit variance), "
@@ -282,10 +300,13 @@ void define_options(nb::module_ &main)
                "the points take part in the selection.")
         .value("PAIRWISE",
                Mirror::PAIRWISE,
-               "Mirrored sampling with pairwise selection (Auger et al. 2011): of each mirrored "
-               "pair only the better one can be selected, so that the two do not cancel out in "
-               "the recombination. Makes lambda even (the default mu is half the even lambda); "
-               "with lambda0 = 1 (the (1+1)-ES) Settings turn it into NONE.");
+               "Mirrored sampling with pairwise selection (Auger et al. 2011): the worse point of "
+               "each mirrored pair is ranked after all the better ones (and after the parents of "
+               "elitism), so that with mu <= lambda / 2 only the better one can be selected and "
+               "the two do not cancel out in the recombination. The worse points keep their "
+               "objective values and get no negative weights in the active update (as pycma). "
+               "Makes lambda even (the default mu is half the even lambda); with lambda0 = 1 (the "
+               "(1+1)-ES) Settings turn it into NONE.");
 
     nb::enum_<StepSizeAdaptation>(
         m,
@@ -293,91 +314,118 @@ void define_options(nb::module_ &main)
         "The adaptation of the global step size sigma (`Modules.ssa`; default CSA).\n\n"
         "With the matrix adaptation COVARIANCE, any method other than CSA switches it to "
         "COVARIANCE_NO_EIGV (no eigendecomposition), unless `Settings(always_compute_eigv=True)`. "
-        "A population of one (lambda = 1, the (1+1)-ES) always uses SR (and so "
-        "COVARIANCE_NO_EIGV, whatever ssa is given). For a comparison of the "
-        "methods see de Nobel et al. 2021 (doi:10.1145/3449726.3463167).")
+        "A population of one (lambda0 = 1, the (1+1)-ES) always uses SR, whatever ssa is given "
+        "(and so COVARIANCE becomes COVARIANCE_NO_EIGV). The learning rate cs and the damping "
+        "damps of each method are its defaults below; `Settings.cs` and `Settings.damps` "
+        "replace them. For a comparison of the methods see de Nobel et al. 2021 "
+        "(doi:10.1145/3449726.3463167).")
         .value("CSA",
                StepSizeAdaptation::CSA,
                "Cumulative step-size adaptation (Hansen & Ostermeier 2001), the default: sigma "
                "grows when the evolution path p_sigma is longer than expected under random "
-               "selection and shrinks when it is shorter.")
+               "selection and shrinks when it is shorter, sigma <- sigma exp(cs / damps "
+               "(||p_sigma|| / E||z|| - 1)), the exponent clipped to [-1, 1] (as pycma). cs = "
+               "(mueff + 2) / (d + mueff + 5) and damps = 1 + 2 max(0, sqrt((mueff - 1) / (d + "
+               "1)) - 1) + cs (Hansen 2016, Table 1, Eq. (55); #138).")
         .value("TPA",
                StepSizeAdaptation::TPA,
-               "Two-point step-size adaptation (Hansen 2008): two extra points m +- 0.5 "
-               "sigma_old dm, half the last step of the mean (Eqs. 8, 9), are evaluated every "
-               "generation (two more evaluations); sigma grows when the point ahead is the "
-               "better one. With a bound correction both points move toward m, symmetrically, "
-               "until both are in the box. With elitism, a generation whose selection kept every "
-               "parent is a failure: the next generation evaluates no test points (the mean did "
-               "not move) and sigma shrinks, as in the success rules of elitist ESs (#179; no TPA "
-               "source covers elitism). Before 2.0 the points were m +- sigma dm, about one "
-               "step of the mean (#167). `TPA_INPLACE` is the version within the population.")
+               "Two-point step-size adaptation (Hansen 2008, \"CMA-ES with Two-Point Step-Size "
+               "Adaptation\"): two extra points, m +- 0.5 sigma_old dm, half the last step of the "
+               "mean with the step size that sampled it (Eqs. (8), (9)), are evaluated every "
+               "generation (two more evaluations). r = 0.5 when the point ahead is the better "
+               "one, -0.5 when the point behind is, 0 on a tie (as pycma; the paper counts a tie "
+               "as a success); s <- (1 - cs) s + cs r and sigma <- sigma exp(s), cs = 0.3 (Eqs. "
+               "(10) to (13)); damps is not used. With a bound correction both points move "
+               "toward m, symmetrically, until both are in the box. With elitism, a generation "
+               "whose selection kept every parent is a failure: the next generation evaluates no "
+               "test points (the mean did not move; the budget still reserves them) and takes r "
+               "= -0.5, as in the success rules of elitist ESs (#179; no TPA source covers "
+               "elitism). Before 2.0 the points were m +- sigma dm, about one step of the mean "
+               "(#167). `TPA_INPLACE` is the version within the population.")
         .value("MSR",
                StepSizeAdaptation::MSR,
-               "Median success rule (Ait ElHara et al. 2013): counts the individuals that are "
-               "better than the 0.3 lambda-th best of the previous generation; sigma grows when "
-               "more than half are.")
+               "Median success rule (Ait ElHara et al. 2013, as pycma): K is the number of "
+               "offspring better than the 0.3 lambda-th best of the previous generation "
+               "(interpolated between two ranks, as pycma), z = 2 K / lambda - 1, s <- (1 - cs) s "
+               "+ cs z and sigma <- sigma exp(s / damps), with cs = 0.3 and damps = 2 - 2/d (at "
+               "least 1). sigma grows when more than half of the offspring are better (#83). "
+               "With pairwise selection only the ranked offspring count.")
         .value("XNES",
                StepSizeAdaptation::XNES,
-               "The step-size update of xNES (Glasmachers et al. 2010), from the weighted squared "
-               "lengths of the samples (xNES SA, with the learning rate of Krause, Glasmachers & "
-               "Igel (2017)); with NATURAL_GRADIENT, from its natural gradient, with xNES's "
-               "learning rate. With `Modules.active` (and weights other than UTILITY) a "
-               "generation with h_sigma = 0 has no negative weights in the matrix update, for "
-               "the matrix adaptations with h_sigma (#175). xNES SA with weights EQUAL fails on "
-               "the ellipsoid (#180, see the compatibility page).")
+               "The step-size update of xNES. Without NATURAL_GRADIENT, xNES SA (Krause, "
+               "Glasmachers & Igel (2017), Sec. 4.2): sigma <- sigma exp(cs / sqrt(d) sum_i w_i "
+               "(||z_i||^2 - d)) over the mu best, with their positive weights and cs = mueff / "
+               "(2 ln(max(2, d)) sqrt(d)) (their Table 3; #72). With NATURAL_GRADIENT, xNES's own "
+               "update (Glasmachers et al. 2010): sigma <- sigma exp(cs / 2 tr(G) / d), G the "
+               "natural gradient, with xNES's cs = eta_sigma = (9 + 3 ln d) / (5 d sqrt(d)). With "
+               "elitism both read the offspring alone (#172). With `Modules.active` (and weights "
+               "other than UTILITY) a generation with h_sigma = 0 has no negative weights in the "
+               "matrix update of COVARIANCE, COVARIANCE_NO_EIGV, SEPARABLE, MATRIX and CHOLESKY "
+               "(#175; modcma's rule: Hansen 2016 and pycma keep them). xNES SA with weights "
+               "EQUAL fails on the ellipsoid (#180, see the compatibility page).")
         .value("MXNES",
                StepSizeAdaptation::MXNES,
                "A variant of the xNES update from the length of the weighted mean of the "
-               "selected samples, mueff ||sum w_i z_i||^2 - d, instead of their individual "
-               "lengths (m-xNES, Krause, Glasmachers & Igel (2017), "
-               "\"Qualitative and quantitative assessment of step size adaptation "
-               "rules\").")
+               "selected samples instead of their individual lengths: sigma <- sigma exp(cs / d "
+               "(mueff ||sum_i w_i z_i||^2 - d)), with cs = 1 (m-xNES, Krause, Glasmachers & "
+               "Igel (2017), \"Qualitative and quantitative assessment of step size adaptation "
+               "rules\", Sec. 4.3, Table 3).")
         .value("LPXNES",
                StepSizeAdaptation::LPXNES,
                "An xNES-like update from the logarithms of the individual step sizes of the "
-               "samples, weighted by rank; samples one step size per individual (as "
-               "`Modules.sample_sigma`) (lp-xNES, Krause, Glasmachers & Igel (2017), "
-               "\"Qualitative and quantitative assessment of step size adaptation "
-               "rules\").")
+               "samples (lp-xNES, Krause, Glasmachers & Igel (2017), \"Qualitative and "
+               "quantitative assessment of step size adaptation rules\", Sec. 4.4). Every "
+               "individual samples its own step size, as with `Modules.sample_sigma` but with "
+               "another tau: sigma_i = sigma exp(tau n_i), tau = ln(2) / (sqrt(d) ln(max(2, d))). "
+               "Then sigma <- sigma^(1 - cs) exp(cs sum_i w_i ln(sigma_i)) over the mu best with "
+               "their positive weights; cs = 9 mueff / (10 sqrt(d)) (their Table 3), capped at 1 "
+               "(modcma's cap, #72).")
         .value("PSR",
                StepSizeAdaptation::PSR,
-               "Population success rule (Loshchilov 2014, LM-CMA-ES): ranks the current and the "
-               "previous generation together and adapts sigma towards a target success ratio of "
-               "0.25.")
+               "Population success rule (Loshchilov 2014, LM-CMA-ES): the offspring and the "
+               "previous generation are ranked together (equal values share their mean rank, "
+               "#120); z = (sum of the ranks of the previous generation - sum of the ranks of the "
+               "offspring) / n^2 - 0.25, the target success ratio, with n the size of each; s <- "
+               "(1 - cs) s + cs z and sigma <- sigma exp(s / damps), with cs = 0.3 and damps = 1 "
+               "(Loshchilov 2014; #83). With pairwise selection only the ranked offspring count.")
         .value("SR",
                StepSizeAdaptation::SR,
-               "Success rule of the (1+1)-ES: sigma grows when the success ratio is above the "
-               "target 2/11 and shrinks when it is below (Igel et al. 2006). Used automatically "
-               "when lambda = 1. Designed for elitist selection; without elitism a success is "
-               "measured against the best of the run, which plays the parent's role.")
+               "Success rule of the (1+1)-ES (Igel et al. 2006): a generation is a success when "
+               "its best point beats the best of the run so far; the success ratio p is averaged "
+               "with rate 1/12, and sigma <- sigma exp((p - 2/11) / ((1 - 2/11) damps)), damps = "
+               "1 + d/2: sigma grows when p is above the target 2/11. Used automatically when "
+               "lambda0 = 1. Designed for elitist selection, where the best of the run is the "
+               "parent; without elitism it plays the parent's role (the framework paper compares "
+               "with the previous generation's best, which made sigma diverge, #83).")
         .value("SA",
                StepSizeAdaptation::SA,
-               "Self-adaptation: every individual gets its own step size, sampled log-normally "
-               "around sigma (learning rate 1 / sqrt(2 d), CMSA's), and sigma moves to the "
-               "weighted geometric mean of the step sizes "
-               "of the selected individuals, divided by that of the population (the CMSA-ES "
-               "operator of Beyer & Sendhoff 2008, weighted, with the correction for elitism of "
-               "Ahrari et al. 2017). Meant for CMSA; makes the default mu lambda / 4.")
+               "Self-adaptation: every individual samples its own step size sigma_i = sigma "
+               "exp(tau n_i), with CMSA's tau = 1 / sqrt(2 d) (Spettel, Beyer & Hellwig 2018, "
+               "Table I; #71); sigma is multiplied by the weighted geometric mean of the step "
+               "sizes of the mu selected individuals divided by the geometric mean of those of "
+               "the population (the CMSA-ES operator of Beyer & Sendhoff 2008, weighted, with the "
+               "correction for elitism of Ahrari et al. 2017, as the framework paper describes "
+               "it). Meant for CMSA; makes the default mu lambda / 4.")
         .value("TPA_INPLACE",
                StepSizeAdaptation::TPA_INPLACE,
                "Two-point step-size adaptation within the population, as pycma 4.6.0's "
                "CMAAdaptSigmaTPA (after Hansen, Atamna & Auger 2014, Eq. (6) and Algorithm 3). "
                "From the second generation of a run on, offspring 1 and 2 are a mirrored pair "
-               "along the last mean shift, z = +-||N(0, I)|| A^-1 dm / ||A^-1 dm||, so no extra "
-               "evaluations. With z the difference of their ranks among the n offspring divided "
-               "by n - 1, s <- (1 - cs) s + cs sign(z) |z|^0.5 and sigma <- sigma exp(s / damps); "
-               "cs = 0.3, damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)). pycma departs from "
-               "the paper in the |z|^0.5 (the paper uses z), the damping (the paper: sqrt(d)), "
-               "and the update in the first generation of a run, from two ordinary samples (the "
-               "paper updates from the second generation on). Needs lambda >= 2 (with lambda = 1 "
-               "a generation is not updated). Works with mirrored sampling (the test points are "
-               "the first pair), pairwise selection (the ranks are of all offspring), sequential "
-               "selection (which cannot stop before both are evaluated; n is then the evaluated "
-               "offspring) and elitism (the ranks are of the offspring; after a generation whose "
-               "selection kept every parent, the generation samples ordinary offspring and z = "
-               "-1, #179); with orthogonal sampling the test points are not orthogonal to the "
-               "other samples. #173.");
+               "along the last mean shift, z_1 = ||N(0, I)|| A^-1 dm / ||A^-1 dm|| and z_2 = "
+               "-z_1, so no extra evaluations. With z = (rank of offspring 2 - rank of offspring "
+               "1) / (n - 1) among the n offspring, positive when offspring 1 is the better one, "
+               "s <- (1 - cs) s + cs sign(z) |z|^0.5 and sigma <- sigma exp(s / damps); cs = 0.3, "
+               "damps = 0.7 + 2 ln(d) + 2 ln(max(1, lambda - d)). pycma departs from the paper in "
+               "the |z|^0.5 (the paper uses z), the damping (the paper: sqrt(d)), and the update "
+               "in the first generation of a run, from two ordinary samples (the paper updates "
+               "from the second generation on); modcma follows pycma. A generation with fewer "
+               "than two offspring is not updated. Works with mirrored sampling (the test points "
+               "are the first pair), pairwise selection (the ranks are of all offspring), "
+               "sequential selection (which cannot stop before both are evaluated; n is then the "
+               "evaluated offspring) and elitism (the ranks are of the offspring; after a "
+               "generation whose selection kept every parent, the generation samples ordinary "
+               "offspring and z = -1, #179); with orthogonal sampling the test points are not "
+               "orthogonal to the other samples. #173.");
 
     nb::enum_<CorrectionMethod>(
         m,
