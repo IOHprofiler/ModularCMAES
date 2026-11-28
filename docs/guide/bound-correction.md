@@ -23,7 +23,9 @@ Without a correction the box does not constrain the points, and every point coun
 The two test points of the step-size rule `TPA` are not corrected by the method: with any
 correction other than `NONE` both move toward the mean by the same factor until both are in the
 box, which keeps TPA's comparison symmetric. Only when the mean itself is outside the box does the
-method correct them. They are not counted in `n_out_of_bounds`.
+method correct them. They are not counted in `n_out_of_bounds`. The point of
+[gradient injection](gradients.md) is corrected by the method, as a sample is (`RESAMPLE` clips
+it).
 
 ```python
 import numpy as np

@@ -26,10 +26,10 @@ print(es.p.stats.global_best.y)
 ## Ask–tell
 
 `ask()` returns the points to evaluate as a `(k, d)` array; `tell(f)` takes their objective values,
-in the same order, and returns `True` when it completed a generation. Check the break conditions
-after a completed generation. When the optimizer should stop (`es.stop_conditions()`), one more
-`ask()` returns the run's center of mass, a single point; `break_conditions()` holds after its
-`tell()`. The loop below handles that without a special case:
+in the same order, and returns `True` when it completed a generation, or evaluated the final
+center of mass. Check the break conditions after it returned `True`. When the optimizer should
+stop (`es.stop_conditions()`), one more `ask()` returns the run's center of mass, a single point;
+`break_conditions()` holds after its `tell()`. The loop below handles that without a special case:
 
 ```python
 def sphere(x):
@@ -71,8 +71,8 @@ between `ask()` and `tell()` too: after loading, `ask()` returns the same points
 ([saving and resuming a run](../guide/checkpointing.md)).
 
 Behind this, the optimizer runs the fixed steps of a generation. A step that needs evaluations
-queues its points, and the generation waits until `tell()` gives their values. The boxes with
-points are the batches that `ask()` returns, in this order:
+queues its points, and the generation waits until `tell()` gives their values. The diagram shows
+the order of the batches and when `tell()` returns `True`:
 
 ```mermaid
 flowchart TD
@@ -81,12 +81,13 @@ flowchart TD
     stopped(["break_conditions() holds"])
     com["the run's center of mass, 1 point"]
     hv["hill–valley test points, 1 at a time"]
-    reset["new run: λ, σ, C and the mean<br>(no evaluations)"]
+    reset["the new run starts: C and the mean<br>(no evaluations)"]
     pop["the population: λ points, + 2 with TPA<br>(sequential selection: up to its first possible stop)"]
     rest["the rest of the population, 1 point at a time<br>(a pair with PAIRWISE)"]
     upd["select, recombine, adapt:<br>tell() returns True"]
-    check -- "the optimizer stops" --> final --> stopped
-    check -- "a restart is due" --> com --> reset
+    check -- "the optimizer stops" --> final
+    final -- "tell() returns True" --> stopped
+    check -- "a restart is due:<br>the restart strategy sets λ and σ" --> com --> reset
     com -- "repelling restarts" --> hv --> reset
     reset --> pop
     check -- "neither" --> pop

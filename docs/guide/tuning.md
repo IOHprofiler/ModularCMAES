@@ -93,8 +93,8 @@ The module part of this space is not a count of distinct variants (see
 and its conditions and forbidden clauses remove only part of the combinations that coincide.
 
 A complete example, a random search for the best configuration on a few functions, is
-[tuning a configuration](../examples/tuning.md). The study of the framework paper used SMAC on
-the BBOB functions with the configuration space of modcma before 2.0, which had none of the
-conditions above and, of the forbidden clauses, only µ ≤ λ (#81); the scripts are in
-[`scripts/tuning`](https://github.com/IOHprofiler/ModularCMAES/tree/master/scripts/tuning) and
-[reproducing the paper](../reproducibility.md#smac-configuration-experiment) describes them.
+[tuning a configuration](../examples/tuning.md). The framework paper tuned modcma with SMAC on
+the BBOB functions (d = 5). Its scripts, in
+[`scripts/tuning`](https://github.com/IOHprofiler/ModularCMAES/tree/master/scripts/tuning), build
+their own space from `get_configspace`, with fewer modules and options and their own conditions
+and forbidden clauses ([reproducing the paper](../reproducibility.md#smac-configuration-experiment)).

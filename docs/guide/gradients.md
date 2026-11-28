@@ -147,7 +147,7 @@ on the [compatibility page](compatibility.md#gradient-injection):
 
 * **Mirrored sampling**: individuals 0 and 1 are a pair, so both are replaced, by the gradient
   point and its mirror (the step +z). Pairwise selection then keeps the better of the two.
-* **Bound correction**: the point is moved into the box as TPA's points are (`RESAMPLE`, which
+* **Bound correction**: the point is corrected by the method, as a sample is (`RESAMPLE`, which
   cannot sample it again, clips it); integer variables are rounded.
 * **Sampled step sizes** (`ssa=SA`, `LPXNES`): the point gets the step size of the individual it
   replaces. Integer variables keep their lower bound on the step size.

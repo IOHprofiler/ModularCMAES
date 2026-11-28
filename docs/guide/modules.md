@@ -7,11 +7,11 @@ matrix, or a factor of it). Each module replaces one of those parts:
 
 ```mermaid
 flowchart TD
-    sample["<b>sample</b> λ points around the mean<br>sampler, sample_transformation, mirrored,<br>orthogonal, sample_sigma, threshold_convergence,<br>bound_correction"]
+    sample["<b>sample</b> λ points around the mean<br>sampler, sample_transformation, mirrored,<br>orthogonal, sample_sigma, threshold_convergence,<br>bound_correction; repelling_type, repelling_metric:<br>reject samples near the optima found before"]
     evaluate["<b>evaluate</b> them<br>sequential_selection: stop early"]
     select["<b>select</b> µ<br>elitist, mirrored = PAIRWISE"]
     adapt["<b>update</b> the mean, σ and the shape<br>weights, ssa, matrix_adaptation, active"]
-    restart{"<b>restart?</b><br>restart_strategy, center_placement,<br>repelling_type, repelling_metric"}
+    restart{"<b>restart?</b><br>restart_strategy, center_placement;<br>repelling_type: update the archive<br>(hill–valley tests)"}
     sample --> evaluate --> select --> adapt --> restart
     restart -- "no: next generation" --> sample
     restart -- "yes: a new run" --> sample
@@ -144,7 +144,7 @@ Two more combinations that have no preset:
 
 | algorithm | modules |
 |---|---|
-| (1+1)-ES with a success rule (target rate 2/11, close to the 1/5th rule) | `lambda0=1` (sets elitism and `ssa=SR`, see below) |
+| (1+1)-ES with a success rule (target rate 2/11, close to the 1/5th rule), without a covariance matrix | `lambda0=1`, `matrix_adaptation=NONE` (`lambda0=1` sets elitism and `ssa=SR`, see below) |
 | mirrored sampling with sequential selection (Brockhoff et al. 2010) | `mirrored=MIRRORED`, `sequential_selection=True` |
 
 ## Combinations that are adjusted

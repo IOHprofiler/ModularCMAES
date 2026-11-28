@@ -8,6 +8,7 @@ it should not go). At the start of every generation:
 
 ```mermaid
 flowchart TD
+    stopq{"stop_conditions()?<br>budget (also: no room for a new run), target,<br>max_generations; with STOP, a restart criterion"}
     criteria{"a restart criterion met?<br>(es.p.criteria)"}
     next["next generation"]
     stop["evaluate the final center of mass;<br>the optimizer stops"]
@@ -15,9 +16,10 @@ flowchart TD
     com["evaluate the run's center of mass;<br>record the run in es.p.stats.centers"]
     hv["repelling restarts: hill–valley tests;<br>the run's result joins the archive,<br>or the basin of a point already there"]
     place["new run: C reset to the identity (or C0),<br>the mean from center_placement"]
+    stopq -- "yes" --> stop
+    stopq -- "no" --> criteria
     criteria -- "no" --> next
-    criteria -- "yes, with STOP" --> stop
-    criteria -- "yes, otherwise" --> strategy --> com --> place
+    criteria -- "yes" --> strategy --> com --> place
     com -- "repelling_type" --> hv --> place
     place --> next
 ```
@@ -139,7 +141,9 @@ the others by ub − lb.
 
 Repelling restarts keep each new run away from the optima found before (de Nobel et al. 2024): the
 centers of mass of earlier runs (or their best points, when better) become *taboo points*, with a
-region around each, and samples in a taboo region are rejected unless a hill–valley test shows that they are in a different basin of attraction.
+region around each, and samples in a taboo region are rejected. Hill–valley tests run when a run
+ends: they decide whether its result is a new taboo point or lies in the basin of one already in
+the archive.
 This helps to find *different* optima, for example when several good solutions are wanted, and
 avoids spending restarts on optima that are already known.
 
@@ -147,8 +151,9 @@ avoids spending restarts on optima that are already known.
   fraction of the space covered) or `ADAPTIVE` (the size adapts to the rate of rejected samples;
   experimental, see below).
 * `repelling_metric`: the distance to a taboo point: `CURRENT` (default: in the metric of the
-  current covariance matrix, the Mahalanobis distance of the paper's Eq. (8)), `EUCLIDEAN` (the
-  default before #158) or `ARCHIVED` (in the metric of the run that found the point).
+  current covariance matrix, the Mahalanobis distance of the paper's Eq. (8), as in the releases
+  1.0.8 to 1.2), `EUCLIDEAN` (the default of the development branch from July 2026 to #158, in no
+  release) or `ARCHIVED` (in the metric of the run that found the point).
 
 They change what `ask()` returns: the points of the hill–valley tests are asked one at a time.
 

@@ -7,6 +7,7 @@
 # describe the APIs used by the maintained reproduction entry points.
 cma==4.2.0
 catboost>=1.2,<2
+ioh  # the BBOB functions; modcma 2.0 no longer depends on it
 iohinspector
 jupyterlab>=4,<5
 matplotlib>=3.8,<4

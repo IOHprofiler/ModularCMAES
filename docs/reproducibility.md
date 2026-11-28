@@ -7,13 +7,13 @@ The notebooks in `scripts/matrix/` and `scripts/tuning/` are retained as
 analysis records. The commands below are the supported reproduction entry
 points and do not depend on notebook kernel state or machine-specific paths.
 
-!!! note "The paper ran modcma 1.1.0"
-    The experiments of the paper ran with modcma 1.1.0 (the version the paper names), its C++
-    implementation. Version 2.0 fixed bugs that changed results and changed several modules to
-    follow their sources, and the configuration space of `get_configspace` changed (#81); see the
-    [changelog](changelog.md). With 2.0, the commands below run the paper's protocol, but their
-    numbers differ from the paper's. The scripts are maintained for the current version; they were
-    not tested with 1.1.0.
+!!! note "The paper ran modcma before 2.0"
+    The paper names modcma 1.1.0 (its C++ implementation) for the matrix-adaptation experiments;
+    the version of the SMAC experiment is not stated. Version 2.0 fixed bugs that changed results
+    and changed several modules to follow their sources, and the configuration space of
+    `get_configspace` changed (#81); see the [changelog](changelog.md). With 2.0, the commands
+    below run the paper's protocol, but their numbers differ from the paper's. The scripts are
+    maintained for the current version; they were not tested with 1.1.0.
 
 ## Environment
 
@@ -25,10 +25,8 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -e .
-python -m pip install -r scripts/requirements-experiments.txt ioh
+python -m pip install -r scripts/requirements-experiments.txt
 ```
-
-`ioh` (the BBOB functions) is not in the requirements file: modcma depended on it before 2.0.
 
 The original environment was not fully locked. `scripts/requirements-experiments.txt`
 records compatible dependency ranges and pins Pycma to the version stated in
@@ -143,15 +141,33 @@ for fid in $(seq 1 24); do
 done
 ```
 
-With `--add_popsize` and the defaults otherwise, the setup is the tuning setup described in the
-paper:
+With `--add_popsize` and the other defaults, a run has:
 
 - 50,000 SMAC target-function evaluations per BBOB function;
 - at most 25 evaluations of one configuration;
-- population sizes enabled (`--add_popsize`);
-- learning rates and initial sigma excluded;
+- λ and µ tuned (`--add_popsize`);
+- the learning rates and the initial sigma not tuned (`--use_learning_rates` and `--add_sigma`
+  add them);
 - seed 2062;
 - one worker.
+
+The first two are the setup that the paper describes (its section "Tuning Setup"). The
+configuration space is built by `get_configspace` in `run_smac.py`, from that of modcma:
+
+- it leaves out `bound_correction`, `sample_sigma` and `center_placement`, and the options
+  `COVARIANCE_NO_EIGV`, `STOP`, `ADAPTIVE` and `sample_transformation=NONE`;
+- it has conditions of its own: repelling only with `RESTART`, `IPOP` or `BIPOP`; `active` only
+  with a matrix adaptation other than `NONE` and with λ above 1; `mu0`, `elitist`,
+  `sequential_selection`, `weights` and `ssa` only with λ above 1;
+- it forbids µ above λ, an odd λ with `PAIRWISE`, `IPOP` and `BIPOP` with λ = 1, `active` or
+  sequential selection with µ = λ, and `COVARIANCE` with a step-size adaptation other than CSA.
+
+With modcma 2.0, d = 5 and `--add_popsize`, the space has 16 hyperparameters, 7 conditions and 130
+forbidden clauses. The paper describes the full space without bound correction, with µ ≤ λ. The
+repository does not record which space the paper's runs used. The script left out the three
+modules and `COVARIANCE_NO_EIGV`, `STOP` and `sample_transformation=NONE` already in July 2026
+(78ddafe, with µ ≤ λ as its only clause); `ADAPTIVE`, the conditions and the other forbidden
+clauses came in August 2026 (eef30dc).
 
 The main resource controls are exposed as `--n_trials`,
 `--max_config_calls`, `--n_workers`, `--seed`, and `--output_root`.

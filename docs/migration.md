@@ -31,7 +31,7 @@ values that `Settings` now rejects, and the `x0` of `fmin`:
 | `AdaptiveRepelling.target_rejection_rate`, `local_target_rejection_rate` | deprecated: they never had an effect |
 | `Settings(mu0=m, lambda0=l)` with m > l: µ = l // 2 | `ValueError` naming both (a (1+1)-ES, `lambda0=1`, still uses µ = 1) |
 | `Settings(target=nan)`: never stops | `ValueError` |
-| other invalid values were accepted, or crashed the process later: `lambda0=0`, `mu0=0`, `sigma0` ≤ 0, `x0`, `lb` or `ub` of the wrong length, `lb` above `ub`, a NaN bound, a budget below one generation, `max_generations=0`, learning rates out of range (`cs=3`, `damps=-1`, `c1=0.6` with `cmu=0.6`) | `ValueError` naming the field, from the constructor and the setters ([settings](guide/settings.md)) |
+| other invalid values were accepted, or crashed the process later: `lambda0=0`, `mu0=0`, `sigma0` ≤ 0, `x0`, `lb` or `ub` of the wrong length, `lb` above `ub`, a NaN bound, a budget below one generation, `max_generations=0`, learning rates out of range (`cs=3`, `damps=-1`, `c1=0.6` with `cmu=0.6`) | `ValueError` naming the field, from the constructor. A setter checks its own field; the checks between fields (`lb` above `ub`, the budget against the first generation, `c1 + cmu`) run in the constructor and when an optimizer is created ([settings](guide/settings.md#changing-the-settings)) |
 | `fmin(func, x0, ...)` used only the length of `x0` and started at the origin | starts at `x0` |
 | setting `Settings.db`, `center`, `diameter` or `has_bounds` | read-only: they are derived from `lb` and `ub`, which recompute them; set those (and `x0` for the starting point) |
 

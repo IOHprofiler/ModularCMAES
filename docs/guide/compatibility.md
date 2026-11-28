@@ -9,8 +9,8 @@ explain how the modules compare with the published algorithms they come from.
 The lists come from the code and from a test of every module value, every pair of values and
 600 random configurations (shifted sphere and Rastrigin, 2026-11-24; WP23 of
 [`dev/overhaul-2.0.md`](https://github.com/IOHprofiler/ModularCMAES/blob/master/dev/overhaul-2.0.md)),
-updated with every fix since. A measured number gives its setup, and the issue or pull request
-that measured it.
+updated with the fixes since. Where a row measured something, it gives the setup, and the issue
+or pull request when there is one.
 
 ## Combinations that are adjusted
 
@@ -251,7 +251,7 @@ numbers), then the gradient point replaces individual 0:
 |---|---|
 | `mirrored` `MIRRORED` or `PAIRWISE` | replaces the pair 0 and 1: the gradient point and its mirror (the opposite step), so no pair is broken. With `PAIRWISE` the better of the two is ranked |
 | `orthogonal` | replaces an orthogonal sample: its block is no longer orthogonal |
-| a bound correction | moved into the box as TPA's points (`RESAMPLE` clips it), then treated as a point given to `tell(f, X)`: its y and z from the corrected point, clipped at the Mahalanobis length √d + 2d/(d + 2) |
+| a bound correction | corrected by the method, as a sample is (`RESAMPLE`, which cannot sample it again, clips it), then treated as a point given to `tell(f, X)`: its y and z from the corrected point, clipped at the Mahalanobis length √d + 2d/(d + 2) |
 | `integer_variables` | rounded, as the samples |
 | sampled step sizes (`sample_sigma`, `SA`, `LPXNES`) | the step size of individual 0 (σ otherwise; the integer variables' lower bound applies) |
 | `sequential_selection` | in the first batch: always evaluated |
@@ -270,12 +270,12 @@ E‖N(0, I)‖ for the Gaussian samplers.
 
 These combinations run, but work badly. Unless a row says otherwise, measured on a shifted sphere
 (d = 5, 2000 evaluations) when the page was written (2026-11-24), and confirmed on more functions
-where noted. They are not bugs to fix; `ADAPTIVE` repelling is studied in #177.
+where noted. None of them has an open issue; `ADAPTIVE` repelling is studied in #177.
 
 | combination | what happens |
 |---|---|
 | `sample_transformation=NONE` | the raw base sampler, for testing: uniform samples with mean 0.5, which fail everywhere |
-| `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | σ diverges or collapses: the step-size rules assume finite variance. 0 of 5 runs reach 1e-8 with each, on the shifted sphere (d = 5, 2000 evaluations) and a rotated ellipsoid (condition 10⁶, d = 5, 5000 evaluations), where `CAUCHY` alone solves 5 of 5 (re-measured for #187, 2026-11-28). `MSR` solves 5 of 5 on both since #83 |
+| `sample_transformation=CAUCHY` with `XNES`, `MXNES`, `LPXNES`, `SR`, with `EQUAL` weights, with `MATRIX`, `NATURAL_GRADIENT` or `PAIRWISE` | the runs fail: 0 of 5 reach 1e-8 with each, on the shifted sphere (d = 5, 2000 evaluations) and a rotated ellipsoid (condition 10⁶, d = 5, 5000 evaluations), where `CAUCHY` alone solves 5 of 5 (re-measured for #187, 2026-11-28). The cause has not been studied; it is not the heavy tails alone, since `CAUCHY` with CSA works and `EQUAL`, `MATRIX`, `NATURAL_GRADIENT` and `PAIRWISE` run CSA. `CAUCHY` with `MSR` converges, more slowly: on the sphere 7 to 9 of 10 runs within the 2000 evaluations for three shifts (median about 1700 evaluations, 1150 without `MSR`), on the ellipsoid 10 of 10 (MSR changed in #83) |
 | `ssa=SA` with the default λ on ill-conditioned functions, d = 20 | σ shrinks before the matrix adapts: BBOB f2 and f8 (d = 20) reach 1e-8 in 0 of 25 runs each within 3000·d evaluations (`CSA`: 25 and 22); λ = 40 or 80 did not help within 60,000 evaluations (4 runs each). The step sizes per coordinate before #71 hid this on separable functions (25 of 25 on f2), at the cost of rotation invariance (0 of 25 on f10 and f12) |
 | `PAIRWISE` with `EQUAL` weights | C degenerates and the search stalls: on the shifted sphere (d = 5) the condition of C reaches 5 × 10² to 10⁵ within 2000 evaluations (3 with `PAIRWISE` alone), and 0 of 5 runs reach 1e-8 with 2000 or 20,000 evaluations, against 5 of 5 with the `DEFAULT` or `EXPONENTIAL` weights (re-measured for #187, 2026-11-28) |
 | `ssa=XNES` with `weights=EQUAL` | the runs fail, with or without `active` (#180). Ellipsoid with `COVARIANCE` (x0 uniform in [−3, 3]^d, σ₀ = 2, 10⁴·d evaluations, 20 runs): 0 runs reach 1e-8 at d = 5, 10 and 20, with 68–207 restarts per 20 runs. Sphere at d = 10: 1 of 5 runs. `MXNES` and `CSA` with `EQUAL` solve all of these. Measured on master 091c577 by the investigation of #175. The cause has not been measured; the investigation's explanation: with equal weights over the µ = λ/2 best, xNES SA's signal Σ wᵢ(‖zᵢ‖² − d) has no drift on a linear function, since the better and the worse half have the same distribution of ‖z‖². Nothing raises σ then, and the curvature lowers it |
