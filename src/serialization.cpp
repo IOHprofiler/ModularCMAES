@@ -1618,7 +1618,8 @@ struct Access
                          &x.target_rejection_rate,
                          &x.max_rejection_rate})
             a.f64(*f);
-        a.i64(x.last_restart_evaluations);
+        // A size since #192 (an int before): the same bytes for every count
+        a.size(x.last_restart_evaluations);
         for (Float *f : {&x.average_restart_evaluations,
                          &x.restart_eval_alpha,
                          &x.grow_eta,

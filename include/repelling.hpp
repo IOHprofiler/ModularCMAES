@@ -175,7 +175,8 @@ struct AdaptiveRepelling : Repelling
     Float target_rejection_rate = 0.20;
     Float max_rejection_rate = 0.50;
 
-    int last_restart_evaluations = 0;
+    //! The evaluation count at the last restart
+    size_t last_restart_evaluations = 0;
     //! The running average of the evaluations per run: 0 until the first restart, which sets it
     //! to the first run's length (#121)
     Float average_restart_evaluations = 0.0;
