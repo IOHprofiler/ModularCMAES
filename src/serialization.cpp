@@ -1403,8 +1403,9 @@ struct Access
     // --------------------------------------------------------------------------------------------
     // Matrix adaptation
     // --------------------------------------------------------------------------------------------
-    // Not saved: the buffers of the updates (scratch_vector, weights_scratch, square_scratch,
-    // batch_scratch, batch_scratch2, steps_scratch, steps_scratch2), written before they are read
+    // Not saved: the buffers of the updates (scratch_vector, weights_scratch, positive_scratch,
+    // square_scratch, batch_scratch, batch_scratch2, steps_scratch, steps_scratch2), written
+    // before they are read
     static void put_adaptation(Writer &w, const matrix_adaptation::Adaptation &a)
     {
         w.size(static_cast<size_t>(a.m.size()));
