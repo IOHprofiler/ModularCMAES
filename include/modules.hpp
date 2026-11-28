@@ -107,7 +107,8 @@ enum class RepellingMetric
     //! ||x - x_t||: the default from July 2026 (78ddafe) until #158
     EUCLIDEAN,
     //! ||A^-1 (x - x_t)||, with A of the current run (Mahalanobis in the current search
-    //! distribution, the framework paper's Eq. (8)): the default (#158)
+    //! distribution, Eq. (8) of de Nobel et al. 2024, "Avoiding Redundant Restarts in Multimodal
+    //! Global Optimization"): the default (#158)
     CURRENT,
     //! ||A_t^-1 (x - x_t)||, with A_t of the run that found x_t, scaled to unit determinant
     ARCHIVED,
