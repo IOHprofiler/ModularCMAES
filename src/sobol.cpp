@@ -166,7 +166,6 @@ void i8_sobol(int dim_num, long long int *seed, Float quasi[])
 //    Output, Float QUASI[DIM_NUM], the next quasirandom vector.
 //
 {
-#define DIM_MAX 40
 #define DIM_MAX2 1111
 #define LOG_MAX 62
     //
@@ -13714,7 +13713,6 @@ void i8_sobol(int dim_num, long long int *seed, Float quasi[])
     seed_save = *seed;
     *seed = *seed + 1;
 
-#undef DIM_MAX
 #undef DIM_MAX2
 #undef LOG_MAX
 }
