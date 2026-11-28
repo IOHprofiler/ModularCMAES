@@ -178,7 +178,7 @@ class NoSequentialSelection(SequentialSelection):
         mirror : options.Mirror
             The mirrored sampling option (not used).
         seq_cutoff_factor : float
-            Not used (default 1).
+            Not used (default 1); finite and at least 1, as for `SequentialSelection`, ValueError otherwise.
         """
 
     @overload

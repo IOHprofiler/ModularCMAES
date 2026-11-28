@@ -1956,7 +1956,8 @@ void define_mutation(nb::module_ &main)
              "mirror : options.Mirror\n"
              "    The mirrored sampling option (not used).\n"
              "seq_cutoff_factor : float\n"
-             "    Not used (default 1).")
+             "    Not used (default 1); finite and at least 1, as for `SequentialSelection`, "
+             "ValueError otherwise.")
         .def(
             "__init__",
             [](NoSequentialSelection *self, parameters::Mirror mirror, Float seq_cuttoff_factor) {

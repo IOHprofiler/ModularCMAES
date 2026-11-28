@@ -639,7 +639,8 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
 * `mutation.SequentialSelection` (internal) accepted a `seq_cutoff_factor` below 1, NaN or inf. Below
   1 a population could stop after µ or fewer individuals, and the updates read columns that the
   generation had not evaluated (SA raised an error); NaN and inf have no cutoff. It now raises
-  `ValueError` (#191). The optimizer always uses 1.
+  `ValueError`, and so does `NoSequentialSelection`, which shares the constructor without using
+  the factor (#191). The optimizer always uses 1.
 * Elitism appended a parent with f = +inf when the previous generation also held NaN values, or
   losers of pairwise selection with a value, and parents with f = NaN: it counted the parents
   with `Population.n_finite`, which counts every f but +inf. The parents are now the leading

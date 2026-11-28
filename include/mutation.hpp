@@ -55,16 +55,16 @@ class SequentialSelection
     Float seq_cutoff_factor;
 
   public:
-    //! seq_cutoff_factor: finite and at least 1, std::invalid_argument otherwise. A smaller one
-    //! could stop a population after mu or fewer individuals, and the updates would read columns
-    //! that this generation did not evaluate; NaN and inf have no cutoff.
+    //! seq_cutoff_factor: finite and at least 1, std::invalid_argument otherwise (also for
+    //! NoSequentialSelection, which does not use it). A smaller one could stop a population after
+    //! mu or fewer individuals, and the updates would read columns that this generation did not
+    //! evaluate; NaN and inf have no cutoff.
     SequentialSelection(const parameters::Mirror &m, const Float seq_cutoff_factor = 1.0) :
         seq_cutoff_factor(m == parameters::Mirror::PAIRWISE ? std::max(Float{2.}, seq_cutoff_factor)
                                                             : seq_cutoff_factor)
     {
         if (!(std::isfinite(seq_cutoff_factor) && seq_cutoff_factor >= 1.0))
-            throw std::invalid_argument("SequentialSelection: seq_cutoff_factor must be finite and "
-                                        "at least 1, got " +
+            throw std::invalid_argument("seq_cutoff_factor must be finite and at least 1, got " +
                                         std::to_string(seq_cutoff_factor));
     }
     virtual ~SequentialSelection() = default;
