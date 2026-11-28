@@ -237,6 +237,34 @@ static void one_plus_one_path_update(Vector &path,
         path += sqrt_c_mueff * v;
 }
 
+/**
+ * The paths of the adaptations with a rank-one update (COVARIANCE, SEPARABLE, CHOLESKY): ps
+ * (adapt_ps), then h_sigma into hs (short_path; true when hs_always), then
+ * pc <- (1 - cc) pc + h_sigma sqrt(cc (2 - cc) mueff) dm (Hansen, The CMA Evolution Strategy: A
+ * Tutorial, 2016, Eq. (45)). The (1+1)-ES updates only pc, after a success.
+ */
+static void adapt_rank_one_paths(Adaptation &a,
+                                 Vector &pc,
+                                 bool &hs,
+                                 const bool hs_always,
+                                 const Population &pop,
+                                 const Weights &w,
+                                 const Stats &stats,
+                                 const parameters::Settings &settings)
+{
+    if (settings.one_plus_one)
+    {
+        one_plus_one_path_update(pc, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
+        return;
+    }
+
+    a.adapt_ps(w);
+    // The bias correction of h_sigma counts the generations of the current run; it counted
+    // evaluations / lambda over all runs
+    hs = hs_always || short_path(a.ps, w, stats);
+    pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * a.dm;
+}
+
 void Adaptation::adapt_evolution_paths(const Population &pop,
                                        const Weights &w,
                                        const Stats &stats,
@@ -311,17 +339,7 @@ void CovarianceAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                        const Stats &stats,
                                                        const parameters::Settings &settings)
 {
-    if (settings.one_plus_one)
-    {
-        one_plus_one_path_update(pc, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
-        return;
-    }
-
-    adapt_ps(w);
-    // The bias correction of h_sigma counts the generations of the current run; it counted
-    // evaluations / lambda over all runs
-    hs = short_path(ps, w, stats);
-    pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
+    adapt_rank_one_paths(*this, pc, hs, false, pop, w, stats, settings);
 }
 
 void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
@@ -569,15 +587,7 @@ void SeparableAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                       const parameters::Stats &stats,
                                                       const parameters::Settings &settings)
 {
-    if (settings.one_plus_one)
-    {
-        one_plus_one_path_update(pc, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
-        return;
-    }
-
-    adapt_ps(w);
-    hs = short_path(ps, w, stats);
-    pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
+    adapt_rank_one_paths(*this, pc, hs, false, pop, w, stats, settings);
 }
 
 bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
@@ -916,19 +926,12 @@ void CholeskyAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                      const parameters::Stats &stats,
                                                      const parameters::Settings &settings)
 {
-    if (settings.one_plus_one)
-    {
-        one_plus_one_path_update(pc, stats, w.cc, w.sqrt_cc_mueff, pop.Y.col(0));
-        return;
-    }
-
-    adapt_ps(w);
     // h_sigma stalls the update of pc, as in COVARIANCE (#160), with every step-size rule but CSA
     // (Hansen 2016, after Eq. (45); Krause et al. 2016 adapt sigma by CSA). With XNES the path
     // stayed long, the rank-one term stretched A, and CHOLESKY + XNES solved the ellipsoid in 3, 0
     // and 0 of 20 runs at d = 5, 10, 20 (with h_sigma 20 of 20 at each)
-    hs = settings.modules.ssa == StepSizeAdaptation::CSA || short_path(ps, w, stats);
-    pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * dm;
+    const bool hs_always = settings.modules.ssa == StepSizeAdaptation::CSA;
+    adapt_rank_one_paths(*this, pc, hs, hs_always, pop, w, stats, settings);
 }
 
 bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
