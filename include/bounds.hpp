@@ -21,7 +21,6 @@ struct BoundCorrection
     size_t n_out_of_bounds = 0;
 
     virtual ~BoundCorrection() = default;
-    BoundCorrection() = default;
 
     void correct(const Eigen::Index i, parameters::Parameters &p);
 
@@ -64,8 +63,6 @@ struct BoundCorrection
 
 struct NoCorrection : BoundCorrection
 {
-    using BoundCorrection::BoundCorrection;
-
     //! Nothing is moved, on either side (NONE; RESAMPLE samples again instead)
     Vector correct_x(const Vector &xi,
                      const Mask &oob,
@@ -86,7 +83,6 @@ struct NoCorrection : BoundCorrection
 
 struct Resample final : NoCorrection
 {
-    using NoCorrection::NoCorrection;
 };
 
 struct COTN final : BoundCorrection
@@ -94,7 +90,6 @@ struct COTN final : BoundCorrection
     sampling::Gaussian sampler;
 
     COTN(const size_t d, const std::shared_ptr<rng::Generator> &generator = rng::global()) :
-        BoundCorrection(),
         sampler(d, rng::normal<Float>(0, 1.0 / 3.), generator)
     {
     }
@@ -107,8 +102,6 @@ struct COTN final : BoundCorrection
 
 struct Mirror final : BoundCorrection
 {
-    using BoundCorrection::BoundCorrection;
-
     Vector correct_finite(const Vector &xi,
                           const Mask &oob,
                           const Float sigma,
@@ -121,7 +114,6 @@ struct UniformResample final : BoundCorrection
 
     UniformResample(const size_t d,
                     const std::shared_ptr<rng::Generator> &generator = rng::global()) :
-        BoundCorrection(),
         sampler(d, generator)
     {
     }
@@ -134,8 +126,6 @@ struct UniformResample final : BoundCorrection
 
 struct Saturate final : BoundCorrection
 {
-    using BoundCorrection::BoundCorrection;
-
     Vector correct_finite(const Vector &xi,
                           const Mask &oob,
                           const Float sigma,
@@ -144,8 +134,6 @@ struct Saturate final : BoundCorrection
 
 struct Toroidal final : BoundCorrection
 {
-    using BoundCorrection::BoundCorrection;
-
     Vector correct_finite(const Vector &xi,
                           const Mask &oob,
                           const Float sigma,

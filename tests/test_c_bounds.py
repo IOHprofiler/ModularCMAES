@@ -156,6 +156,17 @@ class TestHalfInfiniteBox(unittest.TestCase):
                 far = np.array([1e300, -1e300, 1.0])
                 np.testing.assert_array_equal(method.is_out_of_bounds(far, settings), [False] * 3)
 
+    def test_mirror_far_outside_the_box(self):
+        # #192: MIRROR took floor((x - lb) / (ub - lb)) mod 2 as an int, undefined behaviour from
+        # 2^31 box widths outside; now in floating point, the same below 2^31
+        settings = parameters.Settings(4, lb=np.zeros(4), ub=np.ones(4))
+        far = 2.0**40
+        x = np.array([far + 0.25, far + 1.25, -far - 0.25, 0.75 - 2.0**30])
+        oob = np.ones(4, dtype=bool)
+        y = bounds.Mirror().correct_x(x, oob, 0.5, settings)
+        # An even number of widths out keeps the offset, an odd number mirrors it
+        np.testing.assert_array_equal(y, [0.25, 0.75, 0.25, 0.75])
+
     def test_runs_stay_in_the_box(self):
         for name in CORRECTIONS:
             with self.subTest(method=name):

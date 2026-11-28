@@ -315,6 +315,26 @@ class TestRestarts(unittest.TestCase):
             repelling.average_restart_evaluations, (1 - alpha) * average + alpha * m
         )
 
+    def test_adaptive_repelling_counts_beyond_2_31_evaluations(self):
+        # #192: the counts were ints, which overflowed after 2^31 evaluations
+        es = self.adaptive_repelling_after_one_run(sphere)
+        repelling = es.p.repelling
+        shift = 3 * 2**31
+        es.p.settings.budget += shift
+        es.p.stats.evaluations += shift
+        repelling.last_restart_evaluations += shift
+        n = repelling.last_restart_evaluations
+        average = repelling.average_restart_evaluations
+        while len(es.p.stats.centers) < 2:
+            es.step(sphere)
+        self.assertEqual(repelling.last_restart_evaluations, es.p.stats.centers[1].e)
+        m = repelling.last_restart_evaluations - n
+        self.assertTrue(0 < m < 20_000)
+        alpha = repelling.restart_eval_alpha
+        self.assertAlmostEqual(
+            repelling.average_restart_evaluations, (1 - alpha) * average + alpha * m
+        )
+
     def test_adaptive_repelling_counts_a_run_without_a_finite_result(self):
         # #121: a run whose center and best are not finite updates no archive, but its
         # evaluations count; the update was skipped, and the next run counted both

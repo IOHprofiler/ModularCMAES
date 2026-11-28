@@ -11,7 +11,7 @@ Float Strategy::update(parameters::Parameters &p) { return p.settings.sigma0; }
 Float IPOP::update(parameters::Parameters &p)
 {
     // The population grows by ipop_factor at every restart (Auger & Hansen 2005), up to
-    // 2^9 lambda_0 (the framework paper, Sec. 4.5)
+    // 2^9 lambda_0 (the framework paper, Sec. 6.1)
     const auto max_lambda = max_lambda_factor * p.settings.lambda0;
     if (p.lambda < max_lambda)
     {

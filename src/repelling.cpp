@@ -344,20 +344,27 @@ void AdaptiveRepelling::adapt_radii_after_sampling(parameters::Parameters &p)
 
 void AdaptiveRepelling::on_restart(parameters::Parameters &p)
 {
-    const int current_evaluations = static_cast<int>(p.stats.evaluations);
+    const size_t current_evaluations = p.stats.evaluations;
 
     // The evaluations of the run that ended, since the previous restart (0 before the first): the
     // first run counts its full length. It counted as 1 evaluation (#121): the average stayed at
     // its start value 1 after the first run, and the waste ratio of the next runs was too high.
     // ADAPTIVE is modcma's own (no published source); the intent is the docstring's, "the
     // running average of the evaluations per run".
-    restart_evals =
-        std::max<Float>(1.0, static_cast<Float>(current_evaluations - last_restart_evaluations));
+    // In size_t: as int, the counts overflowed after 2^31 evaluations (#192). A count below the
+    // last one (set from Python) counts as 1, as before
+    const size_t run_evaluations = current_evaluations > last_restart_evaluations
+                                       ? current_evaluations - last_restart_evaluations
+                                       : 0;
+    restart_evals = std::max<Float>(1.0, static_cast<Float>(run_evaluations));
     last_restart_evaluations = current_evaluations;
 
-    // The average starts from the first run's length (maintainer, #121 D2): from the start value 1
-    // the waste ratio of runs of equal length was 1 / (1 - 0.8^k) at the k-th restart, 2.8 at the
-    // second; now 1. No average yet: 0 (a positive value set before the first restart is kept)
+    // The average starts from the first run's length (maintainer, #121 D2); for runs of equal
+    // length the waste ratio is then 1. Before 2.0 the average started at 1 and the first run
+    // counted as one evaluation: for runs of equal length n >> 1 the waste ratio at the k-th
+    // restart was 1 / (1 - 0.8^(k-1)), 5 at the second restart (the first that can find a shared
+    // basin) and 2.8 at the third. No average yet: 0 (a positive value set before the first
+    // restart is kept)
     if (average_restart_evaluations <= 0.0)
         average_restart_evaluations = restart_evals;
     else

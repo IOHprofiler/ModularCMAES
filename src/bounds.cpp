@@ -2,7 +2,10 @@
 #include "parameters.hpp"
 #include "population.hpp"
 
-static Float modulo2(const int x) { return (2 + x % 2) % 2; }
+//! x mod 2 in [0, 2), for the integer x = floor(y) of MIRROR, in floating point: as an int, a point
+//! more than 2^31 widths outside the box was undefined behaviour (exact for |x| < 2^53, where the
+//! integers are exact; the larger doubles are even)
+static Float modulo2(const Float x) { return x - 2.0 * std::floor(x / 2.0); }
 
 namespace bounds
 {
@@ -83,9 +86,8 @@ Vector BoundCorrection::correct_x(const Vector &xi,
     // A fixed coordinate has none either: SATURATE puts it at lb_i = ub_i (#133).
     // The method draws its random numbers (COTN, UNIFORM_RESAMPLE) for every coordinate, as with
     // a finite box.
-    const Mask finite = usable;
-    const Mask by_method = oob && finite;
-    const Mask saturated = oob && !finite;
+    const Mask by_method = oob && usable;
+    const Mask saturated = oob && !usable;
     const Vector x = correct_finite(xi, by_method, sigma, settings);
     return saturated.select(xi.cwiseMax(settings.lb).cwiseMin(settings.ub), x);
 }

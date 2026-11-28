@@ -251,6 +251,25 @@ class TestPickle(unittest.TestCase):
             pickle.dumps(es)
         self.assertIn("cannot save a sampler", str(context.exception))
 
+    def test_base_repelling(self):
+        # #192: the base class, which Python can create, had no type tag: saving it failed
+        repelling = c_maes.repelling.Repelling()
+        copied = resumed(repelling)
+        self.assertIs(type(copied), c_maes.repelling.Repelling)
+        self.assertEqual(copied.__getstate__(), repelling.__getstate__())
+        a, b = make(restart_strategy="RESTART"), make(restart_strategy="RESTART")
+        for es in (a, b):
+            es.p.repelling = c_maes.repelling.Repelling()
+        for _ in range(10):
+            generation(a)
+            generation(b)
+        b = resumed(b)
+        self.assertIs(type(b.p.repelling), c_maes.repelling.Repelling)
+        for _ in range(10):
+            generation(a)
+            generation(b)
+        self.assertEqual(a.__getstate__(), b.__getstate__())
+
     def test_settings_and_values(self):
         settings = c_maes.Settings(
             3,
@@ -349,6 +368,57 @@ class TestStateErrors(unittest.TestCase):
         body = csa[:-4].replace(tag + b"CSA", tag + b"XYZ", 1)
         with self.assertRaisesRegex(ValueError, "unknown mutation.Strategy type 'XYZ'"):
             state.__setstate__(body + zlib.crc32(body).to_bytes(4, "little"))
+
+    @staticmethod
+    def edited(state, tag, offset, value):
+        """state with the u64 `offset` bytes after the string `tag` set to value, and its checksum
+        updated"""
+        i = state.index(len(tag).to_bytes(8, "little") + tag) + 8 + len(tag) + offset
+        body = state[:i] + value.to_bytes(8, "little") + state[i + 8 : -4]
+        return body + zlib.crc32(body).to_bytes(4, "little")
+
+    def test_the_message_says_where(self):
+        # #192: the byte at which reading stopped, and the modules being read
+        s = c_maes.sampling
+        state = s.Mirrored(s.GaussianTransformer(s.Sobol(3))).__getstate__()
+        tag = len(b"Sobol").to_bytes(8, "little") + b"Sobol"
+        i = state.index(tag)
+        body = state[:i] + len(b"Sobol").to_bytes(8, "little") + b"XYZAB" + state[i + 13 : -4]
+        sampler = s.Mirrored.__new__(s.Mirrored)
+        with self.assertRaises(ValueError) as context:
+            sampler.__setstate__(body + zlib.crc32(body).to_bytes(4, "little"))
+        self.assertEqual(
+            str(context.exception),
+            "modcma state: unknown sampler type 'XYZAB' (written by a newer modcma?); at byte "
+            f"{i + 13} of the state, in sampling.Sampler 'Mirrored' > sampler "
+            "'GaussianTransformer'",
+        )
+        # A value: its kind
+        es = c_maes.ModularCMAES.__new__(c_maes.ModularCMAES)
+        with self.assertRaisesRegex(ValueError, r"; at byte \d+ of the state, in ModularCMAES > "):
+            es.__setstate__(self.edited(self.state, b"CovarianceAdaptation", 0, 0))
+
+    def test_sizes_beyond_the_data(self):
+        # #192: create() allocated what the sizes of a state asked for before it checked them: a
+        # CovarianceAdaptation of dimension 10^6 got the process killed for lack of memory
+        adaptation = make(d=2).p.adaptation
+        state = self.edited(adaptation.__getstate__(), b"CovarianceAdaptation", 0, 10**6)
+        loaded = type(adaptation).__new__(type(adaptation))
+        with self.assertRaisesRegex(ValueError, "matrix adaptation of dimension 1000000"):
+            loaded.__setstate__(state)
+        # An orthogonal sampler allocates a d x d block (d of its own and of its sampler)
+        s = c_maes.sampling
+        state = s.Orthogonal(s.Gaussian(3), 5).__getstate__()
+        state = self.edited(state, b"Orthogonal", 0, 10**6)
+        state = self.edited(state, b"Gaussian", 0, 10**6)
+        loaded = s.Orthogonal.__new__(s.Orthogonal)
+        with self.assertRaisesRegex(ValueError, "orthogonal sampler of dimension 1000000"):
+            loaded.__setstate__(state)
+        # The points of a Sobol sampler are not in the state: at most what this process computes
+        state = self.edited(s.Sobol(3).__getstate__(), b"Sobol", 16, 2**40)
+        loaded = s.Sobol.__new__(s.Sobol)
+        with self.assertRaisesRegex(ValueError, "more than constants.cache_max_doubles"):
+            loaded.__setstate__(state)
 
 
 class TestResumeGoldenSubset(unittest.TestCase):

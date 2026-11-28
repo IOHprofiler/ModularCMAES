@@ -74,8 +74,9 @@ struct MuCommaLambdaES
         m(x0),
         sigma(sigma0 * Vector::Ones(d)),
         f(Vector::Constant(lambda, std::numeric_limits<Float>::infinity())),
-        X(d, lambda),
-        S(d, lambda),
+        // Zero until the first step: no uninitialized memory (as the buffers of #183)
+        X(Matrix::Zero(d, lambda)),
+        S(Matrix::Zero(d, lambda)),
         f_min(std::numeric_limits<Float>::infinity()),
         x_min(Vector::Constant(d, std::numeric_limits<Float>::signaling_NaN())),
         t(0),
