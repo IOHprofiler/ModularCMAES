@@ -167,6 +167,42 @@ static bool stall_negative_weights(const Vector &w,
 }
 
 /**
+ * The weights of the matrix update of a generation (update_weights, into all) and the number of
+ * non-negative ones among them, n_positive: the negative ones follow them, as the weights decrease
+ * with the rank (mu for the usual weights, fewer for UTILITY, whose last parents can have negative
+ * utilities). In a generation of XNES with h_sigma = 0 the non-negative ones alone, copied into
+ * positive (stall_negative_weights, #175). Returns the weights; the update weighs as many steps
+ * (weighed_steps).
+ */
+static Vector &matrix_update_weights(const Weights &w,
+                                     const Population &pop,
+                                     const Modules &m,
+                                     const bool hs,
+                                     Vector &all,
+                                     Vector &positive,
+                                     Eigen::Index &n_positive)
+{
+    update_weights(w, pop, m.active, all);
+    n_positive = count_non_negative(all);
+    return stall_negative_weights(all, n_positive, m, hs, positive) ? positive : all;
+}
+
+/**
+ * The steps that the n weights of the matrix update weigh, from steps (pop.Y or pop.Z): its first
+ * n columns, or with elitism the steps that active_steps gathers into scratch (#161).
+ */
+static Eigen::Ref<const Matrix> weighed_steps(const Matrix &steps,
+                                              const Population &pop,
+                                              const Eigen::Index n,
+                                              const Eigen::Index n_positive,
+                                              Matrix &scratch)
+{
+    if (active_steps(steps, pop, n, n_positive, scratch))
+        return Eigen::Ref<const Matrix>(scratch);
+    return Eigen::Ref<const Matrix>(steps.leftCols(n));
+}
+
+/**
  * The active update's rescaling: the weights from n_positive on (the negative ones) are multiplied
  * by d / ||A^-1 y_i||^2, the squared Mahalanobis length of the step in the distribution it was
  * sampled from (Hansen, The CMA Evolution Strategy: A Tutorial, 2016, Eq. (46); pycma's sampler
@@ -295,18 +331,11 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
 {
     const auto dhs = (1.0 - hs) * w.cc * (2.0 - w.cc);
 
-    update_weights(w, pop, m.active, weights_scratch);
-    // The negative weights follow the non-negative ones (the weights decrease with the rank): mu
-    // for the usual weights, fewer for UTILITY, whose last parents can have negative utilities.
-    // With XNES none in a generation with h_sigma = 0 (#175)
-    const Eigen::Index n_positive = count_non_negative(weights_scratch);
-    const bool stalled =
-        stall_negative_weights(weights_scratch, n_positive, m, hs, positive_scratch);
-    Vector &rank_mu_w = stalled ? positive_scratch : weights_scratch;
-    const auto n = stalled ? n_positive : static_cast<Eigen::Index>(m.active ? pop.n : mu);
-    const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
-                                              ? Eigen::Ref<const Matrix>(steps_scratch)
-                                              : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
+    Eigen::Index n_positive = 0;
+    Vector &rank_mu_w =
+        matrix_update_weights(w, pop, m, hs, weights_scratch, positive_scratch, n_positive);
+    const Eigen::Ref<const Matrix> popY =
+        weighed_steps(pop.Y, pop, rank_mu_w.size(), n_positive, steps_scratch);
 
     // 1 + c1 delta(h_sigma) - c1 - cmu sum(w): when h_sigma = 0 (the update of pc was stalled), the
     // variance lost by pc is compensated (Hansen, The CMA Evolution Strategy: A Tutorial, 2016;
@@ -563,17 +592,12 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 
     const auto dhs = (1 - hs) * w.cc * (2.0 - w.cc);
 
-    update_weights(w, pop, settings.modules.active, weights_scratch);
     // With XNES no negative weights in a generation with h_sigma = 0, as COVARIANCE (#175)
-    const Eigen::Index n_positive = count_non_negative(weights_scratch);
-    const bool stalled =
-        stall_negative_weights(weights_scratch, n_positive, settings.modules, hs, positive_scratch);
-    Vector &weights = stalled ? positive_scratch : weights_scratch;
-    const auto n =
-        stalled ? n_positive : static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
-    const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
-                                              ? Eigen::Ref<const Matrix>(steps_scratch)
-                                              : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
+    Eigen::Index n_positive = 0;
+    Vector &weights = matrix_update_weights(
+        w, pop, settings.modules, hs, weights_scratch, positive_scratch, n_positive);
+    const Eigen::Ref<const Matrix> popY =
+        weighed_steps(pop.Y, pop, weights.size(), n_positive, steps_scratch);
     // The decay with the sum of the weights before the rescaling, negative ones included (Hansen
     // 2016, Eq. (47); pycma's GaussDiagonalSampler.update)
     const auto decay_c = (1 + (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
@@ -661,21 +685,13 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     stats.last_update = stats.t;
     stats.n_updates++;
 
-    update_weights(w, pop, settings.modules.active, weights_scratch);
     // With XNES no negative weights in a generation with h_sigma = 0, as COVARIANCE (#175)
-    const Eigen::Index n_positive = count_non_negative(weights_scratch);
-    const bool stalled =
-        stall_negative_weights(weights_scratch, n_positive, settings.modules, hs, positive_scratch);
-    Vector &weights = stalled ? positive_scratch : weights_scratch;
-    const auto n =
-        stalled ? n_positive : static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
-    const bool pool = active_steps(pop.Z, pop, n, n_positive, steps_scratch);
-    if (pool)
-        active_steps(pop.Y, pop, n, n_positive, steps_scratch2);
-    const Eigen::Ref<const Matrix> popZ = pool ? Eigen::Ref<const Matrix>(steps_scratch)
-                                               : Eigen::Ref<const Matrix>(pop.Z.leftCols(n));
-    const Eigen::Ref<const Matrix> popY = pool ? Eigen::Ref<const Matrix>(steps_scratch2)
-                                               : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
+    Eigen::Index n_positive = 0;
+    Vector &weights = matrix_update_weights(
+        w, pop, settings.modules, hs, weights_scratch, positive_scratch, n_positive);
+    const auto n = weights.size();
+    const Eigen::Ref<const Matrix> popZ = weighed_steps(pop.Z, pop, n, n_positive, steps_scratch);
+    const Eigen::Ref<const Matrix> popY = weighed_steps(pop.Y, pop, n, n_positive, steps_scratch2);
 
     // MA-ES (Beyer & Sendhoff, Simplify Your Covariance Matrix Adaptation Evolution Strategy, IEEE
     // TEVC 2017; Beyer, Design Principles for MA-ES, tutorial 2020, (M13): M <- M [I + 1/tau_1
@@ -928,16 +944,11 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     // The weights: of all evaluated points with `active` (UTILITY sets it; its utilities sum to
     // zero), of the mu best otherwise; with elitism the negative ones weigh the worst points of the
     // pool (#161); with XNES none in a generation with h_sigma = 0, as COVARIANCE (#175)
-    update_weights(w, pop, settings.modules.active, weights_scratch);
-    const Eigen::Index n_positive = count_non_negative(weights_scratch);
-    Vector &weights =
-        stall_negative_weights(weights_scratch, n_positive, settings.modules, hs, positive_scratch)
-            ? positive_scratch
-            : weights_scratch;
-    const auto n = static_cast<Eigen::Index>(weights.size());
-    const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
-                                              ? Eigen::Ref<const Matrix>(steps_scratch)
-                                              : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
+    Eigen::Index n_positive = 0;
+    Vector &weights = matrix_update_weights(
+        w, pop, settings.modules, hs, weights_scratch, positive_scratch, n_positive);
+    const Eigen::Ref<const Matrix> popY =
+        weighed_steps(pop.Y, pop, weights.size(), n_positive, steps_scratch);
 
     // C <- (1 - c1 - cmu sum(w)) C + c1 pc pc^T + cmu sum_i w°_i y_i y_i^T (Hansen 2016, Eq. (47))
     // on the factor, as the Cholesky-CMA-ES (Krause, Arbonès & Igel, CMA-ES with Optimal
@@ -1048,10 +1059,8 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
 
     update_weights(w, pop, settings.modules.active, weights_scratch);
     const Eigen::Index n_positive = count_non_negative(weights_scratch);
-    const auto n = static_cast<Eigen::Index>(settings.modules.active ? pop.n : mu);
-    const Eigen::Ref<const Matrix> popY = active_steps(pop.Y, pop, n, n_positive, steps_scratch)
-                                              ? Eigen::Ref<const Matrix>(steps_scratch)
-                                              : Eigen::Ref<const Matrix>(pop.Y.leftCols(n));
+    const Eigen::Ref<const Matrix> popY =
+        weighed_steps(pop.Y, pop, weights_scratch.size(), n_positive, steps_scratch);
 
     // C = (1 - 1/tc) C + (1/tc) Y diag(w) Y^T, as symmetric rank updates
     symmetric_rank_update(C,
@@ -1180,17 +1189,17 @@ void NaturalGradientAdaptation::compute_gradients(const Population &pop,
     update_weights(w, pop, settings.modules.active, weights_scratch);
     const Vector &weights = weights_scratch;
     const auto n = weights.rows();
+    const Eigen::Index n_positive = count_non_negative(weights);
 
     // G = sum_i w_i (z_i z_i^T - I) = Z diag(w) Z^T - (sum_i w_i) I, kept as its factor; with
     // elitism the negatively weighted samples are the worst points of the pool (#161)
-    if (!active_steps(pop.Z, pop, n, count_non_negative(weights), gradient_samples))
+    if (!active_steps(pop.Z, pop, n, n_positive, gradient_samples))
         gradient_samples = pop.Z.leftCols(n);
     gradient_weights = weights;
 
     if (dense_update(n))
     {
         // G formed as a matrix, for the dense matrix exponential
-        const Eigen::Index n_positive = count_non_negative(weights);
         gradient_matrix.setZero(A.rows(), A.cols());
         symmetric_rank_update(gradient_matrix,
                               1.0,
