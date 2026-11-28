@@ -172,7 +172,7 @@ static bool stall_negative_weights(const Vector &w,
  * with the rank (mu for the usual weights, fewer for UTILITY, whose last parents can have negative
  * utilities). In a generation of XNES with h_sigma = 0 the non-negative ones alone, copied into
  * positive (stall_negative_weights, #175). Returns the weights; the update weighs as many steps
- * (weighed_steps).
+ * (weighted_steps).
  */
 static Vector &matrix_update_weights(const Weights &w,
                                      const Population &pop,
@@ -191,11 +191,11 @@ static Vector &matrix_update_weights(const Weights &w,
  * The steps that the n weights of the matrix update weigh, from steps (pop.Y or pop.Z): its first
  * n columns, or with elitism the steps that active_steps gathers into scratch (#161).
  */
-static Eigen::Ref<const Matrix> weighed_steps(const Matrix &steps,
-                                              const Population &pop,
-                                              const Eigen::Index n,
-                                              const Eigen::Index n_positive,
-                                              Matrix &scratch)
+static Eigen::Ref<const Matrix> weighted_steps(const Matrix &steps,
+                                               const Population &pop,
+                                               const Eigen::Index n,
+                                               const Eigen::Index n_positive,
+                                               Matrix &scratch)
 {
     if (active_steps(steps, pop, n, n_positive, scratch))
         return Eigen::Ref<const Matrix>(scratch);
@@ -237,16 +237,23 @@ static void one_plus_one_path_update(Vector &path,
         path += sqrt_c_mueff * v;
 }
 
+//! How adapt_rank_one_paths sets h_sigma: from the length of ps (short_path), or always 1
+enum class HSigma
+{
+    FROM_PATH,
+    ALWAYS_ONE
+};
+
 /**
  * The paths of the adaptations with a rank-one update (COVARIANCE, SEPARABLE, CHOLESKY): ps
- * (adapt_ps), then h_sigma into hs (short_path; true when hs_always), then
+ * (adapt_ps), then h_sigma into hs (as rule says), then
  * pc <- (1 - cc) pc + h_sigma sqrt(cc (2 - cc) mueff) dm (Hansen, The CMA Evolution Strategy: A
  * Tutorial, 2016, Eq. (45)). The (1+1)-ES updates only pc, after a success.
  */
 static void adapt_rank_one_paths(Adaptation &a,
                                  Vector &pc,
                                  bool &hs,
-                                 const bool hs_always,
+                                 const HSigma rule,
                                  const Population &pop,
                                  const Weights &w,
                                  const Stats &stats,
@@ -261,7 +268,7 @@ static void adapt_rank_one_paths(Adaptation &a,
     a.adapt_ps(w);
     // The bias correction of h_sigma counts the generations of the current run; it counted
     // evaluations / lambda over all runs
-    hs = hs_always || short_path(a.ps, w, stats);
+    hs = rule == HSigma::ALWAYS_ONE || short_path(a.ps, w, stats);
     pc = (1.0 - w.cc) * pc + (hs * w.sqrt_cc_mueff) * a.dm;
 }
 
@@ -340,7 +347,7 @@ void CovarianceAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                        const Stats &stats,
                                                        const parameters::Settings &settings)
 {
-    adapt_rank_one_paths(*this, pc, hs, false, pop, w, stats, settings);
+    adapt_rank_one_paths(*this, pc, hs, HSigma::FROM_PATH, pop, w, stats, settings);
 }
 
 void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
@@ -354,7 +361,7 @@ void CovarianceAdaptation::adapt_covariance_matrix(const Weights &w,
     Vector &rank_mu_w =
         matrix_update_weights(w, pop, m, hs, weights_scratch, positive_scratch, n_positive);
     const Eigen::Ref<const Matrix> popY =
-        weighed_steps(pop.Y, pop, rank_mu_w.size(), n_positive, steps_scratch);
+        weighted_steps(pop.Y, pop, rank_mu_w.size(), n_positive, steps_scratch);
 
     // 1 + c1 delta(h_sigma) - c1 - cmu sum(w): when h_sigma = 0 (the update of pc was stalled), the
     // variance lost by pc is compensated (Hansen, The CMA Evolution Strategy: A Tutorial, 2016;
@@ -589,7 +596,7 @@ void SeparableAdaptation::adapt_evolution_paths_inner(const Population &pop,
                                                       const parameters::Stats &stats,
                                                       const parameters::Settings &settings)
 {
-    adapt_rank_one_paths(*this, pc, hs, false, pop, w, stats, settings);
+    adapt_rank_one_paths(*this, pc, hs, HSigma::FROM_PATH, pop, w, stats, settings);
 }
 
 bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
@@ -609,7 +616,7 @@ bool SeparableAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     Vector &weights = matrix_update_weights(
         w, pop, settings.modules, hs, weights_scratch, positive_scratch, n_positive);
     const Eigen::Ref<const Matrix> popY =
-        weighed_steps(pop.Y, pop, weights.size(), n_positive, steps_scratch);
+        weighted_steps(pop.Y, pop, weights.size(), n_positive, steps_scratch);
     // The decay with the sum of the weights before the rescaling, negative ones included (Hansen
     // 2016, Eq. (47); pycma's GaussDiagonalSampler.update)
     const auto decay_c = (1 + (w.c1 * dhs) - w.c1 - (w.cmu * weights.sum()));
@@ -702,8 +709,8 @@ bool MatrixAdaptation::adapt_matrix_inner(const Weights &w,
     Vector &weights = matrix_update_weights(
         w, pop, settings.modules, hs, weights_scratch, positive_scratch, n_positive);
     const auto n = weights.size();
-    const Eigen::Ref<const Matrix> popZ = weighed_steps(pop.Z, pop, n, n_positive, steps_scratch);
-    const Eigen::Ref<const Matrix> popY = weighed_steps(pop.Y, pop, n, n_positive, steps_scratch2);
+    const Eigen::Ref<const Matrix> popZ = weighted_steps(pop.Z, pop, n, n_positive, steps_scratch);
+    const Eigen::Ref<const Matrix> popY = weighted_steps(pop.Y, pop, n, n_positive, steps_scratch2);
 
     // MA-ES (Beyer & Sendhoff, Simplify Your Covariance Matrix Adaptation Evolution Strategy, IEEE
     // TEVC 2017; Beyer, Design Principles for MA-ES, tutorial 2020, (M13): M <- M [I + 1/tau_1
@@ -930,8 +937,9 @@ void CholeskyAdaptation::adapt_evolution_paths_inner(const Population &pop,
     // (Hansen 2016, after Eq. (45); Krause et al. 2016 adapt sigma by CSA). With XNES the path
     // stayed long, the rank-one term stretched A, and CHOLESKY + XNES solved the ellipsoid in 3, 0
     // and 0 of 20 runs at d = 5, 10, 20 (with h_sigma 20 of 20 at each)
-    const bool hs_always = settings.modules.ssa == StepSizeAdaptation::CSA;
-    adapt_rank_one_paths(*this, pc, hs, hs_always, pop, w, stats, settings);
+    const auto rule =
+        settings.modules.ssa == StepSizeAdaptation::CSA ? HSigma::ALWAYS_ONE : HSigma::FROM_PATH;
+    adapt_rank_one_paths(*this, pc, hs, rule, pop, w, stats, settings);
 }
 
 bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
@@ -951,7 +959,7 @@ bool CholeskyAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     Vector &weights = matrix_update_weights(
         w, pop, settings.modules, hs, weights_scratch, positive_scratch, n_positive);
     const Eigen::Ref<const Matrix> popY =
-        weighed_steps(pop.Y, pop, weights.size(), n_positive, steps_scratch);
+        weighted_steps(pop.Y, pop, weights.size(), n_positive, steps_scratch);
 
     // C <- (1 - c1 - cmu sum(w)) C + c1 pc pc^T + cmu sum_i w°_i y_i y_i^T (Hansen 2016, Eq. (47))
     // on the factor, as the Cholesky-CMA-ES (Krause, Arbonès & Igel, CMA-ES with Optimal
@@ -1063,7 +1071,7 @@ bool SelfAdaptation::adapt_matrix_inner(const parameters::Weights &w,
     update_weights(w, pop, settings.modules.active, weights_scratch);
     const Eigen::Index n_positive = count_non_negative(weights_scratch);
     const Eigen::Ref<const Matrix> popY =
-        weighed_steps(pop.Y, pop, weights_scratch.size(), n_positive, steps_scratch);
+        weighted_steps(pop.Y, pop, weights_scratch.size(), n_positive, steps_scratch);
 
     // C = (1 - 1/tc) C + (1/tc) Y diag(w) Y^T, as symmetric rank updates
     symmetric_rank_update(C,
