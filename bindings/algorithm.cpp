@@ -267,8 +267,8 @@ void define_center_placement(nb::module_ &main)
         "Center placement: where the mean of the search distribution is placed at a restart.\n\n"
         "The optimizer holds one as `es.p.center_placement`, selected by "
         "`Modules.center_placement` (`options.CenterPlacement`). It is applied at every restart; "
-        "the first run starts at `Settings.x0`, or at the center of the bounds when x0 is not "
-        "given.\n\n"
+        "the first run starts at `Settings.x0`, or at `Settings.center` (the center of the box; "
+        "see it for infinite bounds) when x0 is not given.\n\n"
         "UNIFORM, NOVELTY_WEIGHTED and MAXIMIN_TABOO sample in the box [lb, ub]. In a coordinate "
         "with an infinite bound they sample uniformly in [x0 - 2 sigma0, x0 + 2 sigma0], with x0 "
         "`Settings.x0` or `Settings.center`; the interval is shifted to start at a finite lb, or "
@@ -302,8 +302,8 @@ void define_center_placement(nb::module_ &main)
         .def(nb::init<>(), "Create the placement.");
     nb::class_<Center, Placement>(m,
                                   "Center",
-                                  "The mean is `Settings.center`: the midpoint (lb + ub) / 2 of a finite "
-                                  "coordinate, with the rule for infinite bounds there "
+                                  "The mean is `Settings.center`: the midpoint (lb + ub) / 2 of "
+                                  "a finite coordinate, with the rule for infinite bounds there "
                                   "(`CenterPlacement.CENTER`).")
         .def(nb::init<>(), "Create the placement.");
     nb::class_<MaximinTaboo, Placement>(
@@ -325,7 +325,8 @@ void define_center_placement(nb::module_ &main)
         "Of 512 uniform random points in the box, one is drawn with probability proportional "
         "to the square of the distance to its nearest taboo point (in coordinates divided by the "
         "widths of the box); a uniform random point while the archive is empty. For use with "
-        "repelling restarts; needs finite bounds.")
+        "repelling restarts. In a coordinate with an infinite bound, the candidates are drawn in "
+        "x0 +- 2 sigma0 and the distances divided by 4 sigma0 (see the module).")
         .def(nb::init<>(), "Create the placement.");
 
     // Pickling and copying (#91)
