@@ -15,12 +15,12 @@ Output:
 ```text
 Rastrigin, d = 10, 10 runs each (solved: f <= 1e-8)
   CMA-ES         solved  0/10
-  IPOP-CMA-ES    solved 10/10, median    72346 evaluations
-  BIPOP-CMA-ES   solved  9/10, median    81822 evaluations
+  IPOP-CMA-ES    solved 10/10, median    85866 evaluations
+  BIPOP-CMA-ES   solved  9/10, median    98762 evaluations
 
 Himmelblau, d = 2, restarts from uniform random points, 20 runs each
   restarts             distinct optima found: mean 3.35 of 4, all four in 9/20 runs
-  repelling restarts   distinct optima found: mean 3.40 of 4, all four in 10/20 runs
+  repelling restarts   distinct optima found: mean 3.45 of 4, all four in 10/20 runs
 ```
 
 See [restarts](../guide/restarts.md) for the restart criteria, where restarts begin, and the
