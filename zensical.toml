@@ -75,6 +75,18 @@ nav = [
   { "Changelog" = "changelog.md" },
   { "Citing" = "citing.md" },
   { "Contributing" = "contributing.md" },
+  { "Maintainers" = [
+    "maintainers/index.md",
+    { "The generation and ask–tell" = "maintainers/generation.md" },
+    { "Matrix adaptation internals" = "maintainers/matrix-adaptation.md" },
+    { "Random numbers" = "maintainers/random-numbers.md" },
+    { "Saving and resuming runs" = "maintainers/serialization.md" },
+    { "Settings validation" = "maintainers/settings-validation.md" },
+    { "The bindings" = "maintainers/bindings.md" },
+    { "The test tiers" = "maintainers/testing.md" },
+    { "CI and the release" = "maintainers/ci-release.md" },
+    { "Where the history is" = "maintainers/history.md" },
+  ] },
 ]
 
 [project.theme]
@@ -121,7 +133,7 @@ pymdownx.highlight.anchor_linenums = true
 pymdownx.inlinehilite = {}
 pymdownx.snippets.base_path = ["."]
 pymdownx.snippets.check_paths = true
-pymdownx.superfences = {}
+pymdownx.superfences.custom_fences = [{ name = "mermaid", class = "mermaid" }]
 pymdownx.tabbed.alternate_style = true
 
 [project.plugins.mkdocstrings.handlers.python]
