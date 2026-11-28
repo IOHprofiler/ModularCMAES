@@ -636,3 +636,7 @@ change results, compared on BBOB before and after (`tests/statistical.py`):
   could segfault, and a write to an element changed the optimizer. Reading now returns a copy.
 * The compatibility page lists `ssa=XNES` with `weights=EQUAL` as a combination to avoid (#180):
   0 of 20 runs solve the ellipsoid at d = 5, 10 and 20, with or without `active`.
+* `mutation.SequentialSelection` (internal) accepted a `seq_cutoff_factor` below 1, NaN or inf. Below
+  1 a population could stop after µ or fewer individuals, and the updates read columns that the
+  generation had not evaluated (SA raised an error); NaN and inf have no cutoff. It now raises
+  `ValueError` (#191). The optimizer always uses 1.

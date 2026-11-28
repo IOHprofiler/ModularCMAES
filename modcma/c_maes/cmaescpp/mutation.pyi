@@ -121,7 +121,7 @@ class SequentialSelection:
         mirror : options.Mirror
             The mirrored sampling option; with `Mirror.PAIRWISE` the cutoff factor is at least 2.
         seq_cutoff_factor : float
-            The population can stop after individual i >= floor(mu * seq_cutoff_factor) (0-based), so at least floor(mu * seq_cutoff_factor) + 1 individuals are evaluated (default 1).
+            The population can stop after individual i >= floor(mu * seq_cutoff_factor) (0-based), so at least floor(mu * seq_cutoff_factor) + 1 individuals are evaluated (default 1); finite and at least 1, ValueError otherwise.
         """
 
     @overload

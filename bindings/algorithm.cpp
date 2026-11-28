@@ -1902,7 +1902,7 @@ void define_mutation(nb::module_ &main)
              "seq_cutoff_factor : float\n"
              "    The population can stop after individual i >= floor(mu * seq_cutoff_factor) "
              "(0-based), so at least floor(mu * seq_cutoff_factor) + 1 individuals are "
-             "evaluated (default 1).")
+             "evaluated (default 1); finite and at least 1, ValueError otherwise.")
         .def(
             "__init__",
             [](SequentialSelection *self, parameters::Mirror mirror, Float seq_cuttoff_factor) {
