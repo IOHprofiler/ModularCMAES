@@ -3,7 +3,7 @@
 import unittest
 import numpy as np
 from modcma import c_maes
-from modcma.c_maes import options, parameters
+from modcma.c_maes import parameters
 
 inf = np.inf
 
@@ -47,7 +47,7 @@ class TestCenter(unittest.TestCase):
             return float(np.sum((x - 3) ** 2))
 
         def make():
-            c_maes.utils.set_seed(1)
+            c_maes.set_seed(1)
             return c_maes.ModularCMAES(
                 parameters.Settings(2, lb=lb, ub=ub, budget=200, sigma0=0.5)
             )

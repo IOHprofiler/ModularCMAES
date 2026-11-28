@@ -4,7 +4,7 @@ import unittest
 import numpy as np
 
 import modcma
-from modcma.c_maes import parameters, Parameters, Population, ModularCMAES, options
+from modcma.c_maes import parameters, Parameters, ModularCMAES, options
 
 
 class TestMutation(unittest.TestCase):
