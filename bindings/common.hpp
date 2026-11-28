@@ -179,9 +179,19 @@ template <typename C, typename Saved = C> void def_pickle()
         nb::scope(cls),
         nb::name("__getstate__"),
         nb::is_method(),
-        "The state for pickle and copy: the bytes of the object's C++ serialization (format "
-        "described in the guide's page on saving and resuming a run), with the attributes of a "
-        "Python subclass.");
+        "The state for pickle and copy (#91).\n\n"
+        "Returns\n"
+        "-------\n"
+        "bytes or tuple[bytes, dict]\n"
+        "    The bytes of the object's C++ serialization (the format is described in the\n"
+        "    guide's page on saving and resuming a run); with the `__dict__` of a Python\n"
+        "    subclass that has attributes, the pair (bytes, dict).\n\n"
+        "Raises\n"
+        "------\n"
+        "TypeError\n"
+        "    The object holds a module that the library cannot save, such as a sampler defined in\n"
+        "    Python (restart criteria defined in Python are pickled); or the object is a module\n"
+        "    whose C++ type has no Python class (pickle the optimizer instead).");
     nb::cpp_function_def(
         [](C &self, nb::handle state) {
             nb::object data = nb::borrow(state), dict;
@@ -212,8 +222,17 @@ template <typename C, typename Saved = C> void def_pickle()
         nb::name("__setstate__"),
         nb::is_method(),
         nb::arg("state"),
-        "Restore the object from a state of __getstate__ (pickle and copy). ValueError when the "
-        "state cannot be loaded: not a modcma state, written by a newer modcma, truncated or "
-        "corrupted.");
+        "Restore the object from a state of `__getstate__` (pickle and copy).\n\n"
+        "Parameters\n"
+        "----------\n"
+        "state : bytes or tuple[bytes, dict]\n"
+        "    A state that `__getstate__` returned.\n\n"
+        "Raises\n"
+        "------\n"
+        "ValueError\n"
+        "    The state cannot be loaded: not a modcma state, written by a newer modcma,\n"
+        "    truncated, corrupted, or the state of another class.\n"
+        "TypeError\n"
+        "    The state is not bytes (or a pair of bytes and a dict).");
 }
 } // namespace modcma_python
