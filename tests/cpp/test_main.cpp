@@ -16,6 +16,7 @@
 #include "common.hpp"
 #include "functions.hpp"
 #include "sampling.hpp"
+#include "serialization.hpp"
 
 static int failures = 0;
 
@@ -727,8 +728,144 @@ static void test_expected_norm()
     }
 }
 
+// #91: the state of the Mersenne Twister in the standard's representation, recovered from its
+// outputs, gives a generator that continues with the same numbers, at every position in a block
+static void test_generator_state()
+{
+    for (const size_t skip : {0, 1, 2, 396, 397, 623, 624, 625, 1000, 1247, 1248, 5000})
+    {
+        rng::Generator g(static_cast<unsigned>(skip + 7));
+        g.discard(skip);
+        const auto state = serialization::generator_state(g);
+        rng::Generator copy;
+        serialization::set_generator_state(copy, state);
+        CHECK(serialization::generator_state(copy) == state);
+        bool same = true;
+        for (int k = 0; k < 3000; ++k)
+            same = same && g() == copy();
+        CHECK(same);
+    }
+}
+
+namespace
+{
+//! One generation of es by ask-tell on f; the points of every generation are appended to trace
+bool generation(ModularCMAES &es, FunctionType &f, std::vector<double> &trace)
+{
+    for (;;)
+    {
+        const Matrix X = es.ask();
+        Vector values(X.cols());
+        for (Eigen::Index j = 0; j < X.cols(); ++j)
+            values(j) = f(X.col(j));
+        trace.insert(trace.end(), X.data(), X.data() + X.size());
+        if (es.tell(values))
+            return !es.break_conditions();
+    }
+}
+} // namespace
+
+// #91: a run that is saved and loaded continues bit for bit: after whole generations, and between
+// ask() and tell() (a pending batch)
+static void test_save_and_load_continue()
+{
+    using namespace parameters;
+    std::vector<Modules> configs(6);
+    configs[1].ssa = StepSizeAdaptation::TPA;
+    configs[1].sequential_selection = true;
+    configs[1].restart_strategy = RestartStrategyType::BIPOP;
+    configs[2].sampler = BaseSampler::SOBOL;
+    configs[2].matrix_adaptation = MatrixAdaptationType::MATRIX;
+    configs[2].elitist = true;
+    configs[3].sampler = BaseSampler::HALTON;
+    configs[3].orthogonal = true;
+    configs[3].mirrored = Mirror::PAIRWISE;
+    configs[3].repelling_type = RepellingType::ADAPTIVE;
+    configs[3].restart_strategy = RestartStrategyType::IPOP;
+    configs[4].bound_correction = CorrectionMethod::COTN;
+    configs[4].ssa = StepSizeAdaptation::TPA_INPLACE;
+    configs[4].matrix_adaptation = MatrixAdaptationType::CHOLESKY;
+    configs[5].ssa = StepSizeAdaptation::XNES;
+    configs[5].matrix_adaptation = MatrixAdaptationType::NATURAL_GRADIENT;
+    configs[5].sample_sigma = true;
+    FunctionType f = functions::rastrigin;
+    for (const auto &modules : configs)
+    {
+        Settings settings(4, modules);
+        settings.budget = 3000;
+        settings.seed = 3;
+        ModularCMAES reference(settings), es(settings);
+        std::vector<double> a, b;
+        for (int t = 0; t < 15; ++t)
+        {
+            generation(reference, f, a);
+            generation(es, f, b);
+        }
+        // Mid-generation: the points of ask() wait for their values in the saved state
+        reference.ask();
+        es.ask();
+        ModularCMAES resumed = serialization::load<ModularCMAES>(serialization::save(es));
+        CHECK(resumed.has_pending());
+        CHECK(serialization::save(resumed) == serialization::save(es));
+        bool running = true;
+        while (running)
+        {
+            const bool r1 = generation(reference, f, a);
+            const bool r2 = generation(resumed, f, b);
+            CHECK(r1 == r2);
+            running = r1 && r2;
+            // A save between generations as well
+            resumed = serialization::load<ModularCMAES>(serialization::save(resumed));
+        }
+        CHECK(a == b);
+        CHECK(reference.p->stats.evaluations == resumed.p->stats.evaluations);
+        CHECK(serialization::save(reference) == serialization::save(resumed));
+    }
+}
+
+// #91: a state that cannot be loaded raises serialization::Error, with the reason
+static void test_load_errors()
+{
+    ModularCMAES es(parameters::Settings(3));
+    const std::string state = serialization::save(es);
+    const auto message = [](const std::string &bytes) -> std::string {
+        try
+        {
+            serialization::load<ModularCMAES>(bytes);
+        }
+        catch (const serialization::Error &e)
+        {
+            return e.what();
+        }
+        return "";
+    };
+    CHECK(message(state).empty());
+    CHECK(message("hello").find("not a modcma state") != std::string::npos);
+    CHECK(message(state.substr(0, state.size() / 2)).find("checksum") != std::string::npos);
+    std::string flipped = state;
+    flipped[flipped.size() / 2] ^= 1;
+    CHECK(message(flipped).find("checksum") != std::string::npos);
+    std::string newer = state;
+    newer[8] = static_cast<char>(serialization::format_version + 1);
+    CHECK(message(newer).find("newer modcma") != std::string::npos);
+    bool kind = false;
+    try
+    {
+        serialization::load<parameters::Settings>(state);
+    }
+    catch (const serialization::Error &e)
+    {
+        kind =
+            std::string(e.what()).find("holds a ModularCMAES, not a Settings") != std::string::npos;
+    }
+    CHECK(kind);
+}
+
 int main()
 {
+    test_generator_state();
+    test_save_and_load_continue();
+    test_load_errors();
     test_portable_random_integers();
     test_expected_norm();
     test_uniform_is_open_interval();

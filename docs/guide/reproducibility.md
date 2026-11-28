@@ -24,7 +24,8 @@ assert a.p.stats.global_best.y == b.p.stats.global_best.y
 ```
 
 `run`, `step`, `ask`/`tell` and vectorized evaluation give the same results for the same seed, bit
-for bit, with every module.
+for bit, with every module. So does a run that is saved with `pickle` and loaded, at any point
+([saving and resuming a run](checkpointing.md)): the random generator is part of its state.
 
 ## How far identical results go
 

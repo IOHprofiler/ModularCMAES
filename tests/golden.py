@@ -21,6 +21,8 @@ Usage (each run executes in this process, so call it in a fresh interpreter, as 
     python -m tests.golden check [--platform NAME]     # compare with the fixture, exit 1 on mismatch
     python -m tests.golden list                        # print the run ids
     --fixture PATH reads/writes another file (e.g. a baseline of the commit before a change)
+    --drivers all checks every way of driving a generation; --drivers resume checks that a run that
+    is pickled and loaded (between generations, and between ask() and tell()) continues bit for bit
 
 Never regenerate a fixture to make a change pass: regenerate it from the commit *before* the change,
 on the same machine, and only with the maintainer's approval (CONTRIBUTING.md).
@@ -31,6 +33,7 @@ import hashlib
 import json
 import math
 import os
+import pickle
 import platform
 import subprocess
 import sys
@@ -261,6 +264,41 @@ def run_generation(cma: "c_maes.ModularCMAES", objective, driver: str) -> bool:
             return not cma.break_conditions()
 
 
+# Drivers that save and load the optimizer while it runs (#91): a pickle round trip before every
+# generation ("pickle"), between every ask() and tell() ("pickle_asktell": also in the middle of a
+# generation, between the batches of sequential selection, TPA's points and the hill-valley points
+# of a restart), or between the steps of the 1.x API ("pickle_steps": after mutate(), select() and
+# recombine()). The loaded optimizer replaces the running one, so the trajectory is that of runs
+# resumed thousands of times; it must be the trajectory of the fixture, bit for bit.
+RESUME_DRIVERS = ("pickle", "pickle_asktell", "pickle_steps")
+
+
+def resumed(cma: "c_maes.ModularCMAES") -> "c_maes.ModularCMAES":
+    return pickle.loads(pickle.dumps(cma))
+
+
+def run_resumed_generation(cma: "c_maes.ModularCMAES", objective, driver: str):
+    """One generation by a driver of RESUME_DRIVERS; returns whether no break condition holds and
+    the optimizer to continue with."""
+    if driver == "pickle":
+        cma = resumed(cma)
+        return cma.step(objective), cma
+    if driver == "pickle_steps":
+        cma.mutate(objective)
+        cma = resumed(cma)
+        cma.select()
+        cma = resumed(cma)
+        cma.recombine()
+        cma = resumed(cma)
+        cma.adapt()
+        return not cma.break_conditions(), cma
+    while True:
+        X = cma.ask()
+        cma = resumed(cma)
+        if cma.tell([objective(x) for x in X]):
+            return not cma.break_conditions(), cma
+
+
 def execute(run: Dict, driver: str = "step") -> Dict:
     for name, value in DEFAULT_CONSTANTS.items():
         setattr(c_maes.constants, name, value)
@@ -276,7 +314,10 @@ def execute(run: Dict, driver: str = "step") -> Dict:
     generation = 0
     try:
         while True:
-            running = run_generation(cma, objective, driver)
+            if driver in RESUME_DRIVERS:
+                running, cma = run_resumed_generation(cma, objective, driver)
+            else:
+                running = run_generation(cma, objective, driver)
             generation += 1
             p = cma.p
             digest.update(np.ascontiguousarray(p.pop.X).tobytes())
@@ -419,13 +460,16 @@ def main():
     parser.add_argument("--only", default="", help="check only runs whose id contains this text")
     parser.add_argument("--fixture", default="", help="fixture file instead of tests/data/golden/<platform>.json")
     parser.add_argument("--drivers", default="step",
-                        help=f"check: comma-separated drivers of the generations, of {', '.join(DRIVERS)}, or all")
+                        help="check: comma-separated drivers of the generations, of "
+                        f"{', '.join(DRIVERS + RESUME_DRIVERS)}; all: {', '.join(DRIVERS)}; "
+                        f"resume: {', '.join(RESUME_DRIVERS)}")
     args = parser.parse_args()
     if args.command == "write":
         write(args.platform, args.fixture)
     elif args.command == "check":
-        drivers = DRIVERS if args.drivers == "all" else tuple(args.drivers.split(","))
-        unknown = set(drivers) - set(DRIVERS)
+        groups = {"all": DRIVERS, "resume": RESUME_DRIVERS}
+        drivers = groups.get(args.drivers) or tuple(args.drivers.split(","))
+        unknown = set(drivers) - set(DRIVERS + RESUME_DRIVERS)
         if unknown:
             parser.error(f"unknown drivers: {', '.join(sorted(unknown))}")
         sys.exit(check(args.platform, args.only, args.fixture, drivers))

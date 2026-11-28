@@ -330,6 +330,16 @@ class Population:
     def capacity(self) -> int:
         """The number of columns of the buffers (at least n)."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Parameters:
     """
     The state of an optimizer: settings, module objects, populations and statistics.
@@ -508,6 +518,16 @@ class Parameters:
 
     @coordinate_mapping.setter
     def coordinate_mapping(self, arg: parameters.CoordinateMapping, /) -> None: ...
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class ModularCMAES:
     """
@@ -716,4 +736,14 @@ class ModularCMAES:
     def p(self) -> Parameters:
         """
         The Parameters: the state of the optimizer (settings, modules, population, statistics).
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """

@@ -55,6 +55,16 @@ Parameters::Parameters(const size_t dim) :
 {
 }
 
+Parameters::Parameters(const Settings &settings, const Weights &weights) :
+    successful_adaptation(true),
+    lambda(0),
+    mu(0),
+    settings(settings),
+    weights(weights),
+    criteria(restart::vCriteria{})
+{
+}
+
 void Parameters::resize_population(const size_t new_mu, const size_t new_lambda)
 {
     // The populations keep their contents: the next generation makes pop old_pop (elitism, MSR,

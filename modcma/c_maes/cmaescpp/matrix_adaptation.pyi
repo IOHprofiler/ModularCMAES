@@ -75,6 +75,16 @@ class Metric:
     def __repr__(self) -> str:
         """A summary of the state (mean, paths and matrices)."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Adaptation:
     """
     Base class of the matrix adaptations: the mean, the evolution path of the step size and the sampling transformation y = A z.
@@ -340,6 +350,16 @@ class NoAdaptation(Adaptation):
     def __repr__(self) -> str:
         """A summary of the state (mean, paths and matrices)."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class CovarianceAdaptation(Adaptation):
     """
     The covariance matrix adaptation of CMA-ES (`MatrixAdaptationType.COVARIANCE`, the default).
@@ -461,6 +481,16 @@ class CovarianceAdaptation(Adaptation):
     def __repr__(self) -> str:
         """A summary of the state (mean, paths and matrices)."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class SeparableAdaptation(Adaptation):
     """
     Separable CMA-ES: a diagonal covariance matrix (`MatrixAdaptationType.SEPARABLE`).
@@ -518,6 +548,16 @@ class SeparableAdaptation(Adaptation):
 
     def __repr__(self) -> str:
         """A summary of the state (mean, paths and matrices)."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class MatrixAdaptation(Adaptation):
     """
@@ -590,6 +630,16 @@ class MatrixAdaptation(Adaptation):
     def __repr__(self) -> str:
         """A summary of the state (mean, paths and matrices)."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class CholeskyAdaptation(Adaptation):
     """
     Cholesky-CMA-ES: the covariance matrix kept as its triangular Cholesky factor (`MatrixAdaptationType.CHOLESKY`).
@@ -648,6 +698,16 @@ class CholeskyAdaptation(Adaptation):
         A downdate is skipped when its result would not be positive definite: the factor from before the downdates of the generation is restored and they are applied again without it. The rescaled negative weights prevent this in exact arithmetic; UTILITY's weights do not.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class SelfAdaptation(Adaptation):
     """
     CMSA-ES, covariance matrix self-adaptation (`MatrixAdaptationType.CMSA`).
@@ -685,6 +745,16 @@ class SelfAdaptation(Adaptation):
     @C.setter
     def C(self, arg: Annotated[NDArray[numpy.float64], dict(shape=(None, None), order='F')], /) -> None: ...
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class CovarianceNoEigvAdaptation(CovarianceAdaptation):
     """
     CMA-ES with a Cholesky factorization instead of an eigendecomposition (`MatrixAdaptationType.COVARIANCE_NO_EIGV`).
@@ -702,6 +772,16 @@ class CovarianceNoEigvAdaptation(CovarianceAdaptation):
             The dimension d.
         x0 : numpy.ndarray
             The initial mean m, shape (d,).
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """
 
 class NaturalGradientAdaptation(Adaptation):
@@ -793,4 +873,14 @@ class NaturalGradientAdaptation(Adaptation):
             The recombination weights and learning rates (`es.p.weights`).
         settings : Settings
             The settings (`es.p.settings`).
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """

@@ -138,8 +138,14 @@ struct Parameters
     void resize_population(const size_t new_mu, const size_t new_lambda);
 
   private:
+    friend struct serialization::Access;
+
     //! The step size of the new run, from begin_restart to finish_restart
     Float restart_sigma = 0;
+
+    //! Parameters without modules, for the deserialization (serialization.cpp), which sets every
+    //! member
+    Parameters(const Settings &settings, const Weights &weights);
 };
 
 } // namespace parameters

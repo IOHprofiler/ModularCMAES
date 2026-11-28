@@ -267,5 +267,23 @@ void define_samplers(nb::module_ &main)
         "Its expected length is Gamma(d + 1/2) / Gamma(d), exactly: each z_i^2 is exponential "
         "with mean 1, so ||z||^2 is Gamma(d, 1)-distributed (it was sqrt(d) before 2.0).");
     transformer_members<DoubleWeibullTransformer>(weibull);
+
+    // Pickling and copying (#91): every sampler of the library; not PySampler, which calls a
+    // Python function
+    def_pickle<Gaussian, Sampler>();
+    def_pickle<FastGaussian, Sampler>();
+    def_pickle<Uniform, Sampler>();
+    def_pickle<Sobol, Sampler>();
+    def_pickle<Halton, Sampler>();
+    def_pickle<Mirrored, Sampler>();
+    def_pickle<CachedSampler, Sampler>();
+    def_pickle<Orthogonal, Sampler>();
+    def_pickle<IdentityTransformer, Sampler>();
+    def_pickle<GaussianTransformer, Sampler>();
+    def_pickle<UniformScaler, Sampler>();
+    def_pickle<LaplaceTransformer, Sampler>();
+    def_pickle<LogisticTransformer, Sampler>();
+    def_pickle<CauchyTransformer, Sampler>();
+    def_pickle<DoubleWeibullTransformer, Sampler>();
 }
 } // namespace modcma_python

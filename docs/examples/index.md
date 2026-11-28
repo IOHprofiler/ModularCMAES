@@ -13,4 +13,5 @@ with the current version.
 | [Mixed-integer problems](mixed-integer.md) | integer and continuous variables with bounds |
 | [Warm starting](warm-start.md) | the initial mean, step size and covariance matrix from the solutions of a related task (WS-CMA-ES), and the paper's synthetic experiment |
 | [Coming from pycma](from-pycma.md) | the modcma equivalents of pycma's calls and options |
+| [Checkpointing a long run](../guide/checkpointing.md#checkpointing-a-long-run) | saving the optimizer with pickle every n generations, and resuming after an interruption, bit for bit |
 | [The C++ library](../guide/cpp.md) | a C++ program with `run` and ask–tell |

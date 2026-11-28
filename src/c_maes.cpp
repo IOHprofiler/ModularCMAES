@@ -363,8 +363,9 @@ Eigen::Ref<Matrix> ModularCMAES::queue(const Eigen::Index k,
         // Grows rarely (a population of a new size), keeping the queued points; room for a whole
         // generation (the population and its reserved points)
         const auto generation = static_cast<Eigen::Index>(p->lambda + p->reserved_points());
-        batch.conservativeResize(static_cast<Eigen::Index>(p->settings.dim),
-                                 std::max(needed, generation));
+        // New columns start at 0: the saved state (#91) holds no uninitialized memory
+        batch.conservativeResizeLike(
+            Matrix::Zero(static_cast<Eigen::Index>(p->settings.dim), std::max(needed, generation)));
     }
     requests.push_back(Request{source, n_pending, k, index});
     n_pending = needed;

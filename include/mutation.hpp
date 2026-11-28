@@ -51,6 +51,7 @@ struct NoThresholdConvergence : ThresholdConvergence
 
 class SequentialSelection
 {
+    friend struct serialization::Access;
     Float seq_cutoff_factor;
 
   public:
@@ -234,6 +235,7 @@ struct Strategy
     [[nodiscard]] virtual bool special_pair(Eigen::Index i) const { return false; }
 
   private:
+    friend struct serialization::Access;
     //! x of individual i from its y and sigma, with bound correction
     void finish_sample(const Eigen::Index i, parameters::Parameters &p);
 
@@ -337,6 +339,7 @@ struct XNES : Strategy
     void on_population_complete(parameters::Parameters &p) override;
 
   private:
+    friend struct serialization::Access;
     //! The statistic of the offspring, for the next adapt() (set with elitism only)
     std::optional<Float> offspring_statistic;
     std::vector<size_t> order;
@@ -374,6 +377,7 @@ struct TPAInPlace : Strategy
     void on_population_complete(parameters::Parameters &p) override;
 
   private:
+    friend struct serialization::Access;
     //! Whether individuals 0 and 1 of the current population are the test points
     bool test_points = false;
     //! A^-1 dm / ||A^-1 dm||: the direction of the test points in z (0 when the mean did not move)
@@ -431,7 +435,10 @@ struct SA : Strategy
     void on_population_complete(parameters::Parameters &p) override;
 
   private:
-    Float mean_sigma;
+    friend struct serialization::Access;
+    //! The geometric mean of the step sizes of the population (on_population_complete); NaN
+    //! before the first population
+    Float mean_sigma = std::numeric_limits<Float>::quiet_NaN();
 };
 
 //! The step-size adaptation of the modules; the sigma sampler draws from generator

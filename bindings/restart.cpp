@@ -349,6 +349,78 @@ void define_restart_criteria(nb::module_ &main)
              "The names of the criteria that are met, each followed by \"; \" (empty when "
              "none is).")
         .def("any", &Criteria::any, "Whether any criterion is met.");
+
+    // Pickling and copying (#91). The built-in criteria are saved by the library; a criterion
+    // defined in Python (a subclass of Criterion) by pickle: its name, met, last_restart and the
+    // instance's attributes. The library calls pickle for such a criterion when it saves the
+    // optimizer (serialization::external)
+    def_pickle<ExceededMaxIter, Criterion>();
+    def_pickle<NoImprovement, Criterion>();
+    def_pickle<MaxSigma, Criterion>();
+    def_pickle<MinSigma, Criterion>();
+    def_pickle<UnableToAdapt, Criterion>();
+    def_pickle<FlatFitness, Criterion>();
+    def_pickle<TolX, Criterion>();
+    def_pickle<MaxDSigma, Criterion>();
+    def_pickle<MinDSigma, Criterion>();
+    def_pickle<ConditionC, Criterion>();
+    def_pickle<NoEffectAxis, Criterion>();
+    def_pickle<NoEffectCoord, Criterion>();
+    def_pickle<Stagnation, Criterion>();
+    def_pickle<TooMuchRepelling, Criterion>();
+    def_pickle<Criteria>();
+
+    nb::cpp_function_def(
+        [](nb::handle self) -> nb::object {
+            const Criterion &c = nb::cast<const Criterion &>(self);
+            if (typeid(c) != typeid(PyCriterion))
+                throw nb::type_error("cannot pickle this restart criterion: its C++ type has no "
+                                     "Python class");
+            nb::object dict = nb::getattr(self, "__dict__", nb::none());
+            return nb::make_tuple(
+                c.name, c.met, c.last_restart, c.was_reset, dict.is_none() ? nb::dict() : dict);
+        },
+        nb::scope(nb::type<Criterion>()),
+        nb::name("__getstate__"),
+        nb::is_method(),
+        "The state for pickle and copy of a criterion defined in Python: (name, met, "
+        "last_restart, was_reset, the instance's attributes). The attributes must be "
+        "picklable.");
+    nb::cpp_function_def(
+        [](Criterion &self, nb::handle state) {
+            if (!nb::isinstance<nb::tuple>(state) || nb::len(state) != 5)
+                throw nb::value_error("Criterion.__setstate__: expected a tuple of 5 items");
+            // A criterion created from Python is a PyCriterion (the trampoline), as nb::init makes
+            auto *criterion = new (&self) PyCriterion(nb::cast<std::string>(state[0]));
+            criterion->met = nb::cast<bool>(state[1]);
+            criterion->last_restart = nb::cast<size_t>(state[2]);
+            criterion->was_reset = nb::cast<bool>(state[3]);
+            nb::find(self).attr("__dict__").attr("update")(state[4]);
+        },
+        nb::scope(nb::type<Criterion>()),
+        nb::name("__setstate__"),
+        nb::is_method(),
+        nb::arg("state"),
+        "Restore a criterion defined in Python from a state of __getstate__ (pickle and copy).");
+
+    // The library saves the criteria it does not know (those defined in Python) with pickle
+    auto &external = serialization::external();
+    external.save_criterion = [](const Criterion &criterion) -> std::string {
+        nb::gil_scoped_acquire gil;
+        const nb::object object = nb::find(criterion);
+        if (!object.is_valid())
+            throw std::invalid_argument("cannot save the restart criterion '" + criterion.name +
+                                        "': it has no Python object");
+        const auto bytes =
+            nb::cast<nb::bytes>(nb::module_::import_("pickle").attr("dumps")(object));
+        return std::string(bytes.c_str(), bytes.size());
+    };
+    external.load_criterion = [](std::string_view bytes) -> std::shared_ptr<Criterion> {
+        nb::gil_scoped_acquire gil;
+        const nb::object object =
+            nb::module_::import_("pickle").attr("loads")(nb::bytes(bytes.data(), bytes.size()));
+        return nb::cast<std::shared_ptr<Criterion>>(object);
+    };
 }
 
 void define_restart_strategy(nb::module_ &main)
@@ -448,5 +520,10 @@ void define_restart_strategy(nb::module_ &main)
         .def_ro("used_budget",
                 &BIPOP::used_budget,
                 "The evaluations used up to the last restart.");
+
+    // Pickling and copying (#91)
+    def_pickle<Strategy, Strategy>();
+    def_pickle<IPOP, Strategy>();
+    def_pickle<BIPOP, Strategy>();
 }
 } // namespace modcma_python

@@ -206,6 +206,16 @@ class TabooPoint:
     def __repr__(self) -> str:
         """A summary: n_rep, y, radius and criticality."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Repelling:
     """
     Base class of the repelling restarts: the archive of taboo points and the rejection of samples.
@@ -277,6 +287,16 @@ class Repelling:
     @coverage.setter
     def coverage(self, arg: float, /) -> None: ...
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class CoverageRepelling(Repelling):
     """
     Repelling with radii from a coverage of the search space (`RepellingType.COVERAGE`).
@@ -290,6 +310,16 @@ class CoverageRepelling(Repelling):
 
     def __init__(self) -> None:
         """Create a coverage repelling with an empty archive."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class AdaptiveRepelling(Repelling):
     """
@@ -459,6 +489,16 @@ class AdaptiveRepelling(Repelling):
     @min_checks_before_local_shrink.setter
     def min_checks_before_local_shrink(self, arg: int, /) -> None: ...
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class NoRepelling(Repelling):
     """
     No repelling (`RepellingType.NONE`, the default): no sample is rejected and the archive stays empty.
@@ -466,6 +506,16 @@ class NoRepelling(Repelling):
 
     def __init__(self) -> None:
         """Create the no-op repelling."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 def euclidean(u: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')], v: Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]) -> float:
     """

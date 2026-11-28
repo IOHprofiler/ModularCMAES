@@ -97,7 +97,7 @@ struct Adaptation
 
     Adaptation(const size_t dim, const Vector &x0) :
         m(x0),
-        m_old(dim),
+        m_old(Vector::Zero(dim)),
         dm(Vector::Zero(dim)),
         ps(Vector::Zero(dim)),
         coordinate_wise_variances(Vector::Ones(dim)),
@@ -253,6 +253,7 @@ struct Adaptation
     size_t factor_version = 0;
 
   protected:
+    friend struct serialization::Access;
     /**
      * metric() of the adaptations without a decomposition: the decomposition of the sampled
      * covariance S = F F^T, formed by form_s, into axes and vectors; done only when the factor
@@ -512,6 +513,7 @@ struct MatrixAdaptation final : Adaptation
     static constexpr size_t inverse_recompute_max_dim = 30;
 
   private:
+    friend struct serialization::Access;
     bool outdated_M_inv;
 
     //! M_inv = M^-1: an LU inverse (LAPACK) from blas_min_dim on, the pseudo-inverse below or
@@ -740,6 +742,7 @@ struct NaturalGradientAdaptation final : Adaptation
     }
 
   private:
+    friend struct serialization::Access;
     bool outdated_A_inv;
 };
 

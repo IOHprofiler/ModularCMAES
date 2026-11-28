@@ -61,6 +61,7 @@ struct Tester : Sampler
     void sample(Eigen::Ref<Vector> out) override;
 
   private:
+    friend struct serialization::Access;
     size_t i = 0;
 };
 
@@ -94,6 +95,7 @@ template <typename Distribution = rng::normal<Float>> struct Random : Sampler
     }
 
   private:
+    friend struct serialization::Access;
     Distribution dist;
     std::shared_ptr<rng::Generator> generator;
 };
@@ -129,6 +131,7 @@ struct FastGaussian : Sampler
     }
 
   private:
+    friend struct serialization::Access;
     rng::Xoshiro256pp generator;
 };
 
@@ -147,7 +150,7 @@ struct Mirrored : Sampler
     Mirrored(const std::shared_ptr<Sampler> sampler) :
         Sampler(sampler->d),
         sampler(sampler),
-        previous(sampler->d)
+        previous(Vector::Zero(static_cast<Eigen::Index>(sampler->d)))
     {
     }
 
@@ -169,6 +172,7 @@ struct Mirrored : Sampler
     Float expected_length() override { return sampler->expected_length(); }
 
   private:
+    friend struct serialization::Access;
     std::shared_ptr<Sampler> sampler;
     Vector previous;
     bool mirror = false;
@@ -196,7 +200,7 @@ struct Orthogonal : Sampler
         sampler(sampler),
         n(std::max<size_t>(1, n_samples)),
         qr(d, d),
-        samples(d, d),
+        samples(Matrix::Zero(d, d)),
         lengths(d)
     {
     }
@@ -216,6 +220,7 @@ struct Orthogonal : Sampler
     Float expected_length() override { return sampler->expected_length(); }
 
   private:
+    friend struct serialization::Access;
     std::shared_ptr<Sampler> sampler;
     //! The number of samples of a generation
     size_t n;
@@ -246,6 +251,7 @@ struct Halton : Sampler
     void sample(Eigen::Ref<Vector> out) override;
 
   private:
+    friend struct serialization::Access;
     int index_;
     bool scramble_;
     std::vector<int> primes_;
@@ -379,6 +385,7 @@ struct SampleTransformer : Sampler
     std::shared_ptr<Sampler> sampler;
 
   protected:
+    friend struct serialization::Access;
     //! The expected length, computed at the first call (it costs about a millisecond)
     std::optional<Float> length;
 };

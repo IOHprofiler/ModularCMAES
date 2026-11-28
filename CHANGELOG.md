@@ -120,6 +120,16 @@ modcma is now the C++ implementation only. Upgrading from 1.x: see the
   `sigma0` and `C0` from the solutions of a related task, as WS-CMA-ES (Nomura et al. 2021) and
   `cmaes`' `get_warm_start_mgd`, and returns them as `Settings` arguments. Results without `C0`
   are unchanged.
+* **Saving and resuming a run** (#91): `pickle`, `copy.deepcopy` and `copy.copy` work for
+  `ModularCMAES`, `Parameters`, `Settings`, `Modules` and every module object
+  (`__getstate__`/`__setstate__`). The state includes the random generator and the positions of
+  the samplers, the generation in progress (the points of `ask()` that wait for `tell()`) and the
+  restart criteria defined in Python; a loaded run continues bit for bit. The objective is not
+  saved. The state is a versioned binary format with a checksum, the same in C++
+  (`include/serialization.hpp`: `serialization::save`, `serialization::load<T>`); a state of a newer
+  format, or a corrupted one, raises `ValueError`. A how-to: checkpointing a long run
+  ([saving and resuming a run](https://modularcmaes.readthedocs.io/en/latest/guide/checkpointing/)).
+  Results are unchanged.
 * `Adaptation.keeps_metric()`, whether `metric()` costs nothing; `restart.Strategy.max_iter`, the
   generations a restart strategy allows a run; `restart.MaxSigma.start`; `restart.BIPOP.used_small`,
   `used_large` and `large_run` (#80). `restart.MaxDSigma.sigma_start` and

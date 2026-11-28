@@ -30,6 +30,7 @@ nav = [
     { "Integer variables" = "guide/integer-variables.md" },
     { "Coming from gradient-based optimization" = "guide/gradients.md" },
     { "Reproducibility and threads" = "guide/reproducibility.md" },
+    { "Saving and resuming a run" = "guide/checkpointing.md" },
     { "Performance" = "guide/performance.md" },
     { "Tuning" = "guide/tuning.md" },
     { "The C++ library" = "guide/cpp.md" },

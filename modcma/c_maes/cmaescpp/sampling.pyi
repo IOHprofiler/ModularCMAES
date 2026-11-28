@@ -59,6 +59,16 @@ class Gaussian(Sampler):
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """One sample."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class FastGaussian(Sampler):
     """
     Standard normal samples from xoshiro256++ and a ziggurat (Settings.fast_sampling).
@@ -72,6 +82,16 @@ class FastGaussian(Sampler):
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """One sample."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Uniform(Sampler):
     """
     Pseudo-random uniform samples in (0, 1)^d (mt19937); BaseSampler.UNIFORM.
@@ -82,6 +102,16 @@ class Uniform(Sampler):
 
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """One sample."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class Sobol(Sampler):
     """
@@ -95,6 +125,16 @@ class Sobol(Sampler):
 
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """One sample: the next point in the random order."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class Halton(Sampler):
     """
@@ -111,6 +151,16 @@ class Halton(Sampler):
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """One sample: the next point of the sequence."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Mirrored(Sampler):
     """
     Mirrored samples: a sample of the wrapped sampler, then its negation, alternately; `reset` and `begin_generation` start a new pair.
@@ -123,6 +173,16 @@ class Mirrored(Sampler):
 
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """One sample: a new one, or the last negated."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class CachedSampler(Sampler):
     """
@@ -162,6 +222,16 @@ class CachedSampler(Sampler):
         The points (with a wrapped sampler: filled as they are drawn), a list of numpy views of them: writing to one changes the sampler's point. The views stay valid while the sampler exists (the points are never reallocated; #176).
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Orthogonal(Sampler):
     """
     Orthogonalized samples (Modules.orthogonal; Wang, Emmerich and Baeck 2019).
@@ -176,6 +246,16 @@ class Orthogonal(Sampler):
 
     def __call__(self) -> Annotated[NDArray[numpy.float64], dict(shape=(None,), order='C')]:
         """One sample: the next of the block."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class SampleTransformer(Sampler):
     """
@@ -210,6 +290,16 @@ class IdentityTransformer(SampleTransformer):
         The expected length of a sample, used to normalize the step-size adaptation.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class GaussianTransformer(SampleTransformer):
     """
     Standard normal numbers: the inverse normal CDF of each uniform number, or the Box-Muller transform of pairs with `constants.use_box_muller` (SampleTranformerType.GAUSSIAN, the default).
@@ -233,6 +323,16 @@ class GaussianTransformer(SampleTransformer):
     def expected_length(self) -> float:
         """
         The expected length of a sample, used to normalize the step-size adaptation.
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """
 
 class UniformScaler(SampleTransformer):
@@ -260,6 +360,16 @@ class UniformScaler(SampleTransformer):
         The expected length of a sample, used to normalize the step-size adaptation.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class LaplaceTransformer(SampleTransformer):
     """
     Laplace numbers with scale b = 1/sqrt(2), unit variance: b ln(2u) for u < 0.5, -b ln(2 (1 - u)) otherwise (SampleTranformerType.LAPLACE).
@@ -283,6 +393,16 @@ class LaplaceTransformer(SampleTransformer):
     def expected_length(self) -> float:
         """
         The expected length of a sample, used to normalize the step-size adaptation.
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """
 
 class LogisticTransformer(SampleTransformer):
@@ -310,6 +430,16 @@ class LogisticTransformer(SampleTransformer):
         The expected length of a sample, used to normalize the step-size adaptation.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class CauchyTransformer(SampleTransformer):
     """
     Standard Cauchy numbers: tan(pi (u - 0.5)) (SampleTranformerType.CAUCHY).
@@ -335,6 +465,16 @@ class CauchyTransformer(SampleTransformer):
         The expected length of a sample, used to normalize the step-size adaptation.
         """
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class DoubleWeibullTransformer(SampleTransformer):
     """
     Double Weibull numbers with shape 2 and scale 1, unit variance: -sqrt(-ln(2u)) for u < 0.5, sqrt(-ln(2 (1 - u))) otherwise (SampleTranformerType.DOUBLE_WEIBULL).
@@ -358,4 +498,14 @@ class DoubleWeibullTransformer(SampleTransformer):
     def expected_length(self) -> float:
         """
         The expected length of a sample, used to normalize the step-size adaptation.
+        """
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
         """

@@ -32,6 +32,16 @@ class X0(Placement):
     def __init__(self) -> None:
         """Create the placement."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Uniform(Placement):
     """
     The mean is a uniform random point in the box [lb, ub] (`CenterPlacement.UNIFORM`); in a coordinate with an infinite bound, in x0 +- 2 sigma0 (see the module).
@@ -40,11 +50,31 @@ class Uniform(Placement):
     def __init__(self) -> None:
         """Create the placement."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class Zero(Placement):
     """The mean is the origin (`CenterPlacement.ZERO`)."""
 
     def __init__(self) -> None:
         """Create the placement."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class Center(Placement):
     """
@@ -53,6 +83,16 @@ class Center(Placement):
 
     def __init__(self) -> None:
         """Create the placement."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
 
 class MaximinTaboo(Placement):
     """
@@ -64,6 +104,16 @@ class MaximinTaboo(Placement):
     def __init__(self) -> None:
         """Create the placement."""
 
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
+
 class NoveltyWeighted(Placement):
     """
     The mean is a random point that favours regions away from the taboo points of repelling (`CenterPlacement.NOVELTY_WEIGHTED`).
@@ -73,3 +123,13 @@ class NoveltyWeighted(Placement):
 
     def __init__(self) -> None:
         """Create the placement."""
+
+    def __getstate__(self) -> object:
+        """
+        The state for pickle and copy: the bytes of the object's C++ serialization (format described in the guide's page on saving and resuming a run), with the attributes of a Python subclass.
+        """
+
+    def __setstate__(self, state: object) -> None:
+        """
+        Restore the object from a state of __getstate__ (pickle and copy). ValueError when the state cannot be loaded: not a modcma state, written by a newer modcma, truncated or corrupted.
+        """
